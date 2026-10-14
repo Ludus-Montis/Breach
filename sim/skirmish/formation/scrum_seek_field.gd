@@ -17,6 +17,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
+const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 
 ## Microseconds since last zeroed: [syncing the field, gathering the rules' say, the call,
 ## the core's own work, writing back]. The bench reads them; no outcome does.
@@ -79,36 +80,53 @@ static func plan(ctx: Dictionary) -> void:
 	spent[4] += Time.get_ticks_usec() - returned
 
 
-## The fighting squads' units, in list order, chasers left to ScrumPursuit.
+## The fighting squads' units, in list order, chasers left to ScrumPursuit. What a squad
+## says of all its units - its foes, whether any may seek, its frame - is worked out once.
 static func _gather(units: Array, owners: Array, squads: Array) -> Batch:
 	var batch := Batch.new()
 	var current: SkirmishSquad = null
-	var front_left := false
+	var said := []  # the current squad's say: [front_left, its frame, chasers, loose]
+	var counted := 0  # its units sent so far
 	for index in range(units.size()):
 		var squad: SkirmishSquad = owners[index]
 		if squad.state != SkirmishSquad.State.FIGHTING:
 			continue
 		if squad != current:
 			current = squad
-			front_left = squad.living().any(func(u): return u.preferred_position == 0)
-			var foes := ScrumSeek.foe_ids(squad, squads)
-			batch.squads.append_array([squad.id, foes.size(), 0])
-			batch.foe_ids.append_array(foes)
+			said = _squad(batch, squad, squads)
+			counted = batch.units.size()
 		var unit: SkirmishUnit = units[index]
-		if squad.chasers.has(unit.id):
+		if said[2].has(unit.id):
 			continue
-		var seeks := ScrumSeek._may_seek(squad, unit, front_left)
-		var goal = squad.loose[unit.id]["goal"]
+		var seeks: bool = (
+			said[1] != null
+			and (unit.preferred_position == 0 or not said[0])
+			and unit.footprint_width == 1
+			and unit.footprint_depth == 1
+		)
+		var goal = said[3][unit.id]["goal"]
 		batch.units.append(unit)
 		batch.owners.append(squad)
 		batch.members.append(index)
 		batch.may_seek.append(1 if seeks else 0)
 		batch.speeds.append(unit.speed)
-		batch.anchors.append(ScrumStance.anchor(squad, unit) if seeks else Vector2.ZERO)
+		batch.anchors.append(SquadFrame.place_in(said[1], unit) if seeks else Vector2.ZERO)
 		batch.goal_foes.append(0 if goal == null else goal[0])
 		batch.goal_slots.append(-1 if goal == null else goal[1])
-		batch.squads[batch.squads.size() - 1] += 1
+		batch.squads[batch.squads.size() - 1] = batch.units.size() - counted
 	return batch
+
+
+## Opens the squad's entry in the batch ([id, foes, units]) and returns what it says of all
+## its units: [any of its front band left, its frame (null if none may seek: it retreats),
+## its chasers, its loose entries] (ScrumSeek._may_seek, ScrumStance.anchor).
+static func _squad(batch: Batch, squad: SkirmishSquad, squads: Array) -> Array:
+	var foes := ScrumSeek.foe_ids(squad, squads)
+	batch.squads.append_array([squad.id, foes.size(), 0])
+	batch.foe_ids.append_array(foes)
+	var front_left := squad.living().any(func(u): return u.preferred_position == 0)
+	var seeking := squad.order != SkirmishUnit.Order.RETREAT
+	return [front_left, ScrumStance.frame(squad) if seeking else null, squad.chasers, squad.loose]
 
 
 ## Writes the core's [codes, goal foes, goal slots, nexts, foe_ats] into the units' entries.

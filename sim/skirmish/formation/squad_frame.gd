@@ -63,6 +63,21 @@ static func place(
 	return anchor + ahead.orthogonal() * -across - ahead * back
 
 
+## place()'s frame worked out once, for many units of one squad: [anchor, ahead, ahead's
+## orthogonal, half the width, centre_shift]. place_in() then gives place()'s point, bit for
+## bit, without turning the heading again for each unit.
+static func basis(anchor: Vector2, heading: float, width: int, centre_shift: float) -> Array:
+	var ahead := UnitMotion.vector(heading)
+	return [anchor, ahead, ahead.orthogonal(), width / 2.0, centre_shift]
+
+
+## place() in a frame from basis().
+static func place_in(frame: Array, unit: SkirmishUnit) -> Vector2:
+	var across: float = unit.column - frame[3] + frame[4] + unit.footprint_width / 2.0
+	var back := unit.rank + unit.footprint_depth / 2.0
+	return frame[0] + frame[2] * -across - frame[1] * back
+
+
 ## The world axis a squad's columns run along at `heading`: its right hand, turned to
 ## point east of north-south (or south, facing east or west), so two squads across one axis
 ## measure their spans the same way round.

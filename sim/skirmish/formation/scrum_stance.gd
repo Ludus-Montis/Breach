@@ -33,6 +33,14 @@ static func anchor(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 	return SquadFrame.place(squad.stance["anchor"], squad.stance["heading"], squad.width, 0.0, unit)
 
 
+## anchor()'s frame for the squad, worked out once for all its units: SquadFrame.place_in
+## gives each unit's anchor from it, bit for bit.
+static func frame(squad: SkirmishSquad) -> Array:
+	if squad.stance.is_empty():
+		return SquadFrame.basis(squad.position, squad.heading, squad.width, squad.centre_shift)
+	return SquadFrame.basis(squad.stance["anchor"], squad.stance["heading"], squad.width, 0.0)
+
+
 ## Every squad, in turn, meets the threats it sees (anticipate), sharing one SquadMemo: a
 ## stance moves no squad's frame or units.
 static func anticipate_all(
