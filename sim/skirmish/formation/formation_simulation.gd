@@ -227,11 +227,13 @@ func _move(events: Array) -> void:
 		var paced := [TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE, tick_seconds]
 		if FormationStaging.holds(mover, _squads, _tick, events, paced, terrain):
 			continue
+		var end := FormationMarch.length(mover, route_length)
+		if mover.order == SkirmishUnit.Order.RETREAT:  # home already: it holds, no about-face
+			FormationMarch.check_ends(mover, end, _tick, events)
 		if mover.order == SkirmishUnit.Order.HOLD or FormationContact.skirmishing(mover, _squads):
 			mover.state = SkirmishSquad.State.HOLDING
 			continue
 		mover.state = SkirmishSquad.State.MOVING
-		var end := FormationMarch.length(mover, route_length)
 		var travel := FormationMarch.travel_sign(mover, end)
 		if travel != mover.direction and ScrumTurn.begin(mover, travel, _tick, events):
 			continue  # an about-face is a re-form: its units walk to their places (Decision 92)

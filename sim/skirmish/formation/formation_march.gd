@@ -16,6 +16,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
+const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 
@@ -81,7 +82,10 @@ static func face(squad: SkirmishSquad) -> void:
 	squad.heading = UnitMotion.bearing_to(Vector2.ZERO, way, squad.heading)
 
 
-## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home.
+## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home: its
+## front there, or every unit of it home (FormationWithdraw's test, within HOME_CELLS)
+## wherever its front stands - it holds as it faces, rather than about-face to march a
+## rank's length back to home and about-face again.
 static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events: Array) -> void:
 	var enemy_end := route_end if is_zero_approx(mover.home_distance) else 0.0
 	if (
@@ -93,7 +97,10 @@ static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events
 		events.append(FormationEvents.squad_event("arrived", tick, mover))
 	elif (
 		mover.order == SkirmishUnit.Order.RETREAT
-		and is_equal_approx(mover.front_distance, mover.home_distance)
+		and (
+			is_equal_approx(mover.front_distance, mover.home_distance)
+			or (mover.route != null and FormationWithdraw._home(mover))
+		)
 	):
 		mover.front_distance = mover.home_distance
 		mover.order = SkirmishUnit.Order.HOLD
