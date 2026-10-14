@@ -48,6 +48,7 @@ const FoeIndex = preload("res://sim/skirmish/formation/foe_index.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
 const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
+const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; given the
@@ -81,8 +82,8 @@ static func step(
 	}
 	ctx["crowd"] = BodyGrid.of_bodies(ctx["bodies"])  # the bodies, found by where they stand
 	_seek(ctx)
-	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed)
-	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed)
+	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain)
+	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain)
 	FormationWithdraw.step(squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events)
 	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events)
 	_stall(squads, ctx["active"], tick, tick_seconds, events)
@@ -133,10 +134,16 @@ static func _seek(ctx: Dictionary) -> void:
 
 ## Walks the fighting squads' units a step each (_walk), each from the bodies as they
 ## stood before any stepped: in GDScript (the reference), or on the battle's native
-## bodies, ctx["field"] (ScrumWalkField, Decision 129) - the same steps.
+## bodies, ctx["field"] (ScrumWalkField, Decision 129) - the same steps, each paying the
+## ground it crosses (TerrainStep) in GDScript in either engine (_pay_walked).
 static func walk(fighting: Array, ctx: Dictionary) -> void:
 	if ctx.get("field") != null:
+		var seek = ctx["seek_batch"]  # ScrumSeekField.Batch: the units the walk steps
+		var from := []
+		for member in seek.units.size():
+			from.append(seek.owners[member].loose[seek.units[member].id]["at"])
 		ScrumWalkField.walk(ctx)
+		_pay_walked(seek, from, ctx)
 		return
 	for squad in fighting:  # in the crush, but at the march pace in a pursuit
 		_walk(
@@ -147,6 +154,24 @@ static func walk(fighting: Array, ctx: Dictionary) -> void:
 			),
 			ctx
 		)
+
+
+## The native walk's steps (from where each unit stood, `from`) paid for the ground they
+## cross, as _walk pays its own: where each now stands, in its entry and for the facing.
+static func _pay_walked(seek, from: Array, ctx: Dictionary) -> void:
+	if ctx["terrain"] == null:
+		return
+	var codes: PackedByteArray = seek.plan[0]
+	var ats: PackedVector2Array = ctx["face_batch"].ats
+	for member in from.size():
+		if codes[member] == ScrumWalkField.TOUCH:
+			continue  # it didn't step
+		var entry: Dictionary = seek.owners[member].loose[seek.units[member].id]
+		entry["at"] = TerrainStep.pay(seek.units[member], from[member], entry["at"], ctx["terrain"])
+		ats[member] = entry["at"]
+		if codes[member] != ScrumWalkField.AIM and codes[member] != ScrumWalkField.PRESS:
+			entry["next"] = entry["at"]  # back to its place: it stands where it got
+	ctx["face_batch"].ats = ats
 
 
 ## Turns the fighting squads' units once each (_faces), all decided before any turns: in
@@ -164,8 +189,8 @@ static func face(fighting: Array, ctx: Dictionary) -> void:
 
 
 ## Fighting units walk a step to their goal, or back towards their place if they have none
-## and touch no one, stepping round bodies in their way (UnitSteer); units out chasing on
-## their own are left to ScrumPursuit.
+## and touch no one, stepping round bodies in their way (UnitSteer) and paying the ground
+## they cross (TerrainStep); units out chasing on their own are left to ScrumPursuit.
 static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 	var seconds: float = ctx["seconds"]
 	for unit in squad.living():
@@ -179,9 +204,10 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			var to := UnitSteer.toward(
 				unit, entry["at"], entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
 			)
-			entry["at"] = UnitMotion.move(
+			var stepped := UnitMotion.move(
 				unit, entry["at"], to, full * _footing(unit, entry["at"], to, ctx)
 			)
+			entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, ctx["terrain"])
 		elif not entry.get("touch", false):
 			var place := ScrumStance.anchor(squad, unit)
 			var heading: float = squad.stance.get("heading", squad.heading)
@@ -190,9 +216,10 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			var to := UnitSteer.toward(
 				unit, entry["at"], place, ctx["bodies"], ctx["seed"], ctx["crowd"]
 			)
-			entry["at"] = UnitMotion.move(
+			var stepped := UnitMotion.move(
 				unit, entry["at"], to, full * _footing(unit, entry["at"], to, ctx)
 			)
+			entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, ctx["terrain"])
 			entry["next"] = entry["at"]
 
 

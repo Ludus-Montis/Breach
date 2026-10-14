@@ -20,6 +20,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const WalkModes = preload("res://sim/skirmish/formation/walk_modes.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
+const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 
 const EPSILON := 0.000001
@@ -38,7 +39,7 @@ static func walk(
 	var seconds: float = timing[0]
 	if WalkModes.climb(unit, terrain, seconds, unit.speed * timing[1]):
 		return  # on a climb face: it climbs before it moves on
-	var going := _way(unit, place, terrain)  # [where it steps towards, the ground's share]
+	var going := TerrainStep.way(unit, unit.position, place, terrain)  # [towards, ground's share]
 	var toward: Vector2 = going[0]
 	var way := toward - unit.position
 	var full: float = unit.speed * timing[1] * seconds * going[1]
@@ -52,30 +53,6 @@ static func walk(
 	var from := unit.position
 	unit.position = UnitMotion.walk(unit, unit.position, toward, full, seconds, look)
 	WalkModes.after_step(unit, from, terrain, seconds)
-
-
-## [the point the unit steps towards on its way to `place`, the share of its pace the
-## ground allows]: straight there; or, where that step is barred, sliding along the barrier
-## on whichever axis is open and brings it nearer (a wall's face, a stream's bank).
-static func _way(unit: SkirmishUnit, place: Vector2, terrain: FormationTerrain) -> Array:
-	var way := place - unit.position
-	if terrain == null or way.length() < EPSILON:
-		return [place, 1.0]
-	var straight := terrain.factor(unit, unit.position, unit.position + way.normalized())
-	if straight > 0.0:
-		return [place, straight]
-	var best := [unit.position, 0.0]
-	var nearest := way.length()
-	for along: Vector2 in [Vector2(way.x, 0.0), Vector2(0.0, way.y)]:
-		if along.length() < EPSILON:
-			continue
-		var step := unit.position + along.normalized()
-		var share := terrain.factor(unit, unit.position, step)
-		var left := (unit.position + along).distance_to(place)
-		if share > 0.0 and left < nearest - EPSILON:
-			best = [unit.position + along, share]
-			nearest = left
-	return best
 
 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:

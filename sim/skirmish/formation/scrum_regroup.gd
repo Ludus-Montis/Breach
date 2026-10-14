@@ -25,12 +25,18 @@ const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
+const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
 
 ## Units of squads out of the fight walk to their places (in the stance, if any) at the
-## march pace; back in place they rejoin the squad's frame unless it holds a stance. A
-## drilled retreat's units back away facing the foe each touched as the phase began.
-static func step(squads: Array, pace: float, seconds: float, fight_seed: int) -> void:
+## march pace, paying the ground they cross (TerrainStep: one whose place is barred makes
+## for the nearest it can walk to it); back in place they rejoin the squad's frame unless
+## it holds a stance. A drilled retreat's units back away facing the foe each touched as
+## the phase began.
+static func step(
+	squads: Array, pace: float, seconds: float, fight_seed: int, terrain: FormationTerrain = null
+) -> void:
 	var regrouping := []
 	for squad in squads:
 		if squad.state in [SkirmishSquad.State.FIGHTING, SkirmishSquad.State.ROUTING]:
@@ -39,7 +45,7 @@ static func step(squads: Array, pace: float, seconds: float, fight_seed: int) ->
 		if squad.state == SkirmishSquad.State.MOVING and held:
 			squad.state = SkirmishSquad.State.HOLDING  # it stands while its units regroup
 		regrouping.append([squad, _foes_faced(squad, squads, fight_seed)])
-	var moving := {"pace": pace, "seconds": seconds, "seed": fight_seed}
+	var moving := {"pace": pace, "seconds": seconds, "seed": fight_seed, "terrain": terrain}
 	if regrouping.any(func(entry): return not entry[0].loose.is_empty()):  # anyone to walk
 		moving["bodies"] = ScrumSlots.bodies(squads)
 		moving["crowd"] = BodyGrid.of_bodies(moving["bodies"])
@@ -64,19 +70,20 @@ static func _foes_faced(squad: SkirmishSquad, squads: Array, fight_seed: int) ->
 	return out
 
 
-## `moving` = {pace, seconds, seed, bodies, crowd}: they step round bodies in their way
-## (UnitSteer).
+## `moving` = {pace, seconds, seed, terrain, bodies, crowd}: they step round bodies in their
+## way (UnitSteer).
 static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionary) -> void:
 	if squad.loose.is_empty():
 		return
 	var seconds: float = moving["seconds"]
 	var reform := FormationDiscipline.reform_pace(squad)  # the same for each of its units
+	var homes := TerrainStep.returns(squad, moving["terrain"], moving["seed"])
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
 		var entry: Dictionary = squad.loose[unit_id]
 		var unit: SkirmishUnit = entry["unit"]
-		var place := ScrumStance.anchor(squad, unit)
+		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))
 		var step: float = unit.speed * moving["pace"] * reform
 		var heading: float = squad.stance.get("heading", squad.heading)
 		var foe_at = foes.get(unit_id)
@@ -89,7 +96,8 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 			var to := UnitSteer.toward(
 				unit, entry["at"], place, moving["bodies"], moving["seed"], moving["crowd"]
 			)
-			entry["at"] = UnitMotion.walk(unit, entry["at"], to, step, seconds, foe_at)
+			var stepped := UnitMotion.walk(unit, entry["at"], to, step, seconds, foe_at)
+			entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, moving["terrain"])
 		entry["next"] = entry["at"]
 		entry["goal"] = null
 		var faced := arrived and UnitMotion.turn(unit, heading, seconds)
