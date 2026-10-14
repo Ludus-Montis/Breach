@@ -65,6 +65,13 @@ repos:
         files: \.gd$
         exclude: ^addons/
 
+      - id: check-decisions-index
+        name: decisions-index (DECISIONS_INDEX.md matches the Decision ledger)
+        entry: python3 tools/decisions_index.py --check
+        language: system
+        pass_filenames: false
+        files: ^(Breach — Reverse Tower Defense Design Spec\.md|DECISIONS_INDEX\.md|tools/decisions_index\.py)$
+
       - id: check-helper-promotion
         name: no-cross-cutting-helper-violation
         entry: python3 ci/godot/scripts/check_helper_promotion.py
