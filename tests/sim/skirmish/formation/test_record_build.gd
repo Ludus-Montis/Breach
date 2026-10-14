@@ -35,3 +35,15 @@ func test_a_replay_is_warned_about_only_when_its_build_is_not_this_one() -> void
 	assert_str(SimBuild.compare(SimBuild.id())).is_equal("")
 	assert_str(SimBuild.compare("000000000000")).contains("may play out differently")
 	assert_str(SimBuild.compare("")).contains("no build stamp")
+
+
+func test_a_map_in_progress_leaves_the_build_alone() -> void:
+	var build := SimBuild.id()
+	var path := "res://content/maps/_build_probe.tres"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("[gd_resource format=3]\n")
+	file.close()
+	SimBuild._known = false
+	var after := SimBuild.id()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	assert_str(after).is_equal(build)
