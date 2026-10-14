@@ -136,14 +136,18 @@ The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust
 
 | set | runs | ticks hashed | per-tick file (GDScript = Rust) |
 |---|---:|---:|---|
-| standard | 26 | 14,099 | `63ae199a4af4152e3968f3f5dc1afbb65c881069a389192e48f82a3395f81cbe` |
+| standard | 26 | 14,082 | `14878d70c9800c31bc37ab2173343b8900758f933e0f4a0a5c4b590c28d8663a` |
 | clash160 | 1 | 210 | `846075a85ef4f9b1ebd6eb8f75205daab8f6dc03cf29382131e4b283d65b58d0` (run `85b79694...`) |
-| wide | 2 | 553 | `e2752a95a9013632502e1c0a6bd33b4aed7f3523422ba76d77d7cd71478bdb77` (runs `bc12ed86...`, `205db987...`) |
+| wide | 2 | 553 | `0cb41776ecb08e35cccef399d15aa6a3285f9615da043aec9a28cd7a90fd27a9` (runs `a65b5863...`, `af991eff...`) |
 
 These are with DetMath (sim/ calls no platform transcendental function), so every
-platform gives them (checked on Windows). The standard set's hash is after groups
-find their way round barred ground (#177), which changed its terrain battles; with
-DetMath alone it was `4caaed38...`. Before DetMath they were `bf2111e4...` (standard),
+platform gives them (checked on Windows). The standard and wide sets' hashes are after the
+field-test fixes: units squeezed at a gap file in behind, bodies of one frame part,
+chasing, regrouping and fighting units pay the ground, and a retreat whose units are
+home holds there. clash160 has no ground and no such crowding, so it is unchanged. Before
+those fixes they were `63ae199a...` (standard) and `e2752a95...` (wide). Before that, the
+standard set's hash was `4caaed38...` with DetMath alone; it changed when groups found
+their way round barred ground (#177), which changed its terrain battles. Before DetMath they were `bf2111e4...` (standard),
 `a0b69851...` (clash160) and `62361719...` (wide), the same as GDScript at
 `origin/feature/movement-integrate` (f4a6490) before the Rust core, and they differed on
 Windows.
@@ -164,8 +168,11 @@ The suite proves the same:
   next points as GDScript at four moments; with ways pushed through the crowd, bodies laid
   underfoot (some heavy enough to stop a grem) and units held back to walk to their
   places; and whatever the list order.
+- `test_formation_pour.gd`, `test_terrain_toll.gd` and `test_field_test_record.gd`: bodies
+  of one frame parted, a fight in a wood walked (each step paid for the ground in GDScript
+  after the core's walk), and the user's field-test record replayed, the same as GDScript.
 - The whole suite under `BREACH_NATIVE=rust`, including its reversed-list tests:
-  955 of 955 pass, as they do on GDScript.
+  1015 of 1015 pass, as they do on GDScript.
 
 ## Results
 
