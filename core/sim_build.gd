@@ -5,11 +5,19 @@ extends RefCounted
 ## tuning) under res://content/ - so a record of play can say which build played it, and a
 ## replay can say when it isn't this one. Not the commit: an uncommitted edit changes
 ## outcomes, a docs-only commit doesn't. Line endings are ignored, so a checkout with CRLF
-## (git on Windows) has the same build as one with LF. Twelve hex digits; "" where the
-## sources can't be read (an exported game ships compiled scripts).
+## (git on Windows) has the same build as one with LF. Maps and the map-authoring tools are
+## left out: a map is the battle's set-up, not its rules, and a checkout with a map of its
+## own in progress still has the same build. Twelve hex digits; "" where the sources can't
+## be read (an exported game ships compiled scripts).
 
 const ROOTS := ["res://sim", "res://content"]
 const KINDS := ["gd", "tres", "tscn", "json", "cfg"]
+const SKIP := [
+	"res://content/maps",
+	"res://content/maps_src",
+	"res://content/authoring",
+	"res://content/import",
+]
 
 static var _id := ""
 static var _known := false
@@ -50,6 +58,8 @@ static func _fingerprint() -> String:
 
 
 static func _collect(folder: String, out: Array) -> void:
+	if folder in SKIP:
+		return
 	var dir := DirAccess.open(folder)
 	if dir == null:
 		return
