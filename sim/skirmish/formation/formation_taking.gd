@@ -9,7 +9,9 @@ extends RefCounted
 ## man left behind" - and under "fall behind, left behind", or when its command leaves the
 ## downed, it presses on and takes none. A taker comes back to its place once its body is
 ## dead, taken, borne away or come to, or the hold runs out. Pairs go by distance, then the
-## units' and bodies' seeded draws, never by ids or lists (Decision 97). Pure.
+## units' and bodies' seeded draws, never by ids or lists (Decision 97). A group that is
+## threatened - it sees a standing foe (FormationPerception, Decision 134) - fights first:
+## it sends no takers, calls back those out and doesn't hold for them. Pure.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -17,22 +19,28 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
+const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 
 const AT_EASE := [
 	SkirmishSquad.State.MOVING, SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED
 ]
 
 
-## One tick: takers whose work is done come back, then groups send free units out.
-static func step(squads: Array, tick: int, seconds: float, fight_seed: int, events: Array):
+## One tick: takers whose work is done come back, then groups send free units out - none
+## from a group threatened in `perception` (FormationPerception.see), whose takers all
+## come back.
+static func step(
+	squads: Array, tick: int, seconds: float, fight_seed: int, events: Array, perception := {}
+):
 	var downed := []
 	for squad in squads:
 		for unit in squad.units:
 			if unit.state == SkirmishUnit.State.DOWNED:
 				downed.append(unit)
 	for squad in squads:
-		_recall(squad, tick, seconds)
-		if _takes(squad):
+		var threatened := FormationPerception.threatened(perception, squad)
+		_recall(squad, tick, seconds, threatened)
+		if _takes(squad) and not threatened:
 			_send(squad, downed, tick, fight_seed, events)
 
 
@@ -50,7 +58,7 @@ static func _takes(squad: SkirmishSquad) -> bool:
 
 
 ## Takers come back once their bodies are no longer downed, or the hold has run out.
-static func _recall(squad: SkirmishSquad, tick: int, seconds: float) -> void:
+static func _recall(squad: SkirmishSquad, tick: int, seconds: float, threatened: bool) -> void:
 	if squad.state == SkirmishSquad.State.FIGHTING:
 		squad.took_until = -1  # a new fight: its downed foes are worth taking again
 	if squad.taking.is_empty():
@@ -63,7 +71,7 @@ static func _recall(squad: SkirmishSquad, tick: int, seconds: float) -> void:
 		var taker = squad.units.filter(func(u): return u.id == unit_id)
 		if out_of_time or body.state != SkirmishUnit.State.DOWNED or taker.is_empty():
 			squad.taking.erase(unit_id)
-		elif not taker[0].is_alive() or squad.state not in AT_EASE:
+		elif threatened or not taker[0].is_alive() or squad.state not in AT_EASE:
 			squad.taking.erase(unit_id)
 	if squad.taking.is_empty():
 		squad.taking_since = -1
