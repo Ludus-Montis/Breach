@@ -31,6 +31,8 @@ rules these ideas serve.
 4. **Data as arrays, not objects** (the user; the other agent). Already Decision 131's
    layout: positions, HP and stamina in packed arrays, flags as bitmasks, indices rather
    than references.
+   **Settled by Decision 142 and built as spec 35 (the unit store):** the store owns
+   every unit's per-tick state, as columns, with a GDScript backend and a Rust one.
 5. **Structural support as events** (the user's aside on Decision 57). Supports are
    checked only where a block changes: when a block is removed, damaged or loaded. A
    collapse is reported as an event to be stored and read back. No tile is checked every

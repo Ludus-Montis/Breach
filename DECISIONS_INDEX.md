@@ -137,8 +137,8 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 128 | A registry of tags, traits and statuses; tags carry where a trait may sit; items grant traits; the designer's Library browses it | 6125 |  |
 | 129 | Rust for the simulation's hot core | 6162 | amended by 131 |
 | 130 | Battles replay bit for bit across machines: the simulation's maths is its own | 6214 |  |
-| 131 | Every unit is fully simulated, always; the per-unit work moves to Rust | 6254 |  |
-| 132 | The native field owns where units stand, routed in a series of changes | 6293 | amended by 139 |
+| 131 | Every unit is fully simulated, always; the per-unit work moves to Rust | 6254 | amended by 142 |
+| 132 | The native field owns where units stand, routed in a series of changes | 6293 | amended by 139, 142 |
 | 133 | Units follow their most recent command, from the player or a leader; a selection given orders becomes a command | 6307 |  |
 | 134 | A threatened group fights before it recovers; rescuers carry the downed out | 6331 |  |
 | 135 | Climbing and swimming units fight at a disadvantage, unless trained to | 6353 |  |
@@ -148,3 +148,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 139 | Units move through one mover, which pays the ground | 6439 |  |
 | 140 | Agents share one entry file; design and implementation run as separate sessions; open questions live in one register | 6465 |  |
 | 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
+| 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 |  |
