@@ -75,3 +75,18 @@ func test_the_lateral_axis_points_one_way_for_either_heading_on_it() -> void:
 		PackedVector2Array([Vector2(3, 1), Vector2(-2, 4)]), Vector2(1, 0)
 	)
 	assert_vector(reach).is_equal(Vector2(-2, 3))
+
+
+func test_a_frame_worked_out_once_places_every_unit_as_place_does() -> void:
+	var cases := [
+		[Vector2(10.25, -3.5), 37.3, 7, 0.5],
+		[Vector2(-4.0, 12.75), 90.0, 32, -1.5],
+		[Vector2(0.125, 0.0), 211.9, 5, 0.0],
+	]
+	var units := [_unit(0, 0), _unit(3, 6), _unit(1, 2, 2, 2), _unit(5, -1), _unit(2, 9, 1, 3)]
+	for frame in cases:
+		var basis := SquadFrame.basis(frame[0], frame[1], frame[2], frame[3])
+		for unit in units:
+			var once := SquadFrame.place_in(basis, unit)
+			var each := SquadFrame.place(frame[0], frame[1], frame[2], frame[3], unit)
+			assert_bool(once == each).override_failure_message("%s != %s" % [once, each]).is_true()
