@@ -6395,7 +6395,7 @@ hands like a spider's bite, they could pretty much attack normally anyway".
 
 **Rules over cases:** general rules. **Order:** unchanged.
 
-### Decision 136 — Rubble and spoil are one loose material; a digger never buries its way out
+### Decision 136 — Rubble is cleared, spoil is carried; a digger never buries its way out
 
 **Authorised by:** Simeon Sidey
 **Date:** 2026-10-14
@@ -6405,9 +6405,13 @@ hands like a spider's bite, they could pretty much attack normally anyway".
 diggers pick it up, whether it can be dropped and built with, and "concerned about
 diggers effectively entombing themselves with spoil behind them".
 - Fallen material keeps its **old volume** as rubble in the cell it falls to.
-- **Loose material** covers rubble and spoil alike. Diggers take spoil as load (spec 28
-  load and stamina) and drop it as loose material. Loose stone builds rubble walls;
-  loose soil builds earthworks.
+- **Rubble and spoil are separate.** Rubble is what falls when something collapses. It
+  lies where it falls and must be cleared like terrain: a breaker breaks it up, and the
+  broken pieces become spoil. Spoil is loose: dug soil or stone, or cleared rubble. Units
+  pick it up as load (spec 28 load and stamina), carry it freely and drop it anywhere.
+  Spoil stone builds rubble walls; spoil soil builds earthworks. The user: "rubble needs
+  cleared similar to destroying terrain, spoil could be obtainable, so can pick up / move
+  it around freely".
 - **Collapse damage** scales with the weight that falls times the drop.
 - **No entombing:** a digger never drops spoil into the cell it came from or any cell of
   its way back. With nowhere else to drop it and no room to carry more, it stops digging
@@ -6454,3 +6458,29 @@ ties break when everyone has the same wits.
 
 **Rules over cases:** a general rule. **Order:** the phase is a seeded draw, never an id or
 list position (Decision 97).
+
+### Decision 139 — Units move through one mover, which pays the ground
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+**Amends:** Decision 132 (the first step of its series)
+
+**Rationale:** The field test found chasers and regrouping units ignoring terrain. The fix
+(#192) paid the ground in four movers, but the rout flight and the march still don't. The
+user: "do we not have one consolidated 'move' method? If instead we have several specific
+ones, why? And if that is a common pattern we ought to avoid it." There is no single move
+method. Twelve files write positions themselves, each written as its own behaviour
+arrived (march, walk, pursuit, regroup, rout, carry, withdraw, parting, trading places).
+None of them was made to share a step.
+- Every change to a unit's position goes through one function. It takes the unit, where
+  it wants to go and how far it may go this tick, and it pays the ground (TerrainStep):
+  cost, slope, liquid bands and cliffs, with the unit's climbing and swimming.
+- Behaviours decide where to go; only the mover moves. A check fails a change that writes
+  a position anywhere else.
+- Parting bodies that overlap is not a move. It clears an overlap, so it is exempt, but
+  it still may not push a unit into a cell it couldn't enter.
+- The mover is the one writer the native field takes over (Decision 132), so routing every
+  writer through it is the first step of that series.
+
+**Rules over cases:** a general rule replacing nine special cases. **Order:** unchanged:
+each unit moves in its pass's existing order (Decision 97).
