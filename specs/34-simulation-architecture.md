@@ -70,3 +70,31 @@ rules these ideas serve.
 Item 1 comes first, since it fixes a class of bug. Then item 2, which removes most of
 the repeated grid searches. Items 3 and 5 wait for spec 29's terrain work. Item 6 goes
 into the sim-checks workflow when it next changes. Items 7 and 8 follow their specs.
+
+## Measured, 2026-10-14
+
+Four stacks of 1,024 a side (`tick_phases engine=rust side=4096 squads=4`) on the user's
+i7-12700K ran at **520 ms a tick**. A tick is 0.1 s, so real time needs under 100 ms. The
+one-stack figure was 51 ms. Phases, in ms:
+
+| Phase | ms | Phase | ms |
+|---|---|---|---|
+| shuffle | 156 | recovery, strays | 21 |
+| wounds (tend) | 64 | scrum walk (steering) | 20 |
+| slot search | 62 | stamina | 19 |
+| perception | 33 | bodies snapshot | 19 |
+| bodies (UnitBodies) | 32 | units walk to places | 18 |
+| fight (blows) | 26 | carry | 9 |
+| deaths (bury) | 24 | engage, prepare, stance | 9 |
+
+- **#200:** made the shuffle's cost no longer grow with units × columns for a squad that is
+  re-forming, and cut the cost of perception's pairing. The run above came before #200; its
+  saving is still to be measured.
+- **Wounds and deaths:** the one-stack snapshot had few downed units, so its small costs for
+  wounds and deaths aren't a fair comparison. Measure them at the same point in the fight.
+
+**Next ports, in order:** wounds; slot search's GDScript glue; body parting; blows; deaths;
+recovery; stamina; steering; the walk. Each is a small PR that must reproduce the reference
+digests (sim-checks). Long runs go to the `bench` workflow (`.github/workflows/bench.yml`,
+`workflow_dispatch` with `tool`, `args` and `base`) or to the user's PC, never to an agent
+session.
