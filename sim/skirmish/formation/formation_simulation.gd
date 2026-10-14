@@ -21,8 +21,7 @@ extends RefCounted
 ##   5. deaths  - the fallen are downed or die, the ranks behind step up, an empty squad is
 ##                destroyed; the downed nobody guards are finished or taken (FormationWounds),
 ##                the rest come to or die of their wounds (FormationRecovery, Decision 126)
-##   6. bodies  - friends' bodies that overlap are pushed apart by mass (UnitBodies, Decision
-##                106)
+##   6. bodies  - overlapping friends' bodies are pushed apart by mass (UnitBodies, Decision 106)
 ##   7. re-form - units swap toward their preferred places (FormationShuffle, Decision 46)
 
 const FormationTaking = preload("res://sim/skirmish/formation/formation_taking.gd")
@@ -75,16 +74,14 @@ const STANDING := [
 
 var route_length: float
 var tick_seconds: float
-## The lane's width squads spawned from now on may spread to (Decision 51); 0: own columns.
-var combat_width := 0
-## The battle seed (Decision 93): every random draw comes from it - contests for cells,
-## and each blow's roll.
-var fight_seed := 0
+var combat_width := 0  # the lane's width later squads may spread to (Decision 51); 0: own columns
+var fight_seed := 0  # the battle seed (Decision 93): every draw, for cells or blows, is from it
 ## Whether each blow is rolled against parry, dodge and defence, its damage in its weapons'
 ## range (Decisions 118 and 119, BlowLanding); off, each lands plainly at full damage.
 var blow_rolls := false
 var terrain: FormationTerrain = null  # the ground (Decision 85); null: open, level ground
 var perception := {}  # what each formation sees as the tick begins (FormationPerception)
+var store: UnitStore  # every unit's slot (spec 35), on the engine's backend; read, not replaced
 
 var _route: FormationRoute
 var _squads: Array[SkirmishSquad] = []
@@ -98,6 +95,7 @@ var _field: Object = NativeKernels.body_field()  # the bodies, native or null (D
 func _init(length: float, seconds_per_tick: float) -> void:
 	route_length = length
 	tick_seconds = seconds_per_tick
+	store = NativeKernels.unit_store(_field)
 	_route = FormationRoute.straight(length * MapLayoutDef.CELLS_PER_TILE)
 
 
@@ -119,6 +117,7 @@ func spawn_squad(
 		members.append(
 			FormationUnits.make(placement[0], placement[1], faction_id, direction, _next_unit_id)
 		)
+		store.enrol(_next_unit_id)
 		_next_unit_id += 1
 	var orders := FormationCommand.new(home, path)
 	var squad := SkirmishSquad.new(
@@ -182,6 +181,7 @@ func step() -> Array:
 	for entry in _squads:
 		events.append_array(FormationShuffle.step(entry, tick_seconds, TRAVEL_SCALE, _tick))
 	FormationMarch.sync_units(_squads, [tick_seconds, pace], terrain, fight_seed)  # to places
+	store.settle(_squads)  # the units no list holds any more give up their slots
 	return events
 
 

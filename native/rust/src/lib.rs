@@ -359,6 +359,46 @@ impl BodyField {
         self.field.count() as i64
     }
 
+    /// The unit store (spec 35, UnitStoreNative) takes a unit: returns its slot, the
+    /// lowest free one if it had none. A held unit keeps its slot off the field.
+    #[func]
+    fn hold(&mut self, unit_id: i64) -> i64 {
+        self.field.hold(unit_id) as i64
+    }
+
+    /// The unit store lets a unit go; its slot is free for the next.
+    #[func]
+    fn release(&mut self, unit_id: i64) {
+        self.field.release(unit_id);
+    }
+
+    /// The store's slot of a unit, -1 if it doesn't hold it.
+    #[func]
+    fn slot_of(&self, unit_id: i64) -> i64 {
+        self.field.slot_of(unit_id).map_or(-1, |s| s as i64)
+    }
+
+    /// The unit the store holds in a slot, -1 for a free one.
+    #[func]
+    fn unit_at(&self, slot: i64) -> i64 {
+        if slot < 0 {
+            return -1;
+        }
+        self.field.unit_at(slot as u32).unwrap_or(-1)
+    }
+
+    /// Units the store holds.
+    #[func]
+    fn held_count(&self) -> i64 {
+        self.field.held_count() as i64
+    }
+
+    /// The units the store holds, by slot.
+    #[func]
+    fn held_units(&self) -> PackedInt64Array {
+        PackedInt64Array::from(self.field.held_units().as_slice())
+    }
+
     /// Microseconds of native work in the last sync, part, plan, walk or face.
     #[func]
     fn usec(&self) -> i64 {

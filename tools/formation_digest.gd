@@ -99,7 +99,7 @@ func _run(label: String, sim: FormationSimulation, limit: int, after: int) -> vo
 	for tick in range(limit):
 		var events := sim.step()
 		ticks = tick + 1
-		_record(chain, label, ticks, events, sim.squads())
+		_record(chain, label, ticks, events, sim)
 		if contact < 0 and events.any(func(e): return e["type"] == "engaged"):
 			contact = ticks
 		if after >= 0 and contact >= 0 and ticks - contact >= after:
@@ -127,7 +127,7 @@ func _field(index: int, rolls: bool) -> void:
 				FormationFieldActions.apply(field, queued)
 		var events := field.step()
 		tick += 1
-		_record(chain, label, tick, events, field.sim.squads())
+		_record(chain, label, tick, events, field.sim)
 	print("%-32s ticks %4d  %s" % [label, tick, chain.finish().hex_encode()])
 
 
@@ -145,8 +145,10 @@ func _both_stand(squads: Array) -> bool:
 	return true
 
 
-func _record(chain: HashingContext, label: String, tick: int, events: Array, squads: Array):
-	var bytes := var_to_bytes([_plain(events), _state(squads)])
+func _record(
+	chain: HashingContext, label: String, tick: int, events: Array, sim: FormationSimulation
+):
+	var bytes := var_to_bytes([_plain(events), _state(sim.squads(), sim.store)])
 	chain.update(bytes)
 	if _out != null:
 		var one := HashingContext.new()
@@ -155,13 +157,14 @@ func _record(chain: HashingContext, label: String, tick: int, events: Array, squ
 		_out.store_line("%s %d %s" % [label, tick, one.finish().hex_encode().substr(0, 16)])
 
 
-## Every squad's and unit's state, as plain values (objects by their ids).
-func _state(squads: Array) -> Array:
+## Every squad's and unit's state, as plain values (objects by their ids). Each unit's id is
+## read through the battle's unit store (spec 35), the same way on both engines.
+func _state(squads: Array, store: UnitStore) -> Array:
 	var out := []
 	for squad in squads:
 		var units := []
 		for unit in squad.units:
-			units.append(_unit_state(squad, unit))
+			units.append(_unit_state(squad, unit, store.id_at(store.slot_of(unit.id))))
 		var held := [squad.flank_contacts, squad.stance, squad.pursuit, squad.withdraw]
 		(
 			out
@@ -176,10 +179,10 @@ func _state(squads: Array) -> Array:
 	return out
 
 
-func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit) -> Array:
+func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, unit_id: int) -> Array:
 	var held := [squad.loose.get(unit.id), squad.fleeing.get(unit.id), squad.chasers.get(unit.id)]
 	return [
-		[unit.id, unit.hp, unit.position, unit.bearing, unit.attack_cooldown],
+		[unit_id, unit.hp, unit.position, unit.bearing, unit.attack_cooldown],
 		[unit.target_id, unit.rank, unit.column, _plain(held)],
 	]
 

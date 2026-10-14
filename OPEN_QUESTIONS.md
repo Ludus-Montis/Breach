@@ -130,6 +130,8 @@ The viewer colours factions by roster order and the designer by library order, s
 
 Each port made before spec 35 step 4 adds the gather, sync and write-back that the store then removes. The design session recommends spec 35 steps 0 to 4 first and new ports after, but the user didn't settle this.
 
+**Possibly settled by:** the user starting spec 35 step 0 next (2026-10-14), ahead of spec 34's list.
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.

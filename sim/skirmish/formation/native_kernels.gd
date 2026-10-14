@@ -15,6 +15,8 @@ const RUST := "rust"
 const EXTENSION := "res://native/breach_rust.gdextension"
 const FIELD_CLASS := "BodyField"
 const LIBRARY := "breach_rust"
+const UnitStoreGd = preload("res://sim/skirmish/formation/unit_store_gd.gd")
+const UnitStoreNative = preload("res://sim/skirmish/formation/unit_store_native.gd")
 
 ## Whether the native core may use threads (Rayon's pool).
 static var threaded := false
@@ -54,6 +56,11 @@ static func body_field() -> Object:
 	if engine_name == GDSCRIPT or not available(engine_name):
 		return null
 	return ClassDB.instantiate(FIELD_CLASS)
+
+
+## The battle's unit store (spec 35): on its native field, or in GDScript if it has none.
+static func unit_store(field: Object) -> UnitStore:
+	return UnitStoreGd.new() if field == null else UnitStoreNative.new(field)
 
 
 ## Where native/build.sh puts the library for this platform.
