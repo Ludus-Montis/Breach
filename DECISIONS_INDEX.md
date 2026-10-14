@@ -142,8 +142,9 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 133 | Units follow their most recent command, from the player or a leader; a selection given orders becomes a command | 6307 |  |
 | 134 | A threatened group fights before it recovers; rescuers carry the downed out | 6331 |  |
 | 135 | Climbing and swimming units fight at a disadvantage, unless trained to | 6353 |  |
-| 136 | Rubble is cleared, spoil is carried; a digger never buries its way out | 6375 |  |
+| 136 | Rubble is cleared, spoil is carried; a digger never buries its way out | 6375 | amended by 141 |
 | 137 | Breaking and siege belong to attacks; a creature may pass them down | 6401 |  |
 | 138 | Decisions run on each unit's own beat, set by its wits | 6424 |  |
 | 139 | Units move through one mover, which pays the ground | 6439 |  |
 | 140 | Agents share one entry file; design and implementation run as separate sessions; open questions live in one register | 6465 |  |
+| 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |

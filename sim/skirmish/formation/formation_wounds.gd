@@ -26,18 +26,23 @@ const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 
 
 ## This tick's takings of the downed. `interval` is ticks a second (a taker strikes on its
-## melee interval).
+## melee interval). Only the standing near a downed body are weighed: its takers, its guards
+## and the takers' foes all stand within wounds_reach + wounds_guard_reach of it.
 static func tend(squads: Array, tick: int, interval: int, fight_seed: int, events: Array) -> void:
-	var standing := []  # [unit, squad]
 	var downed := []
 	for squad in squads:
 		for unit in squad.units:
-			if unit.is_alive():
-				standing.append([unit, squad])
-			elif unit.state == SkirmishUnit.State.DOWNED:
+			if unit.state == SkirmishUnit.State.DOWNED:
 				downed.append([unit, squad])
 	if downed.is_empty():
 		return
+	var tuning := BattleTuning.current()
+	var around := _cells_around(downed, tuning.wounds_reach + tuning.wounds_guard_reach)
+	var standing := []  # [unit, squad], near a downed body
+	for squad in squads:
+		for unit in squad.units:
+			if unit.is_alive() and around.has(BodyGrid.cell_of(unit.position)):
+				standing.append([unit, squad])
 	# taken and taking in the units' seeded draws' order, never the list's (Decision 97):
 	# a captor or a leader's last messenger goes to the first of them
 	standing = _by_draw(standing, fight_seed)
@@ -56,6 +61,22 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 			taken[body[0].id].append(taker)
 	for body_id in taken:
 		_take(taken[body_id], squads, tick, interval, events)
+
+
+## The BodyGrid cells (a set) holding every point within `reach` of an entry's unit.
+static func _cells_around(entries: Array, reach: float) -> Dictionary:
+	var span := floori((reach + BodyGrid.MARGIN) / BodyGrid.CELL) + 1
+	var seen := {}
+	var out := {}
+	for entry in entries:
+		var cell := BodyGrid.cell_of(entry[0].position)
+		if seen.has(cell):
+			continue
+		seen[cell] = true
+		for y in range(cell.y - span, cell.y + span + 1):
+			for x in range(cell.x - span, cell.x + span + 1):
+				out[Vector2i(x, y)] = true
+	return out
 
 
 ## `entries` ([unit, squad]) in their units' seeded draws' order, each draw taken once.
