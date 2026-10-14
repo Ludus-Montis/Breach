@@ -60,6 +60,7 @@ static func _follow(unit: SkirmishUnit, units: Dictionary) -> void:
 			unit.state = SkirmishUnit.State.DOWNED  # dropped where it is
 			unit.carried_by = 0
 		else:
+			# placement: a carried body is where its bearer is (Decision 139)
 			unit.position = bearer.position
 	if unit.carrying != 0:
 		var body: SkirmishUnit = units[unit.carrying][0] if units.has(unit.carrying) else null

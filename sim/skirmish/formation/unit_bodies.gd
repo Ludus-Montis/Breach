@@ -205,15 +205,18 @@ static func _move(body: Array, push: Vector2, loosens: bool) -> void:
 	var squad: SkirmishSquad = body[0]
 	var unit: SkirmishUnit = body[1]
 	if squad.fleeing.has(unit.id):
+		# placement: parting clears an overlap (Decision 139)
 		squad.fleeing[unit.id]["offset"] += push
 		return
 	if not loosens and not squad.loose.has(unit.id):
+		# placement: parting clears an overlap (Decision 139)
 		unit.position = body[2] + push
 		return
 	if not squad.loose.has(unit.id):
 		squad.loose[unit.id] = {"unit": unit, "at": body[2], "goal": null, "next": body[2]}
 	var entry: Dictionary = squad.loose[unit.id]
 	var resting: bool = entry["next"] == entry["at"]
+	# placement: parting clears an overlap (Decision 139)
 	entry["at"] += push
 	if resting:
 		entry["next"] = entry["at"]

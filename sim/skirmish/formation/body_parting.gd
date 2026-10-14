@@ -54,11 +54,14 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 		var squad: SkirmishSquad = owners[moved[k]]
 		var unit: SkirmishUnit = units[moved[k]]
 		if squad.fleeing.has(unit.id):
+			# placement: parting clears an overlap (Decision 139)
 			squad.fleeing[unit.id]["offset"] = points[k]
 			continue
 		if not squad.loose.has(unit.id):
+			# placement: parting clears an overlap (Decision 139)
 			unit.position = points[k]
 			continue
 		var entry: Dictionary = squad.loose[unit.id]
+		# placement: parting clears an overlap (Decision 139)
 		entry["at"] = points[k]
 		entry["next"] = nexts[k]
