@@ -131,12 +131,15 @@ static func sync_units(
 				entry.unit_distance(unit) + entry.direction * swapping.x * SkirmishSquad.RANK_DEPTH
 			)
 			if entry.fleeing.has(unit.id):
+				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
 				unit.position = FormationRout.where(entry, unit.id)
 				if not entry.loose.has(unit.id):
 					unit.bearing = entry.heading
 			elif entry.loose.has(unit.id):
+				# placement: its loose point, moved by UnitMover (Decision 139)
 				unit.position = entry.loose[unit.id]["at"]
 			elif timing.is_empty():
+				# placement: its frame's slot, set before any walking (Decision 139)
 				unit.position = FormationWalk.place_of(entry, unit, moving)
 				unit.foothold = unit.position
 				unit.bearing = entry.heading

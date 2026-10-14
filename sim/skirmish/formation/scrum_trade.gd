@@ -55,7 +55,8 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 			_traded(places, unit, friend)
 		elif squad.stance.is_empty():
 			squad.loose.erase(unit.id)
-			unit.position = ScrumStance.anchor(squad, unit)  # its body stands there from now
+			# placement: it takes its place in its frame (Decision 139)
+			unit.position = ScrumStance.anchor(squad, unit)
 
 
 ## Notes in `places` (_places) that the two traded places: anchors stay with the places.

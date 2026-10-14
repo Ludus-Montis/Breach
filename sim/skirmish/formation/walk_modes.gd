@@ -81,6 +81,7 @@ static func _fall(unit, terrain: FormationTerrain) -> void:
 	unit.hp -= roundi(
 		tuning.fall_damage_per_cell * climbed * DetMath.pow(area, tuning.fall_mass_power)
 	)
+	# placement: a fall puts it back at the foot of its climb (Decision 139)
 	unit.position = unit.foothold
 	unit.climb_left = 0.0
 	unit.on_face = false

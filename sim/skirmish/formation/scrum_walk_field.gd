@@ -138,10 +138,12 @@ static func _write_back(seek, batch: Batch, out: Array) -> ScrumFaceField.Batch:
 		var code: int = codes[member]
 		if code == AIM or code == PRESS:
 			entry["toward"] = entry["next"]
+			# placement: the native walk, paid in FormationScrum (Decision 139)
 			entry["at"] = ats[member]
 			faced.flags[member] = ScrumFaceField.GOAL | ScrumFaceField.TOWARD
 		elif code != TOUCH:
 			entry["toward"] = towards[member]
+			# placement: the native walk, paid in FormationScrum (Decision 139)
 			entry["at"] = ats[member]
 			entry["next"] = ats[member]
 			faced.flags[member] = ScrumFaceField.TOWARD
