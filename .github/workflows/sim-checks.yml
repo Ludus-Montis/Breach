@@ -90,7 +90,7 @@ jobs:
         run: |
           {
             echo "SUMMARY BEGIN"
-            echo "suite (rust): $(grep -cE ' FAILED' suite.log 2>/dev/null || echo ?) failed;" \
+            echo "suite (rust): $(grep -cE ' FAILED' suite.log 2>/dev/null || true) failed;" \
               "$(grep -E 'Statistics|Overall' suite.log 2>/dev/null | tail -1)"
             for set in standard clash160 wide; do
               g=$(sha256sum digests/$set.gdscript.txt 2>/dev/null | cut -c1-16)
@@ -99,7 +99,7 @@ jobs:
               echo "digest $set: gdscript $g rust $r $verdict"
             done
             cat trials.txt 2>/dev/null
-            grep -E "FAILED|PASSED|ok|slow" scaling.txt 2>/dev/null | tail -3
+            grep -E "a side|FAILED" scaling.txt 2>/dev/null
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"
