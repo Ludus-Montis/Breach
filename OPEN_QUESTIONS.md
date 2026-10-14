@@ -125,7 +125,13 @@ A real JSON→`.tscn` converter for the Lane Tile Designer prototype's export (o
 
 The viewer colours factions by roster order and the designer by library order, so one faction can show in two colours. A stored `FactionDef.color` would fix both. Related: the owner wants recolourable sprite parts for faction allegiance (2026-10-02).
 
+### Q21. Do the remaining native ports wait for the unit store?
+**Raised:** 2026-10-14, the design session on spec 34 item 4 · **Raise when:** An implementation session chooses between spec 34's "Next, in order" list (body parting, wounds' port, blows, deaths, recovery, stamina, steering, the walk) and spec 35's steps
+
+Each port made before spec 35 step 4 adds the gather, sync and write-back that the store then removes. The design session recommends spec 35 steps 0 to 4 first and new ports after, but the user didn't settle this.
+
 ## Closed
 
+- Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.
 - Whether an authored `MapEdgeDef`/link is a hard constraint (the only route that exists) or a soft default a future pathfinding/movement-cost system could override — raised alongside the terrain-resistance idea above. Not designed; depends on that idea's outcome. **Resolved by Decision 26 (2026-09-27):** both. An authored link is a hard constraint on *which* nodes connect, and its route *geometry* is pathfound over terrain cost.
 - `NodeDef.structure_slots` semantics (raised while iterating on the tile designer prototype): per Decision 4's original framing this is a *count* of discrete buildable foundations at a location ("room for 2 towers here"), not a physical size/area value — but nothing consumes it yet, so this is genuinely underspecified. A real gap raised directly: if `structure_slots: 0` means "nothing permanent can be built here" (used in the prototype as a pure routing waypoint), can a barricade or other lightweight stationary defense still go there? A barricade may need to be a different, non-slot-consuming category entirely rather than something gated by `structure_slots`. Not designed — belongs to the still-unbuilt spatial-placement pass (Decision 4's Option 2). See "Future direction: layered tile model" below, which treats a barricade as a 0-floor structure and asks whether *footprint* should replace or redefine `structure_slots`. **Resolved by Decision 25 (2026-09-27):** superseded by the tile capacity + segment-profile model, and the field has been removed (`specs/14-structure-slots-removal.md`).

@@ -31,6 +31,8 @@ rules these ideas serve.
 4. **Data as arrays, not objects** (the user; the other agent). Already Decision 131's
    layout: positions, HP and stamina in packed arrays, flags as bitmasks, indices rather
    than references.
+   **Settled by Decision 142 and built as spec 35 (the unit store):** the store owns
+   every unit's per-tick state, as columns, with a GDScript backend and a Rust one.
 5. **Structural support as events** (the user's aside on Decision 57). Supports are
    checked only where a block changes: when a block is removed, damaged or loaded. A
    collapse is reported as an event to be stored and read back. No tile is checked every
@@ -97,6 +99,11 @@ one-stack figure was 51 ms. Phases, in ms:
 than the user's PC): **628.5 → 407.0 ms a tick.** Shuffle 209 → 37, wounds 64 → 26,
 perception 32 → 17. Slot search (89) and bodies (43) are now the largest phases; the
 shuffle's parts are each under 14 ms.
+
+**Slot search's parts** (bench runs 38645791317 and 38647406879): the core 33.6 ms; its
+GDScript glue about 45 ms (gathering 24.8 after #207, sync 11.0, write-back 9.5). The
+glue that is left is per-unit copying, which only goes when the field owns the units'
+state (item 4; `OPEN_QUESTIONS.md` Q20). It must go eventually.
 
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the

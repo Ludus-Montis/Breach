@@ -6549,3 +6549,79 @@ squad's order adds. **Order:** where spoil drops among equal cells is a seeded d
 Decision 136 (Decision 97). **Bounded:** a drop looks only at the cells near the digger.
 With the order on, it also checks its own way back, which is bounded by that path's
 length.
+
+### Decision 142 — The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+**Amends:** Decision 131 (how the data is laid out) and Decision 132 (what the field owns)
+
+**Rationale:** At four stacks of 1,024 a side (`tick_phases engine=rust side=4096
+squads=4 fight=3`, CI runner), the tick is about 380 ms against 100 ms. Slot search's
+Rust core takes 33.6 ms, but its GDScript glue takes about 45 ms: gathering 24.8, syncing
+the field 11.0, writing back 9.5. The walk, the facing and most other passes (blows,
+deaths, recovery, stamina, at about 25 ms each) copy units in and out the same way.
+The copying exists because each unit's state lives in its SkirmishUnit and in its
+squad's `loose` and `fleeing` dictionaries, and the field holds only a copy. The user:
+"the remaining glue needs to be fixed eventually" (`OPEN_QUESTIONS.md` Q20). Settled in
+a design session, one question at a time:
+- **What the store owns:** all of a unit's per-tick state.
+  - Movement: where it stands in each of today's three forms (`position`, the loose
+    entry's `at` and the fleeing entry's `offset`, mirrored one to one until a later
+    change merges them without changing outcomes), every other key of the loose and
+    fleeing entries (`next`, `goal`, `toward`, `foe_at`, `touch`, `along` and the rest),
+    and bearing.
+  - Condition: hp, stamina, speed, attack cooldown, exertion, and the unit's flags
+    (alive, down, its state).
+  - What doesn't change in a tick stays on SkirmishUnit as the unit's record, enrolled
+    into the store once as today: id, stats, traits, definition, command, rank and
+    column.
+  - What is decided per squad (morale, orders, stance, groups) stays in GDScript.
+- **How rules read and write it: columns.** One store interface has two backends: a
+  GDScript one, which is the reference (Decision 129), and the Rust `BodyField`. Each
+  unit has a dense slot, and state is held as packed columns indexed by slot. A pass asks
+  once for the columns it reads, loops by index, and commits only the columns it wrote.
+  A per-unit accessor serves scattered reads and writes (events, presentation, a pass
+  that touches only a few units).
+- **Identity: the reference hashes never change.** The digest reads units through the
+  store, with the same code for both backends. It rebuilds today's exact bytes,
+  including the loose and fleeing entries as dictionaries with the same keys present.
+  Each field moves in two steps. First the GDScript backend takes it over, with digests
+  unchanged on the GDScript engine. Then the Rust backend owns it, with digests unchanged
+  on both engines. A test compares every column of the two backends after a battle's
+  ticks and names the first field and unit that differ.
+- **Order: movement first.** The skeleton; where units stand; the entries' other keys;
+  bearing; then seek, walk and facing read the columns natively, so their gather, sync
+  and write-back go; then hp and cooldown; stamina, speed and exertion; flags. Each is a
+  small PR held to the `sim-checks` digests and measured on the `bench` workflow.
+- **SkirmishUnit: moved fields are removed.** The user chose "whichever should be more
+  performant": a field leaves SkirmishUnit in the PR that moves it, and every reader
+  switches to a column or the accessor in that same PR, so no hidden per-access path is
+  left. Events carry values at the time they happened (id, point, damage), not a unit to
+  read later. Presentation reads one column snapshot per frame. The user: "you can breach
+  the 11 file limit in this case". This series' PRs may modify more pre-existing files
+  than the OCP check allows (Decision 20). Each PR states its count and cites this
+  Decision, as #186 did under Decision 130.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| The field owns movement only | Leaves the ~25 ms of copying in each of blows, deaths, recovery and stamina. |
+| Everything about a unit, stats included | Stats don't change in a tick, so once enrolled they cost nothing to read; every rule would read them through the store for no gain. |
+| Per-unit accessors only | Every read crosses the boundary, so GDScript passes cost about what they do now. |
+| A bespoke batch per pass, built natively | Each pass needs its own native entry point, and the GDScript reference must build the same batches. |
+| One planned re-baseline of the hashes | Loses the link to every earlier recorded hash, to save rebuilding dictionaries in the digest. |
+| Hottest glue first, or condition first | Splits a field between store and object across PRs, or pays off later. |
+| Moved fields forwarded through SkirmishUnit's properties | Keeps a slow path that hides a boundary crossing behind every read; the user chose performance. |
+
+**Rules over cases:** general: one store holds all per-tick unit state, read and
+written one way. No rule of the battle changes.
+**Order:** a slot is storage only. Slots are handed out in enrol order (spawn order) and
+reused, so a slot never orders a loop or breaks a tie. Passes keep their existing order
+(squad and member lists, Decision 97). The reversed-lists tests give each unit a
+different slot and must still give the same state each tick. The digests prove that
+nothing changes.
+**Bounded:** a pass fetches only the columns it reads, once. A pass that touches a few
+units uses the accessor rather than whole columns. Enrolling and dropping units stays
+incremental, and free slots are reused lowest first.
