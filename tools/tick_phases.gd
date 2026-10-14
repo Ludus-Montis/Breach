@@ -22,6 +22,7 @@ const Scrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
+const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
 const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
@@ -193,7 +194,7 @@ func _scrum(sim: Sim, events: Array) -> void:
 	}
 	ctx["crowd"] = BodyGrid.of_bodies(ctx["bodies"])
 	_lap("scrum: bodies snapshot")
-	ScrumSeek.plan(ctx)
+	_seek(ctx)
 	_lap("scrum: seek (slot search)")
 	_walk_and_face(ctx)
 	var scrum_events := []
@@ -209,6 +210,26 @@ func _scrum(sim: Sim, events: Array) -> void:
 	Scrum._stall(squads, ctx["active"], tick, sim.tick_seconds, scrum_events)
 	events.append_array(scrum_events)
 	_lap("scrum: pursuit, stall")
+
+
+## ScrumSeek.plan. On the native core, ScrumSeekField's own timings are booked to their
+## parts, so the seek's line keeps only the rest (the GDScript path has none).
+func _seek(ctx: Dictionary) -> void:
+	var before := ScrumSeekField.spent.duplicate()
+	ScrumSeek.plan(ctx)
+	var spent := ScrumSeekField.spent
+	var core := spent[3] - before[3]
+	var parts := {
+		"scrum: seek: sync the field": spent[0] - before[0],
+		"scrum: seek: gather the rules' say": spent[1] - before[1],
+		"scrum: seek: the core's work": core,
+		"scrum: seek: the call, less the core": spent[2] - before[2] - core,
+		"scrum: seek: write back": spent[4] - before[4],
+	}
+	for part in parts:
+		if parts[part] > 0:
+			_spent[part] = _spent.get(part, 0) + parts[part]
+			_last += parts[part]  # booked here, not to the seek's own line
 
 
 func _scrum_events(sim: Sim) -> Array:
