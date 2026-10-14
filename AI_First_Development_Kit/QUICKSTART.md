@@ -105,6 +105,17 @@ invocable procedure (a custom command, skill, or macro), create one now that enc
 branch → implement → gate → open-proposal → stop sequence for this project specifically,
 using the branch-prefix and merge-policy answers from Step 0.
 
+Then, per `principles/agent-sessions.md`:
+
+- **Write the entry file** the agent tooling loads at the start of every session (for
+  example `CLAUDE.md` or `AGENTS.md`). Keep it to about a page: the non-negotiables, one
+  line each, the design and implementation roles, and where specs, Decisions, the
+  open-questions register and the procedures live. It points to rules; it doesn't copy them.
+- **Create the open-questions register** (one file, empty to start) and say in the entry
+  file where it is.
+- **If the Decision ledger lives in a long spec,** add the generated index and its gate
+  check once the ledger outgrows a quick read. A new project can wait until it does.
+
 ## Step 5 — Progress and qualitative logging
 
 - Set up the Gate 1 mechanical progress log and its generating script, per

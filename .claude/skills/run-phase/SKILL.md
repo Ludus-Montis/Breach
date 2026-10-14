@@ -24,7 +24,13 @@ regardless of size, goes on its own branch and through a PR that a human merges.
 - Read the item's scope in full before starting: the plan file, and the relevant
   `specs/*.md` file(s) it implements, including that spec's Given/When/Then scenarios,
   test-first order, and any Decisions in `Breach — Reverse Tower Defense Design
-  Spec.md`'s `## Decisions` section that bear on this item.
+  Spec.md`'s `## Decisions` section that bear on this item. Find them in
+  `DECISIONS_INDEX.md` and read each by its line; don't read the whole spec.
+- Check `OPEN_QUESTIONS.md` for entries whose **Raise when** matches this item, and
+  raise them with the user before planning.
+- What the spec and its Decisions settle, build as written: don't re-plan or re-ask it.
+  Plan mode is for a new spec, or for a gap the spec leaves open
+  (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3).
 - Confirm the working tree is clean (`git status`) and `main` is up to date
   (`git checkout main && git pull --ff-only`) before branching. If there are
   uncommitted changes that aren't yours to discard, stop and ask.

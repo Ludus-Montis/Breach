@@ -31,6 +31,9 @@ principles/
   solid-mechanical.md        SOLID as mechanical checks + honestly-scoped manual review
   agent-workflow.md          Branch-and-review is a standing rule, not an inference;
                               what an agent never does alone
+  agent-sessions.md          The entry file every session loads; design and
+                              implementation in separate sessions; the open-questions
+                              register; hand-overs through the remote
   decision-ledger.md         Append-only decision convention
   progress-tracking.md       Mechanical hard gate + separate human qualitative gate
   tdd-bdd-workflow.md        Behaviour-first workflow, spec-type taxonomy, coverage floor
@@ -58,7 +61,8 @@ config/
    `principles/rules-over-cases.md` and `principles/bounded-work.md` — the design rules
    everything else enforces.
 2. `principles/tdd-bdd-workflow.md` — how behaviour gets specified and implemented.
-3. `principles/agent-workflow.md` — how a change actually gets proposed and landed.
+3. `principles/agent-workflow.md` and `principles/agent-sessions.md` — how a change
+   actually gets proposed and landed, and how work passes between agent sessions.
 4. `principles/decision-ledger.md` and `principles/progress-tracking.md` — how the
    project records its own history and trend.
 5. `rubrics/spec-baseline.rubrics.md` and `rubrics/run-baseline.rubrics.md` — the

@@ -26,9 +26,27 @@ they're leaving.
    when Gate 1 passes (`run-phase` step 5).
 4. **Write or update the `## Handoff` section** at the top of the PR description, using
    the template below. Replace it each time; it describes now, not history.
-5. **Tell the user** the PR link and one line on what the next agent should do first. If
-   you started another agent, give its session link; if you can't produce one, say it
-   didn't start.
+5. **Move open questions to the register.** Anything still undecided, and any "remind
+   me when…", goes into `OPEN_QUESTIONS.md` with a **Raise when** trigger. The PR's
+   *Open questions* line points to those entries rather than holding the only copy.
+6. **Tell the user** the PR link and one line on what the next agent should do first. If
+   you started another agent, give its session link (see "Starting another agent").
+
+### Starting another agent
+
+A started agent counts only if you can give the user its claude.ai session link. If
+starting one returns no link (a background subagent, or a "remote" request that came
+back without an address), **it is running on this device and stops when the device
+does.** Say exactly that. Never tell the user the work will survive a shutdown without
+a link to show for it. Then push the plan as a draft PR with a `## Handoff` section, so
+a cloud session the user starts can pick it up.
+
+### Design sessions hand off through the spec
+
+A design session (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3) hands
+off by pushing its outcome as Decisions and a spec round in a `docs:` PR, with the
+`## Handoff` section's **Next** naming the `/run-phase` item for a fresh implementation
+session. The implementation session starts from the spec, not from the discussion.
 
 ### The `## Handoff` template
 
@@ -49,7 +67,7 @@ they're leaving.
 - <test command, scripted run, or designer view to open, and what passing looks like>
 
 **Open questions for the user**
-- <decisions still needed; none if none>
+- <OPEN_QUESTIONS.md entries this work raised or depends on, by Q number; none if none>
 
 **Gotchas**
 - <anything surprising: a check that is red and why, a file not to touch, an environment need>
@@ -67,6 +85,7 @@ Decision or the spec, not here.
      off; read their last commit messages)
    - the stack: which branch each open PR is based on
 3. **Read the hand-off,** then the PR's commits and spec, before changing anything.
+   Read Decisions through `DECISIONS_INDEX.md`, not the whole design spec.
 4. **Check out the branch and pull:** `git checkout <branch> && git pull`. Run the tests
    once, to confirm the state the hand-off describes.
 5. **Claim it:** update the `## Handoff` section's State line to say you're working on it,
