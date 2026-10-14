@@ -69,8 +69,10 @@ step, in the order the spec's own "Test-first order" section lays out:
 1. Translate each Given/When/Then scenario into a gdUnit4 test under `tests/`,
    mirroring the source path being tested (e.g. `sim/foo.gd` → `tests/sim/test_foo.gd`).
 2. Run it and confirm **red** — it must fail for the right reason (missing behaviour,
-   not a typo or setup error). Use `bash ci/godot/scripts/run_tests.sh` (needs
-   `GODOT_BIN` set).
+   not a typo or setup error). Run only that test file in an agent session:
+   `"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a
+   res://tests/<path>.gd -c --ignoreHeadlessMode`. Heavy runs never go in the session
+   (see `CLAUDE.md`).
 3. Implement the minimum to go **green**. Do not implement behaviour with no test.
 4. Refactor with the suite as a safety net, checking against
    `AI_First_Development_Kit/principles/ai-first-organisation.md` and
@@ -106,7 +108,10 @@ commit if the diff genuinely mixes types).
 This is `AI_First_Development_Kit/principles/progress-tracking.md` Gate 1 — mechanical,
 hard, and not skippable:
 
-1. Run the full suite: `bash ci/godot/scripts/run_tests.sh`.
+1. Run the full suite: `bash ci/godot/scripts/run_tests.sh`. Do this only on the
+   user's PC. In an agent session, run the test files you touched instead, and leave the
+   full suite and the digests to CI's `sim-checks`. Speed-ups are compared through the
+   `bench` workflow.
 2. Run the static checks directly (they also run in `pre-commit`/CI, but run them here
    first to catch anything before pushing): `check_function_length.py`,
    `check_generic_naming.py`, `check_isp.py`, `check_dependency_direction.py`,
@@ -120,7 +125,9 @@ hard, and not skippable:
    metrics, diffs against the previous row in `PROGRESS_LOG.md`, and appends the new
    row itself. **A non-zero exit means a regression was detected; the item is not done
    until that's fixed** — loop back into step 2 rather than opening a PR on a known
-   regression.
+   regression. It reads the last test run's report, so run it only right after a
+   full-suite run. In an agent session, skip it: after a partial run it records a false
+   drop in the test count.
 4. Read each static check's heuristic-limit note in `ci/godot/README.md` ("Heuristic
    limits") before trusting a green run blindly — a pass means the specific heuristic
    found nothing, not that the underlying SOLID property is proven.

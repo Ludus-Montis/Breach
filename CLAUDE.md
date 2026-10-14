@@ -14,6 +14,13 @@ How sessions work together is `principles/agent-sessions.md`.
   and don't poll CI after opening a PR. Use `/run-phase` (`.claude/skills/run-phase/`).
 - **Tests come first:** red, then green (`principles/tdd-bdd-workflow.md`). Run the suite
   with `bash ci/godot/scripts/run_tests.sh`, which needs `GODOT_BIN` set.
+- **Heavy runs go to CI, the `bench` workflow or the user's PC, never the agent session.**
+  In a session, run only light checks: the test files for what you changed (`-a
+  res://tests/<file>.gd`), lint and the static checks. Heavy runs include the full suite,
+  the digests (`formation_digest.gd`), the trials, `scaling_check`, `tick_phases` and the
+  other benches, and anything else that takes about a minute or more. CI's `sim-checks`
+  runs the suite and digests on every PR. For a comparison, start `bench`
+  (`.github/workflows/bench.yml`) and read its `SUMMARY`.
 - **Decisions are append-only** (`principles/decision-ledger.md`). Run `/design-check` on
   every design decision and every change to simulation outcomes. Only the user authorises
   a Decision.
