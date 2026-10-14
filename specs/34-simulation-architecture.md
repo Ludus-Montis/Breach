@@ -93,8 +93,14 @@ one-stack figure was 51 ms. Phases, in ms:
 - **Wounds and deaths:** the one-stack snapshot had few downed units, so its small costs for
   wounds and deaths aren't a fair comparison. Measure them at the same point in the fight.
 
-**Next ports, in order:** wounds; slot search's GDScript glue; body parting; blows; deaths;
-recovery; stamina; steering; the walk. Each is a small PR that must reproduce the reference
+**After #200 and #202** (bench run 38643017654, both on one CI runner, about 1.2× slower
+than the user's PC): **628.5 → 407.0 ms a tick.** Shuffle 209 → 37, wounds 64 → 26,
+perception 32 → 17. Slot search (89) and bodies (43) are now the largest phases; the
+shuffle's parts are each under 14 ms.
+
+**Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
+write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
+walk. Each is a small PR that must reproduce the reference
 digests (sim-checks). Long runs go to the `bench` workflow (`.github/workflows/bench.yml`,
 `workflow_dispatch` with `tool`, `args` and `base`) or to the user's PC, never to an agent
 session.
