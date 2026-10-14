@@ -1,0 +1,99 @@
+name: Bench
+
+# Long benchmark runs, started by hand (or by an agent through the GitHub API) instead of
+# in an agent's session: `tool` with `args` on the branch the run is started on, and - if
+# `base` names another branch or commit - the same on it, on the same runner, so the two
+# compare like for like. The last step prints both between SUMMARY markers. GitHub's
+# runners are slower than a desktop: read the comparison, not the absolute times.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: "tools/<tool>.gd to run (tick_phases, scaling_check, native_bench, ...)"
+        default: "tick_phases"
+      args:
+        description: "Its arguments"
+        default: "engine=rust side=4096 squads=4 fight=3"
+      base:
+        description: "Branch or commit to compare against (empty: none)"
+        default: ""
+
+env:
+  GODOT_VERSION: "4.7.2-stable"
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache Godot binary
+        id: godot-cache
+        uses: actions/cache@v6
+        with:
+          path: /opt/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
+          mkdir -p /opt/godot
+          unzip -q godot.zip -d /opt/godot
+          mv /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot
+          chmod +x /opt/godot/godot
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Check out the base
+        if: inputs.base != ''
+        env:
+          BASE: ${{ inputs.base }}
+        run: git worktree add base "$BASE"
+
+      - name: Run on this branch and the base
+        env:
+          TOOL: ${{ inputs.tool }}
+          ARGS: ${{ inputs.args }}
+          BASE: ${{ inputs.base }}
+        run: |
+          run_in() {
+            (cd "$1" \
+              && JOBS=4 bash native/build.sh release > /dev/null 2>&1 \
+              && /opt/godot/godot --headless --path . --import > /dev/null 2>&1; \
+              /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
+                2>/dev/null | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)')
+          }
+          run_in . > head.txt
+          if [ -n "$BASE" ]; then run_in base > base.txt; fi
+
+      - name: Summary
+        if: always()
+        env:
+          TOOL: ${{ inputs.tool }}
+          ARGS: ${{ inputs.args }}
+          BASE: ${{ inputs.base }}
+          HEAD_NAME: ${{ github.ref_name }}
+        run: |
+          {
+            echo "SUMMARY BEGIN"
+            echo "== $HEAD_NAME ($(git rev-parse --short HEAD)): $TOOL $ARGS"
+            cat head.txt 2>/dev/null
+            if [ -n "$BASE" ]; then
+              echo "== base $BASE ($(git -C base rev-parse --short HEAD 2>/dev/null))"
+              cat base.txt 2>/dev/null
+            fi
+            echo "SUMMARY END"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
