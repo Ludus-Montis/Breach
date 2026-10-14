@@ -1,7 +1,8 @@
 extends SceneTree
 ## Where a mid-fight tick's time goes, phase by phase (Decision 129: what to port next): a
 ## FormationBench clash stepped through FormationSimulation.step's phases in its order, the
-## scrum's (FormationScrum.step) split out, each timed; ms a tick, largest first. It
+## scrum's (FormationScrum.step) and the shuffle's (ShufflePhases) split out, each timed; ms
+## a tick, largest first. It
 ## mirrors step(), so it checks itself: the battle it plays must end tick for tick where a
 ## plain step() leaves it, or it says so.
 ##
@@ -30,6 +31,7 @@ const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const ShufflePhases = preload("res://tools/shuffle_phases.gd")
 
 var _spent := {}
 var _last := 0
@@ -165,9 +167,8 @@ func _after(sim: Sim, events: Array) -> void:
 	_lap("bodies (UnitBodies)")
 	for entry in squads:
 		events.append_array(
-			Sim.FormationShuffle.step(entry, sim.tick_seconds, Sim.TRAVEL_SCALE, tick)
+			ShufflePhases.step(entry, [sim.tick_seconds, Sim.TRAVEL_SCALE], tick, _lap)
 		)
-	_lap("shuffle")
 	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain)
 	_lap("units walk to places")
 
