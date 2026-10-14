@@ -6505,7 +6505,7 @@ QUICKSTART now has new projects create the entry file and the register.
 **Rules over cases:** general: one rule for every session, local or cloud. **Order:** no
 simulation outcome is involved.
 
-### Decision 141 — Keeping the way back clear of spoil is a squad's order, off by default
+### Decision 141 — Keeping the way back clear of spoil is a squad's order, on by default
 
 **Authorised by:** Simeon Sidey
 **Date:** 2026-10-14
@@ -6513,32 +6513,34 @@ simulation outcome is involved.
 
 **Rationale:** Decision 136's no-entombing rule was Claude's proposal. Asked whether to
 keep it, the user: "We could leave it as a toggle for our diggers, off by default, such
-that they can deposit it behind them for haulers, so it becomes a choice for the player".
-Asked where the toggle sits, the user chose a squad. Pillar 2 gives orders to waves and
+that they can deposit it behind them for haulers, so it becomes a choice for the player". Then, correcting the default: "keep the way back
+clear 'on' is default". Asked where the toggle sits, the user chose a squad. Pillar 2 gives orders to waves and
 squads, never to single units. Asked whether defenders follow it, the user chose the same
 rule for every digger.
 - **Keep the way back clear** is a standing order on a squad. It is set in the wave plan
   at dispatch and can be changed mid-wave like any other command (Decision 133). Every
   digger in the squad follows it.
-- **Off (the default):** a digger drops spoil in any open cell, including the cell it
-  came from and its way back. Haulers following behind can carry it off. A digger can seal
-  itself in if nothing clears its way.
-- **On:** Decision 136's rule. A digger never drops spoil on its way back. With nowhere
-  else to drop it and no room to carry more, it stops digging and calls for haulers.
+- **On (the default):** Decision 136's rule. A digger never drops spoil on its way back.
+  With nowhere else to drop it and no room to carry more, it stops digging and calls for
+  haulers.
+- **Off:** a digger drops spoil in any open cell, including the cell it came from and its
+  way back. Haulers following behind can carry it off. A digger can seal itself in if
+  nothing clears its way.
 - The kingdom's diggers follow the same rule. Their authored behaviour sets the order like
-  any other; if it sets nothing, the order is off.
+  any other; if it sets nothing, the order is on.
 
 **Alternatives:**
 
 | Option | Reason Rejected |
 |--------|-----------------|
 | Keep Decision 136's rule always on | It takes away the choice. A dig that drops spoil behind it for haulers is a valid plan. |
+| Off by default | The user chose the safe default; leaving spoil behind is the choice made on purpose. |
 | Set the order per digger | Bends pillar 2: orders go to waves and squads, never to single units. |
 | Always on for defenders | A special case by side, with no reason given for it. |
 
 **Consequences:** The planner and the squad's orders gain this order. The digging spec
-shows it, and warns when a squad with the order off could seal itself in (pillar 6). With
-the order off, diggers don't track their way back.
+shows it, and warns when a squad with the order turned off could seal itself in (pillar 6).
+With the order off, diggers don't track their way back.
 
 **Pillar check (Decision 58):** holds: the order is given to a squad (pillar 2) and is
 visible in the plan (pillar 6). It adds a choice to tunnelling (pillar 3).

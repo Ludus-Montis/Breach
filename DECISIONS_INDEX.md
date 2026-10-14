@@ -147,4 +147,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 138 | Decisions run on each unit's own beat, set by its wits | 6424 |  |
 | 139 | Units move through one mover, which pays the ground | 6439 |  |
 | 140 | Agents share one entry file; design and implementation run as separate sessions; open questions live in one register | 6465 |  |
-| 141 | Keeping the way back clear of spoil is a squad's order, off by default | 6508 |  |
+| 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
