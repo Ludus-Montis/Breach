@@ -178,7 +178,9 @@ func test_a_flank_timed_by_the_chieftain_breaks_the_line_into_its_reserve() -> v
 
 	field.send("A")
 	var log := _run(field, _has("routed"), 1500)
-	log.append_array(_run(field, func(log): return false, 100))
+	# B pours through the ford in turn (spec 30 round 3): its line routs later, and the
+	# waves reach the reserve on its hill about 100 ticks after.
+	log.append_array(_run(field, func(log): return false, 150))
 
 	var line := field.kingdom_line.id
 	var reserve := field.kingdom_reserve.id

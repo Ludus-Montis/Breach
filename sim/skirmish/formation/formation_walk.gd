@@ -17,15 +17,12 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const WalkModes = preload("res://sim/skirmish/formation/walk_modes.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
-const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
+const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 
 const EPSILON := 0.000001
-## Cells a unit squeezes in at a time, looking for ground to stand on (target_of).
-const SQUEEZE_STEP := 0.5
 
 
 ## Walks `unit` of `squad` a tick towards `place`; `timing` is [seconds, cells a second
@@ -84,11 +81,7 @@ static func _way(unit: SkirmishUnit, place: Vector2, terrain: FormationTerrain) 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
 ## FormationShuffle.movers for the squad, if the caller has it).
 static func place_of(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Vector2:
-	var swapping := FormationShuffle.offset(squad, unit, moving)
-	var ahead := UnitMotion.vector(squad.heading)
-	var shift := ahead * swapping.x - ahead.orthogonal() * swapping.y
-	var at := SquadFrame.place(squad.position, squad.heading, squad.width, squad.centre_shift, unit)
-	return at + shift
+	return FormationPour.place(squad, unit, moving)
 
 
 ## The share (0 to 1) of its step the squad's frame takes this tick for its units lagging
@@ -96,7 +89,9 @@ static func place_of(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) ->
 ## none as the furthest nears the slack itself, so a wheel slows to what its outer file
 ## can walk rather than halting; one fallen behind (walk_lost) is waited for only if no
 ## man is left behind.
-static func share(squad: SkirmishSquad, terrain: FormationTerrain = null) -> float:
+static func share(
+	squad: SkirmishSquad, terrain: FormationTerrain = null, fight_seed: int = 0
+) -> float:
 	if not squad.taking.is_empty():
 		return 0.0  # it holds while its units are out taking the downed (FormationTaking)
 	var rule := rule_of(squad)
@@ -105,10 +100,11 @@ static func share(squad: SkirmishSquad, terrain: FormationTerrain = null) -> flo
 	var slack := slack_of(squad)
 	var furthest := 0.0
 	var moving := FormationShuffle.movers(squad)
+	var aims := FormationPour.targets(squad, terrain, moving, fight_seed)
 	for unit in squad.living():
 		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id):
 			continue
-		var target := target_of(squad, unit, terrain, moving)
+		var target: Vector2 = aims[unit.id]
 		if not target.is_equal_approx(place_of(squad, unit, moving)):
 			continue  # its place is barred: it pours through the gap behind the frame
 		var lag := unit.position.distance_to(target)
@@ -117,60 +113,17 @@ static func share(squad: SkirmishSquad, terrain: FormationTerrain = null) -> flo
 	return clampf((slack - furthest) / (slack / 2.0), 0.0, 1.0)
 
 
-## Where `unit` makes for: its place, or - where its place lies on ground it can't walk -
-## the nearest it can walk, squeezing across the frame towards its centre line (so a
-## formation pours through a gap narrower than itself and fans out again past it, and
-## wades a ford rather than swim beside it: spec 30 round 3, parts 5 and 6); with none
-## to walk, its place if it can swim or climb there, else the nearest it can stand on.
+## Where `unit` makes for (FormationPour.targets): its place, or where its place is barred,
+## the nearest point it can walk, filed in behind those squeezed there before it.
 static func target_of(
-	squad: SkirmishSquad, unit: SkirmishUnit, terrain: FormationTerrain = null, moving = null
-) -> Vector2:
-	if squad.taking.has(unit.id):  # out taking a downed foe (FormationTaking): beside it
-		var body: SkirmishUnit = squad.taking[unit.id]
-		var off := unit.position - body.position
-		var beside := minf(off.length(), _tuning().wounds_reach * 0.5)
-		return body.position + (off.normalized() * beside if off.length() > EPSILON else off)
-	var place := place_of(squad, unit, moving)
-	if terrain == null or _walkable(unit, place, terrain):
-		return place
-	var walk := _squeeze(squad, unit, place, terrain, true)  # ground it can walk, near by
-	if walk != Vector2.INF:
-		return walk
-	if terrain.factor(unit, place, place) > 0.0:
-		return place  # none to walk: it swims or climbs to its place
-	var any := _squeeze(squad, unit, place, terrain, false)
-	return place if any == Vector2.INF else any
-
-
-## The nearest point across the frame from `place` towards its centre line where `unit`
-## can stand - walking it, if `walking` - or INF.
-static func _squeeze(
 	squad: SkirmishSquad,
 	unit: SkirmishUnit,
-	place: Vector2,
-	terrain: FormationTerrain,
-	walking: bool
+	terrain: FormationTerrain = null,
+	moving = null,
+	fight_seed: int = 0
 ) -> Vector2:
-	var across := UnitMotion.vector(squad.heading).orthogonal()
-	var offset := (place - squad.position).dot(across)
-	var steps := ceili(absf(offset) / SQUEEZE_STEP)
-	for step in range(1, steps + 1):
-		var point := place - across * signf(offset) * minf(step * SQUEEZE_STEP, absf(offset))
-		var ok := (
-			_walkable(unit, point, terrain) if walking else terrain.factor(unit, point, point) > 0.0
-		)
-		if ok:
-			return point
-	return Vector2.INF
-
-
-## Whether `unit` can walk on the point - not swim or climb to it.
-static func _walkable(unit: SkirmishUnit, point: Vector2, terrain: FormationTerrain) -> bool:
-	var walker := TerrainWalker.of_unit(unit)
-	return (
-		terrain.factor(unit, point, point) > 0.0
-		and terrain.mode(walker, point, point) == TerrainWalker.Mode.WALKING
-	)
+	var loose := squad.loose.has(unit.id)
+	return FormationPour.targets(squad, terrain, moving, fight_seed, loose)[unit.id]
 
 
 ## True if the squad's frame waits this tick for a unit lagging behind its place.

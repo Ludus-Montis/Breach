@@ -40,7 +40,8 @@ static func step(
 
 
 ## Writes the core's [moved, points, nexts, loosened, stats] back: the units it made loose
-## first (in the order the passes did), then every moved body's point.
+## first (in the order the passes did), then every moved body's point (one left in its
+## frame: where it stands).
 static func _write_back(units: Array, owners: Array, out: Array) -> void:
 	var moved: PackedInt32Array = out[0]
 	var points: PackedVector2Array = out[1]
@@ -54,6 +55,9 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 		var unit: SkirmishUnit = units[moved[k]]
 		if squad.fleeing.has(unit.id):
 			squad.fleeing[unit.id]["offset"] = points[k]
+			continue
+		if not squad.loose.has(unit.id):
+			unit.position = points[k]
 			continue
 		var entry: Dictionary = squad.loose[unit.id]
 		entry["at"] = points[k]

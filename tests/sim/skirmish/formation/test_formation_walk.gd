@@ -151,7 +151,7 @@ func test_a_unit_whose_place_is_barred_squeezes_in_towards_the_centre_line() -> 
 		var target := FormationWalk.target_of(squad, unit, terrain)
 		assert_float(terrain.factor(unit, target, target)).is_greater(0.0)
 		var place := FormationWalk.place_of(squad, unit)
-		assert_float(target.x).is_equal_approx(place.x, 0.0001)  # only across the frame
+		assert_float(target.x).is_less_equal(place.x + 0.0001)  # across it, or filed in behind
 
 
 func test_a_unit_barred_straight_ahead_slides_along_the_bank() -> void:
