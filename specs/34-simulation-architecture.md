@@ -105,6 +105,14 @@ GDScript glue about 45 ms (gathering 24.8 after #207, sync 11.0, write-back 9.5)
 glue that is left is per-unit copying, which only goes when the field owns the units'
 state (item 4; `OPEN_QUESTIONS.md` Q20). It must go eventually.
 
+**Spec 35 step 0, the unit store's skeleton** (#210; bench run on one CI runner, Xeon
+8573C, against main 1cc4412): **422.8 → 430.1 ms a tick** (+7.3, 1.7%). No phase moved
+by more than 1.7 ms (walk 30.8 → 32.5, units walk to places 22.2 → 23.9); the rest are
+within about 0.7 ms either way. The step adds no work to any pass, only the store's
+settle at the tick's end (a sum over the squads, and a walk of the lists on a tick a unit
+left), so most of the difference is likely run-to-run noise. Nothing is saved until
+step 4.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
