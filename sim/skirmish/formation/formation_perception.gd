@@ -12,7 +12,6 @@ extends RefCounted
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationSight = preload("res://sim/skirmish/formation/formation_sight.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 
 const UNSEEN := [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]
@@ -21,11 +20,12 @@ const UNSEEN := [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]
 ## squad id -> {"seen": [the standing hostile squads it detects], "threat": true if any}.
 static func see(squads: Array, terrain: FormationTerrain = null) -> Dictionary:
 	var memo := SquadMemo.new()
-	var bounds := {}  # squad -> its living units' bounds
-	var reach := {}  # squad -> those grown by its widest detection
+	var bounds := {}  # squad -> the box its living units' centres stand in
+	var reach := {}  # squad -> that grown by its widest detection
 	for squad in squads:
-		bounds[squad] = SquadEdges.bounds(squad)
-		reach[squad] = bounds[squad].grow(_widest(squad) + 1.0)
+		var box := _box(squad)
+		bounds[squad] = box[0]
+		reach[squad] = box[0].grow(box[1] + 1.0)
 	var out := {}
 	for squad in squads:
 		var seen := []
@@ -46,8 +46,18 @@ static func threatened(perception: Dictionary, squad: SkirmishSquad) -> bool:
 	return perception.get(squad.id, {}).get("threat", false)
 
 
-static func _widest(squad: SkirmishSquad) -> float:
+## [the box the squad's living units' centres stand in, its widest detection], in one pass
+## over its units - detection is measured between centres, so the box grown by it holds
+## every point any of them can see.
+static func _box(squad: SkirmishSquad) -> Array:
+	var low := Vector2(INF, INF)
+	var high := -low
 	var widest := 0.0
-	for unit in squad.living():
-		widest = maxf(widest, unit.detection)
-	return widest
+	for unit in squad.units:
+		if unit.is_alive():
+			low = low.min(unit.position)
+			high = high.max(unit.position)
+			widest = maxf(widest, unit.detection)
+	if widest == 0.0 and low.x == INF:
+		return [Rect2(), 0.0]
+	return [Rect2(low, high - low), widest]
