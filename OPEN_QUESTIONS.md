@@ -125,6 +125,11 @@ A real JSON→`.tscn` converter for the Lane Tile Designer prototype's export (o
 
 The viewer colours factions by roster order and the designer by library order, so one faction can show in two colours. A stored `FactionDef.color` would fix both. Related: the owner wants recolourable sprite parts for faction allegiance (2026-10-02).
 
+### Q20. The native field owns unit state, so the GDScript glue around it goes
+**Raised:** 2026-10-14, measuring slot search (PRs #206, #207) · **Raise when:** The design session on spec 34 item 4 ("data as arrays"); any work on a native pass's glue
+
+The owner: "the remaining glue needs to be fixed eventually". At four stacks of 1,024 a side (`tick_phases engine=rust side=4096 squads=4 fight=3`, CI runner), slot search's GDScript glue is still about 45 ms a tick: gathering 24.8 ms, syncing the field 11.0 ms, writing back 9.5 ms. The Rust core's own work is 33.6 ms. The walk and facing glue copy units in and out the same way, and so do most passes at ~25 ms each (blows, deaths, recovery, stamina). After #207, gathering works out each squad's say once. What is left is each unit's fields read and appended every tick, which only goes when the units' per-tick state (position, place, goal, loose entry, bearing, hp, stamina) lives in the field's arrays (spec 34 item 4, Decision 131). The design session decides what the field owns, how GDScript reads and writes it, and the order passes move over, each step held to the reference digests.
+
 ## Closed
 
 - Whether an authored `MapEdgeDef`/link is a hard constraint (the only route that exists) or a soft default a future pathfinding/movement-cost system could override — raised alongside the terrain-resistance idea above. Not designed; depends on that idea's outcome. **Resolved by Decision 26 (2026-09-27):** both. An authored link is a hard constraint on *which* nodes connect, and its route *geometry* is pathfound over terrain cost.
