@@ -21,6 +21,7 @@ const WalkModes = preload("res://sim/skirmish/formation/walk_modes.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 
 const EPSILON := 0.000001
@@ -39,10 +40,10 @@ static func walk(
 	var seconds: float = timing[0]
 	if WalkModes.climb(unit, terrain, seconds, unit.speed * timing[1]):
 		return  # on a climb face: it climbs before it moves on
-	var going := TerrainStep.way(unit, unit.position, place, terrain)  # [towards, ground's share]
+	var going := TerrainStep.way(unit, unit.position, place, terrain)  # its way round a barrier
 	var toward: Vector2 = going[0]
 	var way := toward - unit.position
-	var full: float = unit.speed * timing[1] * seconds * going[1]
+	var full: float = unit.speed * timing[1] * seconds
 	if not WalkModes.may_step(unit, unit.position, toward, terrain):
 		full = 0.0  # spent: it won't start a climb or a swim
 	if timing.size() > 2 and way.length() > EPSILON:  # bodies on the ground (GroundBodies)
@@ -51,7 +52,7 @@ static func walk(
 	var far := place.distance_to(unit.position) > _tuning().walk_face_travel
 	var look := toward if far else place + facing
 	var from := unit.position
-	unit.position = UnitMotion.walk(unit, unit.position, toward, full, seconds, look)
+	unit.position = UnitMover.step(unit, unit.position, toward, full, seconds, terrain, look)
 	WalkModes.after_step(unit, from, terrain, seconds)
 
 

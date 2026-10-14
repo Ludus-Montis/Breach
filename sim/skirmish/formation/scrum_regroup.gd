@@ -26,6 +26,7 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
 
@@ -96,8 +97,9 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 			var to := UnitSteer.toward(
 				unit, entry["at"], place, moving["bodies"], moving["seed"], moving["crowd"]
 			)
-			var stepped := UnitMotion.walk(unit, entry["at"], to, step, seconds, foe_at)
-			entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, moving["terrain"])
+			entry["at"] = UnitMover.step(
+				unit, entry["at"], to, step, seconds, moving["terrain"], foe_at
+			)
 		entry["next"] = entry["at"]
 		entry["goal"] = null
 		var faced := arrived and UnitMotion.turn(unit, heading, seconds)

@@ -35,6 +35,7 @@ const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
 ## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
@@ -64,7 +65,7 @@ static func retreat(
 
 
 ## One tick of chasing: each chaser walks at the march pace, paying the ground it crosses
-## (TerrainStep), after the nearest unit of the enemy it chases; once at its leash, out of
+## (UnitMover), after the nearest unit of the enemy it chases; once at its leash, out of
 ## sight of that enemy, or that enemy gone, it straggles back on its own to its place (or
 ## the nearest it can walk to it: TerrainStep.returns), wherever its formation now is, and
 ## rejoins it there - the formation doesn't wait for it (Decision 112).
@@ -108,8 +109,7 @@ static func step(
 		var entry: Dictionary = walk[2]
 		var full: float = unit.speed * cells_per_second * seconds
 		var to := UnitSteer.toward(unit, entry["at"], walk[3], bodies, fight_seed, crowd)
-		var stepped := UnitMotion.walk(unit, entry["at"], to, full, seconds)
-		entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, terrain)
+		entry["at"] = UnitMover.step(unit, entry["at"], to, full, seconds, terrain)
 		entry["next"] = entry["at"]
 		if walk[4] and entry["at"].distance_to(walk[3]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation

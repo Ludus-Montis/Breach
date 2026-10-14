@@ -6,7 +6,9 @@ extends RefCounted
 ## units don't keep to their route's line but fan out from it, each by its own angle -
 ## seeded by the battle and the unit - up to rout_fan_degrees either side, until
 ## rout_fan_cells out (BattleTuning) or the ground to the side can't be crossed. A ragged
-## retreat fans out by its disorder (FormationWithdraw). Pure.
+## retreat fans out by its disorder (FormationWithdraw). Its steps pay the ground they
+## cross (UnitMover, Decision 139): a wood or a ford slows a flight as it slows a march.
+## Pure.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -14,6 +16,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 
 
 ## The unit's own flight angle (radians) off its route's line, at full disorder.
@@ -47,9 +50,11 @@ static func step(
 		or not open
 	):
 		aside = 0.0
-	entry["fanned"] = fanned + aside
-	entry["offset"] += side * aside
-	entry["along"] = move_toward(entry["along"], home, sqrt(full * full - aside * aside))
+	var ahead := sqrt(full * full - aside * aside) * signf(home - entry["along"])
+	var paid := UnitMover.share(unit, at, at + side * aside + heading * ahead, terrain)
+	entry["fanned"] = fanned + aside * paid
+	entry["offset"] += side * aside * paid  # paid: UnitMover.share
+	entry["along"] = move_toward(entry["along"], home, absf(ahead) * paid)  # paid: UnitMover.share
 
 
 ## The standing friendly formation whose unit is nearest `at`, among those between the

@@ -26,7 +26,7 @@ extends RefCounted
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumBlows = preload("res://sim/skirmish/formation/scrum_blows.gd")
 const RoutFlight = preload("res://sim/skirmish/formation/rout_flight.gd")
@@ -132,13 +132,11 @@ static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terra
 	if terrain != null and terrain.factor(unit, at, at + heading * reach) <= 0.0:
 		var onto: Vector2 = squad.route.point_at(move_toward(along, home, LOOK_CELLS)) - at
 		heading = onto.normalized() if onto.length() > 0.000001 else homeward  # back to the road
-	if terrain != null:
-		full *= terrain.factor(unit, at, at + heading * reach)
 	var to := at + heading * maxf(full, 0.000001)
 	var efficacy: float = motion[5]
 	var turning: float = motion[1] * efficacy  # a turn is a re-form
 	var step: float = full * minf(efficacy, 1.0) if motion[3] else full
-	entry["at"] = UnitMotion.walk(unit, at, to, step, turning)
+	entry["at"] = UnitMover.step(unit, at, to, step, turning, terrain)  # pays the ground
 	entry["next"] = entry["at"]
 	entry["goal"] = null
 
