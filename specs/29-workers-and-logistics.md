@@ -1,7 +1,8 @@
 # Spec 29: Workers and logistics
 
 Decisions 2 (auto-extraction), 26 (roads built in play), 45 (domain builders and reserve),
-54 (digging), 75 (routes), 77 and 79 (items), 80 (carried supplies).
+54 (digging), 75 (routes), 77 and 79 (items), 80 (carried supplies), 136 and 141 (rubble,
+spoil, and the squad order that keeps a digger's way back clear).
 
 ## Purpose
 
