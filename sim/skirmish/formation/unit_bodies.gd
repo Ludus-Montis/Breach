@@ -12,8 +12,12 @@ extends RefCounted
 ##   and its own squad's loose units still shove their way through it.
 ## - **Foes** are not pushed (Decision 105): two that overlap - one shoved into the other by
 ##   its friends - each step back half the overlap, so no one is pushed into an enemy.
-## - **Two units both in their frames** are kept apart by the frames (their own places, and
-##   friends queueing between squads: Decision 84).
+## - **Two units both in their frames:** of two squads, they are kept apart by the frames
+##   (friends queueing between squads: Decision 84; foes halting at contact). Of one squad,
+##   nothing else keeps them apart once they walk to their places (they can cross, or close
+##   up in a queue at a gap), so they part as friends do, but each stays in its frame and
+##   walks on from where it was pushed: only a push from a body out of its frame takes a
+##   unit out of its own.
 ## Pushes are worked out from one snapshot, then applied together, bodies_passes times a tick; a
 ## pair whose bodies lie exactly on each other parts along an angle seeded by the battle
 ## and the two units, never by a world direction or the list (Decision 97). Pure over the
@@ -79,13 +83,13 @@ static func part_way(fight_seed: int, draw: int, other_draw: int) -> Vector2:
 static func _passes(drawn: Array, fight_seed: int) -> void:
 	for _pass in range(BattleTuning.current().bodies_passes):
 		var bodies := _bodies(drawn)
-		var moves := {}  # body index -> how far it is pushed
+		var moves := {}  # body index -> [how far it is pushed, by one out of its frame]
 		for pair in _pairs(bodies):
 			_push(bodies, pair, fight_seed, moves)
 		if moves.is_empty():
 			return
 		for index in moves:
-			_move(bodies[index], moves[index])
+			_move(bodies[index], moves[index][0], moves[index][1])
 
 
 ## [[squad, unit, its draw], ...] for every living unit of a standing squad, in the order
@@ -109,8 +113,8 @@ static func _bodies(drawn: Array) -> Array:
 	return out
 
 
-## [[i, j], ...] in order, for bodies that overlap, i < j, not both in their frames,
-## found through buckets from the bodies out of their frames.
+## [[i, j], ...] in order, for bodies that overlap, i < j, not in two squads' frames, found
+## through buckets.
 static func _pairs(bodies: Array) -> Array:
 	var count := bodies.size()
 	var buckets := {}
@@ -127,18 +131,16 @@ static func _pairs(bodies: Array) -> Array:
 		buckets[key].append(index)
 	var found := PackedInt64Array()
 	for index in range(count):
-		if framed[index]:
-			continue  # a pair of two in their frames is kept apart by the frames
 		for dy in range(-1, 2):
 			for dx in range(-1, 2):
 				for other in buckets.get(homes[index] + Vector2i(dx, dy), []):
-					if not framed[other] and other <= index:
+					if other <= index:
 						continue
-					var one := mini(index, other)
-					var two := maxi(index, other)
-					var apart: Vector2 = bodies[two][2] - bodies[one][2]
-					if radii[one] + radii[two] - apart.length() > EPSILON:  # as _push weighs it
-						found.append(one * count + two)
+					if framed[index] and framed[other] and bodies[index][0] != bodies[other][0]:
+						continue  # two squads' frames keep them apart
+					var apart: Vector2 = bodies[other][2] - bodies[index][2]
+					if radii[index] + radii[other] - apart.length() > EPSILON:  # as _push weighs it
+						found.append(index * count + other)
 	found.sort()
 	var out := []
 	for pair in found:
@@ -152,7 +154,8 @@ static func _framed(body: Array) -> bool:
 
 
 ## Adds the pair's push to `moves`: each body out along the line between them - friends
-## by the other's share of their mass, foes half each.
+## by the other's share of their mass, foes half each - noting a push from a body out of
+## its frame (it takes one in its frame out of it).
 static func _push(bodies: Array, pair: Array, fight_seed: int, moves: Dictionary) -> void:
 	var a: Array = bodies[pair[0]]
 	var b: Array = bodies[pair[1]]
@@ -170,10 +173,13 @@ static func _push(bodies: Array, pair: Array, fight_seed: int, moves: Dictionary
 			share = 0.0
 		elif _keeps(b, a, depth):
 			share = 1.0
+	var loosens := not (_framed(a) and _framed(b))
 	if share > 0.0:  # a body that holds its space isn't moved, so stays in its frame
-		moves[pair[0]] = moves.get(pair[0], Vector2.ZERO) - way * depth * share
+		var held: Array = moves.get(pair[0], [Vector2.ZERO, false])
+		moves[pair[0]] = [held[0] - way * depth * share, held[1] or loosens]
 	if share < 1.0:
-		moves[pair[1]] = moves.get(pair[1], Vector2.ZERO) + way * depth * (1.0 - share)
+		var held: Array = moves.get(pair[1], [Vector2.ZERO, false])
+		moves[pair[1]] = [held[0] + way * depth * (1.0 - share), held[1] or loosens]
 
 
 ## True if `keeper`, in its frame, holds its space against `other`, a loose unit: always
@@ -193,12 +199,16 @@ static func _mass(body: Array) -> float:
 
 
 ## Moves the body by `push`: a router's flight, a loose unit's point, or - for one in its
-## frame - out of its place, to walk back to it.
-static func _move(body: Array, push: Vector2) -> void:
+## frame - out of its place, to walk back to it, if a body out of its frame pushed it
+## (`loosens`), else where it stands, walking on in its frame.
+static func _move(body: Array, push: Vector2, loosens: bool) -> void:
 	var squad: SkirmishSquad = body[0]
 	var unit: SkirmishUnit = body[1]
 	if squad.fleeing.has(unit.id):
 		squad.fleeing[unit.id]["offset"] += push
+		return
+	if not loosens and not squad.loose.has(unit.id):
+		unit.position = body[2] + push
 		return
 	if not squad.loose.has(unit.id):
 		squad.loose[unit.id] = {"unit": unit, "at": body[2], "goal": null, "next": body[2]}

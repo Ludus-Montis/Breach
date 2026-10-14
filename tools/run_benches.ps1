@@ -54,9 +54,9 @@ $report = Join-Path $out "bench_${machine}_$stamp.txt"
 # The per-tick digest files' sha256 on the reference (Linux) build, with DetMath: every
 # platform should give these.
 $reference = @{
-	"standard" = "63ae199a4af4152e3968f3f5dc1afbb65c881069a389192e48f82a3395f81cbe"
+	"standard" = "14878d70c9800c31bc37ab2173343b8900758f933e0f4a0a5c4b590c28d8663a"
 	"clash160" = "846075a85ef4f9b1ebd6eb8f75205daab8f6dc03cf29382131e4b283d65b58d0"
-	"wide"     = "e2752a95a9013632502e1c0a6bd33b4aed7f3523422ba76d77d7cd71478bdb77"
+	"wide"     = "0cb41776ecb08e35cccef399d15aa6a3285f9615da043aec9a28cd7a90fd27a9"
 }
 
 function Write-Report([string]$text) {

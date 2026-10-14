@@ -1,0 +1,105 @@
+name: Sim checks
+
+# The heavy simulation checks, run here rather than in an agent's session: the suite under
+# the Rust core, both engines' tick digests compared, the mirror trials fought from both
+# sides, and the scaling check. The last step prints a short summary between SUMMARY
+# markers, so the outcome can be read from the end of the log.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7.2-stable"
+
+jobs:
+  sim-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Godot binary
+        id: godot-cache
+        uses: actions/cache@v6
+        with:
+          path: /opt/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
+          mkdir -p /opt/godot
+          unzip -q godot.zip -d /opt/godot
+          mv /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot
+          chmod +x /opt/godot/godot
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Build the Rust core
+        run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
+
+      - name: Import project
+        run: /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true
+
+      - name: Suite under the Rust core
+        run: |
+          BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
+            -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c --ignoreHeadlessMode \
+            2>&1 | sed 's/\x1b\[[0-9;]*m//g' > suite.log
+          grep -E "FAILED|SCRIPT ERROR|Parse Error" suite.log | head -40 || true
+          grep -E "^Overall Summary|Statistics" suite.log | tail -1
+
+      - name: Digests, both engines
+        run: |
+          mkdir -p digests
+          for set in standard clash160 wide; do
+            for engine in gdscript rust; do
+              BREACH_NATIVE=$engine /opt/godot/godot --headless --path . \
+                --script res://tools/formation_digest.gd -- set=$set out=digests/$set.$engine.txt \
+                > /dev/null 2>&1
+            done
+          done
+          (cd digests && sha256sum *.txt)
+
+      - name: Mirror trials, both sides
+        run: |
+          for scenario in mirror_headon mirror_flank; do
+            for side in "" swap; do
+              /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
+                scenario=$scenario runs=50 $side 2>/dev/null | tail -1 | sed "s/^/${side:-plain} /"
+            done
+          done | tee trials.txt
+
+      - name: Scaling check (Rust)
+        run: |
+          BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
+            --script res://tools/scaling_check.gd 2>/dev/null | tee scaling.txt
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "SUMMARY BEGIN"
+            echo "suite (rust): $(grep -cE ' FAILED' suite.log 2>/dev/null || true) failed;" \
+              "$(grep -E 'Statistics|Overall' suite.log 2>/dev/null | tail -1)"
+            for set in standard clash160 wide; do
+              g=$(sha256sum digests/$set.gdscript.txt 2>/dev/null | cut -c1-16)
+              r=$(sha256sum digests/$set.rust.txt 2>/dev/null | cut -c1-16)
+              verdict=$([ -s digests/$set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
+              echo "digest $set: gdscript $g rust $r $verdict"
+            done
+            cat trials.txt 2>/dev/null
+            grep -E "a side|FAILED" scaling.txt 2>/dev/null
+            echo "SUMMARY END"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"

@@ -182,8 +182,7 @@ func step() -> Array:
 	UnitBodies.step(_squads, fight_seed, _field)  # after every move: bodies part (Decision 106)
 	for entry in _squads:
 		events.append_array(FormationShuffle.step(entry, tick_seconds, TRAVEL_SCALE, _tick))
-	var walking := [tick_seconds, TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE]
-	FormationMarch.sync_units(_squads, walking, terrain)  # units walk to their places
+	FormationMarch.sync_units(_squads, [tick_seconds, pace], terrain, fight_seed)  # to places
 	return events
 
 
@@ -228,15 +227,17 @@ func _move(events: Array) -> void:
 		var paced := [TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE, tick_seconds]
 		if FormationStaging.holds(mover, _squads, _tick, events, paced, terrain):
 			continue
+		var end := FormationMarch.length(mover, route_length)
+		if mover.order == SkirmishUnit.Order.RETREAT:  # home already: it holds, no about-face
+			FormationMarch.check_ends(mover, end, _tick, events)
 		if mover.order == SkirmishUnit.Order.HOLD or FormationContact.skirmishing(mover, _squads):
 			mover.state = SkirmishSquad.State.HOLDING
 			continue
 		mover.state = SkirmishSquad.State.MOVING
-		var end := FormationMarch.length(mover, route_length)
 		var travel := FormationMarch.travel_sign(mover, end)
 		if travel != mover.direction and ScrumTurn.begin(mover, travel, _tick, events):
 			continue  # an about-face is a re-form: its units walk to their places (Decision 92)
-		var keeping := FormationWalk.share(mover, terrain)  # within its slack of its units
+		var keeping := FormationWalk.share(mover, terrain, fight_seed)  # within its units' slack
 		if keeping <= 0.0:
 			continue  # it waits for them (spec 30 round 3)
 		var cells_per_second := mover.speed() * TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE

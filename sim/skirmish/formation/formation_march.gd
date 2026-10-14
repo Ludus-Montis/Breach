@@ -15,6 +15,8 @@ const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
+const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
+const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 
@@ -80,7 +82,10 @@ static func face(squad: SkirmishSquad) -> void:
 	squad.heading = UnitMotion.bearing_to(Vector2.ZERO, way, squad.heading)
 
 
-## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home.
+## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home: its
+## front there, or every unit of it home (FormationWithdraw's test, within HOME_CELLS)
+## wherever its front stands - it holds as it faces, rather than about-face to march a
+## rank's length back to home and about-face again.
 static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events: Array) -> void:
 	var enemy_end := route_end if is_zero_approx(mover.home_distance) else 0.0
 	if (
@@ -92,7 +97,10 @@ static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events
 		events.append(FormationEvents.squad_event("arrived", tick, mover))
 	elif (
 		mover.order == SkirmishUnit.Order.RETREAT
-		and is_equal_approx(mover.front_distance, mover.home_distance)
+		and (
+			is_equal_approx(mover.front_distance, mover.home_distance)
+			or (mover.route != null and FormationWithdraw._home(mover))
+		)
 	):
 		mover.front_distance = mover.home_distance
 		mover.order = SkirmishUnit.Order.HOLD
@@ -102,13 +110,19 @@ static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events
 
 ## Units follow their squad's placement - including any swap under way - and views read
 ## unit.distance (along the route). Placing (no `timing`) sets each unit on its place;
-## otherwise a unit in its place walks there ([seconds, cells a second at speed 1],
-## FormationWalk), and loose and fleeing units stand where their own moves took them.
-static func sync_units(squads: Array, timing := [], terrain: FormationTerrain = null) -> void:
+## otherwise a unit in its place walks to where it makes for ([seconds, cells a second at
+## speed 1], FormationWalk; FormationPour.targets, its queues' draws by `fight_seed`), and
+## loose and fleeing units stand where their own moves took them.
+static func sync_units(
+	squads: Array, timing := [], terrain: FormationTerrain = null, fight_seed: int = 0
+) -> void:
 	if not timing.is_empty():
 		timing = timing + [GroundBodies.ground(squads)]
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
+		var aims := {}  # where each unit in its place makes for, worked out once a squad
+		if not timing.is_empty():
+			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
 		for unit in entry.units:
 			if not unit.is_alive():
 				continue  # the fallen lie where they fell (Decision 126)
@@ -127,10 +141,4 @@ static func sync_units(squads: Array, timing := [], terrain: FormationTerrain = 
 				unit.foothold = unit.position
 				unit.bearing = entry.heading
 			else:
-				FormationWalk.walk(
-					entry,
-					unit,
-					FormationWalk.target_of(entry, unit, terrain, moving),
-					timing,
-					terrain
-				)
+				FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)

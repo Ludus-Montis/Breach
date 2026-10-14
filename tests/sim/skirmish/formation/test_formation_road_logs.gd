@@ -57,8 +57,10 @@ func test_a_pursuit_follows_its_quarry_down_the_road_it_flees_by() -> void:
 	assert_bool(via_c[2]).is_true()  # then home to its post, on its own route again
 	assert_float(via_c[3].x).is_greater(75.0)
 
+	# Its retreat comes as long after B reaches the line's flank as in the feel test (1529,
+	# 15 ticks after): B now pours through the ford in turn, so reaches it later.
 	var log := "seed 515557 captain off\n0 pursues off\n120 send B\n318 retreat B\n"
-	log += "1314 pursues on\n1326 send B\n1529 retreat B"
+	log += "1314 pursues on\n1326 send B\n1550 retreat B"
 	var by_b := _pursuit_roads(log, 700)
 	assert_float(by_b[1]).is_less(25.0)  # up route B, north, after B
 	assert_array(by_b[4]).contains(["B"])  # its quarry's road, whatever then befalls it

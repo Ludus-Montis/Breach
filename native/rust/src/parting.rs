@@ -102,6 +102,8 @@ pub fn part(
     let mut out = Outcome::default();
     let mut moves = vec![V2::ZERO; count];
     let mut has_move = vec![false; count];
+    // pushed by a body out of its frame: one in its frame leaves it (UnitBodies._move)
+    let mut loosens = vec![false; count];
     let mut order: Vec<usize> = Vec::with_capacity(count);
     for _ in 0..tuning.passes {
         let at = positions(bodies);
@@ -114,6 +116,7 @@ pub fn part(
         };
         order.clear();
         for (&(i, j), p) in pairs.iter().zip(pushes) {
+            let loosening = !(framed(bodies.flags[i]) && framed(bodies.flags[j]));
             let (one, two) = match p {
                 Push::None => continue,
                 Push::Moves(one, two) => (one, two),
@@ -126,9 +129,11 @@ pub fn part(
             };
             if let Some(v) = one {
                 accumulate(&mut moves, &mut has_move, &mut order, i, v, true);
+                loosens[i] |= loosening;
             }
             if let Some(v) = two {
                 accumulate(&mut moves, &mut has_move, &mut order, j, v, false);
+                loosens[j] |= loosening;
             }
         }
         if order.is_empty() {
@@ -136,9 +141,10 @@ pub fn part(
         }
         out.passes += 1;
         for &index in &order {
-            apply(bodies, index, moves[index], &mut out.loosened);
+            apply(bodies, index, moves[index], loosens[index], &mut out.loosened);
             moves[index] = V2::ZERO;
             has_move[index] = false;
+            loosens[index] = false;
         }
     }
     out
@@ -174,7 +180,8 @@ fn positions(bodies: &Bodies) -> Vec<V2> {
         .collect()
 }
 
-/// [(i, j), ...] sorted, for bodies that overlap, not both framed (UnitBodies._pairs).
+/// [(i, j), ...] sorted, for bodies that overlap, not in two squads' frames
+/// (UnitBodies._pairs).
 fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
     let count = at.len();
     let homes: Vec<(i32, i32)> = at
@@ -187,9 +194,6 @@ fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
     }
     let found_from = |index: usize| -> Vec<u64> {
         let mut found = Vec::new();
-        if framed(bodies.flags[index]) {
-            return found;
-        }
         let home = homes[index];
         for dy in -1..=1 {
             for dx in -1..=1 {
@@ -198,13 +202,17 @@ fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
                 };
                 for &other in bucket {
                     let other = other as usize;
-                    if !framed(bodies.flags[other]) && other <= index {
+                    if other <= index {
                         continue;
                     }
-                    let (one, two) = (index.min(other), index.max(other));
-                    let apart = at[two].sub(at[one]);
-                    if bodies.radii[one] + bodies.radii[two] - apart.length() as f64 > EPSILON {
-                        found.push((one * count + two) as u64);
+                    let both_framed = framed(bodies.flags[index]) && framed(bodies.flags[other]);
+                    if both_framed && bodies.squads[index] != bodies.squads[other] {
+                        continue; // two squads' frames keep them apart
+                    }
+                    let apart = at[other].sub(at[index]);
+                    if bodies.radii[index] + bodies.radii[other] - apart.length() as f64 > EPSILON
+                    {
+                        found.push((index * count + other) as u64);
                     }
                 }
             }
@@ -269,11 +277,12 @@ fn mass(bodies: &Bodies, tuning: &Tuning, index: usize) -> f64 {
     }
 }
 
-/// UnitBodies._move: a router's offset, a loose unit's point, or a framed unit made loose.
-fn apply(bodies: &mut Bodies, index: usize, push: V2, loosened: &mut Vec<i32>) {
+/// UnitBodies._move: a router's offset, a loose unit's point, a framed unit made loose if
+/// a body out of its frame pushed it (`loosens`), else its point in its frame.
+fn apply(bodies: &mut Bodies, index: usize, push: V2, loosens: bool, loosened: &mut Vec<i32>) {
     let flags = bodies.flags[index];
     bodies.flags[index] |= MOVED;
-    if flags & FLEEING != 0 {
+    if flags & FLEEING != 0 || (flags & LOOSE == 0 && !loosens) {
         bodies.points[index] = bodies.points[index].add(push);
         return;
     }

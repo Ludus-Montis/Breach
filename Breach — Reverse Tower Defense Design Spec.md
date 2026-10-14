@@ -6350,3 +6350,107 @@ They should follow their most recently given commands, whether from player or a 
 the same tick act together (Decision 97); which is "latest" between a player's and a
 leader's order in one tick is decided by a seeded draw, never by who was processed
 first.
+
+### Decision 134 — A threatened group fights before it recovers; rescuers carry the downed out
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+**Amends:** spec 30 round 3's downed handling (taking and finishing)
+
+**Rationale:** In the field test, waves turned to recover or finish downed bodies with a
+standing enemy close by. The user: "if an enemy is nearby then realistically there is a
+threat to our units ... I would see default behaviour as prioritising engaging the enemy,
+if there are excess units and the units themselves or their leader possess behavioural
+traits that prioritise recovery then they could pull allied units back".
+- A group is **threatened** while it sees a standing foe within its seek distance. The
+  threat is part of what the group's decisions read, not a separate mode.
+- A threatened group engages a stationary foe, pursues one that moves away, and only then
+  recovers; it doesn't take or finish downed bodies while threatened.
+- **Spare units** are those beyond what the fight's frontage can use. A spare unit with the
+  `rescuer` trait, or any spare unit of a formation whose leader has
+  `prioritise_casualties`, carries a downed friend to the rear, drops it and returns.
+
+**Rules over cases:** a general rule (threat orders the priorities). **Order:** which
+spare unit carries which body is decided by place, then a seeded draw (Decision 97).
+
+### Decision 135 — Climbing and swimming units fight at a disadvantage, unless trained to
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+
+**Rationale:** The field test showed units without the climber or swimmer trait being
+treated as low ground. The user: anyone climbing or swimming is disadvantaged, and
+`combat_climber` / `combat_swimmer` traits let them fight at full capacity and stop
+hits counting as from high ground against them. On limbs: "some attacks might not require
+hands like a spider's bite, they could pretty much attack normally anyway".
+- A unit climbing or swimming counts as **low ground**: its attackers get the high-ground
+  bonus.
+- **Climbing holds limbs:** a unit's `climb_grip` (default 3 for a biped: two feet and a
+  hand) are taken while it climbs. It attacks only with weapons whose slots are still
+  free; attacks that need no limb (a bite) are unaffected. It parries only with a free
+  weapon hand.
+- **Swimming:** −25 skill and no dodge.
+- `combat_climber` and `combat_swimmer` remove the penalties and the low-ground bonus
+  against them. A combat climber's grip still holds its limbs.
+
+**Rules over cases:** general rules. **Order:** unchanged.
+
+### Decision 136 — Rubble and spoil are one loose material; a digger never buries its way out
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+**Amends:** Decision 57 (fallen material becomes rubble)
+
+**Rationale:** The user's questions on rubble: how much falls, whether it compacts, whether
+diggers pick it up, whether it can be dropped and built with, and "concerned about
+diggers effectively entombing themselves with spoil behind them".
+- Fallen material keeps its **old volume** as rubble in the cell it falls to.
+- **Loose material** covers rubble and spoil alike. Diggers take spoil as load (spec 28
+  load and stamina) and drop it as loose material. Loose stone builds rubble walls;
+  loose soil builds earthworks.
+- **Collapse damage** scales with the weight that falls times the drop.
+- **No entombing:** a digger never drops spoil into the cell it came from or any cell of
+  its way back. With nowhere else to drop it and no room to carry more, it stops digging
+  and calls for haulers (an event) rather than sealing itself in. This rule is Claude's
+  proposal for the user's concern; the user may revise it.
+
+**Rules over cases:** general rules. **Order:** where spoil drops among equal cells is
+decided by a seeded draw (Decision 97).
+
+### Decision 137 — Breaking and siege belong to attacks; a creature may pass them down
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+**Amends:** Decision 47 (siege) and spec 28's traits
+
+**Rationale:** The user: "breaker realistically should be a property on weapons e.g. a
+pickaxe rather than on the unit, same with siege ... just because a creature wields a
+weapon with breaker/siege doesnt mean the creature has that trait", while a creature such
+as an earth elemental could have them itself. Then: "Add them now".
+- `breaker N` and `siege` sit on **weapons and body attacks**. Every attack has breaker 0
+  unless it says otherwise.
+- `breaking_strikes N` and `siege_strikes` sit on a **creature**. They pass breaking or
+  siege down to its own attacks and to weapons it wields. Not every attack of a creature
+  with them must use them; that's per attack.
+- Wielding a breaker or siege weapon **never grants** the creature trait.
+- A thrown body hits as a body attack with breaker 0, unless its body has
+  `breaking_strikes`.
+- The traits are in `content/registry/traits.json`; their effects wait on spec 29's
+  terrain work.
+
+**Rules over cases:** general rules. **Order:** unchanged.
+
+### Decision 138 — Decisions run on each unit's own beat, set by its wits
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-14
+
+**Rationale:** Another agent suggested staggering unit decisions by unit id to spread the
+work; ids break Decision 97. The user agreed to tie the beat to wits instead, and asked how
+ties break when everyone has the same wits.
+- A unit decides every 1.0 s × 10 ÷ wits, starting at a phase drawn from the battle's seed
+  at spawn. Units with equal wits still spread across the beat by that draw.
+- Ranges of stats within a unit type (spec 33, finding 11) would add natural spread.
+
+**Rules over cases:** a general rule. **Order:** the phase is a seeded draw, never an id or
+list position (Decision 97).

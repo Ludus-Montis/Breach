@@ -34,6 +34,8 @@ const ScrumSlots = preload("res://sim/skirmish/formation/scrum_slots.gd")
 const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
+const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
 ## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
 ## discipline) / 100.
@@ -61,12 +63,18 @@ static func retreat(
 	return events
 
 
-## One tick of chasing: each chaser walks at the march pace after the nearest unit of the
-## enemy it chases; once at its leash, out of sight of that enemy, or that enemy gone, it
-## straggles back on its own to its place, wherever its formation now is, and rejoins it
-## there - the formation doesn't wait for it (Decision 112).
+## One tick of chasing: each chaser walks at the march pace, paying the ground it crosses
+## (TerrainStep), after the nearest unit of the enemy it chases; once at its leash, out of
+## sight of that enemy, or that enemy gone, it straggles back on its own to its place (or
+## the nearest it can walk to it: TerrainStep.returns), wherever its formation now is, and
+## rejoins it there - the formation doesn't wait for it (Decision 112).
 static func step(
-	squads: Array, _tick: int, cells_per_second: float, seconds: float, fight_seed: int = 0
+	squads: Array,
+	_tick: int,
+	cells_per_second: float,
+	seconds: float,
+	fight_seed: int = 0,
+	terrain: FormationTerrain = null
 ) -> void:
 	var by_id := {}
 	for entry in squads:
@@ -74,6 +82,9 @@ static func step(
 	var walks := []  # [unit, its place in the scrum, where it heads]
 	var quarries := {}  # foe squad -> its units' index (ScrumNear), where they stand now
 	for squad in squads:
+		var homes := (
+			{} if squad.chasers.is_empty() else TerrainStep.returns(squad, terrain, fight_seed)
+		)
 		for unit_id in squad.chasers.keys():
 			var chase: Dictionary = squad.chasers[unit_id]
 			var foe: SkirmishSquad = by_id.get(chase["foe"])
@@ -82,7 +93,7 @@ static func step(
 				squad.chasers.erase(unit_id)
 				continue
 			var entry: Dictionary = squad.loose[unit_id]
-			var heads := ScrumStance.anchor(squad, unit)  # straggling back to its place
+			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))  # back
 			if not chase.get("returning", false):
 				var quarry = _quarry(entry["at"], unit, foe, quarries, fight_seed)
 				if _done(chase, entry["at"], unit, quarry):
@@ -97,7 +108,8 @@ static func step(
 		var entry: Dictionary = walk[2]
 		var full: float = unit.speed * cells_per_second * seconds
 		var to := UnitSteer.toward(unit, entry["at"], walk[3], bodies, fight_seed, crowd)
-		entry["at"] = UnitMotion.walk(unit, entry["at"], to, full, seconds)
+		var stepped := UnitMotion.walk(unit, entry["at"], to, full, seconds)
+		entry["at"] = TerrainStep.pay(unit, entry["at"], stepped, terrain)
 		entry["next"] = entry["at"]
 		if walk[4] and entry["at"].distance_to(walk[3]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
