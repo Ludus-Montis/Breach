@@ -60,6 +60,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const FormationFronts = preload("res://sim/skirmish/formation/formation_fronts.gd")
 const FormationJoins = preload("res://sim/skirmish/formation/formation_joins.gd")
+const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 const MELEE_REACH := FormationContact.MELEE_REACH
@@ -74,18 +75,16 @@ const STANDING := [
 
 var route_length: float
 var tick_seconds: float
-## The lane's width, which squads spawned from now on may spread to (Decision 51); 0 keeps
-## each squad within its own columns.
+## The lane's width squads spawned from now on may spread to (Decision 51); 0: own columns.
 var combat_width := 0
 ## The battle seed (Decision 93): every random draw comes from it - contests for cells,
 ## and each blow's roll.
 var fight_seed := 0
-## Whether each blow is rolled against its target's parry, dodge and defence, and its damage
-## within its weapons' range (Decisions 118 and 119, BlowLanding); off, every blow lands as
-## a plain hit at its weapons' full damage.
+## Whether each blow is rolled against parry, dodge and defence, its damage in its weapons'
+## range (Decisions 118 and 119, BlowLanding); off, each lands plainly at full damage.
 var blow_rolls := false
-## The ground (Decision 85); null is open, level ground everywhere.
-var terrain: FormationTerrain = null
+var terrain: FormationTerrain = null  # the ground (Decision 85); null: open, level ground
+var perception := {}  # what each formation sees as the tick begins (FormationPerception)
 
 var _route: FormationRoute
 var _squads: Array[SkirmishSquad] = []
@@ -169,7 +168,7 @@ func step() -> Array:
 	)
 	_fight(events)
 	FormationDeaths.bury(_squads, _tick, events)
-	FormationTaking.step(_squads, _tick, tick_seconds, fight_seed, events)  # out to the downed
+	FormationTaking.step(_squads, _tick, tick_seconds, fight_seed, events, perception)
 	FormationWounds.tend(_squads, _tick, _attack_interval_ticks(), fight_seed, events)
 	var strays := FormationRecovery.step(_squads, tick_seconds, _tick, fight_seed, events)
 	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)
@@ -209,6 +208,7 @@ func _apply_orders(events: Array) -> void:
 
 
 func _engage(events: Array) -> void:
+	perception = FormationPerception.see(_squads, terrain)  # all decide on one picture
 	FormationFronts.engage(_squads, _tick, fight_seed, events)
 	FormationEdges.engage(_squads, _tick, events, fight_seed)
 
