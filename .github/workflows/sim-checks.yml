@@ -99,7 +99,7 @@ jobs:
               echo "digest $set: gdscript $g rust $r $verdict"
             done
             cat trials.txt 2>/dev/null
-            grep -E "a side|FAILED" scaling.txt 2>/dev/null
+            grep -E "a side|stacks|FAILED" scaling.txt 2>/dev/null
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"

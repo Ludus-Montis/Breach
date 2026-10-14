@@ -22,6 +22,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const SquadPlaces = preload("res://sim/skirmish/formation/squad_places.gd")
 const PlaceOrder = preload("res://sim/skirmish/formation/place_order.gd")
+const ShuffleFront = preload("res://sim/skirmish/formation/shuffle_front.gd")
 
 ## How terrain changes the speed units pass one another at; 1 until lanes carry terrain.
 const TERRAIN_FACTOR := 1.0
@@ -119,11 +120,12 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 			busy[unit] = true
 			_claim(claimed, swap["to"][unit], unit)
 	var front_first := PlaceOrder.front_first(squad.living())
+	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	var started := false
 	for unit: SkirmishUnit in front_first:
 		if unit.rank == 0 or busy.has(unit):
 			continue
-		var plan := _into_free_front(squad, unit, claimed, occupied)
+		var plan := ShuffleFront.free_place(squad, unit, claimed, [occupied, open])
 		if plan.is_empty():
 			plan = _through(squad, unit, busy, claimed, occupied)
 		if plan.is_empty():
@@ -159,49 +161,6 @@ static func _claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> 
 
 
 ## A front-preferring unit's move to the nearest free place in the front rank; {} if none.
-static func _into_free_front(
-	squad: SkirmishSquad, unit: SkirmishUnit, claimed: Dictionary, occupied: Dictionary
-) -> Dictionary:
-	if unit.preferred_position != 0:
-		return {}
-	var best := {}
-	var spreading := (
-		squad.state == SkirmishSquad.State.FIGHTING
-		and squad.joined.has(unit)
-		and squad.combat_width > 0
-	)
-	var reach := squad.combat_width if spreading else unit.footprint_width
-	for column in range(-reach, squad.width + reach - unit.footprint_width + 1):
-		var place := Vector2i(0, column)
-		var inside := column >= 0 and column + unit.footprint_width <= squad.width
-		if not inside and not _within_combat_width(squad, column, unit, claimed):
-			continue
-		if not SquadPlaces.vacant(occupied, place, unit, [unit], claimed["cells"]):
-			continue
-		var distance := maxi(unit.rank, absi(column - unit.column))
-		if best.is_empty() or distance < best["distance"]:
-			best = {"mover": unit, "passed": [], "to": {unit: place}, "distance": distance}
-	return best
-
-
-## True if `unit` at `column` keeps the line, planned moves included, within the combat
-## width, and no more than half a column past either edge of the lane (Decision 51).
-static func _within_combat_width(
-	squad: SkirmishSquad, column: int, unit: SkirmishUnit, claimed: Dictionary
-) -> bool:
-	if squad.combat_width <= 0:
-		return false
-	var left: int = mini(mini(0, column), claimed["left"])  # planned moves' columns too
-	var right: int = maxi(maxi(squad.width, column + unit.footprint_width), claimed["right"])
-	var edge := squad.combat_width / 2.0 + 0.5
-	var lateral := column - squad.width / 2.0 + squad.centre_shift
-	return (
-		right - left <= squad.combat_width
-		and lateral >= -edge - EPSILON
-		and lateral + unit.footprint_width <= edge + EPSILON
-	)
-
-
 ## Takes in any columns units now stand in outside 0..width (a spread, Decision 51):
 ## renumbers every column, swaps under way included, and shifts the centre to match.
 static func _widen_to_fit(squad: SkirmishSquad) -> void:
