@@ -11,7 +11,8 @@ name: Bench
 # step 5b). With `rounds` above 1 and a base, the two run in turn - head first in odd rounds,
 # base first in even ones, so a drift on the runner falls on both - and the summary is each
 # phase's medians, change and ranges (ci/godot/scripts/bench_compare.py), `*` where the
-# ranges don't overlap, then round 1's raw output.
+# ranges don't overlap, then round 1's raw output. With 3 rounds, two sides that don't
+# differ still fall apart that way for about 1 phase in 10; with 5, about 1 in 125.
 
 on:
   workflow_dispatch:

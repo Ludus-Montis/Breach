@@ -8,6 +8,8 @@ several times on one runner, and this reads each run's output (`tools/tick_phase
 "... ms a tick" line, then one "  <phase>  <ms>" line per phase) and prints, per phase, each
 side's median and range and the change in the medians. A phase is marked `*` when the two
 ranges don't overlap: every head round faster, or every one slower, than every base round.
+Two sides that don't differ fall apart that way by chance 2 times in 20 with 3 rounds each
+(about 4 of tick_phases' 40 phases a run), 2 in 252 with 5: use 5 or more to judge.
 
     bench_compare.py --head head_1.txt head_2.txt ... --base base_1.txt base_2.txt ...
 """
