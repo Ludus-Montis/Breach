@@ -17,11 +17,13 @@ static func occupancy(squad: SkirmishSquad) -> Dictionary:
 	var order := {}
 	var places := {}
 	var table := UnitPlace.table(squad)
+	var ranks: PackedInt32Array = table[0]
+	var files: PackedInt32Array = table[1]
 	var living := squad.living()
 	for index in range(living.size()):
 		var unit: SkirmishUnit = living[index]
 		order[unit] = index
-		var at := UnitPlace.read(table, squad, unit)
+		var at := Vector2i(ranks[unit.slot], files[unit.slot])
 		places[unit] = at
 		for rank in range(at.x, at.x + unit.footprint_depth):
 			for column in range(at.y, at.y + unit.footprint_width):
@@ -74,7 +76,13 @@ static func claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> v
 ## {unit: Vector2i(rank, column)} for the units of `squad`.
 static func places(squad: SkirmishSquad, units: Array) -> Dictionary:
 	var out := {}
-	var table := UnitPlace.table(squad) if units.size() > 2 else []  # few: read each
+	if units.size() <= 2:  # few: read each
+		for unit in units:
+			out[unit] = UnitPlace.of(squad, unit)
+		return out
+	var table := UnitPlace.table(squad)
+	var ranks: PackedInt32Array = table[0]
+	var files: PackedInt32Array = table[1]
 	for unit in units:
-		out[unit] = UnitPlace.read(table, squad, unit)
+		out[unit] = Vector2i(ranks[unit.slot], files[unit.slot])
 	return out

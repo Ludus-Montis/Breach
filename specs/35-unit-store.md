@@ -766,9 +766,15 @@ Kept, where the list above was wider than the code:
   with 306 step-ups gave the same state and events every tick on both engines;
   `test_skirmish_squad.gd` gained a unit stepping up over two passes with a wide unit
   following). The step-up's time fell by about a third.
-- **Not done: stamina, recovery and the re-form's occupancy** were also above main before
-  step 4 in #229's benches. Neither reads enough columns for copies to explain it; finding
-  their cause is the next piece of work (see the hand-off).
+- **The re-form's occupancy** (`SquadPlaces.occupancy`, and `SquadPlaces.places` for more
+  than two units) reads ranks and columns from typed locals of the fetched table, not
+  through `UnitPlace.read` per unit: 4a had put a static call and two untyped indexings
+  where `unit.rank` and `unit.column` were (#229's benches: occupancy +35% and +46%).
+- **Stamina and recovery: noise, not a cause.** Neither pass's code changed since step 3,
+  and `SkirmishUnit` only lost fields. On this step's runs, with stamina's code the same,
+  it measured 24.5 against 29.7 ms (-18%) on one runner and 28.2 against 26.1 (+8%) on
+  another, a wider swing than #229's +6% and +11%. Three ticks a run are too few for
+  phases this size to be compared on one bench; nothing was changed for them.
 
 ## Open, for the implementing session to settle and record here
 
