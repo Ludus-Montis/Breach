@@ -12,7 +12,9 @@ Counts pre-existing .gd files modified (not added) in this branch vs. a base ref
 Honest limit: this counts *modified* pre-existing files - it cannot distinguish "one
 new case forced N files open" from any other reason N files changed together (e.g. a
 deliberate, justified refactor). A genuine exception should be recorded as a Decision
-(AI_First_Development_Kit/principles/decision-ledger.md), not silently ignored.
+(AI_First_Development_Kit/principles/decision-ledger.md), not silently ignored. A
+change such a Decision covers says so with a `Waived-by: Decision N` trailer on any of
+the branch's commits: the check then lists the files as usual and passes.
 
 Only meaningful with a real base ref to diff against (a PR's merge-base) - not run as
 part of the working-tree-only pre-commit gate, only in CI where that ref exists.
@@ -30,6 +32,7 @@ REPO_ROOT = Path(
 )
 THRESHOLDS_FILE = REPO_ROOT / "AI_First_Development_Kit" / "config" / "thresholds.yaml"
 EXCLUDED_DIRS = {"addons", "AI_First_Development_Kit"}
+WAIVER = re.compile(r"^Waived-by:\s*(Decision \d+)\s*$", re.MULTILINE)
 
 
 def read_threshold(key: str, default: int) -> int:
@@ -62,6 +65,27 @@ def modified_preexisting_files(base_ref: str):
     ]
 
 
+def waiver(messages: list):
+    """The Decision a `Waived-by: Decision N` trailer in any of `messages` names, or None."""
+    for message in messages:
+        found = WAIVER.search(message)
+        if found:
+            return found.group(1)
+    return None
+
+
+def branch_messages(base_ref: str) -> list:
+    merge_base = subprocess.run(
+        ["git", "merge-base", base_ref, "HEAD"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    log = subprocess.run(
+        ["git", "log", "--format=%B%x00", f"{merge_base}..HEAD"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    ).stdout
+    return [message for message in log.split("\0") if message.strip()]
+
+
 def main() -> int:
     base_ref = base_ref_module.resolve(sys.argv)  # Decision 50: a stacked PR's own base
     max_touched = read_threshold("max_touched_files_per_new_case", 3)
@@ -73,6 +97,13 @@ def main() -> int:
         return 0
 
     if len(touched) > max_touched:
+        waived_by = waiver(branch_messages(base_ref))
+        if waived_by is not None:
+            print(
+                f"check_ocp_shotgun_surgery: {len(touched)} pre-existing files modified "
+                f"(threshold: {max_touched}), waived by {waived_by}."
+            )
+            return 0
         print(
             f"check_ocp_shotgun_surgery: {len(touched)} pre-existing files modified "
             f"(threshold: {max_touched}). If this is one new case/behaviour, it should "
