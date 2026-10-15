@@ -2,7 +2,7 @@ name: CI
 
 # The baseline: lint, the static checks and commit messages (`run-baseline`), the gdUnit4
 # suite on the GDScript engine split into shards (`tests`, ci/godot/scripts/shard_tests.py)
-# and the scaling check (`scaling`), side by side.
+# and the scaling check by stage (`scaling`), side by side.
 
 on:
   pull_request:
@@ -58,9 +58,11 @@ jobs:
 
       - name: Run baseline checks (gdlint, gdformat, custom scripts)
         env:
-          # Decision 50: diff-scoped checks compare a PR with its own base branch (a
-          # stacked PR's is the PR below it). Empty on pushes, which then detect it.
-          BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}
+          # Decision 50: diff-scoped checks compare a change with its own base: a PR with
+          # its base branch (a stacked PR's is the PR below it), a push with the commit
+          # before it. A push checks out the branch itself, so detecting its base would
+          # pick whichever other branch is nearest and count changes the push didn't make.
+          BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
           SKIP: run-tests  # the suite runs in the `tests` job's shards
         run: pre-commit run --all-files --show-diff-on-failure
 
@@ -107,10 +109,16 @@ jobs:
           path: reports/
           if-no-files-found: ignore
 
+  # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
+  # timed on one machine, so the growth it reports holds; sizes never split across jobs.
   scaling:
     needs: scope
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [march, fight, stacks]
     steps:
       - uses: actions/checkout@v7
 
@@ -118,5 +126,7 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Scaling check (bounded-scaling, principles/bounded-work.md)
-        run: /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd
+      - name: Scaling check (bounded-scaling, principles/bounded-work.md), ${{ matrix.stage }}
+        run: |
+          /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd -- \
+            stages=${{ matrix.stage }}

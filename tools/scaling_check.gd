@@ -8,11 +8,13 @@ extends SceneTree
 ## pairs, or scanning everything for each thing. tools/tick_phases.gd then shows which.
 ## Then the same by stacks: `stacks` squads of `stack` a side on neighbouring lanes
 ## (FormationBench.lanes), doubling, `settle` ticks into their fights - a pass that grows
-## with the squads on the field, not just their units, shows here.
+## with the squads on the field, not just their units, shows here. `stages` picks some of
+## the three: each compares only its own sizes, all timed in one process, so CI runs each
+## stage as its own job (the timings within a stage must come from one machine).
 ##
 ##   godot --headless --path . --script res://tools/scaling_check.gd -- \
 ##       [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5] [engine=gdscript]
-##       [stacks=1,2,4] [stack=128] [settle=20]
+##       [stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]
 
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
@@ -36,7 +38,8 @@ func _init() -> void:
 	var stacks: Array = Array(str(args.get("stacks", "1,2,4")).split(",")).map(
 		func(s): return int(s)
 	)
-	for stage in STAGES:
+	var stages: Array = Array(str(args.get("stages", ",".join(STAGES))).split(","))
+	for stage in STAGES.filter(func(s): return s in stages):
 		var last := 0.0
 		for size in stacks if stage == "stacks" else sizes:
 			var spent := _least(stage, size, args)

@@ -61,10 +61,21 @@ Every check that doesn't need another's output runs in its own job, side by side
 
 - **`CI`** (`ci.yml`): `run-baseline` (lint, the static checks, the Python tests and
   commit messages: pre-commit with its `run-tests` hook skipped), `tests` (the gdUnit4
-  suite on the GDScript engine, in shards) and `scaling` (the GDScript scaling check).
+  suite on the GDScript engine, in shards) and `scaling` (the GDScript scaling check, one
+  job per stage).
 - **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
-  as an artifact; then `suite` (the suite under Rust, in shards), `digests`, `trials` and
-  `scaling` run together; `sim-checks` waits for them all and prints the SUMMARY block.
+  as an artifact; then `suite` (the suite under Rust, in shards), `digests` (one job per
+  set, each comparing its own two engines), `trials` and `scaling` (one job per stage) run
+  together; `sim-checks` waits for them all and prints the SUMMARY block.
+- **The scaling check splits by stage, never by size.** It checks how a tick's time grows
+  from one size to the next, and timings only compare when taken on one machine: each
+  stage (march, fight, stacks) runs all its sizes in one job (`scaling_check.gd`'s
+  `stages=`). Determinism makes the battles the same everywhere, not the runners' speed.
+- **The diff-scoped checks' base** (Decision 50): a PR's base branch, or for a push the
+  commit before it (`github.event.before`). A push checks out the branch itself, and
+  `base_ref.py`'s detection would then pick the nearest other branch and count changes
+  the push didn't make; that is why pushes to `main` failed `run-baseline` before
+  2026-10-15.
 - Godot setup is one composite action, `.github/actions/godot` (cached binary, import).
 - **Shards.** `shard_tests.py <count> <index>` splits the test files into balanced groups
   by the per-file times in `ci/godot/test_times.json`; a whole file always runs in one
