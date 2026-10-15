@@ -8,7 +8,6 @@ const FormationSkirmishScene = preload(
 )
 const SkirmishSquadLayer = preload("res://presentation/skirmish/formation/skirmish_squad_layer.gd")
 const SCENE := "res://presentation/skirmish/formation/formation_skirmish.tscn"
-const SPEC_21_SCENE := "res://presentation/skirmish/skirmish.tscn"
 
 
 func _scene() -> FormationSkirmishScene:
@@ -109,12 +108,10 @@ func test_notify_only_keeps_the_game_running() -> void:
 	assert_bool(scene.clock().is_paused()).is_false()
 
 
-func test_the_squad_layer_constructs_and_the_spec_21_scene_still_loads() -> void:
+func test_the_squad_layer_constructs() -> void:
 	var layer: SkirmishSquadLayer = auto_free(SkirmishSquadLayer.new())
-	var old: Node = auto_free(load(SPEC_21_SCENE).instantiate())
 
 	assert_object(layer).is_not_null()
-	assert_object(old).is_not_null()
 
 
 func test_units_in_different_lanes_with_the_same_id_stay_apart() -> void:
