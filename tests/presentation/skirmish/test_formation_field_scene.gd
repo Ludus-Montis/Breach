@@ -41,7 +41,8 @@ func test_a_sent_wave_marches_down_its_route_in_2d() -> void:
 	assert_float(wave.position.y).is_equal_approx(32.0, 0.01)
 	assert_float(wave.position.x).is_greater(0.0)
 	for unit in wave.living():
-		assert_float(unit.position.y).is_between(27.0, 37.0)
+		var at: Vector2 = wave.store.columns.value(unit.slot, UnitColumns.POSITION)
+		assert_float(at.y).is_between(27.0, 37.0)
 
 
 func test_waves_can_be_sent_together_and_b_can_wait() -> void:

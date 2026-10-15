@@ -161,10 +161,12 @@ func _record(
 ## read through the battle's unit store (spec 35), the same way on both engines.
 func _state(squads: Array, store: UnitStore) -> Array:
 	var out := []
+	var at: PackedVector2Array = store.columns.column(UnitColumns.POSITION)
 	for squad in squads:
 		var units := []
 		for unit in squad.units:
-			units.append(_unit_state(squad, unit, store.id_at(store.slot_of(unit.id))))
+			var slot := store.slot_of(unit.id)
+			units.append(_unit_state(squad, unit, [store.id_at(slot), at[slot]]))
 		var held := [squad.flank_contacts, squad.stance, squad.pursuit, squad.withdraw]
 		(
 			out
@@ -179,10 +181,11 @@ func _state(squads: Array, store: UnitStore) -> Array:
 	return out
 
 
-func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, unit_id: int) -> Array:
+## `read` = [its id, where it stands], read through the store.
+func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array:
 	var held := [squad.loose.get(unit.id), squad.fleeing.get(unit.id), squad.chasers.get(unit.id)]
 	return [
-		[unit_id, unit.hp, unit.position, unit.bearing, unit.attack_cooldown],
+		[read[0], unit.hp, read[1], unit.bearing, unit.attack_cooldown],
 		[unit.target_id, unit.rank, unit.column, _plain(held)],
 	]
 

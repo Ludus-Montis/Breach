@@ -11,6 +11,13 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 const SECOND := 10  # ticks
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
@@ -20,7 +27,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 	unit.hp = 10
 	unit.max_hp = 10
 	unit.dmg = 4
-	unit.position = at
+	_places.stand(unit, at)
 	unit.attributes = {"constitution": 6}
 	return unit
 
@@ -28,7 +35,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 func _squad(squad_id: int, faction: String, members: Array) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	return SkirmishSquad.new(squad_id, faction, 1, 0.0, members.size(), typed)
+	return SkirmishSquad.new(squad_id, faction, 1, 0.0, members.size(), typed, null, _places.store)
 
 
 ## A downed kingdom unit at the origin and a player unit one cell off: [squads, body,

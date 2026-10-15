@@ -10,6 +10,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const ROUTE := 9.0
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int, dmg: int, speed: float, depth: int = 1, width: int = 1) -> UnitDef:
@@ -139,7 +140,7 @@ func test_a_retreating_squad_disengages_and_an_enemy_that_won_t_pursue_holds() -
 	var theirs := sim.spawn_squad(1, _line(_militia(), 1), "the_kingdom", false)
 	theirs.pursues = false  # ordered not to: it stays at its post (Decision 109)
 	_run(sim, func(): return mine.state == SkirmishSquad.State.FIGHTING)
-	var at := mine.units[0].position.x
+	var at := UnitPlaces.of(mine, mine.units[0]).x
 	var post := theirs.front_distance
 
 	sim.order(mine.id, SkirmishUnit.Order.RETREAT)
@@ -149,7 +150,7 @@ func test_a_retreating_squad_disengages_and_an_enemy_that_won_t_pursue_holds() -
 	# It withdraws from where it stands (Decision 99), heading home; the enemy holds its
 	# post, though its units may strike it while it is in reach (Decision 111).
 	_run(sim, func(): return false, 20)
-	assert_float(mine.units[0].position.x).is_less(at)
+	assert_float(UnitPlaces.of(mine, mine.units[0]).x).is_less(at)
 	assert_float(theirs.front_distance).is_equal(post)
 	assert_bool(theirs.pursuit.is_empty()).is_true()
 

@@ -16,6 +16,30 @@ class CheckOneMoverTest(unittest.TestCase):
         ]:
             self.assertEqual(len(violations_in(code)), 1, code)
 
+    def test_a_write_to_the_stores_position_column_is_caught(self):
+        for code in [
+            "\tcolumns.put(unit.slot, UnitColumns.POSITION, at + step)",
+            "\tsquad.store.columns.put(unit.slot, UnitColumns.POSITION, body[2] + push)",
+            "\tcolumns.commit(UnitColumns.POSITION, points)",
+        ]:
+            self.assertEqual(len(violations_in(code)), 1, code)
+
+    def test_a_column_write_of_the_movers_step_just_taken_is_fine(self):
+        code = (
+            "\tvar stepped := UnitMover.step(unit, from, toward, full, seconds, terrain)\n"
+            "\tcolumns.put(unit.slot, UnitColumns.POSITION, stepped)"
+        )
+        self.assertEqual(violations_in(code), [])
+        other = "\tvar stepped := at + step\n\tcolumns.put(unit.slot, UnitColumns.POSITION, stepped)"
+        self.assertEqual(len(violations_in(other)), 1)
+
+    def test_reading_the_position_column_is_fine(self):
+        for code in [
+            "\tvar at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)",
+            "\tvar at: PackedVector2Array = columns.column(UnitColumns.POSITION)",
+        ]:
+            self.assertEqual(violations_in(code), [], code)
+
     def test_the_movers_steps_are_fine(self):
         code = '\tentry["at"] = UnitMover.step(unit, entry["at"], to, full, seconds, terrain)'
         self.assertEqual(violations_in(code), [])

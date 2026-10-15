@@ -4,9 +4,12 @@
 Units move through one mover (sim/skirmish/formation/unit_mover.gd), which pays the
 ground. Twelve files once wrote positions themselves, and those that didn't pay the
 ground let routers and retreats cross woods and fords at full pace. Flags, in simulation
-code (`sim/`), a write to a unit's position - `.position =`, or `["at"]`, `["offset"]`
-or `["along"]` of a unit's entry (and their `+=`/`-=`) - unless:
-- the value comes from the mover (`UnitMover.` on the line), or
+code (`sim/`), a write to a unit's position - `.position =`, `["at"]`, `["offset"]`
+or `["along"]` of a unit's entry (and their `+=`/`-=`), or a write to the unit store's
+position column (`put(..., UnitColumns.POSITION, ...)`, `commit(UnitColumns.POSITION,
+...)`; spec 35) - unless:
+- the value comes from the mover (`UnitMover.` on the line, or a column write of a
+  variable the line before set from `UnitMover.`), or
 - the line carries `# paid: <how>` (a mover keeping its own coordinates that scaled its
   step by UnitMover.share) in a file that calls UnitMover, or
 - the line, or the one above it, carries `# placement: <why>`: not a move but a
@@ -24,6 +27,9 @@ REPO_ROOT = Path(
     subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
 )
 WRITE = re.compile(r'(\.position|(\bentry|\])\["(at|offset|along)"\])\s*[-+]?=(?!=)')
+COLUMN_WRITE = re.compile(
+    r"\b(?:put\([^,]+,\s*UnitColumns\.POSITION,\s*(\w+)?|commit\(\s*UnitColumns\.POSITION\b)"
+)
 PLACEMENT = re.compile(r"#\s*placement:\s*\S")
 PAID = re.compile(r"#\s*paid:\s*\S")
 MOVER_FILE = "unit_mover.gd"
@@ -35,8 +41,13 @@ def violations_in(text: str) -> list:
     calls_mover = any("UnitMover." in line.split("#", 1)[0] for line in lines)
     for number, line in enumerate(lines, start=1):
         code = line.split("#", 1)[0]
-        if not WRITE.search(code) or "UnitMover." in code:
+        column = COLUMN_WRITE.search(code)
+        if not (WRITE.search(code) or column) or "UnitMover." in code:
             continue
+        if column and column.group(1) and number > 1:
+            above = lines[number - 2].split("#", 1)[0]
+            if re.search(rf"\b{column.group(1)}\s*:?=.*UnitMover\.", above):
+                continue
         if PLACEMENT.search(line) or (number > 1 and PLACEMENT.search(lines[number - 2])):
             continue
         if PAID.search(line) and calls_mover:

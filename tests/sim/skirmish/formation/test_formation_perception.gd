@@ -12,6 +12,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const GREM := "res://content/units/grem.tres"
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 ## A holding squad of `count` grems of `faction`, its front `front` cells along.
@@ -28,7 +29,7 @@ func _squad(sim: FormationSimulation, count: int, faction: String, front: float)
 
 
 func _gap(a: SkirmishSquad, b: SkirmishSquad) -> float:
-	return a.units[0].position.distance_to(b.units[0].position)
+	return UnitPlaces.of(a, a.units[0]).distance_to(UnitPlaces.of(a, b.units[0]))
 
 
 func test_formations_within_sight_see_each_other_and_are_threatened() -> void:

@@ -14,6 +14,7 @@ const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func after_test() -> void:
@@ -63,7 +64,9 @@ func _lay_bodies(squads: Array) -> void:
 			var size := 3 if unit.id % 4 == 0 else 1
 			body.footprint_width = size
 			body.footprint_depth = size
-			body.position = unit.position + Vector2(sin(unit.id), cos(unit.id)) * 0.7
+			body.slot = squad.store.enrol(body.id)
+			var near := Vector2(sin(unit.id), cos(unit.id)) * 0.7
+			UnitPlaces.put(squad, body, UnitPlaces.of(squad, unit) + near)
 			laid.append([squad, body])
 	for pair in laid:
 		pair[0].units.append(pair[1])

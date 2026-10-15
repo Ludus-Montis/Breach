@@ -21,6 +21,7 @@ func enrol(unit_id: int) -> int:
 		_free.remove_at(0)
 		_ids[slot] = unit_id
 	_slots[unit_id] = slot
+	columns.open(slot)
 	return slot
 
 

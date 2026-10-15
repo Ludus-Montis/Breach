@@ -6,7 +6,12 @@ extends RefCounted
 ## in slot order and no tie is broken by slot (Decision 97). Two backends keep one
 ## contract (test_unit_store.gd): UnitStoreGd, the reference, and UnitStoreNative on the
 ## battle's BodyField; NativeKernels.unit_store picks one, as it picks the engine. Columns
-## of per-tick state follow in spec 35's later steps.
+## of per-tick state are in `columns` (UnitColumns), indexed by slot; a unit's slot is on
+## its record (SkirmishUnit.slot) and reached through its squad (SkirmishSquad.store).
+
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+
+var columns := UnitColumns.new()
 
 ## The unit's slot: its own if it has one, else the lowest free one.
 @abstract func enrol(unit_id: int) -> int

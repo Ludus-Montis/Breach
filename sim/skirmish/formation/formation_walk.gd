@@ -23,6 +23,7 @@ const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 
@@ -38,22 +39,24 @@ static func walk(
 	terrain: FormationTerrain = null
 ) -> void:
 	var seconds: float = timing[0]
-	if WalkModes.climb(unit, terrain, seconds, unit.speed * timing[1]):
+	var columns := squad.store.columns
+	if WalkModes.climb(unit, columns, terrain, seconds, unit.speed * timing[1]):
 		return  # on a climb face: it climbs before it moves on
-	var going := TerrainStep.way(unit, unit.position, place, terrain)  # its way round a barrier
+	var from: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
+	var going := TerrainStep.way(unit, from, place, terrain)  # its way round a barrier
 	var toward: Vector2 = going[0]
-	var way := toward - unit.position
+	var way := toward - from
 	var full: float = unit.speed * timing[1] * seconds
-	if not WalkModes.may_step(unit, unit.position, toward, terrain):
+	if not WalkModes.may_step(unit, from, toward, terrain):
 		full = 0.0  # spent: it won't start a climb or a swim
 	if timing.size() > 2 and way.length() > EPSILON:  # bodies on the ground (GroundBodies)
-		full *= GroundBodies.underfoot(unit, unit.position + way.normalized() * 0.5, timing[2])
+		full *= GroundBodies.underfoot(unit, from + way.normalized() * 0.5, timing[2])
 	var facing := UnitMotion.vector(squad.heading)
-	var far := place.distance_to(unit.position) > _tuning().walk_face_travel
+	var far := place.distance_to(from) > _tuning().walk_face_travel
 	var look := toward if far else place + facing
-	var from := unit.position
-	unit.position = UnitMover.step(unit, unit.position, toward, full, seconds, terrain, look)
-	WalkModes.after_step(unit, from, terrain, seconds)
+	var stepped := UnitMover.step(unit, from, toward, full, seconds, terrain, look)
+	columns.put(unit.slot, UnitColumns.POSITION, stepped)
+	WalkModes.after_step(unit, columns, from, terrain, seconds)
 
 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
@@ -79,13 +82,14 @@ static func share(
 	var furthest := 0.0
 	var moving := FormationShuffle.movers(squad)
 	var aims := FormationPour.targets(squad, terrain, moving, fight_seed)
+	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id):
 			continue
 		var target: Vector2 = aims[unit.id]
 		if not target.is_equal_approx(place_of(squad, unit, moving)):
 			continue  # its place is barred: it pours through the gap behind the frame
-		var lag := unit.position.distance_to(target)
+		var lag := points[unit.slot].distance_to(target)
 		if lag <= _tuning().walk_lost or rule == "no_man_left_behind":
 			furthest = maxf(furthest, lag)
 	return clampf((slack - furthest) / (slack / 2.0), 0.0, 1.0)

@@ -17,6 +17,7 @@ const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick: bodies follow their bearers, are dropped or set down, come home with them,
@@ -60,8 +61,11 @@ static func _follow(unit: SkirmishUnit, units: Dictionary) -> void:
 			unit.state = SkirmishUnit.State.DOWNED  # dropped where it is
 			unit.carried_by = 0
 		else:
+			var columns: UnitColumns = units[unit.id][1].store.columns
 			# placement: a carried body is where its bearer is (Decision 139)
-			unit.position = bearer.position
+			columns.put(
+				unit.slot, UnitColumns.POSITION, columns.value(bearer.slot, UnitColumns.POSITION)
+			)
 	if unit.carrying != 0:
 		var body: SkirmishUnit = units[unit.carrying][0] if units.has(unit.carrying) else null
 		if body == null or body.state != SkirmishUnit.State.CARRIED or not unit.is_alive():
@@ -107,11 +111,12 @@ static func _pairs(squads: Array, units: Dictionary, fight_seed: int) -> Array:
 		if not _tending(squad) or not free.has(squad.faction_id):
 			continue
 		var living: Array = squad.living()
-		var grid := BodyGrid.build(living.map(func(unit): return unit.position))
+		var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
+		var grid := BodyGrid.build(living.map(func(unit): return at[unit.slot]))
 		for body in free[squad.faction_id]:
-			for found in BodyGrid.near(grid, body.position, reach + BodyGrid.MARGIN):
+			for found in BodyGrid.near(grid, at[body.slot], reach + BodyGrid.MARGIN):
 				var unit: SkirmishUnit = living[found]
-				var gap: float = unit.position.distance_to(body.position)
+				var gap: float = at[unit.slot].distance_to(at[body.slot])
 				if unit.carrying != 0 or gap > reach or _stage(unit, body) >= 3:
 					continue
 				var key := [snappedf(gap, 0.000001), ScrumContest.draw(body, fight_seed)]
@@ -143,14 +148,15 @@ static func _unguarded(units: Dictionary) -> Dictionary:
 			downed.append(unit)
 	if downed.is_empty():
 		return {}
-	var grid := BodyGrid.build(standing.map(func(unit): return unit.position))
+	var at: PackedVector2Array = units[downed[0].id][1].store.columns.column(UnitColumns.POSITION)
+	var grid := BodyGrid.build(standing.map(func(unit): return at[unit.slot]))
 	var free := {}
 	for body in downed:
 		var guarded := false
-		for found in BodyGrid.near(grid, body.position, guard + BodyGrid.MARGIN):
+		for found in BodyGrid.near(grid, at[body.slot], guard + BodyGrid.MARGIN):
 			var other: SkirmishUnit = standing[found]
 			if other.faction_id != body.faction_id:
-				guarded = other.position.distance_to(body.position) <= guard
+				guarded = at[other.slot].distance_to(at[body.slot]) <= guard
 				if guarded:
 					break
 		if not guarded:

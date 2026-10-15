@@ -12,6 +12,13 @@ const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func after_test() -> void:
@@ -50,7 +57,7 @@ func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.hp = 10
-	unit.position = at
+	_places.stand(unit, at)
 	return unit
 
 
@@ -59,16 +66,16 @@ func test_the_roster_is_kept_across_syncs_and_changes_only_where_units_do() -> v
 	if field == null:
 		return
 	var units: Array[SkirmishUnit] = [_unit(1, Vector2(1, 1)), _unit(2, Vector2(2, 1))]
-	var one := SkirmishSquad.new(1, "player", 1, 0.0, 2, units)
+	var one := SkirmishSquad.new(1, "player", 1, 0.0, 2, units, null, _places.store)
 	var others: Array[SkirmishUnit] = [_unit(3, Vector2(5, 5))]
-	var other := SkirmishSquad.new(2, "player", 1, 0.0, 1, others)
+	var other := SkirmishSquad.new(2, "player", 1, 0.0, 1, others, null, _places.store)
 	BodyFieldSync.bodies(field, [one, other], 7)
 	assert_int(field.count()).is_equal(3)
 	one.units[0].state = SkirmishUnit.State.DEAD
 	var moved := one.units[1]
 	one.units.erase(moved)
 	other.units.append(moved)
-	moved.position = Vector2(6, 5)
+	_places.stand(moved, Vector2(6, 5))
 	var synced := BodyFieldSync.bodies(field, [one, other], 7)
 	assert_int(field.count()).is_equal(2)  # the dead dropped, the mover kept
 	assert_array(synced[0]).is_equal([other.units[0], moved])

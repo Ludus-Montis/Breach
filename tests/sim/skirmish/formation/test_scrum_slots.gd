@@ -8,12 +8,19 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const ScrumSlots = preload("res://sim/skirmish/formation/scrum_slots.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, at: Vector2, bearing: float, size: int = 1) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.position = at
+	_places.stand(unit, at)
 	unit.bearing = bearing
 	unit.footprint_width = size
 	unit.footprint_depth = size
@@ -21,7 +28,9 @@ func _unit(unit_id: int, at: Vector2, bearing: float, size: int = 1) -> Skirmish
 
 
 func _foes(foe: SkirmishUnit) -> Array:
-	var squad := SkirmishSquad.new(9, "the_kingdom", -1, 0.0, 1, [foe] as Array[SkirmishUnit])
+	var squad := SkirmishSquad.new(
+		9, "the_kingdom", -1, 0.0, 1, [foe] as Array[SkirmishUnit], null, _places.store
+	)
 	return [[foe, squad]]
 
 
@@ -57,13 +66,13 @@ func test_a_seeker_takes_the_nearest_open_slot() -> void:
 	var slots := ScrumSlots.round_foes(_foes(foe), 0.5)
 
 	var picked := ScrumSlots.pick(
-		seeker, seeker.position, slots, [seeker.position, [], [], null, 3]
+		seeker, _places.at(seeker), slots, [_places.at(seeker), [], [], null, 3]
 	)
 
 	assert_vector(picked[0]).is_equal_approx(Vector2(11, 10), Vector2(0.0001, 0.0001))
 	var claimed := [Vector2(11, 10)]
 	var next := ScrumSlots.pick(
-		seeker, seeker.position, slots, [seeker.position, [], claimed, null, 3]
+		seeker, _places.at(seeker), slots, [_places.at(seeker), [], claimed, null, 3]
 	)
 	assert_float(next[0].distance_to(Vector2(10, 10))).is_equal_approx(1.0, 0.0001)
 	assert_float(next[0].x).is_greater(10.0)  # one of the two to the east side next
@@ -74,8 +83,8 @@ func test_with_no_slot_open_the_crowded_pick_is_the_nearest_taken_one() -> void:
 	var seeker := _unit(5, Vector2(13, 10), 270.0)
 	var slots := ScrumSlots.round_foes(_foes(foe), 0.5)
 	var claimed := slots.map(func(s): return s[0])  # every slot taken
-	var ground := [seeker.position, [], claimed, null, 3]
+	var ground := [_places.at(seeker), [], claimed, null, 3]
 
-	assert_array(ScrumSlots.pick(seeker, seeker.position, slots, ground)).is_empty()
-	var nearest := ScrumSlots.pick(seeker, seeker.position, slots, ground, true)
+	assert_array(ScrumSlots.pick(seeker, _places.at(seeker), slots, ground)).is_empty()
+	var nearest := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground, true)
 	assert_vector(nearest[0]).is_equal_approx(Vector2(11, 10), Vector2(0.0001, 0.0001))

@@ -106,8 +106,8 @@ static func _gather(units: Array, ctx: Dictionary) -> Batch:
 		batch.frames[4 * member + 1] = unit.rank
 		batch.frames[4 * member + 2] = unit.footprint_width
 		batch.frames[4 * member + 3] = unit.footprint_depth
+	batch.lying_ats = PackedVector2Array(ctx["lying"]["ats"])
 	for body in ctx["lying"]["lying"]:
-		batch.lying_ats.append(body.position)
 		batch.lying_sizes.append(ScrumReach.radius(body))
 		batch.lying_sizes.append(float(body.footprint_width * body.footprint_depth))
 	return batch

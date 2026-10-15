@@ -18,6 +18,7 @@ const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).
@@ -37,9 +38,11 @@ static func pace(
 	if terrain == null:
 		return step
 	var ahead := UnitMotion.vector(squad.heading)
+	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	var worst := INF
 	for unit in squad.fighters():
-		var factor := terrain.factor(unit, unit.position, unit.position + ahead)
+		var at := points[unit.slot]
+		var factor := terrain.factor(unit, at, at + ahead)
 		if factor > 0.0:  # one stepping onto ground it can't cross pours (FormationWalk)
 			worst = minf(worst, factor)
 	worst = 0.0 if worst == INF else worst
@@ -120,6 +123,7 @@ static func sync_units(
 		timing = timing + [GroundBodies.ground(squads)]
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
+		var columns: UnitColumns = entry.store.columns
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
@@ -132,16 +136,16 @@ static func sync_units(
 			)
 			if entry.fleeing.has(unit.id):
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
-				unit.position = FormationRout.where(entry, unit.id)
+				columns.put(unit.slot, UnitColumns.POSITION, FormationRout.where(entry, unit.id))
 				if not entry.loose.has(unit.id):
 					unit.bearing = entry.heading
 			elif entry.loose.has(unit.id):
 				# placement: its loose point, moved by UnitMover (Decision 139)
-				unit.position = entry.loose[unit.id]["at"]
+				columns.put(unit.slot, UnitColumns.POSITION, entry.loose[unit.id]["at"])
 			elif timing.is_empty():
+				unit.foothold = FormationWalk.place_of(entry, unit, moving)
 				# placement: its frame's slot, set before any walking (Decision 139)
-				unit.position = FormationWalk.place_of(entry, unit, moving)
-				unit.foothold = unit.position
+				columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
 				unit.bearing = entry.heading
 			else:
 				FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)

@@ -18,6 +18,7 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## How far (cells) past the least (or most) a unit's reach across a route may lie and still
 ## be looked at for it: far above float rounding.
@@ -98,12 +99,13 @@ static func short_of(
 static func enemy_near(friends: Dictionary, squad: SkirmishSquad, points: Array) -> bool:
 	var grid := BodyGrid.build(points)
 	var near := BattleTuning.current().rout_enemy_near
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for other in friends["squads"]:
 		if other.faction_id == squad.faction_id:
 			continue
 		for enemy in other.living():
-			for found in BodyGrid.near(grid, enemy.position, near + ScrumNear.MARGIN):
-				if enemy.position.distance_to(points[found]) <= near:
+			for found in BodyGrid.near(grid, at[enemy.slot], near + ScrumNear.MARGIN):
+				if at[enemy.slot].distance_to(points[found]) <= near:
 					return true
 	return false
 
@@ -152,7 +154,10 @@ static func _index(friends: Dictionary, kind: String, faction) -> Dictionary:
 	if kind == "stand":
 		index = ScrumNear.index(entries)
 	else:
-		var points := entries.map(func(entry): return entry[0].position)
+		var at := PackedVector2Array()
+		if not entries.is_empty():
+			at = entries[0][1].store.columns.column(UnitColumns.POSITION)
+		var points := entries.map(func(entry): return at[entry[0].slot])
 		index = {"foes": entries, "points": points, "grid": BodyGrid.build(points)}
 	kept[faction] = index
 	return index

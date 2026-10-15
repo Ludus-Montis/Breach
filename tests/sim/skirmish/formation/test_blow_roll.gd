@@ -64,11 +64,12 @@ func test_the_margin_is_skill_and_shift_with_the_roll_across_the_die() -> void:
 func test_the_side_a_blow_falls_on() -> void:
 	var target := _target(true)  # at the origin, facing east
 
-	assert_int(BlowRoll.side(target, Vector2(-1, 0), false)).is_equal(BlowRoll.Side.FRONT)
-	assert_int(BlowRoll.side(target, Vector2(0, 1), true)).is_equal(BlowRoll.Side.FLANK)
-	assert_int(BlowRoll.side(target, Vector2(-1, 0.2), true)).is_equal(BlowRoll.Side.REAR)
-	assert_bool(BlowRoll.from_flank(target, Vector2(3, 0))).is_false()
-	assert_bool(BlowRoll.from_flank(target, Vector2(-3, 0))).is_true()
+	var at := Vector2.ZERO
+	assert_int(BlowRoll.side(target, at, Vector2(-1, 0), false)).is_equal(BlowRoll.Side.FRONT)
+	assert_int(BlowRoll.side(target, at, Vector2(0, 1), true)).is_equal(BlowRoll.Side.FLANK)
+	assert_int(BlowRoll.side(target, at, Vector2(-1, 0.2), true)).is_equal(BlowRoll.Side.REAR)
+	assert_bool(BlowRoll.from_flank(target, at, Vector2(3, 0))).is_false()
+	assert_bool(BlowRoll.from_flank(target, at, Vector2(-3, 0))).is_true()
 
 
 func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:

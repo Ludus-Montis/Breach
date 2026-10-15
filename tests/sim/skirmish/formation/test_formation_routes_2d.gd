@@ -10,6 +10,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int = 20, dmg: int = 2) -> UnitDef:
@@ -50,7 +51,7 @@ func test_a_squad_follows_its_route_round_a_bend() -> void:
 	assert_float(squad.position.y).is_between(7.0, 8.0)  # its outer file can't hurry round
 	assert_int(squad.facing).is_equal(SquadFrame.SOUTH)
 	for unit in squad.living():
-		assert_float(unit.position.x).is_between(30.0, 34.0)
+		assert_float(UnitPlaces.of(squad, unit).x).is_between(30.0, 34.0)
 
 
 func test_units_stand_in_their_cells_behind_the_front() -> void:
@@ -60,10 +61,10 @@ func test_units_stand_in_their_cells_behind_the_front() -> void:
 	sim.step()
 
 	var front := squad.position
-	assert_vector(squad.living()[0].position).is_equal_approx(
+	assert_vector(UnitPlaces.of(squad, squad.living()[0])).is_equal_approx(
 		front + Vector2(-0.5, -0.5), Vector2(0.01, 0.01)
 	)
-	assert_vector(squad.living()[1].position).is_equal_approx(
+	assert_vector(UnitPlaces.of(squad, squad.living()[1])).is_equal_approx(
 		front + Vector2(-0.5, 0.5), Vector2(0.01, 0.01)
 	)
 

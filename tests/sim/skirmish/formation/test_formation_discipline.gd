@@ -14,6 +14,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(discipline: int, leadership: int = 0) -> UnitDef:
@@ -125,7 +126,7 @@ func _reformed(discipline: int) -> int:
 	sim.order(squad.id, SkirmishUnit.Order.HOLD)
 	sim.step()
 	for unit in squad.living():
-		var scattered := unit.position + Vector2(0, 3)
+		var scattered := UnitPlaces.of(squad, unit) + Vector2(0, 3)
 		squad.loose[unit.id] = {"unit": unit, "at": scattered, "next": scattered, "goal": null}
 	for tick in range(1, 400):
 		sim.step()

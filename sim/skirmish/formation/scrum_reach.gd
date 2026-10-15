@@ -10,13 +10,14 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## Where the unit stands: its place in the scrum, or where its squad puts it.
 static func at(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 	if squad.loose.has(unit.id):
 		return squad.loose[unit.id]["at"]
-	return unit.position
+	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
 
 
 ## The cells the unit covers, centred where it stands, turned to its squad's heading (the

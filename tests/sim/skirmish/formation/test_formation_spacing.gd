@@ -14,6 +14,7 @@ const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int = 100) -> UnitDef:
@@ -64,7 +65,7 @@ func test_routers_caught_by_a_friend_rest_behind_it_bodies_apart() -> void:
 	for _i in range(45):  # they shove through the friend to rest behind it
 		sim.step()
 
-	var front: float = friend.living().map(func(u): return u.position.x).min()
+	var front: float = friend.living().map(func(u): return UnitPlaces.of(friend, u).x).min()
 	var bodies := []
 	for unit in friend.living():
 		bodies.append(UnitBodies.at(friend, unit))

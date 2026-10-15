@@ -12,6 +12,13 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
@@ -20,7 +27,7 @@ func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
 	unit.faction_id = "player"
 	unit.hp = 10
 	unit.max_hp = 10
-	unit.position = at
+	_places.stand(unit, at)
 	unit.attributes = {"constitution": 10}
 	return unit
 
@@ -28,7 +35,7 @@ func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
 func _squad(members: Array) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	return SkirmishSquad.new(1, "player", 1, 0.0, members.size(), typed)
+	return SkirmishSquad.new(1, "player", 1, 0.0, members.size(), typed, null, _places.store)
 
 
 func _downed(unit: SkirmishUnit) -> SkirmishUnit:
@@ -184,12 +191,13 @@ func test_the_fallen_lie_where_they_fell() -> void:
 	sim.step()
 	var fallen: SkirmishUnit = squad.units[0]
 	_downed(fallen)
-	var where := fallen.position
+	var where := UnitPlaces.of(squad, fallen)
 	for _i in range(20):
 		sim.step()
 
-	assert_vector(fallen.position).is_equal(where)
-	assert_float(squad.units[1].position.x).is_greater(where.x + 1.0)  # its squad marched on
+	assert_vector(UnitPlaces.of(squad, fallen)).is_equal(where)
+	var marched := UnitPlaces.of(squad, squad.units[1])
+	assert_float(marched.x).is_greater(where.x + 1.0)  # its squad marched on
 
 
 func test_a_wounding_blow_that_downs_adds_its_wounds() -> void:
@@ -240,7 +248,7 @@ func test_one_playing_dead_gets_up_once_its_foes_are_gone() -> void:
 	_run(scene[0], 10.0)
 	assert_bool(faker.is_alive()).is_false()  # its foe still stands by
 	for foe in scene[2]:
-		foe.position += Vector2(0, 50)
+		_places.move(foe, _places.at(foe) + Vector2(0, 50))
 	_run(scene[0], 5.0)
 
 	assert_bool(faker.is_alive()).is_true()

@@ -10,6 +10,13 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
@@ -20,7 +27,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 	unit.max_hp = 10
 	unit.speed = 1.0
 	unit.fresh_speed = 1.0
-	unit.position = at
+	_places.stand(unit, at)
 	unit.attributes = {"strength": 10}
 	return unit
 
@@ -28,7 +35,9 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 func _squad(squad_id: int, faction: String, members: Array, tends: String = "") -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, members.size(), typed)
+	var squad := SkirmishSquad.new(
+		squad_id, faction, 1, 0.0, members.size(), typed, null, _places.store
+	)
 	squad.tends = tends
 	return squad
 
@@ -51,9 +60,9 @@ func test_a_formation_that_carries_bears_its_downed_on_slowed_by_them() -> void:
 	assert_int(scene[2].carrying).is_equal(1)
 	assert_float(scene[2].fresh_speed).is_less(1.0)  # its load
 	assert_array(strays).is_empty()
-	scene[2].position = Vector2(5, 5)
+	_places.stand(scene[2], Vector2(5, 5))
 	FormationCarry.step(scene[0], 2, 1, [])
-	assert_vector(scene[1].position).is_equal(Vector2(5, 5))
+	assert_vector(_places.at(scene[1])).is_equal(Vector2(5, 5))
 
 
 func test_one_that_recovers_sends_the_bearer_home_with_it() -> void:
@@ -82,7 +91,7 @@ func test_none_are_borne_by_a_formation_that_leaves_them_or_with_a_foe_near() ->
 func test_a_bearer_that_falls_drops_its_body() -> void:
 	var scene := _scene("carry")
 	FormationCarry.step(scene[0], 1, 1, [])
-	scene[2].position = Vector2(4, 0)
+	_places.stand(scene[2], Vector2(4, 0))
 	scene[2].state = SkirmishUnit.State.DOWNED
 	FormationCarry.step(scene[0], 2, 1, [])
 

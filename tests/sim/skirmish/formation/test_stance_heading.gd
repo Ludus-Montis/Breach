@@ -10,6 +10,13 @@ const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _row(columns: int) -> Array:
@@ -56,7 +63,7 @@ func test_a_units_area_is_its_footprint_turned_to_the_heading() -> void:
 	unit.footprint_depth = 1
 	unit.hp = 10
 	var members: Array[SkirmishUnit] = [unit]
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, members)
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, members, null, _places.store)
 
 	squad.heading = 0.0
 	assert_vector(ScrumReach.area(squad, unit).size).is_equal(Vector2(2, 1))

@@ -6,12 +6,13 @@ extends GdUnitTestSuite
 const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationRecord = preload("res://sim/skirmish/formation/formation_record.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _state(field) -> String:
 	var rows := []
 	for squad in field.sim.squads():
-		var units: Array = squad.units.map(func(u): return [u.id, u.hp, u.position])
+		var units: Array = squad.units.map(func(u): return [u.id, u.hp, UnitPlaces.of(squad, u)])
 		rows.append([squad.id, squad.state, squad.front_distance, units])
 	return str(rows)
 

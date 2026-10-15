@@ -11,6 +11,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int, dmg: int, speed: float = 1.0, leadership: int = 0) -> UnitDef:
@@ -70,11 +71,11 @@ func test_routers_flee_home_and_strike_nothing() -> void:
 	var mine: SkirmishSquad = setup[1]
 	mine.morale = 0
 	_run(setup[0], 1)
-	var before: float = mine.living()[0].position.x
+	var before: float = UnitPlaces.of(mine, mine.living()[0]).x
 
 	var log := _run(setup[0], 10)
 
-	assert_float(mine.living()[0].position.x).is_less(before - 5.0)
+	assert_float(UnitPlaces.of(mine, mine.living()[0]).x).is_less(before - 5.0)
 	assert_int(_of(log, "hit").filter(func(h): return h["faction"] == "player").size()).is_equal(0)
 
 

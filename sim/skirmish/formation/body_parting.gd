@@ -12,6 +12,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## Microseconds since last zeroed: [syncing the field, the call, the core's own work,
 ## writing back]. The bench reads them to split the boundary's cost from the work; no
@@ -46,9 +47,13 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 	var moved: PackedInt32Array = out[0]
 	var points: PackedVector2Array = out[1]
 	var nexts: PackedVector2Array = out[2]
+	if units.is_empty():
+		return
+	var columns: UnitColumns = owners[0].store.columns
 	for index in out[3]:
 		var unit: SkirmishUnit = units[index]
-		var entry := {"unit": unit, "at": unit.position, "goal": null, "next": unit.position}
+		var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
+		var entry := {"unit": unit, "at": at, "goal": null, "next": at}
 		owners[index].loose[unit.id] = entry
 	for k in range(moved.size()):
 		var squad: SkirmishSquad = owners[moved[k]]
@@ -59,7 +64,7 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 			continue
 		if not squad.loose.has(unit.id):
 			# placement: parting clears an overlap (Decision 139)
-			unit.position = points[k]
+			columns.put(unit.slot, UnitColumns.POSITION, points[k])
 			continue
 		var entry: Dictionary = squad.loose[unit.id]
 		# placement: parting clears an overlap (Decision 139)

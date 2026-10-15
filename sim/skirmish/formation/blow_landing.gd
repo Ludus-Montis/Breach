@@ -19,6 +19,7 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## Lands the melee blows ([striker, target, damage, flank]) and ranged shots ([shooter,
@@ -58,34 +59,33 @@ static func land(
 			for unit in squad.living():
 				squad_of[unit.id] = [unit, squad]
 		pressed = _pressed(squad_of)
+	var at: PackedVector2Array = squads[0].store.columns.column(UnitColumns.POSITION)
 	for blow in melee:
-		_land(blow, false, blow[3], squad_of, pressed, terrain, rolls)
+		_land(blow, false, blow[3], [squad_of, pressed, at], terrain, rolls)
 	for shot in shots:
-		var flank := BlowRoll.from_flank(shot[1], shot[0].position)
-		_land(shot, true, flank, squad_of, pressed, terrain, rolls)
+		var flank := BlowRoll.from_flank(shot[1], at[shot[1].slot], at[shot[0].slot])
+		_land(shot, true, flank, [squad_of, pressed, at], terrain, rolls)
 
 
 static func _land(
-	blow: Array,
-	ranged: bool,
-	flank: bool,
-	squad_of: Dictionary,
-	pressed: Dictionary,
-	terrain: FormationTerrain,
-	rolls: Array
+	blow: Array, ranged: bool, flank: bool, known: Array, terrain: FormationTerrain, rolls: Array
 ) -> void:
+	var squad_of: Dictionary = known[0]  # unit id -> [unit, its squad]
+	var pressed: Dictionary = known[1]  # unit id -> foes pressing it
+	var at: PackedVector2Array = known[2]  # where each stands, by slot
 	var striker: SkirmishUnit = blow[0]
 	var target: SkirmishUnit = blow[1]
 	var tuning := BattleTuning.current()
 	var shift := 0.0
 	if squad_of.has(striker.id):
 		shift += tuning.blow_morale_shift[FormationMorale.band(squad_of[striker.id][1])]
-	if terrain != null and terrain.high_ground(striker.position, target.position):
+	var from := at[striker.slot]
+	if terrain != null and terrain.high_ground(from, at[target.slot]):
 		shift += tuning.blow_high_ground
 	shift += maxi(0, pressed.get(target.id, 0) - 1) * tuning.blow_surrounded
 	shift += BlowDamage.spill(striker, ranged) + FormationStamina.skill_shift(striker)
 	var roll := BattleRolls.uniform(rolls[0], [rolls[1], striker.id, "blow", ranged])
-	var side := BlowRoll.side(target, striker.position, flank)
+	var side := BlowRoll.side(target, at[target.slot], from, flank)
 	var landed := BlowRoll.outcome(
 		BlowRoll.margin(striker, ranged, shift, roll), target, side, ranged
 	)

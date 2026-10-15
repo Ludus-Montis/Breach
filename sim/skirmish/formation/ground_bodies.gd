@@ -13,6 +13,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const LYING := [SkirmishUnit.State.DOWNED, SkirmishUnit.State.DEAD]
 
@@ -26,24 +27,33 @@ static func drag(squad: SkirmishSquad, bodies: Dictionary) -> float:
 	if bodies["lying"].is_empty():
 		return 1.0
 	var ahead := UnitMotion.vector(squad.heading) * 0.5
+	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	var worst := 1.0
 	for walker in squad.fighters():
-		worst = minf(worst, underfoot(walker, walker.position + ahead, bodies))
+		worst = minf(worst, underfoot(walker, points[walker.slot] + ahead, bodies))
 	return worst
 
 
 ## The bodies lying on the field (lying_in), found by where they lie: taken once a tick,
 ## for every walker's step (underfoot).
 static func ground(squads: Array) -> Dictionary:
-	return of_lying(lying_in(squads))
+	var lying := lying_in(squads)
+	return of_lying(lying, null if lying.is_empty() else squads[0].store.columns)
 
 
-## A grid over `lying` bodies (BodyGrid.of_bodies), with "lying": the bodies.
-static func of_lying(lying: Array) -> Dictionary:
-	var grid := BodyGrid.of_bodies(
-		lying.map(func(body): return [body.position, ScrumReach.radius(body), body])
-	)
+## A grid over `lying` bodies (BodyGrid.of_bodies) where they lie (`columns`, the store's),
+## with "lying": the bodies, and "ats": where each lies.
+static func of_lying(lying: Array, columns: UnitColumns) -> Dictionary:
+	var ats := []
+	if not lying.is_empty():
+		var points: PackedVector2Array = columns.column(UnitColumns.POSITION)
+		ats = lying.map(func(body): return points[body.slot])
+	var bodies := []
+	for index in range(lying.size()):
+		bodies.append([ats[index], ScrumReach.radius(lying[index]), lying[index]])
+	var grid := BodyGrid.of_bodies(bodies)
 	grid["lying"] = lying
+	grid["ats"] = ats
 	return grid
 
 
@@ -66,12 +76,13 @@ static func underfoot(walker: SkirmishUnit, step: Vector2, bodies: Dictionary) -
 	var tuning := BattleTuning.current()
 	var own := float(walker.footprint_width * walker.footprint_depth)
 	var lying: Array = bodies["lying"]
+	var ats: Array = bodies["ats"]
 	var near: float = ScrumReach.radius(walker) + bodies["widest"] + BodyGrid.MARGIN
 	var worst := 1.0
 	for index in BodyGrid.near(bodies, step, near):
 		var body: SkirmishUnit = lying[index]
 		var reach := ScrumReach.radius(walker) + ScrumReach.radius(body)
-		if body == walker or body.position.distance_to(step) >= reach:
+		if body == walker or ats[index].distance_to(step) >= reach:
 			continue
 		var weight: float = body.footprint_width * body.footprint_depth / own
 		if weight >= tuning.bodies_ground_block:

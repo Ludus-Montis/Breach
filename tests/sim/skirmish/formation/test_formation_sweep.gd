@@ -13,6 +13,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
 const CELLS_PER_SECOND := 8.0
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def() -> UnitDef:
@@ -88,11 +89,11 @@ func test_no_unit_hurries_round_a_bend_and_the_inner_files_step_shorter() -> voi
 	var inner := 0.0
 	var outer := 0.0
 	for _i in range(80):
-		var before := squad.living().map(func(u): return u.position)
+		var before := squad.living().map(func(u): return UnitPlaces.of(squad, u))
 		setup[0].step()
 		var turning := squad.heading > 90.5 and squad.heading < 179.5
 		for i in range(before.size()):
-			var moved: float = squad.living()[i].position.distance_to(before[i])
+			var moved: float = UnitPlaces.of(squad, squad.living()[i]).distance_to(before[i])
 			assert_float(moved).is_less_equal(step + 0.0001)  # never faster than it walks
 			if turning and squad.living()[i].column == 7:
 				inner += moved  # turning right, the right-hand file is on the inside
@@ -111,7 +112,7 @@ func test_a_slanting_route_is_faced_at_its_true_heading() -> void:
 	var heading := rad_to_deg(atan2(30.0, 60.0))  # 26.6 degrees east of north
 	assert_float(squad.heading).is_equal_approx(heading, 0.0001)
 	var ahead := Vector2(sin(deg_to_rad(heading)), -cos(deg_to_rad(heading)))
-	var ends := squad.living().map(func(u): return u.position)
+	var ends := squad.living().map(func(u): return UnitPlaces.of(squad, u))
 	var across: Vector2 = ends[3] - ends[0]
 	assert_float(absf(across.dot(ahead))).is_less(0.0001)  # its line is square to its way
 	assert_float(across.length()).is_equal_approx(3.0, 0.0001)

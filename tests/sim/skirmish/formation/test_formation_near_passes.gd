@@ -15,9 +15,16 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 const SEED := 11
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
 
 
 ## `count` units of `faction` scattered over a field 40 cells square, grems and brutes.
+func before_test() -> void:
+	_places = UnitPlaces.new()
+
+
 func _scatter(rng: RandomNumberGenerator, count: int, faction: String, first: int) -> Array:
 	var out := []
 	for index in count:
@@ -25,7 +32,7 @@ func _scatter(rng: RandomNumberGenerator, count: int, faction: String, first: in
 		unit.id = first + index
 		unit.faction_id = faction
 		unit.hp = 10
-		unit.position = Vector2(rng.randf_range(0, 40), rng.randf_range(0, 40))
+		_places.stand(unit, Vector2(rng.randf_range(0, 40), rng.randf_range(0, 40)))
 		var size := 2 if rng.randf() < 0.2 else 1
 		unit.footprint_width = size
 		unit.footprint_depth = size
@@ -36,7 +43,9 @@ func _scatter(rng: RandomNumberGenerator, count: int, faction: String, first: in
 func _squad(squad_id: int, faction: String, members: Array) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, members.size(), typed)
+	var squad := SkirmishSquad.new(
+		squad_id, faction, 1, 0.0, members.size(), typed, null, _places.store
+	)
 	squad.tends = "carry"
 	squad.state = SkirmishSquad.State.HOLDING
 	return squad
@@ -62,11 +71,11 @@ func test_the_bodies_underfoot_are_those_a_look_at_all_finds() -> void:
 	var tuning := BattleTuning.current()
 	for squad in squads:
 		for walker in squad.living():
-			var step: Vector2 = walker.position + Vector2(0.5, 0)
+			var step: Vector2 = _places.at(walker) + Vector2(0.5, 0)
 			var worst := 1.0
 			for body in ground["lying"]:
 				var reach := ScrumReach.radius(walker) + ScrumReach.radius(body)
-				if body.position.distance_to(step) >= reach:
+				if _places.at(body).distance_to(step) >= reach:
 					continue
 				var weight: float = body.footprint_width * body.footprint_depth
 				weight /= float(walker.footprint_width * walker.footprint_depth)
@@ -96,13 +105,13 @@ func test_the_bearers_paired_are_those_a_look_at_all_finds() -> void:
 						entry[0].is_alive()
 						and entry[0].faction_id != body.faction_id
 						and (
-							entry[0].position.distance_to(body.position)
+							_places.at(entry[0]).distance_to(_places.at(body))
 							<= tuning.wounds_guard_reach
 						)
 					)
 			)
 			for unit in [] if guarded else squad.living():
-				var gap: float = unit.position.distance_to(body.position)
+				var gap: float = _places.at(unit).distance_to(_places.at(body))
 				if gap <= tuning.wounds_reach and FormationCarry._stage(unit, body) < 3:
 					expected.append([body.id, unit.id])
 	var pairs := FormationCarry._pairs(squads, units, SEED)
@@ -126,7 +135,7 @@ func test_one_coming_to_joins_the_formation_a_look_at_all_finds() -> void:
 				if other_squad.faction_id != unit.faction_id:
 					continue
 				for other in other_squad.living():
-					var gap: float = other.position.distance_to(unit.position)
+					var gap: float = _places.at(other).distance_to(_places.at(unit))
 					var key := [snappedf(gap, 0.000001), ScrumContest.squad_draw(other_squad, SEED)]
 					if gap <= unit.detection and (best == null or key < best_key):
 						best = other_squad
@@ -148,7 +157,7 @@ func test_the_gap_between_groups_is_exact_within_group_join() -> void:
 		var one := _squad(1, "player", _scatter(rng, 30 if trial % 2 == 0 else 8, "player", 1))
 		var other := _squad(2, "player", _scatter(rng, 30, "player", 100))
 		for unit in other.units:
-			unit.position.x += trial * 2.0
+			_places.move(unit, _places.at(unit) + Vector2(trial * 2.0, 0))
 		one.position = Vector2(20, 20)
 		other.position = Vector2(20 + trial * 2.0, 20)
 		one.width = 40
@@ -156,7 +165,7 @@ func test_the_gap_between_groups_is_exact_within_group_join() -> void:
 		var least := INF
 		for unit in one.living():
 			for friend in other.living():
-				var apart: float = unit.position.distance_to(friend.position)
+				var apart: float = _places.at(unit).distance_to(_places.at(friend))
 				least = minf(least, apart - ScrumReach.radius(unit) - ScrumReach.radius(friend))
 		least = maxf(least, 0.0)
 		var gap := FormationGroups._gap(one, other, {})

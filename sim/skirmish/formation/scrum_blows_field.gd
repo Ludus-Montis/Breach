@@ -17,6 +17,7 @@ const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.g
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## A squad's rules, as the core reads them: it is fighting; it is ordered to retreat.
 const FIGHTING := 1
@@ -128,6 +129,9 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var flags := batch.flags
 	var bearings := batch.bearings
 	var flat := 0
+	var at := PackedVector2Array()
+	if not squads.is_empty():
+		at = squads[0].store.columns.column(UnitColumns.POSITION)
 	for squad in squads:
 		var before := flat
 		var loose: Dictionary = squad.loose
@@ -140,7 +144,7 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 			ids[flat] = unit.id
 			var entry = loose.get(unit.id)
 			if entry == null:
-				points[flat] = unit.position
+				points[flat] = at[unit.slot]
 			else:
 				points[flat] = entry["at"]
 				flags[flat] = BodyFieldSync.LOOSE

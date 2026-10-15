@@ -14,6 +14,13 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, column: int, leadership: int = 0) -> SkirmishUnit:
@@ -29,7 +36,9 @@ func _unit(unit_id: int, column: int, leadership: int = 0) -> SkirmishUnit:
 func _squad(squad_id: int, units: Array, faction: String = "player") -> SkirmishSquad:
 	var members: Array[SkirmishUnit] = []
 	members.assign(units)
-	return SkirmishSquad.new(squad_id, faction, 1, 0.0, maxi(1, units.size()), members)
+	return SkirmishSquad.new(
+		squad_id, faction, 1, 0.0, maxi(1, units.size()), members, null, _places.store
+	)
 
 
 func _def(hp: int, dmg: int) -> UnitDef:

@@ -24,6 +24,7 @@ const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.g
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick of `seconds`. Returns [[unit, its squad], ...] for those that came to apart from
@@ -61,6 +62,7 @@ static func _lies_still(
 ) -> bool:
 	var tuning := BattleTuning.current()
 	var reach := tuning.wounds_danger_reach
+	var here: Vector2 = squad.store.columns.value(unit.slot, UnitColumns.POSITION)
 	var danger := false
 	if not standing.has("factions"):  # the standing, found once a tick when first asked
 		standing["factions"] = _index(standing["squads"])
@@ -68,8 +70,8 @@ static func _lies_still(
 		if faction == unit.faction_id or danger:
 			continue
 		var index: Dictionary = standing["factions"][faction]
-		for found in BodyGrid.near(index, unit.position, reach + BodyGrid.MARGIN):
-			if index["units"][found][0].position.distance_to(unit.position) <= reach:
+		for found in BodyGrid.near(index, here, reach + BodyGrid.MARGIN):
+			if index["points"][found].distance_to(here) <= reach:
 				danger = true
 				break
 	if not danger:
@@ -99,7 +101,8 @@ static func _led_cunning(squad: SkirmishSquad, standing: Dictionary) -> int:
 
 
 ## {faction: a grid (BodyGrid) of where its standing units stand, with "units": [[unit,
-## its squad, the squad's seeded draw], ...] in the squads' order}; with `rising`, only
+## its squad, the squad's seeded draw], ...] in the squads' order, "points": where each
+## stands, and "positions": the store's, by slot}; with `rising`, only
 ## formations a unit coming to may join: not destroyed or routing.
 static func _index(squads: Array, rising := false, fight_seed := 0) -> Dictionary:
 	var entries := {}
@@ -114,8 +117,12 @@ static func _index(squads: Array, rising := false, fight_seed := 0) -> Dictionar
 	var out := {}
 	for faction in entries:
 		var units: Array = entries[faction]
-		out[faction] = BodyGrid.build(units.map(func(entry): return entry[0].position))
+		var at: PackedVector2Array = units[0][1].store.columns.column(UnitColumns.POSITION)
+		var points := units.map(func(entry): return at[entry[0].slot])
+		out[faction] = BodyGrid.build(points)
 		out[faction]["units"] = units
+		out[faction]["points"] = points
+		out[faction]["positions"] = at
 	return out
 
 
@@ -224,7 +231,8 @@ static func _nearest(unit: SkirmishUnit, friends: Dictionary) -> Array:
 		return [null, INF]
 	var index: Dictionary = friends[unit.faction_id]
 	var units: Array = index["units"]
-	var at := unit.position
+	var points: Array = index["points"]
+	var at: Vector2 = index["positions"][unit.slot]
 	var centre := BodyGrid.cell_of(at)
 	var span := BodyGrid.ring_span(index, centre, at, unit.detection)
 	var best: SkirmishSquad = null
@@ -234,7 +242,7 @@ static func _nearest(unit: SkirmishUnit, friends: Dictionary) -> Array:
 			break
 		for found in BodyGrid.ring(index, centre, ring_number, at, unit.detection):
 			var other: SkirmishUnit = units[found][0]
-			var gap: float = other.position.distance_to(at)
+			var gap: float = points[found].distance_to(at)
 			var key := [snappedf(gap, 0.000001), units[found][2], found]
 			if other != unit and gap <= unit.detection and (best == null or key < best_key):
 				best = units[found][1]
@@ -254,4 +262,5 @@ static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -
 	unit.rank = back
 	unit.column = 0
 	best.reforming = true
-	best.loose[unit.id] = {"unit": unit, "at": unit.position, "goal": null, "next": unit.position}
+	var at: Vector2 = best.store.columns.value(unit.slot, UnitColumns.POSITION)
+	best.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
