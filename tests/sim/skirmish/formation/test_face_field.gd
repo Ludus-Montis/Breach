@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 ## turns them to - whatever the list order. Skipped where the library isn't built
 ## (native/build.sh): the switch falls back to GDScript.
 
+const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
@@ -185,6 +186,34 @@ func test_the_facing_on_the_field_turns_any_bearing_to_any_look_as_gdscript_does
 		assert_array(Array(var_to_bytes(_bearings(squads)))).is_equal(
 			Array(var_to_bytes(reference))
 		)
+
+
+## The facing on the field reads where each unit stands, faces and makes for from the unit
+## store's columns and writes its bearing there (spec 35 step 4d): given only the squads,
+## their foes, the units and their speeds, it turns them as GDScript does.
+func test_the_facing_on_the_field_reads_and_writes_the_store_alone() -> void:
+	var field := _field()
+	if field == null:
+		return
+	var squads := _scrum(130, false)
+	var ctx := _ctx(squads, null)
+	FormationScrum._seek(ctx)  # the entries a walk leaves
+	var saved := _saved(squads)
+	var fighting := squads.filter(func(s): return s.state == SkirmishSquad.State.FIGHTING)
+	FormationScrum.face(fighting, ctx)
+	var reference := _bearings(squads)
+	_restore(squads, saved)
+	UnitPlaces.onto(field, squads)
+	var synced := BodyFieldSync.scrum(field, squads, ctx["seed"])
+	var seek := ScrumSeekField.gathered(synced[0], synced[1], squads)
+	var tuning := BattleTuning.current()
+	var front := DetMath.cos(deg_to_rad(tuning.reach_front_arc_degrees)) - 0.000001
+	var floats := PackedFloat64Array(
+		[tuning.reach_contact, front, ctx["seconds"], ctx["pace"], tuning.scrum_crowding]
+	)
+	var bit: int = EntryKeys.VALUED[UnitColumns.TOWARD]
+	field.face(floats, seek.squads, seek.foe_ids, seek.members, seek.speeds, bit)
+	assert_array(Array(var_to_bytes(_bearings(squads)))).is_equal(Array(var_to_bytes(reference)))
 
 
 ## Turns every unit to a bearing of its own, and points every look its walk chose

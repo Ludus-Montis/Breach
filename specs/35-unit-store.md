@@ -47,6 +47,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   See "Built" below.
 - **Step 4c, the walk on the store: built** (2026-10-15), stacked on 4b's PR (the user:
   "keep stacking, we can merge them all down later"). See "Built" below.
+- **Step 4d, the facing on the store: built** (2026-10-15), stacked on 4c's PR. See
+  "Built" below.
 
 ## The store
 
@@ -505,6 +507,21 @@ but read from the store instead of a sync. The glue is gone at step 4.
   4b library). The walk parity tests (`test_walk_field.gd`: the native walk against
   GDScript's at several moments, round bodies and over the fallen, and in reversed list
   order) run unchanged through the new path.
+
+### Step 4d, the facing on the store
+
+- **`BodyField.face` gathers and writes back on the field** (`face_store.rs`). It takes
+  only the seek's squads, their foes, the units' flat indices and speeds, and the
+  `toward` valued bit. It reads where each unit stands loose, its bearing, its goal
+  (next, foe_at) and its look (toward) from the store's columns, as
+  `ScrumFaceField._gather` did, and the turn rate and backward pace from the record. It
+  writes each bearing into the column.
+- **`ScrumFaceField` holds no batch.** Its gather and write-back are gone. `spent`'s gather
+  and write-back parts stay 0, so `facing_bench` reads only the call and the core.
+- **Tests.** `test_face_field.gd`: the facing on the field, given only the squads, foes,
+  units and speeds, turns them as GDScript does (new; red on the 4c library, whose `face`
+  took the gathered arrays). The facing parity tests (at two moments, any bearing to any
+  look, and in reversed list order) run unchanged through the new path.
 
 ## Open, for the implementing session to settle and record here
 

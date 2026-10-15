@@ -55,11 +55,16 @@ ScrumSeekField.plan ------ seek(rules' say) ---> seek (seeking.rs, scrum.rs): wh
                                                    the outcome written into the columns
   <- planned units (flat), codes, nexts, foe_ats, active squads (for the walk and facing)
   within(unit, point) <- asked only on terrain
-ScrumFaceField.face ------ face(after the walk) -> facing: the touching foe (front, distance,
-  the plan's units, each: where it stands now,     draw), UnitShuffle.look, bearing_to,
-  bearing, turn rate, backward pace, and what      the turn at its rate (motion.rs,
-  its entry makes for (next, foe_at, toward)       DetMath's atan2 and acos)
-  <- every unit's bearing after its turn
+ScrumFaceField.face ------ face(after the walk) -> facing (face_store.rs, facing.rs): where
+  the seek's units, their squads' foes,            each stands, faces and makes for (next,
+  their speeds                                     foe_at, toward) from the columns, its
+                                                   turn rate and backward pace from its
+                                                   record; the touching foe (front, distance,
+                                                   draw), UnitShuffle.look, bearing_to, the
+                                                   turn at its rate (motion.rs, DetMath's
+                                                   atan2 and acos); the bearing written into
+                                                   the column
+  <- every unit's bearing after its turn (tests)
 ScrumWalkField.walk ------ walk(after seek) ----> walk (walk_store.rs, walking.rs): each
   the seek's units and answer (codes, nexts),      unit's bearing, rank and column from the
   speeds, a frame and pace per squad, the lying    columns, turn rate, backward pace and
