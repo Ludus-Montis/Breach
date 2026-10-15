@@ -17,6 +17,7 @@ mod maths;
 mod motion;
 mod parting;
 mod scrum;
+mod seeking;
 mod walking;
 
 use std::time::Instant;
@@ -85,7 +86,8 @@ impl BodyField {
     }
 
     /// Enrols the units sync() reported new (by flat index): radius, footprint area,
-    /// ScrumContest.draw and initiative - GDScript's own values, handed over once.
+    /// ScrumContest.draw and initiative - GDScript's own values, handed over once - and
+    /// each one's record, 3 per unit: preferred position, footprint width and depth.
     #[func]
     fn enrol(
         &mut self,
@@ -94,6 +96,7 @@ impl BodyField {
         areas: PackedFloat64Array,
         draws: PackedInt64Array,
         initiatives: PackedInt64Array,
+        records: PackedInt64Array,
     ) {
         self.field.enrol(&Enrol {
             flat: flat.as_slice(),
@@ -101,7 +104,17 @@ impl BodyField {
             areas: areas.as_slice(),
             draws: draws.as_slice(),
             initiatives: initiatives.as_slice(),
+            records: records.as_slice(),
         });
+    }
+
+    /// The record enrolled for the unit in `slot`: [preferred position, footprint width,
+    /// depth] (tests).
+    #[func]
+    fn record(&self, slot: i64) -> PackedInt64Array {
+        let s = slot as usize;
+        let f = &self.field;
+        PackedInt64Array::from(&[f.preferred[s], f.foot_width[s], f.foot_depth[s]])
     }
 
     /// UnitBodies' passes on the field. `tuning` = [passes, resist, brush]; `way.call(draw,
@@ -128,68 +141,77 @@ impl BodyField {
         ]
     }
 
-    /// ScrumSeek.plan on the field, as of a sync of the scrum's snapshot. `ints` = [tick,
-    /// seed, combat_contest_die], `floats` = [reach_contact, scrum_leash]; `squads` = per
-    /// fighting squad [id, foes, units], `foe_ids` its foes' squad ids; per unit (flat
-    /// index in `members`): may it seek, its speed, its place (anchor), its goal [foe id,
-    /// slot] (-1: none). `within.call(unit, point)` is the ground's say (an invalid
-    /// Callable: open ground). Returns [codes (0 touch, 1 stand, 2 aim, 3 press, 4 idle),
-    /// goal foes, goal slots, nexts, foe_ats].
+    /// ScrumSeek.plan on the field, as of a sync of the scrum's snapshot, reading and
+    /// writing the unit store's columns there (spec 35 step 4b). `ints` = [tick, seed,
+    /// combat_contest_die, EntryKeys' touch bit, its foe_at bit], `floats` = [reach_contact,
+    /// scrum_leash]. Per fighting squad, in the sync's order: its id, how many foes, their
+    /// squad ids, whether its units may seek (1: not ordered to retreat), its frame
+    /// ([heading, width, centre shift] and its anchor), how many chasers and their unit ids;
+    /// per unit of the sync (flat index) its speed. `within.call(flat index, point)` is the
+    /// ground's say (an invalid Callable: open ground). Each unit's place, goal and record
+    /// are read on the field, and its outcome written into its loose entry's columns there.
+    /// Returns, for the walk and the facing: [the squads planned (those of `squads` the
+    /// sync named a living unit of), their units' flat indices, units per squad, codes (0
+    /// touch, 1 stand, 2 aim, 3 press, 4 idle), nexts, foe_ats, active (per squad: 1 if any
+    /// unit touches a foe or makes for a slot)].
     #[func]
     #[allow(clippy::too_many_arguments)]
-    fn plan(
+    fn seek(
         &mut self,
         ints: PackedInt64Array,
         floats: PackedFloat64Array,
         squads: PackedInt64Array,
+        foe_counts: PackedInt32Array,
         foe_ids: PackedInt64Array,
-        members: PackedInt32Array,
-        may_seek: PackedByteArray,
-        speeds: PackedFloat64Array,
+        seeking: PackedByteArray,
+        frames: PackedFloat64Array,
         anchors: PackedVector2Array,
-        goal_foes: PackedInt64Array,
-        goal_slots: PackedInt32Array,
+        chaser_counts: PackedInt32Array,
+        chaser_ids: PackedInt64Array,
+        speeds: PackedFloat64Array,
         within: Callable,
     ) -> VarArray {
         let began = Instant::now();
         let i = ints.as_slice();
         let f = floats.as_slice();
         let params = scrum::Params { tick: i[0], seed: i[1], die: i[2], reach: f[0], leash: f[1] };
-        let triples = squads.as_slice();
-        let fighters: Vec<i64> = triples.chunks(3).map(|c| c[0]).collect();
-        let foe_counts: Vec<i32> = triples.chunks(3).map(|c| c[1] as i32).collect();
-        let member_counts: Vec<i32> = triples.chunks(3).map(|c| c[2] as i32).collect();
         let anchors = v2s(&anchors);
-        let input = scrum::PlanIn {
-            fighters: &fighters,
-            foe_counts: &foe_counts,
+        let say = seeking::SquadSay {
+            ids: squads.as_slice(),
+            foe_counts: foe_counts.as_slice(),
             foe_ids: foe_ids.as_slice(),
-            member_counts: &member_counts,
-            members: members.as_slice(),
-            may_seek: may_seek.as_slice(),
-            speeds: speeds.as_slice(),
+            seeking: seeking.as_slice(),
+            frames: frames.as_slice(),
             anchors: &anchors,
-            goal_foes: goal_foes.as_slice(),
-            goal_slots: goal_slots.as_slice(),
+            chaser_counts: chaser_counts.as_slice(),
+            chaser_ids: chaser_ids.as_slice(),
+            speeds: speeds.as_slice(),
         };
+        let gathered = seeking::gather(&self.field, &say);
+        let input = gathered.input();
         let ground = within.is_valid();
-        let mut ask = |unit: usize, p: V2| -> bool {
-            !ground || within.callv(&varray![unit as i64, Vector2::new(p.x, p.y)]).to::<bool>()
+        let members = &gathered.members;
+        let mut ask = |member: usize, p: V2| -> bool {
+            let flat = members[member] as i64;
+            !ground || within.callv(&varray![flat, Vector2::new(p.x, p.y)]).to::<bool>()
         };
         let out = scrum::plan(&self.field, &input, &params, &mut ask);
+        let active = seeking::write_back(&mut self.field, &gathered, &out, [i[3] as i32, i[4] as i32]);
         self.usec = began.elapsed().as_micros() as i64;
         varray![
+            &PackedInt64Array::from(gathered.fighters.as_slice()),
+            &PackedInt32Array::from(gathered.members.as_slice()),
+            &PackedInt32Array::from(gathered.member_counts.as_slice()),
             &PackedByteArray::from(out.codes.as_slice()),
-            &PackedInt64Array::from(out.goal_foes.as_slice()),
-            &PackedInt32Array::from(out.goal_slots.as_slice()),
             &packed(&out.nexts),
             &packed(&out.foe_ats),
+            &PackedByteArray::from(active.as_slice()),
         ]
     }
 
     /// FormationScrum's facing on the field, after the walk, for the units the tick's
-    /// plan() was given (`squads` = per fighting squad [id, foes, units], `foe_ids`,
-    /// `members` and `speeds` as plan's). `floats` = [reach_contact, the front's least
+    /// seek() planned (`squads` = per fighting squad [id, foes, units], `foe_ids`,
+    /// `members` and `speeds` as seek's). `floats` = [reach_contact, the front's least
     /// dot (ScrumReach.in_front), tick seconds, pace (cells a tick at speed 1),
     /// scrum_crowding]; per unit: where it stands now, `motion` = [bearing, turn rate,
     /// backward pace], flags (1: it makes for a slot, 2: its walk chose a point to look
@@ -274,10 +296,10 @@ impl BodyField {
     }
 
     /// FormationScrum's walk on the field, before the facing, for the units the tick's
-    /// plan() was given (`squads` and `members` as plan's; where each stands as that
+    /// seek() planned (`squads` and `members` as seek's; where each stands as that
     /// call's sync left it). `floats` = [tick seconds, bodies_steer_look,
     /// bodies_steer_clear, bodies_ground_drag, bodies_ground_block]; per squad `squad_floats` = [pace (cells a tick at speed 1), heading, width, centre
-    /// shift] and its frame's anchor; per unit: plan()'s code and next point, its speed,
+    /// shift] and its frame's anchor; per unit: seek()'s code and next point, its speed,
     /// `motion` = [bearing, turn rate, backward pace], `frames` = [column, rank, footprint
     /// width, depth]; the bodies lying on the ground and their [radius, footprint area].
     /// Returns [where each unit stands after its step, where it looks: its next point
@@ -552,7 +574,7 @@ impl BodyField {
         self.field.columns.blank(slot as usize);
     }
 
-    /// Microseconds of native work in the last sync, part, plan, walk or face.
+    /// Microseconds of native work in the last sync, part, seek, walk or face.
     #[func]
     fn usec(&self) -> i64 {
         self.usec

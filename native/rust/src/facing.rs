@@ -30,7 +30,7 @@ pub struct Params {
     pub crowding: f64,
 }
 
-/// The fighting squads' units, as the slot search's call had them (BodyField.plan),
+/// The fighting squads' units, as the slot search's call had them (BodyField.seek),
 /// with where each stands now and what it turns by.
 pub struct FaceIn<'a> {
     pub foe_counts: &'a [i32],

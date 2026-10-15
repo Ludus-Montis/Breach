@@ -10,7 +10,8 @@ extends RefCounted
 ## drop out; units that changed squad move with it. Two snapshots, as the passes read
 ## them: the scrum's (where ScrumReach puts a unit, and its bearing) and the bodies' (as
 ## UnitBodies.at: a router's offset from its point on its route). Returns the units by the
-## sync's flat indices, for writing results back.
+## sync's flat indices, for writing results back. A new unit's record (its preferred band
+## and footprint) is enrolled with it (spec 35 step 4b).
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -124,10 +125,12 @@ static func _enrol(field: Object, flat: PackedInt32Array, units: Array, fight_se
 	var areas := PackedFloat64Array()
 	var draws := PackedInt64Array()
 	var initiatives := PackedInt64Array()
+	var records := PackedInt64Array()  # the unit's record (spec 35 step 4b), 3 per unit
 	for index in flat:
 		var unit: SkirmishUnit = units[index]
 		radii.append(ScrumReach.radius(unit))
 		areas.append(float(unit.footprint_width * unit.footprint_depth))
 		draws.append(ScrumContest.draw(unit, fight_seed))
 		initiatives.append(unit.initiative)
-	field.enrol(flat, radii, areas, draws, initiatives)
+		records.append_array([unit.preferred_position, unit.footprint_width, unit.footprint_depth])
+	field.enrol(flat, radii, areas, draws, initiatives, records)

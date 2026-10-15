@@ -42,14 +42,18 @@ BodyFieldSync.scrum / .bodies  --sync------->     per body: radius, area, initia
   ids, flags [, nexts, bases, bearings]          where each stands (as of the last sync,
                                                  read from the columns by its flags):
   <- flat indices of units new to the field        at, offset/base (fleeing), next, flags,
-  enrol(radius, area, draw, initiative) ------>    bearing; squads' members in list order
+  enrol(radius, area, draw, initiative,         bearing; squads' members in list order;
+    record) --------------------------------->     record: preferred band, footprint
                                                passes on the field
 BodyParting.step --------- part(tuning, way) -> parting (spike kernel, draw order)
   <- moved bodies (flat), points, nexts, loosened in order, stats
-ScrumSeekField.plan ------ plan(rules' say) ---> seek: touch, contest order, kept slots,
-  per fighting squad: its foes' squad ids          rings of slots, picks, presses; grids
-  per unit: may seek, speed, place, goal           (native/rust/src/grid.rs); claims
-  <- per unit: touch/stand/aim/press/idle, goal, next, foe_at
+ScrumSeekField.plan ------ seek(rules' say) ---> seek (seeking.rs, scrum.rs): who may
+  per fighting squad: its foes' squad ids,         seek and its place (SquadFrame.place_in
+  may it seek, its frame, its chasers;             from the store's rank and column), its
+  per unit: speed                                  goal from the columns; touch, contest
+                                                   order, kept slots, rings, picks, presses;
+                                                   the outcome written into the columns
+  <- planned units (flat), codes, nexts, foe_ats, active squads (for the walk and facing)
   within(unit, point) <- asked only on terrain
 ScrumFaceField.face ------ face(after the walk) -> facing: the touching foe (front, distance,
   the plan's units, each: where it stands now,     draw), UnitShuffle.look, bearing_to,

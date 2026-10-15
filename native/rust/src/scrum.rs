@@ -7,9 +7,9 @@
 //! - the same keys compared item by item, a full tie going to the slot listed first;
 //! - the seeded draws by Godot's own `hash()` (`ghash`), drawn only when a tie needs them
 //!   (the order of comparisons is unchanged by drawing lazily).
-//! The rules about who seeks (front band, footprint, orders, chasers) and where a unit's
-//! place is stay in GDScript and come in with the call; the ground a slot lies on is asked
-//! of GDScript (`within`) only when there is terrain.
+//! Who seeks and where a unit's place is are gathered on the field from GDScript's say of
+//! each squad (`seeking.rs`); the ground a slot lies on is asked of GDScript (`within`) only
+//! when there is terrain.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -48,7 +48,7 @@ pub struct Params {
     pub leash: f64,
 }
 
-/// The fighting squads and their units, from GDScript's rules (see BodyField.plan).
+/// The fighting squads and their units, from GDScript's rules (see BodyField.seek).
 pub struct PlanIn<'a> {
     pub fighters: &'a [i64],
     pub foe_counts: &'a [i32],

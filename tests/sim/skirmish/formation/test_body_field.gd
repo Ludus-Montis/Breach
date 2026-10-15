@@ -155,6 +155,22 @@ func test_the_slot_search_on_the_field_seeks_as_gdscript_does() -> void:
 		assert_array(Array(planned)).is_equal(Array(var_to_bytes(reference)))
 
 
+func test_a_synced_unit_s_record_is_enrolled_on_the_field_once() -> void:
+	var field := _field()
+	if field == null:
+		return
+	var squads := _scrum(95, false)
+	UnitPlaces.onto(field, squads)
+	BodyFieldSync.scrum(field, squads, 2)
+	var checked := 0
+	for squad in squads:
+		for unit in squad.living():
+			var record := [unit.preferred_position, unit.footprint_width, unit.footprint_depth]
+			assert_array(Array(field.record(unit.slot))).is_equal(record)
+			checked += 1
+	assert_int(checked).is_greater(0)
+
+
 func test_the_slot_search_on_the_field_is_the_same_whatever_the_list_order() -> void:
 	var field := _field()
 	if field == null:
