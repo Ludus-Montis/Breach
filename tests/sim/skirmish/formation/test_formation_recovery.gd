@@ -90,7 +90,7 @@ func test_downed_it_comes_to_and_rejoins_its_formation_in_sight() -> void:
 
 	assert_bool(downed.is_alive()).is_true()
 	assert_int(downed.hp).is_equal(1)
-	assert_int(downed.rank).is_equal(1)  # at the back
+	assert_int(UnitPlace.of(_places, downed).x).is_equal(1)  # at the back
 	assert_array(strays).is_empty()
 	assert_bool(events.any(func(e): return e["type"] == "came_to")).is_true()
 

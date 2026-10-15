@@ -18,8 +18,7 @@ func _unit(
 ) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.rank = rank
-	unit.column = column
+	_places.set_place(unit, Vector2i(rank, column))
 	unit.footprint_depth = depth
 	unit.footprint_width = width
 	unit.speed = speed
@@ -73,8 +72,8 @@ func test_step_up_closes_the_column_after_a_front_death() -> void:
 	var moved := squad.compact()
 
 	assert_array(moved.map(func(u): return u.id)).contains_exactly_in_any_order([2, 3])
-	assert_int(squad.units[1].rank).is_equal(0)
-	assert_int(squad.units[2].rank).is_equal(1)
+	assert_int(UnitPlace.rank(squad, squad.units[1])).is_equal(0)
+	assert_int(UnitPlace.rank(squad, squad.units[2])).is_equal(1)
 	assert_array(squad.fighters().map(func(u): return u.id)).is_equal([2])
 
 
@@ -103,5 +102,5 @@ func test_no_one_steps_up_into_a_place_a_move_under_way_is_heading_for() -> void
 	fallen.state = SkirmishUnit.State.DEAD
 
 	assert_array(squad.compact()).is_empty()  # the hole is the mover's
-	assert_int(behind.rank).is_equal(1)
-	assert_int(mover.rank).is_equal(1)  # mid-move: it lands where its move ends
+	assert_int(UnitPlace.rank(squad, behind)).is_equal(1)
+	assert_int(UnitPlace.rank(squad, mover)).is_equal(1)  # mid-move: it lands where its move ends

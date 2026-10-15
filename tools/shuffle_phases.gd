@@ -26,8 +26,7 @@ static func step(squad: SkirmishSquad, paced: Array, tick: int, lap: Callable) -
 		if swap["ticks"] > 0:
 			continue
 		for unit in swap["to"]:
-			unit.rank = swap["to"][unit].x
-			unit.column = swap["to"][unit].y
+			UnitPlace.put(squad, unit, swap["to"][unit])
 		squad.swaps.remove_at(index)
 		if (
 			not within
@@ -40,8 +39,9 @@ static func step(squad: SkirmishSquad, paced: Array, tick: int, lap: Callable) -
 			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
 		)
 		for moved in squad.compact():
+			var rank := UnitPlace.rank(squad, moved)
 			events.append(
-				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": moved.rank})
+				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
 			)
 	lap.call("shuffle: moves under way")
 	if squad.reforming and not _start_moves(squad, paced, lap):
@@ -59,13 +59,13 @@ static func _start_moves(squad: SkirmishSquad, paced: Array, lap: Callable) -> b
 			busy[unit] = true
 			FormationShuffle._claim(claimed, swap["to"][unit], unit)
 	lap.call("shuffle: plan: who stands where")
-	var front_first := PlaceOrder.front_first(squad.living())
+	var front_first := PlaceOrder.front_first(squad.living(), squad.store.columns)
 	lap.call("shuffle: plan: front-first order")
 	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	lap.call("shuffle: plan: free front places")
 	var started := false
 	for unit in front_first:
-		if unit.rank == 0 or busy.has(unit):
+		if occupied["places"][unit].x == 0 or busy.has(unit):
 			continue
 		var plan := ShuffleFront.free_place(squad, unit, claimed, [occupied, open])
 		lap.call("shuffle: try: free front place")
@@ -94,7 +94,7 @@ static func _begin(squad: SkirmishSquad, plan: Dictionary, paced: Array, held: A
 	var pace: float = paced[1] * slowest * FormationShuffle.TERRAIN_FACTOR * crowding
 	var seconds: float = plan["distance"] * SkirmishSquad.RANK_DEPTH / pace
 	var ticks := maxi(1, ceili(seconds / paced[0] - FormationShuffle.EPSILON))
-	plan.merge({"ticks": ticks, "total": ticks, "from": SquadPlaces.places(involved)})
+	plan.merge({"ticks": ticks, "total": ticks, "from": SquadPlaces.places(squad, involved)})
 	squad.swaps.append(plan)
 	for moving in plan["to"]:
 		held[0][moving] = true

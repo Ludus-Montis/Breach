@@ -25,7 +25,7 @@ func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.hp = 10
-	unit.rank = rank
+	_places.set_place(unit, Vector2i(rank, 0))
 	unit.definition = kind
 	return unit
 
@@ -35,10 +35,11 @@ func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
 func _crowd(seed_value: int, kind: UnitDef) -> SkirmishSquad:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
+	_places = UnitPlaces.new()  # each crowd its own store: two crowds share unit ids
 	var members: Array[SkirmishUnit] = []
 	for index in range(24):
 		var unit := _unit(index + 1, index / 4, kind)
-		unit.column = index % 4
+		_places.set_place(unit, Vector2i(index / 4, index % 4))
 		members.append(unit)
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 4, members, null, _places.store)
 	for unit in members:
@@ -67,7 +68,9 @@ func test_trades_in_turn_find_the_places_earlier_trades_left() -> void:
 		for index in range(squad.units.size()):
 			var unit: SkirmishUnit = squad.units[index]
 			var twin: SkirmishUnit = reference.units[index]
-			assert_vector(Vector2(unit.rank, unit.column)).is_equal(Vector2(twin.rank, twin.column))
+			assert_vector(Vector2(UnitPlace.of(squad, unit))).is_equal(
+				Vector2(UnitPlace.of(reference, twin))
+			)
 		assert_array(squad.loose.keys()).contains_exactly_in_any_order(reference.loose.keys())
 
 
@@ -93,10 +96,8 @@ func _trade_looking_at_every_friend(squad: SkirmishSquad, fight_seed: int) -> vo
 		if best == null:
 			SquadEntries.unloose(squad, unit.id)
 			continue
-		var place := Vector2i(unit.rank, unit.column)
-		unit.rank = best.rank
-		unit.column = best.column
-		best.rank = place.x
-		best.column = place.y
+		var place := UnitPlace.of(squad, unit)
+		UnitPlace.put(squad, unit, UnitPlace.of(squad, best))
+		UnitPlace.put(squad, best, place)
 		if not squad.loose.has(best.id):
-			SquadEntries.loosen(squad, best, _places.at(best))
+			SquadEntries.loosen(squad, best, UnitPlaces.of(squad, best))

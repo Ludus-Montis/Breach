@@ -26,11 +26,13 @@ const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 
 ## The place a unit keeps to: in its squad's stance if it has one.
 static func anchor(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
+	var at := UnitPlace.of(squad, unit)
 	if squad.stance.is_empty():
 		return SquadFrame.place(
-			squad.position, squad.heading, squad.width, squad.centre_shift, unit
+			squad.position, squad.heading, squad.width, squad.centre_shift, unit, at
 		)
-	return SquadFrame.place(squad.stance["anchor"], squad.stance["heading"], squad.width, 0.0, unit)
+	var stance := squad.stance
+	return SquadFrame.place(stance["anchor"], stance["heading"], squad.width, 0.0, unit, at)
 
 
 ## anchor()'s frame for the squad, worked out once for all its units: SquadFrame.place_in

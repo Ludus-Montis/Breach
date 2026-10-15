@@ -69,7 +69,18 @@ func _state(squads: Array) -> String:
 			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
 			var wounds := [unit.wounded, snappedf(unit.wake_left, 0.0001), unit.playing_dead]
 			var borne := [unit.carrying, unit.carried_by, snappedf(unit.stamina, 0.0001)]
-			rows.append([unit.id, squad.id, unit.hp, unit.state, unit.rank, at, wounds, borne])
+			rows.append(
+				[
+					unit.id,
+					squad.id,
+					unit.hp,
+					unit.state,
+					UnitPlace.rank(squad, unit),
+					at,
+					wounds,
+					borne
+				]
+			)
 	rows.sort()
 	return str(rows)
 

@@ -24,7 +24,7 @@ func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.hp = 10
-	unit.rank = rank
+	_places.set_place(unit, Vector2i(rank, 0))
 	unit.definition = kind
 	return unit
 
@@ -55,8 +55,9 @@ func test_a_unit_held_off_by_its_own_ranks_trades_places_with_a_like_friend() ->
 
 	ScrumTrade.trade(setup[0], 7)
 
-	assert_int(setup[2].rank).is_equal(0)  # the held unit takes the front place, nearer it
-	assert_int(setup[1].rank).is_equal(1)  # its friend steps back into the one it left
+	# the held unit takes the front place, nearer it; its friend steps back into the one it left
+	assert_int(UnitPlace.rank(setup[0], setup[2])).is_equal(0)
+	assert_int(UnitPlace.rank(setup[0], setup[1])).is_equal(1)
 	assert_bool(setup[0].loose.has(setup[1].id)).is_true()
 
 
@@ -65,7 +66,7 @@ func test_a_unit_with_no_like_friend_takes_its_own_place() -> void:
 
 	ScrumTrade.trade(setup[0], 7)
 
-	assert_int(setup[2].rank).is_equal(1)
+	assert_int(UnitPlace.rank(setup[0], setup[2])).is_equal(1)
 	assert_bool(setup[0].loose.has(setup[2].id)).is_false()
 	assert_vector(_places.at(setup[2])).is_equal(ScrumStance.anchor(setup[0], setup[2]))
 
@@ -82,5 +83,5 @@ func test_a_unit_not_yet_held_long_enough_does_not_trade() -> void:
 
 	ScrumTrade.trade(setup[0], 7)
 
-	assert_int(setup[2].rank).is_equal(1)
+	assert_int(UnitPlace.rank(setup[0], setup[2])).is_equal(1)
 	assert_bool(setup[0].loose.has(setup[2].id)).is_true()

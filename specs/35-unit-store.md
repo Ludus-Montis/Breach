@@ -37,6 +37,12 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 2b, the Rust backend owns them: built** (2026-10-15). See "Built" below.
 - **Step 3, bearing: built** (2026-10-15), in one PR: the GDScript store and the Rust
   backend own it together. See "Built" below.
+- **Step 4 is five PRs** (the user, 2026-10-15): 4a moves rank and column into the store
+  (Decision 143); 4b the native seek reads its goals and places on the field and writes
+  its outcome there; 4c the walk; 4d the facing; 4e the sync reads flags, next and bearing
+  on the field, so `BodyFieldSync` keeps only enrolling.
+- **Step 4a, rank and column: built** (2026-10-15), both backends in one PR. See "Built"
+  below.
 
 ## The store
 
@@ -70,7 +76,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
     `breather`, `run_build`, `was_running` and the rest that change in a tick) and the
     unit's flags (alive, down, `state`).
 - **What stays** on `SkirmishUnit`, as the unit's record: id, stats, traits, definition,
-  command and origin, rank, column, footprint. If step 7's inventory finds a field that
+  command and origin, footprint. Rank and column were listed here, but they change
+  mid-battle, so they moved in step 4a (Decision 143). If step 7's inventory finds a field that
   changes within a tick and isn't listed above, it moves too: the rule is "per-tick state
   moves".
 - **Removed, not forwarded.** A field leaves `SkirmishUnit` in the PR that moves it, and
@@ -407,6 +414,43 @@ but read from the store instead of a sync. The glue is gone at step 4.
   the blank and the name. `UnitPlaces` (tests) has `facing`, `face`, `bearing_of` and
   `turn`; its `saved` and `restore` carry the bearing with every other column, so the
   facing tests no longer save bearings themselves.
+
+### Step 4a, rank and column
+
+- **Why a step of its own** (Decision 143): the native seek and walk need each unit's
+  place in its squad's frame, and rank and column change mid-battle (trades, re-forms,
+  closing up, turning about, routs, recovery, strays, splits, reinforcements), so they
+  couldn't be enrolled once.
+- **`UnitColumns.RANK` and `COLUMN`** (32-bit ints, blank 0) and Rust's `Columns.rank` and
+  `column`, found by the same names, came in together.
+- **`UnitPlace`** (`unit_place.gd`) serves scattered use: `of`, `put` and `rank` by a squad
+  (anything holding the store) and a unit; `at` and `set_at` by columns and a slot. The
+  native seek's and walk's gathers, `PlaceOrder.front_first` and presentation fetch the
+  two columns once.
+- **`SkirmishUnit.rank` and `column` are gone.** Every reader and writer in `sim/`,
+  presentation, the tools and the tests switched in this PR (Decision 142). Signatures that
+  changed: `SquadFrame.corners`, `unit_rect`, `place` and `place_in` take the unit's place
+  after the unit; `PlaceOrder.front_first` takes the columns; `SquadPlaces.places` takes
+  the squad, and `SquadPlaces.occupancy` also returns each unit's place (`"places"`), which
+  the re-form's planning reads; `FormationUnits.make` no longer takes a place:
+  `spawn_squad` puts each unit's place once the squad has enrolled it.
+- **`SquadCompact`** (`squad_compact.gd`) now holds `compact` and its helpers, unchanged but
+  for reading places through the store; `SkirmishSquad.compact()` calls it.
+  `skirmish_squad.gd` was at its 300-line limit.
+- **Speed is still sent each tick** (the user, 2026-10-15): it changes every tick through
+  stamina and moves to the store in step 6. Until then plan, walk and face take it from
+  GDScript.
+- **Cost to watch.** Rules that read one unit's place (`ScrumStance.anchor`,
+  `FormationPour.place`, `lateral_span`, the re-form) read two values from the store
+  each time. Under Rust each is a call into the field. The bench says whether that shows;
+  4b's native seek removes the largest of them.
+- **Tests.** `test_unit_place.gd` (new): the columns round-trip on both backends, a new or
+  reused slot reads (0, 0), the native store holds them on its field, a spawned squad's
+  units stand where its layout puts them, and `SkirmishUnit` no longer declares either.
+  `test_unit_store.gd`'s battle compares every unit's place on both engines every tick.
+  `UnitPlaces` (tests) has `set_place`, which enrols a hand-built unit first. The two
+  crowds in `test_scrum_trade_turns.gd` share unit ids, so each now has its own store.
+  `columns.rs`: the blank and the names.
 
 ## Open, for the implementing session to settle and record here
 

@@ -89,12 +89,20 @@ static func overlap_across(from: SkirmishSquad, to: SkirmishSquad) -> bool:
 
 static func _rect(squad: SkirmishSquad, unit: SkirmishUnit) -> Rect2:
 	return SquadFrame.unit_rect(
-		squad.position, squad.heading, squad.width, squad.centre_shift, unit
+		squad.position,
+		squad.heading,
+		squad.width,
+		squad.centre_shift,
+		unit,
+		UnitPlace.of(squad, unit)
 	)
 
 
 static func _corners(squad: SkirmishSquad, unit: SkirmishUnit) -> PackedVector2Array:
-	return SquadFrame.corners(squad.position, squad.heading, squad.width, squad.centre_shift, unit)
+	var at := UnitPlace.of(squad, unit)
+	return SquadFrame.corners(
+		squad.position, squad.heading, squad.width, squad.centre_shift, unit, at
+	)
 
 
 ## The corners of all the squad's living units' footprints.

@@ -137,11 +137,9 @@ static func _nearest_place(
 
 ## The two swap places; the friend, loose if it wasn't, walks to its new one.
 static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit) -> void:
-	var place := Vector2i(unit.rank, unit.column)
-	unit.rank = friend.rank
-	unit.column = friend.column
-	friend.rank = place.x
-	friend.column = place.y
+	var place := UnitPlace.of(squad, unit)
+	UnitPlace.put(squad, unit, UnitPlace.of(squad, friend))
+	UnitPlace.put(squad, friend, place)
 	if not squad.loose.has(friend.id):
 		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
 		SquadEntries.loosen(squad, friend, at)

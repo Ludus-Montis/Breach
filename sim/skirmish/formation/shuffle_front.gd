@@ -46,6 +46,7 @@ static func free_place(
 		and squad.combat_width > 0
 	)
 	var reach := squad.combat_width if spreading else unit.footprint_width
+	var at: Vector2i = occupied["places"][unit]
 	for column: int in held[1]:
 		if column < -reach or column > squad.width + reach - unit.footprint_width:
 			continue
@@ -55,7 +56,7 @@ static func free_place(
 			continue
 		if not SquadPlaces.vacant(occupied, place, unit, [unit], claimed["cells"]):
 			continue
-		var distance := maxi(unit.rank, absi(column - unit.column))
+		var distance := maxi(at.x, absi(column - at.y))
 		if best.is_empty() or distance < best["distance"]:
 			best = {"mover": unit, "passed": [], "to": {unit: place}, "distance": distance}
 	return best

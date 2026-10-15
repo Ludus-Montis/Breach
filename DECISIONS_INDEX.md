@@ -148,4 +148,5 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 139 | Units move through one mover, which pays the ground | 6439 |  |
 | 140 | Agents share one entry file; design and implementation run as separate sessions; open questions live in one register | 6465 |  |
 | 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
-| 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 |  |
+| 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143 |
+| 143 | A unit's rank and column are per-tick state, held in the unit store | 6629 |  |

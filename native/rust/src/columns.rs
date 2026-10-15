@@ -5,7 +5,8 @@
 //! foe, where it walks toward, how long it has been stuck and its closest yet; how far
 //! along its route it has fled, how long a friend has held it and which, how far it has
 //! fanned out), with the bits saying which keys an entry holds (`keys`), and the way it
-//! faces (`bearing`, step 3: degrees clockwise from north). The field holds
+//! faces (`bearing`, step 3: degrees clockwise from north), and its place in its squad's
+//! frame (`rank` and `column`, step 4a). The field holds
 //! them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
@@ -22,6 +23,8 @@ pub struct Columns {
     pub flags: Vec<i32>,
     pub touch: Vec<i32>,
     pub keys: Vec<i32>,
+    pub rank: Vec<i32>,
+    pub column: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -58,6 +61,8 @@ impl Columns {
             "flags" => Some(&mut self.flags),
             "touch" => Some(&mut self.touch),
             "keys" => Some(&mut self.keys),
+            "rank" => Some(&mut self.rank),
+            "column" => Some(&mut self.column),
             _ => None,
         }
     }
@@ -97,7 +102,13 @@ impl Columns {
         ] {
             column.push(V2::ZERO);
         }
-        for column in [&mut self.flags, &mut self.touch, &mut self.keys] {
+        for column in [
+            &mut self.flags,
+            &mut self.touch,
+            &mut self.keys,
+            &mut self.rank,
+            &mut self.column,
+        ] {
             column.push(0);
         }
         for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by] {
@@ -123,7 +134,13 @@ impl Columns {
         ] {
             column[slot] = V2::ZERO;
         }
-        for column in [&mut self.flags, &mut self.touch, &mut self.keys] {
+        for column in [
+            &mut self.flags,
+            &mut self.touch,
+            &mut self.keys,
+            &mut self.rank,
+            &mut self.column,
+        ] {
             column[slot] = 0;
         }
         for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by] {
@@ -154,12 +171,14 @@ mod tests {
         columns.longs("goal_slot").unwrap()[0] = 3;
         columns.reals("closest").unwrap()[0] = 0.5;
         columns.reals("bearing").unwrap()[0] = 237.5;
+        columns.ints("rank").unwrap()[0] = 3;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
         assert_eq!(columns.goal_slot[0], NO_GOAL);
         assert_eq!(columns.closest[0], f64::INFINITY);
         assert_eq!(columns.bearing[0], EAST);
+        assert_eq!(columns.rank[0], 0);
     }
 
     #[test]
@@ -168,7 +187,7 @@ mod tests {
         for name in ["position", "at", "offset", "next", "foe_at", "toward"] {
             assert!(columns.points(name).is_some(), "{name}");
         }
-        for name in ["flags", "touch", "keys"] {
+        for name in ["flags", "touch", "keys", "rank", "column"] {
             assert!(columns.ints(name).is_some(), "{name}");
         }
         for name in ["goal_foe", "goal_slot", "caught", "held_by"] {

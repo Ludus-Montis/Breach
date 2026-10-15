@@ -162,7 +162,8 @@ static func _centre(squad: SkirmishSquad) -> void:
 	var low := INF
 	var high := -INF
 	for unit in squad.living():
-		low = minf(low, unit.column)
-		high = maxf(high, unit.column + unit.footprint_width)
+		var column := UnitPlace.of(squad, unit).y
+		low = minf(low, column)
+		high = maxf(high, column + unit.footprint_width)
 	if low < INF:
 		squad.centre_shift = squad.width / 2.0 - (low + high) / 2.0

@@ -137,6 +137,11 @@ Each port made before spec 35 step 4 adds the gather, sync and write-back that t
 
 Decision 129 makes GDScript the reference: the digests compare both engines, and the parity tests (`test_unit_store.gd`'s column comparison, the field tests such as `test_walk_field.gd`) run each ported pass on both. The user asked whether a parity check can go once it is green. The answer given: not while both implementations exist and change, since parity at one commit doesn't hold for the next; a pass's parity tests go when its GDScript twin is deleted, and its digests are then recorded against Rust. Also to settle: moving the GDScript full suite and scaling check from every PR to pushes to `main` only, keeping the digests and `bench` on both engines. Each of these loosens Decision 129, so it needs a new Decision that the user authorises.
 
+### Q23. Did the unit store pay for itself? Review spec 35's bench series as a whole
+**Raised:** 2026-10-15, after spec 35 step 4a (the user: "something to keep an eye on and review in totality once spec 35 is complete") · **Raise when:** Spec 35's last step (7) is built, or any session proposes reverting or reshaping a spec 35 step because of its bench
+
+Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squads=4 fight=3`) against its base and records it in spec 34's "Measured" section. Steps 1 to 4a add boundary crossings, and 4a adds a store read wherever a rule reads one unit's place. Step 4 onwards should remove the glue. A single step's numbers are noisy, and runners differ, so judge the series as a whole: the tick at the end against the tick before step 0 (Q20's 380 ms), phase by phase. Name any phase that got slower and stayed slower, and whether a pass should fetch columns once where it now reads per unit.
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.

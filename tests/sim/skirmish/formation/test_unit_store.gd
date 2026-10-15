@@ -250,7 +250,7 @@ func _state(sim: FormationSimulation) -> String:
 	for squad in sim.squads():
 		for unit in squad.units:
 			var at: Vector2 = points[unit.slot].snapped(Vector2(0.0001, 0.0001))
-			var row := [unit.id, unit.hp, unit.rank, unit.column, at, bearings[unit.slot]]
+			var row := [unit.id, unit.hp, UnitPlace.of(squad, unit), at, bearings[unit.slot]]
 			rows.append(row + [squad.id])
 	rows.sort()
 	return str(rows)

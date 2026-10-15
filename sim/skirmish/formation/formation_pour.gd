@@ -32,7 +32,10 @@ static func place(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Ve
 	var swapping := FormationShuffle.offset(squad, unit, moving)
 	var ahead := UnitMotion.vector(squad.heading)
 	var shift := ahead * swapping.x - ahead.orthogonal() * swapping.y
-	var at := SquadFrame.place(squad.position, squad.heading, squad.width, squad.centre_shift, unit)
+	var frame := [squad.position, squad.heading, squad.width, squad.centre_shift]
+	var at := SquadFrame.place(
+		frame[0], frame[1], frame[2], frame[3], unit, UnitPlace.of(squad, unit)
+	)
 	return at + shift
 
 

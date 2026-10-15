@@ -35,6 +35,11 @@ const FANNED := &"fanned"
 ## The way the unit faces (spec 35 step 3; UnitMotion): degrees clockwise from north. A
 ## unit not yet turned faces east.
 const BEARING := &"bearing"
+## The unit's place in its squad's frame (spec 35 step 4a; SquadFrame): its rank back from
+## the front and its column from the squad's left, in cells. Both change as the squad
+## shuffles, turns and trades places, so they are per-tick state.
+const RANK := &"rank"
+const COLUMN := &"column"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -59,6 +64,8 @@ const BLANKS := {
 	FANNED: 0.0,
 	KEYS: 0,
 	BEARING: 90.0,
+	RANK: 0,
+	COLUMN: 0,
 }
 
 var _columns := {
@@ -80,6 +87,8 @@ var _columns := {
 	FANNED: PackedFloat64Array(),
 	KEYS: PackedInt32Array(),
 	BEARING: PackedFloat64Array(),
+	RANK: PackedInt32Array(),
+	COLUMN: PackedInt32Array(),
 }
 
 

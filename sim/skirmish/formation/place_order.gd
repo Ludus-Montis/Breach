@@ -10,16 +10,19 @@ extends RefCounted
 const LIMIT := 1 << 20
 
 
-## `units`, front rank first, each rank left to right.
-static func front_first(units: Array) -> Array:
+## `units`, front rank first, each rank left to right, by their places in `columns` (the
+## unit store's).
+static func front_first(units: Array, columns: UnitColumns) -> Array:
 	var count := units.size()
 	var keys := PackedInt64Array()
 	keys.resize(count)
+	var ranks: PackedInt32Array = columns.column(UnitColumns.RANK)
+	var files: PackedInt32Array = columns.column(UnitColumns.COLUMN)
 	for index in range(count):
-		var unit = units[index]
-		if absi(unit.rank) >= LIMIT or absi(unit.column) >= LIMIT:
-			return _by_pairs(units)
-		var place: int = (unit.rank + LIMIT) * (2 * LIMIT) + unit.column + LIMIT
+		var slot: int = units[index].slot
+		if absi(ranks[slot]) >= LIMIT or absi(files[slot]) >= LIMIT:
+			return _by_pairs(units, ranks, files)
+		var place: int = (ranks[slot] + LIMIT) * (2 * LIMIT) + files[slot] + LIMIT
 		keys[index] = place * count + index
 	keys.sort()
 	var out := []
@@ -27,13 +30,15 @@ static func front_first(units: Array) -> Array:
 	for index in range(count):
 		out[index] = units[keys[index] % count]
 		if index > 0 and keys[index] / count == keys[index - 1] / count:
-			return _by_pairs(units)  # one place held twice: as the comparison sorts them
+			return _by_pairs(units, ranks, files)  # one place held twice: as the comparison sorts them
 	return out
 
 
-static func _by_pairs(units: Array) -> Array:
+static func _by_pairs(units: Array, ranks: PackedInt32Array, files: PackedInt32Array) -> Array:
 	var out := units.duplicate()
 	out.sort_custom(
-		func(a, b): return a.rank < b.rank or (a.rank == b.rank and a.column < b.column)
+		func(a, b):
+			var ahead := ranks[a.slot] < ranks[b.slot]
+			return ahead or (ranks[a.slot] == ranks[b.slot] and files[a.slot] < files[b.slot])
 	)
 	return out

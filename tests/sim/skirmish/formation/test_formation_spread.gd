@@ -79,14 +79,14 @@ func test_the_front_already_in_place_stays_where_it_was() -> void:
 	_run(sim, func(): return first.living().size() == 8 and _settled(first))
 
 	assert_array(front.map(func(u): return first.lateral_span(u))).is_equal(spans_before)
-	assert_array(front.map(func(u): return u.rank)).is_equal([0, 0])
+	assert_array(front.map(func(u): return UnitPlace.rank(first, u))).is_equal([0, 0])
 
 
 func test_units_left_behind_close_up_to_the_front() -> void:
 	var setup := _joined_and_settled(5)
 	var first: SkirmishSquad = setup[1]
 
-	var ranks := first.living().map(func(u): return u.rank)
+	var ranks := first.living().map(func(u): return UnitPlace.rank(first, u))
 	ranks.sort()
 	assert_array(ranks).is_equal([0, 0, 0, 0, 0, 1, 1, 2])  # straight forward, no gaps
 

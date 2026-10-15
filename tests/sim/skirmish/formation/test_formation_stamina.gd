@@ -61,8 +61,8 @@ func test_its_load_against_its_strength_sets_its_encumbrance() -> void:
 
 func test_a_laden_unit_is_slower_tires_faster_and_dodges_worse() -> void:
 	var tuning := BattleTuning.current()
-	var light := FormationUnits.make(_laden(5.0), Vector2i.ZERO, "player", 1, 1)
-	var heavy := FormationUnits.make(_laden(30.0), Vector2i.ZERO, "player", 1, 2)
+	var light := FormationUnits.make(_laden(5.0), "player", 1, 1)
+	var heavy := FormationUnits.make(_laden(30.0), "player", 1, 2)
 
 	assert_float(light.speed).is_equal(1.0)
 	assert_float(heavy.speed).is_equal_approx(tuning.load_pace[2], 0.0001)

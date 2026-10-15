@@ -129,7 +129,7 @@ func test_send_deploys_the_painted_layout_and_restarts_the_same_template() -> vo
 
 	assert_int(squad.width).is_equal(2)  # painted columns 1..2
 	var brute_unit = squad.units.filter(func(u): return u.footprint_width == 2)[0]
-	assert_int(brute_unit.rank).is_equal(0)  # the brute leads
+	assert_int(UnitPlace.rank(squad, brute_unit)).is_equal(0)  # the brute leads
 	assert_int(production.built()).is_equal(0)
 	assert_int(production.preview().size()).is_equal(3)
 
@@ -171,8 +171,8 @@ func test_a_partial_wave_closes_up_with_its_leader_centred_behind() -> void:
 	var squad := production.send(sim)
 
 	assert_int(squad.width).is_equal(4)
-	var front: Array = squad.units.filter(func(u): return u.rank == 0)
+	var front: Array = squad.units.filter(func(u): return UnitPlace.rank(squad, u) == 0)
 	assert_int(front.size()).is_equal(4)
-	var behind: Array = squad.units.filter(func(u): return u.rank == 1)
+	var behind: Array = squad.units.filter(func(u): return UnitPlace.rank(squad, u) == 1)
 	assert_int(behind.size()).is_equal(1)
-	assert_int(behind[0].column).is_between(1, 2)  # centred behind the four
+	assert_int(UnitPlace.of(squad, behind[0]).y).is_between(1, 2)  # centred behind the four

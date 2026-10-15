@@ -26,7 +26,7 @@ func before_test() -> void:
 func _unit(unit_id: int, column: int, leadership: int = 0) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.column = column
+	_places.set_place(unit, Vector2i(0, column))
 	unit.hp = 100
 	unit.courage = 60
 	unit.leadership = leadership

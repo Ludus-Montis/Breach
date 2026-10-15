@@ -256,14 +256,13 @@ static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -
 	var back := 0
 	for other in best.living():
 		if other != unit:
-			back = maxi(back, other.rank + other.footprint_depth)
+			back = maxi(back, UnitPlace.rank(best, other) + other.footprint_depth)
 	if best != own:
 		SquadEntries.unloose(own, unit.id)
 		SquadEntries.unflee(own, unit.id)
 		own.units.erase(unit)
 		FormationCommand.enlist(best, unit)
-	unit.rank = back
-	unit.column = 0
+	UnitPlace.put(best, unit, Vector2i(back, 0))
 	best.reforming = true
 	var at: Vector2 = best.store.columns.value(unit.slot, UnitColumns.POSITION)
 	SquadEntries.loosen(best, unit, at)

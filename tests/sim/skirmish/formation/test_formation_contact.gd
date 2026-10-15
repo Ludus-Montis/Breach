@@ -60,8 +60,11 @@ func test_a_wave_reaching_a_fight_joins_it_from_the_back() -> void:
 	var log := _run(sim, func(): return _players(sim).size() == 1)
 
 	assert_int(first.living().size()).is_equal(6)
-	assert_array(first.units.slice(3).map(func(u): return u.rank)).is_equal([1, 1, 1])
-	assert_array(first.fighters().map(func(u): return u.rank)).is_equal([0, 0, 0])
+	(
+		assert_array(first.units.slice(3).map(func(u): return UnitPlace.rank(first, u)))
+		. is_equal([1, 1, 1])
+	)
+	assert_array(first.fighters().map(func(u): return UnitPlace.rank(first, u))).is_equal([0, 0, 0])
 	assert_int(log.filter(func(e): return e["type"] == "reinforced").size()).is_equal(1)
 
 

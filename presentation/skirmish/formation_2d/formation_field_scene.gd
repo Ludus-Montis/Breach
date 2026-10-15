@@ -141,9 +141,11 @@ func _draw() -> void:
 				var centre: Vector2 = ORIGIN + at[unit.slot] * CELL_PX
 				FallenDrawing.draw(self, unit, centre, radius, COLOURS[squad.faction_id])
 	var bearings: PackedFloat64Array = _field.sim.store.columns.column(UnitColumns.BEARING)
+	var ranks: PackedInt32Array = _field.sim.store.columns.column(UnitColumns.RANK)
 	for squad in _field.sim.squads():
 		for unit in squad.living():
-			_draw_unit(squad, unit, fraction, [at[unit.slot], bearings[unit.slot]])
+			var now := [at[unit.slot], bearings[unit.slot], ranks[unit.slot]]
+			_draw_unit(squad, unit, fraction, now)
 		_draw_morale(squad)
 		_draw_pursuit(squad)
 	for squad in _field.sim.squads():
@@ -164,7 +166,7 @@ func _draw_route(key: String) -> void:
 	draw_polyline(drawn, COLOURS[key], 2.0)
 
 
-## `now`: [where the unit stands, the way it faces], from this frame's columns.
+## `now`: [where the unit stands, the way it faces, its rank], from this frame's columns.
 func _draw_unit(squad, unit, fraction: float, now: Array) -> void:
 	var stands: Vector2 = now[0]
 	var before: Vector2 = _previous.get(unit.id, stands)
@@ -177,7 +179,7 @@ func _draw_unit(squad, unit, fraction: float, now: Array) -> void:
 	if squad.state == SkirmishSquad.State.ROUTING:
 		colour.a = 0.45  # routers flee one by one
 	draw_circle(centre, radius, colour)  # its body (Decision 106)
-	if unit.rank == 0 or squad.loose.has(unit.id):
+	if now[2] == 0 or squad.loose.has(unit.id):
 		var front := centre + UnitMotion.vector(now[1]) * radius
 		draw_circle(front, 1.5, Color.WHITE)
 

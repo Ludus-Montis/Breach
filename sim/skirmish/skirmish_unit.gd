@@ -72,10 +72,8 @@ var walker: RefCounted = null
 var foothold := Vector2.ZERO
 var on_face := false
 var climb_left := 0.0
-## Row in its squad's formation, 0 = the front rank.
-var rank: int = 0
-## Leftmost formation column it covers.
-var column: int = 0
+## Its rank and column in its squad's formation live in the unit store (UnitColumns.RANK,
+## COLUMN; spec 35 step 4a).
 ## Slots it occupies, depth (ranks) x width (columns) - Decision 40.
 var footprint_depth: int = 1
 var footprint_width: int = 1

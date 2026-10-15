@@ -30,7 +30,7 @@ func _squad(squad_id: int, faction: String, centre: Vector2, count: int) -> Skir
 		var unit := SkirmishUnit.new()
 		unit.id = squad_id * 100 + index
 		unit.hp = 10
-		unit.column = index
+		_places.set_place(unit, Vector2i(0, index))
 		_places.stand(unit, centre + Vector2(rng.randf_range(-4, 4), rng.randf_range(-4, 4)))
 		members.append(unit)
 	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, count, members, null, _places.store)

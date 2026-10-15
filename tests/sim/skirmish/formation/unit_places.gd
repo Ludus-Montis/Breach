@@ -48,6 +48,16 @@ func face(unit, bearing: float) -> void:
 	store.columns.put(unit.slot, UnitColumns.BEARING, bearing)
 
 
+## Puts `unit` at `at` (rank, column) in its squad's frame, in the shared store: enrolled
+## there first if it isn't yet (one without an id is given one); returns it.
+func set_place(unit, at: Vector2i):
+	if unit.id == 0:
+		unit.id = FIRST_ID + store.count()
+	unit.slot = store.enrol(unit.id)
+	UnitPlace.set_at(store.columns, unit.slot, at)
+	return unit
+
+
 ## Where `unit` of `squad` stands, in the squad's store.
 static func of(squad, unit) -> Vector2:
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
