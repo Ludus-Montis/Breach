@@ -132,7 +132,7 @@ pub fn pressed(field: &Field, targets: &[i64], asked: &[i64], reach: f64) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::{Enrol, SyncIn};
+    use crate::field::{Enrol, SyncIn, LOOSE, SCRUM};
     use crate::maths::V2;
 
     /// Squads 1 (faction a: unit 10 at the origin facing north) and 2 (faction b: unit
@@ -142,9 +142,12 @@ mod tests {
         let mut field = Field::default();
         let factions = ["a".to_string(), "b".to_string()];
         let points = [V2::new(0.0, 0.0), V2::new(0.0, -1.2), V2::new(1.1, 0.0)];
-        for (unit, point) in [10, 20, 21].into_iter().zip(points) {
+        let bearings = [0.0, 0.0, 270.0];
+        for (k, (unit, point)) in [10, 20, 21].into_iter().zip(points).enumerate() {
             let slot = field.hold(unit) as usize; // each loose where it stands
             field.columns.loose_at[slot] = point;
+            field.columns.flags[slot] = LOOSE as i32;
+            field.columns.bearing[slot] = bearings[k];
         }
         let input = SyncIn {
             squad_ids: &[1, 2],
@@ -152,10 +155,8 @@ mod tests {
             squad_flags: &[0, 0],
             squad_counts: &[1, 2],
             unit_ids: &[10, 20, 21],
-            flags: &[1, 1, 1],
-            nexts: &[],
+            mode: SCRUM,
             bases: &[],
-            bearings: &[0.0, 0.0, 270.0],
         };
         let unknown = field.sync(5, &input);
         field.enrol(&Enrol {

@@ -124,15 +124,9 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var units := batch.units
 	var owners := batch.owners
 	var ids := batch.ids
-	var flags := batch.flags
-	var bearings := batch.bearings
-	var facing := PackedFloat64Array()
-	if not squads.is_empty():
-		facing = squads[0].store.columns.column(UnitColumns.BEARING)
 	var flat := 0
 	for squad in squads:
 		var before := flat
-		var loose: Dictionary = squad.loose
 		for unit: SkirmishUnit in squad.units:
 			if not unit.is_alive():
 				continue
@@ -140,8 +134,6 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 			units[flat] = unit
 			owners[flat] = squad
 			ids[flat] = unit.id
-			flags[flat] = BodyFieldSync.LOOSE if loose.has(unit.id) else 0  # the field reads where
-			bearings[flat] = facing[unit.slot]
 			flat += 1
 		BodyFieldSync._squad(batch, squad, flat - before)
 	return BodyFieldSync._send(field, _trimmed(batch, flat), fight_seed)
@@ -156,8 +148,6 @@ static func _sized(squads: Array) -> BodyFieldSync.Batch:
 	batch.units.resize(size)
 	batch.owners.resize(size)
 	batch.ids.resize(size)
-	batch.flags.resize(size)
-	batch.bearings.resize(size)
 	return batch
 
 
@@ -165,8 +155,6 @@ static func _trimmed(batch: BodyFieldSync.Batch, size: int) -> BodyFieldSync.Bat
 	batch.units.resize(size)
 	batch.owners.resize(size)
 	batch.ids.resize(size)
-	batch.flags.resize(size)
-	batch.bearings.resize(size)
 	return batch
 
 

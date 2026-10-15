@@ -1,9 +1,10 @@
 class_name BodyFieldSync
 extends RefCounted
 ## Brings a native BodyField (NativeKernels, Decision 129) to the squads as they stand: one
-## call a sync, flat over the squads in list order - each squad's living units and how each
-## stands (loose, fleeing, as its own squad's entries say). Where each stands the field
-## reads from the unit store's columns, which live on it (UnitColumnsNative, spec 35). The
+## call a sync, flat over the squads in list order - each squad's living units (and a
+## fleeing one's point on its route). How each stands (loose, fleeing), where, its next
+## point and its bearing the field reads from the unit store's columns, which live on it
+## (UnitColumnsNative, spec 35 step 4e). The
 ## field keeps its roster across ticks: units it hasn't
 ## seen are enrolled once, with GDScript's own radius, footprint area, initiative and
 ## seeded draw (ScrumContest.draw), so no rule is copied natively; the dead and the gone
@@ -19,9 +20,12 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 
-## A body's flags, as the field reads them.
-const LOOSE := 1
-const FLEEING := 2
+## Which snapshot a sync takes (BodyField.sync): the scrum's (each unit loose or not, and
+## its bearing) or the bodies' (loose or fleeing, and a loose one's next point). How each
+## stands, its next point and its bearing are the unit store's, read on the field (spec 35
+## step 4e).
+const SCRUM := 1
+const BODIES := 2
 ## A squad's flags.
 const ROUTING := 1
 const DESTROYED := 2
@@ -36,29 +40,21 @@ class Batch:
 	var squad_flags := PackedByteArray()
 	var counts := PackedInt32Array()
 	var ids := PackedInt64Array()
-	var flags := PackedByteArray()
-	var nexts := PackedVector2Array()
+	var mode := SCRUM
 	var bases := PackedVector2Array()
-	var bearings := PackedFloat64Array()
 
 
 ## Syncs the field to the scrum's snapshot; returns [units, their squads] by flat index.
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
-	var facing := PackedFloat64Array()
-	if not squads.is_empty():
-		facing = squads[0].store.columns.column(UnitColumns.BEARING)
 	for squad in squads:
 		var before := batch.units.size()
-		var loose: Dictionary = squad.loose
 		for unit in squad.units:
 			if not unit.is_alive():
 				continue
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			batch.flags.append(LOOSE if loose.has(unit.id) else 0)  # a router: where it stands
-			batch.bearings.append(facing[unit.slot])
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
 
@@ -66,27 +62,18 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 ## Syncs the field to the bodies as UnitBodies sees them; returns [units, their squads].
 static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
+	batch.mode = BODIES
 	for squad in squads:
 		var before := batch.units.size()
-		var loose: Dictionary = squad.loose
 		var fleeing: Dictionary = squad.fleeing
-		var nexts: PackedVector2Array = squad.store.columns.column(UnitColumns.NEXT)
 		for unit in squad.units:
 			if not unit.is_alive():
 				continue
-			var is_loose := loose.has(unit.id)
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			var flag := LOOSE if is_loose else 0
-			if fleeing.has(unit.id):
-				batch.nexts.append(Vector2.ZERO)
-				batch.bases.append(FormationRout.route_point(squad, unit.id))
-				flag |= FLEEING
-			else:
-				batch.nexts.append(nexts[unit.slot] if is_loose else Vector2.ZERO)
-				batch.bases.append(Vector2.ZERO)
-			batch.flags.append(flag)
+			var fled := fleeing.has(unit.id)  # its base: its point on its squad's route
+			batch.bases.append(FormationRout.route_point(squad, unit.id) if fled else Vector2.ZERO)
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
 
@@ -109,10 +96,8 @@ static func _send(field: Object, batch: Batch, fight_seed: int) -> Array:
 		batch.squad_flags,
 		batch.counts,
 		batch.ids,
-		batch.flags,
-		batch.nexts,
-		batch.bases,
-		batch.bearings
+		batch.mode,
+		batch.bases
 	)
 	if not unknown.is_empty():
 		_enrol(field, unknown, batch.units, fight_seed)

@@ -49,6 +49,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   "keep stacking, we can merge them all down later"). See "Built" below.
 - **Step 4d, the facing on the store: built** (2026-10-15), stacked on 4c's PR. See
   "Built" below.
+- **Step 4e, the sync reads the store: built** (2026-10-15), stacked on 4d's PR. Step 4 is
+  complete. See "Built" below.
 
 ## The store
 
@@ -522,6 +524,26 @@ but read from the store instead of a sync. The glue is gone at step 4.
   units and speeds, turns them as GDScript does (new; red on the 4c library, whose `face`
   took the gathered arrays). The facing parity tests (at two moments, any bearing to any
   look, and in reversed list order) run unchanged through the new path.
+
+### Step 4e, the sync reads the store
+
+- **`BodyField.sync` takes the roster and a mode.** The roster is each squad's id,
+  faction, flags and its living units' ids, in list order. The mode is `BodyFieldSync.SCRUM`
+  or `BODIES`. It no longer takes each unit's flags, next point or bearing. The field reads
+  how each unit stands from the store's flag bits (`LOOSE`, `FLEEING`); the scrum's
+  snapshot masks out `FLEEING`, as the scrum sync sent only `LOOSE`. It reads a loose,
+  non-fleeing unit's next point from the column in the bodies' snapshot, and each bearing
+  from the column in the scrum's. That is what 1c left for here: since 2a, a unit's bit is
+  set exactly while its own squad holds the entry, so the bits say what the squads'
+  entries said.
+- **What stays in GDScript: the roster and a fleeing unit's point on its route**
+  (`FormationRout.route_point`). Routes are GDScript's, and whether a unit is living is
+  step 7's. `ScrumBlowsField`'s own sync sends the same roster in the scrum's mode.
+- **Tests.** `test_body_field.gd`: a sync that names only the roster stands a loose unit
+  where it stands loose and another at its position (new; red on the 4d library, which
+  had no mode). `field.rs` and `blows.rs` set the flag bits in the store before syncing.
+  The seek parity tests run unchanged through the new sync; the parting's and blows'
+  tests and the digests run in CI.
 
 ## Open, for the implementing session to settle and record here
 
