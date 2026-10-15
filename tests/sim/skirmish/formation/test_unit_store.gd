@@ -103,22 +103,6 @@ func test_the_loose_and_fleeing_places_round_trip_and_start_blank() -> void:
 			assert_that(columns.value(slot, name)).is_equal(UnitColumns.BLANKS[name])
 
 
-func test_the_native_store_s_columns_live_on_its_field() -> void:
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_store: the Rust core isn't built - its half skipped")
-		return
-	var store := NativeKernels.unit_store(field)
-	var slot := store.enrol(3)
-	store.columns.put(slot, UnitColumns.LOOSE_AT, Vector2(4, 5))
-	store.columns.put(slot, UnitColumns.FLAGS, UnitColumns.LOOSE)
-	assert_vector(field.column_points(UnitColumns.LOOSE_AT)[slot]).is_equal(Vector2(4, 5))
-	assert_int(field.column_flags()[slot]).is_equal(UnitColumns.LOOSE)
-	assert_object(store.field()).is_same(field)
-
-
 func test_a_sync_reads_where_each_unit_stands_from_the_store() -> void:
 	for engine in _backends().map(func(backend): return backend[0]):
 		if engine != NativeKernels.RUST:

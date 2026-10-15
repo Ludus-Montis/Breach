@@ -6,6 +6,7 @@
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
 mod blows;
+mod columns;
 mod det_math;
 mod facing;
 mod field;
@@ -397,20 +398,14 @@ impl BodyField {
         PackedInt64Array::from(self.field.held_units().as_slice())
     }
 
-    /// The unit store's point column `name` (UnitColumns: "position", "at", "offset"), by
-    /// slot: one copy.
+    /// The unit store's point column `name` (UnitColumns: "position", "at", "offset",
+    /// "next", "foe_at", "toward"), by slot: one copy.
     #[func]
     fn column_points(&mut self, name: GString) -> PackedVector2Array {
         match self.field.columns.points(&name.to_string()) {
             Some(column) => column.iter().map(|p| Vector2::new(p.x, p.y)).collect(),
             None => PackedVector2Array::new(),
         }
-    }
-
-    /// The unit store's flags column, by slot: one copy.
-    #[func]
-    fn column_flags(&self) -> PackedInt32Array {
-        PackedInt32Array::from(self.field.columns.flags.as_slice())
     }
 
     /// Replaces a point column with `values` (by slot, as long as the column).
@@ -424,17 +419,6 @@ impl BodyField {
         for (slot, p) in values.as_slice().iter().enumerate() {
             column[slot] = V2 { x: p.x, y: p.y };
         }
-    }
-
-    /// Replaces the flags column with `values` (by slot, as long as the column).
-    #[func]
-    fn commit_flags(&mut self, values: PackedInt32Array) {
-        let column = &mut self.field.columns.flags;
-        if values.len() != column.len() {
-            godot_error!("BodyField.commit_flags: a column keeps its length");
-            return;
-        }
-        column.copy_from_slice(values.as_slice());
     }
 
     /// One slot's value in a point column.
@@ -457,22 +441,114 @@ impl BodyField {
         }
     }
 
+    /// The unit store's 32-bit int column `name` ("flags", "touch", "keys"), by slot: one
+    /// copy.
+    #[func]
+    fn column_ints(&mut self, name: GString) -> PackedInt32Array {
+        match self.field.columns.ints(&name.to_string()) {
+            Some(column) => PackedInt32Array::from(column.as_slice()),
+            None => PackedInt32Array::new(),
+        }
+    }
+
+    /// Replaces a 32-bit int column with `values` (by slot, as long as the column).
+    #[func]
+    fn commit_ints(&mut self, name: GString, values: PackedInt32Array) {
+        let Some(column) = self.field.columns.ints(&name.to_string()) else { return };
+        if values.len() != column.len() {
+            godot_error!("BodyField.commit_ints: a column keeps its length");
+            return;
+        }
+        column.copy_from_slice(values.as_slice());
+    }
+
+    /// The unit store's 64-bit int column `name` ("goal_foe", "goal_slot", "caught",
+    /// "held_by"), by slot: one copy.
+    #[func]
+    fn column_longs(&mut self, name: GString) -> PackedInt64Array {
+        match self.field.columns.longs(&name.to_string()) {
+            Some(column) => PackedInt64Array::from(column.as_slice()),
+            None => PackedInt64Array::new(),
+        }
+    }
+
+    /// Replaces a 64-bit int column with `values` (by slot, as long as the column).
+    #[func]
+    fn commit_longs(&mut self, name: GString, values: PackedInt64Array) {
+        let Some(column) = self.field.columns.longs(&name.to_string()) else { return };
+        if values.len() != column.len() {
+            godot_error!("BodyField.commit_longs: a column keeps its length");
+            return;
+        }
+        column.copy_from_slice(values.as_slice());
+    }
+
+    /// The unit store's float column `name` ("stuck", "closest", "along", "fanned"), by
+    /// slot: one copy.
+    #[func]
+    fn column_reals(&mut self, name: GString) -> PackedFloat64Array {
+        match self.field.columns.reals(&name.to_string()) {
+            Some(column) => PackedFloat64Array::from(column.as_slice()),
+            None => PackedFloat64Array::new(),
+        }
+    }
+
+    /// Replaces a float column with `values` (by slot, as long as the column).
+    #[func]
+    fn commit_reals(&mut self, name: GString, values: PackedFloat64Array) {
+        let Some(column) = self.field.columns.reals(&name.to_string()) else { return };
+        if values.len() != column.len() {
+            godot_error!("BodyField.commit_reals: a column keeps its length");
+            return;
+        }
+        column.copy_from_slice(values.as_slice());
+    }
+
+    /// One slot's value in an int column, 32- or 64-bit.
+    #[func]
+    fn int_of(&mut self, slot: i64, name: GString) -> i64 {
+        let name = name.to_string();
+        if let Some(column) = self.field.columns.ints(&name) {
+            return column[slot as usize] as i64;
+        }
+        match self.field.columns.longs(&name) {
+            Some(column) => column[slot as usize],
+            None => 0,
+        }
+    }
+
+    /// Sets one slot's value in an int column, 32- or 64-bit.
+    #[func]
+    fn put_int(&mut self, slot: i64, name: GString, value: i64) {
+        let name = name.to_string();
+        if let Some(column) = self.field.columns.ints(&name) {
+            column[slot as usize] = value as i32;
+        } else if let Some(column) = self.field.columns.longs(&name) {
+            column[slot as usize] = value;
+        }
+    }
+
+    /// One slot's value in a float column.
+    #[func]
+    fn real_of(&mut self, slot: i64, name: GString) -> f64 {
+        match self.field.columns.reals(&name.to_string()) {
+            Some(column) => column[slot as usize],
+            None => 0.0,
+        }
+    }
+
+    /// Sets one slot's value in a float column.
+    #[func]
+    fn put_real(&mut self, slot: i64, name: GString, value: f64) {
+        if let Some(column) = self.field.columns.reals(&name.to_string()) {
+            column[slot as usize] = value;
+        }
+    }
+
     /// Every column blank in `slot` (a slot the store has just given).
     #[func]
     fn blank(&mut self, slot: i64) {
         self.field.columns.blank(slot as usize);
-    }
-
-    /// One slot's flag bits.
-    #[func]
-    fn flags_of(&self, slot: i64) -> i64 {
-        self.field.columns.flags[slot as usize] as i64
-    }
-
-    /// Sets one slot's flag bits.
-    #[func]
-    fn put_flags(&mut self, slot: i64, bits: i64) {
-        self.field.columns.flags[slot as usize] = bits as i32;
     }
 
     /// Microseconds of native work in the last sync, part, plan, walk or face.

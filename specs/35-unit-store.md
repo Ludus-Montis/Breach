@@ -34,6 +34,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 2 is two PRs** (the user, 2026-10-15): 2a moves every other key of the loose and
   fleeing entries to the GDScript store; 2b gives them to the Rust backend.
 - **Step 2a, the entries' other keys: built** (2026-10-15). See "Built" below.
+- **Step 2b, the Rust backend owns them: built** (2026-10-15). See "Built" below.
 
 ## The store
 
@@ -346,6 +347,31 @@ but read from the store instead of a sync. The glue is gone at step 4.
   `test_unit_store.gd`'s battle compares every unit's entries, rebuilt as the digest
   rebuilds them, on both engines every tick. The tests that run a pass twice from one
   state put the store's columns back as well as the squads' lists (`UnitPlaces.saved`).
+
+### Step 2b, the Rust backend owns them
+
+- **Every column lives on the field.** The store's columns moved out of `field.rs` into
+  `columns.rs` (`Columns`), which now holds the step-2 keys too, by type: points (`next`,
+  `foe_at`, `toward` beside the three places), 32-bit ints (`flags`, `touch`, `keys`),
+  64-bit ints (`goal_foe`, `goal_slot`, `caught`, `held_by`) and floats (`stuck`,
+  `closest`, `along`, `fanned`). Each is found by its UnitColumns name and starts blank as
+  UnitColumns' BLANKS say (`goal_slot` -1, `closest` INF).
+- **`BodyField`'s calls, by type:** `column_points`/`commit_points`/`point`/`put_point` as
+  before; `column_ints`/`commit_ints`, `column_longs`/`commit_longs`,
+  `column_reals`/`commit_reals`; `int_of`/`put_int` (32- or 64-bit) and `real_of`/`put_real`.
+  The flags-only calls (`column_flags`, `commit_flags`, `flags_of`, `put_flags`) are gone:
+  `column_ints("flags")` and the rest replace them.
+- **`UnitColumnsNative`** holds nothing in GDScript: it sends each name to the field's call
+  for its kind. The 2a fix that grew GDScript-held columns for a slot the field gave in a
+  sync (`UnitStoreNative.enrol`) went with them.
+- **Not done here, left for step 4:** the syncs still name each unit's flags and send its
+  next step from GDScript, though the field now holds both. Reading them on the field is
+  the glue step 4 removes.
+- **Tests.** `test_entry_keys.gd`: the native store holds every column on its field, a new
+  slot reading blank there (red on the library built before this step: the calls didn't
+  exist). `columns.rs`: blanks, and each column found by its name and no other. The column
+  contract and the battle's per-tick comparison on both engines
+  (`test_unit_store.gd`, `test_entry_keys.gd`) run unchanged.
 
 ## Open, for the implementing session to settle and record here
 
