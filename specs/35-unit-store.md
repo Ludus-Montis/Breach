@@ -263,8 +263,20 @@ but read from the store instead of a sync. The glue is gone at step 4.
 | presentation `skirmish_squad_layer.gd` 136 | read | | one `HP` column fetch a frame, as positions and bearings |
 | `tools/formation_digest.gd`, `tick_phases.gd`, `blows_bench.gd`, `fatigue_trials.gd` | read, write | read | through the store; `blows_bench.gd` already doesn't parse (seen in 4a) |
 
-The bench against 5b's base must show deaths faster and no phase slower beyond noise. 5b
-also settles whether #229's second bench shows deaths above main.
+The bench against 5b's base must show deaths faster and no phase slower beyond noise.
+
+**Carried into 5b from #229's benches (Decision 144: a step fixes what is slower).** Two runs
+of #229 against main before step 4, on two runners, agree: the tick is 13 to 15% faster
+(378.2 → 322.1 ms; 252.3 → 218.6), but some phases came in above main on both. Deaths was
++14% and +13% (26.1 → 29.8; 17.2 → 19.4), stamina +6% and +11%, recovery +5% and +7%, the
+re-form's occupancy +35% and +46% (5.6 → 7.5; 3.4 → 4.9) and its tries +8% and +12%. Deaths
+and stamina read no column 4a moved, so a likely common cause is the copies: a squad's
+table (`UnitPlace.table`, `fighters()`, the occupancy, `SquadEdges`) copies whole columns, the
+battle's every slot, once a squad and often more than once a tick, which may churn the
+cache for the passes after. 5b measures that first (`tick_phases` with the copies counted),
+then fixes what it finds: a table fetched once a pass for all squads, or a native gather of
+just the squad's slots (`column_at(name, slots)`), and the occupancy's place map built from the
+table rather than a dictionary per unit. Deaths' own scan goes in 5b anyway (the fell queue).
 
 ## Built
 

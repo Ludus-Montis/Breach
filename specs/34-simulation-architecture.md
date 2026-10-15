@@ -153,8 +153,9 @@ fight=3`; runners differ between runs, so compare percentages):
   (the march's write-back committed once). Phases step 4 didn't touch came in a few percent
   above main on this runner (perception 15.9 → 17.3, stamina 24.0 → 25.4, recovery 24.9 →
   26.1), as did deaths 26.1 → 29.8 and the re-form's occupancy 5.6 → 7.5, which builds a place
-  map as it goes. Deaths was within 1 ms of main on the previous runner, so a second run
-  settles whether it is noise; if not, step 5 (which reworks deaths) fixes it.
+  map as it goes. A second run (38783113054, AMD EPYC 9V45): **252.3 → 218.6 ms** (−13.4%), with
+  the same phases above main (deaths 17.2 → 19.4, stamina 16.7 → 18.5, recovery 16.9 → 18.1,
+  the re-form's occupancy 3.4 → 4.9): not noise. Spec 35 step 5b measures and fixes it.
 
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
