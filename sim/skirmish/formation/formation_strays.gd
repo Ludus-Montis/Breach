@@ -11,14 +11,15 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## A new routing squad (id 0, for the simulation to number) of `unit` alone, taken out of
 ## `squad`, fleeing home along `squad`'s route from where it stands.
 static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	squad.units.erase(unit)
-	squad.loose.erase(unit.id)
-	squad.fleeing.erase(unit.id)
+	SquadEntries.unloose(squad, unit.id)
+	SquadEntries.unflee(squad, unit.id)
 	squad.chasers.erase(unit.id)
 	var members: Array[SkirmishUnit] = [unit]
 	var stray := SkirmishSquad.new(
@@ -40,7 +41,7 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	stray.morale = 0
 	var offset: Vector2 = at - squad.route.point_at(along)
 	# it walks home straight, not fanning out as a panicked rout does (RoutFlight)
-	stray.fleeing[unit.id] = {"along": along, "offset": offset, "fanned": INF}
+	SquadEntries.flee(stray, unit, {"along": along, "fanned": INF}, offset)
 	unit.rank = 0
 	unit.column = 0
 	return stray

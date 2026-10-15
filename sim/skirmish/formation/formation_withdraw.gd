@@ -40,6 +40,7 @@ const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 ## How near (cells, along its route) home a unit has nowhere further to go.
@@ -55,8 +56,8 @@ static func begin(squad: SkirmishSquad, tick: int, events: Array) -> void:
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
-			squad.loose[unit.id]["next"] = at[unit.slot]
+			var stood := at[unit.slot]
+			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
 	events.append(FormationEvents.squad_event("withdrawing", tick, squad))
 
 
@@ -115,7 +116,8 @@ static func step(
 ## a unit turns and steps away at its formation's re-form pace; then it is in flight.
 static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terrain) -> void:
 	var entry: Dictionary = squad.loose[unit.id]
-	var at: Vector2 = entry["at"]
+	var columns := squad.store.columns
+	var at: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
 	var along := squad.route.distance_of(at)
 	var home: float = squad.home_distance * CELLS
 	if absf(along - home) < HOME_CELLS:
@@ -138,8 +140,9 @@ static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terra
 	var efficacy: float = motion[5]
 	var turning: float = motion[1] * efficacy  # a turn is a re-form
 	var step: float = full * minf(efficacy, 1.0) if motion[3] else full
-	entry["at"] = UnitMover.step(unit, at, to, step, turning, terrain)  # pays the ground
-	entry["next"] = entry["at"]
+	var stepped := UnitMover.step(unit, at, to, step, turning, terrain)  # pays the ground
+	columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
+	entry["next"] = stepped
 	entry["goal"] = null
 
 

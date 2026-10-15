@@ -162,11 +162,14 @@ func _record(
 func _state(squads: Array, store: UnitStore) -> Array:
 	var out := []
 	var at: PackedVector2Array = store.columns.column(UnitColumns.POSITION)
+	var loose_at: PackedVector2Array = store.columns.column(UnitColumns.LOOSE_AT)
+	var offsets: PackedVector2Array = store.columns.column(UnitColumns.FLEE_OFFSET)
 	for squad in squads:
 		var units := []
 		for unit in squad.units:
 			var slot := store.slot_of(unit.id)
-			units.append(_unit_state(squad, unit, [store.id_at(slot), at[slot]]))
+			var read := [store.id_at(slot), at[slot], loose_at[slot], offsets[slot]]
+			units.append(_unit_state(squad, unit, read))
 		var held := [squad.flank_contacts, squad.stance, squad.pursuit, squad.withdraw]
 		(
 			out
@@ -181,13 +184,28 @@ func _state(squads: Array, store: UnitStore) -> Array:
 	return out
 
 
-## `read` = [its id, where it stands], read through the store.
+## `read` = [its id, where it stands, its loose and fleeing places], read through the
+## store. Its loose and fleeing entries are hashed as they were before their places moved
+## to the store (spec 35 step 1b): with "at" and "offset" among their keys.
 func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array:
-	var held := [squad.loose.get(unit.id), squad.fleeing.get(unit.id), squad.chasers.get(unit.id)]
+	var held := [
+		_placed(squad.loose.get(unit.id), "at", read[2]),
+		_placed(squad.fleeing.get(unit.id), "offset", read[3]),
+		squad.chasers.get(unit.id),
+	]
 	return [
 		[read[0], unit.hp, read[1], unit.bearing, unit.attack_cooldown],
 		[unit.target_id, unit.rank, unit.column, _plain(held)],
 	]
+
+
+## The entry (null if none) with its place under `key`, as a copy.
+func _placed(entry, key: String, place: Vector2):
+	if entry == null:
+		return null
+	var out: Dictionary = entry.duplicate()
+	out[key] = place
+	return out
 
 
 ## The value with every object replaced by its id (or its class), dictionaries by their

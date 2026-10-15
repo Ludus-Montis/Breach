@@ -37,6 +37,7 @@ const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
 ## discipline) / 100.
@@ -96,8 +97,9 @@ static func step(
 			var entry: Dictionary = squad.loose[unit_id]
 			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))  # back
 			if not chase.get("returning", false):
-				var quarry = _quarry(entry["at"], unit, foe, quarries, fight_seed)
-				if _done(chase, entry["at"], unit, quarry):
+				var at: Vector2 = SquadEntries.loose_at(squad, unit)
+				var quarry = _quarry(at, unit, foe, quarries, fight_seed)
+				if _done(chase, at, unit, quarry):
 					chase["returning"] = true
 				else:
 					heads = quarry
@@ -108,12 +110,14 @@ static func step(
 		var unit: SkirmishUnit = walk[1]
 		var entry: Dictionary = walk[2]
 		var full: float = unit.speed * cells_per_second * seconds
-		var to := UnitSteer.toward(unit, entry["at"], walk[3], bodies, fight_seed, crowd)
-		entry["at"] = UnitMover.step(unit, entry["at"], to, full, seconds, terrain)
-		entry["next"] = entry["at"]
-		if walk[4] and entry["at"].distance_to(walk[3]) < 0.000001:
+		var at: Vector2 = SquadEntries.loose_at(walk[0], unit)
+		var to := UnitSteer.toward(unit, at, walk[3], bodies, fight_seed, crowd)
+		var stepped := UnitMover.step(unit, at, to, full, seconds, terrain)
+		walk[0].store.columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
+		entry["next"] = stepped
+		if walk[4] and stepped.distance_to(walk[3]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
-			walk[0].loose.erase(unit.id)
+			SquadEntries.unloose(walk[0], unit.id)
 
 
 ## Where the nearest unit of the chaser's foe stands (_nearest_in), or null if the chase
@@ -166,7 +170,7 @@ static func _tempt(enemy: SkirmishSquad, squad: SkirmishSquad, tick: int, battle
 		if BattleRolls.uniform(battle_seed, [tick, unit.id, "chase"]) >= chance:
 			continue
 		if not enemy.loose.has(unit.id):
-			enemy.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+			SquadEntries.loosen(enemy, unit, {"unit": unit, "goal": null, "next": at}, at)
 		var leash := FormationDiscipline.unit_leash(enemy, unit)
 		enemy.chasers[unit.id] = {"unit": unit, "foe": squad.id, "from": at, "leash": leash}
 

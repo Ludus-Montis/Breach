@@ -50,6 +50,7 @@ const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd
 const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; given the
@@ -99,13 +100,13 @@ static func regrouping(squad: SkirmishSquad) -> bool:
 
 static func _prepare(squad: SkirmishSquad, tick: int) -> void:
 	if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
-		squad.loose.clear()
+		SquadEntries.unloose_all(squad)
 		squad.stance = {}
 		squad.fight_since = -1
 		return
 	for unit_id in squad.loose.keys():
 		if not squad.loose[unit_id]["unit"].is_alive():
-			squad.loose.erase(unit_id)
+			SquadEntries.unloose(squad, unit_id)
 	var fighting := squad.state == SkirmishSquad.State.FIGHTING
 	if fighting and squad.fight_since < 0:
 		squad.fight_since = tick
@@ -120,8 +121,8 @@ static func _prepare(squad: SkirmishSquad, tick: int) -> void:
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
-			squad.loose[unit.id]["next"] = at[unit.slot]
+			var stood := at[unit.slot]
+			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
 
 
 ## Plans every fighting squad's seekers (ScrumSeek), then walks and turns its units.
@@ -143,7 +144,7 @@ static func walk(fighting: Array, ctx: Dictionary) -> void:
 		var seek = ctx["seek_batch"]  # ScrumSeekField.Batch: the units the walk steps
 		var from := []
 		for member in seek.units.size():
-			from.append(seek.owners[member].loose[seek.units[member].id]["at"])
+			from.append(SquadEntries.loose_at(seek.owners[member], seek.units[member]))
 		ScrumWalkField.walk(ctx)
 		_pay_walked(seek, from, ctx)
 		return
@@ -168,11 +169,14 @@ static func _pay_walked(seek, from: Array, ctx: Dictionary) -> void:
 	for member in from.size():
 		if codes[member] == ScrumWalkField.TOUCH:
 			continue  # it didn't step
-		var entry: Dictionary = seek.owners[member].loose[seek.units[member].id]
-		entry["at"] = UnitMover.pay(seek.units[member], from[member], entry["at"], ctx["terrain"])
-		ats[member] = entry["at"]
+		var unit: SkirmishUnit = seek.units[member]
+		var columns: UnitColumns = seek.owners[member].store.columns
+		var walked: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
+		var paid := UnitMover.pay(unit, from[member], walked, ctx["terrain"])
+		columns.put(unit.slot, UnitColumns.LOOSE_AT, paid)
+		ats[member] = paid
 		if codes[member] != ScrumWalkField.AIM and codes[member] != ScrumWalkField.PRESS:
-			entry["next"] = entry["at"]  # back to its place: it stands where it got
+			seek.owners[member].loose[unit.id]["next"] = paid  # back to its place: it stands where it got
 	ctx["face_batch"].ats = ats
 
 
@@ -200,27 +204,26 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			continue  # out chasing on its own (ScrumPursuit)
 		var entry: Dictionary = squad.loose[unit.id]
 		var full: float = unit.speed * pace
+		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		entry["toward"] = null
 		if entry["goal"] != null:
 			entry["toward"] = entry["next"]
 			var to := UnitSteer.toward(
-				unit, entry["at"], entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
+				unit, at, entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
 			)
-			entry["at"] = UnitMover.slide(
-				unit, entry["at"], to, full * _footing(unit, entry["at"], to, ctx), ctx["terrain"]
-			)
+			var paced := full * _footing(unit, at, to, ctx)
+			var slid := UnitMover.slide(unit, at, to, paced, ctx["terrain"])
+			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
 		elif not entry.get("touch", false):
 			var place := ScrumStance.anchor(squad, unit)
 			var heading: float = squad.stance.get("heading", squad.heading)
 			var speed := full / seconds
-			entry["toward"] = UnitShuffle.look(unit, entry["at"], place, heading, speed)
-			var to := UnitSteer.toward(
-				unit, entry["at"], place, ctx["bodies"], ctx["seed"], ctx["crowd"]
-			)
-			entry["at"] = UnitMover.slide(
-				unit, entry["at"], to, full * _footing(unit, entry["at"], to, ctx), ctx["terrain"]
-			)
-			entry["next"] = entry["at"]
+			entry["toward"] = UnitShuffle.look(unit, at, place, heading, speed)
+			var to := UnitSteer.toward(unit, at, place, ctx["bodies"], ctx["seed"], ctx["crowd"])
+			var paced := full * _footing(unit, at, to, ctx)
+			var slid := UnitMover.slide(unit, at, to, paced, ctx["terrain"])
+			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
+			entry["next"] = slid
 
 
 ## The share of its pace a loose unit keeps stepping towards `to` over the bodies on the
@@ -241,29 +244,31 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var near := FoeIndex.fought(ctx["facing"], squad)
 	var reach := BattleTuning.current().reach_contact
 	var out := []
+	var ats: PackedVector2Array = squad.store.columns.column(UnitColumns.LOOSE_AT)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue
 		var entry: Dictionary = squad.loose[unit.id]
-		var foes := ScrumNear.around(near, entry["at"], ScrumReach.radius(unit) + reach)
+		var at := ats[unit.slot]
+		var foes := ScrumNear.around(near, at, ScrumReach.radius(unit) + reach)
 		var look = ScrumBlows.nearest_touching(squad, unit, foes, ctx["seed"])
 		if look == null and entry["goal"] != null:
-			look = _seeking_look(unit, entry, ctx)
+			look = _seeking_look(unit, entry, at, ctx)
 		if look == null:
 			look = entry.get("toward")
 		if look != null:
-			out.append([unit, UnitMotion.bearing_to(entry["at"], look, unit.bearing)])
+			out.append([unit, UnitMotion.bearing_to(at, look, unit.bearing)])
 	return out
 
 
 ## Where a unit making for `entry`'s slot looks: so as to arrive facing the foe it will
-## touch there, the quicker way (UnitShuffle).
-static func _seeking_look(unit: SkirmishUnit, entry: Dictionary, ctx: Dictionary):
+## touch there, the quicker way (UnitShuffle); `at` is where it stands.
+static func _seeking_look(unit: SkirmishUnit, entry: Dictionary, at: Vector2, ctx: Dictionary):
 	var speed: float = (
 		unit.speed * ctx["pace"] * BattleTuning.current().scrum_crowding / ctx["seconds"]
 	)
 	var bearing := UnitMotion.bearing_to(entry["next"], entry["foe_at"], unit.bearing)
-	return UnitShuffle.look(unit, entry["at"], entry["next"], bearing, speed)
+	return UnitShuffle.look(unit, at, entry["next"], bearing, speed)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while.

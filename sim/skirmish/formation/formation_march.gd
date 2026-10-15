@@ -19,6 +19,7 @@ const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).
@@ -141,7 +142,7 @@ static func sync_units(
 					unit.bearing = entry.heading
 			elif entry.loose.has(unit.id):
 				# placement: its loose point, moved by UnitMover (Decision 139)
-				columns.put(unit.slot, UnitColumns.POSITION, entry.loose[unit.id]["at"])
+				columns.put(unit.slot, UnitColumns.POSITION, SquadEntries.loose_at(entry, unit))
 			elif timing.is_empty():
 				unit.foothold = FormationWalk.place_of(entry, unit, moving)
 				# placement: its frame's slot, set before any walking (Decision 139)

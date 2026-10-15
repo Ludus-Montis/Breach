@@ -29,6 +29,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   store and off `SkirmishUnit`; 1b moves `at`, `offset` and the loose and fleeing flag
   bits; 1c gives all of them to the Rust backend, and `BodyFieldSync`'s points go.
 - **Step 1a, `position`: built** (2026-10-14). See "Built" below.
+- **Step 1b, `at`, `offset` and the flag bits: built** (2026-10-15). See "Built" below.
 
 ## The store
 
@@ -228,6 +229,35 @@ but read from the store instead of a sync. The glue is gone at step 4.
 - `test_unit_store.gd`: the column round-trips on both backends, `SkirmishUnit` no
   longer declares `position`, and the battle test compares each unit's slot and position
   on both engines every tick.
+
+### Step 1b, `at`, `offset` and the flag bits
+
+- `UnitColumns` has three more columns: `LOOSE_AT` (where a loose unit stands), `FLEE_OFFSET`
+  (a fleeing unit's place off its route) and `FLAGS`, an int per slot whose bits are
+  `LOOSE` (1) and `FLEEING` (2). The bits have the same values as `BodyFieldSync`'s, so 1c
+  can send the column as it is. All start blank on a newly given slot.
+- **`SquadEntries`** (`squad_entries.gd`) is the only place a loose or fleeing entry is given
+  or taken away: `loosen`, `unloose`, `unloose_all`, `flee`, `unflee`, `unflee_all`. Each
+  keeps the unit's bit and place in step with the entry, so a bit is set exactly while its
+  entry exists. `loose_at` serves scattered reads. The passes over many units (the
+  syncs, blows, the seek, the facing, the walk's write-back) read the column once instead.
+- The entries no longer hold `"at"` or `"offset"`. Every reader and writer in `sim/`, the
+  tools and the tests switched in this PR (Decision 142). The signature that changed:
+  `FormationScrum._seeking_look` takes where the unit stands.
+- A place column's value is meaningful only while its bit is set. Taking an entry away
+  clears the bit and leaves the value, which nothing reads.
+- **The digest** rebuilds each entry as it was, with `"at"` or `"offset"` read from the
+  store, so its bytes are unchanged on both engines.
+- `check_one_mover.py` treats writes to `LOOSE_AT` and `FLEE_OFFSET` as it treats writes
+  to `POSITION`.
+- `test_unit_store.gd`: the new columns round-trip on both backends and start blank;
+  `SquadEntries` keeps the bits with the entries; and the battle test checks, every tick
+  on both engines, that no entry still holds its place, that each listed unit's bits match
+  its entries, and that its places are the same on both engines. The other-slots test
+  carries every column over.
+- **Checked before choosing the bit's meaning:** in a 700-tick clash with a later wave and
+  routers, no entry outlived its unit's listing and no unit had an entry in two squads at
+  a tick's end. So one bit per slot per kind of entry is enough.
 
 ## Open, for the implementing session to settle and record here
 

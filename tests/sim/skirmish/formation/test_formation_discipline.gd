@@ -15,6 +15,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func _def(discipline: int, leadership: int = 0) -> UnitDef:
@@ -127,7 +128,7 @@ func _reformed(discipline: int) -> int:
 	sim.step()
 	for unit in squad.living():
 		var scattered := UnitPlaces.of(squad, unit) + Vector2(0, 3)
-		squad.loose[unit.id] = {"unit": unit, "at": scattered, "next": scattered, "goal": null}
+		SquadEntries.loosen(squad, unit, {"unit": unit, "next": scattered, "goal": null}, scattered)
 	for tick in range(1, 400):
 		sim.step()
 		if not FormationScrum.regrouping(squad):

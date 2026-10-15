@@ -130,8 +130,10 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var bearings := batch.bearings
 	var flat := 0
 	var at := PackedVector2Array()
+	var loose_at := PackedVector2Array()
 	if not squads.is_empty():
 		at = squads[0].store.columns.column(UnitColumns.POSITION)
+		loose_at = squads[0].store.columns.column(UnitColumns.LOOSE_AT)
 	for squad in squads:
 		var before := flat
 		var loose: Dictionary = squad.loose
@@ -146,7 +148,7 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 			if entry == null:
 				points[flat] = at[unit.slot]
 			else:
-				points[flat] = entry["at"]
+				points[flat] = loose_at[unit.slot]
 				flags[flat] = BodyFieldSync.LOOSE
 			bearings[flat] = unit.bearing
 			flat += 1

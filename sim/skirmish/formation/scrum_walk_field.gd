@@ -133,22 +133,25 @@ static func _write_back(seek, batch: Batch, out: Array) -> ScrumFaceField.Batch:
 	var owners: Array = seek.owners
 	var faced := ScrumFaceField.Batch.new()
 	faced.flags.resize(units.size())
+	var columns: UnitColumns = owners[0].store.columns if not units.is_empty() else null
+	var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT) if columns else []
 	for member in range(units.size()):
 		var entry: Dictionary = owners[member].loose[units[member].id]
 		var code: int = codes[member]
 		if code == AIM or code == PRESS:
 			entry["toward"] = entry["next"]
-			# placement: the native walk, paid in FormationScrum (Decision 139)
-			entry["at"] = ats[member]
+			loose_at[units[member].slot] = ats[member]
 			faced.flags[member] = ScrumFaceField.GOAL | ScrumFaceField.TOWARD
 		elif code != TOUCH:
 			entry["toward"] = towards[member]
-			# placement: the native walk, paid in FormationScrum (Decision 139)
-			entry["at"] = ats[member]
+			loose_at[units[member].slot] = ats[member]
 			entry["next"] = ats[member]
 			faced.flags[member] = ScrumFaceField.TOWARD
 		else:
 			entry["toward"] = null
+	if columns != null:
+		# placement: the native walk, paid in FormationScrum (Decision 139)
+		columns.commit(UnitColumns.LOOSE_AT, loose_at)
 	faced.ats = ats
 	faced.motion = batch.motion
 	faced.nexts = seek.plan[3]

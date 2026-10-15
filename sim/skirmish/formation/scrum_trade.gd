@@ -15,6 +15,7 @@ const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## Cells nearer than its closest yet that count as getting nearer.
 const PROGRESS := 0.001
@@ -49,13 +50,13 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 	for unit in stalled:
 		if not squad.loose.has(unit.id):
 			continue
-		var at: Vector2 = squad.loose[unit.id]["at"]
+		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		var friend := _nearest_place(squad, unit, at, [places, fight_seed])
 		if friend != null:
 			_swap(squad, unit, friend)
 			_traded(places, unit, friend)
 		elif squad.stance.is_empty():
-			squad.loose.erase(unit.id)
+			SquadEntries.unloose(squad, unit.id)
 			var anchor := ScrumStance.anchor(squad, unit)
 			# placement: it takes its place in its frame (Decision 139)
 			squad.store.columns.put(unit.slot, UnitColumns.POSITION, anchor)
@@ -141,7 +142,7 @@ static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit
 	friend.column = place.y
 	if not squad.loose.has(friend.id):
 		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
-		squad.loose[friend.id] = {"unit": friend, "at": at, "goal": null, "next": at}
+		SquadEntries.loosen(squad, friend, {"unit": friend, "goal": null, "next": at}, at)
 	for moved in [unit, friend]:
 		squad.loose[moved.id].erase("closest")
 		squad.loose[moved.id].erase("stuck")

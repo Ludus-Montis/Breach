@@ -53,7 +53,9 @@ static func step(
 	var ahead := sqrt(full * full - aside * aside) * signf(home - entry["along"])
 	var paid := UnitMover.share(unit, at, at + side * aside + heading * ahead, terrain)
 	entry["fanned"] = fanned + aside * paid
-	entry["offset"] += side * aside * paid  # paid: UnitMover.share
+	var columns := squad.store.columns
+	var offset: Vector2 = columns.value(unit.slot, UnitColumns.FLEE_OFFSET) + side * aside * paid
+	columns.put(unit.slot, UnitColumns.FLEE_OFFSET, offset)  # paid: UnitMover.share
 	entry["along"] = move_toward(entry["along"], home, absf(ahead) * paid)  # paid: UnitMover.share
 
 

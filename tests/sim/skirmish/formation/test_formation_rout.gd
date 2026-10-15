@@ -12,6 +12,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func _def(hp: int, dmg: int, speed: float = 1.0, leadership: int = 0) -> UnitDef:
@@ -184,7 +185,7 @@ func test_a_rout_re_forms_facing_its_route_s_true_heading() -> void:
 	var sim := FormationSimulation.new(10.0, TICK)
 	var squad := sim.spawn_squad(2, _line(_def(10, 1, 1.0, 1), 2), "player", true, 0, route)
 	for unit in squad.living():
-		squad.fleeing[unit.id] = {"along": 10.0, "offset": Vector2.ZERO}
+		SquadEntries.flee(squad, unit, {"along": 10.0}, Vector2.ZERO)
 
 	FormationRout._reform(squad, 0, [], 1)
 

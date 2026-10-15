@@ -15,6 +15,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func _def(hp: int = 100) -> UnitDef:
@@ -87,12 +88,12 @@ func test_units_resting_on_one_spot_part() -> void:
 	var squad := sim.spawn_squad(2, _line(2), "player", true)
 	sim.step()
 	for unit in squad.units:
-		squad.loose[unit.id] = {"unit": unit, "at": Vector2(10.5, 10.5), "goal": null}
+		SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null}, Vector2(10.5, 10.5))
 		squad.loose[unit.id]["next"] = Vector2(10.5, 10.5)
 
 	UnitBodies.step([squad], 1)
 
-	var spots := squad.units.map(func(u): return squad.loose[u.id]["at"])
+	var spots := squad.units.map(func(u): return SquadEntries.loose_at(squad, u))
 	assert_float(spots[0].distance_to(spots[1])).is_equal_approx(1.0, 0.0001)
 
 

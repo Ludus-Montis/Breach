@@ -30,6 +30,7 @@ const A_FIRST := 3
 ## The kingdom's units' march step on open ground (cells a tick at their speed).
 const OPEN_STEP := 0.96
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 static var _seen := {}  # engine -> what its replay saw (_replay)
 
@@ -65,7 +66,7 @@ func _look(played, events: Array, seen: Dictionary) -> void:
 			_at_the_ford(squad, played.sim.terrain, seen)
 		for unit in squad.living():
 			var at: Vector2 = (
-				squad.loose[unit.id]["at"]
+				SquadEntries.loose_at(squad, unit)
 				if squad.loose.has(unit.id)
 				else UnitPlaces.of(squad, unit)
 			)

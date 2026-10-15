@@ -21,8 +21,9 @@ extends RefCounted
 ## one break's shock can't cascade within the tick for squads listed later; every router
 ## flees, then every rally is decided, then they join; a router crushes or is caught by the
 ## nearest friend; ties go to the units' seeded draws (ScrumContest).
-## A routing squad's `fleeing`: unit id -> {"along": cells along its route, "offset":
-## its spread from the route}. Pure over the squads it is given.
+## A routing squad's `fleeing`: unit id -> {"along": cells along its route, ...}; its spread
+## from the route is the store's FLEE_OFFSET (SkirmishSquad.flee). Pure over the squads it
+## is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -41,6 +42,7 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 
@@ -79,8 +81,10 @@ static func step(
 
 ## The world point a router stands at.
 static func where(squad: SkirmishSquad, unit_id: int) -> Vector2:
-	var entry: Dictionary = squad.fleeing[unit_id]
-	return _route_point(squad, entry["along"]) + entry["offset"]
+	var offset: Vector2 = squad.store.columns.value(
+		squad.store.slot_of(unit_id), UnitColumns.FLEE_OFFSET
+	)
+	return _route_point(squad, squad.fleeing[unit_id]["along"]) + offset
 
 
 ## A fleeing unit's point on its route, before its offset: where() is it plus the offset.
@@ -110,7 +114,7 @@ static func _break(
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		var offset: Vector2 = at[unit.slot] - _route_point(squad, along)
-		squad.fleeing[unit.id] = {"along": along, "offset": offset}
+		SquadEntries.flee(squad, unit, {"along": along}, offset)
 	events.append(FormationEvents.squad_event("routed", tick, squad))
 	for friend in squads:
 		if friend != squad and friend.faction_id == squad.faction_id and not friend.is_destroyed():
@@ -134,8 +138,8 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 		if not alone:
 			_crush([squad, unit, motion[1]], friends, tick, panicked, events)
 		if is_equal_approx(entry["along"], home):
+			SquadEntries.unflee(squad, unit.id)
 			squad.units.erase(unit)
-			squad.fleeing.erase(unit.id)
 			var extra := {"unit": unit.id, "definition": unit.definition}
 			events.append(FormationEvents.squad_event("fled_home", tick, squad, extra))
 	if squad.living().is_empty():
@@ -227,8 +231,8 @@ static func _join(
 	squad: SkirmishSquad, unit: SkirmishUnit, leader: SkirmishSquad, tick: int, events: Array
 ) -> void:
 	var settled := where(squad, unit.id)
+	SquadEntries.unflee(squad, unit.id)
 	squad.units.erase(unit)
-	squad.fleeing.erase(unit.id)
 	unit.rank = 0
 	unit.column = 0
 	var members: Array[SkirmishUnit] = [unit]
@@ -237,7 +241,7 @@ static func _join(
 	)
 	FormationContact.reinforce(leader, single)
 	leader.reforming = true
-	leader.loose[unit.id] = {"unit": unit, "at": settled, "goal": null, "next": settled}
+	SquadEntries.loosen(leader, unit, {"unit": unit, "goal": null, "next": settled}, settled)
 	events.append(FormationEvents.unit_event("rallied", tick, squad, unit, {"into": leader.id}))
 	if squad.living().is_empty():
 		squad.state = SkirmishSquad.State.DESTROYED
@@ -254,7 +258,7 @@ static func _reform(squad: SkirmishSquad, tick: int, events: Array, fight_seed: 
 			leader = unit
 			best = key
 	squad.front_distance = squad.fleeing[leader.id]["along"] / CELLS
-	squad.fleeing.clear()
+	SquadEntries.unflee_all(squad)
 	squad.direction = 1 if is_zero_approx(squad.home_distance) else -1
 	var way := Vector2.RIGHT * squad.direction  # it faces the enemy's end along its route
 	if squad.route != null:

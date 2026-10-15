@@ -17,6 +17,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 const GREM := "res://content/units/grem.tres"
 const SIZE := Vector2i(256, 32)
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func after_test() -> void:
@@ -61,11 +62,11 @@ func _regroup_step(kind: String, off: Vector2) -> float:
 	sim.step()  # placed and holding
 	var unit: SkirmishUnit = squad.units[0]
 	var at := UnitPlaces.where(sim.store, unit) + off
-	squad.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+	SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": at}, at)
 	sim.step()
 	return at.distance_to(
 		(
-			squad.loose[unit.id]["at"]
+			SquadEntries.loose_at(squad, unit)
 			if squad.loose.has(unit.id)
 			else UnitPlaces.where(sim.store, unit)
 		)
@@ -87,11 +88,11 @@ func _chase_step(kind: String) -> float:
 	sim.step()
 	var unit: SkirmishUnit = mine.units[0]
 	var at := UnitPlaces.where(sim.store, unit)
-	mine.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+	SquadEntries.loosen(mine, unit, {"unit": unit, "goal": null, "next": at}, at)
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	sim.step()
 	assert_bool(mine.chasers.has(unit.id)).is_true()
-	return at.distance_to(mine.loose[unit.id]["at"])
+	return at.distance_to(SquadEntries.loose_at(mine, unit))
 
 
 func test_a_chaser_in_a_wood_runs_at_half_pace() -> void:
@@ -109,12 +110,12 @@ func test_a_chaser_never_steps_into_water_it_cant_cross() -> void:
 	var unit: SkirmishUnit = mine.units[0]
 	unit.walker = TerrainWalker.grounded(unit.height)  # it can't swim
 	var at := UnitPlaces.where(sim.store, unit)
-	mine.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+	SquadEntries.loosen(mine, unit, {"unit": unit, "goal": null, "next": at}, at)
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	for _tick in 30:
 		sim.step()
 		if mine.loose.has(unit.id):
-			assert_float(mine.loose[unit.id]["at"].x).is_less(30.0)
+			assert_float(SquadEntries.loose_at(mine, unit).x).is_less(30.0)
 
 
 ## A wide line closing on a narrow one, its flanks walking round to seek it; returns [the
@@ -133,14 +134,14 @@ func _clash(kind: String, engine: String) -> Array:
 		for squad in [mine, theirs]:
 			for unit in squad.living():
 				if squad.loose.has(unit.id):
-					before[unit] = squad.loose[unit.id]["at"]
+					before[unit] = SquadEntries.loose_at(squad, unit)
 		sim.step()
 		for squad in [mine, theirs]:
 			for unit in squad.living():
 				trace.append([UnitPlaces.where(sim.store, unit), unit.bearing])
 				var step := 0.0
 				if before.has(unit) and squad.loose.has(unit.id):
-					step = before[unit].distance_to(squad.loose[unit.id]["at"])
+					step = before[unit].distance_to(SquadEntries.loose_at(squad, unit))
 				if step > 0.05:
 					stepped[0] += step
 					stepped[1] += 1

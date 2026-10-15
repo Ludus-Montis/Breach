@@ -34,6 +34,7 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const EPSILON := 0.000001
 ## Pairs of units two groups meeting may have and still be looked at pair by pair (_gap).
@@ -117,7 +118,7 @@ static func _taker(one: SkirmishSquad, other: SkirmishSquad, fight_seed: int) ->
 static func _take_in(taker: SkirmishSquad, taken: SkirmishSquad, tick: int, events: Array):
 	events.append(FormationEvents.squad_event("merged", tick, taken, {"into": taker.id}))
 	for unit in taken.living():
-		taken.loose.erase(unit.id)
+		SquadEntries.unloose(taken, unit.id)
 	FormationContact.reinforce(taker, taken)
 	taker.reforming = true
 
@@ -131,7 +132,7 @@ static func _return_origins(
 		return
 	for unit in back:
 		group.units.erase(unit)
-		group.loose.erase(unit.id)
+		SquadEntries.unloose(group, unit.id)
 		unit.rank = _back_row(home)
 		FormationCommand.enlist(home, unit)
 		events.append(FormationEvents.unit_event("rejoined", tick, home, unit))

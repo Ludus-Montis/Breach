@@ -41,7 +41,7 @@ func _flight(terrain) -> float:
 	)
 	squad.route = FormationRoute.new(PackedVector2Array([Vector2(0, 16), Vector2(256, 16)]))
 	var unit := _unit()
-	var entry := {"along": 100.0, "offset": Vector2.ZERO}
+	var entry := {"along": 100.0}  # its offset, the store's FLEE_OFFSET, starts blank
 	RoutFlight.step(squad, unit, entry, 0.0, [1.0, 7, terrain, Vector2(100, 16), {}])
 	return 100.0 - entry["along"]
 

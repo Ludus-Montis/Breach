@@ -57,8 +57,9 @@ var engaged_with: int = 0
 ## {"foe": squad id, "since": tick the contact began}.
 var flank_contacts := {}
 ## The scrum (FormationScrum, Decision 88): its units' places while it fights (unit id ->
-## {"at", "next", "goal"}), the line it re-faced to {"anchor", "heading"}, the tick its fight
-## began (-1: none) and ticks with nobody able to strike.
+## {"next", "goal", ...}; where each stands loose is the store's LOOSE_AT, and its LOOSE
+## bit says it has an entry: SquadEntries), the line it re-faced to {"anchor", "heading"},
+## the tick its fight began (-1: none) and ticks with nobody able to strike.
 var loose := {}
 var stance := {}
 var fight_since := -1
@@ -95,7 +96,9 @@ var withdraw := {}
 var staging := {}
 ## Its will to fight, 0 to 100 (FormationMorale, Decision 82); -1 until first read.
 var morale := -1
-## Routing (FormationRout): each fleeing unit's place, and ticks with no enemy near.
+## Routing (FormationRout): each fleeing unit's place (unit id -> {"along", ...}; its place
+## off the route is the store's FLEE_OFFSET (SquadEntries), and its FLEEING bit says it has
+## an entry), and ticks with no enemy near.
 var fleeing := {}
 var rally_ticks := 0
 ## Its command's orders (FormationCommand): hurrying and tending its own downed.

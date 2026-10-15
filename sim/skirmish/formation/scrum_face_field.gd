@@ -72,10 +72,13 @@ static func face(ctx: Dictionary) -> void:
 ## Where each unit stands now, how it turns, and what its loose entry makes for.
 static func _gather(units: Array, owners: Array) -> Batch:
 	var batch := Batch.new()
+	var loose_at: PackedVector2Array = (
+		owners[0].store.columns.column(UnitColumns.LOOSE_AT) if not units.is_empty() else []
+	)
 	for member in range(units.size()):
 		var unit: SkirmishUnit = units[member]
 		var entry: Dictionary = owners[member].loose[unit.id]
-		batch.ats.append(entry["at"])
+		batch.ats.append(loose_at[unit.slot])
 		batch.motion.append(unit.bearing)
 		batch.motion.append(unit.turn_rate)
 		batch.motion.append(unit.backward_pace)

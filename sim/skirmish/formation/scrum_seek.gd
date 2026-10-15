@@ -19,6 +19,7 @@ const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const SlotSearch = preload("res://sim/skirmish/formation/slot_search.gd")
 const FoeIndex = preload("res://sim/skirmish/formation/foe_index.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## Microseconds spent in plan() since it was last zeroed (the bench reads it; no outcome does).
 static var clock_usec := 0
@@ -65,7 +66,7 @@ static func _plan(ctx: Dictionary) -> void:
 		var squad: SkirmishSquad = seeker[1]
 		var unit: SkirmishUnit = seeker[2]
 		var ground := _ground(squad, unit, claimed, ctx, ctx["seed"])
-		var at: Vector2 = squad.loose[unit.id]["at"]
+		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		var slot := SlotSearch.pick(unit, at, seeker[3], ground)
 		if slot.is_empty():  # it waits behind the nearest, a pursuit too (Decision 113)
 			_press(seeker, SlotSearch.pick(unit, at, seeker[3], ground, true), ctx)
@@ -107,7 +108,7 @@ static func _aim(seeker: Array, slot: Array, claimed: Array, ctx: Dictionary) ->
 	var entry: Dictionary = squad.loose[seeker[2].id]
 	if slot.is_empty():
 		entry["goal"] = null
-		entry["next"] = entry["at"]
+		entry["next"] = SquadEntries.loose_at(squad, seeker[2])
 		return
 	entry["goal"] = [slot[1].id, slot[3]]
 	entry["next"] = slot[0]
@@ -125,12 +126,11 @@ static func _press(seeker: Array, slot: Array, ctx: Dictionary) -> void:
 		return
 	var squad: SkirmishSquad = seeker[1]
 	var entry: Dictionary = squad.loose[seeker[2].id]
-	var back: Vector2 = entry["at"] - slot[0]
+	var at: Vector2 = SquadEntries.loose_at(squad, seeker[2])
+	var back: Vector2 = at - slot[0]
 	var breadth := 2.0 * ScrumReach.radius(seeker[2])
 	entry["goal"] = [slot[1].id, slot[3]]
-	entry["next"] = (
-		entry["at"] if back.length() <= breadth else slot[0] + back.normalized() * breadth
-	)
+	entry["next"] = at if back.length() <= breadth else slot[0] + back.normalized() * breadth
 	entry["foe_at"] = ScrumReach.at(slot[2], slot[1])
 	ctx["active"][squad.id] = true
 
@@ -143,22 +143,24 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var reach := BattleTuning.current().reach_contact
 	var front_left := squad.living().any(func(u): return u.preferred_position == 0)
 	var out := []
+	var ats: PackedVector2Array = squad.store.columns.column(UnitColumns.LOOSE_AT)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # out chasing on its own (ScrumPursuit)
 		var entry: Dictionary = squad.loose[unit.id]
 		var radius := ScrumReach.radius(unit)
-		var close := ScrumNear.around(near, entry["at"], radius + reach)
+		var at := ats[unit.slot]
+		var close := ScrumNear.around(near, at, radius + reach)
 		entry["touch"] = ScrumBlows.touches_any(squad, unit, close)
 		if entry["touch"]:
 			entry["goal"] = null
-			entry["next"] = entry["at"]
+			entry["next"] = at
 			ctx["active"][squad.id] = true
 			continue
 		if not _may_seek(squad, unit, front_left) or not near["any"]:
 			entry["goal"] = null
 			continue
-		var arrival := ScrumNear.gap_to(near, entry["at"], radius) / maxf(unit.speed, 0.01)
+		var arrival := ScrumNear.gap_to(near, at, radius) / maxf(unit.speed, 0.01)
 		var key := ScrumContest.key(unit, arrival, ctx["seed"], ctx["tick"])
 		out.append([key, squad, unit, _ring(squad, near, radius, ctx)])
 	return out

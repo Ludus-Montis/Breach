@@ -132,6 +132,9 @@ static func _squad(batch: Batch, squad: SkirmishSquad, squads: Array) -> Array:
 ## Writes the core's [codes, goal foes, goal slots, nexts, foe_ats] into the units' entries.
 static func _write_back(batch: Batch, out: Array, active: Dictionary) -> void:
 	var codes: PackedByteArray = out[0]
+	var loose_at: PackedVector2Array = (
+		batch.owners[0].store.columns.column(UnitColumns.LOOSE_AT) if not codes.is_empty() else []
+	)
 	for member in range(codes.size()):
 		var squad: SkirmishSquad = batch.owners[member]
 		var entry: Dictionary = squad.loose[batch.units[member].id]
@@ -141,7 +144,7 @@ static func _write_back(batch: Batch, out: Array, active: Dictionary) -> void:
 			entry["goal"] = null
 		elif code == Outcome.TOUCH or code == Outcome.IDLE:
 			entry["goal"] = null
-			entry["next"] = entry["at"]
+			entry["next"] = loose_at[batch.units[member].slot]
 		else:
 			entry["goal"] = [out[1][member], out[2][member]]
 			entry["next"] = out[3][member]

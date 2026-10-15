@@ -1,17 +1,15 @@
 extends SceneTree
-## The scrum's facing pass on its own (Decision 129: what porting it is worth): a
-## FormationBench clash stepped `settle` ticks into the fight, then only the facing pass -
-## FormationScrum's _faces and the turns - timed `reps` times on that one snapshot under
-## each engine. Every repetition starts from the same state: the pass changes nothing but
-## the units' bearings (and, in Rust, the field's copy of where the facers stand, set to
-## the same points each time), so the bearings are saved before and put back after each
-## one. Saving and restoring times the whole pass as a tick runs it, turns and write-back
-## included, which working out the turns without applying them would not. UnitMotion's
-## memo of bearing vectors is emptied before each repetition, as a tick meets new
+## The scrum's facing pass on its own (Decision 129: what porting it is worth): a FormationBench
+## clash stepped `settle` ticks into the fight, then only the facing pass - FormationScrum's _faces
+## and the turns - timed `reps` times on that one snapshot under each engine. Every repetition
+## starts from the same state: the pass changes nothing but the units' bearings (and, in Rust, the
+## field's copy of where the facers stand, set to the same points each time), so the bearings are
+## saved before and put back after each one. Saving and restoring times the whole pass as a tick
+## runs it, turns and write-back included, which working out the turns without applying them would
+## not. UnitMotion's memo of bearing vectors is emptied before each repetition, as a tick meets new
 ## bearings. Both engines must leave the same bearings, or it says so.
-## The GDScript pass is also split into stages, with how many DetMath calls it makes and
-## what they cost (DetMath timed on its own, in GDScript and in Rust where built).
-##
+## The GDScript pass is also split into stages, with how many DetMath calls it makes and what they
+## cost (DetMath timed on its own, in GDScript and in Rust where built).
 ##   godot --headless --path . --script res://tools/facing_bench.gd -- \
 ##       [side=1024] [width=32] [settle=10] [reps=20] [seed=1] [engines=gdscript,rust]
 
@@ -31,6 +29,7 @@ const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const UnitShuffle = preload("res://sim/skirmish/formation/unit_shuffle.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const EPSILON := 0.000001
 const CALLS := 100000
@@ -206,7 +205,7 @@ func _touched(fighting: Array, nears: Array, ctx: Dictionary) -> Array:
 		for unit in squad.living():
 			if squad.chasers.has(unit.id):
 				continue
-			var at: Vector2 = squad.loose[unit.id]["at"]
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var foes := ScrumNear.around(nears[index], at, ScrumReach.radius(unit) + reach)
 			out.append(ScrumBlows.nearest_touching(squad, unit, foes, ctx["seed"]))
 	return out
@@ -221,14 +220,15 @@ func _wanted(fighting: Array, touched: Array, ctx: Dictionary) -> Array:
 			if squad.chasers.has(unit.id):
 				continue
 			var entry: Dictionary = squad.loose[unit.id]
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var look = touched[index]
 			index += 1
 			if look == null and entry["goal"] != null:
-				look = Scrum._seeking_look(unit, entry, ctx)
+				look = Scrum._seeking_look(unit, entry, at, ctx)
 			if look == null:
 				look = entry.get("toward")
 			if look != null:
-				out.append([unit, UnitMotion.bearing_to(entry["at"], look, unit.bearing)])
+				out.append([unit, UnitMotion.bearing_to(at, look, unit.bearing)])
 	return out
 
 
@@ -241,18 +241,19 @@ func _counted(fighting: Array, touched: Array, ctx: Dictionary) -> Array:
 			if squad.chasers.has(unit.id):
 				continue
 			var entry: Dictionary = squad.loose[unit.id]
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var look = touched[index]
 			index += 1
 			if look == null and entry["goal"] != null:
 				counts[0] += 1 if (entry["foe_at"] - entry["next"]).length() >= EPSILON else 0
-				var shuffle: bool = (entry["next"] - entry["at"]).length() >= EPSILON
+				var shuffle: bool = (entry["next"] - at).length() >= EPSILON
 				counts[0] += 1 if shuffle else 0
 				counts[1] += 4 if shuffle else 0
-				look = Scrum._seeking_look(unit, entry, ctx)
+				look = Scrum._seeking_look(unit, entry, at, ctx)
 			if look == null:
 				look = entry.get("toward")
 			if look != null:
-				counts[0] += 1 if (look - entry["at"]).length() >= EPSILON else 0
+				counts[0] += 1 if (look - at).length() >= EPSILON else 0
 	return counts
 
 

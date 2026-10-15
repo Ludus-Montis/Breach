@@ -5,9 +5,9 @@ Units move through one mover (sim/skirmish/formation/unit_mover.gd), which pays 
 ground. Twelve files once wrote positions themselves, and those that didn't pay the
 ground let routers and retreats cross woods and fords at full pace. Flags, in simulation
 code (`sim/`), a write to a unit's position - `.position =`, `["at"]`, `["offset"]`
-or `["along"]` of a unit's entry (and their `+=`/`-=`), or a write to the unit store's
-position column (`put(..., UnitColumns.POSITION, ...)`, `commit(UnitColumns.POSITION,
-...)`; spec 35) - unless:
+or `["along"]` of a unit's entry (and their `+=`/`-=`), or a write to one of the unit
+store's place columns - POSITION, LOOSE_AT or FLEE_OFFSET (`put(..., UnitColumns.POSITION,
+...)`, `commit(UnitColumns.LOOSE_AT, ...)`; spec 35) - unless:
 - the value comes from the mover (`UnitMover.` on the line, or a column write of a
   variable the line before set from `UnitMover.`), or
 - the line carries `# paid: <how>` (a mover keeping its own coordinates that scaled its
@@ -27,9 +27,8 @@ REPO_ROOT = Path(
     subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
 )
 WRITE = re.compile(r'(\.position|(\bentry|\])\["(at|offset|along)"\])\s*[-+]?=(?!=)')
-COLUMN_WRITE = re.compile(
-    r"\b(?:put\([^,]+,\s*UnitColumns\.POSITION,\s*(\w+)?|commit\(\s*UnitColumns\.POSITION\b)"
-)
+PLACES = r"UnitColumns\.(?:POSITION|LOOSE_AT|FLEE_OFFSET)\b"
+COLUMN_WRITE = re.compile(rf"\b(?:put\([^,]+,\s*{PLACES},\s*(\w+)?|commit\(\s*{PLACES})")
 PLACEMENT = re.compile(r"#\s*placement:\s*\S")
 PAID = re.compile(r"#\s*paid:\s*\S")
 MOVER_FILE = "unit_mover.gd"

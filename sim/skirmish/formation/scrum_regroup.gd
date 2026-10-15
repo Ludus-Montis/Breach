@@ -28,6 +28,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## Units of squads out of the fight walk to their places (in the stance, if any) at the
@@ -88,20 +89,20 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 		var step: float = unit.speed * moving["pace"] * reform
 		var heading: float = squad.stance.get("heading", squad.heading)
 		var foe_at = foes.get(unit_id)
+		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		if foe_at == null:  # it takes its place the quicker way, arriving facing its squad's
-			foe_at = UnitShuffle.look(unit, entry["at"], place, heading, step / seconds)
-		var gap: float = entry["at"].distance_to(place)
+			foe_at = UnitShuffle.look(unit, at, place, heading, step / seconds)
+		var gap: float = at.distance_to(place)
 		ScrumTrade.track(entry, gap, seconds)
 		var arrived := gap < 0.000001
 		if gap >= 0.000001:  # a drilled retreat backs away facing the foe it touches
 			var to := UnitSteer.toward(
-				unit, entry["at"], place, moving["bodies"], moving["seed"], moving["crowd"]
+				unit, at, place, moving["bodies"], moving["seed"], moving["crowd"]
 			)
-			entry["at"] = UnitMover.step(
-				unit, entry["at"], to, step, seconds, moving["terrain"], foe_at
-			)
-		entry["next"] = entry["at"]
+			at = UnitMover.step(unit, at, to, step, seconds, moving["terrain"], foe_at)
+			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, at)
+		entry["next"] = at
 		entry["goal"] = null
 		var faced := arrived and UnitMotion.turn(unit, heading, seconds)
 		if squad.stance.is_empty() and faced:
-			squad.loose.erase(unit_id)  # in its place and facing the squad's way
+			SquadEntries.unloose(squad, unit_id)  # in its place and facing the squad's way
