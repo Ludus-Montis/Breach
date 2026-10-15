@@ -80,10 +80,8 @@ func _of(log: Array, kind: String) -> Array:
 
 ## The gap between two 1-cell units' bodies, one at `here`, one at `there`.
 func _gap(here: Vector2, there: Vector2) -> float:
-	var mine := SkirmishUnit.new()
-	mine.position = here
-	var theirs := SkirmishUnit.new()
-	theirs.position = there
+	var mine: SkirmishUnit = _places.stand(SkirmishUnit.new(), here)
+	var theirs: SkirmishUnit = _places.stand(SkirmishUnit.new(), there)
 	var a := SkirmishSquad.new(
 		1, "player", 1, 0.0, 1, [mine] as Array[SkirmishUnit], null, _places.store
 	)
