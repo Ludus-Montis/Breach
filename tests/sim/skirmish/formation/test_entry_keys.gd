@@ -3,7 +3,8 @@ extends GdUnitTestSuite
 ## (specs/35-unit-store.md step 2, EntryKeys): each column round-trips and starts blank on
 ## both backends; an entry holds the unit alone, and the store holds exactly the keys it was
 ## given, as the digest rebuilds them; and a unit moved to another squad leaves no entry
-## behind. The native half is skipped where the Rust core isn't built (native/build.sh).
+## behind. The native store holds every column on its field (step 2b). The native half is
+## skipped where the Rust core isn't built (native/build.sh).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -113,3 +114,29 @@ func test_a_unit_moved_to_another_squad_leaves_no_entry_behind() -> void:
 	FormationContact.reinforce(best, own)
 	assert_bool(own.loose.is_empty()).is_true()
 	assert_int(own.store.columns.value(units[1].slot, UnitColumns.FLAGS)).is_equal(0)
+
+
+func test_the_native_store_holds_every_column_on_its_field() -> void:
+	NativeKernels.use(NativeKernels.RUST)
+	var field := NativeKernels.body_field()
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+	if field == null:
+		print("test_entry_keys: the Rust core isn't built - its half skipped")
+		return
+	var store := NativeKernels.unit_store(field)
+	var slot := store.enrol(3)
+	assert_int(field.column_longs(UnitColumns.GOAL_SLOT)[slot]).is_equal(-1)  # blank: no goal
+	assert_float(field.column_reals(UnitColumns.CLOSEST)[slot]).is_equal(INF)
+	store.columns.put(slot, UnitColumns.LOOSE_AT, Vector2(4, 5))
+	store.columns.put(slot, UnitColumns.FLAGS, UnitColumns.LOOSE)
+	store.columns.put(slot, UnitColumns.NEXT, Vector2(6, 7))  # the entries' keys (step 2b)
+	store.columns.put(slot, UnitColumns.KEYS, 3)
+	store.columns.put(slot, UnitColumns.GOAL_SLOT, 2)
+	store.columns.put(slot, UnitColumns.ALONG, 12.5)
+	assert_vector(field.column_points(UnitColumns.LOOSE_AT)[slot]).is_equal(Vector2(4, 5))
+	assert_int(field.column_ints(UnitColumns.FLAGS)[slot]).is_equal(UnitColumns.LOOSE)
+	assert_vector(field.column_points(UnitColumns.NEXT)[slot]).is_equal(Vector2(6, 7))
+	assert_int(field.column_ints(UnitColumns.KEYS)[slot]).is_equal(3)
+	assert_int(field.column_longs(UnitColumns.GOAL_SLOT)[slot]).is_equal(2)
+	assert_float(field.column_reals(UnitColumns.ALONG)[slot]).is_equal(12.5)
+	assert_object(store.field()).is_same(field)

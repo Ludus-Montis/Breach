@@ -11,12 +11,14 @@
 //! store holds keeps its slot while it is off the field (dead, downed, gone home), and
 //! is enrolled again when a sync names it. Free slots are reused lowest first. A slot is
 //! storage only: no pass loops in slot order or breaks a tie by it. The store's columns
-//! (`Columns`: where each unit stands, its loose and fleeing places, its flag bits) live
-//! here by slot, so a sync reads them where they are instead of GDScript sending them.
+//! (`Columns`: where each unit stands, its flag bits, and its loose and fleeing entries'
+//! keys) live here by slot, so a sync reads them where they are instead of GDScript
+//! sending them.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
+use crate::columns::Columns;
 use crate::maths::V2;
 
 /// A body is loose (in its squad's `loose`).
@@ -36,44 +38,6 @@ pub struct Squad {
     pub flags: u8,
     /// Its living units' bodies, in its list's order.
     pub members: Vec<u32>,
-}
-
-/// The unit store's columns (spec 35, UnitColumns), by slot: where each unit stands, where a
-/// loose one stands loose, a fleeing one's place off its route, and its flag bits (LOOSE,
-/// FLEEING). A slot newly given starts blank.
-#[derive(Default)]
-pub struct Columns {
-    pub position: Vec<V2>,
-    pub loose_at: Vec<V2>,
-    pub flee_offset: Vec<V2>,
-    pub flags: Vec<i32>,
-}
-
-impl Columns {
-    /// A point column by its UnitColumns name.
-    pub fn points(&mut self, name: &str) -> Option<&mut Vec<V2>> {
-        match name {
-            "position" => Some(&mut self.position),
-            "at" => Some(&mut self.loose_at),
-            "offset" => Some(&mut self.flee_offset),
-            _ => None,
-        }
-    }
-
-    fn grow(&mut self) {
-        self.position.push(V2::ZERO);
-        self.loose_at.push(V2::ZERO);
-        self.flee_offset.push(V2::ZERO);
-        self.flags.push(0);
-    }
-
-    /// Every column blank in `slot`.
-    pub fn blank(&mut self, slot: usize) {
-        self.position[slot] = V2::ZERO;
-        self.loose_at[slot] = V2::ZERO;
-        self.flee_offset[slot] = V2::ZERO;
-        self.flags[slot] = 0;
-    }
 }
 
 /// One sync's input, flat over the squads in list order (see `Field::sync`).

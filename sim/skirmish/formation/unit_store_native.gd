@@ -22,7 +22,6 @@ func field() -> Object:
 func enrol(unit_id: int) -> int:
 	var held: int = _field.slot_of(unit_id)
 	if held >= 0:
-		columns.reach(held)  # a slot the field gave in a sync: the columns held here grow too
 		return held
 	var slot: int = _field.hold(unit_id)
 	columns.open(slot)
