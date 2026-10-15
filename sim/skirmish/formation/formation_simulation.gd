@@ -121,6 +121,7 @@ func spawn_squad(
 		_next_squad_id, faction_id, direction, home, width, members, orders, store
 	)
 	_next_squad_id += 1
+	# store: scattered (spawning: once, as a squad enters)
 	for index in members.size():
 		UnitPlace.put(squad, members[index], placements[index][1])
 	squad.route = path

@@ -3,7 +3,7 @@
 //! kernel (`parting`), and the field left where they now stand. Only the bodies that
 //! moved go back to GDScript, by the last sync's flat indices.
 
-use crate::field::{Field, DESTROYED, FLEEING};
+use crate::field::{Field, DESTROYED, FLEEING, LOOSE};
 use crate::maths::V2;
 use crate::parting::{part, Bodies, Tuning, MOVED};
 
@@ -83,5 +83,26 @@ fn standing(field: &Field, b: usize) -> V2 {
         field.offset[b]
     } else {
         field.at[b]
+    }
+}
+
+/// Writes the bodies a pass moved (`moved`: flat indices, with their `points` and `nexts`)
+/// into the unit store's columns, by how each stands now (spec 35, Decision 144): a fleeing
+/// one's offset off its route, a loose one's point and next step, else its position. Called
+/// after GDScript has given the bodies the pass made loose their entries, as
+/// BodyParting._write_back wrote them.
+pub fn commit(field: &mut Field, moved: &[i32], points: &[V2], nexts: &[V2]) {
+    for (k, &flat) in moved.iter().enumerate() {
+        let b = field.flat[flat as usize] as usize;
+        let flags = field.columns.flags[b] as u8;
+        let c = &mut field.columns;
+        if flags & FLEEING != 0 {
+            c.flee_offset[b] = points[k];
+        } else if flags & LOOSE == 0 {
+            c.position[b] = points[k];
+        } else {
+            c.loose_at[b] = points[k];
+            c.next[b] = nexts[k];
+        }
     }
 }

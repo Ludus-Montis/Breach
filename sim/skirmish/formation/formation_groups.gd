@@ -130,6 +130,7 @@ static func _return_origins(
 	var back := group.living().filter(func(u): return u.origin == home.command)
 	if back.is_empty() or back.size() == group.living().size():
 		return
+	# store: scattered (rejoining: once, as a group comes home)
 	for unit in back:
 		group.units.erase(unit)
 		SquadEntries.unloose(group, unit.id)

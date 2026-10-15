@@ -17,6 +17,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 
 ## What the slot search made of each unit (ScrumSeekField.Outcome).
 const TOUCH := 0
@@ -56,6 +57,11 @@ static func walk(ctx: Dictionary) -> void:
 	var bits := PackedInt32Array(
 		[EntryKeys.BITS[UnitColumns.TOWARD], EntryKeys.VALUED[UnitColumns.TOWARD]]
 	)
+	var from := PackedVector2Array()  # where each stood, to pay the ground it crosses
+	if ctx["terrain"] != null and not seek.units.is_empty():
+		var stood: PackedVector2Array = seek.owners[0].store.columns.column(UnitColumns.LOOSE_AT)
+		for unit in seek.units:
+			from.append(stood[unit.slot])
 	var called := Time.get_ticks_usec()
 	field.walk(
 		ctx["seed"],
@@ -75,6 +81,29 @@ static func walk(ctx: Dictionary) -> void:
 	spent[0] += called - began
 	spent[1] += returned - called
 	spent[2] += field.usec()
+	pay(seek, from, ctx)
+
+
+## The native walk's steps (from where each unit stood, `from`) paid for the ground they
+## cross, as FormationScrum._walk pays its own: where each now stands, in its entry. Each
+## column fetched once and committed once (Decision 144).
+static func pay(seek, from: PackedVector2Array, ctx: Dictionary) -> void:
+	if ctx["terrain"] == null or from.is_empty():
+		return
+	var codes: PackedByteArray = seek.plan[0]
+	var columns: UnitColumns = seek.owners[0].store.columns
+	var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+	var nexts: PackedVector2Array = columns.column(UnitColumns.NEXT)
+	for member in from.size():
+		if codes[member] == TOUCH:
+			continue  # it didn't step
+		var unit = seek.units[member]
+		var paid := UnitMover.pay(unit, from[member], loose_at[unit.slot], ctx["terrain"])
+		loose_at[unit.slot] = paid
+		if codes[member] != AIM and codes[member] != PRESS:
+			nexts[unit.slot] = paid  # back to its place: it stands where it got
+	columns.commit(UnitColumns.LOOSE_AT, loose_at)  # paid: UnitMover.pay above, per step
+	columns.commit(UnitColumns.NEXT, nexts)
 
 
 ## Each squad's pace and frame; the bodies lying on the ground.

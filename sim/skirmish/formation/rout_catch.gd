@@ -25,6 +25,7 @@ static func holder(
 	reach: float,
 	fight_seed: int = 0
 ) -> SkirmishSquad:
+	# store: scattered (read once a call: the loop's header)
 	for friend in RoutFriends.with_id(
 		friends, EntryKeys.held(squad.store.columns, unit.slot, UnitColumns.HELD_BY)
 	):

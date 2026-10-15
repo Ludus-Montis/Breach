@@ -29,6 +29,7 @@ static func close(squad: SkirmishSquad) -> void:
 			used += unit.footprint_width
 			depth = maxi(depth, unit.footprint_depth)
 		var column := (squad.width - used) / 2
+		# store: scattered (closing ranks: once, as a squad re-forms)
 		for unit in row:
 			UnitPlace.put(squad, unit, Vector2i(rank, column))
 			column += unit.footprint_width

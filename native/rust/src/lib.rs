@@ -42,6 +42,8 @@ struct BodyField {
     field: Field,
     /// Microseconds of native work in the last call (the bench reads it).
     usec: i64,
+    /// The last part()'s moved bodies (flat indices), points and nexts, for commit_part().
+    parted: (Vec<i32>, Vec<V2>, Vec<V2>),
 }
 
 #[godot_api]
@@ -128,7 +130,8 @@ impl BodyField {
     /// UnitBodies' passes on the field. `tuning` = [passes, resist, brush]; `way.call(draw,
     /// other draw)` gives the way two bodies on each other part. Returns [moved (flat
     /// indices), their points (a fleeing one's offset), their nexts, loosened (flat indices,
-    /// in order), stats = [usec, passes that moved something, pairs pushed]].
+    /// in order), stats = [usec, passes that moved something, pairs pushed]]; commit_part()
+    /// then writes the moved into the store's columns.
     #[func]
     fn part(&mut self, tuning: PackedFloat64Array, way: Callable, threaded: bool) -> VarArray {
         let t = tuning.as_slice();
@@ -140,13 +143,25 @@ impl BodyField {
         let began = Instant::now();
         let out = field_parting::part_field(&mut self.field, &tuning, threaded, &mut ask);
         self.usec = began.elapsed().as_micros() as i64;
-        varray![
+        let result = varray![
             &PackedInt32Array::from(out.moved.as_slice()),
             &packed(&out.points),
             &packed(&out.nexts),
             &PackedInt32Array::from(out.loosened.as_slice()),
             &PackedInt64Array::from(&[self.usec, out.passes, out.pairs]),
-        ]
+        ];
+        self.parted = (out.moved, out.points, out.nexts);
+        result
+    }
+
+    /// Writes the last part()'s moved bodies into the unit store's columns, by how each
+    /// stands now (a fleeing one's offset, a loose one's point and next, else its position):
+    /// called once GDScript has given the bodies it made loose their entries (spec 35,
+    /// Decision 144).
+    #[func]
+    fn commit_part(&mut self) {
+        let (moved, points, nexts) = std::mem::take(&mut self.parted);
+        field_parting::commit(&mut self.field, &moved, &points, &nexts);
     }
 
     /// ScrumSeek.plan on the field, as of a sync of the scrum's snapshot, reading and

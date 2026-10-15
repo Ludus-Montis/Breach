@@ -129,6 +129,13 @@ static func sync_units(
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
+		# Each column fetched once and committed once (Decision 144); the units in their
+		# places walk after, each reading only its own place, the ground and the lying.
+		var points: PackedVector2Array = columns.column(UnitColumns.POSITION)
+		var facing: PackedFloat64Array = columns.column(UnitColumns.BEARING)
+		var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+		var places := UnitPlace.table(entry)
+		var walkers := []
 		for unit in entry.units:
 			if not unit.is_alive():
 				continue  # the fallen lie where they fell (Decision 126)
@@ -139,16 +146,21 @@ static func sync_units(
 			)
 			if entry.fleeing.has(unit.id):
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
-				columns.put(unit.slot, UnitColumns.POSITION, FormationRout.where(entry, unit.id))
+				points[unit.slot] = FormationRout.where(entry, unit.id)
 				if not entry.loose.has(unit.id):
-					columns.put(unit.slot, UnitColumns.BEARING, entry.heading)
+					facing[unit.slot] = entry.heading
 			elif entry.loose.has(unit.id):
 				# placement: its loose point, moved by UnitMover (Decision 139)
-				columns.put(unit.slot, UnitColumns.POSITION, SquadEntries.loose_at(entry, unit))
+				points[unit.slot] = loose_at[unit.slot]
 			elif timing.is_empty():
-				unit.foothold = FormationWalk.place_of(entry, unit, moving)
+				unit.foothold = FormationWalk.place_of(entry, unit, moving, places)
 				# placement: its frame's slot, set before any walking (Decision 139)
-				columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
-				columns.put(unit.slot, UnitColumns.BEARING, entry.heading)
+				points[unit.slot] = unit.foothold
+				facing[unit.slot] = entry.heading
 			else:
-				FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)
+				walkers.append(unit)
+		# placement: the routers', the loose and the placed points above (Decision 139)
+		columns.commit(UnitColumns.POSITION, points)
+		columns.commit(UnitColumns.BEARING, facing)
+		for unit in walkers:
+			FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)

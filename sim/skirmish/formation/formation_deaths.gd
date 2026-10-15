@@ -34,6 +34,7 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 		if fallen.is_empty():
 			continue
 		FormationMorale.losses(fallen_squad, fallen, tick, events)
+		# store: scattered (step-ups: the few units that moved up)
 		for moved in fallen_squad.compact():
 			var extra := {"rank": UnitPlace.rank(fallen_squad, moved)}
 			events.append(

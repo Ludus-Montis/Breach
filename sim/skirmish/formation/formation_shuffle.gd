@@ -53,6 +53,7 @@ static func step(
 		swap["ticks"] -= 1
 		if swap["ticks"] > 0:
 			continue
+		# store: scattered (a swap ending, its step-ups, a widening: per event)
 		for unit in swap["to"]:
 			UnitPlace.put(squad, unit, swap["to"][unit])
 		squad.swaps.remove_at(index)
@@ -63,6 +64,7 @@ static func step(
 		events.append(
 			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
 		)
+		# store: scattered (a swap ending, its step-ups, a widening: per event)
 		for moved in squad.compact():  # close the gaps the move left
 			var rank := UnitPlace.rank(squad, moved)
 			events.append(
@@ -175,6 +177,7 @@ static func _widen_to_fit(squad: SkirmishSquad) -> void:
 	if left == 0 and right == squad.width:
 		return
 	squad.centre_shift += left + (right - left - squad.width) / 2.0
+	# store: scattered (a swap ending, its step-ups, a widening: per event)
 	for unit in squad.units:
 		UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(0, left))
 	for swap in squad.swaps:

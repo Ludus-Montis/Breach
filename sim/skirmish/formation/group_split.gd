@@ -118,6 +118,7 @@ static func _group(squad: SkirmishSquad, cluster: Array, fight_seed: int) -> Ski
 	keyed.sort_custom(func(a, b): return a.slice(0, 2) < b.slice(0, 2))
 	var members: Array[SkirmishUnit] = []
 	var front := -INF
+	# store: scattered (a split: once, as a group breaks off)
 	for entry in keyed:
 		var unit: SkirmishUnit = entry[2]
 		squad.units.erase(unit)
