@@ -10,6 +10,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 var _places := UnitPlaces.new()
 
@@ -37,7 +38,7 @@ func _held_in_front(front_kind: UnitDef, rear_kind: UnitDef) -> Array:
 	)
 	_places.stand(front, ScrumStance.anchor(squad, front))
 	var at := _places.at(front) + (_places.at(front) - ScrumStance.anchor(squad, rear))
-	squad.loose[rear.id] = {"unit": rear, "at": at, "goal": null, "next": at}
+	SquadEntries.loosen(squad, rear, {"unit": rear, "goal": null, "next": at}, at)
 	squad.loose[rear.id]["stuck"] = BattleTuning.current().scrum_trade_seconds
 	return [squad, front, rear]
 

@@ -13,6 +13,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func _def(discipline: int, tactics: Array[String] = []) -> UnitDef:
@@ -162,7 +163,7 @@ func test_a_unit_breaking_ranks_chases_no_further_than_its_own_leash() -> void:
 			sim.step()
 			chased += keen.chasers.size()
 			for unit_id in keen.chasers:
-				var at: Vector2 = keen.loose[unit_id]["at"]
+				var at: Vector2 = SquadEntries.loose_at(keen, keen.chasers[unit_id]["unit"])
 				furthest = maxf(furthest, at.distance_to(keen.chasers[unit_id]["from"]))
 		assert_bool(keen.chasers.is_empty()).is_true()  # all came back
 		if chased > 0:

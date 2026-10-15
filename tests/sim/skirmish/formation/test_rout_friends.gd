@@ -19,6 +19,7 @@ const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 
 const SEED := 23
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 var _places := UnitPlaces.new()
 
@@ -54,7 +55,7 @@ func _field() -> Array:
 		squad.state = SkirmishSquad.State.ROUTING if index % 3 == 1 else SkirmishSquad.State.HOLDING
 		for unit in members.slice(0, 4):  # a few loose a little off their places
 			var at: Vector2 = _places.at(unit) + Vector2(rng.randi_range(-1, 1), 0.5)
-			squad.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": at}, at)
 		squads.append(squad)
 	return squads
 

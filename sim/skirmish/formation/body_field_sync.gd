@@ -45,6 +45,7 @@ class Batch:
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
 	var at := _positions(squads)
+	var loose_at := _column(squads, UnitColumns.LOOSE_AT)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -55,7 +56,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			batch.points.append(at[unit.slot] if entry == null else entry["at"])
+			batch.points.append(at[unit.slot] if entry == null else loose_at[unit.slot])
 			batch.flags.append(0 if entry == null else LOOSE)
 			batch.bearings.append(unit.bearing)
 		_squad(batch, squad, batch.units.size() - before)
@@ -66,6 +67,8 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
 	var at := _positions(squads)
+	var loose_at := _column(squads, UnitColumns.LOOSE_AT)
+	var offsets := _column(squads, UnitColumns.FLEE_OFFSET)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -80,12 +83,12 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
 			if flight != null:
-				batch.points.append(flight["offset"])
+				batch.points.append(offsets[unit.slot])
 				batch.nexts.append(Vector2.ZERO)
 				batch.bases.append(FormationRout.route_point(squad, unit.id))
 				flag |= FLEEING
 			else:
-				batch.points.append(at[unit.slot] if entry == null else entry["at"])
+				batch.points.append(at[unit.slot] if entry == null else loose_at[unit.slot])
 				batch.nexts.append(Vector2.ZERO if entry == null else entry["next"])
 				batch.bases.append(Vector2.ZERO)
 			batch.flags.append(flag)
@@ -95,9 +98,14 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 
 ## Where the battle's units stand, by slot (the store's column); empty with no squads.
 static func _positions(squads: Array) -> PackedVector2Array:
+	return _column(squads, UnitColumns.POSITION)
+
+
+## One of the battle's place columns (empty if there are no squads).
+static func _column(squads: Array, name: StringName) -> PackedVector2Array:
 	if squads.is_empty():
 		return PackedVector2Array()
-	return squads[0].store.columns.column(UnitColumns.POSITION)
+	return squads[0].store.columns.column(name)
 
 
 static func _squad(batch: Batch, squad: SkirmishSquad, count: int) -> void:

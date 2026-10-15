@@ -26,8 +26,9 @@ const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const UnitShuffle = preload("res://sim/skirmish/formation/unit_shuffle.gd")
 const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
-const FIELDS := ["at", "next", "toward"]
+const FIELDS := ["next", "toward"]  # with where each stands loose (the store's LOOSE_AT)
 
 var _args := {}
 
@@ -185,7 +186,9 @@ func _entries(fighting: Array) -> Array:
 	for squad in fighting:
 		for unit in squad.living():
 			var entry: Dictionary = squad.loose[unit.id]
-			out.append(FIELDS.map(func(key): return entry.get(key)))
+			out.append(
+				FIELDS.map(func(key): return entry.get(key)) + [SquadEntries.loose_at(squad, unit)]
+			)
 	return out
 
 
@@ -196,6 +199,7 @@ func _put(fighting: Array, saved: Array) -> void:
 			var entry: Dictionary = squad.loose[unit.id]
 			for k in range(FIELDS.size()):
 				entry[FIELDS[k]] = saved[index][k]
+			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, saved[index][FIELDS.size()])
 			index += 1
 
 
@@ -218,26 +222,24 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 		if walk[1]["goal"] == null:
 			var squad: SkirmishSquad = walk[4]
 			var heading: float = squad.stance.get("heading", squad.heading)
-			UnitShuffle.look(walk[0], walk[1]["at"], walk[2], heading, walk[3] / ctx["seconds"])
+			UnitShuffle.look(walk[0], walk[5], walk[2], heading, walk[3] / ctx["seconds"])
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	var tos := []
 	for walk in walks:
 		tos.append(
-			UnitSteer.toward(
-				walk[0], walk[1]["at"], walk[2], ctx["bodies"], ctx["seed"], ctx["crowd"]
-			)
+			UnitSteer.toward(walk[0], walk[5], walk[2], ctx["bodies"], ctx["seed"], ctx["crowd"])
 		)
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	var footings := []
 	for index in range(walks.size()):
-		footings.append(Scrum._footing(walks[index][0], walks[index][1]["at"], tos[index], ctx))
+		footings.append(Scrum._footing(walks[index][0], walks[index][5], tos[index], ctx))
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	for index in range(walks.size()):
 		var walk: Array = walks[index]
-		UnitMotion.move(walk[0], walk[1]["at"], tos[index], walk[3] * footings[index])
+		UnitMotion.move(walk[0], walk[5], tos[index], walk[3] * footings[index])
 	spent.append(Time.get_ticks_usec() - lap)
 	_print_stages(spent)
 
@@ -249,7 +251,8 @@ func _print_stages(spent: Array) -> void:
 		print("  %-16s %7.2f" % [names[index], spent[index] / 1000.0])
 
 
-## [[unit, entry, goal (its place, once found), full step, squad], ...] for the walkers.
+## [[unit, entry, goal (its place, once found), full step, squad, where it stands], ...] for
+## the walkers.
 func _walks(fighting: Array, ctx: Dictionary) -> Array:
 	var walks := []
 	for squad in fighting:
@@ -258,5 +261,7 @@ func _walks(fighting: Array, ctx: Dictionary) -> Array:
 			var entry: Dictionary = squad.loose[unit.id]
 			if squad.chasers.has(unit.id) or (entry["goal"] == null and entry.get("touch", false)):
 				continue
-			walks.append([unit, entry, entry["next"], unit.speed * ctx["pace"] * crowding, squad])
+			var pace: float = unit.speed * ctx["pace"] * crowding
+			var at := SquadEntries.loose_at(squad, unit)
+			walks.append([unit, entry, entry["next"], pace, squad, at])
 	return walks

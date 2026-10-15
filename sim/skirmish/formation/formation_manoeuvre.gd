@@ -21,6 +21,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const NAMES := ["combat", "withdraw", "route", "re-form", "order"]
 
@@ -58,5 +59,5 @@ static func _loosen(squad: SkirmishSquad) -> void:
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
-			squad.loose[unit.id]["next"] = at[unit.slot]
+			var stood := at[unit.slot]
+			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)

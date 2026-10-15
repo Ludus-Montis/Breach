@@ -7,11 +7,25 @@ extends RefCounted
 ## commit it.
 
 const POSITION := &"position"  # where the unit stands, in cells (spec 27)
+const LOOSE_AT := &"at"  # where it stands loose, while it has a loose entry (FormationScrum)
+const FLEE_OFFSET := &"offset"  # its place off its route, while fleeing (FormationRout)
+const FLAGS := &"flags"  # its bits, below
+
+## FLAGS' bits: whether the unit has an entry in its squad's `loose`, and in its `fleeing`.
+const LOOSE := 1
+const FLEEING := 2
 
 ## Each column's value for a slot no unit has used yet.
-const BLANKS := {POSITION: Vector2.ZERO}
+const BLANKS := {
+	POSITION: Vector2.ZERO, LOOSE_AT: Vector2.ZERO, FLEE_OFFSET: Vector2.ZERO, FLAGS: 0
+}
 
-var _columns := {POSITION: PackedVector2Array()}
+var _columns := {
+	POSITION: PackedVector2Array(),
+	LOOSE_AT: PackedVector2Array(),
+	FLEE_OFFSET: PackedVector2Array(),
+	FLAGS: PackedInt32Array(),
+}
 
 
 ## The column, by slot.

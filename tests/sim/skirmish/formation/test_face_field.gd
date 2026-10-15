@@ -15,6 +15,7 @@ const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const COUNT := 20000
 
@@ -189,7 +190,10 @@ func _stirred(squads: Array) -> void:
 		for entry in squad.loose.values():
 			var id: int = entry["unit"].id
 			if entry.get("toward") != null:
-				entry["toward"] = entry["at"] + Vector2(sin(id * 1.7), cos(id * 1.7)) * 2.0
+				entry["toward"] = (
+					SquadEntries.loose_at(squad, entry["unit"])
+					+ Vector2(sin(id * 1.7), cos(id * 1.7)) * 2.0
+				)
 			if entry["goal"] != null and id % 3 == 0:
 				entry["goal"] = null
 

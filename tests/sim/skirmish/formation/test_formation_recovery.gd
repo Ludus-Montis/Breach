@@ -13,6 +13,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 var _places := UnitPlaces.new()
 
@@ -175,7 +176,7 @@ func test_it_comes_to_where_it_lies_and_walks_to_the_nearest_friendly_formation(
 
 	assert_bool(nearer.units.has(downed)).is_true()  # it joins the nearest, not its own
 	assert_bool(own.units.has(downed)).is_false()
-	assert_vector(nearer.loose[downed.id]["at"]).is_equal(Vector2.ZERO)  # from where it lay
+	assert_vector(SquadEntries.loose_at(nearer, downed)).is_equal(Vector2.ZERO)  # from where it lay
 	assert_int(downed.squad_id).is_equal(2)
 
 

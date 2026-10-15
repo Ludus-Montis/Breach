@@ -34,6 +34,7 @@ const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const BodyParting = preload("res://sim/skirmish/formation/body_parting.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## Cells a bucket of the pair search spans: at least the widest body.
 const BUCKET := 2.0
@@ -54,7 +55,7 @@ static func at(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 	if squad.fleeing.has(unit.id):
 		return FormationRout.where(squad, unit.id)
 	if squad.loose.has(unit.id):
-		return squad.loose[unit.id]["at"]
+		return SquadEntries.loose_at(squad, unit)
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
 
 
@@ -205,19 +206,22 @@ static func _mass(body: Array) -> float:
 static func _move(body: Array, push: Vector2, loosens: bool) -> void:
 	var squad: SkirmishSquad = body[0]
 	var unit: SkirmishUnit = body[1]
+	var columns := squad.store.columns
 	if squad.fleeing.has(unit.id):
+		var offset: Vector2 = columns.value(unit.slot, UnitColumns.FLEE_OFFSET)
 		# placement: parting clears an overlap (Decision 139)
-		squad.fleeing[unit.id]["offset"] += push
+		columns.put(unit.slot, UnitColumns.FLEE_OFFSET, offset + push)
 		return
 	if not loosens and not squad.loose.has(unit.id):
 		# placement: parting clears an overlap (Decision 139)
-		squad.store.columns.put(unit.slot, UnitColumns.POSITION, body[2] + push)
+		columns.put(unit.slot, UnitColumns.POSITION, body[2] + push)
 		return
 	if not squad.loose.has(unit.id):
-		squad.loose[unit.id] = {"unit": unit, "at": body[2], "goal": null, "next": body[2]}
+		SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": body[2]}, body[2])
 	var entry: Dictionary = squad.loose[unit.id]
-	var resting: bool = entry["next"] == entry["at"]
+	var at: Vector2 = SquadEntries.loose_at(squad, unit)
+	var resting: bool = entry["next"] == at
 	# placement: parting clears an overlap (Decision 139)
-	entry["at"] += push
+	columns.put(unit.slot, UnitColumns.LOOSE_AT, at + push)
 	if resting:
-		entry["next"] = entry["at"]
+		entry["next"] = at + push

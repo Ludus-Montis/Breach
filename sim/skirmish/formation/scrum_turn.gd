@@ -13,6 +13,7 @@ const SquadTurn = preload("res://sim/skirmish/formation/squad_turn.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## Re-faces the squad where it stands before it moves `travel_sign` along its route: an
@@ -35,8 +36,8 @@ static func begin(squad: SkirmishSquad, travel_sign: int, tick: int, events: Arr
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
-			squad.loose[unit.id]["next"] = at[unit.slot]
+			var stood := at[unit.slot]
+			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
 	var faced := {"facing": squad.facing, "heading": squad.heading}
 	events.append(FormationEvents.squad_event("turning", tick, squad, faced))
 	events.append(FormationEvents.squad_event("turned", tick, squad, faced))

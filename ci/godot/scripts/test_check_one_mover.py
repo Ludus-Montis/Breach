@@ -24,6 +24,16 @@ class CheckOneMoverTest(unittest.TestCase):
         ]:
             self.assertEqual(len(violations_in(code)), 1, code)
 
+    def test_a_write_to_the_stores_loose_or_fleeing_place_is_caught(self):
+        for code in [
+            "\tcolumns.put(unit.slot, UnitColumns.LOOSE_AT, at + push)",
+            "\tcolumns.put(unit.slot, UnitColumns.FLEE_OFFSET, offset + push)",
+            "\tcolumns.commit(UnitColumns.LOOSE_AT, loose_at)",
+        ]:
+            self.assertEqual(len(violations_in(code)), 1, code)
+        flags = "\tcolumns.put(unit.slot, UnitColumns.FLAGS, bits)"  # not a place
+        self.assertEqual(violations_in(flags), [])
+
     def test_a_column_write_of_the_movers_step_just_taken_is_fine(self):
         code = (
             "\tvar stepped := UnitMover.step(unit, from, toward, full, seconds, terrain)\n"

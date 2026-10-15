@@ -15,6 +15,7 @@ const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd"
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 func after_test() -> void:
@@ -111,7 +112,8 @@ func _push(squads: Array, ctx: Dictionary) -> void:
 			var entry = squad.loose.get(unit.id)
 			if entry == null or entry["goal"] == null or unit.id % 2 != 0:
 				continue
-			entry["next"] = entry["at"] + (entry["foe_at"] - entry["at"]) * 2.5
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
+			entry["next"] = at + (entry["foe_at"] - at) * 2.5
 			if seek != null:
 				nexts[seek.units.find(unit)] = entry["next"]
 	if seek != null:
@@ -123,7 +125,8 @@ func _entries(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
 		for entry in squad.loose.values():
-			out.append([entry["unit"].id, entry["at"], entry["next"], entry.get("toward")])
+			var at: Vector2 = SquadEntries.loose_at(squad, entry["unit"])
+			out.append([entry["unit"].id, at, entry["next"], entry.get("toward")])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	return out
 
@@ -186,11 +189,12 @@ func _assert_obstructed(squads: Array, saved: Array) -> void:
 			var entry = squad.loose.get(unit.id)
 			if entry == null or entry["goal"] == null:
 				continue
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var to := UnitSteer.toward(
-				unit, entry["at"], entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
+				unit, at, entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
 			)
 			rounded += 0 if to == entry["next"] else 1
-			var footing := FormationScrum._footing(unit, entry["at"], to, ctx)
+			var footing := FormationScrum._footing(unit, at, to, ctx)
 			slowed += 1 if footing > 0.0 and footing < 1.0 else 0
 			stopped += 1 if footing == 0.0 else 0
 	assert_int(rounded).is_greater(0)

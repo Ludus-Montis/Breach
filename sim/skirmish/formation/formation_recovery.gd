@@ -25,6 +25,7 @@ const FormationEvents = preload("res://sim/skirmish/formation/formation_events.g
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## One tick of `seconds`. Returns [[unit, its squad], ...] for those that came to apart from
@@ -263,4 +264,4 @@ static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -
 	unit.column = 0
 	best.reforming = true
 	var at: Vector2 = best.store.columns.value(unit.slot, UnitColumns.POSITION)
-	best.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
+	SquadEntries.loosen(best, unit, {"unit": unit, "goal": null, "next": at}, at)
