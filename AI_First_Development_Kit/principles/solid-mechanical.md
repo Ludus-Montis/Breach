@@ -42,6 +42,11 @@ one new case means touching every file that switches on that type.
 extension point (a new implementation of an interface, a new registered handler) without
 editing already-shipped logic.
 
+**Waiver:** a deliberate broad change (a refactor across many files, not one new case)
+is authorised by a Decision, and every commit series under it carries a
+`Waived-by: Decision N` trailer. The check still lists the files it counted, then passes.
+Only the owner authorises the Decision; the trailer only cites it.
+
 ## L — Liskov Substitution
 
 **Primary mechanical enforcement: shared contract tests.**
