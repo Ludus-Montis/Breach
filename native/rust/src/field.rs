@@ -25,6 +25,11 @@ use crate::maths::V2;
 pub const LOOSE: u8 = 1;
 /// A body is fleeing (in its squad's `fleeing`): it stands at its base plus an offset.
 pub const FLEEING: u8 = 2;
+/// A sync of the scrum's snapshot: each body loose or not, and its bearing (BodyFieldSync.scrum).
+pub const SCRUM: u8 = 1;
+/// A sync of the bodies as UnitBodies sees them: loose or fleeing, a loose one's next point
+/// (BodyFieldSync.bodies).
+pub const BODIES: u8 = 2;
 /// A squad is routing.
 pub const ROUTING: u8 = 1;
 /// A squad is destroyed.
@@ -47,15 +52,14 @@ pub struct SyncIn<'a> {
     pub squad_flags: &'a [u8],
     pub squad_counts: &'a [i32],
     pub unit_ids: &'a [i64],
-    /// How each stands (LOOSE, FLEEING) as its own squad's entries say; where it stands is
-    /// read from the columns by them.
-    pub flags: &'a [u8],
-    /// A loose body's next point; empty: unchanged.
-    pub nexts: &'a [V2],
-    /// A fleeing body's base on its route; empty: unchanged.
+    /// Which snapshot (SCRUM, BODIES; 0: where each stands only). How each body stands
+    /// (LOOSE, FLEEING), its next point and its bearing are read from the unit store's
+    /// columns (spec 35 step 4e): the flag bits are set exactly while its own squad holds
+    /// the entry.
+    pub mode: u8,
+    /// A fleeing body's base on its route (its squad's route is GDScript's); empty:
+    /// unchanged.
     pub bases: &'a [V2],
-    /// Each unit's bearing; empty: unchanged.
-    pub bearings: &'a [f64],
 }
 
 /// What a newly seen body needs once: GDScript's values, so no rule is duplicated here.
@@ -342,16 +346,17 @@ impl Field {
         self.faction[b] = faction;
         self.flat_of[b] = flat as u32;
         self.flat.push(body);
-        let flags = input.flags[flat];
-        self.flags[b] = flags;
-        if !input.nexts.is_empty() {
-            self.next[b] = input.nexts[flat];
+        let mut flags = self.columns.flags[b] as u8 & (LOOSE | FLEEING);
+        if input.mode == SCRUM {
+            flags &= LOOSE; // a router: where it stands
+            self.bearing[b] = self.columns.bearing[b];
+        } else if input.mode == BODIES {
+            let walking = flags & LOOSE != 0 && flags & FLEEING == 0;
+            self.next[b] = if walking { self.columns.next[b] } else { V2::ZERO };
         }
+        self.flags[b] = flags;
         if !input.bases.is_empty() {
             self.base[b] = input.bases[flat];
-        }
-        if !input.bearings.is_empty() {
-            self.bearing[b] = input.bearings[flat];
         }
         if flags & FLEEING != 0 {
             self.offset[b] = self.columns.flee_offset[b];
@@ -395,17 +400,21 @@ mod tests {
         sync_seeing(field, units, &vec![0; units.len()], &[])
     }
 
+    /// Syncs the bodies, each held unit's flag bits set to `flags` in the store first.
     fn sync_seeing(field: &mut Field, units: &[i64], flags: &[u8], bases: &[V2]) -> Vec<i32> {
+        for (k, &unit) in units.iter().enumerate() {
+            if let Some(slot) = field.slot_of(unit) {
+                field.columns.flags[slot as usize] = flags[k] as i32;
+            }
+        }
         let input = SyncIn {
             squad_ids: &[1],
             squad_factions: &["player".to_string()],
             squad_flags: &[0],
             squad_counts: &[units.len() as i32],
             unit_ids: units,
-            flags,
-            nexts: &[],
+            mode: BODIES,
             bases,
-            bearings: &[],
         };
         field.sync(5, &input)
     }

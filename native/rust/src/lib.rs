@@ -48,9 +48,11 @@ struct BodyField {
 impl BodyField {
     /// Brings the field to the squads as they stand, flat over the squads in list order:
     /// per squad its id, faction, flags (1 routing, 2 destroyed) and how many living units
-    /// follow; per unit its id, flags (1 loose, 2 fleeing) and - when not empty - its next
-    /// point, its base (fleeing) and its bearing. Where each stands is read here from the
-    /// store's columns (spec 35), by its flags: its loose place, its offset, or its position.
+    /// follow; per unit its id and - when not empty - its base (fleeing). `mode` says which
+    /// snapshot: 1 the scrum's (loose or not, and its bearing), 2 the bodies' (loose or
+    /// fleeing, and a loose one's next point). How each stands, its next point and bearing
+    /// are read here from the store's columns (spec 35 step 4e), and where it stands by its
+    /// flags: its loose place, its offset, or its position.
     /// Returns the flat indices of units new to the field: enrol() them before any pass.
     #[func]
     #[allow(clippy::too_many_arguments)]
@@ -62,14 +64,11 @@ impl BodyField {
         squad_flags: PackedByteArray,
         squad_counts: PackedInt32Array,
         unit_ids: PackedInt64Array,
-        flags: PackedByteArray,
-        nexts: PackedVector2Array,
+        mode: i64,
         bases: PackedVector2Array,
-        bearings: PackedFloat64Array,
     ) -> PackedInt32Array {
         let began = Instant::now();
         let factions: Vec<String> = squad_factions.as_slice().iter().map(|s| s.to_string()).collect();
-        let nexts = v2s(&nexts);
         let bases = v2s(&bases);
         let input = SyncIn {
             squad_ids: squad_ids.as_slice(),
@@ -77,10 +76,8 @@ impl BodyField {
             squad_flags: squad_flags.as_slice(),
             squad_counts: squad_counts.as_slice(),
             unit_ids: unit_ids.as_slice(),
-            flags: flags.as_slice(),
-            nexts: &nexts,
+            mode: mode as u8,
             bases: &bases,
-            bearings: bearings.as_slice(),
         };
         let unknown = self.field.sync(seed, &input);
         self.usec = began.elapsed().as_micros() as i64;

@@ -39,11 +39,13 @@ UnitColumnsNative: column/commit, value/put ->   the store's columns by slot: po
   (one copy a column, one call a value)            loose place, flee offset, flag bits;
 BodyFieldSync.scrum / .bodies  --sync------->     per body: radius, area, initiative, draw,
   one call, flat over squads in list order:       faction, squad; bodies in draw order
-  ids, flags [, nexts, bases, bearings]          where each stands (as of the last sync,
-                                                 read from the columns by its flags):
+  ids, mode (scrum/bodies) [, bases]             where each stands (as of the last sync,
+                                                 read from the columns by the flag bits
+                                                 there; next and bearing by the mode):
   <- flat indices of units new to the field        at, offset/base (fleeing), next, flags,
   enrol(radius, area, draw, initiative,         bearing; squads' members in list order;
-    record) --------------------------------->     record: preferred band, footprint
+    record, paces) -------------------------->     record: preferred band, footprint,
+                                                   turn rate, backward pace
                                                passes on the field
 BodyParting.step --------- part(tuning, way) -> parting (spike kernel, draw order)
   <- moved bodies (flat), points, nexts, loosened in order, stats

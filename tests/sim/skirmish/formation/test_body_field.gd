@@ -14,6 +14,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 var _places := UnitPlaces.new()
 
@@ -82,6 +83,28 @@ func test_the_roster_is_kept_across_syncs_and_changes_only_where_units_do() -> v
 	assert_int(field.count()).is_equal(2)  # the dead dropped, the mover kept
 	assert_array(synced[0]).is_equal([other.units[0], moved])
 	assert_array(Array(field.points())).is_equal([Vector2(5, 5), Vector2(6, 5)])
+
+
+## A sync names only the roster (spec 35 step 4e): how each unit stands (loose or not) is
+## read from the unit store's flag bits on the field, so a loose unit stands where it
+## stands loose and one in its frame at its position.
+func test_a_sync_reads_how_each_unit_stands_from_the_store() -> void:
+	var field := _field()
+	if field == null:
+		return
+	_places = UnitPlaces.new(field)
+	var units: Array[SkirmishUnit] = [_unit(1, Vector2(1, 1)), _unit(2, Vector2(2, 1))]
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, units, null, _places.store)
+	SquadEntries.loosen(squad, units[1], Vector2(4, 3))
+	var ids := PackedInt64Array([1, 2])
+	var squad_ids := PackedInt64Array([1])
+	var factions := PackedStringArray(["player"])
+	var counts := PackedInt32Array([2])
+	var unknown: PackedInt32Array = field.sync(
+		7, squad_ids, factions, PackedByteArray([0]), counts, ids, BodyFieldSync.SCRUM, []
+	)
+	assert_array(Array(unknown)).is_equal([0, 1])
+	assert_array(Array(field.points())).is_equal([Vector2(1, 1), Vector2(4, 3)])
 
 
 ## A mid-fight scrum of a 40-a-side clash: the squads after `ticks` ticks under GDScript.
