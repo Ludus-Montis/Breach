@@ -37,7 +37,7 @@ static func begin(squad: SkirmishSquad, travel_sign: int, tick: int, events: Arr
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
 			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
+			SquadEntries.loosen(squad, unit, stood)
 	var faced := {"facing": squad.facing, "heading": squad.heading}
 	events.append(FormationEvents.squad_event("turning", tick, squad, faced))
 	events.append(FormationEvents.squad_event("turned", tick, squad, faced))

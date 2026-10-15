@@ -55,7 +55,7 @@ func _field() -> Array:
 		squad.state = SkirmishSquad.State.ROUTING if index % 3 == 1 else SkirmishSquad.State.HOLDING
 		for unit in members.slice(0, 4):  # a few loose a little off their places
 			var at: Vector2 = _places.at(unit) + Vector2(rng.randi_range(-1, 1), 0.5)
-			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": at}, at)
+			SquadEntries.loosen(squad, unit, at)
 		squads.append(squad)
 	return squads
 

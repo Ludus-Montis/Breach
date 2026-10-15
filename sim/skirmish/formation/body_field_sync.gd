@@ -66,20 +66,21 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
 		var fleeing: Dictionary = squad.fleeing
+		var nexts: PackedVector2Array = squad.store.columns.column(UnitColumns.NEXT)
 		for unit in squad.units:
 			if not unit.is_alive():
 				continue
-			var entry = loose.get(unit.id)
+			var is_loose := loose.has(unit.id)
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			var flag := 0 if entry == null else LOOSE
+			var flag := LOOSE if is_loose else 0
 			if fleeing.has(unit.id):
 				batch.nexts.append(Vector2.ZERO)
 				batch.bases.append(FormationRout.route_point(squad, unit.id))
 				flag |= FLEEING
 			else:
-				batch.nexts.append(Vector2.ZERO if entry == null else entry["next"])
+				batch.nexts.append(nexts[unit.slot] if is_loose else Vector2.ZERO)
 				batch.bases.append(Vector2.ZERO)
 			batch.flags.append(flag)
 		_squad(batch, squad, batch.units.size() - before)

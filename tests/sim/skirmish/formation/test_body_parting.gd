@@ -15,6 +15,7 @@ const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd"
 const NATIVE := ["rust"]
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 var _places := UnitPlaces.new()
 
@@ -64,10 +65,8 @@ func _crowd(reversed: bool) -> Array:
 		_places.stand(units[index], points[index])
 	for index in [1, 2]:
 		var at: Vector2 = points[index]
-		SquadEntries.loosen(
-			line, units[index], {"unit": units[index], "goal": null, "next": at}, at
-		)
-	SquadEntries.flee(line, units[3], {"along": 4.0}, Vector2(0.6, 4.3))
+		SquadEntries.loosen(line, units[index], at)
+	SquadEntries.flee(line, units[3], 4.0, Vector2(0.6, 4.3))
 	var other := SkirmishSquad.new(
 		2, "player", 1, 0.0, 1, [units[4]] as Array[SkirmishUnit], null, _places.store
 	)
@@ -75,9 +74,7 @@ func _crowd(reversed: bool) -> Array:
 	var foes := SkirmishSquad.new(
 		3, "the_kingdom", 1, 0.0, 1, [units[5]] as Array[SkirmishUnit], null, _places.store
 	)
-	SquadEntries.loosen(
-		foes, units[5], {"unit": units[5], "goal": null, "next": points[5]}, points[5]
-	)
+	SquadEntries.loosen(foes, units[5], points[5])
 	var squads := [line, other, foes]
 	if reversed:
 		squads.reverse()
@@ -90,10 +87,17 @@ func _bytes(squads: Array) -> PackedByteArray:
 	var state := []
 	for squad in squads:
 		for unit in squad.units:
-			var loose: Variant = squad.loose.get(unit.id)
-			var held := [unit.id, UnitPlaces.of(squad, unit), squad.fleeing.get(unit.id)]
-			var at: Variant = null if loose == null else SquadEntries.loose_at(squad, unit)
-			held.append(null if loose == null else [at, loose["next"], loose["goal"]])
+			var columns: UnitColumns = squad.store.columns
+			var along = columns.value(unit.slot, UnitColumns.ALONG)
+			var held := [unit.id, UnitPlaces.of(squad, unit)]
+			held.append(along if squad.fleeing.has(unit.id) else null)
+			var loose := []
+			if squad.loose.has(unit.id):
+				loose = [
+					SquadEntries.loose_at(squad, unit), columns.value(unit.slot, UnitColumns.NEXT)
+				]
+				loose.append(EntryKeys.goal(columns, unit.slot))
+			held.append(loose)
 			state.append(held)
 	state.sort_custom(func(a, b): return a[0] < b[0])
 	return var_to_bytes(state)

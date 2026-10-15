@@ -15,9 +15,46 @@ const FLAGS := &"flags"  # its bits, below
 const LOOSE := 1
 const FLEEING := 2
 
-## Each column's value for a slot no unit has used yet.
+## The loose entry's other keys (spec 35 step 2): where it steps to next, the foe and slot it
+## seeks (GOAL_SLOT -1: none), where that foe stands, whether it touches a foe, where it
+## walks toward, and how long it has made no way toward its place since it was closest.
+const NEXT := &"next"
+const GOAL_FOE := &"goal_foe"
+const GOAL_SLOT := &"goal_slot"
+const FOE_AT := &"foe_at"
+const TOUCH := &"touch"  # 1: it touches a foe
+const TOWARD := &"toward"
+const STUCK := &"stuck"
+const CLOSEST := &"closest"
+## The fleeing entry's other keys: how far along its route it is, the ticks a friend has
+## held it and that friend's id, and how far it has fanned out off its route.
+const ALONG := &"along"
+const CAUGHT := &"caught"
+const HELD_BY := &"held_by"
+const FANNED := &"fanned"
+## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
+const KEYS := &"keys"
+
+## Each column's value for a slot no unit has used yet, which is also what a reader takes
+## for a key the entry doesn't hold.
 const BLANKS := {
-	POSITION: Vector2.ZERO, LOOSE_AT: Vector2.ZERO, FLEE_OFFSET: Vector2.ZERO, FLAGS: 0
+	POSITION: Vector2.ZERO,
+	LOOSE_AT: Vector2.ZERO,
+	FLEE_OFFSET: Vector2.ZERO,
+	FLAGS: 0,
+	NEXT: Vector2.ZERO,
+	GOAL_FOE: 0,
+	GOAL_SLOT: -1,
+	FOE_AT: Vector2.ZERO,
+	TOUCH: 0,
+	TOWARD: Vector2.ZERO,
+	STUCK: 0.0,
+	CLOSEST: INF,
+	ALONG: 0.0,
+	CAUGHT: 0,
+	HELD_BY: 0,
+	FANNED: 0.0,
+	KEYS: 0,
 }
 
 var _columns := {
@@ -25,6 +62,19 @@ var _columns := {
 	LOOSE_AT: PackedVector2Array(),
 	FLEE_OFFSET: PackedVector2Array(),
 	FLAGS: PackedInt32Array(),
+	NEXT: PackedVector2Array(),
+	GOAL_FOE: PackedInt64Array(),
+	GOAL_SLOT: PackedInt64Array(),
+	FOE_AT: PackedVector2Array(),
+	TOUCH: PackedInt32Array(),
+	TOWARD: PackedVector2Array(),
+	STUCK: PackedFloat64Array(),
+	CLOSEST: PackedFloat64Array(),
+	ALONG: PackedFloat64Array(),
+	CAUGHT: PackedInt64Array(),
+	HELD_BY: PackedInt64Array(),
+	FANNED: PackedFloat64Array(),
+	KEYS: PackedInt32Array(),
 }
 
 
@@ -51,7 +101,16 @@ func put(slot: int, name: StringName, data: Variant) -> void:
 
 ## Readies a slot for a unit just given it: every column blank there.
 func open(slot: int) -> void:
+	reach(slot)
 	for name in _columns:
-		if _columns[name].size() <= slot:
-			_columns[name].resize(slot + 1)
 		_columns[name][slot] = BLANKS[name]
+
+
+## Grows every column to hold `slot`, each new slot blank; keeps the values held.
+func reach(slot: int) -> void:
+	for name in _columns:
+		var size: int = _columns[name].size()
+		if size <= slot:
+			_columns[name].resize(slot + 1)
+			for added in range(size, slot + 1):
+				_columns[name][added] = BLANKS[name]

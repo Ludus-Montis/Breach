@@ -217,11 +217,10 @@ static func _move(body: Array, push: Vector2, loosens: bool) -> void:
 		columns.put(unit.slot, UnitColumns.POSITION, body[2] + push)
 		return
 	if not squad.loose.has(unit.id):
-		SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": body[2]}, body[2])
-	var entry: Dictionary = squad.loose[unit.id]
+		SquadEntries.loosen(squad, unit, body[2])
 	var at: Vector2 = SquadEntries.loose_at(squad, unit)
-	var resting: bool = entry["next"] == at
+	var resting: bool = columns.value(unit.slot, UnitColumns.NEXT) == at
 	# placement: parting clears an overlap (Decision 139)
 	columns.put(unit.slot, UnitColumns.LOOSE_AT, at + push)
 	if resting:
-		entry["next"] = at + push
+		columns.put(unit.slot, UnitColumns.NEXT, at + push)

@@ -6,7 +6,7 @@ ground. Twelve files once wrote positions themselves, and those that didn't pay 
 ground let routers and retreats cross woods and fords at full pace. Flags, in simulation
 code (`sim/`), a write to a unit's position - `.position =`, `["at"]`, `["offset"]`
 or `["along"]` of a unit's entry (and their `+=`/`-=`), or a write to one of the unit
-store's place columns - POSITION, LOOSE_AT or FLEE_OFFSET (`put(..., UnitColumns.POSITION,
+store's place columns - POSITION, LOOSE_AT, FLEE_OFFSET or ALONG (`put(..., UnitColumns.POSITION,
 ...)`, `commit(UnitColumns.LOOSE_AT, ...)`; spec 35) - unless:
 - the value comes from the mover (`UnitMover.` on the line, or a column write of a
   variable the line before set from `UnitMover.`), or
@@ -27,7 +27,7 @@ REPO_ROOT = Path(
     subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
 )
 WRITE = re.compile(r'(\.position|(\bentry|\])\["(at|offset|along)"\])\s*[-+]?=(?!=)')
-PLACES = r"UnitColumns\.(?:POSITION|LOOSE_AT|FLEE_OFFSET)\b"
+PLACES = r"UnitColumns\.(?:POSITION|LOOSE_AT|FLEE_OFFSET|ALONG)\b"
 COLUMN_WRITE = re.compile(rf"\b(?:put\([^,]+,\s*{PLACES},\s*(\w+)?|commit\(\s*{PLACES})")
 PLACEMENT = re.compile(r"#\s*placement:\s*\S")
 PAID = re.compile(r"#\s*paid:\s*\S")

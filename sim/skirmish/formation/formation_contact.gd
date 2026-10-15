@@ -165,6 +165,8 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 		unit.column += (width - joining.width) / 2
 		unit.rank += back
 		unit.attack_cooldown = 1
+		SquadEntries.unloose(joining, unit.id)
+		SquadEntries.unflee(joining, unit.id)
 		FormationCommand.enlist(leader, unit)
 		leader.joined.append(unit)
 	leader.centre_shift += (width - leader.width) / 2.0 - shift  # the leader stays put

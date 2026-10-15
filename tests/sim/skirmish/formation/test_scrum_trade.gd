@@ -11,6 +11,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 var _places := UnitPlaces.new()
 
@@ -38,8 +39,13 @@ func _held_in_front(front_kind: UnitDef, rear_kind: UnitDef) -> Array:
 	)
 	_places.stand(front, ScrumStance.anchor(squad, front))
 	var at := _places.at(front) + (_places.at(front) - ScrumStance.anchor(squad, rear))
-	SquadEntries.loosen(squad, rear, {"unit": rear, "goal": null, "next": at}, at)
-	squad.loose[rear.id]["stuck"] = BattleTuning.current().scrum_trade_seconds
+	SquadEntries.loosen(squad, rear, at)
+	EntryKeys.keep(
+		squad.store.columns,
+		rear.slot,
+		UnitColumns.STUCK,
+		BattleTuning.current().scrum_trade_seconds
+	)
 	return [squad, front, rear]
 
 
@@ -67,7 +73,12 @@ func test_a_unit_with_no_like_friend_takes_its_own_place() -> void:
 func test_a_unit_not_yet_held_long_enough_does_not_trade() -> void:
 	var kind := UnitDef.new()
 	var setup := _held_in_front(kind, kind)
-	setup[0].loose[setup[2].id]["stuck"] = BattleTuning.current().scrum_trade_seconds / 2.0
+	EntryKeys.keep(
+		setup[0].store.columns,
+		setup[2].slot,
+		UnitColumns.STUCK,
+		BattleTuning.current().scrum_trade_seconds / 2.0
+	)
 
 	ScrumTrade.trade(setup[0], 7)
 

@@ -56,9 +56,10 @@ var engaged_with: int = 0
 ## Hostile squads fighting it on its other edges (Decision 78): SquadEdges edge ->
 ## {"foe": squad id, "since": tick the contact began}.
 var flank_contacts := {}
-## The scrum (FormationScrum, Decision 88): its units' places while it fights (unit id ->
-## {"next", "goal", ...}; where each stands loose is the store's LOOSE_AT, and its LOOSE
-## bit says it has an entry: SquadEntries), the line it re-faced to {"anchor", "heading"},
+## The scrum (FormationScrum, Decision 88): its loose units (unit id -> the unit, in the
+## order each went loose; each one's entry - where it stands loose, its next step, its goal
+## and the rest - is the store's columns, and its LOOSE bit says it has one: SquadEntries,
+## EntryKeys), the line it re-faced to {"anchor", "heading"},
 ## the tick its fight began (-1: none) and ticks with nobody able to strike.
 var loose := {}
 var stance := {}
@@ -96,9 +97,9 @@ var withdraw := {}
 var staging := {}
 ## Its will to fight, 0 to 100 (FormationMorale, Decision 82); -1 until first read.
 var morale := -1
-## Routing (FormationRout): each fleeing unit's place (unit id -> {"along", ...}; its place
-## off the route is the store's FLEE_OFFSET (SquadEntries), and its FLEEING bit says it has
-## an entry), and ticks with no enemy near.
+## Routing (FormationRout): its fleeing units (unit id -> the unit; how far along its route
+## each is, its place off the route and the rest are the store's columns, and its FLEEING
+## bit says it has an entry: SquadEntries, EntryKeys), and ticks with no enemy near.
 var fleeing := {}
 var rally_ticks := 0
 ## Its command's orders (FormationCommand): hurrying and tending its own downed.

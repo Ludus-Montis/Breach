@@ -41,6 +41,7 @@ const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 ## How near (cells, along its route) home a unit has nowhere further to go.
@@ -57,7 +58,7 @@ static func begin(squad: SkirmishSquad, tick: int, events: Array) -> void:
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
 			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
+			SquadEntries.loosen(squad, unit, stood)
 	events.append(FormationEvents.squad_event("withdrawing", tick, squad))
 
 
@@ -115,7 +116,6 @@ static func step(
 ## Disengaging is a manoeuvre, as re-forming is: until it is clear of the foes it touches,
 ## a unit turns and steps away at its formation's re-form pace; then it is in flight.
 static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terrain) -> void:
-	var entry: Dictionary = squad.loose[unit.id]
 	var columns := squad.store.columns
 	var at: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
 	var along := squad.route.distance_of(at)
@@ -142,8 +142,8 @@ static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terra
 	var step: float = full * minf(efficacy, 1.0) if motion[3] else full
 	var stepped := UnitMover.step(unit, at, to, step, turning, terrain)  # pays the ground
 	columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
-	entry["next"] = stepped
-	entry["goal"] = null
+	columns.put(unit.slot, UnitColumns.NEXT, stepped)
+	EntryKeys.set_goal(columns, unit.slot, null)
 
 
 ## True if all its units are home: it has nowhere further to go.

@@ -12,6 +12,7 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 ## A new routing squad (id 0, for the simulation to number) of `unit` alone, taken out of
@@ -41,7 +42,8 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	stray.morale = 0
 	var offset: Vector2 = at - squad.route.point_at(along)
 	# it walks home straight, not fanning out as a panicked rout does (RoutFlight)
-	SquadEntries.flee(stray, unit, {"along": along, "fanned": INF}, offset)
+	SquadEntries.flee(stray, unit, along, offset)
+	EntryKeys.keep(stray.store.columns, unit.slot, UnitColumns.FANNED, INF)
 	unit.rank = 0
 	unit.column = 0
 	return stray

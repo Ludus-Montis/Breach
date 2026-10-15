@@ -7,8 +7,9 @@ extends GdUnitTestSuite
 ## leave the lists; and slots given in
 ## another order change nothing. Where each unit stands - its position, and its loose and
 ## fleeing places (`at`, `offset`) with a flag bit for each entry - is in the store's
-## columns alone (steps 1a and 1b). The native half is skipped where the Rust core isn't
-## built (native/build.sh).
+## columns alone (steps 1a and 1b), and so is every other key of the entries, which hold
+## only the unit (step 2). The native half is skipped where the Rust core isn't built
+## (native/build.sh).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -19,6 +20,7 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const TICKS := 450  # past the first routers fleeing home (from tick 409)
 const WAVE_AT := 120  # a later wave, once the first blows have fallen
@@ -143,15 +145,15 @@ func test_a_squad_keeps_each_unit_s_flag_bits_with_its_entries() -> void:
 	unit.id = 4
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, [unit])
 	var columns := squad.store.columns
-	SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null}, Vector2(2, 3))
+	SquadEntries.loosen(squad, unit, Vector2(2, 3))
 	assert_vector(columns.value(unit.slot, UnitColumns.LOOSE_AT)).is_equal(Vector2(2, 3))
-	SquadEntries.flee(squad, unit, {"along": 1.0}, Vector2(0, 1))
+	SquadEntries.flee(squad, unit, 1.0, Vector2(0, 1))
 	assert_vector(columns.value(unit.slot, UnitColumns.FLEE_OFFSET)).is_equal(Vector2(0, 1))
 	var both := UnitColumns.LOOSE | UnitColumns.FLEEING
 	assert_int(columns.value(unit.slot, UnitColumns.FLAGS)).is_equal(both)
 	SquadEntries.unloose(squad, unit.id)
 	assert_int(columns.value(unit.slot, UnitColumns.FLAGS)).is_equal(UnitColumns.FLEEING)
-	SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null}, Vector2(2, 3))
+	SquadEntries.loosen(squad, unit, Vector2(2, 3))
 	SquadEntries.unloose_all(squad)
 	SquadEntries.unflee_all(squad)
 	assert_int(columns.value(unit.slot, UnitColumns.FLAGS)).is_equal(0)
@@ -163,10 +165,10 @@ func test_where_a_unit_stands_is_the_store_s_alone() -> void:
 	assert_bool("slot" in SkirmishUnit.new()).is_true()
 
 
-## Every listed unit's [slot, where it stands, its flag bits, its loose and fleeing places]
+## Every listed unit's [slot, where it stands, its flag bits, its loose and fleeing entries]
 ## by id; fails if two share a slot, the store holds an unlisted unit, a unit's record
-## names another slot, an entry still holds its place, or a flag bit disagrees with the
-## entries.
+## names another slot, an entry holds more than its unit, a flag bit disagrees with the
+## entries, or a unit has an entry in another squad.
 func _slots(sim: FormationSimulation, label: String) -> Dictionary:
 	var store := sim.store
 	var at: PackedVector2Array = store.columns.column(UnitColumns.POSITION)
@@ -182,29 +184,37 @@ func _slots(sim: FormationSimulation, label: String) -> Dictionary:
 			taken[slot] = true
 			var said := "%s, unit %d" % [label, unit.id]
 			slots[unit.id] = [slot, at[slot]] + _places(squad, unit, said)
+		for unit_id in squad.loose.keys() + squad.fleeing.keys():
+			var held := squad.units.any(func(unit): return unit.id == unit_id)
+			assert_bool(held).override_failure_message("%s: %d" % [label, unit_id]).is_true()
 	assert_int(store.count()).override_failure_message(label).is_equal(slots.size())
 	return slots
 
 
-## The unit's [flag bits, [its loose place, its fleeing place] (null where it has no
-## entry)]; fails if an entry still holds its place or a bit disagrees with the entries.
+## The unit's [flag bits, [its loose entry, its fleeing entry] (null where it has none), as
+## the digest hashes them]; fails if an entry holds more than its unit or a bit disagrees
+## with the entries.
 func _places(squad: SkirmishSquad, unit: SkirmishUnit, said: String) -> Array:
 	var columns := squad.store.columns
 	var entries := [squad.loose.get(unit.id), squad.fleeing.get(unit.id)]
-	var kept: bool = entries[0] != null and entries[0].has("at")
-	kept = kept or (entries[1] != null and entries[1].has("offset"))
-	assert_bool(kept).override_failure_message(said + ": an entry holds its place").is_false()
+	var kept: bool = entries.any(func(entry): return entry != null and entry != unit)
+	assert_bool(kept).override_failure_message(said + ": an entry holds more").is_false()
 	var bits := (
 		(UnitColumns.LOOSE if entries[0] != null else 0)
 		| (UnitColumns.FLEEING if entries[1] != null else 0)
 	)
 	var flags: int = columns.value(unit.slot, UnitColumns.FLAGS)
 	assert_int(flags).override_failure_message(said).is_equal(bits)
-	var places := [
-		columns.value(unit.slot, UnitColumns.LOOSE_AT) if entries[0] != null else null,
-		columns.value(unit.slot, UnitColumns.FLEE_OFFSET) if entries[1] != null else null,
-	]
-	return [flags, places]
+	var places := [null, null]
+	if entries[0] != null:
+		places[0] = EntryKeys.loose_entry(
+			columns, unit, columns.value(unit.slot, UnitColumns.LOOSE_AT)
+		)
+		places[0]["unit"] = unit.id  # the same on both engines
+	if entries[1] != null:
+		var offset: Vector2 = columns.value(unit.slot, UnitColumns.FLEE_OFFSET)
+		places[1] = EntryKeys.fleeing_entry(columns, unit.slot, offset)
+	return [flags, str(places)]
 
 
 ## A 24-a-side clash on `engine`, a second grem wave sent at WAVE_AT; its slots each tick.
@@ -238,7 +248,7 @@ func test_a_battle_with_deaths_and_a_later_wave_gives_each_unit_its_own_slot() -
 		for tick in range(TICKS):
 			for unit_id in runs[0][tick]:
 				if runs[index][tick].get(unit_id) != runs[0][tick][unit_id]:
-					var said := "%s first differs at tick %d, unit %d: [slot, position, flags, places] %s, not %s"
+					var said := "%s first differs at tick %d, unit %d: [slot, position, flags, entries] %s, not %s"
 					var theirs = runs[index][tick].get(unit_id)
 					fail(said % [engines[index], tick + 1, unit_id, theirs, runs[0][tick][unit_id]])
 					return

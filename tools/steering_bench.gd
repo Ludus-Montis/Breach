@@ -27,8 +27,10 @@ const UnitShuffle = preload("res://sim/skirmish/formation/unit_shuffle.gd")
 const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
-const FIELDS := ["next", "toward"]  # with where each stands loose (the store's LOOSE_AT)
+## The entry's columns the walk writes, saved and put back between runs.
+const FIELDS := [UnitColumns.NEXT, UnitColumns.TOWARD, UnitColumns.KEYS, UnitColumns.LOOSE_AT]
 
 var _args := {}
 
@@ -174,10 +176,11 @@ func _walkers(fighting: Array) -> Array:
 		for unit in squad.living():
 			if squad.chasers.has(unit.id):
 				continue
-			var entry: Dictionary = squad.loose[unit.id]
-			if entry["goal"] != null or not entry.get("touch", false):
+			var columns: UnitColumns = squad.store.columns
+			var seeks: bool = EntryKeys.goal(columns, unit.slot) != null
+			if seeks or columns.value(unit.slot, UnitColumns.TOUCH) == 0:
 				counts[0] += 1
-				counts[1] += 0 if entry["goal"] == null else 1
+				counts[1] += 1 if seeks else 0
 	return counts
 
 
@@ -185,10 +188,8 @@ func _entries(fighting: Array) -> Array:
 	var out := []
 	for squad in fighting:
 		for unit in squad.living():
-			var entry: Dictionary = squad.loose[unit.id]
-			out.append(
-				FIELDS.map(func(key): return entry.get(key)) + [SquadEntries.loose_at(squad, unit)]
-			)
+			var columns: UnitColumns = squad.store.columns
+			out.append(FIELDS.map(func(name): return columns.value(unit.slot, name)))
 	return out
 
 
@@ -196,10 +197,8 @@ func _put(fighting: Array, saved: Array) -> void:
 	var index := 0
 	for squad in fighting:
 		for unit in squad.living():
-			var entry: Dictionary = squad.loose[unit.id]
 			for k in range(FIELDS.size()):
-				entry[FIELDS[k]] = saved[index][k]
-			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, saved[index][FIELDS.size()])
+				squad.store.columns.put(unit.slot, FIELDS[k], saved[index][k])
 			index += 1
 
 
@@ -214,12 +213,12 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 	var spent := []
 	var lap := Time.get_ticks_usec()
 	for walk in walks:
-		if walk[1]["goal"] == null:
+		if not walk[1]:
 			walk[2] = ScrumStance.anchor(walk[4], walk[0])
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	for walk in walks:
-		if walk[1]["goal"] == null:
+		if not walk[1]:
 			var squad: SkirmishSquad = walk[4]
 			var heading: float = squad.stance.get("heading", squad.heading)
 			UnitShuffle.look(walk[0], walk[5], walk[2], heading, walk[3] / ctx["seconds"])
@@ -251,17 +250,22 @@ func _print_stages(spent: Array) -> void:
 		print("  %-16s %7.2f" % [names[index], spent[index] / 1000.0])
 
 
-## [[unit, entry, goal (its place, once found), full step, squad, where it stands], ...] for
+## [[unit, whether it seeks a slot, goal (its place, once found), full step, squad, where it
+## stands], ...] for
 ## the walkers.
 func _walks(fighting: Array, ctx: Dictionary) -> Array:
 	var walks := []
 	for squad in fighting:
 		var crowding := BattleTuning.current().scrum_crowding if squad.pursuit.is_empty() else 1.0
 		for unit in squad.living():
-			var entry: Dictionary = squad.loose[unit.id]
-			if squad.chasers.has(unit.id) or (entry["goal"] == null and entry.get("touch", false)):
+			var columns: UnitColumns = squad.store.columns
+			var seeks: bool = EntryKeys.goal(columns, unit.slot) != null
+			if (
+				squad.chasers.has(unit.id)
+				or (not seeks and columns.value(unit.slot, UnitColumns.TOUCH))
+			):
 				continue
 			var pace: float = unit.speed * ctx["pace"] * crowding
 			var at := SquadEntries.loose_at(squad, unit)
-			walks.append([unit, entry, entry["next"], pace, squad, at])
+			walks.append([unit, seeks, columns.value(unit.slot, UnitColumns.NEXT), pace, squad, at])
 	return walks

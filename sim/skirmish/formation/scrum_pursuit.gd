@@ -94,7 +94,6 @@ static func step(
 			if not unit.is_alive() or not squad.loose.has(unit_id):
 				squad.chasers.erase(unit_id)
 				continue
-			var entry: Dictionary = squad.loose[unit_id]
 			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))  # back
 			if not chase.get("returning", false):
 				var at: Vector2 = SquadEntries.loose_at(squad, unit)
@@ -103,19 +102,18 @@ static func step(
 					chase["returning"] = true
 				else:
 					heads = quarry
-			walks.append([squad, unit, entry, heads, chase.get("returning", false)])
+			walks.append([squad, unit, heads, chase.get("returning", false)])
 	var bodies := ScrumSlots.bodies(squads) if not walks.is_empty() else []
 	var crowd := BodyGrid.of_bodies(bodies) if not walks.is_empty() else {}
 	for walk in walks:
 		var unit: SkirmishUnit = walk[1]
-		var entry: Dictionary = walk[2]
 		var full: float = unit.speed * cells_per_second * seconds
 		var at: Vector2 = SquadEntries.loose_at(walk[0], unit)
-		var to := UnitSteer.toward(unit, at, walk[3], bodies, fight_seed, crowd)
+		var to := UnitSteer.toward(unit, at, walk[2], bodies, fight_seed, crowd)
 		var stepped := UnitMover.step(unit, at, to, full, seconds, terrain)
 		walk[0].store.columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
-		entry["next"] = stepped
-		if walk[4] and stepped.distance_to(walk[3]) < 0.000001:
+		walk[0].store.columns.put(unit.slot, UnitColumns.NEXT, stepped)
+		if walk[3] and stepped.distance_to(walk[2]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
 			SquadEntries.unloose(walk[0], unit.id)
 
@@ -170,7 +168,7 @@ static func _tempt(enemy: SkirmishSquad, squad: SkirmishSquad, tick: int, battle
 		if BattleRolls.uniform(battle_seed, [tick, unit.id, "chase"]) >= chance:
 			continue
 		if not enemy.loose.has(unit.id):
-			SquadEntries.loosen(enemy, unit, {"unit": unit, "goal": null, "next": at}, at)
+			SquadEntries.loosen(enemy, unit, at)
 		var leash := FormationDiscipline.unit_leash(enemy, unit)
 		enemy.chasers[unit.id] = {"unit": unit, "foe": squad.id, "from": at, "leash": leash}
 

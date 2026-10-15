@@ -36,8 +36,7 @@ func _loose(squad_id: int, faction: String, units: Array, points: Array) -> Skir
 	)
 	for index in range(units.size()):
 		var unit: SkirmishUnit = units[index]
-		SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null}, points[index])
-		squad.loose[unit.id]["next"] = points[index]
+		SquadEntries.loosen(squad, unit, points[index])
 	return squad
 
 
@@ -81,8 +80,7 @@ func test_a_unit_in_its_frame_resists_but_gives_way_to_its_own_squad() -> void:
 		1, "player", 1, 0.0, 2, [framed, shover] as Array[SkirmishUnit], null, _places.store
 	)
 	_places.stand(framed, Vector2(5, 5))
-	SquadEntries.loosen(line, shover, {"unit": shover, "goal": null}, Vector2(5.5, 5))
-	line.loose[shover.id]["next"] = Vector2(5.5, 5)
+	SquadEntries.loosen(line, shover, Vector2(5.5, 5))
 
 	UnitBodies.step([line], 7)
 
@@ -101,7 +99,7 @@ func test_a_unit_in_its_frame_is_not_moved_by_its_own_squad_only_brushing_it() -
 	)
 	_places.stand(framed, Vector2(5, 5))
 	var near := Vector2(5.0 + 1.0 - BattleTuning.current().bodies_brush / 2.0, 5)
-	SquadEntries.loosen(line, brusher, {"unit": brusher, "goal": null, "next": near}, near)
+	SquadEntries.loosen(line, brusher, near)
 
 	UnitBodies.step([line], 7)
 

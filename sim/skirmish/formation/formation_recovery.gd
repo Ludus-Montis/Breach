@@ -258,10 +258,12 @@ static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -
 		if other != unit:
 			back = maxi(back, other.rank + other.footprint_depth)
 	if best != own:
+		SquadEntries.unloose(own, unit.id)
+		SquadEntries.unflee(own, unit.id)
 		own.units.erase(unit)
 		FormationCommand.enlist(best, unit)
 	unit.rank = back
 	unit.column = 0
 	best.reforming = true
 	var at: Vector2 = best.store.columns.value(unit.slot, UnitColumns.POSITION)
-	SquadEntries.loosen(best, unit, {"unit": unit, "goal": null, "next": at}, at)
+	SquadEntries.loosen(best, unit, at)

@@ -62,7 +62,7 @@ func _regroup_step(kind: String, off: Vector2) -> float:
 	sim.step()  # placed and holding
 	var unit: SkirmishUnit = squad.units[0]
 	var at := UnitPlaces.where(sim.store, unit) + off
-	SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": at}, at)
+	SquadEntries.loosen(squad, unit, at)
 	sim.step()
 	return at.distance_to(
 		(
@@ -88,7 +88,7 @@ func _chase_step(kind: String) -> float:
 	sim.step()
 	var unit: SkirmishUnit = mine.units[0]
 	var at := UnitPlaces.where(sim.store, unit)
-	SquadEntries.loosen(mine, unit, {"unit": unit, "goal": null, "next": at}, at)
+	SquadEntries.loosen(mine, unit, at)
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	sim.step()
 	assert_bool(mine.chasers.has(unit.id)).is_true()
@@ -110,7 +110,7 @@ func test_a_chaser_never_steps_into_water_it_cant_cross() -> void:
 	var unit: SkirmishUnit = mine.units[0]
 	unit.walker = TerrainWalker.grounded(unit.height)  # it can't swim
 	var at := UnitPlaces.where(sim.store, unit)
-	SquadEntries.loosen(mine, unit, {"unit": unit, "goal": null, "next": at}, at)
+	SquadEntries.loosen(mine, unit, at)
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	for _tick in 30:
 		sim.step()

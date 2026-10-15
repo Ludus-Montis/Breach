@@ -34,6 +34,12 @@ class CheckOneMoverTest(unittest.TestCase):
         flags = "\tcolumns.put(unit.slot, UnitColumns.FLAGS, bits)"  # not a place
         self.assertEqual(violations_in(flags), [])
 
+    def test_a_write_to_how_far_along_its_route_a_router_is_is_caught(self):
+        along = "\tcolumns.put(unit.slot, UnitColumns.ALONG, along + ahead)"
+        self.assertEqual(len(violations_in(along)), 1)
+        nexts = "\tcolumns.put(unit.slot, UnitColumns.NEXT, at)"  # where it means to go
+        self.assertEqual(violations_in(nexts), [])
+
     def test_a_column_write_of_the_movers_step_just_taken_is_fine(self):
         code = (
             "\tvar stepped := UnitMover.step(unit, from, toward, full, seconds, terrain)\n"

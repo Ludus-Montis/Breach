@@ -11,20 +11,23 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
-## The formation holding a router (its `entry` in the routing squad's `fleeing`): the one
+## The formation holding a router (fleeing in its routing `squad`): the one
 ## that caught it while it stands, else the nearest friend within `reach` of `at`.
 ## `friends` is the tick's RoutFriends.
 static func holder(
 	squad: SkirmishSquad,
-	entry: Dictionary,
+	unit: SkirmishUnit,
 	at: Vector2,
 	friends: Dictionary,
 	reach: float,
 	fight_seed: int = 0
 ) -> SkirmishSquad:
-	for friend in RoutFriends.with_id(friends, entry.get("held_by")):
+	for friend in RoutFriends.with_id(
+		friends, EntryKeys.held(squad.store.columns, unit.slot, UnitColumns.HELD_BY)
+	):
 		if stands(friend):
 			return friend
 	return friend_near(squad, at, friends, reach, false, fight_seed)

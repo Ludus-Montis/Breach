@@ -29,6 +29,7 @@ const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 ## Units of squads out of the fight walk to their places (in the stance, if any) at the
@@ -65,7 +66,7 @@ static func _foes_faced(squad: SkirmishSquad, squads: Array, fight_seed: int) ->
 	var near := ScrumNear.index(ScrumBlows.hostile_units(squad, squads))
 	var reach := BattleTuning.current().reach_contact
 	for unit_id in squad.loose:
-		var unit: SkirmishUnit = squad.loose[unit_id]["unit"]
+		var unit: SkirmishUnit = squad.loose[unit_id]
 		var where := ScrumReach.at(squad, unit)
 		var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)
 		out[unit_id] = ScrumBlows.nearest_touching(squad, unit, close, fight_seed)
@@ -83,8 +84,7 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
-		var entry: Dictionary = squad.loose[unit_id]
-		var unit: SkirmishUnit = entry["unit"]
+		var unit: SkirmishUnit = squad.loose[unit_id]
 		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))
 		var step: float = unit.speed * moving["pace"] * reform
 		var heading: float = squad.stance.get("heading", squad.heading)
@@ -93,7 +93,7 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 		if foe_at == null:  # it takes its place the quicker way, arriving facing its squad's
 			foe_at = UnitShuffle.look(unit, at, place, heading, step / seconds)
 		var gap: float = at.distance_to(place)
-		ScrumTrade.track(entry, gap, seconds)
+		ScrumTrade.track(squad.store.columns, unit.slot, gap, seconds)
 		var arrived := gap < 0.000001
 		if gap >= 0.000001:  # a drilled retreat backs away facing the foe it touches
 			var to := UnitSteer.toward(
@@ -101,8 +101,8 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 			)
 			at = UnitMover.step(unit, at, to, step, seconds, moving["terrain"], foe_at)
 			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, at)
-		entry["next"] = at
-		entry["goal"] = null
+		squad.store.columns.put(unit.slot, UnitColumns.NEXT, at)
+		EntryKeys.set_goal(squad.store.columns, unit.slot, null)
 		var faced := arrived and UnitMotion.turn(unit, heading, seconds)
 		if squad.stance.is_empty() and faced:
 			SquadEntries.unloose(squad, unit_id)  # in its place and facing the squad's way

@@ -12,6 +12,7 @@ extends RefCounted
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 ## A unit's flags, as the core reads them: it makes for a slot; its walk chose a point.
 const GOAL := 1
@@ -72,28 +73,34 @@ static func face(ctx: Dictionary) -> void:
 ## Where each unit stands now, how it turns, and what its loose entry makes for.
 static func _gather(units: Array, owners: Array) -> Batch:
 	var batch := Batch.new()
-	var loose_at: PackedVector2Array = (
-		owners[0].store.columns.column(UnitColumns.LOOSE_AT) if not units.is_empty() else []
-	)
+	if units.is_empty():
+		return batch
+	var columns: UnitColumns = owners[0].store.columns
+	var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT)
+	var nexts: PackedVector2Array = columns.column(UnitColumns.NEXT)
+	var foe_ats: PackedVector2Array = columns.column(UnitColumns.FOE_AT)
+	var towards: PackedVector2Array = columns.column(UnitColumns.TOWARD)
+	var keys: PackedInt32Array = columns.column(UnitColumns.KEYS)
+	var toward_bit: int = EntryKeys.VALUED[UnitColumns.TOWARD]
 	for member in range(units.size()):
 		var unit: SkirmishUnit = units[member]
-		var entry: Dictionary = owners[member].loose[unit.id]
-		batch.ats.append(loose_at[unit.slot])
+		var slot := unit.slot
+		batch.ats.append(loose_at[slot])
 		batch.motion.append(unit.bearing)
 		batch.motion.append(unit.turn_rate)
 		batch.motion.append(unit.backward_pace)
 		var flags := 0
-		if entry["goal"] != null:
+		if goal_slots[slot] >= 0:
 			flags = GOAL
-			batch.nexts.append(entry["next"])
-			batch.foe_ats.append(entry["foe_at"])
+			batch.nexts.append(nexts[slot])
+			batch.foe_ats.append(foe_ats[slot])
 		else:
 			batch.nexts.append(Vector2.ZERO)
 			batch.foe_ats.append(Vector2.ZERO)
-		var toward = entry.get("toward")
-		if toward != null:
+		if keys[slot] & toward_bit:
 			flags |= TOWARD
-			batch.towards.append(toward)
+			batch.towards.append(towards[slot])
 		else:
 			batch.towards.append(Vector2.ZERO)
 		batch.flags.append(flags)

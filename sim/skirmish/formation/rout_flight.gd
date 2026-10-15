@@ -17,6 +17,7 @@ const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 ## The unit's own flight angle (radians) off its route's line, at full disorder.
@@ -25,21 +26,19 @@ static func fan(unit: SkirmishUnit, fight_seed: int) -> float:
 	return deg_to_rad(BattleTuning.current().rout_fan_degrees) * roll
 
 
-## A router's step (its `entry` in its squad's `fleeing`): towards `home` along the route
+## A router's step (it has an entry in its squad's `fleeing`): towards `home` along the route
 ## and out to the side, or towards its refuge. `motion` is [pace (cells a tick at speed 1),
 ## fight seed, terrain or null, where it stands, the tick's RoutFriends].
-static func step(
-	squad: SkirmishSquad, unit: SkirmishUnit, entry: Dictionary, home: float, motion: Array
-) -> void:
+static func step(squad: SkirmishSquad, unit: SkirmishUnit, home: float, motion: Array) -> void:
+	var columns := squad.store.columns
 	var full: float = unit.speed * motion[0]
 	var aside := DetMath.sin(fan(unit, motion[1])) * full
-	var fanned: float = entry.get("fanned", 0.0)
-	var heading: Vector2 = (
-		squad.route.heading_at(entry["along"]) if squad.route != null else Vector2.RIGHT
-	)
+	var fanned: float = columns.value(unit.slot, UnitColumns.FANNED)
+	var along: float = columns.value(unit.slot, UnitColumns.ALONG)
+	var heading: Vector2 = squad.route.heading_at(along) if squad.route != null else Vector2.RIGHT
 	var side := heading.orthogonal()
 	var at: Vector2 = motion[3]
-	var refuge = _refuge(squad, at, [entry["along"], home, motion[1]], motion[4])
+	var refuge = _refuge(squad, at, [along, home, motion[1]], motion[4])
 	if refuge != null:  # it makes for the friend, turning aside only if it would miss it
 		var most := DetMath.sin(deg_to_rad(BattleTuning.current().rout_fan_degrees)) * full
 		aside = clampf(RoutFriends.short_of(motion[4], refuge, at, side), -most, most)
@@ -50,13 +49,13 @@ static func step(
 		or not open
 	):
 		aside = 0.0
-	var ahead := sqrt(full * full - aside * aside) * signf(home - entry["along"])
+	var ahead := sqrt(full * full - aside * aside) * signf(home - along)
 	var paid := UnitMover.share(unit, at, at + side * aside + heading * ahead, terrain)
-	entry["fanned"] = fanned + aside * paid
-	var columns := squad.store.columns
+	EntryKeys.keep(columns, unit.slot, UnitColumns.FANNED, fanned + aside * paid)
 	var offset: Vector2 = columns.value(unit.slot, UnitColumns.FLEE_OFFSET) + side * aside * paid
 	columns.put(unit.slot, UnitColumns.FLEE_OFFSET, offset)  # paid: UnitMover.share
-	entry["along"] = move_toward(entry["along"], home, absf(ahead) * paid)  # paid: UnitMover.share
+	along = move_toward(along, home, absf(ahead) * paid)
+	columns.put(unit.slot, UnitColumns.ALONG, along)  # paid: UnitMover.share
 
 
 ## The standing friendly formation whose unit is nearest `at`, among those between the

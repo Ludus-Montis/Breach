@@ -54,7 +54,7 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 	for index in out[3]:
 		var unit: SkirmishUnit = units[index]
 		var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
-		SquadEntries.loosen(owners[index], unit, {"unit": unit, "goal": null, "next": at}, at)
+		SquadEntries.loosen(owners[index], unit, at)
 	for k in range(moved.size()):
 		var squad: SkirmishSquad = owners[moved[k]]
 		var unit: SkirmishUnit = units[moved[k]]
@@ -68,4 +68,4 @@ static func _write_back(units: Array, owners: Array, out: Array) -> void:
 			continue
 		# placement: parting clears an overlap (Decision 139)
 		columns.put(unit.slot, UnitColumns.LOOSE_AT, points[k])
-		squad.loose[unit.id]["next"] = nexts[k]
+		columns.put(unit.slot, UnitColumns.NEXT, nexts[k])
