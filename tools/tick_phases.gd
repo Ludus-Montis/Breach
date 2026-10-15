@@ -8,7 +8,9 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://tools/tick_phases.gd -- \
 ##       [engine=gdscript|rust] [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
-##       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
+##       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [copies]
+## copies (rust only) also counts each phase's column copies across the boundary
+## (ColumnCopies); counting slows the phases it counts, so time without it.
 ## squads=N splits each side into N squads of side/N on parallel lanes (FormationBench.lanes);
 ## archers=K makes the grems' back K a squad spitters, which shoot.
 ## stage=march times `fight` ticks of the march before contact, `settle` ticks after the
@@ -33,9 +35,11 @@ const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const ShufflePhases = preload("res://tools/shuffle_phases.gd")
+const ColumnCopies = preload("res://tools/column_copies.gd")
 
 var _spent := {}
 var _last := 0
+var _copies: ColumnCopies = null  # copies=true: the timed battle's columns, counted
 
 
 func _init() -> void:
@@ -49,6 +53,9 @@ func _init() -> void:
 	var fight := int(args.get("fight", 5))
 	var timed := _settled(side, width, args)
 	var plain := _settled(side, width, args)
+	if args.has("copies") and timed.store.field() != null:
+		_copies = ColumnCopies.new(timed.store.field())
+		timed.store.columns = _copies
 	for _i in range(fight):
 		_step(timed)
 		plain.step()
@@ -65,6 +72,8 @@ func _init() -> void:
 	names.sort_custom(func(a, b): return _spent[a] > _spent[b])
 	for phase in names:
 		print("  %-32s %8.2f" % [phase, _spent[phase] / float(fight) / 1000.0])
+	if _copies != null:
+		print("\n".join(_copies.report(fight)))
 	if _state(timed) != _state(plain):
 		print("WARNING: tick_phases no longer mirrors FormationSimulation.step - fix it")
 	quit(0)
@@ -108,6 +117,8 @@ func _state(sim: Sim) -> PackedByteArray:
 func _lap(phase: String) -> void:
 	var now := Time.get_ticks_usec()
 	_spent[phase] = _spent.get(phase, 0) + now - _last
+	if _copies != null:
+		_copies.file(phase)
 	_last = now
 
 
