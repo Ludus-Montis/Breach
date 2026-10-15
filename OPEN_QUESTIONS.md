@@ -162,6 +162,22 @@ Each would need the events to queue every change that matters (Principle 2's cor
 
 The user: "any old maps have purely been for either visualisation or test purposes, really we need to get game like-for-like maps even if only considering a 3x1 set of tiles with no unique logic, only using our game sims and renderers as and when created (of course using temp renderers until the full set is available)". So the next playable scenes should be small maps built from the game's own content and run by the real simulation (the formation battle, the lane and tile model as they become real), rendered by the game's renderers where they exist and temporary ones until then, rather than one-off sims or scenes kept for a test. To settle in a design session: the first such map (a 3x1 set of tiles?), which sims it runs, which renderers are temporary, and which existing test or demo scenes (`formation_skirmish.tscn`, the 2D feel-test field, the map viewer) it replaces or keeps.
 
+### Q26. Simulation threading and slot locality
+**Raised:** 2026-10-15, a question session on performance while spec 35 was being built (the user: "All of the potential gains you listed, I would like to explore those") · **Raise when:** Spec 35's last step (7) is built (take it with Q23 and Q24 in the same design session), or any session proposes threads, a slot order or a change to how the store's columns are laid out
+
+Threads today: only body parting uses Rayon (`native/rust/src/parting.rs`), and only when `BREACH_NATIVE_THREADS=1`; it is off by default. The other Rust kernels (seek, walk, facing, blows) run on one thread. Nothing in `sim/` or `presentation/` uses a Godot thread, so the tick runs on the main thread with rendering. The gains to explore, each needing a Decision the user authorises and the identity gate (Decision 129) on both engines:
+- **The tick off the main thread.** Tick N+1 runs on a worker while presentation draws tick N from its per-frame column snapshot (spec 35 step 1a). The tick costs the same; frames stop waiting on it.
+- **Parallel kernels.** Seek, walk and facing read shared state and write only their own unit's columns. Body parting's pattern fits them: compute in parallel into a buffer, apply in squad and member order. Float reductions keep a fixed summation order (map in parallel, reduce serially). A unit-count threshold keeps Rayon's overhead off small battles.
+- **Threads on by default,** once the digests run with them on in CI.
+- **Slots packed by squad.** Passes run in squad and member order, but slots are given lowest free first, so a squad's members scatter over the columns as units die and join. Packing a squad's slots together (at enrol, or a periodic compaction that updates the unit-to-slot map) makes those passes read memory in order. A Morton (spatial) order is the alternative for perception and grid queries. Slots are storage only (Decision 97), so neither may change an outcome.
+- **No hashing in hot loops.** `by_unit` is a HashMap; hot loops should index by slot and keep the map for enrolling.
+- **The grid as one sorted array.** Slots counting-sorted by cell each tick, in place of a list per cell.
+- **Snapshots of changed columns only,** for presentation.
+- **The GDScript passes still looping per unit.** Spec 35 moves state, not loops: after it, shuffle (about 37 ms), perception (about 17 ms), wounds, deaths, recovery, stamina, carry and steering still loop over units in GDScript. Spec 34's "Next, in order" list ports wounds, deaths, recovery, stamina and steering, and Q24 turns several into event-fed work lists; **shuffle and perception are on neither list.** Settle their ports, and the order of all of them, here.
+- **Out of scope unless the user reopens them:** `f32` columns (they break identity with the GDScript reference) and double-buffered columns read from the last tick (they change outcomes).
+
+Measure each with a `bench` run against its base, and the user's PC (a profiler such as VTune or uProf) for cache misses, before any is built. Threads speed up only the Rust part of a pass, so a pass with GDScript glue left gains little until its glue goes.
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.
