@@ -45,6 +45,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   below.
 - **Step 4b, the seek on the store: built** (2026-10-15), stacked on 4a's PR (the user).
   See "Built" below.
+- **Step 4c, the walk on the store: built** (2026-10-15), stacked on 4b's PR (the user:
+  "keep stacking, we can merge them all down later"). See "Built" below.
 
 ## The store
 
@@ -481,6 +483,28 @@ but read from the store instead of a sync. The glue is gone at step 4.
   library built before this step). The seek parity tests (the native seek against
   GDScript's at four moments of a scrum, and in reversed list order) run unchanged
   through the new path.
+
+### Step 4c, the walk on the store
+
+- **`BodyField.walk` gathers and writes back on the field** (`walk_store.rs`). It no longer
+  takes each unit's motion and frame from GDScript. It reads the bearing, rank and column
+  from the store's columns, and the turn rate, backward pace and footprint from the
+  unit's record. It writes where each unit ends and looks into the loose entry's columns
+  (`at`, `next`, `toward` and its key bits), as `ScrumWalkField._write_entries` did.
+  GDScript still sends each squad's frame and pace, the bodies lying on the ground, the
+  seek's codes and nexts, and the speeds.
+- **The record grows by the paces.** `BodyField.enrol` also takes each new unit's turn
+  rate and backward pace, which only `FormationUnits.make` sets.
+- **The facing reads the store as the walk left it.** The walk no longer hands the facing
+  a batch (`face_batch`); `ScrumFaceField` gathers from the columns, as it already did
+  when no batch was given (the path `test_face_field.gd` runs). The values are the same:
+  the walk wrote them. 4d moves that gather onto the field.
+- **Paying the ground** (`FormationScrum._pay_walked`) notes where each unit stood only
+  when there is terrain, the only case that reads it.
+- **Tests.** `test_body_field.gd`: the record on the field includes the paces (red on the
+  4b library). The walk parity tests (`test_walk_field.gd`: the native walk against
+  GDScript's at several moments, round bodies and over the fallen, and in reversed list
+  order) run unchanged through the new path.
 
 ## Open, for the implementing session to settle and record here
 

@@ -165,7 +165,13 @@ func test_a_synced_unit_s_record_is_enrolled_on_the_field_once() -> void:
 	var checked := 0
 	for squad in squads:
 		for unit in squad.living():
-			var record := [unit.preferred_position, unit.footprint_width, unit.footprint_depth]
+			var record := [
+				float(unit.preferred_position),
+				float(unit.footprint_width),
+				float(unit.footprint_depth),
+				unit.turn_rate,
+				unit.backward_pace,
+			]
 			assert_array(Array(field.record(unit.slot))).is_equal(record)
 			checked += 1
 	assert_int(checked).is_greater(0)

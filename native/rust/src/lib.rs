@@ -18,6 +18,7 @@ mod motion;
 mod parting;
 mod scrum;
 mod seeking;
+mod walk_store;
 mod walking;
 
 use std::time::Instant;
@@ -87,7 +88,8 @@ impl BodyField {
 
     /// Enrols the units sync() reported new (by flat index): radius, footprint area,
     /// ScrumContest.draw and initiative - GDScript's own values, handed over once - and
-    /// each one's record, 3 per unit: preferred position, footprint width and depth.
+    /// each one's record, 3 per unit: preferred position, footprint width and depth, and
+    /// its paces, 2 per unit: turn rate and backward pace.
     #[func]
     fn enrol(
         &mut self,
@@ -97,6 +99,7 @@ impl BodyField {
         draws: PackedInt64Array,
         initiatives: PackedInt64Array,
         records: PackedInt64Array,
+        paces: PackedFloat64Array,
     ) {
         self.field.enrol(&Enrol {
             flat: flat.as_slice(),
@@ -105,16 +108,23 @@ impl BodyField {
             draws: draws.as_slice(),
             initiatives: initiatives.as_slice(),
             records: records.as_slice(),
+            paces: paces.as_slice(),
         });
     }
 
     /// The record enrolled for the unit in `slot`: [preferred position, footprint width,
-    /// depth] (tests).
+    /// depth, turn rate, backward pace] (tests).
     #[func]
-    fn record(&self, slot: i64) -> PackedInt64Array {
+    fn record(&self, slot: i64) -> PackedFloat64Array {
         let s = slot as usize;
         let f = &self.field;
-        PackedInt64Array::from(&[f.preferred[s], f.foot_width[s], f.foot_depth[s]])
+        PackedFloat64Array::from(&[
+            f.preferred[s] as f64,
+            f.foot_width[s] as f64,
+            f.foot_depth[s] as f64,
+            f.turn_rate[s],
+            f.backward_pace[s],
+        ])
     }
 
     /// UnitBodies' passes on the field. `tuning` = [passes, resist, brush]; `way.call(draw,
@@ -298,12 +308,15 @@ impl BodyField {
     /// FormationScrum's walk on the field, before the facing, for the units the tick's
     /// seek() planned (`squads` and `members` as seek's; where each stands as that
     /// call's sync left it). `floats` = [tick seconds, bodies_steer_look,
-    /// bodies_steer_clear, bodies_ground_drag, bodies_ground_block]; per squad `squad_floats` = [pace (cells a tick at speed 1), heading, width, centre
-    /// shift] and its frame's anchor; per unit: seek()'s code and next point, its speed,
-    /// `motion` = [bearing, turn rate, backward pace], `frames` = [column, rank, footprint
-    /// width, depth]; the bodies lying on the ground and their [radius, footprint area].
+    /// bodies_steer_clear, bodies_ground_drag, bodies_ground_block]; `bits` = EntryKeys'
+    /// [toward's key bit, its valued bit]; per squad `squad_floats` = [pace (cells a tick at
+    /// speed 1), heading, width, centre shift] and its frame's anchor; per unit: seek()'s
+    /// code and next point, its speed; the bodies lying on the ground and their [radius,
+    /// footprint area]. Each unit's bearing, rank and column are read from the unit store's
+    /// columns, its turn rate, backward pace and footprint from its record (spec 35 step
+    /// 4c), and where it ends and looks is written into its loose entry's columns there.
     /// Returns [where each unit stands after its step, where it looks: its next point
-    /// making for a slot, UnitShuffle's walking back to its place].
+    /// making for a slot, UnitShuffle's walking back to its place] (tests).
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn walk(
@@ -317,8 +330,7 @@ impl BodyField {
         codes: PackedByteArray,
         nexts: PackedVector2Array,
         speeds: PackedFloat64Array,
-        motion: PackedFloat64Array,
-        frames: PackedFloat64Array,
+        bits: PackedInt32Array,
         lying_ats: PackedVector2Array,
         lying_sizes: PackedFloat64Array,
     ) -> VarArray {
@@ -337,21 +349,25 @@ impl BodyField {
         let lying_radii: Vec<f64> = sizes.chunks(2).map(|c| c[0]).collect();
         let lying_areas: Vec<f64> = sizes.chunks(2).map(|c| c[1]).collect();
         let (anchors, nexts, lying) = (v2s(&squad_anchors), v2s(&nexts), v2s(&lying_ats));
+        let (members, codes) = (members.as_slice(), codes.as_slice());
+        let (motion, frames) = walk_store::gather(&self.field, members, codes);
         let input = walking::WalkIn {
             member_counts: &member_counts,
             squad_floats: squad_floats.as_slice(),
             squad_anchors: &anchors,
-            members: members.as_slice(),
-            codes: codes.as_slice(),
+            members,
+            codes,
             nexts: &nexts,
             speeds: speeds.as_slice(),
-            motion: motion.as_slice(),
-            frames: frames.as_slice(),
+            motion: &motion,
+            frames: &frames,
             lying_ats: &lying,
             lying_radii: &lying_radii,
             lying_areas: &lying_areas,
         };
         let out = walking::walk(&self.field, &input, &params);
+        let b = bits.as_slice();
+        walk_store::write_back(&mut self.field, members, codes, &out.ats, &out.towards, [b[0], b[1]]);
         self.usec = began.elapsed().as_micros() as i64;
         varray![&packed(&out.ats), &packed(&out.towards)]
     }

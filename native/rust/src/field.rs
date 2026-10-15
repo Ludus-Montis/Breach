@@ -68,6 +68,9 @@ pub struct Enrol<'a> {
     /// Its record (spec 35 step 4b), 3 per unit: preferred position, footprint width and
     /// depth. Empty: unchanged.
     pub records: &'a [i64],
+    /// Its paces (spec 35 step 4c), 2 per unit: turn rate (degrees a second) and backward
+    /// pace. Empty: unchanged.
+    pub paces: &'a [f64],
 }
 
 #[derive(Default)]
@@ -82,11 +85,14 @@ pub struct Field {
     pub area: Vec<f64>,
     pub draw: Vec<i64>,
     pub initiative: Vec<i64>,
-    /// The unit's record, which never changes (spec 35 step 4b): its preferred band
-    /// (UnitDef.Position, 0 the front) and its footprint's width and depth in cells.
+    /// The unit's record, which never changes (spec 35 steps 4b and 4c): its preferred band
+    /// (UnitDef.Position, 0 the front), its footprint's width and depth in cells, its turn
+    /// rate and its backward pace.
     pub preferred: Vec<i64>,
     pub foot_width: Vec<i64>,
     pub foot_depth: Vec<i64>,
+    pub turn_rate: Vec<f64>,
+    pub backward_pace: Vec<f64>,
     seen: Vec<u32>,
     enrolled: Vec<bool>,
     // Where each body stands and how, as of the last sync (or a pass that moved it).
@@ -228,6 +234,10 @@ impl Field {
                 self.foot_width[b] = input.records[3 * k + 1];
                 self.foot_depth[b] = input.records[3 * k + 2];
             }
+            if !input.paces.is_empty() {
+                self.turn_rate[b] = input.paces[2 * k];
+                self.backward_pace[b] = input.paces[2 * k + 1];
+            }
             if !self.enrolled[b] {
                 self.enrolled[b] = true;
                 let draw = self.draw[b];
@@ -309,6 +319,8 @@ impl Field {
         self.preferred.push(0);
         self.foot_width.push(1);
         self.foot_depth.push(1);
+        self.turn_rate.push(0.0);
+        self.backward_pace.push(0.0);
         self.seen.push(0);
         self.enrolled.push(false);
         self.holding.push(false);

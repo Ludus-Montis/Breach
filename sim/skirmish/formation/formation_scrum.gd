@@ -144,8 +144,9 @@ static func walk(fighting: Array, ctx: Dictionary) -> void:
 	if ctx.get("field") != null:
 		var seek = ctx["seek_batch"]  # ScrumSeekField.Batch: the units the walk steps
 		var from := []
-		for member in seek.units.size():
-			from.append(SquadEntries.loose_at(seek.owners[member], seek.units[member]))
+		if ctx["terrain"] != null:  # where each stood, to pay the ground it crosses
+			for member in seek.units.size():
+				from.append(SquadEntries.loose_at(seek.owners[member], seek.units[member]))
 		ScrumWalkField.walk(ctx)
 		_pay_walked(seek, from, ctx)
 		return
@@ -161,12 +162,11 @@ static func walk(fighting: Array, ctx: Dictionary) -> void:
 
 
 ## The native walk's steps (from where each unit stood, `from`) paid for the ground they
-## cross, as _walk pays its own: where each now stands, in its entry and for the facing.
+## cross, as _walk pays its own: where each now stands, in its entry.
 static func _pay_walked(seek, from: Array, ctx: Dictionary) -> void:
 	if ctx["terrain"] == null:
 		return
 	var codes: PackedByteArray = seek.plan[0]
-	var ats: PackedVector2Array = ctx["face_batch"].ats
 	for member in from.size():
 		if codes[member] == ScrumWalkField.TOUCH:
 			continue  # it didn't step
@@ -175,10 +175,8 @@ static func _pay_walked(seek, from: Array, ctx: Dictionary) -> void:
 		var walked: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
 		var paid := UnitMover.pay(unit, from[member], walked, ctx["terrain"])
 		columns.put(unit.slot, UnitColumns.LOOSE_AT, paid)
-		ats[member] = paid
 		if codes[member] != ScrumWalkField.AIM and codes[member] != ScrumWalkField.PRESS:
 			columns.put(unit.slot, UnitColumns.NEXT, paid)  # back to its place: it stands where it got
-	ctx["face_batch"].ats = ats
 
 
 ## Turns the fighting squads' units once each (_faces), all decided before any turns: in
