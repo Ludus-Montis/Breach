@@ -109,9 +109,9 @@ This is `AI_First_Development_Kit/principles/progress-tracking.md` Gate 1 — me
 hard, and not skippable:
 
 1. Run the full suite: `bash ci/godot/scripts/run_tests.sh`. Do this only on the
-   user's PC. In an agent session, run the test files you touched instead, and leave the
-   full suite and the digests to CI's `sim-checks`. Speed-ups are compared through the
-   `bench` workflow.
+   user's PC. In an agent session, run only the test file you wrote red-then-green; the
+   other test files you touched, the full suite and the digests run in CI (`CLAUDE.md`:
+   CI is the test runner). Speed-ups are compared through the `bench` workflow.
 2. Run the static checks directly (they also run in `pre-commit`/CI, but run them here
    first to catch anything before pushing): `check_function_length.py`,
    `check_generic_naming.py`, `check_isp.py`, `check_dependency_direction.py`,
@@ -151,7 +151,9 @@ item, the rubric checklist from step 5, and for the two Gate sections:
   improvement has an obvious conflict of interest."
 
 **Do not poll or watch CI to completion after opening the PR.** Notify the user that
-the PR is open (a link and a short summary of what landed) and stop there — the user
+the PR is open (a link and a short summary of what landed), **end with the exact next
+command** (the next `/run-phase spec N step M`, or "next is a design session on
+<subject>" when the next work has no spec yet), and stop there — the user
 reviews, watches CI if they want to, and decides when to kick off the next phase/item.
 This was said directly after an agent spent several tool calls polling `gh run list`/
 `gh api .../actions/runs` for a run that hadn't triggered yet, while the user had

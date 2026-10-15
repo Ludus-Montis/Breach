@@ -14,13 +14,20 @@ How sessions work together is `principles/agent-sessions.md`.
   and don't poll CI after opening a PR. Use `/run-phase` (`.claude/skills/run-phase/`).
 - **Tests come first:** red, then green (`principles/tdd-bdd-workflow.md`). Run the suite
   with `bash ci/godot/scripts/run_tests.sh`, which needs `GODOT_BIN` set.
-- **Heavy runs go to CI, the `bench` workflow or the user's PC, never the agent session.**
-  In a session, run only light checks: the test files for what you changed (`-a
-  res://tests/<file>.gd`), lint and the static checks. Heavy runs include the full suite,
-  the digests (`formation_digest.gd`), the trials, `scaling_check`, `tick_phases` and the
-  other benches, and anything else that takes about a minute or more. CI's `sim-checks`
-  runs the suite and digests on every PR. For a comparison, start `bench`
-  (`.github/workflows/bench.yml`) and read its `SUMMARY`.
+- **CI is the test runner. No long-running tests in a session, ever.** In a session, run
+  only the test file you are writing red, then green (`-a res://tests/<file>.gd`), plus
+  lint and the static checks. Everything else runs in CI: the other test files a change
+  touches, the full suite, the digests (`formation_digest.gd`), the trials,
+  `scaling_check`, `tick_phases` and the other benches. CI's `sim-checks` runs the suite
+  and digests on every PR. When CI goes red, read the failing test's part of the log and
+  run that one file. For a comparison, start `bench` (`.github/workflows/bench.yml`) and
+  read its `SUMMARY`.
+- **Usage is a budget** (`principles/agent-sessions.md`, rule 4). One step per session.
+  Keep output small: show only failures from a run, only the failing part of a log, and
+  never echo whole files, diffs or listings to look at them.
+- **Every finished step names the next command.** The last message of a step gives the
+  exact next command (`/run-phase spec N step M`), or says the next work needs a design
+  session and names its subject. The user starts it in a new session.
 - **Decisions are append-only** (`principles/decision-ledger.md`). Run `/design-check` on
   every design decision and every change to simulation outcomes. Only the user authorises
   a Decision.
