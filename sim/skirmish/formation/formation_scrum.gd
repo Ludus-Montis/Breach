@@ -139,16 +139,10 @@ static func _seek(ctx: Dictionary) -> void:
 ## Walks the fighting squads' units a step each (_walk), each from the bodies as they
 ## stood before any stepped: in GDScript (the reference), or on the battle's native
 ## bodies, ctx["field"] (ScrumWalkField, Decision 129) - the same steps, each paying the
-## ground it crosses (UnitMover.pay) in GDScript in either engine (_pay_walked).
+## ground it crosses (UnitMover.pay) in GDScript in either engine (ScrumWalkField.pay).
 static func walk(fighting: Array, ctx: Dictionary) -> void:
 	if ctx.get("field") != null:
-		var seek = ctx["seek_batch"]  # ScrumSeekField.Batch: the units the walk steps
-		var from := []
-		if ctx["terrain"] != null:  # where each stood, to pay the ground it crosses
-			for member in seek.units.size():
-				from.append(SquadEntries.loose_at(seek.owners[member], seek.units[member]))
-		ScrumWalkField.walk(ctx)
-		_pay_walked(seek, from, ctx)
+		ScrumWalkField.walk(ctx)  # it pays the ground its steps cross (ScrumWalkField.pay)
 		return
 	for squad in fighting:  # in the crush, but at the march pace in a pursuit
 		_walk(
@@ -159,24 +153,6 @@ static func walk(fighting: Array, ctx: Dictionary) -> void:
 			),
 			ctx
 		)
-
-
-## The native walk's steps (from where each unit stood, `from`) paid for the ground they
-## cross, as _walk pays its own: where each now stands, in its entry.
-static func _pay_walked(seek, from: Array, ctx: Dictionary) -> void:
-	if ctx["terrain"] == null:
-		return
-	var codes: PackedByteArray = seek.plan[0]
-	for member in from.size():
-		if codes[member] == ScrumWalkField.TOUCH:
-			continue  # it didn't step
-		var unit: SkirmishUnit = seek.units[member]
-		var columns: UnitColumns = seek.owners[member].store.columns
-		var walked: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
-		var paid := UnitMover.pay(unit, from[member], walked, ctx["terrain"])
-		columns.put(unit.slot, UnitColumns.LOOSE_AT, paid)
-		if codes[member] != ScrumWalkField.AIM and codes[member] != ScrumWalkField.PRESS:
-			columns.put(unit.slot, UnitColumns.NEXT, paid)  # back to its place: it stands where it got
 
 
 ## Turns the fighting squads' units once each (_faces), all decided before any turns: in
@@ -199,6 +175,7 @@ static func face(fighting: Array, ctx: Dictionary) -> void:
 static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 	var seconds: float = ctx["seconds"]
 	var columns := squad.store.columns
+	# store: scattered (the GDScript reference's walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # out chasing on its own (ScrumPursuit)
@@ -248,6 +225,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
 	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT)
 	var bearings: PackedFloat64Array = columns.column(UnitColumns.BEARING)
+	# store: scattered (the GDScript reference's walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue

@@ -34,7 +34,7 @@ static func step(
 	)
 	var out: Array = field.part(weights, way, threaded)
 	var returned := Time.get_ticks_usec()
-	_write_back(synced[0], synced[1], out)
+	_write_back(field, synced[0], synced[1], out)
 	spent[0] += called - began
 	spent[1] += returned - called
 	spent[2] += out[4][0]
@@ -42,30 +42,14 @@ static func step(
 
 
 ## Writes the core's [moved, points, nexts, loosened, stats] back: the units it made loose
-## first (in the order the passes did), then every moved body's point (one left in its
-## frame: where it stands).
-static func _write_back(units: Array, owners: Array, out: Array) -> void:
-	var moved: PackedInt32Array = out[0]
-	var points: PackedVector2Array = out[1]
-	var nexts: PackedVector2Array = out[2]
+## first (in the order the passes did), then the field writes every moved body's point into
+## the store's columns itself (BodyField.commit_part; one left in its frame: where it stands).
+static func _write_back(field: Object, units: Array, owners: Array, out: Array) -> void:
 	if units.is_empty():
 		return
 	var columns: UnitColumns = owners[0].store.columns
+	var points: PackedVector2Array = columns.column(UnitColumns.POSITION)  # fetched once
 	for index in out[3]:
 		var unit: SkirmishUnit = units[index]
-		var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
-		SquadEntries.loosen(owners[index], unit, at)
-	for k in range(moved.size()):
-		var squad: SkirmishSquad = owners[moved[k]]
-		var unit: SkirmishUnit = units[moved[k]]
-		if squad.fleeing.has(unit.id):
-			# placement: parting clears an overlap (Decision 139)
-			columns.put(unit.slot, UnitColumns.FLEE_OFFSET, points[k])
-			continue
-		if not squad.loose.has(unit.id):
-			# placement: parting clears an overlap (Decision 139)
-			columns.put(unit.slot, UnitColumns.POSITION, points[k])
-			continue
-		# placement: parting clears an overlap (Decision 139)
-		columns.put(unit.slot, UnitColumns.LOOSE_AT, points[k])
-		columns.put(unit.slot, UnitColumns.NEXT, nexts[k])
+		SquadEntries.loosen(owners[index], unit, points[unit.slot])  # store: scattered (newly loosened)
+	field.commit_part()

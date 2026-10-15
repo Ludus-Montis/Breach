@@ -29,8 +29,10 @@ static func about_face_ticks(tick_seconds: float) -> int:
 ## re-forms. Returns the squad's depth in ranks, how far its front moves back.
 static func reverse_ranks(squad: SkirmishSquad) -> int:
 	var depth := 0
+	# store: scattered (turning about: once, as a squad turns)
 	for unit in squad.living():
 		depth = maxi(depth, UnitPlace.rank(squad, unit) + unit.footprint_depth)
+	# store: scattered (turning about: once, as a squad turns)
 	for unit in squad.living():
 		var at := UnitPlace.of(squad, unit)
 		var rank := depth - at.x - unit.footprint_depth

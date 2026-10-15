@@ -27,14 +27,16 @@ const SQUEEZE_STEP := 0.5
 
 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
-## FormationShuffle.movers for the squad, if the caller has it).
-static func place(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Vector2:
+## FormationShuffle.movers for the squad, `places`: UnitPlace.table, if the caller has them).
+static func place(
+	squad: SkirmishSquad, unit: SkirmishUnit, moving = null, places: Array = []
+) -> Vector2:
 	var swapping := FormationShuffle.offset(squad, unit, moving)
 	var ahead := UnitMotion.vector(squad.heading)
 	var shift := ahead * swapping.x - ahead.orthogonal() * swapping.y
 	var frame := [squad.position, squad.heading, squad.width, squad.centre_shift]
 	var at := SquadFrame.place(
-		frame[0], frame[1], frame[2], frame[3], unit, UnitPlace.of(squad, unit)
+		frame[0], frame[1], frame[2], frame[3], unit, UnitPlace.read(places, squad, unit)
 	)
 	return at + shift
 
@@ -56,6 +58,7 @@ static func targets(
 ) -> Dictionary:
 	var aims := []  # [unit, its place, its point, squeezed]
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
+	var places := UnitPlace.table(squad)  # fetched once (spec 35)
 	for unit in squad.living():
 		if squad.fleeing.has(unit.id) or (squad.loose.has(unit.id) and not with_loose):
 			continue
@@ -63,7 +66,7 @@ static func targets(
 			var body: SkirmishUnit = squad.taking[unit.id]
 			aims.append([unit, at[unit.slot], _beside(at[unit.slot], at[body.slot]), false])
 			continue
-		var own := place(squad, unit, moving)
+		var own := place(squad, unit, moving, places)
 		var aim := _aim(squad, unit, own, terrain)
 		aims.append([unit, own, aim, not aim.is_equal_approx(own)])
 	return _queue(squad, aims, terrain, fight_seed)

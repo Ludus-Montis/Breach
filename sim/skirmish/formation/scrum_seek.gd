@@ -63,6 +63,7 @@ static func _plan(ctx: Dictionary) -> void:
 			picking.append(seeker)
 		else:
 			_aim(seeker, kept, claimed, ctx)
+	# store: scattered (the GDScript reference's seek; the Rust engine runs ScrumSeekField)
 	for seeker in picking:
 		var squad: SkirmishSquad = seeker[1]
 		var unit: SkirmishUnit = seeker[2]
@@ -150,6 +151,7 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var out := []
 	var columns := squad.store.columns
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+	# store: scattered (the GDScript reference's seek; the Rust engine runs ScrumSeekField)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # out chasing on its own (ScrumPursuit)

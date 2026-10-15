@@ -51,6 +51,11 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   "Built" below.
 - **Step 4e, the sync reads the store: built** (2026-10-15), stacked on 4d's PR. Step 4 is
   complete. See "Built" below.
+- **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
+  See "Built" below.
+- **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
+  (the user: "the aim of this spec was to improve performance, so reducing it is not
+  acceptable"). See "Built" below.
 
 ## The store
 
@@ -133,6 +138,14 @@ against its base. The numbers go in the PR and in spec 34's "Measured" section.
    except for enrolling.
 5. **hp and attack cooldown.** Blows (`ScrumBlowsField` and the GDScript blows), deaths,
    wounds and taking.
+
+   **Steps 5 to 7 each begin with a readers list (Decision 144).** Before a field moves,
+   the step's spec entry lists every reader and writer of it (grep the tree) and, for each
+   loop over units, how it will fetch the column once and commit once; helpers that read
+   one unit take an optional fetched table. `living()` (a filter on `is_alive()`, called in
+   about 100 places) needs its plan in step 7 before the alive flags move. The step's bench
+   against its base names every phase slower beyond noise, and the step fixes it in its
+   own PR.
 6. **Stamina, speed and exertion.** The stamina and recovery passes.
 7. **Flags and the rest.** Alive, down and the unit's state. Then inventory
    `SkirmishUnit` for any per-tick field that is left.
@@ -544,6 +557,60 @@ but read from the store instead of a sync. The glue is gone at step 4.
   had no mode). `field.rs` and `blows.rs` set the flag bits in the store before syncing.
   The seek parity tests run unchanged through the new sync; the parting's and blows'
   tests and the digests run in CI.
+
+### Places read once a pass (after step 4)
+
+- **Why.** Step 4's bench (`tick_phases engine=rust side=4096 squads=4 fight=3`) showed 4a
+  costing 22.6% (370.2 → 453.9 ms against main), mostly in deaths (25.9 → 54.5), blows
+  (21.0 → 45.3), the re-form's occupancy (5.1 → 12.8) and units walking to places
+  (27.7 → 36.0). 4b to 4e won back about 33 ms of scrum glue, so step 4 as a whole was still
+  2.9% slower (291.3 → 299.8). The cause was 4a's scattered reads: each `UnitPlace.of` or
+  `rank` is two store reads, and under Rust each read is a call into the field.
+- **`UnitPlace.table(squad)` and `read(table, squad, unit)`.** A pass over many units fetches
+  the store's ranks and columns once and reads each unit's place from them; `read` with no
+  table reads the store, as before. Like a position column fetched once a squad, a table
+  is a copy as of now: a pass that moves units fetches again.
+- **The passes that fetch once:** `fighters()`; ranged combat's marks, rows and range (and
+  `SquadGeometry.unit_gap` given a table); `SquadCompact`, which works on the fetched
+  ranks and commits them once, only if any changed; the march's unit distances
+  (`SkirmishSquad.rank_distance(rank)` replaces `unit_distance(unit)`); `FormationPour.targets`
+  and `FormationWalk.share`; the re-form's occupancy, which also hands its table to
+  `PlaceOrder.front_first` (now taking a table, not the columns); `SquadEdges`' bounds, edge
+  units, reach and overlap; `SquadGeometry.lateral`; the trade's places; `SquadRanks.close`;
+  contact's and groups' back rows; recovery's back row; the re-form's widening. `lateral_span`,
+  `ScrumStance.anchor`, `FormationPour.place` and `FormationWalk.place_of` take an optional
+  table.
+- **Left scattered:** reads once per event (a step-up's rank, a trade's two places, a swap
+  that ends, a unit placed when it spawns, joins or strays).
+- **Tests.** `test_unit_place.gd`: a table reads each unit's place as the store holds it, on
+  both backends, and `read` with no table reads the store (red on 4e's `UnitPlace`, which had
+  neither). No outcome changes; the digests hold that.
+- **Measured** (spec 34's "Measured"): step 4 with this fix against main before step 4,
+  353.2 → 281.6 ms a tick (−20.3%); this fix alone, 315.9 → 283.1 (−10.4%).
+
+### Store reads held once a pass (Decision 144)
+
+- **The rule** is `principles/bounded-work.md` Principle 3, recorded as Decision 144 and
+  added to the `design-check` skill: no loop over units reads or writes the store one unit
+  at a time, outside marked exceptions.
+- **`check_store_reads.py`** (pre-commit and CI, on `sim/`, tests in
+  `test_check_store_reads.py`) flags a scattered store call written in a loop's body,
+  unless the line or its loop carries `# store: scattered (<why>)`.
+- **Fixed, every tick:** body parting's write-back is the field's own
+  (`BodyField.commit_part`, called once GDScript has loosened the units parting made loose;
+  `field_parting::commit`); the march's write-back (`FormationMarch.sync_units`) puts the
+  routers', loose and placed points into fetched columns and commits them once, then the
+  units in their places walk (each reads only its own place, the ground and the lying); the
+  native walk's paying for the ground (`ScrumWalkField.pay`, moved from FormationScrum)
+  fetches once and commits once.
+- **Marked, with the reason the check now requires:** per-event loops (step-ups, joins,
+  splits, spawns, a swap ending, closing ranks, turning about, production); the rout's
+  routers, pursuit's chasers and regrouping units, each stepped by UnitMover (the rout about
+  1.5 ms at the bench, pursuit and regroup under 0.1 ms); the GDScript reference's own seek,
+  walk and facing, which the Rust engine replaces with native passes.
+- **Not seen by the check, left for a later port:** the march's walk itself
+  (`FormationWalk.walk` → `WalkModes`, `UnitMover`, `UnitMotion`) reads and writes each
+  unit's position and bearing per unit, inside helpers; it is spec 34's "the walk" port.
 
 ## Open, for the implementing session to settle and record here
 

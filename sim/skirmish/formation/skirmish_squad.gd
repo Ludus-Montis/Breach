@@ -186,17 +186,18 @@ func speed() -> float:
 	return 0.0 if slowest == INF else slowest
 
 
-## Where a unit stands on the route: its rank's depth behind the squad's front.
-func unit_distance(unit: SkirmishUnit) -> float:
-	return front_distance - direction * UnitPlace.rank(self, unit) * RANK_DEPTH
+## Where a unit of `rank` stands on the route: its rank's depth behind the squad's front.
+func rank_distance(rank: int) -> float:
+	return front_distance - direction * rank * RANK_DEPTH
 
 
 ## The unit's columns as a lateral span along `axis` (its squad's lateral axis if none):
 ## turned from its (rank, column), never mirrored (Decision 74). On a straight lane both
 ## sides share the lane's lateral axis, centred on it (less any centre_shift).
-func lateral_span(unit: SkirmishUnit, axis := Vector2.ZERO) -> Vector2:
+## `places`: UnitPlace.table(self), if the caller has it.
+func lateral_span(unit: SkirmishUnit, axis := Vector2.ZERO, places: Array = []) -> Vector2:
 	var along := SquadFrame.lateral_axis(heading) if axis == Vector2.ZERO else axis
-	var at := UnitPlace.of(self, unit)
+	var at := UnitPlace.read(places, self, unit)
 	var points := SquadFrame.corners(position, heading, width, centre_shift, unit, at)
 	return SquadFrame.extent(points, along)
 
@@ -204,11 +205,11 @@ func lateral_span(unit: SkirmishUnit, axis := Vector2.ZERO) -> Vector2:
 ## The front rank, left to right: only it fights in melee (Decision 47). A column whose
 ## front cell is empty has no fighter, so the enemy facing it wraps onto the flank.
 func fighters() -> Array[SkirmishUnit]:
-	var places := {}  # unit -> its place, read once
-	for unit in living():
-		places[unit] = UnitPlace.of(self, unit)
-	var out: Array[SkirmishUnit] = living().filter(func(u): return places[u].x == 0)
-	out.sort_custom(func(a, b): return places[a].y < places[b].y)
+	var places := UnitPlace.table(self)  # fetched once (spec 35)
+	var ranks: PackedInt32Array = places[0]
+	var files: PackedInt32Array = places[1]
+	var out: Array[SkirmishUnit] = living().filter(func(u): return ranks[u.slot] == 0)
+	out.sort_custom(func(a, b): return files[a.slot] < files[b.slot])
 	return out
 
 

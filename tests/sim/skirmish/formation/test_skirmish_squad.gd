@@ -36,13 +36,14 @@ func test_ranks_sit_behind_the_front_in_the_travel_direction() -> void:
 	var squad := _squad(1, [_unit(1, 0, 0), _unit(2, 1, 0)])
 	squad.front_distance = 5.0
 
-	assert_float(squad.unit_distance(squad.units[1])).is_equal_approx(
+	assert_float(squad.rank_distance(UnitPlace.rank(squad, squad.units[1]))).is_equal_approx(
 		5.0 - SkirmishSquad.RANK_DEPTH, 0.0001
 	)
 	var facing_back := _squad(1, [_unit(3, 1, 0)], -1)
 	facing_back.front_distance = 5.0
-	assert_float(facing_back.unit_distance(facing_back.units[0])).is_equal_approx(
-		5.0 + SkirmishSquad.RANK_DEPTH, 0.0001
+	(
+		assert_float(facing_back.rank_distance(UnitPlace.rank(facing_back, facing_back.units[0])))
+		. is_equal_approx(5.0 + SkirmishSquad.RANK_DEPTH, 0.0001)
 	)
 
 

@@ -17,7 +17,7 @@ pathing most of its speed, and five such passes cost a mass battle most of its t
 one of them cubic, hidden in an array erased from inside a loop. So the rule is
 written down here, checked on every design, and measured in CI.
 
-## The two principles
+## The three principles
 
 ### 1. Every per-tick query is local and bounded
 
@@ -58,6 +58,30 @@ stands still most of the time, let what changes say so, and check only what it t
 **Test:** Does this pass look at things that cannot have changed since it last looked?
 If it skipped them, what would have to queue them, and does it?
 
+### 3. State is read where it lives, once a pass
+
+Where per-thing state lives across a boundary (a native store, a column of a packed
+array held by another object), every scattered read or write of one thing is a crossing.
+A loop that crosses once per thing pays the boundary for every thing, every tick. In
+Breach's first native ports, rank and column read unit by unit through a helper cost a
+22.6% slower tick, and fetching each column once a pass bought it all back.
+
+- A loop over things never reads or writes the store one thing at a time. It fetches the
+  columns it needs before the loop, indexes them by the thing's slot, and commits what it
+  changed once after.
+- A helper that reads one thing's state takes an optional fetched table, so a loop can
+  pass it; without one it reads the store, for a one-off.
+- Scattered reads are for events (a step-up, a join, a spawn), a handful of things, or a
+  loop the bench shows doesn't matter, each marked with its reason.
+- A fetched column is a copy as of now: a pass that writes and reads again fetches again,
+  or works on its copy and commits it.
+- A pass that moves state to where another pass reads it says so in the same change:
+  every reader of the moved field is listed and given its fetch-once plan before the
+  field moves, not after the bench finds it.
+
+**Test:** Inside this loop, does anything call into the store per thing, directly or
+through a helper? What does the bench say this pass costs against its base?
+
 ## Where this is checked
 
 - **At design time:** `rubrics/spec-baseline.rubrics.md`'s `bounded-work` row,
@@ -65,6 +89,9 @@ If it skipped them, what would have to queue them, and does it?
 - **At run time:** `rubrics/run-baseline.rubrics.md`'s `bounded-scaling` row: the
   stack's scaling check doubles the battle and fails a doubling that costs more than the
   limit (Breach: `tools/scaling_check.gd`, run in CI).
+- **Per change (Principle 3):** Breach's `ci/godot/scripts/check_store_reads.py` flags a
+  scattered store call written inside a loop; `bench` (`tick_phases`) against the base
+  catches one hidden in a helper.
 - **When a pass is slow:** time it phase by phase (Breach: `tools/tick_phases.gd`), then
   read it for unbounded loops and hidden scans before porting it to faster code. A port
   of a quadratic pass is a faster quadratic pass.

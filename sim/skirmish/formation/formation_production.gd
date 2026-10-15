@@ -161,6 +161,7 @@ func _event(kind: String, sim: FormationSimulation, extra: Dictionary) -> Dictio
 static func _centre(squad: SkirmishSquad) -> void:
 	var low := INF
 	var high := -INF
+	# store: scattered (production: once, as a wave is sent)
 	for unit in squad.living():
 		var column := UnitPlace.of(squad, unit).y
 		low = minf(low, column)

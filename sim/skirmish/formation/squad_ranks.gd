@@ -11,8 +11,9 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 static func close(squad: SkirmishSquad) -> void:
 	var order := squad.living()
 	var places := {}  # unit -> its place, read once
+	var table := UnitPlace.table(squad)
 	for unit in order:
-		places[unit] = UnitPlace.of(squad, unit)
+		places[unit] = UnitPlace.read(table, squad, unit)
 	order.sort_custom(
 		func(a, b):
 			var ka := [a.preferred_position, places[a].x, places[a].y]  # a place holds one unit
@@ -28,6 +29,7 @@ static func close(squad: SkirmishSquad) -> void:
 			used += unit.footprint_width
 			depth = maxi(depth, unit.footprint_depth)
 		var column := (squad.width - used) / 2
+		# store: scattered (closing ranks: once, as a squad re-forms)
 		for unit in row:
 			UnitPlace.put(squad, unit, Vector2i(rank, column))
 			column += unit.footprint_width

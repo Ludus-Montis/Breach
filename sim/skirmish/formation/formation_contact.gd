@@ -159,8 +159,10 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	var width := maxi(leader.width, joining.width)
 	var back := _back_rows(leader)
 	var shift := (width - leader.width) / 2
+	# store: scattered (a reinforcement: once, as a squad joins)
 	for unit in leader.units:
 		UnitPlace.put(leader, unit, UnitPlace.of(leader, unit) + Vector2i(0, shift))
+	# store: scattered (a reinforcement: once, as a squad joins)
 	for unit in joining.living():
 		var moved := Vector2i(back, (width - joining.width) / 2)
 		UnitPlace.put(joining, unit, UnitPlace.of(joining, unit) + moved)
@@ -217,6 +219,7 @@ static func _depth(friend: SkirmishSquad) -> float:
 
 static func _back_rows(squad: SkirmishSquad) -> int:
 	var rows := 0
+	var places := UnitPlace.table(squad)  # fetched once (spec 35)
 	for unit in squad.living():
-		rows = maxi(rows, UnitPlace.rank(squad, unit) + unit.footprint_depth)
+		rows = maxi(rows, places[0][unit.slot] + unit.footprint_depth)
 	return rows

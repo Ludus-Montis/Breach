@@ -10,17 +10,18 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 
 ## {"cells": {Vector2i(rank, column): [unit, ...]}, "order": {unit: where it comes in the
-## squad's living units}, "places": {unit: Vector2i(rank, column)}} as the squad's living
-## units stand now.
+## squad's living units}, "places": {unit: Vector2i(rank, column)}, "table": the store's
+## ranks and columns (UnitPlace.table, fetched once)} as the squad's living units stand now.
 static func occupancy(squad: SkirmishSquad) -> Dictionary:
 	var cells := {}
 	var order := {}
 	var places := {}
+	var table := UnitPlace.table(squad)
 	var living := squad.living()
 	for index in range(living.size()):
 		var unit: SkirmishUnit = living[index]
 		order[unit] = index
-		var at := UnitPlace.of(squad, unit)
+		var at := UnitPlace.read(table, squad, unit)
 		places[unit] = at
 		for rank in range(at.x, at.x + unit.footprint_depth):
 			for column in range(at.y, at.y + unit.footprint_width):
@@ -28,7 +29,7 @@ static func occupancy(squad: SkirmishSquad) -> Dictionary:
 				if not cells.has(cell):
 					cells[cell] = []
 				cells[cell].append(unit)
-	return {"cells": cells, "order": order, "places": places}
+	return {"cells": cells, "order": order, "places": places, "table": table}
 
 
 ## True if `unit`'s footprint at `place` is free of everyone but the units `moving`, and of
@@ -73,6 +74,7 @@ static func claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> v
 ## {unit: Vector2i(rank, column)} for the units of `squad`.
 static func places(squad: SkirmishSquad, units: Array) -> Dictionary:
 	var out := {}
+	var table := UnitPlace.table(squad) if units.size() > 2 else []  # few: read each
 	for unit in units:
-		out[unit] = UnitPlace.of(squad, unit)
+		out[unit] = UnitPlace.read(table, squad, unit)
 	return out

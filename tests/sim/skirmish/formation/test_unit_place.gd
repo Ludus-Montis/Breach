@@ -69,3 +69,24 @@ func test_the_place_is_the_store_s_alone() -> void:
 	var unit := SkirmishUnit.new()
 	assert_bool("rank" in unit).is_false()  # removed, not forwarded
 	assert_bool("column" in unit).is_false()
+
+
+## A pass over many units fetches the places once (UnitPlace.table) and reads each unit's
+## from them (UnitPlace.read), on both backends: the same places as reading the store, and
+## the store read where no table is given.
+func test_a_table_of_places_reads_each_unit_s_place_as_the_store_holds_it() -> void:
+	for backend in _backends():
+		var store: UnitStore = backend[1]
+		var squad := {"store": store}  # anything holding the store
+		var units := []
+		for unit_id in [3, 4, 5]:
+			var unit := SkirmishUnit.new()
+			unit.id = unit_id
+			unit.slot = store.enrol(unit_id)
+			UnitPlace.put(squad, unit, Vector2i(unit_id - 3, 7 - unit_id))
+			units.append(unit)
+		var table := UnitPlace.table(squad)
+		for unit in units:
+			var place := Vector2(UnitPlace.of(squad, unit))
+			assert_vector(Vector2(UnitPlace.read(table, squad, unit))).is_equal(place)
+			assert_vector(Vector2(UnitPlace.read([], squad, unit))).is_equal(place)

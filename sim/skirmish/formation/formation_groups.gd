@@ -130,6 +130,7 @@ static func _return_origins(
 	var back := group.living().filter(func(u): return u.origin == home.command)
 	if back.is_empty() or back.size() == group.living().size():
 		return
+	# store: scattered (rejoining: once, as a group comes home)
 	for unit in back:
 		group.units.erase(unit)
 		SquadEntries.unloose(group, unit.id)
@@ -188,8 +189,9 @@ static func _merging(one: SkirmishSquad, other: SkirmishSquad) -> bool:
 
 static func _back_row(squad: SkirmishSquad) -> int:
 	var rows := 0
+	var places := UnitPlace.table(squad)  # fetched once (spec 35)
 	for unit in squad.living():
-		rows = maxi(rows, UnitPlace.rank(squad, unit) + unit.footprint_depth)
+		rows = maxi(rows, places[0][unit.slot] + unit.footprint_depth)
 	return rows
 
 

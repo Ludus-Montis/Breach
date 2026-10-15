@@ -49,6 +49,7 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 		draws[unit] = ScrumContest.draw(unit, fight_seed)
 	stalled.sort_custom(func(a, b): return draws[a] < draws[b])
 	var places := _places(squad, stalled)
+	# store: scattered (the few stalled units trading, two at a time)
 	for unit in stalled:
 		if not squad.loose.has(unit.id):
 			continue
@@ -87,8 +88,9 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 	var points := []
 	var of := {}
 	var order := {}
+	var table := UnitPlace.table(squad)  # fetched once (spec 35)
 	for index in range(living.size()):
-		points.append(ScrumStance.anchor(squad, living[index]))
+		points.append(ScrumStance.anchor(squad, living[index], table))
 		of[living[index]] = index
 		order[living[index]] = index
 	if stalled.any(func(unit): return not of.has(unit)):
@@ -143,5 +145,6 @@ static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit
 	if not squad.loose.has(friend.id):
 		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
 		SquadEntries.loosen(squad, friend, at)
+	# store: scattered (the few stalled units trading, two at a time)
 	for moved in [unit, friend]:
 		EntryKeys.forget(squad.store.columns, moved.slot, [UnitColumns.CLOSEST, UnitColumns.STUCK])

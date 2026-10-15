@@ -133,6 +133,7 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 	var alone := RoutFriends.alone(motion[3], squad)  # no friend to crush or flee to
 	var friends: Dictionary = {} if alone else motion[3]
 	var columns := squad.store.columns
+	# store: scattered (routers each stepped by RoutFlight, the rout ~1.5 ms at the bench)
 	for unit in squad.living():
 		if columns.value(unit.slot, UnitColumns.CAUGHT) > 0:
 			continue  # held by a steady friend it ran into
@@ -180,6 +181,7 @@ static func _rallies(
 ) -> Array:
 	var out := []
 	var alone := RoutFriends.alone(friends, squad)  # no friend to rally to or be held by
+	# store: scattered (routers each stepped by RoutFlight, the rout ~1.5 ms at the bench)
 	for unit in squad.living():
 		var at := where(squad, unit.id)
 		var leader: SkirmishSquad = null
