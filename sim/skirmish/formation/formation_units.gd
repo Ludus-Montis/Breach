@@ -11,8 +11,10 @@ const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 
 
+## Its place in its squad's frame is the unit store's, set once the squad enrols it (spec 35
+## step 4a).
 static func make(
-	unit_def: UnitDef, place: Vector2i, faction_id: String, direction: int, unit_id: int
+	unit_def: UnitDef, faction_id: String, direction: int, unit_id: int
 ) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
@@ -53,8 +55,6 @@ static func make(
 		unit.attack_range = ranged.attack_range
 		unit.damage_type = ranged.damage_type
 		unit.ranged_seconds = ranged.attack_seconds / unit_def.attack_speed
-	unit.rank = place.x
-	unit.column = place.y
 	unit.advance_direction = direction
 	return unit
 

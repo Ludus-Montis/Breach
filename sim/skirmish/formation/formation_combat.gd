@@ -61,9 +61,10 @@ static func _marks(squads: Array) -> Array:
 			continue
 		var ranks := {}
 		for unit in other.living():
-			if not ranks.has(unit.rank):
-				ranks[unit.rank] = []
-			ranks[unit.rank].append([unit, place])
+			var rank: int = UnitPlace.rank(other, unit)
+			if not ranks.has(rank):
+				ranks[rank] = []
+			ranks[rank].append([unit, place])
 			place += 1
 		if not ranks.is_empty():
 			out.append([other, ranks])

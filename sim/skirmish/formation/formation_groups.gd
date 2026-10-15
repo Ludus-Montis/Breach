@@ -133,7 +133,7 @@ static func _return_origins(
 	for unit in back:
 		group.units.erase(unit)
 		SquadEntries.unloose(group, unit.id)
-		unit.rank = _back_row(home)
+		home.store.columns.put(unit.slot, UnitColumns.RANK, _back_row(home))
 		FormationCommand.enlist(home, unit)
 		events.append(FormationEvents.unit_event("rejoined", tick, home, unit))
 	home.reforming = true
@@ -189,7 +189,7 @@ static func _merging(one: SkirmishSquad, other: SkirmishSquad) -> bool:
 static func _back_row(squad: SkirmishSquad) -> int:
 	var rows := 0
 	for unit in squad.living():
-		rows = maxi(rows, unit.rank + unit.footprint_depth)
+		rows = maxi(rows, UnitPlace.rank(squad, unit) + unit.footprint_depth)
 	return rows
 
 

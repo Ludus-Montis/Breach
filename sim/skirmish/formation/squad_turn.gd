@@ -30,10 +30,11 @@ static func about_face_ticks(tick_seconds: float) -> int:
 static func reverse_ranks(squad: SkirmishSquad) -> int:
 	var depth := 0
 	for unit in squad.living():
-		depth = maxi(depth, unit.rank + unit.footprint_depth)
+		depth = maxi(depth, UnitPlace.rank(squad, unit) + unit.footprint_depth)
 	for unit in squad.living():
-		unit.rank = depth - unit.rank - unit.footprint_depth
-		unit.column = squad.width - unit.column - unit.footprint_width
+		var at := UnitPlace.of(squad, unit)
+		var rank := depth - at.x - unit.footprint_depth
+		UnitPlace.put(squad, unit, Vector2i(rank, squad.width - at.y - unit.footprint_width))
 	squad.centre_shift = -squad.centre_shift
 	squad.swaps.clear()
 	squad.reforming = true

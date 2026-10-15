@@ -26,7 +26,7 @@ static func gap(from: SkirmishSquad, to: SkirmishSquad) -> float:
 
 ## How far a unit's rank stands ahead of `from`'s front along its heading, in tiles.
 static func unit_gap(from: SkirmishSquad, to: SkirmishSquad, unit: SkirmishUnit) -> float:
-	var point := to.position - UnitMotion.vector(to.heading) * unit.rank
+	var point := to.position - UnitMotion.vector(to.heading) * UnitPlace.rank(to, unit)
 	return (point - from.position).dot(UnitMotion.vector(from.heading)) / CELLS
 
 

@@ -25,41 +25,56 @@ static func opposite(facing: int) -> int:
 	return posmod(facing + 2, 4)
 
 
-## The corners of a unit's footprint in a frame at `anchor` turned to `heading` (degrees):
-## its columns from the squad's left (centred on the front centre, moved by centre_shift),
-## its ranks back from the front.
+## The corners of a unit's footprint in a frame at `anchor` turned to `heading` (degrees),
+## the unit at `at` (its rank, column: UnitColumns.place): its columns from the squad's left
+## (centred on the front centre, moved by centre_shift), its ranks back from the front.
 static func corners(
-	anchor: Vector2, heading: float, width: int, centre_shift: float, unit: SkirmishUnit
+	anchor: Vector2,
+	heading: float,
+	width: int,
+	centre_shift: float,
+	unit: SkirmishUnit,
+	at: Vector2i
 ) -> PackedVector2Array:
 	var ahead := UnitMotion.vector(heading)
 	var right := -ahead.orthogonal()
-	var near := anchor + right * (unit.column - width / 2.0 + centre_shift) - ahead * unit.rank
+	var near := anchor + right * (at.y - width / 2.0 + centre_shift) - ahead * at.x
 	var wide := right * unit.footprint_width
 	var deep := -ahead * unit.footprint_depth
 	return PackedVector2Array([near, near + wide, near + wide + deep, near + deep])
 
 
-## The cells a unit's footprint spans in a frame turned to `heading`: the box round its
-## corners (on a quarter heading, the footprint itself).
+## The cells a unit's footprint spans in a frame turned to `heading`, the unit at `at`: the
+## box round its corners (on a quarter heading, the footprint itself).
 static func unit_rect(
-	anchor: Vector2, heading: float, width: int, centre_shift: float, unit: SkirmishUnit
+	anchor: Vector2,
+	heading: float,
+	width: int,
+	centre_shift: float,
+	unit: SkirmishUnit,
+	at: Vector2i
 ) -> Rect2:
-	var points := corners(anchor, heading, width, centre_shift, unit)
+	var points := corners(anchor, heading, width, centre_shift, unit, at)
 	var area := Rect2(points[0], Vector2.ZERO)
 	for point in points:
 		area = area.expand(point)
 	return area
 
 
-## The centre of a unit's place in a frame at `anchor` turned to `heading` (degrees): its
-## columns from the squad's left (centred on the front centre, moved by centre_shift), its
-## ranks back from the front.
+## The centre of a unit's place in a frame at `anchor` turned to `heading` (degrees), the
+## unit at `at` (its rank, column): its columns from the squad's left (centred on the front
+## centre, moved by centre_shift), its ranks back from the front.
 static func place(
-	anchor: Vector2, heading: float, width: int, centre_shift: float, unit: SkirmishUnit
+	anchor: Vector2,
+	heading: float,
+	width: int,
+	centre_shift: float,
+	unit: SkirmishUnit,
+	at: Vector2i
 ) -> Vector2:
 	var ahead := UnitMotion.vector(heading)
-	var across := unit.column - width / 2.0 + centre_shift + unit.footprint_width / 2.0
-	var back := unit.rank + unit.footprint_depth / 2.0
+	var across := at.y - width / 2.0 + centre_shift + unit.footprint_width / 2.0
+	var back := at.x + unit.footprint_depth / 2.0
 	return anchor + ahead.orthogonal() * -across - ahead * back
 
 
@@ -71,10 +86,10 @@ static func basis(anchor: Vector2, heading: float, width: int, centre_shift: flo
 	return [anchor, ahead, ahead.orthogonal(), width / 2.0, centre_shift]
 
 
-## place() in a frame from basis().
-static func place_in(frame: Array, unit: SkirmishUnit) -> Vector2:
-	var across: float = unit.column - frame[3] + frame[4] + unit.footprint_width / 2.0
-	var back := unit.rank + unit.footprint_depth / 2.0
+## place() in a frame from basis(), the unit at `at` (its rank, column).
+static func place_in(frame: Array, unit: SkirmishUnit, at: Vector2i) -> Vector2:
+	var across: float = at.y - frame[3] + frame[4] + unit.footprint_width / 2.0
+	var back := at.x + unit.footprint_depth / 2.0
 	return frame[0] + frame[2] * -across - frame[1] * back
 
 

@@ -205,7 +205,12 @@ func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array
 			columns.value(unit.slot, UnitColumns.BEARING),
 			unit.attack_cooldown
 		],
-		[unit.target_id, unit.rank, unit.column, _plain(held)],
+		[
+			unit.target_id,
+			columns.value(unit.slot, UnitColumns.RANK),
+			columns.value(unit.slot, UnitColumns.COLUMN),
+			_plain(held)
+		],
 	]
 
 

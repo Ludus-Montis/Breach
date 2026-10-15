@@ -123,8 +123,7 @@ static func _group(squad: SkirmishSquad, cluster: Array, fight_seed: int) -> Ski
 		squad.units.erase(unit)
 		SquadEntries.unloose(squad, unit.id)
 		SquadEntries.unflee(squad, unit.id)
-		unit.rank = 0
-		unit.column = members.size()
+		UnitPlace.put(squad, unit, Vector2i(0, members.size()))
 		members.append(unit)
 		front = maxf(front, squad.route.distance_of(at[unit.slot]) * squad.direction)
 	var group := SkirmishSquad.new(

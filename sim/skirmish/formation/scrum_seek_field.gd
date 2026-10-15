@@ -91,6 +91,8 @@ static func _gather(units: Array, owners: Array, squads: Array) -> Batch:
 	var columns: UnitColumns = owners[0].store.columns if not owners.is_empty() else null
 	var goal_foes: PackedInt64Array = columns.column(UnitColumns.GOAL_FOE) if columns else []
 	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT) if columns else []
+	var ranks: PackedInt32Array = columns.column(UnitColumns.RANK) if columns else []
+	var files: PackedInt32Array = columns.column(UnitColumns.COLUMN) if columns else []
 	for index in range(units.size()):
 		var squad: SkirmishSquad = owners[index]
 		if squad.state != SkirmishSquad.State.FIGHTING:
@@ -113,7 +115,8 @@ static func _gather(units: Array, owners: Array, squads: Array) -> Batch:
 		batch.members.append(index)
 		batch.may_seek.append(1 if seeks else 0)
 		batch.speeds.append(unit.speed)
-		batch.anchors.append(SquadFrame.place_in(said[1], unit) if seeks else Vector2.ZERO)
+		var at := Vector2i(ranks[unit.slot], files[unit.slot])
+		batch.anchors.append(SquadFrame.place_in(said[1], unit, at) if seeks else Vector2.ZERO)
 		batch.goal_foes.append(goal_foes[unit.slot])
 		batch.goal_slots.append(goal_slots[unit.slot])
 		batch.squads[batch.squads.size() - 1] = batch.units.size() - counted

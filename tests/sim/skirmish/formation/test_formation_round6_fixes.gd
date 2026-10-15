@@ -103,14 +103,13 @@ func test_a_squad_closes_ranks_over_its_dead() -> void:
 	for place in [Vector2i(0, 0), Vector2i(0, 2), Vector2i(1, 1), Vector2i(1, 2)]:
 		var unit := SkirmishUnit.new()
 		unit.id = units.size() + 1
-		unit.rank = place.x
-		unit.column = place.y
+		_places.set_place(unit, place)
 		units.append(unit)
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 3, units, null, _places.store)
 
 	SquadRanks.close(squad)
 
-	var places := units.map(func(u): return Vector2i(u.rank, u.column))
+	var places := units.map(func(u): return UnitPlace.of(squad, u))
 	assert_array(places).is_equal([Vector2i(0, 0), Vector2i(0, 1), Vector2i(0, 2), Vector2i(1, 1)])
 
 

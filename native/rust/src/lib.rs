@@ -441,7 +441,8 @@ impl BodyField {
         }
     }
 
-    /// The unit store's 32-bit int column `name` ("flags", "touch", "keys"), by slot: one
+    /// The unit store's 32-bit int column `name` ("flags", "touch", "keys", "rank", "column"),
+    /// by slot: one
     /// copy.
     #[func]
     fn column_ints(&mut self, name: GString) -> PackedInt32Array {

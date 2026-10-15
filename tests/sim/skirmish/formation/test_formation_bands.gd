@@ -77,7 +77,7 @@ func test_a_spitter_does_not_step_into_a_fallen_front_cell() -> void:
 	var where := spitter.distance
 	_steps(sim, 10)
 
-	assert_int(spitter.rank).is_equal(1)
+	assert_int(UnitPlace.rank(mine, spitter)).is_equal(1)
 	assert_float(spitter.distance).is_equal_approx(where, 0.0001)
 
 
@@ -110,7 +110,7 @@ func test_when_the_whole_front_falls_the_enemy_must_advance_to_the_back_rank() -
 	_until(sim, func(): return not mine.units[0].is_alive())
 	var where := spitter.distance
 
-	assert_int(spitter.rank).is_equal(0)  # re-anchored where it stood
+	assert_int(UnitPlace.rank(mine, spitter)).is_equal(0)  # re-anchored where it stood
 	assert_float(spitter.distance).is_equal_approx(where, 0.0001)
 	var log := _until(sim, func(): return mine.state == SkirmishSquad.State.FIGHTING, 200)
 	log.append_array(_steps(sim, 20))

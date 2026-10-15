@@ -54,8 +54,7 @@ static func step(
 		if swap["ticks"] > 0:
 			continue
 		for unit in swap["to"]:
-			unit.rank = swap["to"][unit].x
-			unit.column = swap["to"][unit].y
+			UnitPlace.put(squad, unit, swap["to"][unit])
 		squad.swaps.remove_at(index)
 		if not within or not swap["to"].keys().all(func(u): return _inside(squad, u)):
 			_widen_to_fit(squad)  # only the movers' columns have changed since it last did
@@ -65,8 +64,9 @@ static func step(
 			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
 		)
 		for moved in squad.compact():  # close the gaps the move left
+			var rank := UnitPlace.rank(squad, moved)
 			events.append(
-				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": moved.rank})
+				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
 			)
 	if squad.reforming and not _start_moves(squad, tick_seconds, travel_scale):
 		squad.reforming = not squad.swaps.is_empty()
@@ -75,7 +75,8 @@ static func step(
 
 ## True if the unit stands within the squad's columns.
 static func _inside(squad: SkirmishSquad, unit: SkirmishUnit) -> bool:
-	return unit.column >= 0 and unit.column + unit.footprint_width <= squad.width
+	var column := UnitPlace.of(squad, unit).y
+	return column >= 0 and column + unit.footprint_width <= squad.width
 
 
 ## {unit: the swap under way it moves in} for the squad, as it stands: give it to offset()
@@ -119,11 +120,11 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 		for unit in swap["to"]:
 			busy[unit] = true
 			_claim(claimed, swap["to"][unit], unit)
-	var front_first := PlaceOrder.front_first(squad.living())
+	var front_first := PlaceOrder.front_first(squad.living(), squad.store.columns)
 	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	var started := false
 	for unit: SkirmishUnit in front_first:
-		if unit.rank == 0 or busy.has(unit):
+		if occupied["places"][unit].x == 0 or busy.has(unit):
 			continue
 		var plan := ShuffleFront.free_place(squad, unit, claimed, [occupied, open])
 		if plan.is_empty():
@@ -142,7 +143,7 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 		var pace := travel_scale * slowest * TERRAIN_FACTOR * crowding
 		var seconds: float = plan["distance"] * SkirmishSquad.RANK_DEPTH / pace
 		var ticks := maxi(1, ceili(seconds / tick_seconds - EPSILON))
-		plan.merge({"ticks": ticks, "total": ticks, "from": SquadPlaces.places(involved)})
+		plan.merge({"ticks": ticks, "total": ticks, "from": SquadPlaces.places(squad, involved)})
 		squad.swaps.append(plan)
 		for moving in plan["to"]:
 			busy[moving] = true
@@ -167,13 +168,14 @@ static func _widen_to_fit(squad: SkirmishSquad) -> void:
 	var left := 0
 	var right := squad.width
 	for unit in squad.living():
-		left = mini(left, unit.column)
-		right = maxi(right, unit.column + unit.footprint_width)
+		var column := UnitPlace.of(squad, unit).y
+		left = mini(left, column)
+		right = maxi(right, column + unit.footprint_width)
 	if left == 0 and right == squad.width:
 		return
 	squad.centre_shift += left + (right - left - squad.width) / 2.0
 	for unit in squad.units:
-		unit.column -= left
+		UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(0, left))
 	for swap in squad.swaps:
 		for key in ["from", "to"]:
 			for unit in swap[key]:
@@ -192,19 +194,22 @@ static func _through(
 	var ahead := SquadPlaces.ahead(occupied, unit)
 	if ahead.is_empty() or ahead.any(func(a): return busy.has(a) or not stronger(unit, a)):
 		return {}
-	var to := {unit: Vector2i(unit.rank - 1, unit.column)}
-	var back_row := unit.rank + unit.footprint_depth - 1
+	var places: Dictionary = occupied["places"]
+	var at: Vector2i = places[unit]
+	var to := {unit: at - Vector2i(1, 0)}
+	var back_row := at.x + unit.footprint_depth - 1
 	var moving := ahead + [unit]
 	var taken := {}  # the cells this move claims, over those claimed already
 	SquadPlaces.claim(taken, to[unit], unit)
 	var distance := 1
 	for passed in ahead:
-		var place := Vector2i(back_row, passed.column)
-		if not _fits_back_row(unit, passed):
+		var was: Vector2i = places[passed]
+		var place := Vector2i(back_row, was.y)
+		if not _fits_back_row(unit, at, passed, was):
 			place = _nearest_free_behind(squad, passed, moving, [taken, occupied, claimed["cells"]])
 			if place.x < 0:
 				return {}
-			distance = maxi(distance, maxi(place.x - passed.rank, absi(place.y - passed.column)))
+			distance = maxi(distance, maxi(place.x - was.x, absi(place.y - was.y)))
 		to[passed] = place
 		SquadPlaces.claim(taken, place, passed)
 	return {"mover": unit, "passed": ahead, "to": to, "distance": distance}
@@ -217,11 +222,12 @@ static func _nearest_free_behind(
 ) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_key := Vector3i(1 << 30, 0, 0)
-	for rank in range(unit.rank + 1, unit.rank + SEARCH_RANKS):
+	var at: Vector2i = held[1]["places"][unit]
+	for rank in range(at.x + 1, at.x + SEARCH_RANKS):
 		for column in range(squad.width - unit.footprint_width + 1):
 			var place := Vector2i(rank, column)
-			var lateral := absi(column - unit.column)
-			var key := Vector3i(maxi(rank - unit.rank, lateral), lateral, rank)
+			var lateral := absi(column - at.y)
+			var key := Vector3i(maxi(rank - at.x, lateral), lateral, rank)
 			if key < best_key and _vacant(place, unit, moving, held):
 				best = place
 				best_key = key
@@ -239,12 +245,14 @@ static func _vacant(place: Vector2i, unit: SkirmishUnit, moving: Array, held: Ar
 	return true
 
 
-## A passed unit fits the row the mover leaves: one rank deep, directly ahead, within its
-## columns.
-static func _fits_back_row(unit: SkirmishUnit, passed: SkirmishUnit) -> bool:
+## A passed unit (at `was`) fits the row the mover (at `at`) leaves: one rank deep,
+## directly ahead, within its columns.
+static func _fits_back_row(
+	unit: SkirmishUnit, at: Vector2i, passed: SkirmishUnit, was: Vector2i
+) -> bool:
 	return (
 		passed.footprint_depth == 1
-		and passed.rank == unit.rank - 1
-		and passed.column >= unit.column
-		and passed.column + passed.footprint_width <= unit.column + unit.footprint_width
+		and was.x == at.x - 1
+		and was.y >= at.y
+		and was.y + passed.footprint_width <= at.y + unit.footprint_width
 	)

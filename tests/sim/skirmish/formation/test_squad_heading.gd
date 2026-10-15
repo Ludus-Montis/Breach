@@ -25,8 +25,7 @@ func _squad(squad_id: int, at: Vector2, heading: float, width := 2, ranks := 1) 
 		for column in width:
 			var unit := SkirmishUnit.new()
 			unit.id = squad_id * 100 + rank * width + column
-			unit.rank = rank
-			unit.column = column
+			_places.set_place(unit, Vector2i(rank, column))
 			unit.footprint_depth = 1
 			unit.footprint_width = 1
 			unit.hp = 10

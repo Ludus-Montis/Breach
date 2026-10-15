@@ -95,9 +95,9 @@ func test_no_unit_hurries_round_a_bend_and_the_inner_files_step_shorter() -> voi
 		for i in range(before.size()):
 			var moved: float = UnitPlaces.of(squad, squad.living()[i]).distance_to(before[i])
 			assert_float(moved).is_less_equal(step + 0.0001)  # never faster than it walks
-			if turning and squad.living()[i].column == 7:
+			if turning and UnitPlace.of(squad, squad.living()[i]).y == 7:
 				inner += moved  # turning right, the right-hand file is on the inside
-			elif turning and squad.living()[i].column == 0:
+			elif turning and UnitPlace.of(squad, squad.living()[i]).y == 0:
 				outer += moved
 
 	assert_float(inner).is_less(outer)

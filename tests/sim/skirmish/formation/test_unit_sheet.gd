@@ -41,7 +41,7 @@ func test_a_battle_unit_carries_its_own_copy_of_the_sheet() -> void:
 	unit_def.strength = 14
 	unit_def.traits = {"darksight": 1}
 
-	var unit := FormationUnits.make(unit_def, Vector2i(0, 0), "player", 1, 1)
+	var unit := FormationUnits.make(unit_def, "player", 1, 1)
 	unit.traits["darksight"] = 3
 	unit.tags.append("veteran")
 
@@ -71,7 +71,7 @@ func test_a_tool_carried_grants_its_traits_to_the_battle_unit() -> void:
 	unit_def.slots = ["hand"]
 	unit_def.items = [shovel]
 
-	var unit := FormationUnits.make(unit_def, Vector2i(0, 0), "player", 1, 1)
+	var unit := FormationUnits.make(unit_def, "player", 1, 1)
 
 	assert_int(unit.traits.get("burrower", 0)).is_equal(1)
 	assert_dict(unit_def.traits).is_empty()  # its type's own traits are untouched

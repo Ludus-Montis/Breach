@@ -10,21 +10,25 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 
 ## {"cells": {Vector2i(rank, column): [unit, ...]}, "order": {unit: where it comes in the
-## squad's living units}} as the squad's living units stand now.
+## squad's living units}, "places": {unit: Vector2i(rank, column)}} as the squad's living
+## units stand now.
 static func occupancy(squad: SkirmishSquad) -> Dictionary:
 	var cells := {}
 	var order := {}
+	var places := {}
 	var living := squad.living()
 	for index in range(living.size()):
 		var unit: SkirmishUnit = living[index]
 		order[unit] = index
-		for rank in range(unit.rank, unit.rank + unit.footprint_depth):
-			for column in range(unit.column, unit.column + unit.footprint_width):
+		var at := UnitPlace.of(squad, unit)
+		places[unit] = at
+		for rank in range(at.x, at.x + unit.footprint_depth):
+			for column in range(at.y, at.y + unit.footprint_width):
 				var cell := Vector2i(rank, column)
 				if not cells.has(cell):
 					cells[cell] = []
 				cells[cell].append(unit)
-	return {"cells": cells, "order": order}
+	return {"cells": cells, "order": order, "places": places}
 
 
 ## True if `unit`'s footprint at `place` is free of everyone but the units `moving`, and of
@@ -49,9 +53,10 @@ static func vacant(
 static func ahead(occupied: Dictionary, unit: SkirmishUnit) -> Array:
 	var cells: Dictionary = occupied["cells"]
 	var order: Dictionary = occupied["order"]
+	var at: Vector2i = occupied["places"][unit]
 	var out := []
-	for column in range(unit.column, unit.column + unit.footprint_width):
-		for other in cells.get(Vector2i(unit.rank - 1, column), []):
+	for column in range(at.y, at.y + unit.footprint_width):
+		for other in cells.get(Vector2i(at.x - 1, column), []):
 			if other != unit and not out.has(other):
 				out.append(other)
 	out.sort_custom(func(a, b): return order[a] < order[b])
@@ -65,9 +70,9 @@ static func claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> v
 			claimed[Vector2i(rank, column)] = true
 
 
-## {unit: Vector2i(rank, column)} for the units.
-static func places(units: Array) -> Dictionary:
+## {unit: Vector2i(rank, column)} for the units of `squad`.
+static func places(squad: SkirmishSquad, units: Array) -> Dictionary:
 	var out := {}
 	for unit in units:
-		out[unit] = Vector2i(unit.rank, unit.column)
+		out[unit] = UnitPlace.of(squad, unit)
 	return out

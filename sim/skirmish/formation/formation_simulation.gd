@@ -114,15 +114,15 @@ func spawn_squad(
 	var home := 0.0 if at_player_end else path.length_cells() / MapLayoutDef.CELLS_PER_TILE
 	var members: Array[SkirmishUnit] = []
 	for placement in placements:
-		members.append(
-			FormationUnits.make(placement[0], placement[1], faction_id, direction, _next_unit_id)
-		)
+		members.append(FormationUnits.make(placement[0], faction_id, direction, _next_unit_id))
 		_next_unit_id += 1
 	var orders := FormationCommand.new(home, path)
 	var squad := SkirmishSquad.new(
 		_next_squad_id, faction_id, direction, home, width, members, orders, store
 	)
 	_next_squad_id += 1
+	for index in members.size():
+		UnitPlace.put(squad, members[index], placements[index][1])
 	squad.route = path
 	FormationMarch.face(squad)
 	squad.wait_ticks = wait_ticks

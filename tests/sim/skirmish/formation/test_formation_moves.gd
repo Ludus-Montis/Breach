@@ -44,15 +44,16 @@ func _settle(width: int, placements: Array) -> SkirmishSquad:
 	return squad
 
 
-func _place(unit: SkirmishUnit) -> Vector2i:
-	return Vector2i(unit.rank, unit.column)
+func _place(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2i:
+	return UnitPlace.of(squad, unit)
 
 
 func _no_overlaps(squad: SkirmishSquad) -> bool:
 	var cells := {}
 	for unit in squad.living():
-		for rank in range(unit.rank, unit.rank + unit.footprint_depth):
-			for column in range(unit.column, unit.column + unit.footprint_width):
+		var at := UnitPlace.of(squad, unit)
+		for rank in range(at.x, at.x + unit.footprint_depth):
+			for column in range(at.y, at.y + unit.footprint_width):
 				if cells.has(Vector2i(rank, column)) or column >= squad.width:
 					return false
 				cells[Vector2i(rank, column)] = true
@@ -62,8 +63,8 @@ func _no_overlaps(squad: SkirmishSquad) -> bool:
 func test_with_free_front_space_a_grem_moves_diagonally_into_it() -> void:
 	var squad := _settle(3, [[_wide_cart, Vector2i(0, 1)], [_grem, Vector2i(1, 1)]])
 
-	assert_object(_place(squad.units[1])).is_equal(Vector2i(0, 0))  # beside the cart
-	assert_object(_place(squad.units[0])).is_equal(Vector2i(0, 1))  # the cart didn't move
+	assert_object(_place(squad, squad.units[1])).is_equal(Vector2i(0, 0))  # beside the cart
+	assert_object(_place(squad, squad.units[0])).is_equal(Vector2i(0, 1))  # the cart didn't move
 	assert_bool(_no_overlaps(squad)).is_true()
 
 
@@ -73,8 +74,8 @@ func test_without_free_space_a_grem_passes_through_a_wider_unit() -> void:
 	]
 	var squad := _settle(3, placements)
 
-	assert_int(squad.units[2].rank).is_equal(0)
-	assert_int(squad.units[1].rank).is_greater(0)  # the cart went back to free space
+	assert_int(UnitPlace.rank(squad, squad.units[2])).is_equal(0)
+	assert_int(UnitPlace.rank(squad, squad.units[1])).is_greater(0)  # the cart went back to free space
 	assert_bool(_no_overlaps(squad)).is_true()
 
 
@@ -87,8 +88,8 @@ func test_without_free_space_a_grem_passes_through_a_deeper_unit() -> void:
 	]
 	var squad := _settle(3, placements)
 
-	assert_object(_place(squad.units[3])).is_equal(Vector2i(0, 1))  # it reached the front
-	assert_int(squad.units[1].rank).is_greater(0)
+	assert_object(_place(squad, squad.units[3])).is_equal(Vector2i(0, 1))  # it reached the front
+	assert_int(UnitPlace.rank(squad, squad.units[1])).is_greater(0)
 	assert_bool(_no_overlaps(squad)).is_true()
 
 

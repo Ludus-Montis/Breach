@@ -18,8 +18,7 @@ func before_test() -> void:
 func _unit(unit_id: int, rank: int, column: int, preferred: int = 0) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.rank = rank
-	unit.column = column
+	_places.set_place(unit, Vector2i(rank, column))
 	unit.preferred_position = preferred
 	unit.hp = 10
 	return unit
@@ -53,10 +52,10 @@ func test_an_about_face_puts_the_back_rank_in_front_and_turns_the_columns() -> v
 	var depth := SquadTurn.reverse_ranks(squad)
 
 	assert_int(depth).is_equal(2)
-	assert_int(archer.rank).is_equal(0)
-	assert_int(archer.column).is_equal(0)
-	assert_int(front.rank).is_equal(1)
-	assert_int(front.column).is_equal(2)
+	assert_int(UnitPlace.of(squad, archer).x).is_equal(0)
+	assert_int(UnitPlace.of(squad, archer).y).is_equal(0)
+	assert_int(UnitPlace.of(squad, front).x).is_equal(1)
+	assert_int(UnitPlace.of(squad, front).y).is_equal(2)
 	assert_float(squad.centre_shift).is_equal(-0.5)
 	assert_bool(squad.reforming).is_true()
 

@@ -77,12 +77,12 @@ func test_a_joining_brute_passes_the_grems_ahead_after_a_slower_swap() -> void:
 	var brute: Object = _of_def(squad, 2)[0]
 
 	_steps(sim, 8)  # one rank at 0.7 speed: 9 ticks
-	var midway: int = brute.rank
+	var midway: int = UnitPlace.rank(squad, brute)
 	_steps(sim, 1)
 
 	assert_int(midway).is_equal(1)
-	assert_int(brute.rank).is_equal(0)
-	var passed := squad.living().filter(func(u): return u.rank == 2)
+	assert_int(UnitPlace.rank(squad, brute)).is_equal(0)
+	var passed := squad.living().filter(func(u): return UnitPlace.rank(squad, u) == 2)
 	assert_int(passed.size()).is_equal(2)  # the two grems now behind it
 
 
@@ -92,12 +92,18 @@ func test_joining_grems_pass_front_rank_spitters_in_one_grem_swap() -> void:
 	var squad: SkirmishSquad = setup[1]
 
 	_steps(sim, 6)
-	var early := squad.units.slice(3).map(func(u): return u.rank)
+	var early := squad.units.slice(3).map(func(u): return UnitPlace.rank(squad, u))
 	_steps(sim, 1)  # one rank (a cell) at speed 1, crowded: 0.625 s, so 7 ticks
 
 	assert_array(early).is_equal([1, 1, 1])
-	assert_array(squad.units.slice(3).map(func(u): return u.rank)).is_equal([0, 0, 0])
-	assert_array(squad.units.slice(0, 3).map(func(u): return u.rank)).is_equal([1, 1, 1])
+	(
+		assert_array(squad.units.slice(3).map(func(u): return UnitPlace.rank(squad, u)))
+		. is_equal([0, 0, 0])
+	)
+	(
+		assert_array(squad.units.slice(0, 3).map(func(u): return UnitPlace.rank(squad, u)))
+		. is_equal([1, 1, 1])
+	)
 
 
 func test_joining_spitters_stay_at_the_back() -> void:
@@ -108,7 +114,10 @@ func test_joining_spitters_stay_at_the_back() -> void:
 	var log := _steps(sim, 20)
 
 	assert_bool(log.any(func(e): return e["type"] == "swapped")).is_false()
-	assert_array(squad.units.slice(3).map(func(u): return u.rank)).is_equal([1, 1, 1])
+	(
+		assert_array(squad.units.slice(3).map(func(u): return UnitPlace.rank(squad, u)))
+		. is_equal([1, 1, 1])
+	)
 
 
 func test_the_front_is_held_throughout_a_swap() -> void:
@@ -133,8 +142,8 @@ func test_a_death_cancels_a_swap_and_it_starts_again() -> void:
 
 	squad.units[0].hp = 0  # a grem the brute is passing falls
 	_steps(sim, 6)  # past when the first swap would have finished
-	var after_cancel: int = brute.rank
+	var after_cancel: int = UnitPlace.rank(squad, brute)
 	_steps(sim, 10)
 
 	assert_int(after_cancel).is_equal(1)
-	assert_int(brute.rank).is_equal(0)
+	assert_int(UnitPlace.rank(squad, brute)).is_equal(0)

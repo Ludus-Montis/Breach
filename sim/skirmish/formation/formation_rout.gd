@@ -236,8 +236,7 @@ static func _join(
 	var settled := where(squad, unit.id)
 	SquadEntries.unflee(squad, unit.id)
 	squad.units.erase(unit)
-	unit.rank = 0
-	unit.column = 0
+	UnitPlace.put(squad, unit, Vector2i.ZERO)
 	var members: Array[SkirmishUnit] = [unit]
 	var single := SkirmishSquad.new(
 		-1, squad.faction_id, leader.direction, 0.0, 1, members, null, squad.store

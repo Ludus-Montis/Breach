@@ -160,10 +160,10 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	var back := _back_rows(leader)
 	var shift := (width - leader.width) / 2
 	for unit in leader.units:
-		unit.column += shift
+		UnitPlace.put(leader, unit, UnitPlace.of(leader, unit) + Vector2i(0, shift))
 	for unit in joining.living():
-		unit.column += (width - joining.width) / 2
-		unit.rank += back
+		var moved := Vector2i(back, (width - joining.width) / 2)
+		UnitPlace.put(joining, unit, UnitPlace.of(joining, unit) + moved)
 		unit.attack_cooldown = 1
 		SquadEntries.unloose(joining, unit.id)
 		SquadEntries.unflee(joining, unit.id)
@@ -218,5 +218,5 @@ static func _depth(friend: SkirmishSquad) -> float:
 static func _back_rows(squad: SkirmishSquad) -> int:
 	var rows := 0
 	for unit in squad.living():
-		rows = maxi(rows, unit.rank + unit.footprint_depth)
+		rows = maxi(rows, UnitPlace.rank(squad, unit) + unit.footprint_depth)
 	return rows

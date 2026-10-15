@@ -6625,3 +6625,39 @@ nothing changes.
 **Bounded:** a pass fetches only the columns it reads, once. A pass that touches a few
 units uses the accessor rather than whole columns. Enrolling and dropping units stays
 incremental, and free slots are reused lowest first.
+
+### Decision 143 — A unit's rank and column are per-tick state, held in the unit store
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-15
+**Amends:** Decision 142 (what stays on SkirmishUnit as the unit's record)
+
+**Rationale:** Decision 142 kept rank and column on SkirmishUnit as the unit's record, to be
+enrolled into the store once, on the premise that they don't change in a tick. They do:
+ScrumTrade swaps two units' places in the scrum, and a re-form (FormationShuffle), closing
+up (compact, SquadRanks), turning about (SquadTurn), a rout, a recovery, a stray, a split
+and a reinforcement all reassign them mid-battle. Spec 35 step 4's native seek and walk
+need each unit's place in its squad's frame, so a value enrolled once would go stale. Found
+while starting spec 35 step 4. The user chose, of three options: "Store columns RANK,
+COLUMN". So they move as Decision 142's own rule says per-tick state does: two int columns
+on both backends (`UnitColumns.RANK`, `COLUMN`; Rust's `Columns.rank`, `column`), blank 0
+in a new slot, removed from SkirmishUnit in the PR that moves them, every reader switched.
+Scattered use goes through `UnitPlace`; a pass over many units fetches the two columns
+once. This is spec 35 step 4a. The native seek, walk and facing follow as 4b to 4d, and
+the sync's glue goes in 4e.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep them on the record and enrol them again when they change | Each of the many writers must also tell the store; a missed one goes stale silently, with only the digests to catch it. |
+| Keep sending each unit's place (its anchor) from GDScript every tick | Leaves the anchors' gather, glue that step 4 is meant to remove. |
+
+**Rules over cases:** general: per-tick state lives in the store (Decision 142's rule),
+now applied to the place too. No rule of the battle changes.
+**Order:** a slot is storage only. Places are read where they were: sorts by rank then
+column keep their keys, and no loop runs in slot order. The digests and the
+reversed-lists tests prove that nothing changes.
+**Bounded:** no new loop. A read or write of one place is O(1); the native seek's and
+walk's gathers and the front-first sort fetch the two columns once.
+**Pillar check:** holds. It changes where the state lives, not what any unit does.

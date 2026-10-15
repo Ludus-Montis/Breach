@@ -44,8 +44,7 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	# it walks home straight, not fanning out as a panicked rout does (RoutFlight)
 	SquadEntries.flee(stray, unit, along, offset)
 	EntryKeys.keep(stray.store.columns, unit.slot, UnitColumns.FANNED, INF)
-	unit.rank = 0
-	unit.column = 0
+	UnitPlace.put(stray, unit, Vector2i.ZERO)
 	return stray
 
 
