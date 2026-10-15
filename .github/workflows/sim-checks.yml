@@ -2,8 +2,10 @@ name: Sim checks
 
 # The heavy simulation checks, run here rather than in an agent's session: the suite under
 # the Rust core, both engines' tick digests compared, the mirror trials fought from both
-# sides, and the scaling check. The last step prints a short summary between SUMMARY
-# markers, so the outcome can be read from the end of the log.
+# sides, and the scaling check. None needs another's output, so after the Rust core is
+# built once (`build`) they run side by side, the suite split into shards
+# (ci/godot/scripts/shard_tests.py). The `summary` job prints a short summary between
+# SUMMARY markers, so the outcome can be read from the end of its log.
 
 on:
   pull_request:
@@ -11,6 +13,7 @@ on:
 
 env:
   GODOT_VERSION: "4.7.2-stable"
+  SHARDS: 4  # keep in step with the suite's matrix below
 
 jobs:
   # Docs, specs, skills and Python-only tools don't change the simulation: the sim checks
@@ -23,32 +26,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
       - id: scope
         run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
 
-  sim-checks:
+  # The Rust core, built once and handed to every job below as an artifact.
+  build:
     needs: scope
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-
-      - name: Cache Godot binary
-        id: godot-cache
-        uses: actions/cache@v6
-        with:
-          path: /opt/godot
-          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
-
-      - name: Download Godot
-        if: steps.godot-cache.outputs.cache-hit != 'true'
-        run: |
-          curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
-          mkdir -p /opt/godot
-          unzip -q godot.zip -d /opt/godot
-          mv /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot
-          chmod +x /opt/godot/godot
 
       - name: Cache Rust build
         uses: actions/cache@v6
@@ -63,16 +52,72 @@ jobs:
       - name: Build the Rust core
         run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
 
-      - name: Import project
-        run: /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-bin
+          path: native/bin/
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Suite under the Rust core
+  suite:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin
+          path: native/bin/
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Suite under the Rust core, shard ${{ matrix.shard }}
         run: |
           BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
-            -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c --ignoreHeadlessMode \
-            2>&1 | sed 's/\x1b\[[0-9;]*m//g' > suite.log
-          grep -E "FAILED|SCRIPT ERROR|Parse Error" suite.log | head -40 || true
-          grep -E "^Overall Summary|Statistics" suite.log | tail -1
+            -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            $(python3 ci/godot/scripts/shard_tests.py "$SHARDS" ${{ matrix.shard }}) \
+            -c --ignoreHeadlessMode \
+            2>&1 | sed 's/\x1b\[[0-9;]*m//g' > suite.${{ matrix.shard }}.log
+          grep -E "FAILED|SCRIPT ERROR|Parse Error" suite.${{ matrix.shard }}.log | head -40 || true
+          grep -E "^Overall Summary|Statistics" suite.${{ matrix.shard }}.log | tail -1
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sim-suite-${{ matrix.shard }}
+          path: suite.${{ matrix.shard }}.log
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gdunit4-reports-rust-${{ matrix.shard }}
+          path: reports/
+          if-no-files-found: ignore
+
+  digests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin
+          path: native/bin/
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
 
       - name: Digests, both engines
         run: |
@@ -86,6 +131,29 @@ jobs:
           done
           (cd digests && sha256sum *.txt)
 
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sim-digests
+          path: digests/
+          retention-days: 7
+
+  trials:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin
+          path: native/bin/
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
       - name: Mirror trials, both sides
         run: |
           for scenario in mirror_headon mirror_flank; do
@@ -95,26 +163,76 @@ jobs:
             done
           done | tee trials.txt
 
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sim-trials
+          path: trials.txt
+          retention-days: 7
+
+  scaling:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin
+          path: native/bin/
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
       - name: Scaling check (Rust)
         run: |
           BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
             --script res://tools/scaling_check.gd 2>/dev/null | tee scaling.txt
 
-      - name: Summary
+      - uses: actions/upload-artifact@v7
         if: always()
+        with:
+          name: sim-scaling
+          path: scaling.txt
+          retention-days: 7
+
+  # The outcome in one place, as the single job printed it before: fails if the build
+  # failed or the two engines' digests differ (each other job fails on its own). Named as
+  # the single job was, so the check keeps its name.
+  sim-checks:
+    needs: [scope, build, suite, digests, trials, scaling]
+    if: always() && needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: sim-*
+          merge-multiple: true
+
+      - name: Summary
         run: |
           {
             echo "SUMMARY BEGIN"
-            echo "suite (rust): $(grep -cE ' FAILED' suite.log 2>/dev/null || true) failed;" \
-              "$(grep -E 'Statistics|Overall' suite.log 2>/dev/null | tail -1)"
+            echo "build: ${{ needs.build.result }}"
+            failed=0
+            for log in suite.*.log; do
+              [ -e "$log" ] || continue
+              failed=$((failed + $(grep -cE ' FAILED' "$log" || true)))
+              echo "suite (rust) shard ${log#suite.}: $(grep -E 'Statistics|Overall' "$log" | tail -1)" \
+                | sed 's/\.log:/:/'
+            done
+            echo "suite (rust): $failed failed across $(ls suite.*.log 2>/dev/null | wc -l) of $SHARDS shards"
             for set in standard clash160 wide; do
-              g=$(sha256sum digests/$set.gdscript.txt 2>/dev/null | cut -c1-16)
-              r=$(sha256sum digests/$set.rust.txt 2>/dev/null | cut -c1-16)
-              verdict=$([ -s digests/$set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
+              g=$(sha256sum $set.gdscript.txt 2>/dev/null | cut -c1-16)
+              r=$(sha256sum $set.rust.txt 2>/dev/null | cut -c1-16)
+              verdict=$([ -s $set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
               echo "digest $set: gdscript $g rust $r $verdict"
             done
             cat trials.txt 2>/dev/null
             grep -E "a side|stacks|FAILED" scaling.txt 2>/dev/null
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "${{ needs.build.result }}" = "success" ]
           ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"

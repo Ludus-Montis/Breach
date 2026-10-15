@@ -132,6 +132,11 @@ Each port made before spec 35 step 4 adds the gather, sync and write-back that t
 
 **Possibly settled by:** the user starting spec 35 step 0 next (2026-10-14), ahead of spec 34's list.
 
+### Q22. When is a GDScript reference retired, and what checks go with it?
+**Raised:** 2026-10-15, while parallelising CI (the user: "realistically we are gearing towards rust only") · **Raise when:** A design session on the unit store's later steps or on CI, or any PR that would drop a GDScript pass, the GDScript suite or the digests' GDScript half
+
+Decision 129 makes GDScript the reference: the digests compare both engines, and the parity tests (`test_unit_store.gd`'s column comparison, the field tests such as `test_walk_field.gd`) run each ported pass on both. The user asked whether a parity check can go once it is green. The answer given: not while both implementations exist and change, since parity at one commit doesn't hold for the next; a pass's parity tests go when its GDScript twin is deleted, and its digests are then recorded against Rust. Also to settle: moving the GDScript full suite and scaling check from every PR to pushes to `main` only, keeping the digests and `bench` on both engines. Each of these loosens Decision 129, so it needs a new Decision that the user authorises.
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.

@@ -1,5 +1,9 @@
 name: CI
 
+# The baseline: lint, the static checks and commit messages (`run-baseline`), the gdUnit4
+# suite on the GDScript engine split into shards (`tests`, ci/godot/scripts/shard_tests.py)
+# and the scaling check (`scaling`), side by side.
+
 on:
   pull_request:
   push:
@@ -7,8 +11,24 @@ on:
 
 env:
   GODOT_VERSION: "4.7.2-stable"
+  SHARDS: 4  # keep in step with the tests' matrix below
 
 jobs:
+  # Docs, specs, skills and Python-only tools don't need Godot: they skip the gdUnit4
+  # suite and the scaling check (ci/godot/scripts/needs_godot.py decides by the files
+  # changed). Pushes to main always run everything.
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      godot: ${{ steps.scope.outputs.godot }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: scope
+        run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
+
   run-baseline:
     runs-on: ubuntu-latest
     steps:
@@ -19,13 +39,6 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-
-      # Docs, specs, skills and Python-only tools don't need Godot: they skip the gdUnit4
-      # suite and the scaling check (ci/godot/scripts/needs_godot.py decides by the files
-      # changed). Pushes to main always run everything.
-      - name: Which checks this change needs
-        id: scope
-        run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
 
       - name: Install Python tooling
         run: pip install "gdtoolkit==4.*" pre-commit
@@ -43,39 +56,13 @@ jobs:
         run: |
           python -c "import os; from importlib.metadata import version; from gdtoolkit.parser.parser import get_cache_directory; os.makedirs(os.path.join(get_cache_directory(), 'gdtoolkit', version('gdtoolkit')), exist_ok=True)"
 
-      - name: Cache Godot binary
-        if: steps.scope.outputs.godot == 'true'
-        id: godot-cache
-        uses: actions/cache@v6
-        with:
-          path: /opt/godot
-          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
-
-      - name: Download Godot
-        if: steps.scope.outputs.godot == 'true' && steps.godot-cache.outputs.cache-hit != 'true'
-        run: |
-          curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
-          mkdir -p /opt/godot
-          unzip -q godot.zip -d /opt/godot
-          mv /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot
-          chmod +x /opt/godot/godot
-
-      - name: Import project (required once before gdUnit4's class_names resolve)
-        if: steps.scope.outputs.godot == 'true'
-        run: /opt/godot/godot --headless --path . --import
-
-      - name: Run baseline checks (gdlint, gdformat, custom scripts, tests)
+      - name: Run baseline checks (gdlint, gdformat, custom scripts)
         env:
-          GODOT_BIN: /opt/godot/godot
           # Decision 50: diff-scoped checks compare a PR with its own base branch (a
           # stacked PR's is the PR below it). Empty on pushes, which then detect it.
           BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}
-          SKIP: ${{ steps.scope.outputs.godot != 'true' && 'run-tests' || '' }}
+          SKIP: run-tests  # the suite runs in the `tests` job's shards
         run: pre-commit run --all-files --show-diff-on-failure
-
-      - name: Scaling check (bounded-scaling, principles/bounded-work.md)
-        if: steps.scope.outputs.godot == 'true'
-        run: /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd
 
       - name: Check commit messages (commit-message-conforms)
         if: github.event_name == 'pull_request'
@@ -91,10 +78,45 @@ jobs:
             bash ci/godot/scripts/check_commit_message.sh /tmp/commit-msg.txt
           done
 
+  tests:
+    needs: scope
+    if: needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Tests (gdUnit4), shard ${{ matrix.shard }}
+        run: |
+          /opt/godot/godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            $(python3 ci/godot/scripts/shard_tests.py "$SHARDS" ${{ matrix.shard }}) \
+            -c --ignoreHeadlessMode
+
       - name: Upload gdUnit4 reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: gdunit4-reports
+          name: gdunit4-reports-${{ matrix.shard }}
           path: reports/
           if-no-files-found: ignore
+
+  scaling:
+    needs: scope
+    if: needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Scaling check (bounded-scaling, principles/bounded-work.md)
+        run: /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd

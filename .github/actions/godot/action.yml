@@ -1,0 +1,31 @@
+name: Godot
+description: >-
+  The pinned headless Godot at /opt/godot/godot (cached), with the project imported so
+  gdUnit4's class_names resolve. Every job that runs Godot starts here.
+inputs:
+  version:
+    description: Godot release, e.g. 4.7.2-stable
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cache Godot binary
+      id: godot-cache
+      uses: actions/cache@v6
+      with:
+        path: /opt/godot
+        key: godot-${{ inputs.version }}-linux-x86_64
+
+    - name: Download Godot
+      if: steps.godot-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        curl -sL "https://github.com/godotengine/godot/releases/download/${{ inputs.version }}/Godot_v${{ inputs.version }}_linux.x86_64.zip" -o godot.zip
+        mkdir -p /opt/godot
+        unzip -q godot.zip -d /opt/godot
+        mv /opt/godot/Godot_v${{ inputs.version }}_linux.x86_64 /opt/godot/godot
+        chmod +x /opt/godot/godot
+
+    - name: Import project
+      shell: bash
+      run: /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true

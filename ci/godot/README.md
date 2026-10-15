@@ -55,6 +55,24 @@ CI decides by the files a PR changes, not by its commit type
   itself** (`.github/`, `.pre-commit-config.yaml`, `run_tests.sh`): everything.
 - Pushes to `main` always run everything.
 
+## How CI is laid out
+
+Every check that doesn't need another's output runs in its own job, side by side.
+
+- **`CI`** (`ci.yml`): `run-baseline` (lint, the static checks, the Python tests and
+  commit messages: pre-commit with its `run-tests` hook skipped), `tests` (the gdUnit4
+  suite on the GDScript engine, in shards) and `scaling` (the GDScript scaling check).
+- **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
+  as an artifact; then `suite` (the suite under Rust, in shards), `digests`, `trials` and
+  `scaling` run together; `sim-checks` waits for them all and prints the SUMMARY block.
+- Godot setup is one composite action, `.github/actions/godot` (cached binary, import).
+- **Shards.** `shard_tests.py <count> <index>` splits the test files into balanced groups
+  by the per-file times in `ci/godot/test_times.json`; a whole file always runs in one
+  shard, since each file is self-contained. Both workflows' `SHARDS` and their matrices
+  must agree. A new file with no recorded time counts as the median, so the times only
+  need refreshing when the shards drift apart: download a run's `gdunit4-reports-*`
+  artifacts and run `shard_tests.py --update <each results.xml>`.
+
 ## Heuristic limits (stated plainly, not hidden)
 
 - `check_id_order.py` — flags an id compared with `<`/`>`, arithmetic on an id, an id
