@@ -113,7 +113,7 @@ func _engine_ctx(ctx: Dictionary, sim: Sim, engine: String) -> Dictionary:
 	if engine == NativeKernels.RUST:
 		out["field"] = sim._field
 		var synced := BodyFieldSync.scrum(sim._field, ctx["squads"], ctx["seed"])
-		out["seek_batch"] = ScrumSeekField._gather(synced[0], synced[1], ctx["squads"])
+		out["seek_batch"] = ScrumSeekField.gathered(synced[0], synced[1], ctx["squads"])
 	return out
 
 

@@ -180,7 +180,7 @@ func test_the_facing_on_the_field_turns_any_bearing_to_any_look_as_gdscript_does
 		UnitPlaces.onto(field, squads)
 		var synced := BodyFieldSync.scrum(field, squads, ctx["seed"])
 		ctx["field"] = field
-		ctx["seek_batch"] = ScrumSeekField._gather(synced[0], synced[1], squads)
+		ctx["seek_batch"] = ScrumSeekField.gathered(synced[0], synced[1], squads)
 		FormationScrum.face(fighting, ctx)
 		assert_array(Array(var_to_bytes(_bearings(squads)))).is_equal(
 			Array(var_to_bytes(reference))

@@ -36,7 +36,7 @@ pub struct Params {
     pub block: f64,
 }
 
-/// The fighting squads' units, as the slot search's call had them (BodyField.plan), with
+/// The fighting squads' units, as the slot search's call had them (BodyField.seek), with
 /// what it made of each and what their walk needs. Where each stands is the field's, as
 /// that call's sync left it: nothing moves between it and the walk.
 pub struct WalkIn<'a> {

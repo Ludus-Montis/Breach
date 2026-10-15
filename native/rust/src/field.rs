@@ -65,6 +65,9 @@ pub struct Enrol<'a> {
     pub areas: &'a [f64],
     pub draws: &'a [i64],
     pub initiatives: &'a [i64],
+    /// Its record (spec 35 step 4b), 3 per unit: preferred position, footprint width and
+    /// depth. Empty: unchanged.
+    pub records: &'a [i64],
 }
 
 #[derive(Default)]
@@ -79,6 +82,11 @@ pub struct Field {
     pub area: Vec<f64>,
     pub draw: Vec<i64>,
     pub initiative: Vec<i64>,
+    /// The unit's record, which never changes (spec 35 step 4b): its preferred band
+    /// (UnitDef.Position, 0 the front) and its footprint's width and depth in cells.
+    pub preferred: Vec<i64>,
+    pub foot_width: Vec<i64>,
+    pub foot_depth: Vec<i64>,
     seen: Vec<u32>,
     enrolled: Vec<bool>,
     // Where each body stands and how, as of the last sync (or a pass that moved it).
@@ -123,6 +131,11 @@ impl Field {
     /// Units the store holds.
     pub fn held_count(&self) -> usize {
         self.held.len()
+    }
+
+    /// The field's index of the squad with this id, if a sync named it.
+    pub fn squad_index(&self, squad_id: i64) -> Option<u32> {
+        self.by_squad.get(&squad_id).copied()
     }
 
     /// The store's slot of a unit, if it holds it.
@@ -210,6 +223,11 @@ impl Field {
             self.area[b] = input.areas[k];
             self.draw[b] = input.draws[k];
             self.initiative[b] = input.initiatives[k];
+            if !input.records.is_empty() {
+                self.preferred[b] = input.records[3 * k];
+                self.foot_width[b] = input.records[3 * k + 1];
+                self.foot_depth[b] = input.records[3 * k + 2];
+            }
             if !self.enrolled[b] {
                 self.enrolled[b] = true;
                 let draw = self.draw[b];
@@ -288,6 +306,9 @@ impl Field {
         self.area.push(0.0);
         self.draw.push(0);
         self.initiative.push(0);
+        self.preferred.push(0);
+        self.foot_width.push(1);
+        self.foot_depth.push(1);
         self.seen.push(0);
         self.enrolled.push(false);
         self.holding.push(false);

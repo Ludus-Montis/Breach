@@ -43,6 +43,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   on the field, so `BodyFieldSync` keeps only enrolling.
 - **Step 4a, rank and column: built** (2026-10-15), both backends in one PR. See "Built"
   below.
+- **Step 4b, the seek on the store: built** (2026-10-15), stacked on 4a's PR (the user).
+  See "Built" below.
 
 ## The store
 
@@ -451,6 +453,34 @@ but read from the store instead of a sync. The glue is gone at step 4.
   `UnitPlaces` (tests) has `set_place`, which enrols a hand-built unit first. The two
   crowds in `test_scrum_trade_turns.gd` share unit ids, so each now has its own store.
   `columns.rs`: the blank and the names.
+
+### Step 4b, the seek on the store
+
+- **`BodyField.seek` replaces `plan`.** GDScript sends only what its rules say of each
+  fighting squad (`ScrumSeekField._say`): its foes, whether its units may seek (not ordered
+  to retreat), its frame (heading, width, centre shift, anchor: `ScrumStance.frame`'s
+  inputs) and its chasers' ids. It also sends each synced unit's speed, which stays sent
+  until step 6. The field gathers the core's input itself (`seeking.rs`): each fighting
+  squad's living members in list order, chasers left out; who may seek, from the front
+  band and footprint; each unit's place, `SquadFrame.place_in` from the store's rank and
+  column in GDScript's precision; and its goal from the columns. It then writes the
+  outcome into the loose entry's columns (touch, goal, next, foe_at and their key bits),
+  as `ScrumSeekField._write_back` did, and returns which squads are active.
+- **The unit's record is enrolled once.** `BodyField.enrol` also takes each new unit's
+  preferred band and footprint width and depth (`Field.preferred`, `foot_width`,
+  `foot_depth`). None of these changes during a battle: only `FormationUnits.make` sets
+  them.
+- **The walk and the facing still take a batch from GDScript** (`ScrumSeekField.Batch`),
+  rebuilt from `seek`'s answer: the planned squads, their units' flat indices, the codes,
+  nexts and foe_ats. 4c and 4d move those onto the field. `ScrumSeekField.gathered` builds
+  the same batch without planning, for the facing's test and bench.
+- **A squad the sync named no living unit of is left out**, as GDScript's walk over the
+  synced units never met it.
+- `tick_phases` books the seek's last part as "the walk's batch", where it was "write back".
+- **Tests.** `test_body_field.gd`: a synced unit's record is on the field (new, red on the
+  library built before this step). The seek parity tests (the native seek against
+  GDScript's at four moments of a scrum, and in reversed list order) run unchanged
+  through the new path.
 
 ## Open, for the implementing session to settle and record here
 

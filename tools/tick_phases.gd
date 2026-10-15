@@ -226,7 +226,7 @@ func _seek(ctx: Dictionary) -> void:
 		"scrum: seek: gather the rules' say": spent[1] - before[1],
 		"scrum: seek: the core's work": core,
 		"scrum: seek: the call, less the core": spent[2] - before[2] - core,
-		"scrum: seek: write back": spent[4] - before[4],
+		"scrum: seek: the walk's batch": spent[4] - before[4],
 	}
 	for part in parts:
 		if parts[part] > 0:
