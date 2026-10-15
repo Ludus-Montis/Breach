@@ -5,6 +5,13 @@ name: Bench
 # `base` names another branch or commit - the same on it, on the same runner, so the two
 # compare like for like. The last step prints both between SUMMARY markers. GitHub's
 # runners are slower than a desktop: read the comparison, not the absolute times.
+#
+# One run each can't tell a 5% change from the swing any change of code brings (an A/A run
+# repeats to within 1%, two commits move phases neither touched by 5 to 20%: spec 35
+# step 5b). With `rounds` above 1 and a base, the two run in turn - head first in odd rounds,
+# base first in even ones, so a drift on the runner falls on both - and the summary is each
+# phase's medians, change and ranges (ci/godot/scripts/bench_compare.py), `*` where the
+# ranges don't overlap, then round 1's raw output.
 
 on:
   workflow_dispatch:
@@ -18,6 +25,9 @@ on:
       base:
         description: "Branch or commit to compare against (empty: none)"
         default: ""
+      rounds:
+        description: "Runs of each, head and base in turn (1 to 20; 5 or more to judge a few %)"
+        default: "1"
 
 env:
   GODOT_VERSION: "4.7.2-stable"
@@ -68,16 +78,31 @@ jobs:
           TOOL: ${{ inputs.tool }}
           ARGS: ${{ inputs.args }}
           BASE: ${{ inputs.base }}
+          ROUNDS: ${{ inputs.rounds }}
         run: |
-          run_in() {
+          case "$ROUNDS" in ''|*[!0-9]*) echo "rounds must be a whole number"; exit 1;; esac
+          if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "rounds: 1 to 20"; exit 1; fi
+          prepare() {
             (cd "$1" \
               && JOBS=4 bash native/build.sh release > /dev/null 2>&1 \
-              && /opt/godot/godot --headless --path . --import > /dev/null 2>&1; \
-              /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
+              && /opt/godot/godot --headless --path . --import > /dev/null 2>&1)
+          }
+          time_in() {
+            (cd "$1" \
+              && /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
                 2>/dev/null | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)')
           }
-          run_in . > head.txt
-          if [ -n "$BASE" ]; then run_in base > base.txt; fi
+          prepare . || true  # as before: time what was built, even if import complains
+          if [ -n "$BASE" ]; then prepare base || true; fi
+          for round in $(seq 1 "$ROUNDS"); do
+            if [ -z "$BASE" ]; then
+              time_in . > "head_$round.txt"
+            elif [ $((round % 2)) -eq 1 ]; then
+              time_in . > "head_$round.txt"; time_in base > "base_$round.txt"
+            else
+              time_in base > "base_$round.txt"; time_in . > "head_$round.txt"
+            fi
+          done
 
       - name: Summary
         if: always()
@@ -85,15 +110,24 @@ jobs:
           TOOL: ${{ inputs.tool }}
           ARGS: ${{ inputs.args }}
           BASE: ${{ inputs.base }}
+          ROUNDS: ${{ inputs.rounds }}
           HEAD_NAME: ${{ github.ref_name }}
         run: |
           {
             echo "SUMMARY BEGIN"
             echo "== $HEAD_NAME ($(git rev-parse --short HEAD)): $TOOL $ARGS"
-            cat head.txt 2>/dev/null
             if [ -n "$BASE" ]; then
               echo "== base $BASE ($(git -C base rev-parse --short HEAD 2>/dev/null))"
-              cat base.txt 2>/dev/null
+            fi
+            if [ -n "$BASE" ] && [ "$ROUNDS" -gt 1 ] 2>/dev/null; then
+              heads=$(ls head_*.txt | sort -V); bases=$(ls base_*.txt | sort -V)
+              python3 ci/godot/scripts/bench_compare.py --head $heads --base $bases
+              echo "== round 1, $HEAD_NAME"
+            fi
+            cat head_1.txt 2>/dev/null
+            if [ -n "$BASE" ]; then
+              echo "== round 1, base $BASE"
+              cat base_1.txt 2>/dev/null
             fi
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
