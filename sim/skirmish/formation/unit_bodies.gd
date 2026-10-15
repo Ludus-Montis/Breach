@@ -33,6 +33,7 @@ const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const BodyParting = preload("res://sim/skirmish/formation/body_parting.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## Cells a bucket of the pair search spans: at least the widest body.
 const BUCKET := 2.0
@@ -54,7 +55,7 @@ static func at(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 		return FormationRout.where(squad, unit.id)
 	if squad.loose.has(unit.id):
 		return squad.loose[unit.id]["at"]
-	return unit.position
+	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
 
 
 ## Pushes apart every pair of bodies that overlap: in GDScript (the reference) or, when the
@@ -210,7 +211,7 @@ static func _move(body: Array, push: Vector2, loosens: bool) -> void:
 		return
 	if not loosens and not squad.loose.has(unit.id):
 		# placement: parting clears an overlap (Decision 139)
-		unit.position = body[2] + push
+		squad.store.columns.put(unit.slot, UnitColumns.POSITION, body[2] + push)
 		return
 	if not squad.loose.has(unit.id):
 		squad.loose[unit.id] = {"unit": unit, "at": body[2], "goal": null, "next": body[2]}

@@ -9,6 +9,13 @@ const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
@@ -25,9 +32,11 @@ func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
 func _held_in_front(front_kind: UnitDef, rear_kind: UnitDef) -> Array:
 	var front := _unit(1, 0, front_kind)
 	var rear := _unit(2, 1, rear_kind)
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, [front, rear] as Array[SkirmishUnit])
-	front.position = ScrumStance.anchor(squad, front)
-	var at := front.position + (front.position - ScrumStance.anchor(squad, rear))
+	var squad := SkirmishSquad.new(
+		1, "player", 1, 0.0, 1, [front, rear] as Array[SkirmishUnit], null, _places.store
+	)
+	_places.stand(front, ScrumStance.anchor(squad, front))
+	var at := _places.at(front) + (_places.at(front) - ScrumStance.anchor(squad, rear))
 	squad.loose[rear.id] = {"unit": rear, "at": at, "goal": null, "next": at}
 	squad.loose[rear.id]["stuck"] = BattleTuning.current().scrum_trade_seconds
 	return [squad, front, rear]
@@ -51,7 +60,7 @@ func test_a_unit_with_no_like_friend_takes_its_own_place() -> void:
 
 	assert_int(setup[2].rank).is_equal(1)
 	assert_bool(setup[0].loose.has(setup[2].id)).is_false()
-	assert_vector(setup[2].position).is_equal(ScrumStance.anchor(setup[0], setup[2]))
+	assert_vector(_places.at(setup[2])).is_equal(ScrumStance.anchor(setup[0], setup[2]))
 
 
 func test_a_unit_not_yet_held_long_enough_does_not_trade() -> void:

@@ -57,12 +57,13 @@ static func margin(striker: SkirmishUnit, ranged: bool, shift: float, roll: floa
 	return skill + shift + (roll - 0.5) * BattleTuning.current().blow_die
 
 
-## The side of the target a blow from `from` falls on: its front unless `flank` (from
-## outside its front); then its rear if within the rear arc of straight behind it.
-static func side(target: SkirmishUnit, from: Vector2, flank: bool) -> int:
+## The side of the target standing at `at` a blow from `from` falls on: its front unless
+## `flank` (from outside its front); then its rear if within the rear arc of straight
+## behind it.
+static func side(target: SkirmishUnit, at: Vector2, from: Vector2, flank: bool) -> int:
 	if not flank:
 		return Side.FRONT
-	var away := from - target.position
+	var away := from - at
 	if away.length() < 0.000001:
 		return Side.FLANK
 	var behind := DetMath.cos(deg_to_rad(BattleTuning.current().blow_rear_arc_degrees))
@@ -70,6 +71,6 @@ static func side(target: SkirmishUnit, from: Vector2, flank: bool) -> int:
 	return Side.REAR if facing <= -behind + 0.000001 else Side.FLANK
 
 
-## Whether a shot from `from` comes from outside the target's front.
-static func from_flank(target: SkirmishUnit, from: Vector2) -> bool:
-	return not ScrumReach.in_front(target.bearing, target.position, from)
+## Whether a shot from `from` comes from outside the front of the target standing at `at`.
+static func from_flank(target: SkirmishUnit, at: Vector2, from: Vector2) -> bool:
+	return not ScrumReach.in_front(target.bearing, at, from)

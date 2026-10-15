@@ -13,11 +13,14 @@ const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd"
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const PlaceOrder = preload("res://sim/skirmish/formation/place_order.gd")
+const UnitStoreGd = preload("res://sim/skirmish/formation/unit_store_gd.gd")
 
 ## Tiles between one rank and the next: one cell (Decisions 48 and 68).
 const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
 
 var id: int
+## The battle's unit store (spec 35): its units' per-tick state, by their slots.
+var store: UnitStore
 var faction_id: String
 ## Which way the squad's front points along its route: +1 up it, -1 down it. An
 ## about-face flips it.
@@ -145,8 +148,10 @@ func _init(
 	home: float,
 	formation_width: int,
 	members: Array[SkirmishUnit] = [],
-	orders: FormationCommand = null
+	orders: FormationCommand = null,
+	unit_store: UnitStore = null
 ) -> void:
+	store = unit_store if unit_store != null else UnitStoreGd.new()  # alone: its own
 	command = orders if orders != null else FormationCommand.new(home)
 	id = squad_id
 	faction_id = faction
@@ -156,6 +161,7 @@ func _init(
 	front_distance = home
 	width = maxi(formation_width, 1)
 	for unit in members:
+		unit.slot = store.enrol(unit.id)
 		FormationCommand.enlist(self, unit)
 
 

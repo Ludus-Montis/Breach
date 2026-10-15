@@ -5,13 +5,20 @@ extends GdUnitTestSuite
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, at: Vector2, size: int = 1) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.hp = 10
-	unit.position = at
+	_places.stand(unit, at)
 	unit.footprint_width = size
 	unit.footprint_depth = size
 	return unit
@@ -20,10 +27,10 @@ func _unit(unit_id: int, at: Vector2, size: int = 1) -> SkirmishUnit:
 ## A one-unit squad at the origin marching east, and the lying body given.
 func _march(body: SkirmishUnit) -> float:
 	var walker: Array[SkirmishUnit] = [_unit(1, Vector2.ZERO)]
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, walker)
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, walker, null, _places.store)
 	squad.heading = 90.0
 	var fallen: Array[SkirmishUnit] = [body]
-	var theirs := SkirmishSquad.new(2, "the_kingdom", -1, 0.0, 1, fallen)
+	var theirs := SkirmishSquad.new(2, "the_kingdom", -1, 0.0, 1, fallen, null, _places.store)
 	return GroundBodies.drag(squad, GroundBodies.ground([squad, theirs]))
 
 

@@ -17,6 +17,7 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const PACE := 8.0  # cells a second at speed 1 (FormationSimulation.TRAVEL_SCALE)
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _line(sim: FormationSimulation, count: int) -> SkirmishSquad:
@@ -33,7 +34,7 @@ func test_a_placed_squad_stands_on_its_places() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 3)
 	for unit in squad.units:
-		assert_vector(unit.position).is_equal(FormationWalk.place_of(squad, unit))
+		assert_vector(UnitPlaces.of(squad, unit)).is_equal(FormationWalk.place_of(squad, unit))
 
 
 func test_a_unit_pushed_off_its_place_walks_back_at_its_pace() -> void:
@@ -41,13 +42,17 @@ func test_a_unit_pushed_off_its_place_walks_back_at_its_pace() -> void:
 	var squad := _line(sim, 3)
 	var unit: SkirmishUnit = squad.units[0]
 	var place := FormationWalk.place_of(squad, unit)
-	unit.position = place - UnitMotion.vector(squad.heading) * 3.0  # pushed 3 cells back
+	UnitPlaces.put(squad, unit, place - UnitMotion.vector(squad.heading) * 3.0)  # pushed 3 cells back
 
 	FormationWalk.walk(squad, unit, place, [0.1, PACE])
 
-	var stepped := unit.speed * PACE * 0.1 * UnitMotion.pace(unit, place - unit.position)
-	assert_float(unit.position.distance_to(place)).is_less(3.0)
-	assert_float(3.0 - unit.position.distance_to(place)).is_less_equal(stepped + 0.0001)
+	var stepped := (
+		unit.speed * PACE * 0.1 * UnitMotion.pace(unit, place - UnitPlaces.of(squad, unit))
+	)
+	assert_float(UnitPlaces.of(squad, unit).distance_to(place)).is_less(3.0)
+	assert_float(3.0 - UnitPlaces.of(squad, unit).distance_to(place)).is_less_equal(
+		stepped + 0.0001
+	)
 
 
 func test_far_from_its_place_it_faces_its_way_and_near_it_its_formations() -> void:
@@ -56,16 +61,16 @@ func test_far_from_its_place_it_faces_its_way_and_near_it_its_formations() -> vo
 	var unit: SkirmishUnit = squad.units[0]
 	var place := FormationWalk.place_of(squad, unit)
 	var across := UnitMotion.vector(squad.heading).orthogonal()
-	unit.position = place + across * 6.0
+	UnitPlaces.put(squad, unit, place + across * 6.0)
 	for _tick in 10:
 		FormationWalk.walk(squad, unit, place, [0.1, PACE])
-	var walking_way := UnitMotion.bearing_to(unit.position, place, unit.bearing)
+	var walking_way := UnitMotion.bearing_to(UnitPlaces.of(squad, unit), place, unit.bearing)
 	var off := absf(angle_difference(deg_to_rad(unit.bearing), deg_to_rad(walking_way)))
 	assert_float(off).is_less(0.01)
 
 	for _tick in 40:
 		FormationWalk.walk(squad, unit, place, [0.1, PACE])
-	assert_vector(unit.position).is_equal_approx(place, Vector2(0.001, 0.001))
+	assert_vector(UnitPlaces.of(squad, unit)).is_equal_approx(place, Vector2(0.001, 0.001))
 	assert_float(unit.bearing).is_equal_approx(squad.heading, 0.01)
 
 
@@ -77,9 +82,9 @@ func test_the_frame_waits_while_a_unit_lags_beyond_its_slack() -> void:
 	var back := -UnitMotion.vector(squad.heading)
 	var slack := FormationWalk.slack_of(squad)
 
-	unit.position = place + back * (slack * 0.9)
+	UnitPlaces.put(squad, unit, place + back * (slack * 0.9))
 	assert_bool(FormationWalk.waits(squad)).is_false()
-	unit.position = place + back * (slack + 0.5)
+	UnitPlaces.put(squad, unit, place + back * (slack + 0.5))
 	assert_bool(FormationWalk.waits(squad)).is_true()
 
 
@@ -102,9 +107,8 @@ func test_a_unit_fallen_far_behind_is_waited_for_only_if_no_man_is_left_behind()
 	var squad := _line(sim, 2)
 	var unit: SkirmishUnit = squad.units[0]
 	var place := FormationWalk.place_of(squad, unit)
-	unit.position = (
-		place - UnitMotion.vector(squad.heading) * (BattleTuning.current().walk_lost + 1)
-	)
+	var lost := BattleTuning.current().walk_lost + 1
+	UnitPlaces.put(squad, unit, place - UnitMotion.vector(squad.heading) * lost)
 
 	assert_bool(FormationWalk.waits(squad)).is_false()
 	for each in squad.units:
@@ -116,7 +120,7 @@ func test_fall_behind_left_behind_never_waits() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 2)
 	var unit: SkirmishUnit = squad.units[0]
-	unit.position = FormationWalk.place_of(squad, unit) + Vector2(0, 3)
+	UnitPlaces.put(squad, unit, FormationWalk.place_of(squad, unit) + Vector2(0, 3))
 	unit.leadership = 1
 	unit.traits["fall_behind_left_behind"] = 1
 
@@ -132,7 +136,7 @@ func test_a_marching_line_keeps_its_units_on_their_places() -> void:
 		sim.step()
 	assert_float(squad.front_distance).is_greater(start)
 	for unit in squad.units:
-		var lag := unit.position.distance_to(FormationWalk.place_of(squad, unit))
+		var lag := UnitPlaces.of(squad, unit).distance_to(FormationWalk.place_of(squad, unit))
 		assert_float(lag).is_less_equal(FormationWalk.slack_of(squad))
 
 
@@ -160,9 +164,14 @@ func test_a_unit_barred_straight_ahead_slides_along_the_bank() -> void:
 	terrain.paint(Rect2i(10, 0, 4, 10), {"depth": 3.0})  # a pool, open to its south
 	var squad := _line(sim, 1)
 	var unit: SkirmishUnit = squad.units[0]
-	unit.position = Vector2(9.5, 9.5)
+	UnitPlaces.put(squad, unit, Vector2(9.5, 9.5))
 	var goal := Vector2(11.5, 10.5)  # diagonally past the pool's corner
-	var before := unit.position
+	var before := UnitPlaces.of(squad, unit)
 	FormationWalk.walk(squad, unit, goal, [0.1, 8.0], terrain)
-	assert_bool(unit.position != before).is_true()
-	assert_float(terrain.factor(unit.height, unit.position, unit.position)).is_greater(0.0)
+	assert_bool(UnitPlaces.of(squad, unit) != before).is_true()
+	(
+		assert_float(
+			terrain.factor(unit.height, UnitPlaces.of(squad, unit), UnitPlaces.of(squad, unit))
+		)
+		. is_greater(0.0)
+	)

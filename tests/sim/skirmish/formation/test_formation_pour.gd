@@ -20,6 +20,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const SEED := 841592
 const GREM := "res://content/units/grem.tres"
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func after_test() -> void:
@@ -89,8 +90,9 @@ func _framed_crowd() -> Array:
 	for column in 3:
 		placements.append([grem, Vector2i(0, column)])
 	var squad := sim.spawn_squad(3, placements, "player", true)
-	squad.units[1].position = squad.units[0].position
-	squad.units[2].position = squad.units[0].position + Vector2(0.0, 0.5)
+	var first := UnitPlaces.of(squad, squad.units[0])
+	UnitPlaces.put(squad, squad.units[1], first)
+	UnitPlaces.put(squad, squad.units[2], first + Vector2(0.0, 0.5))
 	return [squad]
 
 
@@ -102,7 +104,7 @@ func test_two_framed_bodies_on_each_other_part_and_keep_to_their_frame() -> void
 	for i in units.size():
 		assert_bool(squad.loose.has(units[i].id)).is_false()  # still in its frame
 		for j in range(i + 1, units.size()):
-			var apart := units[i].position.distance_to(units[j].position)
+			var apart := UnitPlaces.of(squad, units[i]).distance_to(UnitPlaces.of(squad, units[j]))
 			assert_float(apart).is_greater(0.5)
 
 
@@ -116,6 +118,6 @@ func test_framed_bodies_part_alike_under_either_engine() -> void:
 	var native := _framed_crowd()
 	UnitBodies.step(native, SEED)
 	for index in 3:
-		var want: Vector2 = reference[0].units[index].position
-		assert_vector(native[0].units[index].position).is_equal(want)
+		var want: Vector2 = UnitPlaces.of(reference[0], reference[0].units[index])
+		assert_vector(UnitPlaces.of(native[0], native[0].units[index])).is_equal(want)
 		assert_bool(native[0].loose.has(native[0].units[index].id)).is_false()

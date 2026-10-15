@@ -12,6 +12,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int = 400) -> UnitDef:
@@ -36,7 +37,7 @@ func _state(squads: Array) -> String:
 	for squad in squads:
 		var units := []
 		for unit in squad.units:
-			var at: Vector2 = unit.position.snapped(Vector2(0.0001, 0.0001))
+			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
 			units.append([unit.id, unit.hp, unit.rank, unit.column, at, unit.bearing])
 		units.sort()
 		var flanks := {}

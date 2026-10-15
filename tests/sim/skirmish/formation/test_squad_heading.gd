@@ -10,6 +10,13 @@ const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _squad(squad_id: int, at: Vector2, heading: float, width := 2, ranks := 1) -> SkirmishSquad:
@@ -24,7 +31,7 @@ func _squad(squad_id: int, at: Vector2, heading: float, width := 2, ranks := 1) 
 			unit.footprint_width = 1
 			unit.hp = 10
 			members.append(unit)
-	var squad := SkirmishSquad.new(squad_id, "player", 1, 0.0, width, members)
+	var squad := SkirmishSquad.new(squad_id, "player", 1, 0.0, width, members, null, _places.store)
 	squad.position = at
 	squad.heading = heading
 	return squad

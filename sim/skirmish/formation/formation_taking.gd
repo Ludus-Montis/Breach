@@ -20,6 +20,7 @@ const FormationEvents = preload("res://sim/skirmish/formation/formation_events.g
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const AT_EASE := [
 	SkirmishSquad.State.MOVING, SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED
@@ -90,13 +91,14 @@ static func _send(
 	for body in squad.taking.values():
 		claimed[body] = true
 	var pairs := []
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id) or squad.taking.has(unit.id):
 			continue
 		for body in downed:
 			if body.faction_id == unit.faction_id or claimed.has(body):
 				continue
-			var gap: float = unit.position.distance_to(body.position)
+			var gap: float = at[unit.slot].distance_to(at[body.slot])
 			if gap <= reach and gap <= unit.detection:
 				var draws := [
 					ScrumContest.draw(unit, fight_seed), ScrumContest.draw(body, fight_seed)

@@ -10,6 +10,13 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
@@ -31,11 +38,11 @@ func _crowd(seed_value: int, kind: UnitDef) -> SkirmishSquad:
 		var unit := _unit(index + 1, index / 4, kind)
 		unit.column = index % 4
 		members.append(unit)
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 4, members)
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 4, members, null, _places.store)
 	for unit in members:
-		unit.position = ScrumStance.anchor(squad, unit)
+		_places.stand(unit, ScrumStance.anchor(squad, unit))
 		if rng.randf() < 0.5:
-			var at := unit.position + Vector2(rng.randf_range(-5, 5), rng.randf_range(-5, 5))
+			var at := _places.at(unit) + Vector2(rng.randf_range(-5, 5), rng.randf_range(-5, 5))
 			squad.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
 			squad.loose[unit.id]["stuck"] = BattleTuning.current().scrum_trade_seconds
 	return squad
@@ -85,4 +92,4 @@ func _trade_looking_at_every_friend(squad: SkirmishSquad, fight_seed: int) -> vo
 		best.rank = place.x
 		best.column = place.y
 		if not squad.loose.has(best.id):
-			squad.loose[best.id] = {"unit": best, "at": best.position, "goal": null}
+			squad.loose[best.id] = {"unit": best, "at": _places.at(best), "goal": null}

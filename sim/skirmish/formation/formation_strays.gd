@@ -10,6 +10,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## A new routing squad (id 0, for the simulation to number) of `unit` alone, taken out of
@@ -21,15 +22,23 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	squad.chasers.erase(unit.id)
 	var members: Array[SkirmishUnit] = [unit]
 	var stray := SkirmishSquad.new(
-		0, squad.faction_id, squad.direction, squad.home_distance, 1, members, squad.command
+		0,
+		squad.faction_id,
+		squad.direction,
+		squad.home_distance,
+		1,
+		members,
+		squad.command,
+		squad.store
 	)
 	stray.route = squad.route
-	var along: float = squad.route.distance_of(unit.position)
+	var at: Vector2 = squad.store.columns.value(unit.slot, UnitColumns.POSITION)
+	var along: float = squad.route.distance_of(at)
 	stray.front_distance = along / MapLayoutDef.CELLS_PER_TILE
 	stray.heading = squad.heading
 	stray.state = SkirmishSquad.State.ROUTING
 	stray.morale = 0
-	var offset: Vector2 = unit.position - squad.route.point_at(along)
+	var offset: Vector2 = at - squad.route.point_at(along)
 	# it walks home straight, not fanning out as a panicked rout does (RoutFlight)
 	stray.fleeing[unit.id] = {"along": along, "offset": offset, "fanned": INF}
 	unit.rank = 0

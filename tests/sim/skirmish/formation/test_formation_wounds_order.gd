@@ -14,6 +14,13 @@ const BattleTrials = preload("res://sim/skirmish/formation/battle_trials.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, at: Vector2, faction: String = "player") -> SkirmishUnit:
@@ -24,7 +31,7 @@ func _unit(unit_id: int, at: Vector2, faction: String = "player") -> SkirmishUni
 	unit.max_hp = 10
 	unit.speed = 1.0
 	unit.fresh_speed = 1.0
-	unit.position = at
+	_places.stand(unit, at)
 	unit.attributes = {"constitution": 10, "strength": 10}
 	return unit
 
@@ -32,7 +39,9 @@ func _unit(unit_id: int, at: Vector2, faction: String = "player") -> SkirmishUni
 func _squad(squad_id: int, members: Array, tends: String = "") -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	var squad := SkirmishSquad.new(squad_id, "player", 1, 0.0, members.size(), typed)
+	var squad := SkirmishSquad.new(
+		squad_id, "player", 1, 0.0, members.size(), typed, null, _places.store
+	)
 	squad.route = FormationRoute.straight(64.0)
 	squad.tends = tends
 	return squad
@@ -57,7 +66,7 @@ func _state(squads: Array) -> String:
 	var rows := []
 	for squad in squads:
 		for unit in squad.units:
-			var at: Vector2 = unit.position.snapped(Vector2(0.0001, 0.0001))
+			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
 			var wounds := [unit.wounded, snappedf(unit.wake_left, 0.0001), unit.playing_dead]
 			var borne := [unit.carrying, unit.carried_by, snappedf(unit.stamina, 0.0001)]
 			rows.append([unit.id, squad.id, unit.hp, unit.state, unit.rank, at, wounds, borne])

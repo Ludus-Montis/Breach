@@ -15,6 +15,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## A body's flags, as the field reads them.
 const LOOSE := 1
@@ -43,6 +44,7 @@ class Batch:
 ## Syncs the field to the scrum's snapshot; returns [units, their squads] by flat index.
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
+	var at := _positions(squads)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -53,7 +55,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			batch.points.append(unit.position if entry == null else entry["at"])
+			batch.points.append(at[unit.slot] if entry == null else entry["at"])
 			batch.flags.append(0 if entry == null else LOOSE)
 			batch.bearings.append(unit.bearing)
 		_squad(batch, squad, batch.units.size() - before)
@@ -63,6 +65,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 ## Syncs the field to the bodies as UnitBodies sees them; returns [units, their squads].
 static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
+	var at := _positions(squads)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -82,12 +85,19 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 				batch.bases.append(FormationRout.route_point(squad, unit.id))
 				flag |= FLEEING
 			else:
-				batch.points.append(unit.position if entry == null else entry["at"])
+				batch.points.append(at[unit.slot] if entry == null else entry["at"])
 				batch.nexts.append(Vector2.ZERO if entry == null else entry["next"])
 				batch.bases.append(Vector2.ZERO)
 			batch.flags.append(flag)
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
+
+
+## Where the battle's units stand, by slot (the store's column); empty with no squads.
+static func _positions(squads: Array) -> PackedVector2Array:
+	if squads.is_empty():
+		return PackedVector2Array()
+	return squads[0].store.columns.column(UnitColumns.POSITION)
 
 
 static func _squad(batch: Batch, squad: SkirmishSquad, count: int) -> void:

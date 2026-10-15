@@ -12,7 +12,12 @@ func _init(field: Object) -> void:
 
 
 func enrol(unit_id: int) -> int:
-	return _field.hold(unit_id)
+	var held: int = _field.slot_of(unit_id)
+	if held >= 0:
+		return held
+	var slot: int = _field.hold(unit_id)
+	columns.open(slot)
+	return slot
 
 
 func drop(unit_id: int) -> void:

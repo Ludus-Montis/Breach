@@ -12,7 +12,7 @@ extends RefCounted
 ## - it recovers none on a face or in deep water (FormationStamina reads `on_face`);
 ## - spent on a face, it falls to the last place it stood, hurt by the height it had
 ##   climbed - fall_damage_per_cell a cell, times its footprint area to fall_mass_power.
-## Pure over the unit and the ground.
+## Pure over the unit, where it stands (`columns`, the store's) and the ground.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
@@ -20,6 +20,7 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const ModeStamina = preload("res://sim/skirmish/formation/mode_stamina.gd")
 const ClimbStamina = preload("res://sim/skirmish/formation/climb_stamina.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 
@@ -39,49 +40,54 @@ static func may_step(unit, from: Vector2, to: Vector2, terrain: FormationTerrain
 ## A tick of `seconds` on a climb face for `unit`, `cells_per_second` its pace on open
 ## ground: true while it is climbing (it moves no further this tick). Returns false once
 ## it is up, or if it has fallen.
-static func climb(unit, terrain: FormationTerrain, seconds: float, cells_per_second: float) -> bool:
+static func climb(
+	unit, columns: UnitColumns, terrain: FormationTerrain, seconds: float, cells_per_second: float
+) -> bool:
 	if terrain == null or unit.climb_left <= EPSILON:
 		return false
-	var share := terrain.factor(unit, unit.foothold, unit.position)
+	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
+	var share := terrain.factor(unit, unit.foothold, at)
 	unit.climb_left -= share * cells_per_second * seconds
 	unit.stamina = maxf(0.0, unit.stamina - ModeStamina.rate(TerrainWalker.Mode.CLIMBING) * seconds)
 	unit.on_face = unit.climb_left > EPSILON
 	if unit.on_face and unit.stamina <= 0.0:
-		_fall(unit, terrain)
+		_fall(unit, columns, terrain)
 		return false
 	return unit.on_face
 
 
 ## After `unit` stepped from `from` for `seconds`: begins a climb it stepped onto, charges
 ## a swim's stamina, and notes where it can stand.
-static func after_step(unit, from: Vector2, terrain: FormationTerrain, seconds: float) -> void:
+static func after_step(
+	unit, columns: UnitColumns, from: Vector2, terrain: FormationTerrain, seconds: float
+) -> void:
 	if terrain == null:
 		return
+	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var walker := TerrainWalker.of_unit(unit)
-	var mode := terrain.mode(walker, unit.foothold, unit.position)
+	var mode := terrain.mode(walker, unit.foothold, at)
 	if mode == TerrainWalker.Mode.CLIMBING:
-		unit.climb_left = ClimbStamina.drop(terrain, unit.foothold, unit.position)
+		unit.climb_left = ClimbStamina.drop(terrain, unit.foothold, at)
 		unit.on_face = true
 		return
-	var here := terrain.mode(walker, unit.position, unit.position)
-	if here == TerrainWalker.Mode.SWIMMING and from.distance_to(unit.position) > EPSILON:
+	var here := terrain.mode(walker, at, at)
+	if here == TerrainWalker.Mode.SWIMMING and from.distance_to(at) > EPSILON:
 		unit.stamina = maxf(0.0, unit.stamina - ModeStamina.rate(here) * seconds)
 	unit.on_face = here == TerrainWalker.Mode.SWIMMING
-	if ClimbStamina.standable(terrain, walker, unit.position):
-		unit.foothold = unit.position
+	if ClimbStamina.standable(terrain, walker, at):
+		unit.foothold = at
 
 
 ## Drops `unit` from its climb face to where it last stood, hurt by the height it climbed.
-static func _fall(unit, terrain: FormationTerrain) -> void:
+static func _fall(unit, columns: UnitColumns, terrain: FormationTerrain) -> void:
 	var tuning := BattleTuning.current()
-	var climbed := maxf(
-		0.0, ClimbStamina.drop(terrain, unit.foothold, unit.position) - unit.climb_left
-	)
+	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
+	var climbed := maxf(0.0, ClimbStamina.drop(terrain, unit.foothold, at) - unit.climb_left)
 	var area := float(unit.footprint_width * unit.footprint_depth)
 	unit.hp -= roundi(
 		tuning.fall_damage_per_cell * climbed * DetMath.pow(area, tuning.fall_mass_power)
 	)
 	# placement: a fall puts it back at the foot of its climb (Decision 139)
-	unit.position = unit.foothold
+	columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
 	unit.climb_left = 0.0
 	unit.on_face = false

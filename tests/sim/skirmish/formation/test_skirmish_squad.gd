@@ -4,6 +4,13 @@ extends GdUnitTestSuite
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(
@@ -23,7 +30,7 @@ func _unit(
 func _squad(width: int, units: Array, direction: int = 1) -> SkirmishSquad:
 	var members: Array[SkirmishUnit] = []
 	members.assign(units)
-	return SkirmishSquad.new(1, "player", direction, 0.0, width, members)
+	return SkirmishSquad.new(1, "player", direction, 0.0, width, members, null, _places.store)
 
 
 func test_ranks_sit_behind_the_front_in_the_travel_direction() -> void:

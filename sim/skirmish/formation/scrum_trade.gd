@@ -14,6 +14,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## Cells nearer than its closest yet that count as getting nearer.
 const PROGRESS := 0.001
@@ -55,8 +56,9 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 			_traded(places, unit, friend)
 		elif squad.stance.is_empty():
 			squad.loose.erase(unit.id)
+			var anchor := ScrumStance.anchor(squad, unit)
 			# placement: it takes its place in its frame (Decision 139)
-			unit.position = ScrumStance.anchor(squad, unit)
+			squad.store.columns.put(unit.slot, UnitColumns.POSITION, anchor)
 
 
 ## Notes in `places` (_places) that the two traded places: anchors stay with the places.
@@ -138,7 +140,7 @@ static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit
 	friend.rank = place.x
 	friend.column = place.y
 	if not squad.loose.has(friend.id):
-		var at := friend.position
+		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
 		squad.loose[friend.id] = {"unit": friend, "at": at, "goal": null, "next": at}
 	for moved in [unit, friend]:
 		squad.loose[moved.id].erase("closest")

@@ -133,21 +133,22 @@ func _draw() -> void:
 		_draw_route(key)
 	var fraction := 1.0 if _clock.is_paused() else _clock.fraction()
 	_draw_staging()
+	var at: PackedVector2Array = _field.sim.store.columns.column(UnitColumns.POSITION)  # a frame's
 	for squad in _field.sim.squads():
 		for unit in squad.units:
 			if not unit.is_alive() and unit.state != SkirmishUnit.State.CARRIED:
 				var radius := minf(unit.footprint_width, unit.footprint_depth) / 2.0 * CELL_PX - 0.5
-				var centre: Vector2 = ORIGIN + unit.position * CELL_PX
+				var centre: Vector2 = ORIGIN + at[unit.slot] * CELL_PX
 				FallenDrawing.draw(self, unit, centre, radius, COLOURS[squad.faction_id])
 	for squad in _field.sim.squads():
 		for unit in squad.living():
-			_draw_unit(squad, unit, fraction)
+			_draw_unit(squad, unit, fraction, at[unit.slot])
 		_draw_morale(squad)
 		_draw_pursuit(squad)
 	for squad in _field.sim.squads():
 		for unit in squad.units:
 			if unit.state == SkirmishUnit.State.CARRIED:  # on top of its bearer
-				var centre: Vector2 = ORIGIN + unit.position * CELL_PX
+				var centre: Vector2 = ORIGIN + at[unit.slot] * CELL_PX
 				FallenDrawing.draw(self, unit, centre, CELL_PX * 0.5, COLOURS[squad.faction_id])
 
 
@@ -162,9 +163,9 @@ func _draw_route(key: String) -> void:
 	draw_polyline(drawn, COLOURS[key], 2.0)
 
 
-func _draw_unit(squad, unit, fraction: float) -> void:
-	var before: Vector2 = _previous.get(unit.id, unit.position)
-	var after: Vector2 = _current.get(unit.id, unit.position)
+func _draw_unit(squad, unit, fraction: float, now: Vector2) -> void:
+	var before: Vector2 = _previous.get(unit.id, now)
+	var after: Vector2 = _current.get(unit.id, now)
 	var centre := ORIGIN + before.lerp(after, fraction) * CELL_PX
 	var radius := minf(unit.footprint_width, unit.footprint_depth) / 2.0 * CELL_PX - 0.5
 	var colour: Color = COLOURS["flash"] if _flashes.has(unit.id) else COLOURS[squad.faction_id]
@@ -242,9 +243,10 @@ func _snapshot() -> void:
 	_squads_now = {}
 	for squad in _field.sim.squads():
 		_squads_now[squad.id] = squad.position
+	var at: PackedVector2Array = _field.sim.store.columns.column(UnitColumns.POSITION)
 	for squad in _field.sim.squads():
 		for unit in squad.units:
-			_current[unit.id] = unit.position
+			_current[unit.id] = at[unit.slot]
 
 
 ## Gives an order now - a command (FormationRecord) or the feel test's words for one

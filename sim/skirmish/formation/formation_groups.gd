@@ -33,6 +33,7 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 ## Pairs of units two groups meeting may have and still be looked at pair by pair (_gap).
@@ -202,11 +203,12 @@ static func _gap(one: SkirmishSquad, other: SkirmishSquad, grids: Dictionary) ->
 		return INF
 	var ours: Array = one.living()
 	var theirs: Array = other.living()
+	var at: PackedVector2Array = one.store.columns.column(UnitColumns.POSITION)
 	var grid := {}
 	if ours.size() * theirs.size() > ALL_PAIRS:
 		if not grids.has(other):
 			grids[other] = BodyGrid.of_bodies(
-				theirs.map(func(u): return [u.position, ScrumReach.radius(u)])
+				theirs.map(func(u): return [at[u.slot], ScrumReach.radius(u)])
 			)
 		grid = grids[other]
 	var least := INF
@@ -214,9 +216,9 @@ static func _gap(one: SkirmishSquad, other: SkirmishSquad, grids: Dictionary) ->
 		var near := range(theirs.size())
 		if not grid.is_empty():
 			var within: float = join + ScrumReach.radius(unit) + grid["widest"] + BodyGrid.MARGIN
-			near = BodyGrid.near(grid, unit.position, within)
+			near = BodyGrid.near(grid, at[unit.slot], within)
 		for found in near:
 			var friend: SkirmishUnit = theirs[found]
-			var apart: float = unit.position.distance_to(friend.position)
+			var apart: float = at[unit.slot].distance_to(at[friend.slot])
 			least = minf(least, apart - ScrumReach.radius(unit) - ScrumReach.radius(friend))
 	return maxf(least, 0.0)

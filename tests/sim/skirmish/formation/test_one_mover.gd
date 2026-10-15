@@ -12,6 +12,13 @@ const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 
 const SIZE := Vector2i(256, 32)
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _wood() -> FormationTerrain:
@@ -29,7 +36,9 @@ func _unit() -> SkirmishUnit:
 
 ## How far along its route a lone router gets in one step, on `terrain` (null: open).
 func _flight(terrain) -> float:
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, [] as Array[SkirmishUnit])
+	var squad := SkirmishSquad.new(
+		1, "player", 1, 0.0, 1, [] as Array[SkirmishUnit], null, _places.store
+	)
 	squad.route = FormationRoute.new(PackedVector2Array([Vector2(0, 16), Vector2(256, 16)]))
 	var unit := _unit()
 	var entry := {"along": 100.0, "offset": Vector2.ZERO}

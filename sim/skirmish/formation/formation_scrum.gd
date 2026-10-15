@@ -49,6 +49,7 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
 const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; given the
@@ -116,10 +117,11 @@ static func _prepare(squad: SkirmishSquad, tick: int) -> void:
 		squad.fight_since = -1
 	if not fighting and squad.stance.is_empty():
 		return
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": unit.position, "goal": null}
-			squad.loose[unit.id]["next"] = unit.position
+			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
+			squad.loose[unit.id]["next"] = at[unit.slot]
 
 
 ## Plans every fighting squad's seekers (ScrumSeek), then walks and turns its units.

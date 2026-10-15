@@ -25,6 +25,10 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 "spec 35 step N". Each step is its own PR.
 
 - **Step 0, the skeleton: built** (2026-10-14). See "Built" below.
+- **Step 1 is three PRs** (the user, 2026-10-14): 1a moves `position` to the GDScript
+  store and off `SkirmishUnit`; 1b moves `at`, `offset` and the loose and fleeing flag
+  bits; 1c gives all of them to the Rust backend, and `BodyFieldSync`'s points go.
+- **Step 1a, `position`: built** (2026-10-14). See "Built" below.
 
 ## The store
 
@@ -156,6 +160,22 @@ but read from the store instead of a sync. The glue is gone at step 4.
 - **bounded-work:** each pass fetches its columns once, and enrolling and dropping are
   incremental.
 
+## Settled for step 1 (the user, 2026-10-14)
+
+- **How rules reach the store: through their squad.** Each squad holds the battle's store
+  (`SkirmishSquad.store`, set when it is made: `spawn_squad` passes the battle's, and a
+  squad made mid-battle (a stray, a split group, a lone router) passes its origin's).
+  Every unit has a fixed `slot` on its record (`SkirmishUnit.slot`), set when it enrols,
+  so nothing looks a slot up by id. A helper that has only a unit takes the columns
+  (`UnitColumns`) or the point it needs as a parameter. A squad made alone, as tests do,
+  gets its own GDScript store; squads that meet must share one.
+- **The user: "the most performant".** A pass fetches a column once
+  (`store.columns.column(UnitColumns.POSITION)`) and indexes it by `unit.slot`; it
+  doesn't call the store per unit. Scattered use goes through `value` and `put`. On the
+  CI runner a local column read cost about 0.015 µs, a `put` about 0.2 µs.
+- A column fetched before a `put` doesn't see the write: GDScript's packed arrays copy
+  on write. A pass that writes positions and reads them again fetches again.
+
 ## Built
 
 ### Step 0, the skeleton
@@ -186,7 +206,29 @@ but read from the store instead of a sync. The glue is gone at step 4.
   engines, every tick), and a battle whose slots are handed out the other way round
   playing the same.
 
+### Step 1a, `position`
+
+- `UnitColumns` (`unit_columns.gd`) holds the columns: `column`, `commit`, `value`,
+  `put`, and `open` for a slot newly given (every column blank there). Both backends
+  hold their columns in GDScript for now; 1c moves `position` into Rust.
+- `SkirmishUnit.position` is gone. Every reader and writer in `sim/`, presentation, the
+  tools and the tests switched to the store in the same PR (Decision 142). Signatures that
+  changed: `WalkModes.climb` and `after_step` take the columns; `BlowRoll.side` and
+  `from_flank` take where the target stands; `GroundBodies.of_lying` takes the columns
+  and keeps where each body lies (`"ats"`).
+- **Presentation's snapshot** (this spec's open point, settled): the field scene reads
+  the position column once when it records a tick (`_snapshot`) and once a frame for
+  what it draws from the store directly (the fallen, the carried). Only that column is
+  read. Outcomes can't change: it only reads.
+- `check_one_mover.py` flags writes to the position column (`put(..., POSITION, ...)`,
+  `commit(POSITION, ...)`) as it does `.position =`. A write of a value the line before
+  took from `UnitMover.` counts as the mover's.
+- Tests that build squads by hand share one store through
+  `tests/sim/skirmish/formation/unit_places.gd`.
+- `test_unit_store.gd`: the column round-trips on both backends, `SkirmishUnit` no
+  longer declares `position`, and the battle test compares each unit's slot and position
+  on both engines every tick.
+
 ## Open, for the implementing session to settle and record here
 
-- Where presentation's per-frame snapshot is taken, and whether it copies all columns or
-  only the drawn ones. It must not change outcomes.
+- Nothing open. Presentation's snapshot was settled in step 1a (above).

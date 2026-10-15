@@ -117,11 +117,10 @@ func spawn_squad(
 		members.append(
 			FormationUnits.make(placement[0], placement[1], faction_id, direction, _next_unit_id)
 		)
-		store.enrol(_next_unit_id)
 		_next_unit_id += 1
 	var orders := FormationCommand.new(home, path)
 	var squad := SkirmishSquad.new(
-		_next_squad_id, faction_id, direction, home, width, members, orders
+		_next_squad_id, faction_id, direction, home, width, members, orders, store
 	)
 	_next_squad_id += 1
 	squad.route = path

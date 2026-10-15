@@ -9,12 +9,19 @@ extends GdUnitTestSuite
 const ScrumSlots = preload("res://sim/skirmish/formation/scrum_slots.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, at: Vector2, bearing: float) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.position = at
+	_places.stand(unit, at)
 	unit.bearing = bearing
 	return unit
 
@@ -23,12 +30,14 @@ func _unit(unit_id: int, at: Vector2, bearing: float) -> SkirmishUnit:
 ## claimed: 1 for the foe's right (east), -1 for its left.
 func _side(battle_seed: int) -> int:
 	var foe := _unit(1, Vector2(10, 12), 0.0)
-	var squad := SkirmishSquad.new(9, "the_kingdom", -1, 0.0, 1, [foe] as Array[SkirmishUnit])
+	var squad := SkirmishSquad.new(
+		9, "the_kingdom", -1, 0.0, 1, [foe] as Array[SkirmishUnit], null, _places.store
+	)
 	var seeker := _unit(5, Vector2(10, 9), 180.0)
 	var slots := ScrumSlots.round_foes([[foe, squad]], 0.5)
 	var claimed := [Vector2(10, 11)]  # the slot dead ahead of the foe, towards the seeker
-	var ground := [seeker.position, [], claimed, null, battle_seed]
-	var picked := ScrumSlots.pick(seeker, seeker.position, slots, ground)
+	var ground := [_places.at(seeker), [], claimed, null, battle_seed]
+	var picked := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground)
 	return 1 if picked[0].x > 10.0 else -1
 
 

@@ -16,6 +16,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const GREM := "res://content/units/grem.tres"
 const SIZE := Vector2i(256, 32)
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func after_test() -> void:
@@ -59,10 +60,16 @@ func _regroup_step(kind: String, off: Vector2) -> float:
 	var squad := _squad(sim, 1, "player", 20.0)
 	sim.step()  # placed and holding
 	var unit: SkirmishUnit = squad.units[0]
-	var at := unit.position + off
+	var at := UnitPlaces.where(sim.store, unit) + off
 	squad.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
 	sim.step()
-	return at.distance_to(squad.loose[unit.id]["at"] if squad.loose.has(unit.id) else unit.position)
+	return at.distance_to(
+		(
+			squad.loose[unit.id]["at"]
+			if squad.loose.has(unit.id)
+			else UnitPlaces.where(sim.store, unit)
+		)
+	)
 
 
 func test_a_unit_regrouping_in_a_wood_walks_back_at_half_pace() -> void:
@@ -79,7 +86,7 @@ func _chase_step(kind: String) -> float:
 	var foe := _squad(sim, 1, "the_kingdom", 24.0)
 	sim.step()
 	var unit: SkirmishUnit = mine.units[0]
-	var at := unit.position
+	var at := UnitPlaces.where(sim.store, unit)
 	mine.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	sim.step()
@@ -101,7 +108,7 @@ func test_a_chaser_never_steps_into_water_it_cant_cross() -> void:
 	sim.step()
 	var unit: SkirmishUnit = mine.units[0]
 	unit.walker = TerrainWalker.grounded(unit.height)  # it can't swim
-	var at := unit.position
+	var at := UnitPlaces.where(sim.store, unit)
 	mine.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
 	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
 	for _tick in 30:
@@ -130,7 +137,7 @@ func _clash(kind: String, engine: String) -> Array:
 		sim.step()
 		for squad in [mine, theirs]:
 			for unit in squad.living():
-				trace.append([unit.position, unit.bearing])
+				trace.append([UnitPlaces.where(sim.store, unit), unit.bearing])
 				var step := 0.0
 				if before.has(unit) and squad.loose.has(unit.id):
 					step = before[unit].distance_to(squad.loose[unit.id]["at"])

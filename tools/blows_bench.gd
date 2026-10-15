@@ -240,7 +240,8 @@ func _landing(sim: Sim, blows: Array, shots: Array, spent: Dictionary, lap: Arra
 	var pressed := BlowLanding._pressed(squad_of)
 	_lap(spent, lap, "land: pressed")
 	for blow in blows:
-		BlowLanding._land(blow, false, blow[3], squad_of, pressed, sim.terrain, rolls)
+		var known := [squad_of, pressed, sim.store.columns.column(UnitColumns.POSITION)]
+		BlowLanding._land(blow, false, blow[3], known, sim.terrain, rolls)
 	_lap(spent, lap, "land: each blow rolled")
 
 

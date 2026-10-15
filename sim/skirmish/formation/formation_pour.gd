@@ -19,6 +19,7 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 ## Cells a unit squeezes in at a time, looking for ground to stand on.
@@ -51,11 +52,13 @@ static func targets(
 	with_loose := false
 ) -> Dictionary:
 	var aims := []  # [unit, its place, its point, squeezed]
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if squad.fleeing.has(unit.id) or (squad.loose.has(unit.id) and not with_loose):
 			continue
 		if squad.taking.has(unit.id):  # out taking a downed foe (FormationTaking): beside it
-			aims.append([unit, unit.position, _beside(unit, squad.taking[unit.id]), false])
+			var body: SkirmishUnit = squad.taking[unit.id]
+			aims.append([unit, at[unit.slot], _beside(at[unit.slot], at[body.slot]), false])
 			continue
 		var own := place(squad, unit, moving)
 		var aim := _aim(squad, unit, own, terrain)
@@ -63,11 +66,11 @@ static func targets(
 	return _queue(squad, aims, terrain, fight_seed)
 
 
-## Beside the downed foe `body` the unit is out taking.
-static func _beside(unit: SkirmishUnit, body: SkirmishUnit) -> Vector2:
-	var off := unit.position - body.position
+## Beside the downed foe lying at `body` that the unit at `unit` is out taking.
+static func _beside(unit: Vector2, body: Vector2) -> Vector2:
+	var off := unit - body
 	var beside := minf(off.length(), BattleTuning.current().wounds_reach * 0.5)
-	return body.position + (off.normalized() * beside if off.length() > EPSILON else off)
+	return body + (off.normalized() * beside if off.length() > EPSILON else off)
 
 
 ## The unit's own point, before any files in: its place, or the nearest it can stand on.

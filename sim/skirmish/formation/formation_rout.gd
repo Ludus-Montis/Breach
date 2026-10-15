@@ -40,6 +40,7 @@ const RoutCatch = preload("res://sim/skirmish/formation/rout_catch.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 
@@ -106,8 +107,9 @@ static func _break(
 	squad.state = SkirmishSquad.State.ROUTING
 	squad.rally_ticks = 0
 	var along := squad.front_distance * CELLS
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
-		var offset: Vector2 = unit.position - _route_point(squad, along)
+		var offset: Vector2 = at[unit.slot] - _route_point(squad, along)
 		squad.fleeing[unit.id] = {"along": along, "offset": offset}
 	events.append(FormationEvents.squad_event("routed", tick, squad))
 	for friend in squads:
@@ -230,7 +232,9 @@ static func _join(
 	unit.rank = 0
 	unit.column = 0
 	var members: Array[SkirmishUnit] = [unit]
-	var single := SkirmishSquad.new(-1, squad.faction_id, leader.direction, 0.0, 1, members)
+	var single := SkirmishSquad.new(
+		-1, squad.faction_id, leader.direction, 0.0, 1, members, null, squad.store
+	)
 	FormationContact.reinforce(leader, single)
 	leader.reforming = true
 	leader.loose[unit.id] = {"unit": unit, "at": settled, "goal": null, "next": settled}

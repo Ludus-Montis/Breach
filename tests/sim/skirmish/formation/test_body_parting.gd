@@ -13,6 +13,13 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
 
 const NATIVE := ["rust"]
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func after_test() -> void:
@@ -48,17 +55,23 @@ func _crowd(reversed: bool) -> Array:
 		Vector2(5, 5),
 		Vector2(3, 4)
 	]
-	var line := SkirmishSquad.new(1, "player", 1, 0.0, 4, [] as Array[SkirmishUnit])
+	var line := SkirmishSquad.new(
+		1, "player", 1, 0.0, 4, [] as Array[SkirmishUnit], null, _places.store
+	)
 	for index in range(4):
 		line.units.append(units[index])
-		units[index].position = points[index]
+		_places.stand(units[index], points[index])
 	for index in [1, 2]:
 		var at: Vector2 = points[index]
 		line.loose[units[index].id] = {"unit": units[index], "at": at, "goal": null, "next": at}
 	line.fleeing[units[3].id] = {"along": 4.0, "offset": Vector2(0.6, 4.3)}
-	var other := SkirmishSquad.new(2, "player", 1, 0.0, 1, [units[4]] as Array[SkirmishUnit])
-	units[4].position = points[4]
-	var foes := SkirmishSquad.new(3, "the_kingdom", 1, 0.0, 1, [units[5]] as Array[SkirmishUnit])
+	var other := SkirmishSquad.new(
+		2, "player", 1, 0.0, 1, [units[4]] as Array[SkirmishUnit], null, _places.store
+	)
+	_places.stand(units[4], points[4])
+	var foes := SkirmishSquad.new(
+		3, "the_kingdom", 1, 0.0, 1, [units[5]] as Array[SkirmishUnit], null, _places.store
+	)
 	foes.loose[units[5].id] = {"unit": units[5], "at": points[5], "goal": null, "next": points[5]}
 	var squads := [line, other, foes]
 	if reversed:
@@ -73,7 +86,7 @@ func _bytes(squads: Array) -> PackedByteArray:
 	for squad in squads:
 		for unit in squad.units:
 			var loose: Variant = squad.loose.get(unit.id)
-			var held := [unit.id, unit.position, squad.fleeing.get(unit.id)]
+			var held := [unit.id, UnitPlaces.of(squad, unit), squad.fleeing.get(unit.id)]
 			held.append(null if loose == null else [loose["at"], loose["next"], loose["goal"]])
 			state.append(held)
 	state.sort_custom(func(a, b): return a[0] < b[0])

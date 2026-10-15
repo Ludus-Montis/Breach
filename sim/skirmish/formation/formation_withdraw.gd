@@ -39,6 +39,7 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 ## How near (cells, along its route) home a unit has nowhere further to go.
@@ -51,10 +52,11 @@ const LOOK_CELLS := 1.0
 static func begin(squad: SkirmishSquad, tick: int, events: Array) -> void:
 	squad.withdraw = {"safe_ticks": 0}
 	squad.stance = {}
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
-			squad.loose[unit.id] = {"unit": unit, "at": unit.position, "goal": null}
-			squad.loose[unit.id]["next"] = unit.position
+			squad.loose[unit.id] = {"unit": unit, "at": at[unit.slot], "goal": null}
+			squad.loose[unit.id]["next"] = at[unit.slot]
 	events.append(FormationEvents.squad_event("withdrawing", tick, squad))
 
 

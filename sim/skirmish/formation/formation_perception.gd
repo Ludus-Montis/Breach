@@ -13,6 +13,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationSight = preload("res://sim/skirmish/formation/formation_sight.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const UNSEEN := [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]
 
@@ -53,10 +54,11 @@ static func _box(squad: SkirmishSquad) -> Array:
 	var low := Vector2(INF, INF)
 	var high := -low
 	var widest := 0.0
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.units:
 		if unit.is_alive():
-			low = low.min(unit.position)
-			high = high.max(unit.position)
+			low = low.min(at[unit.slot])
+			high = high.max(at[unit.slot])
 			widest = maxf(widest, unit.detection)
 	if widest == 0.0 and low.x == INF:
 		return [Rect2(), 0.0]

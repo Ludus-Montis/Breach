@@ -15,6 +15,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const TerrainPaths = preload("res://sim/skirmish/formation/terrain_paths.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _group(sim: FormationSimulation, route: FormationRoute, count: int) -> SkirmishSquad:
@@ -33,7 +34,7 @@ func _group(sim: FormationSimulation, route: FormationRoute, count: int) -> Skir
 func _advance(squad: SkirmishSquad, cells: float) -> void:
 	squad.front_distance = cells / 64.0
 	for unit in squad.units:
-		unit.position = FormationWalk.place_of(squad, unit)
+		UnitPlaces.put(squad, unit, FormationWalk.place_of(squad, unit))
 
 
 func _lane() -> FormationRoute:

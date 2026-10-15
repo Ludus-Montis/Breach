@@ -10,6 +10,7 @@ extends RefCounted
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## How many sight-blocking cells a sight line may cross and still see.
 const MAX_SCREEN := 2
@@ -29,18 +30,20 @@ static func detects(
 ) -> bool:
 	var grid := (memo if memo != null else SquadMemo.new()).sighted(other)
 	var cells: Dictionary = grid["cells"]
+	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
+		var here := at[unit.slot]
 		var reach := Vector2.ONE * (unit.detection + MARGIN)
-		var low: Vector2i = Vector2i(((unit.position - reach) / SquadMemo.SIGHT_CELL).floor())
-		var high: Vector2i = Vector2i(((unit.position + reach) / SquadMemo.SIGHT_CELL).floor())
+		var low: Vector2i = Vector2i(((here - reach) / SquadMemo.SIGHT_CELL).floor())
+		var high: Vector2i = Vector2i(((here + reach) / SquadMemo.SIGHT_CELL).floor())
 		low = low.max(grid["low"])
 		high = high.min(grid["high"])
 		for y in range(low.y, high.y + 1):
 			for x in range(low.x, high.x + 1):
 				for seen in cells.get(Vector2i(x, y), []):
-					if unit.position.distance_to(seen) > unit.detection:
+					if here.distance_to(seen) > unit.detection:
 						continue
-					if terrain == null or clear(terrain, unit.position, seen):
+					if terrain == null or clear(terrain, here, seen):
 						return true
 	return false
 

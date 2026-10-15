@@ -6,6 +6,13 @@ extends GdUnitTestSuite
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(rank: int, column: int, depth: int = 1, width: int = 1) -> SkirmishUnit:
@@ -44,7 +51,7 @@ func test_a_straight_route_reproduces_the_lanes_lateral_spans() -> void:
 	for direction in [1, -1]:
 		var unit := _unit(1, 2, 1, 2)
 		var members: Array[SkirmishUnit] = [unit]
-		var squad := SkirmishSquad.new(1, "player", direction, 0.0, 5, members)
+		var squad := SkirmishSquad.new(1, "player", direction, 0.0, 5, members, null, _places.store)
 		squad.centre_shift = 0.5
 		var heading := 90.0 if direction > 0 else 270.0
 		var rect := SquadFrame.unit_rect(squad.position, heading, 5, 0.5, unit)

@@ -11,6 +11,7 @@ const SquadGeometry = preload("res://sim/skirmish/formation/squad_geometry.gd")
 const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(detection: float = 40.0) -> UnitDef:
@@ -68,7 +69,9 @@ func test_a_squad_at_the_edge_of_range_is_seen_through_the_grid_and_one_past_it_
 	var sim := FormationSimulation.new(2.0, 0.1)
 	var watcher = _block(sim, [Vector2(0, 0), Vector2(0, 100)], 1, 1, "player")
 	var other = _block(sim, [Vector2(40, 0), Vector2(40, 100)], 1, 1, "the_kingdom")
-	var gap: float = watcher.units[0].position.distance_to(other.units[0].position)
+	var gap: float = UnitPlaces.of(watcher, watcher.units[0]).distance_to(
+		UnitPlaces.of(watcher, other.units[0])
+	)
 	watcher.units[0].detection = gap
 	var memo := SquadMemo.new()
 

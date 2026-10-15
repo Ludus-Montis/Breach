@@ -13,6 +13,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 ## A player line `count` wide with its front `front` cells along the lane, placed there.
@@ -44,8 +45,9 @@ func test_units_fallen_far_behind_go_on_as_a_group_of_the_same_command() -> void
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 4, 40.0)
 	var behind: Array = [squad.units[2], squad.units[3]]
+	var back := Vector2(BattleTuning.current().walk_lost + 4.0, 0)
 	for unit in behind:
-		unit.position.x -= BattleTuning.current().walk_lost + 4.0
+		UnitPlaces.put(squad, unit, UnitPlaces.of(squad, unit) - back)
 
 	var events := []
 	var next := GroupSplit.step(sim.squads(), 1, 7, events, 100)
@@ -66,7 +68,8 @@ func test_no_one_splits_off_if_no_man_is_left_behind() -> void:
 	var squad := _line(sim, 3, 40.0)
 	for unit in squad.units:
 		unit.traits["no_man_left_behind"] = 1
-	squad.units[2].position.x -= BattleTuning.current().walk_lost + 4.0
+	var back := Vector2(BattleTuning.current().walk_lost + 4.0, 0)
+	UnitPlaces.put(squad, squad.units[2], UnitPlaces.of(squad, squad.units[2]) - back)
 
 	GroupSplit.step(sim.squads(), 1, 7, [], 100)
 

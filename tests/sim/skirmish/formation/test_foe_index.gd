@@ -12,9 +12,16 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 const SEED := 11
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
 
 
 ## A squad of `count` units standing about `centre`, scattered by a seeded generator.
+func before_test() -> void:
+	_places = UnitPlaces.new()
+
+
 func _squad(squad_id: int, faction: String, centre: Vector2, count: int) -> SkirmishSquad:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = squad_id
@@ -24,9 +31,9 @@ func _squad(squad_id: int, faction: String, centre: Vector2, count: int) -> Skir
 		unit.id = squad_id * 100 + index
 		unit.hp = 10
 		unit.column = index
-		unit.position = centre + Vector2(rng.randf_range(-4, 4), rng.randf_range(-4, 4))
+		_places.stand(unit, centre + Vector2(rng.randf_range(-4, 4), rng.randf_range(-4, 4)))
 		members.append(unit)
-	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, count, members)
+	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, count, members, null, _places.store)
 	squad.state = SkirmishSquad.State.FIGHTING
 	return squad
 
@@ -68,14 +75,14 @@ func test_a_search_picks_and_measures_as_its_own_foes_would() -> void:
 	var alone := ScrumNear.index(ScrumSeek.foe_units(squad, squads))
 	for unit in squad.living():
 		var mine = ScrumBlows.nearest_touching(
-			squad, unit, ScrumNear.around(shared, unit.position, 1.5), SEED
+			squad, unit, ScrumNear.around(shared, _places.at(unit), 1.5), SEED
 		)
 		var theirs = ScrumBlows.nearest_touching(
-			squad, unit, ScrumNear.around(alone, unit.position, 1.5), SEED
+			squad, unit, ScrumNear.around(alone, _places.at(unit), 1.5), SEED
 		)
 		assert_that(mine).is_equal(theirs)
-		var gap := ScrumNear.gap_to(shared, unit.position, 0.5)
-		assert_float(gap).is_equal(ScrumNear.gap_to(alone, unit.position, 0.5))
+		var gap := ScrumNear.gap_to(shared, _places.at(unit), 0.5)
+		assert_float(gap).is_equal(ScrumNear.gap_to(alone, _places.at(unit), 0.5))
 
 
 func test_blows_reach_every_standing_foe_or_only_a_retreat() -> void:
@@ -95,14 +102,14 @@ func test_foes_at_the_same_distance_go_by_the_seeded_draw() -> void:
 	var squad := _squad(1, "player", Vector2.ZERO, 1)
 	var foes := _squad(2, "enemy", Vector2.ZERO, 2)
 	var unit: SkirmishUnit = squad.units[0]
-	unit.position = Vector2.ZERO
+	_places.stand(unit, Vector2.ZERO)
 	unit.bearing = 90.0
-	foes.units[0].position = Vector2(0.5, 1.0)  # both touching, as far, in front
-	foes.units[1].position = Vector2(0.5, -1.0)
+	_places.stand(foes.units[0], Vector2(0.5, 1.0))  # both touching, as far, in front
+	_places.stand(foes.units[1], Vector2(0.5, -1.0))
 	var entries := foes.living().map(func(foe): return [foe, foes])
 	var first: SkirmishUnit = foes.units[0]
 	if ScrumContest.draw(foes.units[1], SEED) < ScrumContest.draw(first, SEED):
 		first = foes.units[1]
-	assert_that(ScrumBlows.nearest_touching(squad, unit, entries, SEED)).is_equal(first.position)
+	assert_that(ScrumBlows.nearest_touching(squad, unit, entries, SEED)).is_equal(_places.at(first))
 	entries.reverse()
-	assert_that(ScrumBlows.nearest_touching(squad, unit, entries, SEED)).is_equal(first.position)
+	assert_that(ScrumBlows.nearest_touching(squad, unit, entries, SEED)).is_equal(_places.at(first))

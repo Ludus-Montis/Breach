@@ -12,6 +12,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 ## A holding player line `count` wide, its front 40 cells along, and a downed kingdom unit
@@ -122,7 +123,7 @@ func test_each_unit_takes_one_body_whatever_the_list_order() -> void:
 		_run(sim, 1)
 		var taken := {}
 		for unit_id in line.taking:
-			taken[unit_id] = line.taking[unit_id].position
+			taken[unit_id] = UnitPlaces.of(line, line.taking[unit_id])
 		picks.append(taken)
 	assert_dict(picks[0]).is_equal(picks[1])
 	assert_int(picks[0].size()).is_equal(2)

@@ -18,6 +18,13 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _def(hp: int, dmg: int, leadership: int = 0) -> UnitDef:
@@ -77,8 +84,12 @@ func _gap(here: Vector2, there: Vector2) -> float:
 	mine.position = here
 	var theirs := SkirmishUnit.new()
 	theirs.position = there
-	var a := SkirmishSquad.new(1, "player", 1, 0.0, 1, [mine] as Array[SkirmishUnit])
-	var b := SkirmishSquad.new(2, "the_kingdom", -1, 0.0, 1, [theirs] as Array[SkirmishUnit])
+	var a := SkirmishSquad.new(
+		1, "player", 1, 0.0, 1, [mine] as Array[SkirmishUnit], null, _places.store
+	)
+	var b := SkirmishSquad.new(
+		2, "the_kingdom", -1, 0.0, 1, [theirs] as Array[SkirmishUnit], null, _places.store
+	)
 	return ScrumReach.gap(a, mine, b, theirs)
 
 
@@ -127,7 +138,9 @@ func test_a_flank_wraps_round_the_line() -> void:
 	var log := _run(sim, 250)
 
 	assert_int(_of(log, "flanked").size()).is_greater_equal(1)
-	var beside := attackers.living().filter(func(u): return u.position.y > north_face)
+	var beside := attackers.living().filter(
+		func(u): return UnitPlaces.of(attackers, u).y > north_face
+	)
 	assert_int(beside.size()).is_greater_equal(1)
 	var flank_hits := _of(log, "hit").filter(func(e): return e["flank"])
 	assert_int(flank_hits.size()).is_greater(0)
@@ -140,11 +153,11 @@ func test_the_far_end_of_a_flanked_line_comes_to_meet_it() -> void:
 	_from_north(sim, 2, 400, 1)
 	var far: SkirmishUnit = line.units[0]  # column 0: the south end, far from the flank
 	sim.step()
-	var start := far.position
+	var start := UnitPlaces.of(line, far)
 
 	var log := _run(sim, 250)
 
-	assert_float(far.position.y).is_less(start.y - 2.0)
+	assert_float(UnitPlaces.of(line, far).y).is_less(start.y - 2.0)
 	var strikers := {}
 	for hit in _of(log, "hit"):
 		if hit["faction"] == "the_kingdom":
@@ -217,12 +230,12 @@ func test_a_wavering_line_still_meets_its_enemy() -> void:
 	_from_north(sim, 2, 400, 1)
 	var far: SkirmishUnit = line.units[0]  # column 0: the south end, far from the flank
 	sim.step()
-	var start := far.position
+	var start := UnitPlaces.of(line, far)
 	var log := []
 	for _i in range(250):
 		line.morale = 24  # wavering throughout (Decision 101), short of a rout
 		log.append_array(sim.step())
 
-	assert_float(far.position.y).is_less(start.y - 2.0)
+	assert_float(UnitPlaces.of(line, far).y).is_less(start.y - 2.0)
 	var blows: Array = _of(log, "hit").filter(func(e): return e["faction"] == "the_kingdom")
 	assert_bool(blows.is_empty()).is_false()  # it lands worse: BlowLanding's morale shift

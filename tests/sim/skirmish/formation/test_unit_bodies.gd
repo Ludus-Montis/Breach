@@ -8,6 +8,13 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _unit(unit_id: int, size: int = 1) -> SkirmishUnit:
@@ -23,7 +30,9 @@ func _unit(unit_id: int, size: int = 1) -> SkirmishUnit:
 func _loose(squad_id: int, faction: String, units: Array, points: Array) -> SkirmishSquad:
 	var members: Array[SkirmishUnit] = []
 	members.assign(units)
-	var squad := SkirmishSquad.new(squad_id, faction, 1, 0.0, units.size(), members)
+	var squad := SkirmishSquad.new(
+		squad_id, faction, 1, 0.0, units.size(), members, null, _places.store
+	)
 	for index in range(units.size()):
 		var unit: SkirmishUnit = units[index]
 		squad.loose[unit.id] = {"unit": unit, "at": points[index], "goal": null}
@@ -67,8 +76,10 @@ func test_overlapping_foes_each_step_back_half_whatever_their_mass() -> void:
 func test_a_unit_in_its_frame_resists_but_gives_way_to_its_own_squad() -> void:
 	var framed := _unit(1)
 	var shover := _unit(2)
-	var line := SkirmishSquad.new(1, "player", 1, 0.0, 2, [framed, shover] as Array[SkirmishUnit])
-	framed.position = Vector2(5, 5)
+	var line := SkirmishSquad.new(
+		1, "player", 1, 0.0, 2, [framed, shover] as Array[SkirmishUnit], null, _places.store
+	)
+	_places.stand(framed, Vector2(5, 5))
 	line.loose[shover.id] = {"unit": shover, "at": Vector2(5.5, 5), "goal": null}
 	line.loose[shover.id]["next"] = Vector2(5.5, 5)
 
@@ -84,8 +95,10 @@ func test_a_unit_in_its_frame_resists_but_gives_way_to_its_own_squad() -> void:
 func test_a_unit_in_its_frame_is_not_moved_by_its_own_squad_only_brushing_it() -> void:
 	var framed := _unit(1)
 	var brusher := _unit(2)
-	var line := SkirmishSquad.new(1, "player", 1, 0.0, 2, [framed, brusher] as Array[SkirmishUnit])
-	framed.position = Vector2(5, 5)
+	var line := SkirmishSquad.new(
+		1, "player", 1, 0.0, 2, [framed, brusher] as Array[SkirmishUnit], null, _places.store
+	)
+	_places.stand(framed, Vector2(5, 5))
 	var near := Vector2(5.0 + 1.0 - BattleTuning.current().bodies_brush / 2.0, 5)
 	line.loose[brusher.id] = {"unit": brusher, "at": near, "goal": null, "next": near}
 
@@ -97,8 +110,10 @@ func test_a_unit_in_its_frame_is_not_moved_by_its_own_squad_only_brushing_it() -
 
 func test_a_unit_in_its_frame_holds_its_space_against_another_squads_loose_unit() -> void:
 	var framed := _unit(1)
-	var line := SkirmishSquad.new(1, "player", 1, 0.0, 1, [framed] as Array[SkirmishUnit])
-	framed.position = Vector2(5, 5)
+	var line := SkirmishSquad.new(
+		1, "player", 1, 0.0, 1, [framed] as Array[SkirmishUnit], null, _places.store
+	)
+	_places.stand(framed, Vector2(5, 5))
 	var shover := _unit(2)
 	var other := _loose(2, "player", [shover], [Vector2(5.5, 5)])
 

@@ -13,6 +13,7 @@ const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 ## Everything an outcome is made of, by id (as test_formation_list_order's).
@@ -21,7 +22,7 @@ func _state(squads: Array) -> String:
 	for squad in squads:
 		var units := []
 		for unit in squad.units:
-			var at: Vector2 = unit.position.snapped(Vector2(0.0001, 0.0001))
+			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
 			units.append([unit.id, unit.hp, unit.rank, unit.column, at, unit.bearing])
 		units.sort()
 		var front := snappedf(squad.front_distance, 0.000001)

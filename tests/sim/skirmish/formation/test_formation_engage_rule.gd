@@ -9,13 +9,22 @@ const FormationContact = preload("res://sim/skirmish/formation/formation_contact
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _squad(state: SkirmishSquad.State, order: SkirmishUnit.Order) -> SkirmishSquad:
 	var unit := SkirmishUnit.new()
 	unit.id = 1
 	unit.hp = 10
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, [unit] as Array[SkirmishUnit])
+	var squad := SkirmishSquad.new(
+		1, "player", 1, 0.0, 1, [unit] as Array[SkirmishUnit], null, _places.store
+	)
 	squad.state = state
 	squad.order = order
 	return squad

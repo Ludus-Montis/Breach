@@ -13,6 +13,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(hp: int, dmg: int) -> UnitDef:
@@ -204,12 +205,18 @@ func test_route_bs_wave_crosses_the_stream_at_its_full_width() -> void:
 	_run(field, func(log): return field.waves["B"].built() == 8)
 	var wave := field.send("B")
 	var past := func(_log):
-		return wave.living().all(func(u): return u.position.x > FormationField.STREAM.end.x + 4.0)
+		return wave.living().all(
+			func(u): return UnitPlaces.of(wave, u).x > FormationField.STREAM.end.x + 4.0
+		)
 
 	_run(field, past, 900)
 
 	(
-		assert_bool(wave.living().all(func(u): return u.position.x > FormationField.STREAM.end.x))
+		assert_bool(
+			wave.living().all(
+				func(u): return UnitPlaces.of(wave, u).x > FormationField.STREAM.end.x
+			)
+		)
 		. is_true()
 	)
 	assert_int(wave.width).is_equal(8)  # it kept its shape: no narrowing

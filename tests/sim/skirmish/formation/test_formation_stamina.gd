@@ -12,9 +12,16 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const ItemDef = preload("res://content/definitions/item_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
 
 
 ## A unit of strength 10 (carry limit 20 with the usual tuning) carrying `weight`.
+func before_test() -> void:
+	_places = UnitPlaces.new()
+
+
 func _laden(weight: float, hauler: int = 0) -> UnitDef:
 	var pack := ItemDef.new()
 	pack.item_name = "pack"
@@ -41,7 +48,7 @@ func _unit(stamina: float = 100.0) -> SkirmishUnit:
 func _squad(units: Array) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(units)
-	return SkirmishSquad.new(1, "player", 1, 0.0, units.size(), typed)
+	return SkirmishSquad.new(1, "player", 1, 0.0, units.size(), typed, null, _places.store)
 
 
 func test_its_load_against_its_strength_sets_its_encumbrance() -> void:

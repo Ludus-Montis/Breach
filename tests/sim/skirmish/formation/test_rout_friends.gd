@@ -18,10 +18,17 @@ const RoutCatch = preload("res://sim/skirmish/formation/rout_catch.gd")
 const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 
 const SEED := 23
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
 
 
 ## Eight player formations (every third routing, every other led) and a kingdom one, on a
 ## bent route, their units on a half-cell lattice, some loose a little off their places.
+func before_test() -> void:
+	_places = UnitPlaces.new()
+
+
 func _field() -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
@@ -39,14 +46,14 @@ func _field() -> Array:
 			unit.footprint_depth = unit.footprint_width
 			unit.leadership = 2 if index % 2 == 0 and slot == 0 else 0
 			var x := 4.0 + index * 6.0 + (slot / 6) * 1.5 + rng.randi_range(0, 2) * 0.5
-			unit.position = Vector2(x, (slot % 6) * 1.5 - 4.0 + rng.randi_range(0, 2) * 0.5)
+			_places.stand(unit, Vector2(x, (slot % 6) * 1.5 - 4.0 + rng.randi_range(0, 2) * 0.5))
 			members.append(unit)
 		var faction := "the_kingdom" if index == 8 else "player"
-		var squad := SkirmishSquad.new(index + 1, faction, 1, 0.0, 6, members)
+		var squad := SkirmishSquad.new(index + 1, faction, 1, 0.0, 6, members, null, _places.store)
 		squad.route = route
 		squad.state = SkirmishSquad.State.ROUTING if index % 3 == 1 else SkirmishSquad.State.HOLDING
 		for unit in members.slice(0, 4):  # a few loose a little off their places
-			var at: Vector2 = unit.position + Vector2(rng.randi_range(-1, 1), 0.5)
+			var at: Vector2 = _places.at(unit) + Vector2(rng.randi_range(-1, 1), 0.5)
 			squad.loose[unit.id] = {"unit": unit, "at": at, "goal": null, "next": at}
 		squads.append(squad)
 	return squads
@@ -148,7 +155,7 @@ func _crush_all(squad: SkirmishSquad, squads: Array, at: Vector2) -> Array:
 		if friend.state == SkirmishSquad.State.ROUTING:
 			continue
 		for unit in friend.living():
-			var gap: float = unit.position.distance_to(at)
+			var gap: float = _places.at(unit).distance_to(at)
 			var key := [snappedf(gap, 0.000001), ScrumContest.draw(unit, SEED)]
 			if gap < 1.0 and (hit.is_empty() or key < hit[0]):
 				hit = [key, friend, unit]
@@ -210,7 +217,7 @@ func _enemy_near_all(squad: SkirmishSquad, squads: Array, points: Array) -> bool
 			continue
 		for enemy in other.living():
 			for at in points:
-				if enemy.position.distance_to(at) <= BattleTuning.current().rout_enemy_near:
+				if _places.at(enemy).distance_to(at) <= BattleTuning.current().rout_enemy_near:
 					return true
 	return false
 

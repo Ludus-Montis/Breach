@@ -13,6 +13,13 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const TICK := 0.1
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+var _places := UnitPlaces.new()
+
+
+func before_test() -> void:
+	_places = UnitPlaces.new()
 
 
 func _def(hp: int, dmg: int, leadership: int = 0) -> UnitDef:
@@ -61,7 +68,7 @@ func test_a_partial_wave_is_centred_on_its_route() -> void:
 
 	assert_int(wave.living().size()).is_equal(1)
 	field.step()
-	assert_float(wave.living()[0].position.y).is_equal_approx(FormationField.B_Y, 0.01)
+	assert_float(UnitPlaces.of(wave, wave.living()[0]).y).is_equal_approx(FormationField.B_Y, 0.01)
 
 
 func test_a_squad_passing_beside_a_line_fights_it() -> void:
@@ -99,7 +106,7 @@ func test_a_squad_closes_ranks_over_its_dead() -> void:
 		unit.rank = place.x
 		unit.column = place.y
 		units.append(unit)
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 3, units)
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 3, units, null, _places.store)
 
 	SquadRanks.close(squad)
 

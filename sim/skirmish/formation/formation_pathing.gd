@@ -21,6 +21,7 @@ const PathSight = preload("res://sim/skirmish/formation/path_sight.gd")
 const RoutePatch = preload("res://sim/skirmish/formation/route_patch.gd")
 const SquadPathfinder = preload("res://sim/skirmish/formation/squad_pathfinder.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick: groups follow their commands' patched routes, then marching groups look
@@ -98,7 +99,8 @@ static func _look_ahead(
 	var finder := SquadPathfinder.pick(squad, fight_seed)
 	var sight: PathSight = null
 	if finder != null and finder.definition != null:
-		sight = PathSight.of(finder.definition, finder.position, to - from, terrain)
+		var at: Vector2 = squad.store.columns.value(finder.slot, UnitColumns.POSITION)
+		sight = PathSight.of(finder.definition, at, to - from, terrain)
 	var plan := TerrainPaths.plan(terrain, walker, from, to, sight)
 	var way: PackedVector2Array = plan["waypoints"]
 	if not plan["reaches"] or way.size() < 3:

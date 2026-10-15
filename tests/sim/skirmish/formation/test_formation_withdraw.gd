@@ -17,6 +17,7 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 func _def(discipline: int) -> UnitDef:
@@ -61,7 +62,7 @@ func test_a_retreat_withdraws_at_combats_priority_from_where_its_units_stand() -
 	var me: SkirmishSquad = setup[1]
 	var foe: SkirmishSquad = setup[2]
 	setup[0].step()
-	var front: float = foe.living().map(func(u): return u.position.x).min()
+	var front: float = foe.living().map(func(u): return UnitPlaces.of(foe, u).x).min()
 	var before := {}
 	for unit in me.living():
 		before[unit.id] = ScrumReach.at(me, unit).x

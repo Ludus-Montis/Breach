@@ -18,6 +18,7 @@ const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 ## Cells a sight grid's bucket spans.
@@ -86,13 +87,14 @@ func sighted(squad: SkirmishSquad) -> Dictionary:
 		var cells := {}
 		var low := Vector2i(1 << 30, 1 << 30)
 		var high := -low
+		var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 		for unit in living(squad):
-			var cell := Vector2i((unit.position / SIGHT_CELL).floor())
+			var cell := Vector2i((at[unit.slot] / SIGHT_CELL).floor())
 			if not cells.has(cell):
 				cells[cell] = []
 				low = low.min(cell)
 				high = high.max(cell)
-			cells[cell].append(unit.position)
+			cells[cell].append(at[unit.slot])
 		held["sighted"] = {"cells": cells, "low": low, "high": high}
 	return held["sighted"]
 
