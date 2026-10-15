@@ -87,8 +87,9 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 	var points := []
 	var of := {}
 	var order := {}
+	var table := UnitPlace.table(squad)  # fetched once (spec 35)
 	for index in range(living.size()):
-		points.append(ScrumStance.anchor(squad, living[index]))
+		points.append(ScrumStance.anchor(squad, living[index], table))
 		of[living[index]] = index
 		order[living[index]] = index
 	if stalled.any(func(unit): return not of.has(unit)):

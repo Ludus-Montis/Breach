@@ -125,6 +125,7 @@ static func sync_units(
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
 		var columns: UnitColumns = entry.store.columns
+		var ranks: PackedInt32Array = columns.column(UnitColumns.RANK)  # fetched once
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
@@ -133,7 +134,8 @@ static func sync_units(
 				continue  # the fallen lie where they fell (Decision 126)
 			var swapping := FormationShuffle.offset(entry, unit, moving)
 			unit.distance = (
-				entry.unit_distance(unit) + entry.direction * swapping.x * SkirmishSquad.RANK_DEPTH
+				entry.rank_distance(ranks[unit.slot])
+				+ entry.direction * swapping.x * SkirmishSquad.RANK_DEPTH
 			)
 			if entry.fleeing.has(unit.id):
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)

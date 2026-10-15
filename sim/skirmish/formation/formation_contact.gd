@@ -217,6 +217,7 @@ static func _depth(friend: SkirmishSquad) -> float:
 
 static func _back_rows(squad: SkirmishSquad) -> int:
 	var rows := 0
+	var places := UnitPlace.table(squad)  # fetched once (spec 35)
 	for unit in squad.living():
-		rows = maxi(rows, UnitPlace.rank(squad, unit) + unit.footprint_depth)
+		rows = maxi(rows, places[0][unit.slot] + unit.footprint_depth)
 	return rows

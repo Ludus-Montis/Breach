@@ -13,38 +13,42 @@ const PlaceOrder = preload("res://sim/skirmish/formation/place_order.gd")
 ## until nothing more can move - but only front-preferring units step into the front rank
 ## (Decision 47). If the whole front has fallen, the squad re-anchors: its foremost rank
 ## becomes rank 0 and its front_distance moves back to match, so nobody moves on the route.
-## Returns the units that stepped up.
+## Returns the units that stepped up. The places are fetched once (UnitPlace.table), worked
+## on here and the ranks committed once (spec 35): only ranks change.
 static func compact(squad: SkirmishSquad) -> Array[SkirmishUnit]:
+	var places := UnitPlace.table(squad)
 	var moved: Array[SkirmishUnit] = []
 	var stepped := {}  # unit -> true: those in `moved`
-	var cells := _cells(squad)  # who stands where, kept as units step up
+	var cells := _cells(squad, places)  # who stands where, kept as units step up
 	var heading := _headed_for(squad)  # mid-move: the places moves under way are heading for
+	var changed := false
 	var any := true
 	while any:
 		any = false
-		var order_by_place := PlaceOrder.front_first(squad.living(), squad.store.columns)
+		var order_by_place := PlaceOrder.front_first(squad.living(), places)
 		for unit: SkirmishUnit in order_by_place:
 			if heading["movers"].has(unit):
 				continue  # mid-move: it takes the place its move is heading for
-			var rank := UnitPlace.rank(squad, unit)
+			var rank: int = places[0][unit.slot]
 			var into_front_ok := rank > 1 or unit.preferred_position == 0
-			if rank > 0 and into_front_ok and _clear_ahead(squad, unit, cells, heading["cells"]):
-				_step_up(squad, unit, cells)
+			if rank > 0 and into_front_ok and _clear_ahead(unit, places, cells, heading["cells"]):
+				_step_up(unit, places, cells)
 				any = true
+				changed = true
 				if not stepped.has(unit):
 					stepped[unit] = true
 					moved.append(unit)
 	var remaining := squad.living()
-	if (
-		not remaining.is_empty()
-		and not remaining.any(func(u): return UnitPlace.rank(squad, u) == 0)
-	):
+	if not remaining.is_empty() and not remaining.any(func(u): return places[0][u.slot] == 0):
 		var shift: int = remaining.reduce(
-			func(least, u): return mini(least, UnitPlace.rank(squad, u)), 1 << 30
+			func(least, u): return mini(least, places[0][u.slot]), 1 << 30
 		)
 		for unit in remaining:
-			UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(shift, 0))
+			places[0][unit.slot] -= shift
+		changed = true
 		squad.front_distance -= squad.direction * shift * SkirmishSquad.RANK_DEPTH
+	if changed:
+		squad.store.columns.commit(UnitColumns.RANK, places[0])
 	return moved
 
 
@@ -65,11 +69,12 @@ static func _headed_for(squad: SkirmishSquad) -> Dictionary:
 	return {"movers": movers, "cells": cells}
 
 
-## {Vector2i(rank, column): [unit, ...]}: the places the living units' footprints cover.
-static func _cells(squad: SkirmishSquad) -> Dictionary:
+## {Vector2i(rank, column): [unit, ...]}: the places the living units' footprints cover
+## (`places`: UnitPlace.table).
+static func _cells(squad: SkirmishSquad, places: Array) -> Dictionary:
 	var cells := {}
 	for unit in squad.living():
-		var at := UnitPlace.of(squad, unit)
+		var at := UnitPlace.read(places, squad, unit)
 		for rank in range(at.x, at.x + unit.footprint_depth):
 			for column in range(at.y, at.y + unit.footprint_width):
 				if not cells.has(Vector2i(rank, column)):
@@ -78,23 +83,23 @@ static func _cells(squad: SkirmishSquad) -> Dictionary:
 	return cells
 
 
-## The unit steps up a rank, and `cells` (_cells) with it.
-static func _step_up(squad: SkirmishSquad, unit: SkirmishUnit, cells: Dictionary) -> void:
-	var at := UnitPlace.of(squad, unit)
+## The unit steps up a rank in `places`, and `cells` (_cells) with it.
+static func _step_up(unit: SkirmishUnit, places: Array, cells: Dictionary) -> void:
+	var at := Vector2i(places[0][unit.slot], places[1][unit.slot])
 	for column in range(at.y, at.y + unit.footprint_width):
 		cells[Vector2i(at.x + unit.footprint_depth - 1, column)].erase(unit)
 		if not cells.has(Vector2i(at.x - 1, column)):
 			cells[Vector2i(at.x - 1, column)] = []
 		cells[Vector2i(at.x - 1, column)].append(unit)
-	UnitPlace.put(squad, unit, at - Vector2i(1, 0))
+	places[0][unit.slot] = at.x - 1
 
 
 ## True if no other living unit (`cells`: _cells) stands in the row ahead of the unit across
 ## its columns, nor is a move under way heading there (`heading`: _headed_for's cells).
 static func _clear_ahead(
-	squad: SkirmishSquad, unit: SkirmishUnit, cells: Dictionary, heading: Dictionary
+	unit: SkirmishUnit, places: Array, cells: Dictionary, heading: Dictionary
 ) -> bool:
-	var at := UnitPlace.of(squad, unit)
+	var at := Vector2i(places[0][unit.slot], places[1][unit.slot])
 	var row := at.x - 1
 	for column in range(at.y, at.y + unit.footprint_width):
 		for other in cells.get(Vector2i(row, column), []):

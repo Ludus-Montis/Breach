@@ -51,6 +51,9 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   "Built" below.
 - **Step 4e, the sync reads the store: built** (2026-10-15), stacked on 4d's PR. Step 4 is
   complete. See "Built" below.
+- **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
+  (the user: "the aim of this spec was to improve performance, so reducing it is not
+  acceptable"). See "Built" below.
 
 ## The store
 
@@ -544,6 +547,34 @@ but read from the store instead of a sync. The glue is gone at step 4.
   had no mode). `field.rs` and `blows.rs` set the flag bits in the store before syncing.
   The seek parity tests run unchanged through the new sync; the parting's and blows'
   tests and the digests run in CI.
+
+### Places read once a pass (after step 4)
+
+- **Why.** Step 4's bench (`tick_phases engine=rust side=4096 squads=4 fight=3`) showed 4a
+  costing 22.6% (370.2 → 453.9 ms against main), mostly in deaths (25.9 → 54.5), blows
+  (21.0 → 45.3), the re-form's occupancy (5.1 → 12.8) and units walking to places
+  (27.7 → 36.0). 4b to 4e won back about 33 ms of scrum glue, so step 4 as a whole was still
+  2.9% slower (291.3 → 299.8). The cause was 4a's scattered reads: each `UnitPlace.of` or
+  `rank` is two store reads, and under Rust each read is a call into the field.
+- **`UnitPlace.table(squad)` and `read(table, squad, unit)`.** A pass over many units fetches
+  the store's ranks and columns once and reads each unit's place from them; `read` with no
+  table reads the store, as before. Like a position column fetched once a squad, a table
+  is a copy as of now: a pass that moves units fetches again.
+- **The passes that fetch once:** `fighters()`; ranged combat's marks, rows and range (and
+  `SquadGeometry.unit_gap` given a table); `SquadCompact`, which works on the fetched
+  ranks and commits them once, only if any changed; the march's unit distances
+  (`SkirmishSquad.rank_distance(rank)` replaces `unit_distance(unit)`); `FormationPour.targets`
+  and `FormationWalk.share`; the re-form's occupancy, which also hands its table to
+  `PlaceOrder.front_first` (now taking a table, not the columns); `SquadEdges`' bounds, edge
+  units, reach and overlap; `SquadGeometry.lateral`; the trade's places; `SquadRanks.close`;
+  contact's and groups' back rows; recovery's back row; the re-form's widening. `lateral_span`,
+  `ScrumStance.anchor`, `FormationPour.place` and `FormationWalk.place_of` take an optional
+  table.
+- **Left scattered:** reads once per event (a step-up's rank, a trade's two places, a swap
+  that ends, a unit placed when it spawns, joins or strays).
+- **Tests.** `test_unit_place.gd`: a table reads each unit's place as the store holds it, on
+  both backends, and `read` with no table reads the store (red on 4e's `UnitPlace`, which had
+  neither). No outcome changes; the digests hold that.
 
 ## Open, for the implementing session to settle and record here
 

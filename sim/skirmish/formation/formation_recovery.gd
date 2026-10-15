@@ -254,9 +254,10 @@ static func _nearest(unit: SkirmishUnit, friends: Dictionary) -> Array:
 ## The unit joins `best`, walking from where it lay to a place at its back.
 static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -> void:
 	var back := 0
+	var ranks: PackedInt32Array = UnitPlace.table(best)[0]  # fetched once (spec 35)
 	for other in best.living():
 		if other != unit:
-			back = maxi(back, UnitPlace.rank(best, other) + other.footprint_depth)
+			back = maxi(back, ranks[other.slot] + other.footprint_depth)
 	if best != own:
 		SquadEntries.unloose(own, unit.id)
 		SquadEntries.unflee(own, unit.id)

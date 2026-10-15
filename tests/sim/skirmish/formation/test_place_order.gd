@@ -38,7 +38,7 @@ func _compared(units: Array) -> Array:
 func test_front_rank_first_and_each_rank_left_to_right() -> void:
 	var units := _units([Vector2i(2, 0), Vector2i(0, 3), Vector2i(1, -2), Vector2i(0, -1)])
 
-	var ordered := PlaceOrder.front_first(units, _places.store.columns)
+	var ordered := PlaceOrder.front_first(units, UnitPlace.table(_places))
 
 	assert_array(ordered.map(func(u): return u.id)).contains_exactly([4, 2, 3, 1])
 
@@ -52,10 +52,10 @@ func test_many_places_sort_as_the_comparison_does() -> void:
 	places.shuffle()
 	var units := _units(places)
 
-	assert_array(PlaceOrder.front_first(units, _places.store.columns)).is_equal(_compared(units))
+	assert_array(PlaceOrder.front_first(units, UnitPlace.table(_places))).is_equal(_compared(units))
 
 
 func test_a_place_held_twice_sorts_as_the_comparison_does() -> void:
 	var units := _units([Vector2i(1, 1), Vector2i(0, 0), Vector2i(1, 1), Vector2i(0, 2)])
 
-	assert_array(PlaceOrder.front_first(units, _places.store.columns)).is_equal(_compared(units))
+	assert_array(PlaceOrder.front_first(units, UnitPlace.table(_places))).is_equal(_compared(units))
