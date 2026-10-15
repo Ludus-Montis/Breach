@@ -113,6 +113,24 @@ settle at the tick's end (a sum over the squads, and a walk of the lists on a ti
 left), so most of the difference is likely run-to-run noise. Nothing is saved until
 step 4.
 
+**Spec 35 steps 2a and 2b, the entries' keys in the unit store** (bench runs 38729571324
+and 38736555180, each against its base on one CI runner; the two runners differ, so
+compare percentages, not milliseconds):
+- **2a, the GDScript store** (#220; AMD EPYC 7763, against main a5c8239): **398.8 → 411.6 ms
+  a tick** (+12.8, 3.2%). The seek's gather fell 26.1 → 21.6 and its write-back 10.6 → 7.8
+  (columns read once instead of each entry's dictionary). Units walk to places rose
+  26.4 → 30.1, bodies 40.7 → 43.8 and recovery 26.2 → 28.2: scattered `put` and `value`
+  calls, or run-to-run noise.
+- **2b, the Rust backend** (#221; AMD EPYC 9V74, against main 7722136): **304.6 → 327.8 ms a
+  tick** (+23.2, 7.6%). Bodies rose 32.1 → 36.7, units walk to places 22.0 → 24.6, the walk
+  22.3 → 24.8 and blows 18.4 → 20.9. Under Rust each scattered `value` or `put` of an
+  entry's key is now a call into the field, and each column fetched is one copy out of it.
+  Perception (12.9 → 14.8), which reads no entry key, also rose, so part of this is
+  likely noise.
+- **The trajectory:** steps 1 to 3 add boundary crossings and remove none. The glue goes
+  at step 4, when seek, walk and facing read the columns natively. Expect the series to
+  cost about 10% until then; step 4's bench is what has to pay it back.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
