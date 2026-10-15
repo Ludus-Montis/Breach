@@ -23,9 +23,9 @@ All three reproduce the GDScript reference bit for bit. The C++ kernel from the 
 | Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. A checkout without the library runs on GDScript, silently. |
 | Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), class `BodyField` |
 | GDScript side | `body_field_sync.gd` (the sync), `body_parting.gd` (parting on the field), `scrum_seek_field.gd` (the slot search on the field), `scrum_face_field.gd` (the facing on the field), `scrum_walk_field.gd` (the walk on the field) |
-| Owner | `FormationSimulation._field`: one field a battle, made when the battle is (null under GDScript) |
+| Owner | `FormationSimulation._field`: one field a battle, made when the battle is (null under GDScript). Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
 | Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/facing_bench.gd` (the facing pass alone, and DetMath), `tools/steering_bench.gd` (the walk alone), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks) |
-| Identity | `tools/formation_digest.gd` (every set, both engines); `tests/sim/skirmish/formation/test_body_field.gd`, `test_body_parting.gd`, `test_face_field.gd` and `test_walk_field.gd`; the whole suite under `BREACH_NATIVE=rust` |
+| Identity | `tools/formation_digest.gd` (every set, both engines); `tests/sim/skirmish/formation/test_unit_store.gd`, `test_body_field.gd`, `test_body_parting.gd`, `test_face_field.gd` and `test_walk_field.gd`; the whole suite under `BREACH_NATIVE=rust` |
 
 ## The native state and its boundary
 
@@ -33,7 +33,8 @@ All three reproduce the GDScript reference bit for bit. The C++ kernel from the 
 GDScript (rules, reference)                    Rust: BodyField (one a battle)
 -------------------------------------------    ---------------------------------------------
 FormationSimulation._field ------------------> roster (persistent, incremental)
-                                                 unit id -> body slot; squad id -> squad;
+UnitStoreNative: hold, release, slot_of,         unit id -> body slot (the store's slot);
+  unit_at, held_count, held_units ---------->    squad id -> squad;
 BodyFieldSync.scrum / .bodies  --sync------->     per body: radius, area, initiative, draw,
   one call, flat over squads in list order:       faction, squad; bodies in draw order
   ids, points, flags [, nexts, bases, bearings]  where each stands (as of the last sync):
@@ -73,6 +74,12 @@ roster changes incrementally. A sync names each squad's living units:
   copied to Rust
 - a unit no squad names is dropped (the dead, the taken)
 - a unit named under another squad moves with it
+
+**The unit store's slots** (spec 35 step 0). A body is also the slot the battle's unit
+store gives a unit (`hold`), from when it is spawned until it is in no squad's list
+(`release`). A held unit dropped from the field (dead, downed) keeps its slot and is
+enrolled again in it if a sync names it again. Free slots are reused lowest first. A
+slot is storage only: no pass loops in slot order or breaks a tie by it.
 
 A battle's field lives as long as its simulation.
 

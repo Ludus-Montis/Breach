@@ -21,8 +21,10 @@ and the same copying recurs in the walk, the facing and the other passes.
 
 ## Status
 
-Agreed in the design session of 2026-10-14. Nothing is built yet. Build one step at a
-time with `/run-phase`, as "spec 35 step N". Each step is its own PR.
+Agreed in the design session of 2026-10-14. Build one step at a time with `/run-phase`, as
+"spec 35 step N". Each step is its own PR.
+
+- **Step 0, the skeleton: built** (2026-10-14). See "Built" below.
 
 ## The store
 
@@ -154,8 +156,37 @@ but read from the store instead of a sync. The glue is gone at step 4.
 - **bounded-work:** each pass fetches its columns once, and enrolling and dropping are
   incremental.
 
+## Built
+
+### Step 0, the skeleton
+
+- `UnitStore` (`unit_store.gd`, an abstract class) has `enrol`, `drop`, `slot_of`,
+  `id_at`, `count`, `ids` (the held units by slot) and `settle(squads)`.
+  `NativeKernels.unit_store(field)` gives `UnitStoreGd` with no field, else
+  `UnitStoreNative` on it. `FormationSimulation.store` is the battle's store.
+- **Enrolling and dropping.** `spawn_squad` enrols each new unit, which is the only way a
+  unit joins a battle. At the end of `step()`, `settle` drops every unit that no squad
+  lists any more (fled home, carried home, or the dead of a squad merged into another).
+  It walks the lists only when they hold fewer or more units than the store, so a tick
+  where nobody left costs a sum over the squads.
+- **The native slots.** `BodyField`'s bodies are the store's slots (`hold`, `release`,
+  `slot_of`, `unit_at`, `held_count`, `held_units`). The field's roster still holds only
+  the living, as the passes read it: a held unit dropped from the field keeps its slot
+  and is enrolled again in it when a sync names it. Free bodies were reused last-freed
+  first; they are now reused lowest first, as the store's rule says. A seed change no
+  longer resets the field; it takes every body off the field to be enrolled again, and
+  keeps the slots.
+- **The digest** reads each unit's id through the store
+  (`store.id_at(store.slot_of(id))`), the same code on both engines, so a wrong slot map
+  changes the hashes.
+- **Settled here:** the digest's squad order stays on the simulation's squad list. The
+  store holds units, not squads, so step 0 doesn't move it.
+- `test_unit_store.gd`: the contract on both backends, a 24-a-side clash with deaths, a
+  later wave and routers fleeing home (each listed unit's own slot, the same on both
+  engines, every tick), and a battle whose slots are handed out the other way round
+  playing the same.
+
 ## Open, for the implementing session to settle and record here
 
 - Where presentation's per-frame snapshot is taken, and whether it copies all columns or
   only the drawn ones. It must not change outcomes.
-- Whether step 0 also moves the digest's squad order. Only if it changes no bytes.

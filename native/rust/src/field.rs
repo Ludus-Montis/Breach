@@ -6,8 +6,14 @@
 //! sizes once), units gone are dropped, and units that changed squad are moved. The
 //! hot passes - body parting, the scrum's slot search - run on it, and so can the next
 //! ports (the spatial grid, pathfinding).
+//!
+//! A body is also a slot of the battle's unit store (spec 35, Decision 142): a unit the
+//! store holds keeps its slot while it is off the field (dead, downed, gone home), and
+//! is enrolled again when a sync names it. Free slots are reused lowest first. A slot is
+//! storage only: no pass loops in slot order or breaks a tie by it.
 
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 
 use crate::maths::V2;
 
@@ -87,10 +93,14 @@ pub struct Field {
     pub order: Vec<u32>,
     /// The enrolled bodies on the field, by draw (UnitBodies._drawn's order).
     pub drawn: Vec<u32>,
+    /// The bodies on the field (named by the last sync).
     by_unit: HashMap<i64, u32>,
     by_squad: HashMap<i64, u32>,
     factions: Vec<String>,
-    free: Vec<u32>,
+    /// The unit store's slots: units held whether or not they are on the field.
+    held: HashMap<i64, u32>,
+    holding: Vec<bool>,
+    free: BinaryHeap<Reverse<u32>>,
 }
 
 impl Field {
@@ -104,11 +114,59 @@ impl Field {
         self.by_unit.get(&unit_id).copied()
     }
 
+    /// Units the store holds.
+    pub fn held_count(&self) -> usize {
+        self.held.len()
+    }
+
+    /// The store's slot of a unit, if it holds it.
+    pub fn slot_of(&self, unit_id: i64) -> Option<u32> {
+        self.held.get(&unit_id).copied()
+    }
+
+    /// The unit the store holds in a slot, if any.
+    pub fn unit_at(&self, slot: u32) -> Option<i64> {
+        let s = slot as usize;
+        (s < self.holding.len() && self.holding[s]).then(|| self.unit_id[s])
+    }
+
+    /// The units the store holds, by slot.
+    pub fn held_units(&self) -> Vec<i64> {
+        (0..self.holding.len()).filter(|&s| self.holding[s]).map(|s| self.unit_id[s]).collect()
+    }
+
+    /// The store takes a unit: its slot, the lowest free one if it has none yet (its body,
+    /// if a sync named it first).
+    pub fn hold(&mut self, unit_id: i64) -> u32 {
+        if let Some(&slot) = self.held.get(&unit_id) {
+            return slot;
+        }
+        let slot = match self.by_unit.get(&unit_id) {
+            Some(&body) => body,
+            None => self.take_slot(unit_id),
+        };
+        self.holding[slot as usize] = true;
+        self.held.insert(unit_id, slot);
+        slot
+    }
+
+    /// The store lets a unit go: it leaves the field too, and its slot is free.
+    pub fn release(&mut self, unit_id: i64) {
+        let Some(slot) = self.held.remove(&unit_id) else { return };
+        self.holding[slot as usize] = false;
+        if self.by_unit.remove(&unit_id).is_some() {
+            self.enrolled[slot as usize] = false;
+            self.drawn.retain(|&b| b != slot);
+        }
+        self.free.push(Reverse(slot));
+    }
+
     /// Brings the field to the squads as they stand. Returns the flat indices of units new
     /// to the field, to be enrolled (`enrol`) before any pass runs.
     pub fn sync(&mut self, seed: i64, input: &SyncIn) -> Vec<i32> {
         if seed != self.seed {
-            *self = Field { seed, ..Field::default() };
+            self.seed = seed;
+            self.forget_bodies(); // enrolled again, with this seed's draws
         }
         self.stamp = self.stamp.wrapping_add(1);
         self.order.clear();
@@ -180,18 +238,39 @@ impl Field {
             return body;
         }
         unknown.push(flat as i32);
-        let body = match self.free.pop() {
-            Some(b) => b,
+        let body = match self.held.get(&unit_id) {
+            Some(&slot) => slot,
+            None => self.take_slot(unit_id),
+        };
+        self.enrolled[body as usize] = false;
+        self.by_unit.insert(unit_id, body);
+        body
+    }
+
+    /// The lowest free slot, or a new one, given to a unit.
+    fn take_slot(&mut self, unit_id: i64) -> u32 {
+        let slot = match self.free.pop() {
+            Some(Reverse(s)) => s,
             None => {
                 self.grow();
                 (self.unit_id.len() - 1) as u32
             }
         };
-        let b = body as usize;
-        self.unit_id[b] = unit_id;
-        self.enrolled[b] = false;
-        self.by_unit.insert(unit_id, body);
-        body
+        self.unit_id[slot as usize] = unit_id;
+        slot
+    }
+
+    /// Takes every body off the field; the store keeps its slots.
+    fn forget_bodies(&mut self) {
+        let bodies: Vec<u32> = self.by_unit.values().copied().collect();
+        self.by_unit.clear();
+        self.drawn.clear();
+        for body in bodies {
+            self.enrolled[body as usize] = false;
+            if !self.holding[body as usize] {
+                self.free.push(Reverse(body));
+            }
+        }
     }
 
     fn grow(&mut self) {
@@ -204,6 +283,7 @@ impl Field {
         self.initiative.push(0);
         self.seen.push(0);
         self.enrolled.push(false);
+        self.holding.push(false);
         self.at.push(V2::ZERO);
         self.offset.push(V2::ZERO);
         self.base.push(V2::ZERO);
@@ -255,9 +335,62 @@ impl Field {
         for body in gone {
             self.by_unit.remove(&self.unit_id[body as usize]);
             self.enrolled[body as usize] = false;
-            self.free.push(body);
+            if !self.holding[body as usize] {
+                self.free.push(Reverse(body)); // a held unit keeps its slot off the field
+            }
         }
         let (seen, enrolled) = (&self.seen, &self.enrolled);
         self.drawn.retain(|&b| seen[b as usize] == stamp && enrolled[b as usize]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sync(field: &mut Field, units: &[i64]) -> Vec<i32> {
+        let points = vec![V2::ZERO; units.len()];
+        let flags = vec![0u8; units.len()];
+        let input = SyncIn {
+            squad_ids: &[1],
+            squad_factions: &["player".to_string()],
+            squad_flags: &[0],
+            squad_counts: &[units.len() as i32],
+            unit_ids: units,
+            points: &points,
+            flags: &flags,
+            nexts: &[],
+            bases: &[],
+            bearings: &[],
+        };
+        field.sync(5, &input)
+    }
+
+    #[test]
+    fn held_units_keep_their_slots_off_the_field_and_free_slots_go_lowest_first() {
+        let mut field = Field::default();
+        assert_eq!([field.hold(10), field.hold(11), field.hold(12)], [0, 1, 2]);
+        assert_eq!(sync(&mut field, &[10, 11, 12]), vec![0, 1, 2]);
+        assert_eq!(field.body_of(11), Some(1)); // the body is the slot
+        sync(&mut field, &[10, 12]); // 11 died: off the field, still held
+        assert_eq!(field.count(), 2);
+        assert_eq!(field.slot_of(11), Some(1));
+        assert_eq!(field.unit_at(1), Some(11));
+        field.release(12);
+        field.release(10);
+        assert_eq!(field.unit_at(0), None);
+        assert_eq!(field.hold(13), 0); // the lowest free slot
+        assert_eq!(field.hold(14), 2);
+        assert_eq!(field.held_units(), vec![13, 11, 14]);
+    }
+
+    #[test]
+    fn a_unit_the_field_names_again_is_enrolled_again_in_its_held_slot() {
+        let mut field = Field::default();
+        field.hold(7);
+        sync(&mut field, &[7]);
+        sync(&mut field, &[]);
+        assert_eq!(sync(&mut field, &[7]), vec![0]); // come to: enrolled again
+        assert_eq!(field.body_of(7), Some(0));
     }
 }
