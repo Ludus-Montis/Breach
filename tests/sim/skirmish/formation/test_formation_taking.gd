@@ -30,7 +30,7 @@ func _setup(count: int, gap: float) -> Array:
 	var foe := sim.spawn_squad(1, [[grem, Vector2i(0, 0)]], "the_kingdom", false)
 	sim.order(foe.id, SkirmishUnit.Order.HOLD)
 	var body: SkirmishUnit = foe.units[0]
-	body.position = Vector2(40.0 + gap, line.position.y)
+	UnitPlaces.put(foe, body, Vector2(40.0 + gap, line.position.y))
 	body.hp = 0
 	body.state = SkirmishUnit.State.DOWNED
 	body.wake_left = 999.0
@@ -111,11 +111,15 @@ func test_each_unit_takes_one_body_whatever_the_list_order() -> void:
 		var setup := _setup(3, 3.0)
 		var sim: FormationSimulation = setup[0]
 		var line: SkirmishSquad = setup[1]
-		var second: SkirmishUnit = _setup(1, 5.0)[2]  # a second body, in another sim: move it over
+		var other: Array = _setup(1, 5.0)  # a second body, in another sim: move it over
+		var second: SkirmishUnit = other[2]
+		var lay := UnitPlaces.of(other[0].squads()[1], second)
 		var foe: SkirmishSquad = sim.squads()[1]
 		second.squad_id = foe.id
 		second.faction_id = "the_kingdom"
 		second.id = 999
+		second.slot = sim.store.enrol(second.id)
+		UnitPlaces.put(foe, second, lay)
 		foe.units.append(second)
 		if reverse:
 			sim.squads().reverse()
