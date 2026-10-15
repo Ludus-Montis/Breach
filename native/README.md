@@ -60,12 +60,17 @@ ScrumFaceField.face ------ face(after the walk) -> facing: the touching foe (fro
   bearing, turn rate, backward pace, and what      the turn at its rate (motion.rs,
   its entry makes for (next, foe_at, toward)       DetMath's atan2 and acos)
   <- every unit's bearing after its turn
-ScrumWalkField.walk ------ walk(after plan) ----> walk: SquadFrame.place, UnitShuffle.look,
-  the plan's units and answer (codes, nexts),      UnitSteer (the body in the way, least by
-  bearing, turn rate, backward pace, a frame       [along, draw]; _round), UnitMotion.move,
-  per squad, column/rank/footprint, the lying      GroundBodies.underfoot over a grid of
-  <- where each stands after its step, its look    the lying (walking.rs)
-  (its batch also feeds face(): no entry is read twice)
+ScrumWalkField.walk ------ walk(after seek) ----> walk (walk_store.rs, walking.rs): each
+  the seek's units and answer (codes, nexts),      unit's bearing, rank and column from the
+  speeds, a frame and pace per squad, the lying    columns, turn rate, backward pace and
+                                                   footprint from its record;
+                                                   SquadFrame.place, UnitShuffle.look,
+                                                   UnitSteer (the body in the way, least by
+                                                   [along, draw]; _round), UnitMotion.move,
+                                                   GroundBodies.underfoot over a grid of the
+                                                   lying; where each ends and looks written
+                                                   into the columns
+  <- where each stands after its step, its look (tests)
 ```
 
 **What the field owns.** Everything about a body that doesn't change tick to tick:

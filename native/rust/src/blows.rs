@@ -165,6 +165,7 @@ mod tests {
             draws: &[3, 2, 1],
             initiatives: &[0, 0, 0],
             records: &[],
+            paces: &[],
         });
         let b = if b_retreats { RETREAT } else { FIGHTING };
         (field, vec![0, b])
