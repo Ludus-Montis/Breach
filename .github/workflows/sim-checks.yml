@@ -13,7 +13,22 @@ env:
   GODOT_VERSION: "4.7.2-stable"
 
 jobs:
+  # Docs, specs, skills and Python-only tools don't change the simulation: the sim checks
+  # are skipped for them, which counts as passing (ci/godot/scripts/needs_godot.py).
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      godot: ${{ steps.scope.outputs.godot }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
+
   sim-checks:
+    needs: scope
+    if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

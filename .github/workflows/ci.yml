@@ -20,6 +20,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Docs, specs, skills and Python-only tools don't need Godot: they skip the gdUnit4
+      # suite and the scaling check (ci/godot/scripts/needs_godot.py decides by the files
+      # changed). Pushes to main always run everything.
+      - name: Which checks this change needs
+        id: scope
+        run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
+
       - name: Install Python tooling
         run: pip install "gdtoolkit==4.*" pre-commit
 
@@ -37,6 +44,7 @@ jobs:
           python -c "import os; from importlib.metadata import version; from gdtoolkit.parser.parser import get_cache_directory; os.makedirs(os.path.join(get_cache_directory(), 'gdtoolkit', version('gdtoolkit')), exist_ok=True)"
 
       - name: Cache Godot binary
+        if: steps.scope.outputs.godot == 'true'
         id: godot-cache
         uses: actions/cache@v6
         with:
@@ -44,7 +52,7 @@ jobs:
           key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
 
       - name: Download Godot
-        if: steps.godot-cache.outputs.cache-hit != 'true'
+        if: steps.scope.outputs.godot == 'true' && steps.godot-cache.outputs.cache-hit != 'true'
         run: |
           curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
           mkdir -p /opt/godot
@@ -53,6 +61,7 @@ jobs:
           chmod +x /opt/godot/godot
 
       - name: Import project (required once before gdUnit4's class_names resolve)
+        if: steps.scope.outputs.godot == 'true'
         run: /opt/godot/godot --headless --path . --import
 
       - name: Run baseline checks (gdlint, gdformat, custom scripts, tests)
@@ -61,9 +70,11 @@ jobs:
           # Decision 50: diff-scoped checks compare a PR with its own base branch (a
           # stacked PR's is the PR below it). Empty on pushes, which then detect it.
           BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}
+          SKIP: ${{ steps.scope.outputs.godot != 'true' && 'run-tests' || '' }}
         run: pre-commit run --all-files --show-diff-on-failure
 
       - name: Scaling check (bounded-scaling, principles/bounded-work.md)
+        if: steps.scope.outputs.godot == 'true'
         run: /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd
 
       - name: Check commit messages (commit-message-conforms)

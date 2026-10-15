@@ -41,6 +41,20 @@ not a coverage flag, and that project's own `run_tests.ps1`/`report_progress.py`
 comments admit coverage is still manual. Confirms this repo's own coverage gap below is
 real, not an oversight.
 
+## Which checks a change runs
+
+CI decides by the files a PR changes, not by its commit type
+(`ci/godot/scripts/needs_godot.py`, with its tests):
+
+- **Docs, specs, skills, the kit, Python-only tools and checks** (`*.md`, `.claude/`,
+  `specs/`, `AI_First_Development_Kit/`, `ci/godot/scripts/*.py`, `tools/designer/`):
+  lint, the static checks and the Python tests. The gdUnit4 suite, the scaling check and
+  `sim-checks` are skipped; a skipped job counts as passing.
+- **Anything Godot or the simulation reads** (`.gd`, `.tres`, `.tscn`, `native/`,
+  `content/`, `sim/`, `tests/`, `presentation/`, `project.godot`) **and the CI wiring
+  itself** (`.github/`, `.pre-commit-config.yaml`, `run_tests.sh`): everything.
+- Pushes to `main` always run everything.
+
 ## Heuristic limits (stated plainly, not hidden)
 
 - `check_id_order.py` — flags an id compared with `<`/`>`, arithmetic on an id, an id
