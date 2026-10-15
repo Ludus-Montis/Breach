@@ -789,13 +789,17 @@ Kept, where the list above was wider than the code:
   | `4ef9e85` vs 5a | 10 | 497.1 → 528.5 | 25.5 → 19.1 |
   | `4ef9e85` vs `d785d2a` | 10 | 404.1 → 423.2 | 20.3 → 16.1 |
 
-  Deaths is 21 to 28% faster in every run. The tick is not settled: from 1% faster to 9%
-  slower, and in the slower runs phases this step's later commits don't touch (stamina, the
-  rout, carry, the native seek's sync) are 5 to 20% slower too, while the same phases flip
-  the other way in other runs. The A/A run repeats to within 1%, so the swing comes with
-  any change of code (a different build and memory layout), not with the order the two
-  run in. One bench run can't separate a 5% change from that; one that alternates the two
-  several times and reports each phase's spread could (open: see the hand-off).
+  Deaths is 21 to 28% faster in every run. Single runs couldn't settle the tick: it swung
+  from 1% faster to 9% slower, with phases the later commits don't touch moving as much,
+  while an A/A run repeated to within 1%.
+- **Settled by the alternating bench** (#236: `rounds=5`, head and base in turn on one
+  runner, `fight=10`, `2bd84da` against 5a): the tick is **1.5% faster** (317.8 → 313.1 ms,
+  every head round faster than every base round). Apart in every round: deaths -30.7%
+  (17.14 → 11.87), the re-form's occupancy -13.9% (4.47 → 3.85), stamina -4.9%, the
+  engagement fronts -3.9%; and two phases slower, both by under a quarter of a millisecond:
+  `UnitBodies` +1.0% (23.16 → 23.39) and the shuffle's pass through +2.7% (7.45 → 7.65).
+  Every other phase's ranges overlap. With 5 rounds, two equal sides fall apart by chance
+  for about 1 phase in 125.
 
 ## Open, for the implementing session to settle and record here
 
