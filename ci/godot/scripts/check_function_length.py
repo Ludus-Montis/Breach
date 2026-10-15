@@ -5,8 +5,9 @@ AI_First_Development_Kit/principles/solid-mechanical.md (S) and
 AI_First_Development_Kit/config/thresholds.yaml (solid_mechanical.srp.max_function_lines).
 
 Heuristic limits (see ci/godot/README.md): function-length is measured from a top-level
-`func` line to the next top-level declaration (func/class_name/signal/var/const at zero
-indent) or end of file. Functions nested inside an inner `class` block are not measured
+`func` line to the next top-level declaration (func/static func/class_name/signal/var/
+const at zero indent) or end of file. A `static func` ends the function before it but
+isn't measured itself yet - a blind spot like the inner-class one. Functions nested inside an inner `class` block are not measured
 separately - this is a known blind spot, flagged rather than silently wrong, since
 GDScript's indentation-only nesting makes a fully general parse more than this check
 warrants before a real static-analysis tool is adopted.
@@ -45,7 +46,7 @@ def check_function_lengths(path: Path, max_function_lines: int, violations: list
     lines = path.read_text(encoding="utf-8").splitlines()
     func_start = None
     for index, line in enumerate(lines):
-        is_top_level_decl = re.match(r"^(func|class_name|signal|var|const|class)\b", line)
+        is_top_level_decl = re.match(r"^(static func|func|class_name|signal|var|const|class)\b", line)
         if func_start is not None and (is_top_level_decl or index == len(lines) - 1):
             end = index if is_top_level_decl else index + 1
             length = end - func_start

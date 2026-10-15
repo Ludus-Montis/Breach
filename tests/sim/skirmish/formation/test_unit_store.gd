@@ -16,6 +16,8 @@ const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd"
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
+const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const TICKS := 450  # past the first routers fleeing home (from tick 409)
@@ -97,6 +99,43 @@ func test_the_loose_and_fleeing_places_round_trip_and_start_blank() -> void:
 		assert_int(store.enrol(9)).override_failure_message(backend[0]).is_equal(slot)
 		for name in places:
 			assert_that(columns.value(slot, name)).is_equal(UnitColumns.BLANKS[name])
+
+
+func test_the_native_store_s_columns_live_on_its_field() -> void:
+	NativeKernels.use(NativeKernels.RUST)
+	var field := NativeKernels.body_field()
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+	if field == null:
+		print("test_unit_store: the Rust core isn't built - its half skipped")
+		return
+	var store := NativeKernels.unit_store(field)
+	var slot := store.enrol(3)
+	store.columns.put(slot, UnitColumns.LOOSE_AT, Vector2(4, 5))
+	store.columns.put(slot, UnitColumns.FLAGS, UnitColumns.LOOSE)
+	assert_vector(field.column_points(UnitColumns.LOOSE_AT)[slot]).is_equal(Vector2(4, 5))
+	assert_int(field.column_flags()[slot]).is_equal(UnitColumns.LOOSE)
+	assert_object(store.field()).is_same(field)
+
+
+func test_a_sync_reads_where_each_unit_stands_from_the_store() -> void:
+	for engine in _backends().map(func(backend): return backend[0]):
+		if engine != NativeKernels.RUST:
+			continue
+		NativeKernels.use(engine)
+		var sim := FormationBench.clash(8, 4, 3)
+		NativeKernels.use(NativeKernels.GDSCRIPT)
+		for _tick in range(30):
+			sim.step()
+		var field: Object = sim.store.field()
+		var squads := sim.squads()
+		BodyFieldSync.bodies(field, squads, sim.fight_seed)
+		var flat := 0
+		var points: PackedVector2Array = field.points()
+		for squad in squads:
+			for unit in squad.living():
+				var at: Vector2 = UnitBodies.at(squad, unit)  # a router: its route point + offset
+				assert_vector(points[flat]).override_failure_message(str(unit.id)).is_equal(at)
+				flat += 1
 
 
 func test_a_squad_keeps_each_unit_s_flag_bits_with_its_entries() -> void:

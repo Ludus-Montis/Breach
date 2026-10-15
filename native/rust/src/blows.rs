@@ -141,13 +141,17 @@ mod tests {
     fn field(b_retreats: bool) -> (Field, Vec<u8>) {
         let mut field = Field::default();
         let factions = ["a".to_string(), "b".to_string()];
+        let points = [V2::new(0.0, 0.0), V2::new(0.0, -1.2), V2::new(1.1, 0.0)];
+        for (unit, point) in [10, 20, 21].into_iter().zip(points) {
+            let slot = field.hold(unit) as usize; // each loose where it stands
+            field.columns.loose_at[slot] = point;
+        }
         let input = SyncIn {
             squad_ids: &[1, 2],
             squad_factions: &factions,
             squad_flags: &[0, 0],
             squad_counts: &[1, 2],
             unit_ids: &[10, 20, 21],
-            points: &[V2::new(0.0, 0.0), V2::new(0.0, -1.2), V2::new(1.1, 0.0)],
             flags: &[1, 1, 1],
             nexts: &[],
             bases: &[],

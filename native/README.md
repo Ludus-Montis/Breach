@@ -35,9 +35,12 @@ GDScript (rules, reference)                    Rust: BodyField (one a battle)
 FormationSimulation._field ------------------> roster (persistent, incremental)
 UnitStoreNative: hold, release, slot_of,         unit id -> body slot (the store's slot);
   unit_at, held_count, held_units ---------->    squad id -> squad;
+UnitColumnsNative: column/commit, value/put ->   the store's columns by slot: position,
+  (one copy a column, one call a value)            loose place, flee offset, flag bits;
 BodyFieldSync.scrum / .bodies  --sync------->     per body: radius, area, initiative, draw,
   one call, flat over squads in list order:       faction, squad; bodies in draw order
-  ids, points, flags [, nexts, bases, bearings]  where each stands (as of the last sync):
+  ids, flags [, nexts, bases, bearings]          where each stands (as of the last sync,
+                                                 read from the columns by its flags):
   <- flat indices of units new to the field        at, offset/base (fleeing), next, flags,
   enrol(radius, area, draw, initiative) ------>    bearing; squads' members in list order
                                                passes on the field
@@ -83,13 +86,16 @@ slot is storage only: no pass loops in slot order or breaks a tie by it.
 
 A battle's field lives as long as its simulation.
 
-**What still crosses each tick: positions.** Where a body stands lives in GDScript, in
-`unit.position`, `squad.loose[id]["at"]` and `squad.fleeing[id]["offset"]`. Eighteen
-files write those, and every rule reads them. So the field is brought up to date by one
-call a pass: the units' ids, points and flags, as packed arrays over all squads.
-Making the field the single writer of positions is the next step. It means routing
-those eighteen writers through the field, which is more than this PR's limit of 11
-changed files.
+**Where units stand lives here** (spec 35 step 1c). The unit store's columns - each
+unit's position, its loose place, its fleeing offset and its flag bits - are the field's
+`Columns`, by slot. GDScript reads and writes them through `UnitColumnsNative` (a whole
+column is one copy; one value is one call), and a sync no longer sends points: the field
+reads where each unit stands from its columns, by the flags the sync names (as the
+unit's own squad's entries say). A native pass runs on the field its squads' store lives
+on (`UnitStore.field`); a squad made alone, as tests make one, gets a store on a field of
+its own under Rust. The passes still write their results back through GDScript, which
+puts them into the columns; the passes reading and writing the columns themselves is
+spec 35 step 4.
 
 **What GDScript still decides and hands in:** the rules.
 

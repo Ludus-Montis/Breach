@@ -65,6 +65,7 @@ func test_the_roster_is_kept_across_syncs_and_changes_only_where_units_do() -> v
 	var field := _field()
 	if field == null:
 		return
+	_places = UnitPlaces.new(field)  # the store on the field, as a battle's is
 	var units: Array[SkirmishUnit] = [_unit(1, Vector2(1, 1)), _unit(2, Vector2(2, 1))]
 	var one := SkirmishSquad.new(1, "player", 1, 0.0, 2, units, null, _places.store)
 	var others: Array[SkirmishUnit] = [_unit(3, Vector2(5, 5))]
@@ -96,6 +97,8 @@ func _scrum(ticks: int, reversed: bool) -> Array:
 
 
 func _ctx(squads: Array, field: Object) -> Dictionary:
+	if field != null:
+		UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
 	var ctx := {"squads": squads, "tick": 7, "seed": 2, "terrain": null, "active": {}}
 	ctx["field"] = field
 	ctx["bodies"] = ScrumSeek.bodies(squads)

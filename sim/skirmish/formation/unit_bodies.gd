@@ -64,8 +64,8 @@ static func at(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 ## across ticks; without one, a field made for this step alone).
 static func step(squads: Array, fight_seed: int, field: Object = null) -> void:
 	var began := Time.get_ticks_usec()
-	if field == null:
-		field = NativeKernels.body_field()
+	if field == null and not squads.is_empty():
+		field = squads[0].store.field()  # a native pass runs on its store's field
 	if field != null:
 		var way := func(draw: int, other_draw: int) -> Vector2:
 			return part_way(fight_seed, draw, other_draw)

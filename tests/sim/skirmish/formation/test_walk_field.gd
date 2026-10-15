@@ -92,6 +92,8 @@ func _walked(squads: Array, field: Object, pushed: bool) -> Array:
 
 
 func _ctx(squads: Array, field: Object) -> Dictionary:
+	if field != null:
+		UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
 	var ctx := {"squads": squads, "tick": 7, "seed": 2, "terrain": null, "active": {}}
 	ctx["field"] = field
 	ctx["seconds"] = 0.1
@@ -131,11 +133,13 @@ func _entries(squads: Array) -> Array:
 	return out
 
 
+## Every squad's loose entries and (last) the store's columns: where each stands loose.
 func _saved(squads: Array) -> Array:
-	return squads.map(func(s): return s.loose.duplicate(true))
+	return squads.map(func(s): return s.loose.duplicate(true)) + [UnitPlaces.saved(squads[0].store)]
 
 
 func _restore(squads: Array, saved: Array) -> void:
+	UnitPlaces.restore(squads[0].store, saved[-1])
 	for index in range(squads.size()):
 		squads[index].loose = saved[index].duplicate(true)
 

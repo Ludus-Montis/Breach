@@ -30,6 +30,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   bits; 1c gives all of them to the Rust backend, and `BodyFieldSync`'s points go.
 - **Step 1a, `position`: built** (2026-10-14). See "Built" below.
 - **Step 1b, `at`, `offset` and the flag bits: built** (2026-10-15). See "Built" below.
+- **Step 1c, the Rust backend owns them: built** (2026-10-15). See "Built" below.
 
 ## The store
 
@@ -258,6 +259,41 @@ but read from the store instead of a sync. The glue is gone at step 4.
 - **Checked before choosing the bit's meaning:** in a 700-tick clash with a later wave and
   routers, no entry outlived its unit's listing and no unit had an entry in two squads at
   a tick's end. So one bit per slot per kind of entry is enough.
+
+### Step 1c, the Rust backend owns them
+
+- **The native store's columns live on the field.** `BodyField`'s `Columns` (`field.rs`)
+  holds `position`, the loose place, the flee offset and the flag bits by slot, grown with
+  the slots and blank in a slot newly held. `UnitColumnsNative` is the store's columns
+  on it: `column` is one copy out, `commit` one copy in, `value` and `put` one call each.
+  `UnitStoreNative` uses it, and `UnitStore.field()` names the field (null in GDScript).
+- **`BodyFieldSync`'s points go.** `sync` no longer takes points: the field reads where each
+  unit stands from its columns (its loose place, its offset from its base, or its
+  position), by the flags the sync names. The blows' sync does the same.
+- **Settled here: the syncs still name each unit's flags**, from its own squad's entries,
+  rather than reading the flag bits. A unit moved between squads can leave an entry, and
+  so its bit, behind in its old squad: `FormationRecovery._join` moves a unit without
+  taking its entries away, and `FormationContact.reinforce` leaves that to its callers.
+  The bit then says loose or fleeing where the unit's own squad doesn't. Taking those
+  entries away would change GDScript outcomes, which this series must not do. The bits
+  become what the syncs read in step 2, when the entries leave the dictionaries and
+  those moves are settled with them.
+- **A native pass runs on its squads' store's field.** `UnitBodies.step` with no field
+  takes the store's, and `BodyFieldSync` reports an error if the squads' store isn't on
+  the field it syncs. A squad made alone (as tests make one) gets a store on the engine
+  in use: under Rust, a native one on a field of its own.
+- **Tests.** `test_unit_store.gd`: the native store's columns are on its field, and a sync
+  of a battle 30 ticks in puts every living unit where `UnitBodies.at` does. The tests
+  that build a battle under GDScript and run a pass on a native field move it onto the
+  field first (`UnitPlaces.onto`: the same values, perhaps other slots), and those that
+  run a pass twice from one state put the store's columns back too (`UnitPlaces.saved`,
+  `restore`): before, they restored only the entries, which no longer hold the places.
+  The parting tests give each run its own store, as a run left its bits in a shared one.
+- **Cost to watch.** Under Rust a column fetched once a squad is one copy a squad. The
+  passes fetch once a pass or once a squad, never a unit; the bench says whether a
+  per-squad fetch shows.
+- `check_function_length.py` now ends a function at a `static func`; it measured the
+  `static func`s after a `func` as part of it.
 
 ## Open, for the implementing session to settle and record here
 

@@ -16,6 +16,7 @@ const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 const COUNT := 20000
 
@@ -93,6 +94,8 @@ func _faced(squads: Array, field: Object) -> Array:
 
 
 func _ctx(squads: Array, field: Object) -> Dictionary:
+	if field != null:
+		UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
 	var ctx := {"squads": squads, "tick": 7, "seed": 2, "terrain": null, "active": {}}
 	ctx["field"] = field
 	ctx["seconds"] = 0.1
@@ -113,14 +116,17 @@ func _bearings(squads: Array) -> Array:
 	return out
 
 
+## Every squad's loose entries and bearings, and (last) the store's columns.
 func _saved(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
 		out.append([squad.loose.duplicate(true), squad.units.map(func(u): return u.bearing)])
+	out.append(UnitPlaces.saved(squads[0].store))
 	return out
 
 
 func _restore(squads: Array, saved: Array) -> void:
+	UnitPlaces.restore(squads[0].store, saved[-1])
 	for index in range(squads.size()):
 		squads[index].loose = saved[index][0].duplicate(true)
 		for unit_index in range(squads[index].units.size()):
@@ -171,6 +177,7 @@ func test_the_facing_on_the_field_turns_any_bearing_to_any_look_as_gdscript_does
 		var reference := _bearings(squads)
 		assert_array(reference).is_not_equal(_bearings_of(saved, squads))
 		_restore(squads, saved)
+		UnitPlaces.onto(field, squads)
 		var synced := BodyFieldSync.scrum(field, squads, ctx["seed"])
 		ctx["field"] = field
 		ctx["seek_batch"] = ScrumSeekField._gather(synced[0], synced[1], squads)

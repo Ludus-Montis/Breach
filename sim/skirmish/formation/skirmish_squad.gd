@@ -13,7 +13,7 @@ const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd"
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const PlaceOrder = preload("res://sim/skirmish/formation/place_order.gd")
-const UnitStoreGd = preload("res://sim/skirmish/formation/unit_store_gd.gd")
+const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 
 ## Tiles between one rank and the next: one cell (Decisions 48 and 68).
 const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
@@ -154,7 +154,10 @@ func _init(
 	orders: FormationCommand = null,
 	unit_store: UnitStore = null
 ) -> void:
-	store = unit_store if unit_store != null else UnitStoreGd.new()  # alone: its own
+	# alone: its own, on the engine in use (a native one on its own field)
+	store = (
+		unit_store if unit_store != null else NativeKernels.unit_store(NativeKernels.body_field())
+	)
 	command = orders if orders != null else FormationCommand.new(home)
 	id = squad_id
 	faction_id = faction

@@ -17,7 +17,6 @@ const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.g
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## A squad's rules, as the core reads them: it is fighting; it is ordered to retreat.
 const FIGHTING := 1
@@ -125,15 +124,9 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var units := batch.units
 	var owners := batch.owners
 	var ids := batch.ids
-	var points := batch.points
 	var flags := batch.flags
 	var bearings := batch.bearings
 	var flat := 0
-	var at := PackedVector2Array()
-	var loose_at := PackedVector2Array()
-	if not squads.is_empty():
-		at = squads[0].store.columns.column(UnitColumns.POSITION)
-		loose_at = squads[0].store.columns.column(UnitColumns.LOOSE_AT)
 	for squad in squads:
 		var before := flat
 		var loose: Dictionary = squad.loose
@@ -144,12 +137,7 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 			units[flat] = unit
 			owners[flat] = squad
 			ids[flat] = unit.id
-			var entry = loose.get(unit.id)
-			if entry == null:
-				points[flat] = at[unit.slot]
-			else:
-				points[flat] = loose_at[unit.slot]
-				flags[flat] = BodyFieldSync.LOOSE
+			flags[flat] = BodyFieldSync.LOOSE if loose.has(unit.id) else 0  # the field reads where
 			bearings[flat] = unit.bearing
 			flat += 1
 		BodyFieldSync._squad(batch, squad, flat - before)
@@ -165,7 +153,6 @@ static func _sized(squads: Array) -> BodyFieldSync.Batch:
 	batch.units.resize(size)
 	batch.owners.resize(size)
 	batch.ids.resize(size)
-	batch.points.resize(size)
 	batch.flags.resize(size)
 	batch.bearings.resize(size)
 	return batch
@@ -175,7 +162,6 @@ static func _trimmed(batch: BodyFieldSync.Batch, size: int) -> BodyFieldSync.Bat
 	batch.units.resize(size)
 	batch.owners.resize(size)
 	batch.ids.resize(size)
-	batch.points.resize(size)
 	batch.flags.resize(size)
 	batch.bearings.resize(size)
 	return batch
