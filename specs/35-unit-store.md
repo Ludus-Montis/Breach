@@ -776,6 +776,27 @@ Kept, where the list above was wider than the code:
   another, a wider swing than #229's +6% and +11%. Three ticks a run are too few for
   phases this size to be compared on one bench; nothing was changed for them.
 
+- **Benches** (`tick_phases engine=rust side=4096 squads=4`, each run on one runner, the
+  branch run first):
+
+  | Run | Ticks | Tick (ms) | Deaths (ms) |
+  |---|---|---|---|
+  | `d785d2a` (hp, cooldown, fell queue) vs 5a | 3 | 326.4 → 314.3 | 27.1 → 25.2 |
+  | `af9adef` (the step-up) vs 5a | 3 | 334.0 → 362.4 | 30.3 → 22.6 |
+  | `af9adef` vs `d785d2a` | 3 | 228.9 → 226.8 | 18.0 → 14.0 |
+  | `aeef694` (the occupancy) vs 5a | 10 | 319.2 → 331.7 | 16.6 → 11.9 |
+  | `4ef9e85` vs itself (A/A) | 10 | 467.7 → 468.0 | 16.3 → 16.2 |
+  | `4ef9e85` vs 5a | 10 | 497.1 → 528.5 | 25.5 → 19.1 |
+  | `4ef9e85` vs `d785d2a` | 10 | 404.1 → 423.2 | 20.3 → 16.1 |
+
+  Deaths is 21 to 28% faster in every run. The tick is not settled: from 1% faster to 9%
+  slower, and in the slower runs phases this step's later commits don't touch (stamina, the
+  rout, carry, the native seek's sync) are 5 to 20% slower too, while the same phases flip
+  the other way in other runs. The A/A run repeats to within 1%, so the swing comes with
+  any change of code (a different build and memory layout), not with the order the two
+  run in. One bench run can't separate a 5% change from that; one that alternates the two
+  several times and reports each phase's spread could (open: see the hand-off).
+
 ## Open, for the implementing session to settle and record here
 
 - Nothing open. Presentation's snapshot was settled in step 1a (above).
