@@ -222,7 +222,12 @@ func _battle(engine: String) -> Array:
 			sim.spawn_squad(8, wave, "player", true)
 		gone = gone or sim.step().any(func(e): return e["type"] == "fled_home")
 		ticks.append(_slots(sim, "%s tick %d" % [engine, tick]))
-		died = died or sim.squads().any(func(s): return s.units.any(func(u): return u.hp <= 0))
+		died = (
+			died
+			or sim.squads().any(
+				func(s): return s.units.any(func(u): return UnitHealth.of(s, u) <= 0)
+			)
+		)
 	assert_bool(died).override_failure_message("the battle needs deaths").is_true()
 	assert_bool(gone).override_failure_message("the battle needs units leaving").is_true()
 	return ticks
@@ -250,7 +255,13 @@ func _state(sim: FormationSimulation) -> String:
 	for squad in sim.squads():
 		for unit in squad.units:
 			var at: Vector2 = points[unit.slot].snapped(Vector2(0.0001, 0.0001))
-			var row := [unit.id, unit.hp, UnitPlace.of(squad, unit), at, bearings[unit.slot]]
+			var row := [
+				unit.id,
+				UnitHealth.of(squad, unit),
+				UnitPlace.of(squad, unit),
+				at,
+				bearings[unit.slot]
+			]
 			rows.append(row + [squad.id])
 	rows.sort()
 	return str(rows)

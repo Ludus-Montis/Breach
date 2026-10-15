@@ -24,7 +24,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.faction_id = faction
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.max_hp = 10
 	unit.dmg = 4
 	_places.stand(unit, at)
@@ -42,7 +42,7 @@ func _squad(squad_id: int, faction: String, members: Array) -> SkirmishSquad:
 ## taker].
 func _scene() -> Array:
 	var body := _unit(1, "the_kingdom", Vector2.ZERO)
-	body.hp = 0
+	_places.health(body, 0)
 	body.state = SkirmishUnit.State.DOWNED
 	var taker := _unit(2, "player", Vector2(1, 0))
 	return [[_squad(1, "the_kingdom", [body]), _squad(2, "player", [taker])], body, taker]
@@ -54,15 +54,15 @@ func _types(events: Array) -> Array:
 
 func test_brought_to_zero_it_is_downed_and_past_its_constitution_it_dies() -> void:
 	var downed := _unit(1, "player", Vector2.ZERO)
-	downed.hp = -5  # within its constitution of 6: the excess is lost
+	_places.health(downed, -5)  # within its constitution of 6: the excess is lost
 	var killed := _unit(2, "player", Vector2(1, 0))
-	killed.hp = -6
+	_places.health(killed, -6)
 	var events := []
 
 	FormationDeaths.bury([_squad(1, "player", [downed, killed])], 1, events)
 
 	assert_int(downed.state).is_equal(SkirmishUnit.State.DOWNED)
-	assert_int(downed.hp).is_equal(0)
+	assert_int(UnitHealth.of(_places, downed)).is_equal(0)
 	assert_int(killed.state).is_equal(SkirmishUnit.State.DEAD)
 	assert_array(_types(events)).contains(["downed", "died"])
 	assert_bool(downed.is_alive()).is_false()
@@ -76,7 +76,7 @@ func test_an_unguarded_body_is_struck_through_deaths_door_till_it_dies() -> void
 
 	var body: SkirmishUnit = scene[1]
 	assert_int(body.state).is_equal(SkirmishUnit.State.DEAD)
-	assert_int(body.hp).is_less_equal(-6)
+	assert_int(UnitHealth.of(_places, body)).is_less_equal(-6)
 	assert_array(_types(events)).contains(["finished"])
 
 
@@ -101,8 +101,8 @@ func test_a_friend_near_guards_it_and_a_foe_near_keeps_the_taker_fighting() -> v
 		FormationWounds.tend(guarded[0], tick, SECOND, 1, events)
 		FormationWounds.tend(pressed[0], tick, SECOND, 1, events)
 
-	assert_int(guarded[1].hp).is_equal(0)
-	assert_int(pressed[1].hp).is_equal(0)
+	assert_int(UnitHealth.of(_places, guarded[1])).is_equal(0)
+	assert_int(UnitHealth.of(_places, pressed[1])).is_equal(0)
 	assert_array(events).is_empty()
 
 

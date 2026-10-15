@@ -20,7 +20,7 @@ func _unit(unit_id: int, rank: int, column: int, preferred: int = 0) -> Skirmish
 	unit.id = unit_id
 	_places.set_place(unit, Vector2i(rank, column))
 	unit.preferred_position = preferred
-	unit.hp = 10
+	_places.health(unit, 10)
 	return unit
 
 

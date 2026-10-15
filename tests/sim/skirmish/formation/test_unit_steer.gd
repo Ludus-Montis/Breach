@@ -16,7 +16,6 @@ func _unit(unit_id: int, squad_id: int) -> SkirmishUnit:
 	unit.squad_id = squad_id
 	unit.footprint_width = 1
 	unit.footprint_depth = 1
-	unit.hp = 10
 	return unit
 
 

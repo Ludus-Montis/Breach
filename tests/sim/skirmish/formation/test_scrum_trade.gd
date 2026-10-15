@@ -23,7 +23,7 @@ func before_test() -> void:
 func _unit(unit_id: int, rank: int, kind: UnitDef) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.hp = 10
+	_places.health(unit, 10)
 	_places.set_place(unit, Vector2i(rank, 0))
 	unit.definition = kind
 	return unit

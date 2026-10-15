@@ -21,7 +21,7 @@ func before_test() -> void:
 func _unit(unit_id: int, size: int = 1) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.footprint_width = size
 	unit.footprint_depth = size
 	return unit

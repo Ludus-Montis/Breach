@@ -166,10 +166,10 @@ func _saved(squads: Array) -> Array:
 			out.append(
 				[
 					unit.target_id,
-					unit.attack_cooldown,
+					squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN),
 					unit.regeneration_halt,
 					unit.last_wounding,
-					unit.hp,
+					UnitHealth.of(squad, unit),
 					unit.stamina,
 					unit.state
 				]
@@ -183,10 +183,10 @@ func _put(squads: Array, saved: Array) -> void:
 		for unit in squad.units:
 			var was: Array = saved[index]
 			unit.target_id = was[0]
-			unit.attack_cooldown = was[1]
+			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, was[1])
 			unit.regeneration_halt = was[2]
 			unit.last_wounding = was[3]
-			unit.hp = was[4]
+			UnitHealth.put(squad, unit, was[4])
 			unit.stamina = was[5]
 			unit.state = was[6]
 			index += 1
@@ -217,8 +217,8 @@ func _staged(sim: Sim, spent: Dictionary) -> void:
 	_landing(sim, blows, shots, spent, lap)
 	var events := []
 	for blow in blows:
-		blow[1].hp -= blow[2]
-		events.append(FormationEvents.hit(sim.tick_number(), blow))
+		UnitHealth.hurt(sim, blow[1], blow[2])
+		events.append(FormationEvents.hit(sim.tick_number(), blow, UnitHealth.of(sim, blow[1])))
 	_lap(spent, lap, "hit points, events")
 	FormationWounds.surrender(blows, squads, sim.fight_seed, sim.tick_number(), events)
 	_lap(spent, lap, "surrender")
@@ -274,10 +274,12 @@ func _strike(squad, unit: SkirmishUnit, pick: Array, interval: int, out: Array) 
 	var where := ScrumReach.at(squad, unit)
 	var columns: UnitColumns = squad.store.columns
 	unit.target_id = pick[0].id
-	unit.attack_cooldown -= 1
-	if unit.attack_cooldown > 0:
+	var cooldown: int = columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN) - 1
+	columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, cooldown)
+	if cooldown > 0:
 		return
-	unit.attack_cooldown = FormationMorale.interval(squad, ScrumBlows.ticks(interval, unit))
+	var due := FormationMorale.interval(squad, ScrumBlows.ticks(interval, unit))
+	columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, due)
 	if (
 		squad.order == SkirmishUnit.Order.RETREAT
 		and not ScrumReach.in_front(columns.value(unit.slot, UnitColumns.BEARING), where, pick[2])

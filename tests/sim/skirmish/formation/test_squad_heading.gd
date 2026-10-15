@@ -28,7 +28,7 @@ func _squad(squad_id: int, at: Vector2, heading: float, width := 2, ranks := 1) 
 			_places.set_place(unit, Vector2i(rank, column))
 			unit.footprint_depth = 1
 			unit.footprint_width = 1
-			unit.hp = 10
+			_places.health(unit, 10)
 			members.append(unit)
 	var squad := SkirmishSquad.new(squad_id, "player", 1, 0.0, width, members, null, _places.store)
 	squad.position = at

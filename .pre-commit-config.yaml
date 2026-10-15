@@ -57,6 +57,13 @@ repos:
         pass_filenames: true
         files: ^sim/.*\.gd$
 
+      - id: check-one-health
+        name: one-health (hp changes through UnitHealth, Decision 145)
+        entry: python3 ci/godot/scripts/check_one_health.py
+        language: system
+        pass_filenames: true
+        files: ^sim/.*\.gd$
+
       - id: check-store-reads
         name: store-reads-once (no store read unit by unit in a loop, Decision 144)
         entry: python3 ci/godot/scripts/check_store_reads.py

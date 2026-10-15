@@ -64,8 +64,10 @@ static func _lock_on(
 		held[[victim, edge]] = true
 		victim.flank_contacts[edge] = {"foe": attacker.id, "since": tick}
 	victim.state = SkirmishSquad.State.FIGHTING
+	var cooldowns: PackedInt32Array = victim.store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for unit in SquadEdges.edge_units(victim, edge):
-		unit.attack_cooldown = 1
+		cooldowns[unit.slot] = 1
+	victim.store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 	var extra := {"by": attacker.id, "edge": edge}
 	events.append(FormationEvents.squad_event("flanked", tick, victim, extra))
 	var impact := (

@@ -40,7 +40,7 @@ static func walk(
 ) -> void:
 	var seconds: float = timing[0]
 	var columns := squad.store.columns
-	if WalkModes.climb(unit, columns, terrain, seconds, unit.speed * timing[1]):
+	if WalkModes.climb(unit, squad, terrain, seconds, unit.speed * timing[1]):
 		return  # on a climb face: it climbs before it moves on
 	var from: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var going := TerrainStep.way(unit, from, place, terrain)  # its way round a barrier

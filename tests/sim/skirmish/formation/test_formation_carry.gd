@@ -23,7 +23,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.faction_id = faction
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.max_hp = 10
 	unit.speed = 1.0
 	unit.fresh_speed = 1.0
@@ -45,7 +45,7 @@ func _squad(squad_id: int, faction: String, members: Array, tends: String = "") 
 ## A downed player unit at the origin, its friend a cell off in a formation that `tends`.
 func _scene(tends: String) -> Array:
 	var body := _unit(1, "player", Vector2.ZERO)
-	body.hp = 0
+	_places.health(body, 0)
 	body.state = SkirmishUnit.State.DOWNED
 	var bearer := _unit(2, "player", Vector2(1, 0))
 	return [[_squad(1, "player", [body]), _squad(2, "player", [bearer], tends)], body, bearer]

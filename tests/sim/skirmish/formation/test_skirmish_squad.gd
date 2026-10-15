@@ -22,7 +22,7 @@ func _unit(
 	unit.footprint_depth = depth
 	unit.footprint_width = width
 	unit.speed = speed
-	unit.hp = 10
+	_places.health(unit, 10)
 	return unit
 
 

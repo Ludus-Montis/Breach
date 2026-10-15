@@ -55,6 +55,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   and attack cooldown, every hp write through `UnitHealth`, and deaths drains a fell queue.
   See "Settled for step 5" below.
 - **Step 5a, the lane skirmish retired: built** (2026-10-15). See "Built" below.
+- **Step 5b, hp and cooldown in the store: built** (2026-10-15), stacked on 5a's PR (the
+  user). The copies measurement carried in from #229 is not done yet: see "Built" below.
 - **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
   See "Built" below.
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
@@ -697,6 +699,58 @@ Kept, where the list above was wider than the code:
   still load them, so they stay for Q25's design session.
 - `SkirmishUnit`'s spec 21 fields (`order`, `distance`, `home_distance`, `wait_ticks`,
   `target_id`): formation code still reads them. Step 7's inventory decides them.
+
+### Step 5b, hp and cooldown in the store
+
+- **`UnitColumns.HP`, `ATTACK_COOLDOWN`** (32-bit ints, blank 0) and **`REGENERATION_LEFT`**
+  (a float, blank 0.0: recovery spends it every tick, so it moved with hp), and Rust's
+  `Columns.hp`, `attack_cooldown` and `regeneration_left`, found by the same names.
+  `SkirmishUnit.hp`, `attack_cooldown` and `regeneration_left` are gone; `max_hp` stays.
+- **`UnitHealth`** (`unit_health.gd`) is hp's one writer: `of`, `hurt`, `heal` and `put`
+  (named `put`, not `set`, as `UnitPlace.put` is, and because `set` is Object's), each
+  taking anything holding the store or a `UnitHealth.Table` (`table`, `commit`): the HP
+  column fetched once for a pass. A write that takes a unit from above 0 to 0 or below
+  pushes its id onto the store's fell queue. `check_one_health.py` (pre-commit and CI, tests
+  in `test_check_one_health.py`) flags any other write to the HP column in `sim/`.
+- **The fell queue** is `FellQueue` (`store.fallen`: `push`, `take`), its own class so the
+  stores keep within the ISP limit; `FellQueueNative` keeps it on the field
+  (`BodyField.fell`, `take_fallen`; `Field.fallen` in Rust), so native passes that land
+  damage later can push to it. No native pass writes hp yet.
+- **`FormationDeaths.bury` drains the queue.** Each id is found again through
+  `UnitStore.admit`, which keeps the unit's record by id (`record_of`) as a squad enrols it,
+  and `settle` forgets it when the unit leaves every list. A unit taken twice, healed above
+  0, no longer living, released by the store or in no squad is skipped. Its current squad
+  is looked for first by its `squad_id` and then through every squad's list (a unit that
+  joined or was reinforced keeps a stale `squad_id`). The rest are sorted by their squad's
+  place in the squad list and then their own place in its list, and died or downed is
+  decided from the final hp, as before.
+- **The passes, as the readers table planned:** blows and shots land through
+  `UnitHealth.hurt` (marked scattered, one write per blow), and `FormationEvents.hit` now
+  takes the target's hp; the rout's crush and a fall from a climb hurt through UnitHealth
+  (`WalkModes.climb` now takes the squad, not the columns); wounds fetch HP and
+  ATTACK_COOLDOWN once for the takings and commit once; recovery fetches HP and
+  REGENERATION_LEFT once for its pass over every unit and commits before units rise;
+  `ScrumBlows`, `ScrumBlowsField._struck`, `RoutBlows` and ranged combat each fetch
+  ATTACK_COOLDOWN once, count down in the copy and commit once; contact's reinforcement
+  puts it per unit (already a marked per-event loop), and the edges and locks fetch and
+  commit it once. `FormationUnits.enter` (moved out of `spawn_squad`, which was at its
+  300-line limit) puts each new unit's place, hp and regeneration left. Presentation fetches
+  HP once a frame; the digest and `tick_phases` read it through the store.
+  `blows_bench.gd` is switched too, but it still doesn't parse (`ScrumBlows._struck_by`
+  went before this step).
+- **Tests.** `test_unit_health.gd` (new): the three columns round-trip and start blank on
+  both backends and live on the native field; only a write crossing the line pushes, and a
+  unit healed and hurt again falls again; a table writes in its copy and commits; `bury`
+  takes the fallen in the lists' order with the squad each is in now, skipping the healed
+  and the taken and ignoring a unit set to 0 hp around UnitHealth; and SkirmishUnit no
+  longer declares them (red before this step). `columns.rs` and `field.rs` test the new
+  columns' blanks and names and the queue's order. Tests that set hp by hand go through
+  `UnitPlaces.health` (which enrols first) or `UnitHealth.put`, and `UnitPlaces.onto` admits
+  the units it moves, so their records go with them.
+- **Not done yet: the copies carried in from #229.** The `tick_phases` count of whole-column
+  copies a tick and the fixes it points to (a table fetched once a pass for all squads, a
+  native gather of a squad's slots, the occupancy's place map) still need doing, measured
+  through `bench` against this step.
 
 ## Open, for the implementing session to settle and record here
 

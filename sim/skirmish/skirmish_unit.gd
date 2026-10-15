@@ -13,7 +13,6 @@ enum State { MOVING, HOLDING, FIGHTING, ARRIVED, DEAD, DOWNED, TAKEN, RELEASED, 
 
 var id: int = 0
 var faction_id: String = ""
-var hp: int = 0
 var max_hp: int = 0
 var dmg: int = 0
 ## Cells per second.
@@ -54,7 +53,6 @@ var order: Order = Order.ADVANCE
 var state: State = State.MOVING
 ## The unit being fought; 0 = none.
 var target_id: int = 0
-var attack_cooldown: int = 0
 ## Ticks to stand still after spawning, so a wave leaves as a staggered group.
 var wait_ticks: int = 0
 
@@ -124,11 +122,11 @@ var condition := 1.0
 ## ran last tick (Decision 126).
 var run_build := 0.0
 var was_running := false
-## Formation sim: its regeneration (Decision 121): HP a second, HP it has left to regain
-## before it must rest, the damage types that stop it, seconds it stays stopped, and the
-## part of a point regained so far.
+## Formation sim: its regeneration (Decision 121): HP a second, the damage types that stop
+## it, seconds it stays stopped, and the part of a point regained so far. Its hp, the HP it
+## has left to regain before it must rest and the ticks till its next blow are the unit
+## store's (UnitHealth, UnitColumns.REGENERATION_LEFT and ATTACK_COOLDOWN, spec 35 step 5b).
 var regeneration := 0.0
-var regeneration_left := 0.0
 var regeneration_stops: Array[String] = []
 var regeneration_halt := 0.0
 var regeneration_carry := 0.0

@@ -13,8 +13,10 @@ static func lock(squad: SkirmishSquad, foe: SkirmishSquad) -> void:
 	squad.state = SkirmishSquad.State.FIGHTING
 	if not squad.joined.is_empty():
 		squad.reforming = true  # units merged on the march may now spread
+	var cooldowns: PackedInt32Array = squad.store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for unit in squad.living():
-		unit.attack_cooldown = 1  # the first blows land this tick
+		cooldowns[unit.slot] = 1  # the first blows land this tick
+	squad.store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 
 
 ## Ends a squad's fight and frees every squad that was fighting it, front or flank.

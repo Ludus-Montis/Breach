@@ -76,7 +76,7 @@ func _downed_ahead(foe_at: float) -> Array:
 	var line := _squad(sim, 3, "player", 40.0)
 	var fallen := _squad(sim, 1, "the_kingdom", 44.0)
 	var body: SkirmishUnit = fallen.units[0]
-	body.hp = 0
+	UnitHealth.put(fallen, body, 0)
 	body.state = SkirmishUnit.State.DOWNED
 	body.wake_left = 999.0
 	if foe_at > 0.0:

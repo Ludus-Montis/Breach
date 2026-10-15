@@ -12,6 +12,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SquadGeometry = preload("res://sim/skirmish/formation/squad_geometry.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 
@@ -20,7 +21,10 @@ const EPSILON := 0.000001
 ## each shooter's target and cooldown, like melee fighters.
 static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0) -> Array:
 	var blows := []
+	if squads.is_empty():
+		return blows
 	var marks := _marks(squads)
+	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for own in squads:
 		if own.is_destroyed() or own.state == SkirmishSquad.State.ARRIVED:
 			continue
@@ -40,10 +44,11 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 			if target == null:
 				continue
 			shooter.target_id = target.id
-			shooter.attack_cooldown -= 1
-			if shooter.attack_cooldown <= 0:
-				shooter.attack_cooldown = maxi(1, roundi(interval_ticks * shooter.ranged_seconds))
+			cooldowns[shooter.slot] -= 1
+			if cooldowns[shooter.slot] <= 0:
+				cooldowns[shooter.slot] = maxi(1, roundi(interval_ticks * shooter.ranged_seconds))
 				blows.append([shooter, target, shooter.ranged_dmg, own])
+	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 	return blows
 
 

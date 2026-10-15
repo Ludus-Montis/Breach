@@ -9,10 +9,11 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
-## Its place in its squad's frame is the unit store's, set once the squad enrols it (spec 35
-## step 4a).
+## Its place in its squad's frame, its hp and the hp it may regenerate are the unit
+## store's, set once the squad enrols it (spec 35 steps 4a and 5b: `enter`).
 static func make(
 	unit_def: UnitDef, faction_id: String, direction: int, unit_id: int
 ) -> SkirmishUnit:
@@ -20,7 +21,6 @@ static func make(
 	unit.id = unit_id
 	unit.faction_id = faction_id
 	unit.walker = TerrainWalker.of(unit_def)
-	unit.hp = unit_def.hp
 	unit.max_hp = unit_def.hp
 	unit.speed = unit_def.speed
 	unit.footprint_depth = unit_def.footprint_depth
@@ -88,8 +88,20 @@ static func _arm(unit: SkirmishUnit, unit_def: UnitDef) -> void:
 	unit.max_stamina = unit_def.constitution * tuning.stamina_per_constitution
 	unit.stamina = unit.max_stamina
 	unit.regeneration = unit_def.regeneration
-	unit.regeneration_left = unit_def.regeneration_limit * unit_def.hp
 	unit.regeneration_stops = unit_def.regeneration_stops.duplicate()
 	var protection := UnitArms.protection(unit_def)
 	unit.armour = protection.x
 	unit.ward = protection.y
+
+
+## A squad's `members` just spawned from `placements` ([[UnitDef, place], ...], in the
+## same order): each at its place, at its full hp, with all its regeneration to come.
+static func enter(squad, members: Array, placements: Array) -> void:
+	# store: scattered (spawning: once, as a squad enters)
+	for index in placements.size():
+		var unit: SkirmishUnit = members[index]
+		var unit_def: UnitDef = placements[index][0]
+		UnitPlace.put(squad, unit, placements[index][1])
+		UnitHealth.put(squad, unit, unit_def.hp)
+		var left := unit_def.regeneration_limit * unit_def.hp
+		squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_LEFT, left)

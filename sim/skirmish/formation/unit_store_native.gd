@@ -3,7 +3,8 @@ extends UnitStore
 ## The unit store on the battle's native BodyField (Decision 129): its bodies are the
 ## store's slots. A unit the store holds keeps its slot off the field (dead, downed), and
 ## the field enrols it again when a sync names it. Its columns live on the field too
-## (UnitColumnsNative), where the field's syncs read them.
+## (UnitColumnsNative), where the field's syncs read them, and so does its fell queue
+## (FellQueueNative).
 
 const UnitColumnsNative = preload("res://sim/skirmish/formation/unit_columns_native.gd")
 
@@ -13,6 +14,7 @@ var _field: Object
 func _init(native_field: Object) -> void:
 	_field = native_field
 	columns = UnitColumnsNative.new(native_field)
+	fallen = FellQueueNative.new(native_field)
 
 
 func field() -> Object:

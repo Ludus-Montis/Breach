@@ -61,7 +61,7 @@ func test_a_units_area_is_its_footprint_turned_to_the_heading() -> void:
 	var unit := SkirmishUnit.new()
 	unit.footprint_width = 2
 	unit.footprint_depth = 1
-	unit.hp = 10
+	_places.health(unit, 10)
 	var members: Array[SkirmishUnit] = [unit]
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, members, null, _places.store)
 

@@ -595,6 +595,19 @@ impl BodyField {
         }
     }
 
+    /// A unit fell (UnitHealth, spec 35 step 5b): onto the store's fell queue.
+    #[func]
+    fn fell(&mut self, unit_id: i64) {
+        self.field.fell(unit_id);
+    }
+
+    /// The units fallen since deaths last took them, in the order they fell; the queue is
+    /// left empty.
+    #[func]
+    fn take_fallen(&mut self) -> PackedInt64Array {
+        PackedInt64Array::from(self.field.take_fallen().as_slice())
+    }
+
     /// Every column blank in `slot` (a slot the store has just given).
     #[func]
     fn blank(&mut self, slot: i64) {

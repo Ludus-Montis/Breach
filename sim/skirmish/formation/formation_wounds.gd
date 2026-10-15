@@ -62,8 +62,15 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 			if not taken.has(body[0].id):
 				taken[body[0].id] = [body[0], body[1]]
 			taken[body[0].id].append(taker)
+	if taken.is_empty():
+		return
+	var store: UnitStore = downed[0][1].store
+	var health := UnitHealth.table(downed[0][1])  # hp and cooldowns: fetched once, committed once
+	var cooldowns: PackedInt32Array = store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for body_id in taken:
-		_take(taken[body_id], squads, tick, interval, events)
+		_take(taken[body_id], squads, [tick, interval, health, cooldowns], events)
+	UnitHealth.commit(health)
+	store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 
 
 ## The BodyGrid cells (a set) holding every point within `reach` of an entry's unit.
@@ -102,7 +109,9 @@ static func surrender(
 	var chance := BattleTuning.current().wounds_surrender
 	for blow in blows:
 		var caught: SkirmishUnit = blow[1]
-		if not routing.has(caught.id) or blow[2] <= 0 or caught.hp <= 0 or not caught.is_alive():
+		if not routing.has(caught.id) or blow[2] <= 0 or not caught.is_alive():
+			continue
+		if UnitHealth.of(routing[caught.id], caught) <= 0:  # store: scattered (a struck router)
 			continue
 		if caught.traits.get("never_surrenders", 0) > 0:
 			continue
@@ -181,8 +190,13 @@ static func _guarded(body: SkirmishUnit, standing: Array, near: Dictionary) -> b
 
 
 ## One body's takers act: a captor captures it; else a leader's messenger sends it home;
-## else each taker due strikes it.
-static func _take(taking: Array, squads: Array, tick: int, interval: int, events: Array) -> void:
+## else each taker due strikes it. `when` is [the tick, ticks a second, the hp table and the
+## cooldown column fetched for the pass].
+static func _take(taking: Array, squads: Array, when: Array, events: Array) -> void:
+	var tick: int = when[0]
+	var interval: int = when[1]
+	var health: UnitHealth.Table = when[2]
+	var cooldowns: PackedInt32Array = when[3]
 	var body: SkirmishUnit = taking[0]
 	var takers := taking.slice(2)
 	for taker in takers:
@@ -205,12 +219,12 @@ static func _take(taking: Array, squads: Array, tick: int, interval: int, events
 	for taker in takers:
 		var striker: SkirmishUnit = taker[0]
 		striker.target_id = body.id
-		striker.attack_cooldown -= 1
-		if striker.attack_cooldown > 0:
+		cooldowns[striker.slot] -= 1
+		if cooldowns[striker.slot] > 0:
 			continue
-		striker.attack_cooldown = maxi(1, roundi(interval * striker.melee_seconds))
-		body.hp -= striker.dmg
-	if body.hp <= -FormationDeaths.depth(body):
+		cooldowns[striker.slot] = maxi(1, roundi(interval * striker.melee_seconds))
+		UnitHealth.hurt(health, body, striker.dmg)
+	if UnitHealth.of(health, body) <= -FormationDeaths.depth(body):
 		body.state = SkirmishUnit.State.DEAD
 		events.append(FormationEvents.unit_event("finished", tick, taking[1], body))
 

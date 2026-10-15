@@ -40,6 +40,11 @@ const BEARING := &"bearing"
 ## shuffles, turns and trades places, so they are per-tick state.
 const RANK := &"rank"
 const COLUMN := &"column"
+## The unit's hp, the ticks till its next blow lands, and the hp it may still regenerate
+## before it rests (spec 35 step 5b). Every hp write goes through UnitHealth.
+const HP := &"hp"
+const ATTACK_COOLDOWN := &"attack_cooldown"
+const REGENERATION_LEFT := &"regeneration_left"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -66,6 +71,9 @@ const BLANKS := {
 	BEARING: 90.0,
 	RANK: 0,
 	COLUMN: 0,
+	HP: 0,
+	ATTACK_COOLDOWN: 0,
+	REGENERATION_LEFT: 0.0,
 }
 
 var _columns := {
@@ -89,6 +97,9 @@ var _columns := {
 	BEARING: PackedFloat64Array(),
 	RANK: PackedInt32Array(),
 	COLUMN: PackedInt32Array(),
+	HP: PackedInt32Array(),
+	ATTACK_COOLDOWN: PackedInt32Array(),
+	REGENERATION_LEFT: PackedFloat64Array(),
 }
 
 

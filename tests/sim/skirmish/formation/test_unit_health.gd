@@ -1,0 +1,169 @@
+extends GdUnitTestSuite
+## Each unit's hp, the ticks till its next blow and the hp it may still regenerate in the
+## unit store (specs/35-unit-store.md step 5b, Decision 145): the columns round-trip and
+## start blank on both backends and the native store holds them on its field; every hp
+## write goes through UnitHealth, which puts a unit an hp write takes from above 0 to 0 or
+## below on the store's fell queue; and FormationDeaths.bury drains that queue, taking the
+## fallen in their squads' order then their own, each with the squad it is in now.
+## SkirmishUnit no longer declares the three. The native half is skipped where the Rust
+## core isn't built (native/build.sh).
+
+const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
+const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+
+
+func after_test() -> void:
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+
+
+## Each engine that runs here: [name, a new store on it].
+func _backends() -> Array:
+	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
+	NativeKernels.use(NativeKernels.RUST)
+	var field := NativeKernels.body_field()
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+	if field == null:
+		print("test_unit_health: the Rust core isn't built - its half skipped")
+	else:
+		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	return out
+
+
+func _unit(unit_id: int) -> SkirmishUnit:
+	var unit := SkirmishUnit.new()
+	unit.id = unit_id
+	unit.faction_id = "player"
+	unit.max_hp = 10
+	unit.attributes = {"constitution": 6}
+	return unit
+
+
+func _squad(squad_id: int, members: Array, store: UnitStore) -> SkirmishSquad:
+	var typed: Array[SkirmishUnit] = []
+	typed.assign(members)
+	return SkirmishSquad.new(squad_id, "player", 1, 0.0, members.size(), typed, null, store)
+
+
+func test_the_columns_round_trip_and_a_new_slot_starts_blank() -> void:
+	for backend in _backends():
+		var store: UnitStore = backend[1]
+		var columns := store.columns
+		var said: String = backend[0]
+		var slot := store.enrol(5)
+		assert_int(columns.value(slot, UnitColumns.HP)).override_failure_message(said).is_equal(0)
+		columns.put(slot, UnitColumns.HP, 12)
+		columns.put(slot, UnitColumns.ATTACK_COOLDOWN, 3)
+		columns.put(slot, UnitColumns.REGENERATION_LEFT, 2.5)
+		assert_int(columns.value(slot, UnitColumns.HP)).is_equal(12)
+		assert_int(columns.column(UnitColumns.ATTACK_COOLDOWN)[slot]).is_equal(3)
+		assert_float(columns.value(slot, UnitColumns.REGENERATION_LEFT)).is_equal(2.5)
+		var field: Object = store.field()
+		if field != null:  # the native store holds them on its field
+			assert_int(field.column_ints(UnitColumns.HP)[slot]).is_equal(12)
+			assert_int(field.column_ints(UnitColumns.ATTACK_COOLDOWN)[slot]).is_equal(3)
+			assert_float(field.column_reals(UnitColumns.REGENERATION_LEFT)[slot]).is_equal(2.5)
+		store.drop(5)
+		assert_int(store.enrol(9)).override_failure_message(said).is_equal(slot)
+		assert_int(columns.value(slot, UnitColumns.HP)).override_failure_message(said).is_equal(0)
+		assert_int(columns.value(slot, UnitColumns.ATTACK_COOLDOWN)).is_equal(0)
+		assert_float(columns.value(slot, UnitColumns.REGENERATION_LEFT)).is_equal(0.0)
+
+
+## A unit falls when an hp write takes it from above 0 to 0 or below, and only then: a hurt
+## that leaves it standing, one on a unit already at 0 or below, a heal and a put that
+## doesn't cross the line push nothing.
+func test_a_write_that_takes_a_unit_to_0_or_below_puts_it_on_the_fell_queue() -> void:
+	for backend in _backends():
+		var holder := {"store": backend[1]}  # anything holding the store
+		var said: String = backend[0]
+		var one := _unit(1)
+		var two := _unit(2)
+		var three := _unit(3)
+		for unit in [one, two, three]:
+			unit.slot = holder.store.enrol(unit.id)
+			UnitHealth.put(holder, unit, 10)
+		UnitHealth.hurt(holder, two, 4)
+		assert_int(UnitHealth.of(holder, two)).is_equal(6)
+		UnitHealth.hurt(holder, two, 6)  # to 0: falls
+		UnitHealth.hurt(holder, two, 3)  # already down: no second fall
+		UnitHealth.put(holder, one, -1)  # set past the line: falls
+		UnitHealth.heal(holder, three, 5)
+		UnitHealth.put(holder, three, 4)
+		assert_int(UnitHealth.of(holder, two)).is_equal(-3)
+		var fallen: PackedInt64Array = holder.store.fallen.take()
+		assert_array(Array(fallen)).override_failure_message(said).is_equal([2, 1])
+		assert_array(Array(holder.store.fallen.take())).override_failure_message(said).is_empty()
+		UnitHealth.heal(holder, two, 5)  # back above 0, then down again: a second fall
+		UnitHealth.hurt(holder, two, 2)
+		assert_array(Array(holder.store.fallen.take())).is_equal([2])
+
+
+## A pass over many units fetches hp once (UnitHealth.table), writes in the copy and commits
+## once; a write there that crosses the line still pushes the unit.
+func test_a_table_of_hp_writes_in_the_copy_and_commits_once() -> void:
+	for backend in _backends():
+		var holder := {"store": backend[1]}
+		var said: String = backend[0]
+		var one := _unit(1)
+		var two := _unit(2)
+		for unit in [one, two]:
+			unit.slot = holder.store.enrol(unit.id)
+			UnitHealth.put(holder, unit, 10)
+		var table: UnitHealth.Table = UnitHealth.table(holder)
+		UnitHealth.hurt(table, one, 3)
+		UnitHealth.hurt(table, two, 12)
+		assert_int(UnitHealth.of(table, one)).is_equal(7)
+		UnitHealth.commit(table)
+		assert_int(UnitHealth.of(holder, one)).override_failure_message(said).is_equal(7)
+		assert_int(UnitHealth.of(holder, two)).is_equal(-2)
+		assert_array(Array(holder.store.fallen.take())).override_failure_message(said).is_equal([2])
+
+
+## Deaths drains the fell queue (Decision 145): the fallen in their squads' order then their
+## own, never the order they fell; one healed above 0 or no longer living is skipped; one
+## that moved squads after it fell is buried with the squad it is in now; and a living unit
+## at 0 hp no write took there is no fallen unit.
+func test_bury_takes_the_fallen_from_the_queue_in_the_lists_order() -> void:
+	for backend in _backends():
+		var places := UnitPlaces.new(backend[1].field())
+		var said: String = backend[0]
+		var units := []
+		for unit_id in range(1, 8):
+			units.append(_unit(unit_id))
+		var first := _squad(1, [units[0], units[1], units[2]], places.store)
+		var second := _squad(2, [units[3], units[4], units[5], units[6]], places.store)
+		for unit in units:
+			UnitHealth.put(first, unit, 10)
+		UnitHealth.hurt(second, units[6], 10)  # 7 falls first
+		UnitHealth.hurt(first, units[1], 20)  # 2: past its constitution
+		UnitHealth.hurt(second, units[3], 10)  # 4, healed again below
+		UnitHealth.hurt(first, units[2], 10)  # 3, moved to the second squad below
+		UnitHealth.hurt(second, units[4], 10)  # 5, no longer living below
+		UnitHealth.heal(second, units[3], 1)
+		units[4].state = SkirmishUnit.State.TAKEN
+		first.units.erase(units[2])
+		second.units.append(units[2])
+		places.store.columns.put(units[0].slot, UnitColumns.HP, 0)  # no write through UnitHealth
+		var events := []
+
+		FormationDeaths.bury([first, second], 1, events)
+
+		var fell := events.filter(func(e): return e["type"] in ["died", "downed"])
+		var order := fell.map(func(e): return [e["type"], e["unit"], e["squad"]])
+		assert_array(order).override_failure_message(said).is_equal(
+			[["died", 2, 1], ["downed", 7, 2], ["downed", 3, 2]]
+		)
+		assert_int(UnitHealth.of(second, units[6])).is_equal(0)  # the excess lost
+		assert_int(units[0].state).is_equal(SkirmishUnit.State.MOVING)
+		assert_array(Array(places.store.fallen.take())).override_failure_message(said).is_empty()
+
+
+func test_hp_cooldown_and_regeneration_left_are_the_store_s_alone() -> void:
+	var unit := SkirmishUnit.new()
+	assert_bool("hp" in unit).is_false()  # removed, not forwarded
+	assert_bool("attack_cooldown" in unit).is_false()
+	assert_bool("regeneration_left" in unit).is_false()
