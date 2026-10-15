@@ -10,7 +10,7 @@ yet. Every script here was run against a deliberately broken case before being t
 
 | Rubric row | Tool | Where |
 |---|---|---|
-| `tests-red-then-green` | gdUnit4 v6.2.1 (`addons/gdUnit4`) via `ci/godot/scripts/run_tests.sh` | pre-commit (always-run) and CI |
+| `tests-red-then-green` | gdUnit4 v6.2.1 (`addons/gdUnit4`) via `ci/godot/scripts/run_tests.sh` | pre-commit (the staged `tests/**/test_*.gd` only, `staged_tests.py`) and CI (the full suite) |
 | `lint-clean` | `gdlint` (gdtoolkit) | pre-commit, on changed `*.gd` files (excludes `addons/`) |
 | formatting (not a named rubric row, but `commit-message-conforms`/PR review expects it) | `gdformat --check` | pre-commit |
 | `srp-size` (file-length half) | gdlint's `max-file-lines` (`.gdlintrc`, set to 300 to match `config/thresholds.yaml`) | pre-commit |
@@ -242,8 +242,10 @@ export GODOT_BIN=/path/to/Godot_v4.7.2-stable_win64.exe   # or add godot to PATH
 # Before every commit (pre-commit runs this automatically once installed)
 pre-commit run --all-files
 
-# Test run only
+# Test run only: the full suite with no arguments (CI's job, not a session's - CLAUDE.md),
+# or just the suites named, as the pre-commit hook does with the staged ones
 bash ci/godot/scripts/run_tests.sh
+bash ci/godot/scripts/run_tests.sh tests/sim/skirmish/formation/test_unit_store.gd
 
 # OCP shotgun-surgery (diff-scoped). With no argument it compares against BASE_REF if set,
 # else the branch this one is stacked on (e.g. the PR below it), else origin/main -
@@ -261,4 +263,7 @@ python3 ci/godot/scripts/gate1_progress_log.py
 First-time Godot setup note (verified empirically while wiring this layer): a fresh
 clone needs one `godot --headless --path . --import` pass before gdUnit4's classes
 resolve — without it, gdUnit4 (and previously GUT) fails with an "not been imported"
-class-name error. CI's workflow runs this automatically before tests.
+class-name error. CI's workflow runs this automatically before tests. The same pass is
+needed after a pull that adds or renames `class_name` scripts: a stale class cache shows
+as parse errors such as `Identifier "UnitStore" not declared in the current scope`
+(seen 2026-10-15).
