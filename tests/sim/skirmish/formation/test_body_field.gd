@@ -13,6 +13,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 var _places := UnitPlaces.new()
 
@@ -113,7 +114,9 @@ func _planned(squads: Array, field: Object) -> Array:
 	var out := []
 	for squad in squads:
 		for unit_id in squad.loose:
-			var entry: Dictionary = squad.loose[unit_id]
+			var entry := EntryKeys.loose_entry(
+				squad.store.columns, squad.loose[unit_id], Vector2.ZERO
+			)
 			var held := [entry["goal"], entry["next"], entry.get("foe_at"), entry.get("touch")]
 			out.append([unit_id, held])
 	out.sort_custom(func(a, b): return a[0] < b[0])
@@ -122,13 +125,18 @@ func _planned(squads: Array, field: Object) -> Array:
 	return [out, active]
 
 
+## The squads' loose entries and the store's columns, which hold them (spec 35).
 func _saved(squads: Array) -> Array:
-	return squads.map(func(squad): return squad.loose.duplicate(true))
+	return (
+		squads.map(func(squad): return squad.loose.duplicate())
+		+ [UnitPlaces.saved(squads[0].store)]
+	)
 
 
 func _restore(squads: Array, saved: Array) -> void:
 	for index in range(squads.size()):
-		squads[index].loose = saved[index].duplicate(true)
+		squads[index].loose = saved[index].duplicate()
+	UnitPlaces.restore(squads[0].store, saved[-1])
 
 
 func test_the_slot_search_on_the_field_seeks_as_gdscript_does() -> void:

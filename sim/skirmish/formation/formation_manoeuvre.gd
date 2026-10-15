@@ -60,4 +60,4 @@ static func _loosen(squad: SkirmishSquad) -> void:
 	for unit in squad.living():
 		if not squad.loose.has(unit.id):
 			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": stood}, stood)
+			SquadEntries.loosen(squad, unit, stood)

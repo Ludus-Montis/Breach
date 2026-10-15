@@ -17,6 +17,7 @@ const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const COUNT := 20000
 
@@ -87,9 +88,10 @@ func _faced(squads: Array, field: Object) -> Array:
 	FormationScrum._seek(ctx)
 	var counts := [0, 0]
 	for squad in squads:
-		for entry in squad.loose.values():
-			counts[0] += 1 if entry.get("touch", false) else 0
-			counts[1] += 0 if entry["goal"] == null else 1
+		var columns: UnitColumns = squad.store.columns
+		for unit in squad.loose.values():
+			counts[0] += 1 if columns.value(unit.slot, UnitColumns.TOUCH) == 1 else 0
+			counts[1] += 0 if EntryKeys.goal(columns, unit.slot) == null else 1
 	return [_bearings(squads)] + counts
 
 
@@ -120,7 +122,7 @@ func _bearings(squads: Array) -> Array:
 func _saved(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
-		out.append([squad.loose.duplicate(true), squad.units.map(func(u): return u.bearing)])
+		out.append([squad.loose.duplicate(), squad.units.map(func(u): return u.bearing)])
 	out.append(UnitPlaces.saved(squads[0].store))
 	return out
 
@@ -128,7 +130,7 @@ func _saved(squads: Array) -> Array:
 func _restore(squads: Array, saved: Array) -> void:
 	UnitPlaces.restore(squads[0].store, saved[-1])
 	for index in range(squads.size()):
-		squads[index].loose = saved[index][0].duplicate(true)
+		squads[index].loose = saved[index][0].duplicate()
 		for unit_index in range(squads[index].units.size()):
 			squads[index].units[unit_index].bearing = saved[index][1][unit_index]
 
@@ -194,15 +196,15 @@ func _stirred(squads: Array) -> void:
 	for squad in squads:
 		for unit in squad.units:
 			unit.bearing = fposmod(unit.id * 47.3, 360.0)
-		for entry in squad.loose.values():
-			var id: int = entry["unit"].id
-			if entry.get("toward") != null:
-				entry["toward"] = (
-					SquadEntries.loose_at(squad, entry["unit"])
-					+ Vector2(sin(id * 1.7), cos(id * 1.7)) * 2.0
-				)
-			if entry["goal"] != null and id % 3 == 0:
-				entry["goal"] = null
+		var columns: UnitColumns = squad.store.columns
+		for unit in squad.loose.values():
+			var id: int = unit.id
+			if EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD) != null:
+				var round_it := Vector2(sin(id * 1.7), cos(id * 1.7)) * 2.0
+				var toward: Vector2 = SquadEntries.loose_at(squad, unit) + round_it
+				EntryKeys.keep(columns, unit.slot, UnitColumns.TOWARD, toward)
+			if EntryKeys.goal(columns, unit.slot) != null and id % 3 == 0:
+				EntryKeys.set_goal(columns, unit.slot, null)
 
 
 func _bearings_of(saved: Array, squads: Array) -> Array:

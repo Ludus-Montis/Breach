@@ -128,7 +128,7 @@ func _reformed(discipline: int) -> int:
 	sim.step()
 	for unit in squad.living():
 		var scattered := UnitPlaces.of(squad, unit) + Vector2(0, 3)
-		SquadEntries.loosen(squad, unit, {"unit": unit, "next": scattered, "goal": null}, scattered)
+		SquadEntries.loosen(squad, unit, scattered)
 	for tick in range(1, 400):
 		sim.step()
 		if not FormationScrum.regrouping(squad):

@@ -16,6 +16,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 func after_test() -> void:
@@ -85,9 +86,11 @@ func _walked(squads: Array, field: Object, pushed: bool) -> Array:
 	FormationScrum.walk(fighting, ctx)
 	var counts := [0, 0]
 	for squad in fighting:
-		for entry in squad.loose.values():
-			counts[0] += 0 if entry["goal"] == null else 1
-			counts[1] += 1 if entry["goal"] == null and not entry.get("touch", false) else 0
+		var columns: UnitColumns = squad.store.columns
+		for unit in squad.loose.values():
+			var seeks: bool = EntryKeys.goal(columns, unit.slot) != null
+			counts[0] += 1 if seeks else 0
+			counts[1] += 1 if not seeks and columns.value(unit.slot, UnitColumns.TOUCH) == 0 else 0
 	return [_entries(squads)] + counts
 
 
@@ -110,14 +113,18 @@ func _push(squads: Array, ctx: Dictionary) -> void:
 	var seek = ctx.get("seek_batch")
 	var nexts: PackedVector2Array = seek.plan[3] if seek != null else PackedVector2Array()
 	for squad in squads:
+		var columns: UnitColumns = squad.store.columns
 		for unit in squad.living():
-			var entry = squad.loose.get(unit.id)
-			if entry == null or entry["goal"] == null or unit.id % 2 != 0:
+			if not squad.loose.has(unit.id) or unit.id % 2 != 0:
+				continue
+			if EntryKeys.goal(columns, unit.slot) == null:
 				continue
 			var at: Vector2 = SquadEntries.loose_at(squad, unit)
-			entry["next"] = at + (entry["foe_at"] - at) * 2.5
+			var foe_at: Vector2 = columns.value(unit.slot, UnitColumns.FOE_AT)
+			var next := at + (foe_at - at) * 2.5
+			columns.put(unit.slot, UnitColumns.NEXT, next)
 			if seek != null:
-				nexts[seek.units.find(unit)] = entry["next"]
+				nexts[seek.units.find(unit)] = next
 	if seek != null:
 		seek.plan[3] = nexts
 
@@ -126,22 +133,24 @@ func _push(squads: Array, ctx: Dictionary) -> void:
 func _entries(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
-		for entry in squad.loose.values():
-			var at: Vector2 = SquadEntries.loose_at(squad, entry["unit"])
-			out.append([entry["unit"].id, at, entry["next"], entry.get("toward")])
+		var columns: UnitColumns = squad.store.columns
+		for unit in squad.loose.values():
+			var at: Vector2 = SquadEntries.loose_at(squad, unit)
+			var next: Vector2 = columns.value(unit.slot, UnitColumns.NEXT)
+			out.append([unit.id, at, next, EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	return out
 
 
-## Every squad's loose entries and (last) the store's columns: where each stands loose.
+## Every squad's loose entries and (last) the store's columns, which hold them.
 func _saved(squads: Array) -> Array:
-	return squads.map(func(s): return s.loose.duplicate(true)) + [UnitPlaces.saved(squads[0].store)]
+	return squads.map(func(s): return s.loose.duplicate()) + [UnitPlaces.saved(squads[0].store)]
 
 
 func _restore(squads: Array, saved: Array) -> void:
 	UnitPlaces.restore(squads[0].store, saved[-1])
 	for index in range(squads.size()):
-		squads[index].loose = saved[index].duplicate(true)
+		squads[index].loose = saved[index].duplicate()
 
 
 func _same(got: Array, want: Array) -> void:
@@ -189,15 +198,14 @@ func _assert_obstructed(squads: Array, saved: Array) -> void:
 	var slowed := 0
 	var stopped := 0
 	for squad in squads:
+		var columns: UnitColumns = squad.store.columns
 		for unit in squad.living():
-			var entry = squad.loose.get(unit.id)
-			if entry == null or entry["goal"] == null:
+			if not squad.loose.has(unit.id) or EntryKeys.goal(columns, unit.slot) == null:
 				continue
 			var at: Vector2 = SquadEntries.loose_at(squad, unit)
-			var to := UnitSteer.toward(
-				unit, at, entry["next"], ctx["bodies"], ctx["seed"], ctx["crowd"]
-			)
-			rounded += 0 if to == entry["next"] else 1
+			var next: Vector2 = columns.value(unit.slot, UnitColumns.NEXT)
+			var to := UnitSteer.toward(unit, at, next, ctx["bodies"], ctx["seed"], ctx["crowd"])
+			rounded += 0 if to == next else 1
 			var footing := FormationScrum._footing(unit, at, to, ctx)
 			slowed += 1 if footing > 0.0 and footing < 1.0 else 0
 			stopped += 1 if footing == 0.0 else 0

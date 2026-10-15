@@ -12,6 +12,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 var _places := UnitPlaces.new()
 
@@ -44,8 +45,13 @@ func _crowd(seed_value: int, kind: UnitDef) -> SkirmishSquad:
 		_places.stand(unit, ScrumStance.anchor(squad, unit))
 		if rng.randf() < 0.5:
 			var at := _places.at(unit) + Vector2(rng.randf_range(-5, 5), rng.randf_range(-5, 5))
-			SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null, "next": at}, at)
-			squad.loose[unit.id]["stuck"] = BattleTuning.current().scrum_trade_seconds
+			SquadEntries.loosen(squad, unit, at)
+			EntryKeys.keep(
+				squad.store.columns,
+				unit.slot,
+				UnitColumns.STUCK,
+				BattleTuning.current().scrum_trade_seconds
+			)
 	return squad
 
 
@@ -67,7 +73,7 @@ func test_trades_in_turn_find_the_places_earlier_trades_left() -> void:
 
 ## The trades as made by looking through every living friend for each stalled unit.
 func _trade_looking_at_every_friend(squad: SkirmishSquad, fight_seed: int) -> void:
-	var stalled: Array = squad.loose.values().map(func(entry): return entry["unit"])
+	var stalled: Array = squad.loose.values()
 	stalled.sort_custom(
 		func(a, b): return ScrumContest.draw(a, fight_seed) < ScrumContest.draw(b, fight_seed)
 	)
@@ -93,4 +99,4 @@ func _trade_looking_at_every_friend(squad: SkirmishSquad, fight_seed: int) -> vo
 		best.rank = place.x
 		best.column = place.y
 		if not squad.loose.has(best.id):
-			SquadEntries.loosen(squad, best, {"unit": best, "goal": null}, _places.at(best))
+			SquadEntries.loosen(squad, best, _places.at(best))

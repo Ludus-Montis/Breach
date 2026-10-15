@@ -17,6 +17,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 ## What the slot search made of each unit (ScrumSeekField.Outcome).
 const TOUCH := 0
@@ -134,27 +135,52 @@ static func _write_back(seek, batch: Batch, out: Array) -> ScrumFaceField.Batch:
 	var faced := ScrumFaceField.Batch.new()
 	faced.flags.resize(units.size())
 	var columns: UnitColumns = owners[0].store.columns if not units.is_empty() else null
-	var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT) if columns else []
+	if columns != null:
+		_write_entries(columns, [units, codes, ats, towards])
 	for member in range(units.size()):
-		var entry: Dictionary = owners[member].loose[units[member].id]
 		var code: int = codes[member]
 		if code == AIM or code == PRESS:
-			entry["toward"] = entry["next"]
-			loose_at[units[member].slot] = ats[member]
 			faced.flags[member] = ScrumFaceField.GOAL | ScrumFaceField.TOWARD
 		elif code != TOUCH:
-			entry["toward"] = towards[member]
-			loose_at[units[member].slot] = ats[member]
-			entry["next"] = ats[member]
 			faced.flags[member] = ScrumFaceField.TOWARD
-		else:
-			entry["toward"] = null
-	if columns != null:
-		# placement: the native walk, paid in FormationScrum (Decision 139)
-		columns.commit(UnitColumns.LOOSE_AT, loose_at)
 	faced.ats = ats
 	faced.motion = batch.motion
 	faced.nexts = seek.plan[3]
 	faced.foe_ats = seek.plan[4]
 	faced.towards = towards
 	return faced
+
+
+## Writes `walked` = [units, codes, where each now stands, where each looks] into their
+## entries: each column fetched once and committed once (spec 35).
+static func _write_entries(columns: UnitColumns, walked: Array) -> void:
+	var units: Array = walked[0]
+	var codes: PackedByteArray = walked[1]
+	var ats: PackedVector2Array = walked[2]
+	var looks: PackedVector2Array = walked[3]
+	var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+	var nexts: PackedVector2Array = columns.column(UnitColumns.NEXT)
+	var towards: PackedVector2Array = columns.column(UnitColumns.TOWARD)
+	var keys: PackedInt32Array = columns.column(UnitColumns.KEYS)
+	var held: int = EntryKeys.BITS[UnitColumns.TOWARD]
+	var valued: int = EntryKeys.VALUED[UnitColumns.TOWARD]
+	for member in range(units.size()):
+		var slot: int = units[member].slot
+		var code: int = codes[member]
+		if code == AIM or code == PRESS:
+			towards[slot] = nexts[slot]
+			keys[slot] |= held | valued
+			loose_at[slot] = ats[member]
+		elif code != TOUCH:
+			towards[slot] = looks[member]
+			keys[slot] |= held | valued
+			loose_at[slot] = ats[member]
+			nexts[slot] = ats[member]
+		else:
+			towards[slot] = UnitColumns.BLANKS[UnitColumns.TOWARD]
+			keys[slot] = (keys[slot] | held) & ~valued
+	# placement: the native walk, paid in FormationScrum (Decision 139)
+	columns.commit(UnitColumns.LOOSE_AT, loose_at)
+	columns.commit(UnitColumns.NEXT, nexts)
+	columns.commit(UnitColumns.TOWARD, towards)
+	columns.commit(UnitColumns.KEYS, keys)

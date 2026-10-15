@@ -20,6 +20,7 @@ const FormationField = preload("res://sim/skirmish/formation/formation_field.gd"
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const FIELD_LOGS := [
 	"seed 492625 captain off\n96 via_c on\n158 send A+B",
@@ -185,27 +186,21 @@ func _state(squads: Array, store: UnitStore) -> Array:
 
 
 ## `read` = [its id, where it stands, its loose and fleeing places], read through the
-## store. Its loose and fleeing entries are hashed as they were before their places moved
-## to the store (spec 35 step 1b): with "at" and "offset" among their keys.
+## store. Its loose and fleeing entries are hashed as they were before they moved to the
+## store (spec 35 steps 1b and 2): as dictionaries with the keys they held (EntryKeys).
 func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array:
-	var held := [
-		_placed(squad.loose.get(unit.id), "at", read[2]),
-		_placed(squad.fleeing.get(unit.id), "offset", read[3]),
-		squad.chasers.get(unit.id),
-	]
+	var columns := squad.store.columns
+	var loose = null
+	if squad.loose.has(unit.id):
+		loose = EntryKeys.loose_entry(columns, unit, read[2])
+	var fleeing = null
+	if squad.fleeing.has(unit.id):
+		fleeing = EntryKeys.fleeing_entry(columns, unit.slot, read[3])
+	var held := [loose, fleeing, squad.chasers.get(unit.id)]
 	return [
 		[read[0], unit.hp, read[1], unit.bearing, unit.attack_cooldown],
 		[unit.target_id, unit.rank, unit.column, _plain(held)],
 	]
-
-
-## The entry (null if none) with its place under `key`, as a copy.
-func _placed(entry, key: String, place: Vector2):
-	if entry == null:
-		return null
-	var out: Dictionary = entry.duplicate()
-	out[key] = place
-	return out
 
 
 ## The value with every object replaced by its id (or its class), dictionaries by their

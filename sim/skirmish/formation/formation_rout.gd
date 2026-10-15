@@ -21,9 +21,9 @@ extends RefCounted
 ## one break's shock can't cascade within the tick for squads listed later; every router
 ## flees, then every rally is decided, then they join; a router crushes or is caught by the
 ## nearest friend; ties go to the units' seeded draws (ScrumContest).
-## A routing squad's `fleeing`: unit id -> {"along": cells along its route, ...}; its spread
-## from the route is the store's FLEE_OFFSET (SkirmishSquad.flee). Pure over the squads it
-## is given.
+## A routing squad's `fleeing`: unit id -> the unit; the cells along its route each has come
+## are the store's ALONG, its spread from the route its FLEE_OFFSET (SquadEntries). Pure over
+## the squads it is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -43,6 +43,7 @@ const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 
@@ -81,15 +82,17 @@ static func step(
 
 ## The world point a router stands at.
 static func where(squad: SkirmishSquad, unit_id: int) -> Vector2:
-	var offset: Vector2 = squad.store.columns.value(
-		squad.store.slot_of(unit_id), UnitColumns.FLEE_OFFSET
-	)
-	return _route_point(squad, squad.fleeing[unit_id]["along"]) + offset
+	var slot: int = squad.fleeing[unit_id].slot
+	var columns := squad.store.columns
+	var along: float = columns.value(slot, UnitColumns.ALONG)
+	return _route_point(squad, along) + columns.value(slot, UnitColumns.FLEE_OFFSET)
 
 
 ## A fleeing unit's point on its route, before its offset: where() is it plus the offset.
 static func route_point(squad: SkirmishSquad, unit_id: int) -> Vector2:
-	return _route_point(squad, squad.fleeing[unit_id]["along"])
+	return _route_point(
+		squad, squad.store.columns.value(squad.fleeing[unit_id].slot, UnitColumns.ALONG)
+	)
 
 
 static func _breaks(squad: SkirmishSquad) -> bool:
@@ -114,7 +117,7 @@ static func _break(
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	for unit in squad.living():
 		var offset: Vector2 = at[unit.slot] - _route_point(squad, along)
-		SquadEntries.flee(squad, unit, {"along": along}, offset)
+		SquadEntries.flee(squad, unit, along, offset)
 	events.append(FormationEvents.squad_event("routed", tick, squad))
 	for friend in squads:
 		if friend != squad and friend.faction_id == squad.faction_id and not friend.is_destroyed():
@@ -129,15 +132,15 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 	var panicked := {}
 	var alone := RoutFriends.alone(motion[3], squad)  # no friend to crush or flee to
 	var friends: Dictionary = {} if alone else motion[3]
+	var columns := squad.store.columns
 	for unit in squad.living():
-		var entry: Dictionary = squad.fleeing[unit.id]
-		if entry.get("caught", 0) > 0:
+		if columns.value(unit.slot, UnitColumns.CAUGHT) > 0:
 			continue  # held by a steady friend it ran into
 		var flight := [motion[0], motion[1], motion[2], where(squad, unit.id), friends]
-		RoutFlight.step(squad, unit, entry, home, flight)
+		RoutFlight.step(squad, unit, home, flight)
 		if not alone:
 			_crush([squad, unit, motion[1]], friends, tick, panicked, events)
-		if is_equal_approx(entry["along"], home):
+		if is_equal_approx(columns.value(unit.slot, UnitColumns.ALONG), home):
 			SquadEntries.unflee(squad, unit.id)
 			squad.units.erase(unit)
 			var extra := {"unit": unit.id, "definition": unit.definition}
@@ -186,19 +189,19 @@ static func _rallies(
 		if leader != null:
 			out.append([_key(leader, unit, at, fight_seed), squad, unit, leader])
 			continue
-		var entry: Dictionary = squad.fleeing[unit.id]
 		var breadth := 2.0 * ScrumReach.radius(unit)  # its own body's breadth
 		var friend: SkirmishSquad = null
 		if not alone:
-			friend = RoutCatch.holder(squad, entry, at, friends, breadth, fight_seed)
+			friend = RoutCatch.holder(squad, unit, at, friends, breadth, fight_seed)
 		var calm := friend != null and FormationMorale.band(friend) == FormationMorale.Band.STEADY
-		var held: int = entry.get("caught", 0)
-		entry["caught"] = 0 if friend == null else (held + 1 if calm else maxi(held, 1))
-		entry["held_by"] = null if friend == null else friend.id
-		if (
-			calm
-			and entry["caught"] * tick_seconds >= BattleTuning.current().rout_steady_rally_seconds
-		):
+		var columns := squad.store.columns
+		var held: int = columns.value(unit.slot, UnitColumns.CAUGHT)
+		var caught := 0 if friend == null else (held + 1 if calm else maxi(held, 1))
+		EntryKeys.keep(columns, unit.slot, UnitColumns.CAUGHT, caught)
+		EntryKeys.keep(
+			columns, unit.slot, UnitColumns.HELD_BY, null if friend == null else friend.id
+		)
+		if calm and caught * tick_seconds >= BattleTuning.current().rout_steady_rally_seconds:
 			out.append([_key(friend, unit, at, fight_seed), squad, unit, friend])
 	return out
 
@@ -241,7 +244,7 @@ static func _join(
 	)
 	FormationContact.reinforce(leader, single)
 	leader.reforming = true
-	SquadEntries.loosen(leader, unit, {"unit": unit, "goal": null, "next": settled}, settled)
+	SquadEntries.loosen(leader, unit, settled)
 	events.append(FormationEvents.unit_event("rallied", tick, squad, unit, {"into": leader.id}))
 	if squad.living().is_empty():
 		squad.state = SkirmishSquad.State.DESTROYED
@@ -257,7 +260,7 @@ static func _reform(squad: SkirmishSquad, tick: int, events: Array, fight_seed: 
 		if leader == null or key < best:
 			leader = unit
 			best = key
-	squad.front_distance = squad.fleeing[leader.id]["along"] / CELLS
+	squad.front_distance = squad.store.columns.value(leader.slot, UnitColumns.ALONG) / CELLS
 	SquadEntries.unflee_all(squad)
 	squad.direction = 1 if is_zero_approx(squad.home_distance) else -1
 	var way := Vector2.RIGHT * squad.direction  # it faces the enemy's end along its route

@@ -72,7 +72,7 @@ func test_routers_caught_by_a_friend_rest_behind_it_bodies_apart() -> void:
 		bodies.append(UnitBodies.at(friend, unit))
 	var caught := 0
 	for unit in mine.living():
-		if mine.fleeing[unit.id].get("caught", 0) > 0:
+		if mine.store.columns.value(unit.slot, UnitColumns.CAUGHT) > 0:
 			var at := FormationRout.where(mine, unit.id)
 			assert_float(at.x).is_less_equal(front)  # behind it
 			bodies.append(at)
@@ -88,8 +88,7 @@ func test_units_resting_on_one_spot_part() -> void:
 	var squad := sim.spawn_squad(2, _line(2), "player", true)
 	sim.step()
 	for unit in squad.units:
-		SquadEntries.loosen(squad, unit, {"unit": unit, "goal": null}, Vector2(10.5, 10.5))
-		squad.loose[unit.id]["next"] = Vector2(10.5, 10.5)
+		SquadEntries.loosen(squad, unit, Vector2(10.5, 10.5))  # its next step there too
 
 	UnitBodies.step([squad], 1)
 

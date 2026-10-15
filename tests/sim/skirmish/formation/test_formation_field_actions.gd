@@ -7,6 +7,7 @@ const FormationFieldActions = preload("res://sim/skirmish/formation/formation_fi
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationRecord = preload("res://sim/skirmish/formation/formation_record.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 func _state(field) -> String:
@@ -151,8 +152,14 @@ func test_waves_short_of_a_slot_wait_by_the_fight_not_in_their_places() -> void:
 			if squad.faction_id != "player" or squad.state != SkirmishSquad.State.FIGHTING:
 				continue
 			for unit in squad.living():
-				var entry: Dictionary = squad.loose.get(unit.id, {})
-				var idle: bool = entry.get("goal") == null and not entry.get("touch", false)
+				var columns: UnitColumns = squad.store.columns
+				var idle: bool = (
+					not squad.loose.has(unit.id)
+					or (
+						EntryKeys.goal(columns, unit.slot) == null
+						and columns.value(unit.slot, UnitColumns.TOUCH) == 0
+					)
+				)
 				if unit.preferred_position == 0 and idle:
 					walked_back["units"] += 1
 

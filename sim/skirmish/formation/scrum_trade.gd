@@ -16,30 +16,32 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 ## Cells nearer than its closest yet that count as getting nearer.
 const PROGRESS := 0.001
 
 
-## Notes how near the loose unit's `entry` stands to its place, `gap` cells off.
-static func track(entry: Dictionary, gap: float, seconds: float) -> void:
-	if gap < entry.get("closest", INF) - PROGRESS:
-		entry["closest"] = gap
-		entry["stuck"] = 0.0
+## Notes how near the loose unit in `slot` stands to its place, `gap` cells off.
+static func track(columns: UnitColumns, slot: int, gap: float, seconds: float) -> void:
+	if gap < columns.value(slot, UnitColumns.CLOSEST) - PROGRESS:
+		EntryKeys.keep(columns, slot, UnitColumns.CLOSEST, gap)
+		EntryKeys.keep(columns, slot, UnitColumns.STUCK, 0.0)
 	else:
-		entry["stuck"] = entry.get("stuck", 0.0) + seconds
+		var stuck: float = columns.value(slot, UnitColumns.STUCK) + seconds
+		EntryKeys.keep(columns, slot, UnitColumns.STUCK, stuck)
 
 
 ## Each stalled unit of the squad trades places, if a friend's place is nearer it; one that
 ## can't is as near its place as the press allows, and takes it there and then.
 static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 	var stalled := []
+	var stuck: PackedFloat64Array = squad.store.columns.column(UnitColumns.STUCK)
+	var trade_after: float = BattleTuning.current().scrum_trade_seconds - 0.000001
 	for unit_id in squad.loose:
-		if (
-			squad.loose[unit_id].get("stuck", 0.0)
-			>= BattleTuning.current().scrum_trade_seconds - 0.000001
-		):
-			stalled.append(squad.loose[unit_id]["unit"])
+		var loose_unit: SkirmishUnit = squad.loose[unit_id]
+		if stuck[loose_unit.slot] >= trade_after:
+			stalled.append(loose_unit)
 	if stalled.is_empty():
 		return
 	var draws := {}  # unit -> its draw, worked out once before sorting
@@ -142,7 +144,6 @@ static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit
 	friend.column = place.y
 	if not squad.loose.has(friend.id):
 		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
-		SquadEntries.loosen(squad, friend, {"unit": friend, "goal": null, "next": at}, at)
+		SquadEntries.loosen(squad, friend, at)
 	for moved in [unit, friend]:
-		squad.loose[moved.id].erase("closest")
-		squad.loose[moved.id].erase("stuck")
+		EntryKeys.forget(squad.store.columns, moved.slot, [UnitColumns.CLOSEST, UnitColumns.STUCK])

@@ -219,14 +219,13 @@ func _wanted(fighting: Array, touched: Array, ctx: Dictionary) -> Array:
 		for unit in squad.living():
 			if squad.chasers.has(unit.id):
 				continue
-			var entry: Dictionary = squad.loose[unit.id]
+			var columns: UnitColumns = squad.store.columns
 			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var look = touched[index]
 			index += 1
-			if look == null and entry["goal"] != null:
-				look = Scrum._seeking_look(unit, entry, at, ctx)
-			if look == null:
-				look = entry.get("toward")
+			if look == null and EntryKeys.goal(columns, unit.slot) != null:
+				look = Scrum._seeking_look(unit, columns, at, ctx)
+			look = look if look != null else EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)
 			if look != null:
 				out.append([unit, UnitMotion.bearing_to(at, look, unit.bearing)])
 	return out
@@ -240,18 +239,19 @@ func _counted(fighting: Array, touched: Array, ctx: Dictionary) -> Array:
 		for unit in squad.living():
 			if squad.chasers.has(unit.id):
 				continue
-			var entry: Dictionary = squad.loose[unit.id]
+			var columns: UnitColumns = squad.store.columns
 			var at: Vector2 = SquadEntries.loose_at(squad, unit)
 			var look = touched[index]
 			index += 1
-			if look == null and entry["goal"] != null:
-				counts[0] += 1 if (entry["foe_at"] - entry["next"]).length() >= EPSILON else 0
-				var shuffle: bool = (entry["next"] - at).length() >= EPSILON
+			if look == null and EntryKeys.goal(columns, unit.slot) != null:
+				var next: Vector2 = columns.value(unit.slot, UnitColumns.NEXT)
+				var foe_at: Vector2 = columns.value(unit.slot, UnitColumns.FOE_AT)
+				counts[0] += 1 if (foe_at - next).length() >= EPSILON else 0
+				var shuffle: bool = (next - at).length() >= EPSILON
 				counts[0] += 1 if shuffle else 0
 				counts[1] += 4 if shuffle else 0
-				look = Scrum._seeking_look(unit, entry, at, ctx)
-			if look == null:
-				look = entry.get("toward")
+				look = Scrum._seeking_look(unit, columns, at, ctx)
+			look = look if look != null else EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)
 			if look != null:
 				counts[0] += 1 if (look - at).length() >= EPSILON else 0
 	return counts

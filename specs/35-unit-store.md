@@ -31,6 +31,9 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 1a, `position`: built** (2026-10-14). See "Built" below.
 - **Step 1b, `at`, `offset` and the flag bits: built** (2026-10-15). See "Built" below.
 - **Step 1c, the Rust backend owns them: built** (2026-10-15). See "Built" below.
+- **Step 2 is two PRs** (the user, 2026-10-15): 2a moves every other key of the loose and
+  fleeing entries to the GDScript store; 2b gives them to the Rust backend.
+- **Step 2a, the entries' other keys: built** (2026-10-15). See "Built" below.
 
 ## The store
 
@@ -294,6 +297,55 @@ but read from the store instead of a sync. The glue is gone at step 4.
   per-squad fetch shows.
 - `check_function_length.py` now ends a function at a `static func`; it measured the
   `static func`s after a `func` as part of it.
+
+### Step 2a, the entries' other keys
+
+- **The inventory.** Every key the entries held across the standard digest set: loose
+  `unit`, `goal` (`[foe id, slot]` or null), `next`, `foe_at`, `touch` (a bool), `toward`
+  (a point or null), `stuck` and `closest`; fleeing `along`, `caught`, `held_by` (a friend's
+  id or null) and `fanned`. Beyond `unit`, `goal`, `next` and `along`, an entry may lack
+  each key.
+- **`UnitColumns`** has a column for each: `NEXT`, `GOAL_FOE` and `GOAL_SLOT` (-1: no goal),
+  `FOE_AT`, `TOUCH` (1: it touches), `TOWARD`, `STUCK`, `CLOSEST`, `ALONG`, `CAUGHT`,
+  `HELD_BY` and `FANNED`, plus `KEYS`, the bits saying which keys the entry holds and
+  whether `toward` and `held_by` hold a value. A missing key reads as its column's blank,
+  which is the value its readers took for it (`touch` 0, `stuck` 0, `closest` INF,
+  `caught` 0, `fanned` 0), so passes read the columns directly.
+- **`EntryKeys`** (`entry_keys.gd`) keeps a key and its bit together: `keep`, `held` (null
+  for a `toward` or `held_by` that is null or missing), `forget`, `goal` and `set_goal`. It also
+  rebuilds an entry as a dictionary with exactly the keys it holds (`loose_entry`,
+  `fleeing_entry`), which is what the digest hashes, so the digest's bytes are unchanged.
+- **Settled with the user: `squad.loose` and `squad.fleeing` map each unit's id to the
+  unit**, in the order its entry was given, and hold nothing else. Loops over them keep
+  today's order (the walk back, trading places, the drilled retreat's foes), so no
+  outcome can move. `SquadEntries.loosen(squad, unit, at)` gives a new entry with its next
+  step at `at` and no goal (every caller gave exactly that); `flee(squad, unit, along,
+  offset)` likewise. A pass over many units fetches each column once and commits it once
+  (the native seek's and walk's write-backs, the facing's gather, the trade's check for stalled units);
+  scattered use goes through `value`, `put` and `EntryKeys`.
+- **Settled with the user: a unit moved to another squad leaves no entry behind.**
+  `FormationRecovery._join`, `FormationContact.reinforce` and `GroupSplit._group` now take
+  the unit's loose and fleeing entries away in its old squad as it moves. Before, each
+  left them until later in the tick. Tested before choosing: all three digest sets are
+  byte-identical on GDScript with the entries taken away. So each unit has at most one
+  entry of each kind, in its own squad, and one set of columns per slot holds it. The
+  battle test checks every tick that every entry's unit is listed in that squad.
+- **Removed, not forwarded.** No entry is a dictionary any more. Signatures that changed:
+  `ScrumTrade.track` takes the columns and the slot; `RoutFlight.step` and
+  `RoutCatch.holder` take the unit instead of its entry; `FormationScrum._seeking_look`
+  takes the columns.
+- **Under Rust, the new columns are held in GDScript** (`UnitColumnsNative.ON_FIELD` names
+  the four that live on the field), so a pass reads them at no cost. 2b moves them to the
+  field. The syncs still name each unit's flags from its own squad's `loose` and `fleeing`;
+  now that moves leave nothing behind, 2b can read the flag bits instead.
+- `check_one_mover.py` treats writes to `ALONG` as it treats writes to the other place
+  columns.
+- **Tests.** `test_entry_keys.gd` (new): every new column round-trips and starts blank on
+  both backends; an entry holds exactly the keys it was given; and a unit moved by
+  `_join` or `reinforce` leaves no entry behind (red before the moves were settled).
+  `test_unit_store.gd`'s battle compares every unit's entries, rebuilt as the digest
+  rebuilds them, on both engines every tick. The tests that run a pass twice from one
+  state put the store's columns back as well as the squads' lists (`UnitPlaces.saved`).
 
 ## Open, for the implementing session to settle and record here
 
