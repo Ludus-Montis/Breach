@@ -155,6 +155,13 @@ Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squad
 
 Each would need the events to queue every change that matters (Principle 2's correctness rule) and a deterministic order for the list (Decision 97). It is a design subject: likely a spec of its own after spec 35, or folded into steps 5 to 7 where the field moves anyway (deaths and wounds with hp in step 5, `living()` with the alive flags in step 7).
 
+**Partly settled by Decision 145 (2026-10-15):** deaths drains a fell queue fed by hp's one writer in spec 35 step 5b; that store queue (one writer, drained once a tick in a fixed order) is the pattern for the downed list and the living list in step 7. Still open: `fighters()` and combat's rank groups, squad edges and spans, and the re-form's occupancy.
+
+### Q25. Game-like maps on the real sims, in place of the old test maps
+**Raised:** 2026-10-15, retiring the lane skirmish (spec 35 step 5a) · **Raise when:** Spec 35 is complete, or any session adds, keeps or rebuilds a test or demo map or scene
+
+The user: "any old maps have purely been for either visualisation or test purposes, really we need to get game like-for-like maps even if only considering a 3x1 set of tiles with no unique logic, only using our game sims and renderers as and when created (of course using temp renderers until the full set is available)". So the next playable scenes should be small maps built from the game's own content and run by the real simulation (the formation battle, the lane and tile model as they become real), rendered by the game's renderers where they exist and temporary ones until then, rather than one-off sims or scenes kept for a test. To settle in a design session: the first such map (a 3x1 set of tiles?), which sims it runs, which renderers are temporary, and which existing test or demo scenes (`formation_skirmish.tscn`, the 2D feel-test field, the map viewer) it replaces or keeps.
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.
