@@ -51,6 +51,9 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   "Built" below.
 - **Step 4e, the sync reads the store: built** (2026-10-15), stacked on 4d's PR. Step 4 is
   complete. See "Built" below.
+- **Step 5 designed** (2026-10-15, Decision 145): 5a retires the lane skirmish; 5b moves hp
+  and attack cooldown, every hp write through `UnitHealth`, and deaths drains a fell queue.
+  See "Settled for step 5" below.
 - **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
   See "Built" below.
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
@@ -137,7 +140,9 @@ against its base. The numbers go in the PR and in spec 34's "Measured" section.
    squad (frame, foes, chasers, front band) is sent once per squad. `BodyFieldSync` goes,
    except for enrolling.
 5. **hp and attack cooldown.** Blows (`ScrumBlowsField` and the GDScript blows), deaths,
-   wounds and taking.
+   wounds and taking. Settled in the step 5 design session (Decision 145): see "Settled for
+   step 5" below. Two PRs: 5a retires the lane skirmish; 5b moves hp and cooldown, with hp's
+   one writer and the fell queue.
 
    **Steps 5 to 7 each begin with a readers list (Decision 144).** Before a field moves,
    the step's spec entry lists every reader and writer of it (grep the tree) and, for each
@@ -211,6 +216,67 @@ but read from the store instead of a sync. The glue is gone at step 4.
   CI runner a local column read cost about 0.015 µs, a `put` about 0.2 µs.
 - A column fetched before a `put` doesn't see the write: GDScript's packed arrays copy
   on write. A pass that writes positions and reads them again fetches again.
+
+## Settled for step 5 (the user, 2026-10-15; Decision 145)
+
+- **5a: retire the lane skirmish** first, in its own PR: `sim/skirmish/skirmish_simulation.gd`,
+  `skirmish_production.gd`, `presentation/skirmish/skirmish.tscn`, `skirmish_scene.gd`,
+  `skirmish_unit_layer.gd`, `skirmish_route.gd`, and their tests
+  (`tests/sim/skirmish/test_skirmish_simulation.gd`, `test_skirmish_production.gd`,
+  `tests/presentation/skirmish/test_skirmish_scene.gd`). Search for anything else that loads
+  them (the parse check lists `sim/lane_simulation.gd` and `presentation/lane_view.gd` as
+  already broken: if nothing loads them either, they go too). After it, `SkirmishUnit` serves
+  the formation battle alone. The user: "any old maps have purely been for either
+  visualisation or test purposes" (see `OPEN_QUESTIONS.md` Q25 for what replaces them).
+- **5b: hp and attack cooldown in the store.** Columns `HP` (int) and `ATTACK_COOLDOWN` (int),
+  both backends, removed from `SkirmishUnit` (Decision 142). `max_hp` and
+  `regeneration_left` stay on the record unless the inventory finds them changing per tick
+  (`regeneration_left` does: recovery spends it; move it with hp if so).
+- **One writer for hp: `UnitHealth`** (`hurt`, `heal`, `set`), and a check in the style of
+  `check_one_mover.py` that flags any other write to the `HP` column. A write that takes a
+  unit from above 0 to 0 or below pushes it onto the store's **fell queue** (both backends;
+  Rust's for native passes that land damage later).
+- **`FormationDeaths.bury` drains the fell queue** instead of scanning `living()`: it skips a
+  unit healed above 0 or no longer living, finds each unit's current squad (it may have
+  moved since it fell: a rout's crush lands after bury and is buried next tick), sorts the
+  rest by the squad's place in the squad list then the unit's place in its squad's list, and
+  then decides died or downed from the final hp exactly as today. Events and the digests
+  must stay byte-identical.
+- **Downed units bleeding to death** (wounds' strikes on the downed, recovery's drain) keep
+  deciding it where they do: their hp is already 0 or below, so they never push to the fell
+  queue. The downed list itself is step 7's (with the state flags, Decision 145).
+
+**Readers and writers (Decision 144), from the tree at #229:**
+
+| Where | hp | cooldown | Plan |
+|---|---|---|---|
+| `formation_simulation.gd` 283, 292 (shots, blows landing) | write | | `UnitHealth.hurt` per blow (a scattered write per event: mark it) |
+| `formation_rout.gd` 167-168 (crush) | write | | `UnitHealth.hurt`, per crush event |
+| `walk_modes.gd` 87 (a fall) | write | | `UnitHealth.hurt`, per fall |
+| `formation_wounds.gd` 105, 208-213 (strikes on the downed, routers caught) | read, write | read, write | fetch `HP` and `ATTACK_COOLDOWN` once for the pass; hp writes through `UnitHealth` with the fetched table |
+| `formation_recovery.gd` 43, 161-213 (drain, regeneration, waking) | read, write | | the pass over every unit fetches `HP` once; writes through `UnitHealth` (a batch call taking the fetched column, committing once) |
+| `formation_deaths.gd` 22-29 | read, write | | the fell queue (above) |
+| `formation_events.gd` 38 (`target_hp` in a blow's event) | read | | a value read once per event |
+| `scrum_blows.gd` 45-48, `scrum_blows_field.gd` 169-173, `rout_blows.gd` 44-46, `formation_combat.gd` 43-45 | | read, write | each pass fetches `ATTACK_COOLDOWN` once, counts down in the copy, commits once |
+| `formation_contact.gd` 169, `formation_edges.gd` 68, `formation_locks.gd` 17 (`= 1` as units engage) | | write | per event: mark |
+| `formation_units.gd` 23-24 (make) | write | | put once the squad has enrolled the unit, as 4a did for its place |
+| presentation `skirmish_squad_layer.gd` 136 | read | | one `HP` column fetch a frame, as positions and bearings |
+| `tools/formation_digest.gd`, `tick_phases.gd`, `blows_bench.gd`, `fatigue_trials.gd` | read, write | read | through the store; `blows_bench.gd` already doesn't parse (seen in 4a) |
+
+The bench against 5b's base must show deaths faster and no phase slower beyond noise.
+
+**Carried into 5b from #229's benches (Decision 144: a step fixes what is slower).** Two runs
+of #229 against main before step 4, on two runners, agree: the tick is 13 to 15% faster
+(378.2 → 322.1 ms; 252.3 → 218.6), but some phases came in above main on both. Deaths was
++14% and +13% (26.1 → 29.8; 17.2 → 19.4), stamina +6% and +11%, recovery +5% and +7%, the
+re-form's occupancy +35% and +46% (5.6 → 7.5; 3.4 → 4.9) and its tries +8% and +12%. Deaths
+and stamina read no column 4a moved, so a likely common cause is the copies: a squad's
+table (`UnitPlace.table`, `fighters()`, the occupancy, `SquadEdges`) copies whole columns, the
+battle's every slot, once a squad and often more than once a tick, which may churn the
+cache for the passes after. 5b measures that first (`tick_phases` with the copies counted),
+then fixes what it finds: a table fetched once a pass for all squads, or a native gather of
+just the squad's slots (`column_at(name, slots)`), and the occupancy's place map built from the
+table rather than a dictionary per unit. Deaths' own scan goes in 5b anyway (the fell queue).
 
 ## Built
 

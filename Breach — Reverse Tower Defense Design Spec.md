@@ -6705,3 +6705,49 @@ writes what the loop wrote.
 **Bounded:** this is a bounded-work rule: a pass costs one fetch a column plus work per unit,
 not a boundary crossing per unit.
 **Pillar check:** holds. It changes how state is read, not what any unit does.
+
+### Decision 145 — hp changes through one writer, and the fallen are an event queue
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-15
+**Amends:** none; applies `principles/bounded-work.md` Principle 2 ("work follows change") to
+units, and settles spec 35 step 5's shape
+
+**Rationale:** Deaths (`FormationDeaths.bury`) checks every living unit's hp every tick to
+find the few brought to 0 or below: about 22 ms a tick at `tick_phases engine=rust side=4096
+squads=4 fight=3`. The user asked whether this is "an opportunity for eventing, e.g. i_died
+sending the id and per tick taking those through the store". Settled in the step 5 design
+session, as proposed:
+- **One writer.** Every change to a unit's hp goes through `UnitHealth` (hurt, heal, set),
+  held by a CI check as the one-mover check holds positions (Decision 139). Its native
+  twin writes hp on the field for native passes.
+- **The fell queue.** When a write takes a unit from above 0 hp to 0 or below, the writer
+  pushes the unit onto the store's fell queue: one per battle, on both backends, so native
+  blows can push to it too. It is the event; it says "I fell", not "I died".
+- **Died or downed is decided at bury, from the final hp.** A unit hit several times in a
+  tick is judged on all of them, as today. `bury` drains only the queue, skips a unit healed
+  above 0 or no longer living, and takes the rest in today's order (its squad's place in the
+  squad list, then its own place in that squad's list), so events, outcomes and the digests
+  stay identical. Deaths then costs per fallen unit, not per army.
+- **The standard for Q24's other lists.** A store queue fed by one writer and drained once a
+  tick in a fixed order is the pattern for the downed list (wounds, taking, recovery, carry)
+  and the living list, both built in step 7 with the state flags.
+- **The lane skirmish is retired first** (`sim/skirmish/skirmish_simulation.gd`, its scene and
+  tests), so hp leaves `SkirmishUnit` for the formation battle alone. The user: "any old maps
+  have purely been for either visualisation or test purposes".
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Decide "died" at the blow that crosses the line | Judges a unit on its first hit, not all the tick's: outcomes and the reference hashes change. |
+| Queue every hurt unit and re-check at bury | Pushes on every blow, not every fall; the fall is the event that matters. |
+| Store move only, eventing in a later spec | Deaths would keep scanning the army through steps 5 to 7. |
+
+**Rules over cases:** general: one writer for a unit's hp, and one queue pattern for every
+"which units changed" list.
+**Order:** the queue is drained in squad list then unit list order, exactly as the scan met
+the fallen, so no outcome or event order changes; the order a unit fell in never decides
+anything (Decision 97).
+**Bounded:** deaths costs one sort of the tick's fallen instead of a pass over every unit.
+**Pillar check:** holds. Nothing a unit does changes; only how the fallen are found.
