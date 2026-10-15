@@ -147,6 +147,14 @@ fight=3`; runners differ between runs, so compare percentages):
   phase 4a slowed is back within a millisecond of main or below it (deaths 21.9 → 22.7, the
   re-form's occupancy 5.2 → 6.2, its two tries 20.4 → 21.8); the scrum's walk (27.8 → 6.4),
   the seek's gather (17.5 → 1.4) and bodies (40.8 → 33.0) carry the gain.
+- **With Decision 144's write-backs** (#229's head 64becd0, bench run 38781595574; against
+  7733998, on a slower runner, AMD EPYC 7763): **378.2 → 322.1 ms** (−14.8%). Body parting
+  40.5 → 23.6 (its write-back now the field's own) and units walking to places 28.1 → 16.9
+  (the march's write-back committed once). Phases step 4 didn't touch came in a few percent
+  above main on this runner (perception 15.9 → 17.3, stamina 24.0 → 25.4, recovery 24.9 →
+  26.1), as did deaths 26.1 → 29.8 and the re-form's occupancy 5.6 → 7.5, which builds a place
+  map as it goes. Deaths was within 1 ms of main on the previous runner, so a second run
+  settles whether it is noise; if not, step 5 (which reworks deaths) fixes it.
 
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
