@@ -57,6 +57,13 @@ repos:
         pass_filenames: true
         files: ^sim/.*\.gd$
 
+      - id: check-store-reads
+        name: store-reads-once (no store read unit by unit in a loop, Decision 144)
+        entry: python3 ci/godot/scripts/check_store_reads.py
+        language: system
+        pass_filenames: true
+        files: ^sim/.*\.gd$
+
       - id: check-isp
         name: isp-method-count / isp-stub-detection
         entry: python3 ci/godot/scripts/check_isp.py
