@@ -131,6 +131,23 @@ compare percentages, not milliseconds):
   at step 4, when seek, walk and facing read the columns natively. Expect the series to
   cost about 10% until then; step 4's bench is what has to pay it back.
 
+**Spec 35 step 4 and its fix, the scrum's passes on the unit store** (bench runs 38759449023,
+38770814451, 38773725302 and 38773730557, `tick_phases engine=rust side=4096 squads=4
+fight=3`; runners differ between runs, so compare percentages):
+- **4a alone** (#224, rank and column in the store; against main 7733998): **370.2 → 453.9 ms
+  a tick** (+22.6%). Deaths 25.9 → 54.5, blows 21.0 → 45.3, the re-form's occupancy 5.1 →
+  12.8, units walking to places 27.7 → 36.0: each scattered place read was two calls into
+  the field.
+- **4a to 4e** (#224 to #228; against 7733998): **291.3 → 299.8 ms** (+2.9%). The scrum's
+  glue went: the seek's gather 13.8 → 1.4, its sync 6.6 → 3.8, its write-back 5.4 → 3.7
+  (now the walk's batch), the walk 21.0 → 5.4, the facing 1.8 → 1.2. 4a's cost stayed.
+- **Places read once a pass** (#229; against #228's head): **315.9 → 283.1 ms** (−10.4%).
+  Deaths 41.2 → 22.9, blows 33.3 → 18.5, the re-form's occupancy 10.3 → 6.3.
+- **Step 4 with the fix** (#224 to #229; against 7733998): **353.2 → 281.6 ms** (−20.3%). Every
+  phase 4a slowed is back within a millisecond of main or below it (deaths 21.9 → 22.7, the
+  re-form's occupancy 5.2 → 6.2, its two tries 20.4 → 21.8); the scrum's walk (27.8 → 6.4),
+  the seek's gather (17.5 → 1.4) and bodies (40.8 → 33.0) carry the gain.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference

@@ -575,6 +575,8 @@ but read from the store instead of a sync. The glue is gone at step 4.
 - **Tests.** `test_unit_place.gd`: a table reads each unit's place as the store holds it, on
   both backends, and `read` with no table reads the store (red on 4e's `UnitPlace`, which had
   neither). No outcome changes; the digests hold that.
+- **Measured** (spec 34's "Measured"): step 4 with this fix against main before step 4,
+  353.2 → 281.6 ms a tick (−20.3%); this fix alone, 315.9 → 283.1 (−10.4%).
 
 ## Open, for the implementing session to settle and record here
 
