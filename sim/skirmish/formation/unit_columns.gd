@@ -32,6 +32,9 @@ const ALONG := &"along"
 const CAUGHT := &"caught"
 const HELD_BY := &"held_by"
 const FANNED := &"fanned"
+## The way the unit faces (spec 35 step 3; UnitMotion): degrees clockwise from north. A
+## unit not yet turned faces east.
+const BEARING := &"bearing"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -55,6 +58,7 @@ const BLANKS := {
 	HELD_BY: 0,
 	FANNED: 0.0,
 	KEYS: 0,
+	BEARING: 90.0,
 }
 
 var _columns := {
@@ -75,6 +79,7 @@ var _columns := {
 	HELD_BY: PackedInt64Array(),
 	FANNED: PackedFloat64Array(),
 	KEYS: PackedInt32Array(),
+	BEARING: PackedFloat64Array(),
 }
 
 

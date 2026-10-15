@@ -11,16 +11,17 @@ const WeaponDef = preload("res://content/definitions/weapon_def.gd")
 const ItemDef = preload("res://content/definitions/item_def.gd")
 const FormationUnits = preload("res://sim/skirmish/formation/formation_units.gd")
 
+const EAST := 90.0  # the bearing of a target facing east
 
-## A target facing east: skill 40, agility 10 and defence 10 - with the usual tuning a
-## parry of 10, a dodge of 10, grazes to 30 and hits to 90.
+
+## A target: skill 40, agility 10 and defence 10 - with the usual tuning a parry of 10, a
+## dodge of 10, grazes to 30 and hits to 90.
 func _target(parries: bool) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.melee_skill = 40
 	unit.attributes = {"agility": 10}
 	unit.defence = 10
 	unit.parries = parries
-	unit.bearing = 90.0
 	return unit
 
 
@@ -62,14 +63,13 @@ func test_the_margin_is_skill_and_shift_with_the_roll_across_the_die() -> void:
 
 
 func test_the_side_a_blow_falls_on() -> void:
-	var target := _target(true)  # at the origin, facing east
+	var at := Vector2.ZERO  # a target at the origin, facing east
 
-	var at := Vector2.ZERO
-	assert_int(BlowRoll.side(target, at, Vector2(-1, 0), false)).is_equal(BlowRoll.Side.FRONT)
-	assert_int(BlowRoll.side(target, at, Vector2(0, 1), true)).is_equal(BlowRoll.Side.FLANK)
-	assert_int(BlowRoll.side(target, at, Vector2(-1, 0.2), true)).is_equal(BlowRoll.Side.REAR)
-	assert_bool(BlowRoll.from_flank(target, at, Vector2(3, 0))).is_false()
-	assert_bool(BlowRoll.from_flank(target, at, Vector2(-3, 0))).is_true()
+	assert_int(BlowRoll.side(EAST, at, Vector2(-1, 0), false)).is_equal(BlowRoll.Side.FRONT)
+	assert_int(BlowRoll.side(EAST, at, Vector2(0, 1), true)).is_equal(BlowRoll.Side.FLANK)
+	assert_int(BlowRoll.side(EAST, at, Vector2(-1, 0.2), true)).is_equal(BlowRoll.Side.REAR)
+	assert_bool(BlowRoll.from_flank(EAST, at, Vector2(3, 0))).is_false()
+	assert_bool(BlowRoll.from_flank(EAST, at, Vector2(-3, 0))).is_true()
 
 
 func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:

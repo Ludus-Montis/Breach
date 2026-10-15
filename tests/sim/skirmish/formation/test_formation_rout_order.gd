@@ -23,7 +23,8 @@ func _state(squads: Array) -> String:
 		var units := []
 		for unit in squad.units:
 			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
-			units.append([unit.id, unit.hp, unit.rank, unit.column, at, unit.bearing])
+			var facing := UnitPlaces.bearing_of(squad, unit)
+			units.append([unit.id, unit.hp, unit.rank, unit.column, at, facing])
 		units.sort()
 		var front := snappedf(squad.front_distance, 0.000001)
 		var fight := [squad.engaged_with, squad.flank_contacts.keys(), squad.morale]

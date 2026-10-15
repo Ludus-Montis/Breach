@@ -260,7 +260,8 @@ func _scrum_blows(squads: Array, interval: int, seed: int, spent: Dictionary, la
 			var where := ScrumReach.at(squad, unit)
 			var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)
 			_lap(spent, lap, "scrum: near (ScrumNear.around)")
-			var pick := ScrumBlows._pick(squad, unit, close, seed)
+			var facing: float = squad.store.columns.value(unit.slot, UnitColumns.BEARING)
+			var pick := ScrumBlows._pick(squad, unit, facing, close, seed)
 			_lap(spent, lap, "scrum: pick (_pick)")
 			if not pick.is_empty():
 				_strike(squad, unit, pick, interval, out)
@@ -271,6 +272,7 @@ func _scrum_blows(squads: Array, interval: int, seed: int, spent: Dictionary, la
 ## ScrumBlows.blows' work once a unit has its pick.
 func _strike(squad, unit: SkirmishUnit, pick: Array, interval: int, out: Array) -> void:
 	var where := ScrumReach.at(squad, unit)
+	var columns: UnitColumns = squad.store.columns
 	unit.target_id = pick[0].id
 	unit.attack_cooldown -= 1
 	if unit.attack_cooldown > 0:
@@ -278,10 +280,11 @@ func _strike(squad, unit: SkirmishUnit, pick: Array, interval: int, out: Array) 
 	unit.attack_cooldown = FormationMorale.interval(squad, ScrumBlows.ticks(interval, unit))
 	if (
 		squad.order == SkirmishUnit.Order.RETREAT
-		and not ScrumReach.in_front(unit.bearing, where, pick[2])
+		and not ScrumReach.in_front(columns.value(unit.slot, UnitColumns.BEARING), where, pick[2])
 	):
 		return
-	var flank := not ScrumReach.in_front(pick[0].bearing, pick[2], where)
+	var facing: float = columns.value(pick[0].slot, UnitColumns.BEARING)
+	var flank := not ScrumReach.in_front(facing, pick[2], where)
 	out.append([unit, pick[0], FormationCombat.damage(unit), flank])
 
 

@@ -95,9 +95,12 @@ static func _gather(units: Array, ctx: Dictionary) -> Batch:
 	var codes: PackedByteArray = ctx["seek_batch"].plan[0]
 	batch.motion.resize(3 * count)
 	batch.frames.resize(4 * count)
+	var facing := PackedFloat64Array()
+	if count > 0:
+		facing = ctx["squads"][0].store.columns.column(UnitColumns.BEARING)
 	for member in range(count):
 		var unit: SkirmishUnit = units[member]
-		batch.motion[3 * member] = unit.bearing
+		batch.motion[3 * member] = facing[unit.slot]
 		batch.motion[3 * member + 1] = unit.turn_rate
 		batch.motion[3 * member + 2] = unit.backward_pace
 		var code: int = codes[member]

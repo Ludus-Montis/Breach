@@ -140,9 +140,10 @@ func _draw() -> void:
 				var radius := minf(unit.footprint_width, unit.footprint_depth) / 2.0 * CELL_PX - 0.5
 				var centre: Vector2 = ORIGIN + at[unit.slot] * CELL_PX
 				FallenDrawing.draw(self, unit, centre, radius, COLOURS[squad.faction_id])
+	var bearings: PackedFloat64Array = _field.sim.store.columns.column(UnitColumns.BEARING)
 	for squad in _field.sim.squads():
 		for unit in squad.living():
-			_draw_unit(squad, unit, fraction, at[unit.slot])
+			_draw_unit(squad, unit, fraction, [at[unit.slot], bearings[unit.slot]])
 		_draw_morale(squad)
 		_draw_pursuit(squad)
 	for squad in _field.sim.squads():
@@ -163,9 +164,11 @@ func _draw_route(key: String) -> void:
 	draw_polyline(drawn, COLOURS[key], 2.0)
 
 
-func _draw_unit(squad, unit, fraction: float, now: Vector2) -> void:
-	var before: Vector2 = _previous.get(unit.id, now)
-	var after: Vector2 = _current.get(unit.id, now)
+## `now`: [where the unit stands, the way it faces], from this frame's columns.
+func _draw_unit(squad, unit, fraction: float, now: Array) -> void:
+	var stands: Vector2 = now[0]
+	var before: Vector2 = _previous.get(unit.id, stands)
+	var after: Vector2 = _current.get(unit.id, stands)
 	var centre := ORIGIN + before.lerp(after, fraction) * CELL_PX
 	var radius := minf(unit.footprint_width, unit.footprint_depth) / 2.0 * CELL_PX - 0.5
 	var colour: Color = COLOURS["flash"] if _flashes.has(unit.id) else COLOURS[squad.faction_id]
@@ -175,7 +178,7 @@ func _draw_unit(squad, unit, fraction: float, now: Vector2) -> void:
 		colour.a = 0.45  # routers flee one by one
 	draw_circle(centre, radius, colour)  # its body (Decision 106)
 	if unit.rank == 0 or squad.loose.has(unit.id):
-		var front := centre + UnitMotion.vector(unit.bearing) * radius
+		var front := centre + UnitMotion.vector(now[1]) * radius
 		draw_circle(front, 1.5, Color.WHITE)
 
 

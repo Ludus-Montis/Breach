@@ -11,13 +11,15 @@ extends RefCounted
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## Where the unit at `at` gets walking towards `to` with `full` cells at full pace this
 ## tick, turning as it goes (towards its heading, or to keep facing `look`) over `seconds`,
-## on `terrain` (null: open).
+## on `terrain` (null: open). Its bearing is in the store's `columns`.
 static func step(
 	unit: SkirmishUnit,
+	columns: UnitColumns,
 	at: Vector2,
 	to: Vector2,
 	full: float,
@@ -25,14 +27,19 @@ static func step(
 	terrain: FormationTerrain,
 	look = null
 ) -> Vector2:
-	return pay(unit, at, UnitMotion.walk(unit, at, to, full, seconds, look), terrain)
+	return pay(unit, at, UnitMotion.walk(unit, columns, at, to, full, seconds, look), terrain)
 
 
 ## As step, for a unit that doesn't turn as it moves (it turns in its own pass).
 static func slide(
-	unit: SkirmishUnit, at: Vector2, to: Vector2, full: float, terrain: FormationTerrain
+	unit: SkirmishUnit,
+	columns: UnitColumns,
+	at: Vector2,
+	to: Vector2,
+	full: float,
+	terrain: FormationTerrain
 ) -> Vector2:
-	return pay(unit, at, UnitMotion.move(unit, at, to, full), terrain)
+	return pay(unit, at, UnitMotion.move(unit, columns, at, to, full), terrain)
 
 
 ## Where a step from `at` to `stepped` worked out on open ground (the native walk's, or

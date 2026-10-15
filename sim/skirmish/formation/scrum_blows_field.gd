@@ -126,6 +126,9 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var ids := batch.ids
 	var flags := batch.flags
 	var bearings := batch.bearings
+	var facing := PackedFloat64Array()
+	if not squads.is_empty():
+		facing = squads[0].store.columns.column(UnitColumns.BEARING)
 	var flat := 0
 	for squad in squads:
 		var before := flat
@@ -138,7 +141,7 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 			owners[flat] = squad
 			ids[flat] = unit.id
 			flags[flat] = BodyFieldSync.LOOSE if loose.has(unit.id) else 0  # the field reads where
-			bearings[flat] = unit.bearing
+			bearings[flat] = facing[unit.slot]
 			flat += 1
 		BodyFieldSync._squad(batch, squad, flat - before)
 	return BodyFieldSync._send(field, _trimmed(batch, flat), fight_seed)

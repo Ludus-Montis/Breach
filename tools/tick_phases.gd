@@ -96,10 +96,11 @@ func _settled(side: int, width: int, args: Dictionary) -> Sim:
 func _state(sim: Sim) -> PackedByteArray:
 	var out := []
 	var at: PackedVector2Array = sim.store.columns.column(UnitColumns.POSITION)
+	var bearings: PackedFloat64Array = sim.store.columns.column(UnitColumns.BEARING)
 	for squad in sim.squads():
 		out.append([squad.id, squad.state, squad.loose.size(), squad.position])
 		for unit in squad.units:
-			out.append([unit.id, unit.hp, at[unit.slot], unit.bearing])
+			out.append([unit.id, unit.hp, at[unit.slot], bearings[unit.slot]])
 	return var_to_bytes(out)
 
 

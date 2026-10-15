@@ -140,7 +140,7 @@ static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terra
 	var efficacy: float = motion[5]
 	var turning: float = motion[1] * efficacy  # a turn is a re-form
 	var step: float = full * minf(efficacy, 1.0) if motion[3] else full
-	var stepped := UnitMover.step(unit, at, to, step, turning, terrain)  # pays the ground
+	var stepped := UnitMover.step(unit, columns, at, to, step, turning, terrain)  # pays the ground
 	columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
 	columns.put(unit.slot, UnitColumns.NEXT, stepped)
 	EntryKeys.set_goal(columns, unit.slot, null)

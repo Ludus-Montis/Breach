@@ -44,6 +44,9 @@ class Batch:
 ## Syncs the field to the scrum's snapshot; returns [units, their squads] by flat index.
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
+	var facing := PackedFloat64Array()
+	if not squads.is_empty():
+		facing = squads[0].store.columns.column(UnitColumns.BEARING)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -54,7 +57,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
 			batch.flags.append(LOOSE if loose.has(unit.id) else 0)  # a router: where it stands
-			batch.bearings.append(unit.bearing)
+			batch.bearings.append(facing[unit.slot])
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
 

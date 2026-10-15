@@ -14,21 +14,20 @@ const EPSILON := 0.000001
 
 
 ## The point the unit should look towards walking from `at` to its place `to`, to arrive
-## facing `bearing` soonest; `speed` is its full speed in cells a second.
+## facing `bearing` soonest, facing `facing` now; `speed` is its full speed in cells a
+## second.
 static func look(
-	unit: SkirmishUnit, at: Vector2, to: Vector2, bearing: float, speed: float
+	unit: SkirmishUnit, at: Vector2, facing: float, to: Vector2, bearing: float, speed: float
 ) -> Vector2:
 	var way := to - at
 	var ahead := at + UnitMotion.vector(bearing)
 	if way.length() < EPSILON or speed < EPSILON:
 		return ahead
-	var heading := UnitMotion.bearing_to(at, to, unit.bearing)
+	var heading := UnitMotion.bearing_to(at, to, facing)
 	var facing_pace := maxf(UnitMotion.pace(unit, way, bearing), EPSILON)
-	var shuffling := _turning(unit, unit.bearing, bearing) + way.length() / (speed * facing_pace)
+	var shuffling := _turning(unit, facing, bearing) + way.length() / (speed * facing_pace)
 	var walking := (
-		_turning(unit, unit.bearing, heading)
-		+ way.length() / speed
-		+ _turning(unit, heading, bearing)
+		_turning(unit, facing, heading) + way.length() / speed + _turning(unit, heading, bearing)
 	)
 	return ahead if shuffling <= walking else to
 

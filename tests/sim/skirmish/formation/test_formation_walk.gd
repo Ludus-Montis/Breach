@@ -46,8 +46,9 @@ func test_a_unit_pushed_off_its_place_walks_back_at_its_pace() -> void:
 
 	FormationWalk.walk(squad, unit, place, [0.1, PACE])
 
+	var way := place - UnitPlaces.of(squad, unit)
 	var stepped := (
-		unit.speed * PACE * 0.1 * UnitMotion.pace(unit, place - UnitPlaces.of(squad, unit))
+		unit.speed * PACE * 0.1 * UnitMotion.pace(unit, way, UnitPlaces.bearing_of(squad, unit))
 	)
 	assert_float(UnitPlaces.of(squad, unit).distance_to(place)).is_less(3.0)
 	assert_float(3.0 - UnitPlaces.of(squad, unit).distance_to(place)).is_less_equal(
@@ -64,14 +65,15 @@ func test_far_from_its_place_it_faces_its_way_and_near_it_its_formations() -> vo
 	UnitPlaces.put(squad, unit, place + across * 6.0)
 	for _tick in 10:
 		FormationWalk.walk(squad, unit, place, [0.1, PACE])
-	var walking_way := UnitMotion.bearing_to(UnitPlaces.of(squad, unit), place, unit.bearing)
-	var off := absf(angle_difference(deg_to_rad(unit.bearing), deg_to_rad(walking_way)))
+	var facing := UnitPlaces.bearing_of(squad, unit)
+	var walking_way := UnitMotion.bearing_to(UnitPlaces.of(squad, unit), place, facing)
+	var off := absf(angle_difference(deg_to_rad(facing), deg_to_rad(walking_way)))
 	assert_float(off).is_less(0.01)
 
 	for _tick in 40:
 		FormationWalk.walk(squad, unit, place, [0.1, PACE])
 	assert_vector(UnitPlaces.of(squad, unit)).is_equal_approx(place, Vector2(0.001, 0.001))
-	assert_float(unit.bearing).is_equal_approx(squad.heading, 0.01)
+	assert_float(UnitPlaces.bearing_of(squad, unit)).is_equal_approx(squad.heading, 0.01)
 
 
 func test_the_frame_waits_while_a_unit_lags_beyond_its_slack() -> void:

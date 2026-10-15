@@ -221,7 +221,9 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 		if not walk[1]:
 			var squad: SkirmishSquad = walk[4]
 			var heading: float = squad.stance.get("heading", squad.heading)
-			UnitShuffle.look(walk[0], walk[5], walk[2], heading, walk[3] / ctx["seconds"])
+			var facing: float = squad.store.columns.value(walk[0].slot, UnitColumns.BEARING)
+			var speed: float = walk[3] / ctx["seconds"]
+			UnitShuffle.look(walk[0], walk[5], facing, walk[2], heading, speed)
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	var tos := []
@@ -238,7 +240,8 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 	lap = Time.get_ticks_usec()
 	for index in range(walks.size()):
 		var walk: Array = walks[index]
-		UnitMotion.move(walk[0], walk[5], tos[index], walk[3] * footings[index])
+		var columns: UnitColumns = walk[4].store.columns
+		UnitMotion.move(walk[0], columns, walk[5], tos[index], walk[3] * footings[index])
 	spent.append(Time.get_ticks_usec() - lap)
 	_print_stages(spent)
 

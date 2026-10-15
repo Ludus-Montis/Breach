@@ -40,7 +40,7 @@ func _field(count: int) -> Array:
 			var rank := index / 8
 			var x := 20.0 - rank * 1.1 if side == 0 else 21.2 + rank * 1.1
 			_places.stand(unit, Vector2(x, 10.0 + column * 1.1) + _jitter(rng))
-			unit.bearing = 90.0 if side == 0 else 270.0 + rng.randf_range(-40.0, 40.0)
+			_places.face(unit, 90.0 if side == 0 else 270.0 + rng.randf_range(-40.0, 40.0))
 			members.append(unit)
 		var faction := "player" if side == 0 else "the_kingdom"
 		sides.append(SkirmishSquad.new(side + 1, faction, 1, 0.0, 8, members, null, _places.store))
@@ -73,10 +73,16 @@ func test_slot_search_picks_the_slot_scrum_slots_picks() -> void:
 		var ground := [place, bodies, claimed, null, SEED]
 		var indexed := ground + [crowd, claims]
 		for crowded in [false, true]:
-			var whole := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground, crowded)
-			var found := SlotSearch.pick(seeker, _places.at(seeker), slot_ring, indexed, crowded)
+			var whole := ScrumSlots.pick(
+				seeker, _places.at(seeker), _places.facing(seeker), slots, ground, crowded
+			)
+			var found := SlotSearch.pick(
+				seeker, _places.at(seeker), _places.facing(seeker), slot_ring, indexed, crowded
+			)
 			assert_array(_named(found)).is_equal(_named(whole))
-		var taken := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground)
+		var taken := ScrumSlots.pick(
+			seeker, _places.at(seeker), _places.facing(seeker), slots, ground
+		)
 		if not taken.is_empty():  # it claims the slot, as a seeker does
 			picked += 1
 			claimed.append(taken[0])

@@ -39,9 +39,8 @@ var traits := {}
 ## Formation sim: how quickly it acts, and how drilled it is (Decisions 88 and 92).
 var initiative := 10
 var discipline := 30
-## Formation sim: the bearing it faces, in degrees clockwise from north (UnitMotion: 90
-## east) - its squad's way, or its own in the scrum - and how it turns and backs away.
-var bearing := 90.0
+## Formation sim: how it turns and backs away (UnitMotion). The bearing it faces is the unit
+## store's (UnitColumns.BEARING).
 var turn_rate := 450.0
 var backward_pace := 0.4
 ## Formation sim: the definition it was made from (a router fleeing home rejoins the

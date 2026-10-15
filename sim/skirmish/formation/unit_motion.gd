@@ -5,12 +5,14 @@ extends RefCounted
 ## south, 270 west), turned freely. It may move any way, at a pace set by the angle
 ## between its bearing and its heading - its full speed straight ahead, down to its
 ## backward pace straight back - while its bearing turns towards its heading, or stays on
-## a foe it backs away from, at its turn rate (degrees a second). Both are unit stats: a
+## a foe it backs away from, at its turn rate (degrees a second). The bearing is the unit
+## store's (UnitColumns.BEARING). Both are unit stats: a
 ## grem is nimbler than a brute. A unit turning to its places or its foe is exposed, as a
 ## blow from outside its front is a flank blow (Decision 88). Pure.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
 ## The vectors of the bearings 0, 90, 180 and 270, and how far out they're looked up.
@@ -63,42 +65,42 @@ static func _apart(from: float, to: float) -> float:
 	return turn - 360.0 if turn > 180.0 + EPSILON else turn
 
 
-## Turns the unit towards `wanted` by what its turn rate allows in `seconds`; true once it
-## faces it.
-static func turn(unit: SkirmishUnit, wanted: float, seconds: float) -> bool:
-	var left := _apart(unit.bearing, wanted)
-	if absf(left) < EPSILON:
-		unit.bearing = fposmod(wanted, 360.0)
-		return true
+## Turns the unit towards `wanted` by what its turn rate allows in `seconds`, its bearing
+## in the store's `columns`; true once it faces it.
+static func turn(unit: SkirmishUnit, columns: UnitColumns, wanted: float, seconds: float) -> bool:
+	var bearing: float = columns.value(unit.slot, UnitColumns.BEARING)
+	var left := _apart(bearing, wanted)
 	var reach := unit.turn_rate * seconds
-	if reach >= absf(left) - EPSILON:
-		unit.bearing = fposmod(wanted, 360.0)
-		return true
-	unit.bearing = fposmod(unit.bearing + signf(left) * reach, 360.0)
-	return false
+	var faces := absf(left) < EPSILON or reach >= absf(left) - EPSILON
+	var turned := fposmod(wanted if faces else bearing + signf(left) * reach, 360.0)
+	columns.put(unit.slot, UnitColumns.BEARING, turned)
+	return faces
 
 
-## The share of its speed the unit makes moving along `heading` while facing `bearing`
-## (its own, if not given): 1 straight ahead, its backward pace straight back.
-static func pace(unit: SkirmishUnit, heading: Vector2, bearing = null) -> float:
+## The share of its speed the unit makes moving along `heading` while facing `bearing`: 1
+## straight ahead, its backward pace straight back.
+static func pace(unit: SkirmishUnit, heading: Vector2, bearing: float) -> float:
 	if heading.length() < EPSILON:
 		return 1.0
-	var facing: float = unit.bearing if bearing == null else bearing
-	var cosine := clampf(heading.normalized().dot(vector(facing)), -1.0, 1.0)
+	var cosine := clampf(heading.normalized().dot(vector(bearing)), -1.0, 1.0)
 	var off := rad_to_deg(DetMath.acos(cosine)) / 180.0
 	return 1.0 - (1.0 - unit.backward_pace) * off
 
 
 ## The unit's next point moving from `at` to `to` with `full_step` cells at full pace, at
 ## the pace its present bearing allows (it turns separately).
-static func move(unit: SkirmishUnit, at: Vector2, to: Vector2, full_step: float) -> Vector2:
-	return at.move_toward(to, full_step * pace(unit, to - at))
+static func move(
+	unit: SkirmishUnit, columns: UnitColumns, at: Vector2, to: Vector2, full_step: float
+) -> Vector2:
+	var bearing: float = columns.value(unit.slot, UnitColumns.BEARING)
+	return at.move_toward(to, full_step * pace(unit, to - at, bearing))
 
 
 ## The unit's next point walking from `at` to `to` with `full_step` cells at full pace,
 ## turning as it goes - towards its heading, or to keep facing `face_point` if given.
 static func walk(
 	unit: SkirmishUnit,
+	columns: UnitColumns,
 	at: Vector2,
 	to: Vector2,
 	full_step: float,
@@ -107,5 +109,7 @@ static func walk(
 ) -> Vector2:
 	var heading := to - at
 	var look: Vector2 = face_point if face_point != null else to
-	turn(unit, bearing_to(at, look, unit.bearing), seconds)
-	return at.move_toward(to, full_step * pace(unit, heading))
+	var bearing: float = columns.value(unit.slot, UnitColumns.BEARING)
+	turn(unit, columns, bearing_to(at, look, bearing), seconds)
+	var turned: float = columns.value(unit.slot, UnitColumns.BEARING)
+	return at.move_toward(to, full_step * pace(unit, heading, turned))

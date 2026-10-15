@@ -54,7 +54,7 @@ static func walk(
 	var facing := UnitMotion.vector(squad.heading)
 	var far := place.distance_to(from) > _tuning().walk_face_travel
 	var look := toward if far else place + facing
-	var stepped := UnitMover.step(unit, from, toward, full, seconds, terrain, look)
+	var stepped := UnitMover.step(unit, columns, from, toward, full, seconds, terrain, look)
 	columns.put(unit.slot, UnitColumns.POSITION, stepped)
 	WalkModes.after_step(unit, columns, from, terrain, seconds)
 

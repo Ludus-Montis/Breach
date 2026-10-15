@@ -113,16 +113,16 @@ func _bearings(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
 		for unit in squad.units:
-			out.append([unit.id, unit.bearing])
+			out.append([unit.id, UnitPlaces.bearing_of(squad, unit)])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	return out
 
 
-## Every squad's loose entries and bearings, and (last) the store's columns.
+## Every squad's loose entries, and (last) the store's columns, bearings among them.
 func _saved(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
-		out.append([squad.loose.duplicate(), squad.units.map(func(u): return u.bearing)])
+		out.append([squad.loose.duplicate()])
 	out.append(UnitPlaces.saved(squads[0].store))
 	return out
 
@@ -131,8 +131,6 @@ func _restore(squads: Array, saved: Array) -> void:
 	UnitPlaces.restore(squads[0].store, saved[-1])
 	for index in range(squads.size()):
 		squads[index].loose = saved[index][0].duplicate()
-		for unit_index in range(squads[index].units.size()):
-			squads[index].units[unit_index].bearing = saved[index][1][unit_index]
 
 
 func test_the_facing_on_the_field_turns_units_as_gdscript_does() -> void:
@@ -195,7 +193,7 @@ func test_the_facing_on_the_field_turns_any_bearing_to_any_look_as_gdscript_does
 func _stirred(squads: Array) -> void:
 	for squad in squads:
 		for unit in squad.units:
-			unit.bearing = fposmod(unit.id * 47.3, 360.0)
+			UnitPlaces.turn(squad, unit, fposmod(unit.id * 47.3, 360.0))
 		var columns: UnitColumns = squad.store.columns
 		for unit in squad.loose.values():
 			var id: int = unit.id

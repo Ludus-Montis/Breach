@@ -67,16 +67,22 @@ static func find(slot_ring: Dictionary, goal: Array) -> Array:
 	return slot if slot[3] == goal[1] else []
 
 
-## As ScrumSlots.pick, over the ring: the slot the seeker at `at` makes for, or []. Open
+## As ScrumSlots.pick, over the ring: the slot the seeker at `at` facing `facing` makes for,
+## or []. Open
 ## slots are the free ones and its own, with no claim near; `ground` is ScrumSlots' with
 ## [5] a BodyGrid.of_bodies over its bodies and [6] the claims' cells (claim()).
 static func pick(
-	seeker: SkirmishUnit, at: Vector2, slot_ring: Dictionary, ground: Array, crowded := false
+	seeker: SkirmishUnit,
+	at: Vector2,
+	facing: float,
+	slot_ring: Dictionary,
+	ground: Array,
+	crowded := false
 ) -> Array:
 	var search := {
 		"seeker": seeker,
 		"at": at,
-		"ahead": UnitMotion.vector(seeker.bearing),
+		"ahead": UnitMotion.vector(facing),
 		"ground": ground,
 		"crowded": crowded,
 		"slots": slot_ring["slots"],
