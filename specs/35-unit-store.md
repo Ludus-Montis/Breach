@@ -747,10 +747,28 @@ Kept, where the list above was wider than the code:
   columns' blanks and names and the queue's order. Tests that set hp by hand go through
   `UnitPlaces.health` (which enrols first) or `UnitHealth.put`, and `UnitPlaces.onto` admits
   the units it moves, so their records go with them.
-- **Not done yet: the copies carried in from #229.** The `tick_phases` count of whole-column
-  copies a tick and the fixes it points to (a table fetched once a pass for all squads, a
-  native gather of a squad's slots, the occupancy's place map) still need doing, measured
-  through `bench` against this step.
+- **The copies carried in from #229, measured** (`tick_phases copies`, `ColumnCopies` in
+  `tools/column_copies.gd`: the native columns counted per phase, passed on unchanged).
+  At 4,096 a side in four squads on Rust, every whole-column copy out of the field and into
+  it moves about 1.7 million slots a tick, about 10 MB: the walk to places 89 copies (729k
+  slots), perception 48 (393k), blows 36 (295k), deaths 13 (106k), the rest under 71k
+  each. Against a 219 ms tick that is around 1 ms, so the copies aren't what made deaths,
+  stamina, recovery or the re-form slower, and the fixes they pointed to (a table fetched
+  once a pass for all squads, a native gather of a squad's slots) would buy too little for
+  their code: not built.
+- **Deaths' real cost was the step-up** (`SquadCompact.compact`, about 95% of bury: timed
+  inside bury at 1,024 a side). It now works on typed copies of the rank and column
+  columns, keeps who holds each place as a count on a packed grid (`SquadCompact.Held`)
+  instead of a dictionary of unit lists, filters the living once, and after its first pass
+  looks again only at units with a place in one of their columns changed since they were
+  last looked at. A unit's row ahead lies in its own columns, so the others would find it
+  as held as before: the same units step up in the same order (an A/B run of 250 ticks
+  with 306 step-ups gave the same state and events every tick on both engines;
+  `test_skirmish_squad.gd` gained a unit stepping up over two passes with a wide unit
+  following). The step-up's time fell by about a third.
+- **Not done: stamina, recovery and the re-form's occupancy** were also above main before
+  step 4 in #229's benches. Neither reads enough columns for copies to explain it; finding
+  their cause is the next piece of work (see the hand-off).
 
 ## Open, for the implementing session to settle and record here
 
