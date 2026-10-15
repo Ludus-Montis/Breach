@@ -1,7 +1,8 @@
 name: Bench
 
 # Long benchmark runs, started by hand (or by an agent through the GitHub API) instead of
-# in an agent's session: `tool` with `args` on the branch the run is started on, and - if
+# in an agent's session: `tool` with `args` on the branch the run is started on (or on
+# `head`, a branch or commit checked out beside it), and - if
 # `base` names another branch or commit - the same on it, on the same runner, so the two
 # compare like for like. The last step prints both between SUMMARY markers. GitHub's
 # runners are slower than a desktop: read the comparison, not the absolute times.
@@ -23,6 +24,9 @@ on:
       args:
         description: "Its arguments"
         default: "engine=rust side=4096 squads=4 fight=3"
+      head:
+        description: "Branch or commit to time as the head (empty: the branch the run is on)"
+        default: ""
       base:
         description: "Branch or commit to compare against (empty: none)"
         default: ""
@@ -68,6 +72,12 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
           restore-keys: rust-${{ runner.os }}-
 
+      - name: Check out the head
+        if: inputs.head != ''
+        env:
+          HEAD_REF: ${{ inputs.head }}
+        run: git worktree add head "origin/$HEAD_REF" 2>/dev/null || git worktree add head "$HEAD_REF"
+
       - name: Check out the base
         if: inputs.base != ''
         env:
@@ -80,7 +90,9 @@ jobs:
           ARGS: ${{ inputs.args }}
           BASE: ${{ inputs.base }}
           ROUNDS: ${{ inputs.rounds }}
+          HEAD_REF: ${{ inputs.head }}
         run: |
+          here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
           case "$ROUNDS" in ''|*[!0-9]*) echo "rounds must be a whole number"; exit 1;; esac
           if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "rounds: 1 to 20"; exit 1; fi
           prepare() {
@@ -93,15 +105,15 @@ jobs:
               && /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
                 2>/dev/null | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)')
           }
-          prepare . || true  # as before: time what was built, even if import complains
+          prepare "$here" || true  # as before: time what was built, even if import complains
           if [ -n "$BASE" ]; then prepare base || true; fi
           for round in $(seq 1 "$ROUNDS"); do
             if [ -z "$BASE" ]; then
-              time_in . > "head_$round.txt"
+              time_in "$here" > "head_$round.txt"
             elif [ $((round % 2)) -eq 1 ]; then
-              time_in . > "head_$round.txt"; time_in base > "base_$round.txt"
+              time_in "$here" > "head_$round.txt"; time_in base > "base_$round.txt"
             else
-              time_in base > "base_$round.txt"; time_in . > "head_$round.txt"
+              time_in base > "base_$round.txt"; time_in "$here" > "head_$round.txt"
             fi
           done
 
@@ -112,11 +124,13 @@ jobs:
           ARGS: ${{ inputs.args }}
           BASE: ${{ inputs.base }}
           ROUNDS: ${{ inputs.rounds }}
-          HEAD_NAME: ${{ github.ref_name }}
+          HEAD_NAME: ${{ inputs.head || github.ref_name }}
+          HEAD_REF: ${{ inputs.head }}
         run: |
+          here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
           {
             echo "SUMMARY BEGIN"
-            echo "== $HEAD_NAME ($(git rev-parse --short HEAD)): $TOOL $ARGS"
+            echo "== $HEAD_NAME ($(git -C "$here" rev-parse --short HEAD)): $TOOL $ARGS"
             if [ -n "$BASE" ]; then
               echo "== base $BASE ($(git -C base rev-parse --short HEAD 2>/dev/null))"
             fi
