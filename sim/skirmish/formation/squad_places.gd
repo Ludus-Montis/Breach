@@ -76,7 +76,8 @@ static func claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> v
 ## {unit: Vector2i(rank, column)} for the units of `squad`.
 static func places(squad: SkirmishSquad, units: Array) -> Dictionary:
 	var out := {}
-	if units.size() <= 2:  # few: read each
+	if units.size() <= 2:
+		# store: scattered (two units at most: read each)
 		for unit in units:
 			out[unit] = UnitPlace.of(squad, unit)
 		return out
