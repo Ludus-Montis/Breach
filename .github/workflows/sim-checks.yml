@@ -3,8 +3,8 @@ name: Sim checks
 # The heavy simulation checks, run here rather than in an agent's session: the suite under
 # the Rust core, both engines' tick digests compared, the mirror trials fought from both
 # sides, and the scaling check. None needs another's output, so after the Rust core is
-# built once (`build`) they run side by side, the suite split into shards
-# (ci/godot/scripts/shard_tests.py). The `summary` job prints a short summary between
+# built once (`build`) they run side by side: the suite in shards
+# (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. The `summary` job prints a short summary between
 # SUMMARY markers, so the outcome can be read from the end of its log.
 
 on:
@@ -103,10 +103,16 @@ jobs:
           path: reports/
           if-no-files-found: ignore
 
+  # One job per digest set: each compares its own two engines' files, so splitting the
+  # sets across machines changes nothing (a digest is the same wherever it is taken).
   digests:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        set: [standard, clash160, wide]
     steps:
       - uses: actions/checkout@v7
 
@@ -119,22 +125,20 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Digests, both engines
+      - name: Digests ${{ matrix.set }}, both engines
         run: |
           mkdir -p digests
-          for set in standard clash160 wide; do
-            for engine in gdscript rust; do
-              BREACH_NATIVE=$engine /opt/godot/godot --headless --path . \
-                --script res://tools/formation_digest.gd -- set=$set out=digests/$set.$engine.txt \
-                > /dev/null 2>&1
-            done
+          for engine in gdscript rust; do
+            BREACH_NATIVE=$engine /opt/godot/godot --headless --path . \
+              --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
+              out=digests/${{ matrix.set }}.$engine.txt > /dev/null 2>&1
           done
           (cd digests && sha256sum *.txt)
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sim-digests
+          name: sim-digests-${{ matrix.set }}
           path: digests/
           retention-days: 7
 
@@ -170,10 +174,16 @@ jobs:
           path: trials.txt
           retention-days: 7
 
+  # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
+  # timed on one machine, so the growth it reports holds; sizes never split across jobs.
   scaling:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [march, fight, stacks]
     steps:
       - uses: actions/checkout@v7
 
@@ -186,16 +196,17 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Scaling check (Rust)
+      - name: Scaling check (Rust), ${{ matrix.stage }}
         run: |
           BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
-            --script res://tools/scaling_check.gd 2>/dev/null | tee scaling.txt
+            --script res://tools/scaling_check.gd -- stages=${{ matrix.stage }} 2>/dev/null \
+            | tee scaling.${{ matrix.stage }}.txt
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sim-scaling
-          path: scaling.txt
+          name: sim-scaling-${{ matrix.stage }}
+          path: scaling.${{ matrix.stage }}.txt
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if the build
@@ -231,7 +242,10 @@ jobs:
               echo "digest $set: gdscript $g rust $r $verdict"
             done
             cat trials.txt 2>/dev/null
-            grep -E "a side|stacks|FAILED" scaling.txt 2>/dev/null
+            for stage in march fight stacks; do
+              grep -E "a side|stacks|FAILED" scaling.$stage.txt 2>/dev/null \
+                || echo "scaling $stage: no result"
+            done
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           [ "${{ needs.build.result }}" = "success" ]
