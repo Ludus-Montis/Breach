@@ -35,6 +35,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   fleeing entries to the GDScript store; 2b gives them to the Rust backend.
 - **Step 2a, the entries' other keys: built** (2026-10-15). See "Built" below.
 - **Step 2b, the Rust backend owns them: built** (2026-10-15). See "Built" below.
+- **Step 3, bearing: built** (2026-10-15), in one PR: the GDScript store and the Rust
+  backend own it together. See "Built" below.
 
 ## The store
 
@@ -372,6 +374,39 @@ but read from the store instead of a sync. The glue is gone at step 4.
   exist). `columns.rs`: blanks, and each column found by its name and no other. The column
   contract and the battle's per-tick comparison on both engines
   (`test_unit_store.gd`, `test_entry_keys.gd`) run unchanged.
+
+### Step 3, bearing
+
+- **One PR, both backends.** Since 2b the native store holds nothing in GDScript, so a
+  GDScript-only half would have needed a column held in GDScript under Rust just for one
+  commit. `UnitColumns.BEARING` (a float, by slot) and Rust's `Columns.bearing` (a real,
+  found by the name `"bearing"`) came in together.
+- **A new slot faces east** (`BLANKS[BEARING]` 90, Rust's `EAST`), as a new `SkirmishUnit`
+  did. Nothing set a unit's bearing before it enrolled, so every unit starts as before.
+- **`SkirmishUnit.bearing` is gone.** Every reader and writer in `sim/`, presentation, the
+  tools and the tests switched in this PR (Decision 142). Signatures that changed:
+  `UnitMotion.turn`, `move` and `walk` and `UnitMover.step` and `slide` take the columns
+  after the unit; `UnitMotion.pace` takes the bearing (no longer optional);
+  `UnitShuffle.look` takes the bearing the unit faces now; `UnitFootprint.corners`,
+  `ScrumSlots.pick` and `SlotSearch.pick` take the bearing; `BlowRoll.side` and `from_flank`
+  take the target's bearing instead of the target; `FormationScrum._faces` gives each
+  turn with its columns.
+- **Passes over many units fetch the column once:** the blows (GDScript and native
+  syncs), the blows' landing, the slots round the foes, the facing's gather and its
+  native write-back (one commit), the native walk's gather, and the scrum sync. The
+  turns (`UnitMotion.turn`), the march's facing and the seek's pick read and write one
+  value each. No pass reads a fetched bearing column after a turn in the same pass, so the
+  copy-on-write rule changes nothing.
+- **Presentation** reads the bearing column once a frame with the position column.
+- **Not done here, left for step 4:** the syncs and the native walk and facing still send
+  each unit's bearing from GDScript, though the field holds it.
+- **Tests.** `test_unit_bearing.gd` (new): the column round-trips on both backends, a new
+  or reused slot faces east, the native store holds it on its field, and `SkirmishUnit`
+  no longer declares it. `test_unit_store.gd`'s battle compares every unit's bearing on
+  both engines every tick, and the other-slots test's state reads the column. `columns.rs`:
+  the blank and the name. `UnitPlaces` (tests) has `facing`, `face`, `bearing_of` and
+  `turn`; its `saved` and `restore` carry the bearing with every other column, so the
+  facing tests no longer save bearings themselves.
 
 ## Open, for the implementing session to settle and record here
 

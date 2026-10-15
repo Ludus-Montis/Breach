@@ -22,7 +22,7 @@ func _unit(unit_id: int, at: Vector2, bearing: float) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	_places.stand(unit, at)
-	unit.bearing = bearing
+	_places.face(unit, bearing)
 	return unit
 
 
@@ -37,7 +37,7 @@ func _side(battle_seed: int) -> int:
 	var slots := ScrumSlots.round_foes([[foe, squad]], 0.5)
 	var claimed := [Vector2(10, 11)]  # the slot dead ahead of the foe, towards the seeker
 	var ground := [_places.at(seeker), [], claimed, null, battle_seed]
-	var picked := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground)
+	var picked := ScrumSlots.pick(seeker, _places.at(seeker), _places.facing(seeker), slots, ground)
 	return 1 if picked[0].x > 10.0 else -1
 
 

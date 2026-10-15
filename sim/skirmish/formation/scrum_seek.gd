@@ -68,9 +68,10 @@ static func _plan(ctx: Dictionary) -> void:
 		var unit: SkirmishUnit = seeker[2]
 		var ground := _ground(squad, unit, claimed, ctx, ctx["seed"])
 		var at: Vector2 = SquadEntries.loose_at(squad, unit)
-		var slot := SlotSearch.pick(unit, at, seeker[3], ground)
+		var facing: float = squad.store.columns.value(unit.slot, UnitColumns.BEARING)
+		var slot := SlotSearch.pick(unit, at, facing, seeker[3], ground)
 		if slot.is_empty():  # it waits behind the nearest, a pursuit too (Decision 113)
-			_press(seeker, SlotSearch.pick(unit, at, seeker[3], ground, true), ctx)
+			_press(seeker, SlotSearch.pick(unit, at, facing, seeker[3], ground, true), ctx)
 		else:
 			_aim(seeker, slot, claimed, ctx)
 

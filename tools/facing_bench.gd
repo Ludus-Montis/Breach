@@ -66,7 +66,9 @@ func _init() -> void:
 
 
 ## Times the pass under one engine and prints it; returns the bearings it leaves.
-func _engine(engine: String, sim: Sim, fighting: Array, ctx: Dictionary, saved: Array) -> Array:
+func _engine(
+	engine: String, sim: Sim, fighting: Array, ctx: Dictionary, saved: PackedFloat64Array
+) -> PackedFloat64Array:
 	ScrumFaceField.spent = PackedInt64Array([0, 0, 0, 0])
 	var times := _timed(fighting, _engine_ctx(ctx, sim, engine), saved)
 	var after := _bearings(ctx["squads"])
@@ -116,7 +118,7 @@ func _engine_ctx(ctx: Dictionary, sim: Sim, engine: String) -> Dictionary:
 
 
 ## ms for each repetition of the pass, each from the saved bearings.
-func _timed(fighting: Array, ctx: Dictionary, saved: Array) -> Array:
+func _timed(fighting: Array, ctx: Dictionary, saved: PackedFloat64Array) -> Array:
 	var out := []
 	for _rep in range(int(_args.get("reps", 20))):
 		_put(ctx["squads"], saved)
@@ -148,26 +150,19 @@ func _facers(fighting: Array) -> int:
 	return count
 
 
-func _bearings(squads: Array) -> Array:
-	var out := []
-	for squad in squads:
-		for unit in squad.units:
-			out.append(unit.bearing)
-	return out
+## The battle's bearings, by slot (the store's column).
+func _bearings(squads: Array) -> PackedFloat64Array:
+	return squads[0].store.columns.column(UnitColumns.BEARING)
 
 
-func _put(squads: Array, saved: Array) -> void:
-	var index := 0
-	for squad in squads:
-		for unit in squad.units:
-			unit.bearing = saved[index]
-			index += 1
+func _put(squads: Array, saved: PackedFloat64Array) -> void:
+	squads[0].store.columns.commit(UnitColumns.BEARING, saved)
 
 
 ## The GDScript pass stage by stage (ms): the foes' grids (ScrumNear.index), the touching
 ## foe (ScrumNear.around, ScrumBlows.nearest_touching), the looks and wanted bearings
 ## (UnitShuffle.look, UnitMotion.bearing_to), the turns; and DetMath's calls in it.
-func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
+func _stages(fighting: Array, ctx: Dictionary, saved: PackedFloat64Array) -> void:
 	_put(ctx["squads"], saved)
 	UnitMotion._vectors.clear()
 	var lap := Time.get_ticks_usec()
@@ -182,8 +177,9 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 	var turns := _wanted(fighting, touched, ctx)
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
+	var columns: UnitColumns = ctx["squads"][0].store.columns
 	for turn in turns:
-		UnitMotion.turn(turn[0], turn[1], ctx["seconds"])
+		UnitMotion.turn(turn[0], columns, turn[1], ctx["seconds"])
 	spent.append(Time.get_ticks_usec() - lap)
 	var misses: int = UnitMotion._vectors.size()
 	var counts := _counted(fighting, touched, ctx)
@@ -227,7 +223,8 @@ func _wanted(fighting: Array, touched: Array, ctx: Dictionary) -> Array:
 				look = Scrum._seeking_look(unit, columns, at, ctx)
 			look = look if look != null else EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)
 			if look != null:
-				out.append([unit, UnitMotion.bearing_to(at, look, unit.bearing)])
+				var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
+				out.append([unit, UnitMotion.bearing_to(at, look, facing)])
 	return out
 
 

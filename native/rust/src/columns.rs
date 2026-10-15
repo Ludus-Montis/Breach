@@ -4,7 +4,8 @@
 //! 2: its next step, the foe and slot it seeks, that foe's place, whether it touches a
 //! foe, where it walks toward, how long it has been stuck and its closest yet; how far
 //! along its route it has fled, how long a friend has held it and which, how far it has
-//! fanned out), with the bits saying which keys an entry holds (`keys`). The field holds
+//! fanned out), with the bits saying which keys an entry holds (`keys`), and the way it
+//! faces (`bearing`, step 3: degrees clockwise from north). The field holds
 //! them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
@@ -29,10 +30,13 @@ pub struct Columns {
     pub closest: Vec<f64>,
     pub along: Vec<f64>,
     pub fanned: Vec<f64>,
+    pub bearing: Vec<f64>,
 }
 
 /// No goal (`goal_slot`).
 const NO_GOAL: i64 = -1;
+/// A unit not yet turned faces east (`bearing`).
+const EAST: f64 = 90.0;
 
 impl Columns {
     /// A point column by its name.
@@ -76,6 +80,7 @@ impl Columns {
             "closest" => Some(&mut self.closest),
             "along" => Some(&mut self.along),
             "fanned" => Some(&mut self.fanned),
+            "bearing" => Some(&mut self.bearing),
             _ => None,
         }
     }
@@ -103,6 +108,7 @@ impl Columns {
             column.push(0.0);
         }
         self.closest.push(f64::INFINITY);
+        self.bearing.push(EAST);
     }
 
     /// Every column blank in `slot`.
@@ -128,6 +134,7 @@ impl Columns {
             column[slot] = 0.0;
         }
         self.closest[slot] = f64::INFINITY;
+        self.bearing[slot] = EAST;
     }
 }
 
@@ -141,15 +148,18 @@ mod tests {
         columns.grow();
         assert_eq!(columns.goal_slot[0], NO_GOAL);
         assert_eq!(columns.closest[0], f64::INFINITY);
+        assert_eq!(columns.bearing[0], EAST);
         columns.points("next").unwrap()[0] = V2 { x: 1.0, y: 2.0 };
         columns.ints("keys").unwrap()[0] = 5;
         columns.longs("goal_slot").unwrap()[0] = 3;
         columns.reals("closest").unwrap()[0] = 0.5;
+        columns.reals("bearing").unwrap()[0] = 237.5;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
         assert_eq!(columns.goal_slot[0], NO_GOAL);
         assert_eq!(columns.closest[0], f64::INFINITY);
+        assert_eq!(columns.bearing[0], EAST);
     }
 
     #[test]
@@ -164,7 +174,7 @@ mod tests {
         for name in ["goal_foe", "goal_slot", "caught", "held_by"] {
             assert!(columns.longs(name).is_some(), "{name}");
         }
-        for name in ["stuck", "closest", "along", "fanned"] {
+        for name in ["stuck", "closest", "along", "fanned", "bearing"] {
             assert!(columns.reals(name).is_some(), "{name}");
         }
         assert!(columns.points("flags").is_none());

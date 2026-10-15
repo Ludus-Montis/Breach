@@ -103,7 +103,7 @@ func test_foes_at_the_same_distance_go_by_the_seeded_draw() -> void:
 	var foes := _squad(2, "enemy", Vector2.ZERO, 2)
 	var unit: SkirmishUnit = squad.units[0]
 	_places.stand(unit, Vector2.ZERO)
-	unit.bearing = 90.0
+	_places.face(unit, 90.0)
 	_places.stand(foes.units[0], Vector2(0.5, 1.0))  # both touching, as far, in front
 	_places.stand(foes.units[1], Vector2(0.5, -1.0))
 	var entries := foes.living().map(func(foe): return [foe, foes])

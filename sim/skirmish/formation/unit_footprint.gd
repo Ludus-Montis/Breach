@@ -9,10 +9,10 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 
 
-## The footprint's corners for a unit standing at `at`.
-static func corners(unit: SkirmishUnit, at: Vector2) -> PackedVector2Array:
-	var ahead := UnitMotion.vector(unit.bearing) * unit.footprint_depth / 2.0
-	var across := UnitMotion.vector(unit.bearing + 90.0) * unit.footprint_width / 2.0
+## The footprint's corners for a unit standing at `at` facing `bearing`.
+static func corners(unit: SkirmishUnit, at: Vector2, bearing: float) -> PackedVector2Array:
+	var ahead := UnitMotion.vector(bearing) * unit.footprint_depth / 2.0
+	var across := UnitMotion.vector(bearing + 90.0) * unit.footprint_width / 2.0
 	return PackedVector2Array(
 		[at + ahead + across, at + ahead - across, at - ahead - across, at - ahead + across]
 	)

@@ -138,7 +138,9 @@ func _clash(kind: String, engine: String) -> Array:
 		sim.step()
 		for squad in [mine, theirs]:
 			for unit in squad.living():
-				trace.append([UnitPlaces.where(sim.store, unit), unit.bearing])
+				trace.append(
+					[UnitPlaces.where(sim.store, unit), UnitPlaces.bearing_of(squad, unit)]
+				)
 				var step := 0.0
 				if before.has(unit) and squad.loose.has(unit.id):
 					step = before[unit].distance_to(SquadEntries.loose_at(squad, unit))

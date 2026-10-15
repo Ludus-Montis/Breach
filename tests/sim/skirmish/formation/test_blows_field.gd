@@ -96,7 +96,7 @@ func _stirred(squads: Array) -> Array:
 	for squad in squads:
 		for unit in squad.units:
 			unit.attack_cooldown = 1 + unit.id % 2
-			unit.bearing = fposmod(unit.id * 47.3, 360.0)
+			UnitPlaces.turn(squad, unit, fposmod(unit.id * 47.3, 360.0))
 	return squads
 
 

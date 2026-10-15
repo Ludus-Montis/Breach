@@ -60,11 +60,14 @@ static func land(
 				squad_of[unit.id] = [unit, squad]
 		pressed = _pressed(squad_of)
 	var at: PackedVector2Array = squads[0].store.columns.column(UnitColumns.POSITION)
+	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
+	var known := [squad_of, pressed, at, bearings]
 	for blow in melee:
-		_land(blow, false, blow[3], [squad_of, pressed, at], terrain, rolls)
+		_land(blow, false, blow[3], known, terrain, rolls)
 	for shot in shots:
-		var flank := BlowRoll.from_flank(shot[1], at[shot[1].slot], at[shot[0].slot])
-		_land(shot, true, flank, [squad_of, pressed, at], terrain, rolls)
+		var slot: int = shot[1].slot
+		var flank := BlowRoll.from_flank(bearings[slot], at[slot], at[shot[0].slot])
+		_land(shot, true, flank, known, terrain, rolls)
 
 
 static func _land(
@@ -73,6 +76,7 @@ static func _land(
 	var squad_of: Dictionary = known[0]  # unit id -> [unit, its squad]
 	var pressed: Dictionary = known[1]  # unit id -> foes pressing it
 	var at: PackedVector2Array = known[2]  # where each stands, by slot
+	var bearings: PackedFloat64Array = known[3]  # the way each faces, by slot
 	var striker: SkirmishUnit = blow[0]
 	var target: SkirmishUnit = blow[1]
 	var tuning := BattleTuning.current()
@@ -85,7 +89,7 @@ static func _land(
 	shift += maxi(0, pressed.get(target.id, 0) - 1) * tuning.blow_surrounded
 	shift += BlowDamage.spill(striker, ranged) + FormationStamina.skill_shift(striker)
 	var roll := BattleRolls.uniform(rolls[0], [rolls[1], striker.id, "blow", ranged])
-	var side := BlowRoll.side(target, at[target.slot], from, flank)
+	var side := BlowRoll.side(bearings[target.slot], at[target.slot], from, flank)
 	var landed := BlowRoll.outcome(
 		BlowRoll.margin(striker, ranged, shift, roll), target, side, ranged
 	)

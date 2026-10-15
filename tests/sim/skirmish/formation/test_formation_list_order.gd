@@ -38,7 +38,8 @@ func _state(squads: Array) -> String:
 		var units := []
 		for unit in squad.units:
 			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
-			units.append([unit.id, unit.hp, unit.rank, unit.column, at, unit.bearing])
+			var facing := UnitPlaces.bearing_of(squad, unit)
+			units.append([unit.id, unit.hp, unit.rank, unit.column, at, facing])
 		units.sort()
 		var flanks := {}
 		for edge in squad.flank_contacts:

@@ -62,8 +62,12 @@ static func face(ctx: Dictionary) -> void:
 	)
 	var returned := Time.get_ticks_usec()
 	var units: Array = seek.units
-	for member in range(bearings.size()):
-		units[member].bearing = bearings[member]
+	if not units.is_empty():
+		var columns: UnitColumns = seek.owners[0].store.columns
+		var faced: PackedFloat64Array = columns.column(UnitColumns.BEARING)
+		for member in range(bearings.size()):
+			faced[units[member].slot] = bearings[member]
+		columns.commit(UnitColumns.BEARING, faced)
 	spent[0] += called - began
 	spent[1] += returned - called
 	spent[2] += field.usec()
@@ -82,12 +86,13 @@ static func _gather(units: Array, owners: Array) -> Batch:
 	var foe_ats: PackedVector2Array = columns.column(UnitColumns.FOE_AT)
 	var towards: PackedVector2Array = columns.column(UnitColumns.TOWARD)
 	var keys: PackedInt32Array = columns.column(UnitColumns.KEYS)
+	var facing: PackedFloat64Array = columns.column(UnitColumns.BEARING)
 	var toward_bit: int = EntryKeys.VALUED[UnitColumns.TOWARD]
 	for member in range(units.size()):
 		var unit: SkirmishUnit = units[member]
 		var slot := unit.slot
 		batch.ats.append(loose_at[slot])
-		batch.motion.append(unit.bearing)
+		batch.motion.append(facing[slot])
 		batch.motion.append(unit.turn_rate)
 		batch.motion.append(unit.backward_pace)
 		var flags := 0

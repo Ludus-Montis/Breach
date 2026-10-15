@@ -192,7 +192,7 @@ static func face(fighting: Array, ctx: Dictionary) -> void:
 	for squad in fighting:
 		turns.append_array(_faces(squad, ctx))
 	for turn in turns:
-		UnitMotion.turn(turn[0], turn[1], ctx["seconds"])
+		UnitMotion.turn(turn[0], turn[2], turn[1], ctx["seconds"])
 
 
 ## Fighting units walk a step to their goal, or back towards their place if they have none
@@ -212,16 +212,17 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			toward = next
 			var to := UnitSteer.toward(unit, at, next, ctx["bodies"], ctx["seed"], ctx["crowd"])
 			var paced := full * _footing(unit, at, to, ctx)
-			var slid := UnitMover.slide(unit, at, to, paced, ctx["terrain"])
+			var slid := UnitMover.slide(unit, columns, at, to, paced, ctx["terrain"])
 			columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
 		elif columns.value(unit.slot, UnitColumns.TOUCH) == 0:
 			var place := ScrumStance.anchor(squad, unit)
 			var heading: float = squad.stance.get("heading", squad.heading)
 			var speed := full / seconds
-			toward = UnitShuffle.look(unit, at, place, heading, speed)
+			var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
+			toward = UnitShuffle.look(unit, at, facing, place, heading, speed)
 			var to := UnitSteer.toward(unit, at, place, ctx["bodies"], ctx["seed"], ctx["crowd"])
 			var paced := full * _footing(unit, at, to, ctx)
-			var slid := UnitMover.slide(unit, at, to, paced, ctx["terrain"])
+			var slid := UnitMover.slide(unit, columns, at, to, paced, ctx["terrain"])
 			columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
 			columns.put(unit.slot, UnitColumns.NEXT, slid)
 		EntryKeys.keep(columns, unit.slot, UnitColumns.TOWARD, toward)
@@ -236,9 +237,9 @@ static func _footing(unit: SkirmishUnit, at: Vector2, to: Vector2, ctx: Dictiona
 	return GroundBodies.underfoot(unit, at + way.normalized() * 0.5, ctx["lying"])
 
 
-## [[unit, the bearing it turns towards], ...]: each unit turns once a tick towards the
-## nearest foe it touches, or else so as to arrive facing what it will do - its foe at the
-## slot it seeks, or its squad's way at its place - the quicker way (UnitShuffle).
+## [[unit, the bearing it turns towards, its columns], ...]: each unit turns once a tick
+## towards the nearest foe it touches, or else so as to arrive facing what it will do - its
+## foe at the slot it seeks, or its squad's way at its place - the quicker way (UnitShuffle).
 static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	if not ctx.has("facing"):  # where they now stand, after the walk: one index a faction
 		ctx["facing"] = FoeIndex.of(ctx["squads"])
@@ -248,6 +249,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var columns := squad.store.columns
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
 	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT)
+	var bearings: PackedFloat64Array = columns.column(UnitColumns.BEARING)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue
@@ -259,7 +261,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 		if look == null:
 			look = EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)
 		if look != null:
-			out.append([unit, UnitMotion.bearing_to(at, look, unit.bearing)])
+			out.append([unit, UnitMotion.bearing_to(at, look, bearings[unit.slot]), columns])
 	return out
 
 
@@ -271,8 +273,9 @@ static func _seeking_look(unit: SkirmishUnit, columns: UnitColumns, at: Vector2,
 	)
 	var next: Vector2 = columns.value(unit.slot, UnitColumns.NEXT)
 	var foe_at: Vector2 = columns.value(unit.slot, UnitColumns.FOE_AT)
-	var bearing := UnitMotion.bearing_to(next, foe_at, unit.bearing)
-	return UnitShuffle.look(unit, at, next, bearing, speed)
+	var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
+	var bearing := UnitMotion.bearing_to(next, foe_at, facing)
+	return UnitShuffle.look(unit, at, facing, next, bearing, speed)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while.

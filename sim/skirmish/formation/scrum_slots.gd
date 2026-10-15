@@ -42,13 +42,16 @@ static func bodies(squads: Array) -> Array:
 ## for a seeker of body radius `radius`.
 static func round_foes(foes: Array, radius: float) -> Array:
 	var out := []
+	if foes.is_empty():
+		return out
+	var bearings: PackedFloat64Array = foes[0][1].store.columns.column(UnitColumns.BEARING)
 	for entry in foes:
 		var foe: SkirmishUnit = entry[0]
 		var centre := ScrumReach.at(entry[1], foe)
 		var reach := ScrumReach.radius(foe) + radius
 		var count := maxi(3, floori(PI * reach / radius + 0.000001))
 		for slot in range(count):
-			var way := UnitMotion.vector(foe.bearing + slot * 360.0 / count)
+			var way := UnitMotion.vector(bearings[foe.slot] + slot * 360.0 / count)
 			out.append([centre + way * reach, foe, entry[1], slot])
 	return out
 
@@ -63,14 +66,15 @@ static func gap_to(at: Vector2, radius: float, foes: Array) -> float:
 	return maxf(least, 0.0)
 
 
-## The slot (as round_foes gives it) the seeker at `at` makes for, or [] if none is open.
+## The slot (as round_foes gives it) the seeker at `at` facing `facing` makes for, or [] if
+## none is open.
 ## `ground` is [its place, the bodies, the claimed points, the terrain or null, the seed].
 ## `crowded`: the nearest it could stand on were it free, others' bodies and claims aside
 ## (one with no open slot waits behind it).
 static func pick(
-	seeker: SkirmishUnit, at: Vector2, slots: Array, ground: Array, crowded := false
+	seeker: SkirmishUnit, at: Vector2, facing: float, slots: Array, ground: Array, crowded := false
 ) -> Array:
-	var ahead := UnitMotion.vector(seeker.bearing)
+	var ahead := UnitMotion.vector(facing)
 	var best := []
 	var best_key := []
 	for slot in slots:

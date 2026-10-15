@@ -110,9 +110,10 @@ static func step(
 		var full: float = unit.speed * cells_per_second * seconds
 		var at: Vector2 = SquadEntries.loose_at(walk[0], unit)
 		var to := UnitSteer.toward(unit, at, walk[2], bodies, fight_seed, crowd)
-		var stepped := UnitMover.step(unit, at, to, full, seconds, terrain)
-		walk[0].store.columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
-		walk[0].store.columns.put(unit.slot, UnitColumns.NEXT, stepped)
+		var columns: UnitColumns = walk[0].store.columns
+		var stepped := UnitMover.step(unit, columns, at, to, full, seconds, terrain)
+		columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
+		columns.put(unit.slot, UnitColumns.NEXT, stepped)
 		if walk[3] and stepped.distance_to(walk[2]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
 			SquadEntries.unloose(walk[0], unit.id)

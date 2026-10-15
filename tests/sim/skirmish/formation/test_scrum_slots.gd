@@ -21,7 +21,7 @@ func _unit(unit_id: int, at: Vector2, bearing: float, size: int = 1) -> Skirmish
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	_places.stand(unit, at)
-	unit.bearing = bearing
+	_places.face(unit, bearing)
 	unit.footprint_width = size
 	unit.footprint_depth = size
 	return unit
@@ -66,13 +66,21 @@ func test_a_seeker_takes_the_nearest_open_slot() -> void:
 	var slots := ScrumSlots.round_foes(_foes(foe), 0.5)
 
 	var picked := ScrumSlots.pick(
-		seeker, _places.at(seeker), slots, [_places.at(seeker), [], [], null, 3]
+		seeker,
+		_places.at(seeker),
+		_places.facing(seeker),
+		slots,
+		[_places.at(seeker), [], [], null, 3]
 	)
 
 	assert_vector(picked[0]).is_equal_approx(Vector2(11, 10), Vector2(0.0001, 0.0001))
 	var claimed := [Vector2(11, 10)]
 	var next := ScrumSlots.pick(
-		seeker, _places.at(seeker), slots, [_places.at(seeker), [], claimed, null, 3]
+		seeker,
+		_places.at(seeker),
+		_places.facing(seeker),
+		slots,
+		[_places.at(seeker), [], claimed, null, 3]
 	)
 	assert_float(next[0].distance_to(Vector2(10, 10))).is_equal_approx(1.0, 0.0001)
 	assert_float(next[0].x).is_greater(10.0)  # one of the two to the east side next
@@ -85,6 +93,13 @@ func test_with_no_slot_open_the_crowded_pick_is_the_nearest_taken_one() -> void:
 	var claimed := slots.map(func(s): return s[0])  # every slot taken
 	var ground := [_places.at(seeker), [], claimed, null, 3]
 
-	assert_array(ScrumSlots.pick(seeker, _places.at(seeker), slots, ground)).is_empty()
-	var nearest := ScrumSlots.pick(seeker, _places.at(seeker), slots, ground, true)
+	(
+		assert_array(
+			ScrumSlots.pick(seeker, _places.at(seeker), _places.facing(seeker), slots, ground)
+		)
+		. is_empty()
+	)
+	var nearest := ScrumSlots.pick(
+		seeker, _places.at(seeker), _places.facing(seeker), slots, ground, true
+	)
 	assert_vector(nearest[0]).is_equal_approx(Vector2(11, 10), Vector2(0.0001, 0.0001))

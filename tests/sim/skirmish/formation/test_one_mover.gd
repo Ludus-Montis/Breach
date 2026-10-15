@@ -55,8 +55,13 @@ func test_a_router_in_a_wood_flees_at_half_pace() -> void:
 
 
 func test_on_open_ground_the_mover_is_the_units_own_walk() -> void:
-	var walked := UnitMotion.walk(_unit(), Vector2(10, 10), Vector2(20, 12), 0.7, 0.1)
-	var moved := UnitMover.step(_unit(), Vector2(10, 10), Vector2(20, 12), 0.7, 0.1, null)
+	var columns := _places.store.columns
+	var walker: SkirmishUnit = _places.stand(_unit(), Vector2(10, 10))  # each facing east
+	var mover := _unit()
+	mover.id = 2  # a slot of its own
+	_places.stand(mover, Vector2(10, 10))
+	var walked := UnitMotion.walk(walker, columns, Vector2(10, 10), Vector2(20, 12), 0.7, 0.1)
+	var moved := UnitMover.step(mover, columns, Vector2(10, 10), Vector2(20, 12), 0.7, 0.1, null)
 	assert_vector(moved).is_equal(walked)
 
 
@@ -64,6 +69,9 @@ func test_a_step_into_ground_it_cannot_cross_is_refused() -> void:
 	var terrain := FormationTerrain.new(SIZE)
 	terrain.paint(Rect2i(30, 0, 226, 32), {"depth": 3.0})
 	var at := Vector2(29.5, 16.5)
-	var moved := UnitMover.step(_unit(), at, Vector2(40, 16.5), 1.0, 0.1, terrain)
+	var unit: SkirmishUnit = _places.stand(_unit(), at)
+	var moved := UnitMover.step(
+		unit, _places.store.columns, at, Vector2(40, 16.5), 1.0, 0.1, terrain
+	)
 	assert_float(moved.x).is_less_equal(30.0)
 	assert_float(UnitMover.share(_unit(), at, Vector2(31, 16.5), terrain)).is_less(0.000001)

@@ -8,7 +8,8 @@ extends GdUnitTestSuite
 ## another order change nothing. Where each unit stands - its position, and its loose and
 ## fleeing places (`at`, `offset`) with a flag bit for each entry - is in the store's
 ## columns alone (steps 1a and 1b), and so is every other key of the entries, which hold
-## only the unit (step 2). The native half is skipped where the Rust core isn't built
+## only the unit (step 2); the battle compares each unit's bearing too (step 3,
+## test_unit_bearing.gd). The native half is skipped where the Rust core isn't built
 ## (native/build.sh).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
@@ -24,6 +25,7 @@ const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 const TICKS := 450  # past the first routers fleeing home (from tick 409)
 const WAVE_AT := 120  # a later wave, once the first blows have fallen
+const FIELDS := "[slot, at, bearing, flags, entries]"  # what _slots gives each unit
 
 
 func after_test() -> void:
@@ -149,13 +151,14 @@ func test_where_a_unit_stands_is_the_store_s_alone() -> void:
 	assert_bool("slot" in SkirmishUnit.new()).is_true()
 
 
-## Every listed unit's [slot, where it stands, its flag bits, its loose and fleeing entries]
-## by id; fails if two share a slot, the store holds an unlisted unit, a unit's record
-## names another slot, an entry holds more than its unit, a flag bit disagrees with the
-## entries, or a unit has an entry in another squad.
+## Every listed unit's [slot, where it stands, its bearing, its flag bits, its loose and
+## fleeing entries] by id; fails if two share a slot, the store holds an unlisted unit, a
+## unit's record names another slot, an entry holds more than its unit, a flag bit
+## disagrees with the entries, or a unit has an entry in another squad.
 func _slots(sim: FormationSimulation, label: String) -> Dictionary:
 	var store := sim.store
 	var at: PackedVector2Array = store.columns.column(UnitColumns.POSITION)
+	var bearings: PackedFloat64Array = store.columns.column(UnitColumns.BEARING)
 	var slots := {}
 	var taken := {}
 	for squad in sim.squads():
@@ -167,7 +170,7 @@ func _slots(sim: FormationSimulation, label: String) -> Dictionary:
 			assert_bool(taken.has(slot)).override_failure_message(label).is_false()
 			taken[slot] = true
 			var said := "%s, unit %d" % [label, unit.id]
-			slots[unit.id] = [slot, at[slot]] + _places(squad, unit, said)
+			slots[unit.id] = [slot, at[slot], bearings[slot]] + _places(squad, unit, said)
 		for unit_id in squad.loose.keys() + squad.fleeing.keys():
 			var held := squad.units.any(func(unit): return unit.id == unit_id)
 			assert_bool(held).override_failure_message("%s: %d" % [label, unit_id]).is_true()
@@ -232,7 +235,7 @@ func test_a_battle_with_deaths_and_a_later_wave_gives_each_unit_its_own_slot() -
 		for tick in range(TICKS):
 			for unit_id in runs[0][tick]:
 				if runs[index][tick].get(unit_id) != runs[0][tick][unit_id]:
-					var said := "%s first differs at tick %d, unit %d: [slot, position, flags, entries] %s, not %s"
+					var said := "%s first differs at tick %d, unit %d: " + FIELDS + " %s, not %s"
 					var theirs = runs[index][tick].get(unit_id)
 					fail(said % [engines[index], tick + 1, unit_id, theirs, runs[0][tick][unit_id]])
 					return
@@ -243,10 +246,12 @@ func test_a_battle_with_deaths_and_a_later_wave_gives_each_unit_its_own_slot() -
 func _state(sim: FormationSimulation) -> String:
 	var rows := []
 	var points: PackedVector2Array = sim.store.columns.column(UnitColumns.POSITION)
+	var bearings: PackedFloat64Array = sim.store.columns.column(UnitColumns.BEARING)
 	for squad in sim.squads():
 		for unit in squad.units:
 			var at: Vector2 = points[unit.slot].snapped(Vector2(0.0001, 0.0001))
-			rows.append([unit.id, unit.hp, unit.rank, unit.column, at, unit.bearing, squad.id])
+			var row := [unit.id, unit.hp, unit.rank, unit.column, at, bearings[unit.slot]]
+			rows.append(row + [squad.id])
 	rows.sort()
 	return str(rows)
 

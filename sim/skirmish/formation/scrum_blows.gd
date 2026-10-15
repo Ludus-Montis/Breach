@@ -24,7 +24,10 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 ## target and cooldown.
 static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 	var out := []
+	if squads.is_empty():
+		return out
 	var index := FoeIndex.of(squads)  # one grid a faction, as they stand
+	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
 	for squad in squads:
 		var near := FoeIndex.struck(index, squad)
 		if near.is_empty():
@@ -33,7 +36,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 		for unit in squad.living():
 			var where := ScrumReach.at(squad, unit)
 			var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)
-			var pick := _pick(squad, unit, close, fight_seed)
+			var pick := _pick(squad, unit, bearings[unit.slot], close, fight_seed)
 			if pick.is_empty():
 				continue
 			var target: SkirmishUnit = pick[0]
@@ -46,10 +49,10 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 			var target_squad: SkirmishSquad = pick[1]
 			if (
 				squad.order == SkirmishUnit.Order.RETREAT
-				and not ScrumReach.in_front(unit.bearing, where, target_at)
+				and not ScrumReach.in_front(bearings[unit.slot], where, target_at)
 			):
 				continue  # turned away: it no longer strikes
-			var flank := not ScrumReach.in_front(target.bearing, target_at, where)
+			var flank := not ScrumReach.in_front(bearings[target.slot], target_at, where)
 			out.append([unit, target, FormationCombat.damage(unit), flank])
 	return out
 
@@ -79,8 +82,11 @@ static func _hostile(squad: SkirmishSquad, squads: Array) -> Array:
 	return out
 
 
-## [target, its squad, where it stands] for the enemy the unit strikes; [] if it touches none.
-static func _pick(squad: SkirmishSquad, unit: SkirmishUnit, foes: Array, fight_seed: int) -> Array:
+## [target, its squad, where it stands] for the enemy the unit facing `facing` strikes; [] if
+## it touches none.
+static func _pick(
+	squad: SkirmishSquad, unit: SkirmishUnit, facing: float, foes: Array, fight_seed: int
+) -> Array:
 	var where := ScrumReach.at(squad, unit)
 	var best := []
 	var best_key := []  # [front, distance]; the draw is weighed only on a tie of the two
@@ -89,7 +95,7 @@ static func _pick(squad: SkirmishSquad, unit: SkirmishUnit, foes: Array, fight_s
 		if not ScrumReach.touching(squad, unit, entry[1], other):
 			continue
 		var there := ScrumReach.at(entry[1], other)
-		var front := 0 if ScrumReach.in_front(unit.bearing, where, there) else 1
+		var front := 0 if ScrumReach.in_front(facing, where, there) else 1
 		var key := [front, where.distance_to(there)]
 		if (
 			best.is_empty()
@@ -110,7 +116,8 @@ static func _drawn_first(unit: SkirmishUnit, other: SkirmishUnit, fight_seed: in
 static func nearest_touching(
 	squad: SkirmishSquad, unit: SkirmishUnit, foes: Array, fight_seed: int
 ):
-	var pick := _pick(squad, unit, foes, fight_seed)
+	var facing: float = squad.store.columns.value(unit.slot, UnitColumns.BEARING)
+	var pick := _pick(squad, unit, facing, foes, fight_seed)
 	return null if pick.is_empty() else pick[2]
 
 

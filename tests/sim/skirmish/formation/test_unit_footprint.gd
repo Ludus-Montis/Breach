@@ -9,21 +9,20 @@ const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 
-func _unit(bearing: float, width: int = 1, depth: int = 1) -> SkirmishUnit:
+func _unit(width: int = 1, depth: int = 1) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
-	unit.bearing = bearing
 	unit.footprint_width = width
 	unit.footprint_depth = depth
 	return unit
 
 
 func _gap(here: Vector2, bearing: float, there: Vector2) -> float:
-	var mine := UnitFootprint.corners(_unit(bearing), here)
-	return UnitFootprint.gap(mine, UnitFootprint.corners(_unit(0.0), there))
+	var mine := UnitFootprint.corners(_unit(), here, bearing)
+	return UnitFootprint.gap(mine, UnitFootprint.corners(_unit(), there, 0.0))
 
 
 func test_a_footprint_is_its_width_across_its_bearing_and_depth_along_it() -> void:
-	var brute := UnitFootprint.corners(_unit(90.0, 2, 1), Vector2(5, 5))
+	var brute := UnitFootprint.corners(_unit(2, 1), Vector2(5, 5), 90.0)
 	var box := Rect2(brute[0], Vector2.ZERO)
 	for corner in brute:
 		box = box.expand(corner)
@@ -52,12 +51,12 @@ func test_a_turned_footprint_reaches_along_its_diagonal() -> void:
 
 
 func test_an_overlap_is_pushed_out_the_shortest_way() -> void:
-	var mine := UnitFootprint.corners(_unit(0.0), Vector2(0.5, 0.5))
-	var theirs := UnitFootprint.corners(_unit(0.0), Vector2(1.2, 0.6))
+	var mine := UnitFootprint.corners(_unit(), Vector2(0.5, 0.5), 0.0)
+	var theirs := UnitFootprint.corners(_unit(), Vector2(1.2, 0.6), 0.0)
 
 	var out := UnitFootprint.overlap(mine, theirs)
 
 	assert_float(out[0]).is_equal_approx(0.3, 0.0001)  # 0.3 deep across x, 0.9 across y
 	assert_vector(out[1]).is_equal_approx(Vector2(-1, 0), Vector2(0.0001, 0.0001))
-	var apart := UnitFootprint.corners(_unit(0.0), Vector2(3, 3))
+	var apart := UnitFootprint.corners(_unit(), Vector2(3, 3), 0.0)
 	assert_float(UnitFootprint.overlap(mine, apart)[0]).is_equal(0.0)

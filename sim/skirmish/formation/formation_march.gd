@@ -139,7 +139,7 @@ static func sync_units(
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
 				columns.put(unit.slot, UnitColumns.POSITION, FormationRout.where(entry, unit.id))
 				if not entry.loose.has(unit.id):
-					unit.bearing = entry.heading
+					columns.put(unit.slot, UnitColumns.BEARING, entry.heading)
 			elif entry.loose.has(unit.id):
 				# placement: its loose point, moved by UnitMover (Decision 139)
 				columns.put(unit.slot, UnitColumns.POSITION, SquadEntries.loose_at(entry, unit))
@@ -147,6 +147,6 @@ static func sync_units(
 				unit.foothold = FormationWalk.place_of(entry, unit, moving)
 				# placement: its frame's slot, set before any walking (Decision 139)
 				columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
-				unit.bearing = entry.heading
+				columns.put(unit.slot, UnitColumns.BEARING, entry.heading)
 			else:
 				FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)

@@ -198,7 +198,13 @@ func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array
 		fleeing = EntryKeys.fleeing_entry(columns, unit.slot, read[3])
 	var held := [loose, fleeing, squad.chasers.get(unit.id)]
 	return [
-		[read[0], unit.hp, read[1], unit.bearing, unit.attack_cooldown],
+		[
+			read[0],
+			unit.hp,
+			read[1],
+			columns.value(unit.slot, UnitColumns.BEARING),
+			unit.attack_cooldown
+		],
 		[unit.target_id, unit.rank, unit.column, _plain(held)],
 	]
 

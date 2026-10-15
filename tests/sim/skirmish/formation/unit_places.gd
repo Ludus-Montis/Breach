@@ -1,6 +1,7 @@
 extends RefCounted
 ## Where units stand in the tests (spec 35): one unit store shared by the squads a test
-## builds by hand, as a battle's squads share one, and reads and writes through it. A
+## builds by hand, as a battle's squads share one, and reads and writes where each stands
+## and the way it faces through it. A
 ## test makes one in before_test; a squad from a FormationSimulation reads its own store
 ## through `of` and `put`. Made on a native field (`UnitPlaces.new(field)`), the store and
 ## its columns live on that field, as a battle's do, so the field's passes see them.
@@ -37,6 +38,16 @@ func move(unit, point: Vector2) -> void:
 	store.columns.put(unit.slot, UnitColumns.POSITION, point)
 
 
+## The way `unit` faces in the shared store (spec 35 step 3).
+func facing(unit) -> float:
+	return store.columns.value(unit.slot, UnitColumns.BEARING)
+
+
+## Turns `unit` to face `bearing` in the shared store.
+func face(unit, bearing: float) -> void:
+	store.columns.put(unit.slot, UnitColumns.BEARING, bearing)
+
+
 ## Where `unit` of `squad` stands, in the squad's store.
 static func of(squad, unit) -> Vector2:
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
@@ -45,6 +56,16 @@ static func of(squad, unit) -> Vector2:
 ## Moves `unit` of `squad` to `point`, in the squad's store.
 static func put(squad, unit, point: Vector2) -> void:
 	squad.store.columns.put(unit.slot, UnitColumns.POSITION, point)
+
+
+## The way `unit` of `squad` faces, in the squad's store.
+static func bearing_of(squad, unit) -> float:
+	return squad.store.columns.value(unit.slot, UnitColumns.BEARING)
+
+
+## Turns `unit` of `squad` to face `bearing`, in the squad's store.
+static func turn(squad, unit, bearing: float) -> void:
+	squad.store.columns.put(unit.slot, UnitColumns.BEARING, bearing)
 
 
 ## Where `unit` stands in `store` (a FormationSimulation's).

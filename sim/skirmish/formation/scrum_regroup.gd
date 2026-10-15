@@ -81,6 +81,7 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 	var seconds: float = moving["seconds"]
 	var reform := FormationDiscipline.reform_pace(squad)  # the same for each of its units
 	var homes := TerrainStep.returns(squad, moving["terrain"], moving["seed"])
+	var columns := squad.store.columns
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
@@ -91,18 +92,19 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 		var foe_at = foes.get(unit_id)
 		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		if foe_at == null:  # it takes its place the quicker way, arriving facing its squad's
-			foe_at = UnitShuffle.look(unit, at, place, heading, step / seconds)
+			var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
+			foe_at = UnitShuffle.look(unit, at, facing, place, heading, step / seconds)
 		var gap: float = at.distance_to(place)
-		ScrumTrade.track(squad.store.columns, unit.slot, gap, seconds)
+		ScrumTrade.track(columns, unit.slot, gap, seconds)
 		var arrived := gap < 0.000001
 		if gap >= 0.000001:  # a drilled retreat backs away facing the foe it touches
 			var to := UnitSteer.toward(
 				unit, at, place, moving["bodies"], moving["seed"], moving["crowd"]
 			)
-			at = UnitMover.step(unit, at, to, step, seconds, moving["terrain"], foe_at)
-			squad.store.columns.put(unit.slot, UnitColumns.LOOSE_AT, at)
-		squad.store.columns.put(unit.slot, UnitColumns.NEXT, at)
-		EntryKeys.set_goal(squad.store.columns, unit.slot, null)
-		var faced := arrived and UnitMotion.turn(unit, heading, seconds)
+			at = UnitMover.step(unit, columns, at, to, step, seconds, moving["terrain"], foe_at)
+			columns.put(unit.slot, UnitColumns.LOOSE_AT, at)
+		columns.put(unit.slot, UnitColumns.NEXT, at)
+		EntryKeys.set_goal(columns, unit.slot, null)
+		var faced := arrived and UnitMotion.turn(unit, columns, heading, seconds)
 		if squad.stance.is_empty() and faced:
 			SquadEntries.unloose(squad, unit_id)  # in its place and facing the squad's way
