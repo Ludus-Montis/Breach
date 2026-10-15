@@ -28,4 +28,20 @@ fi
 # ignoreHeadlessMode is safe here: this project has no UI-interaction tests yet (see
 # specs/*.md's test-first orders), which is the one thing gdUnit4's headless warning
 # is about.
-"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c --ignoreHeadlessMode
+#
+# With paths (the pre-commit hook passes the staged files), only the staged suites run,
+# as staged_tests.py picks them; the full suite is CI's (CLAUDE.md). With none, the full
+# suite runs, for a run by hand.
+suites=(-a res://tests)
+if [ "$#" -gt 0 ]; then
+	suites=()
+	while IFS= read -r suite; do
+		suite="${suite%$'\r'}" # Windows' Python ends lines with \r\n
+		if [ -n "$suite" ]; then suites+=(-a "$suite"); fi
+	done < <(python3 ci/godot/scripts/staged_tests.py "$@")
+	if [ "${#suites[@]}" -eq 0 ]; then
+		echo "run_tests: no test suite staged; CI runs the suite."
+		exit 0
+	fi
+fi
+"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd "${suites[@]}" -c --ignoreHeadlessMode
