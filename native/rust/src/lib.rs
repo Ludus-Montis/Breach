@@ -8,6 +8,7 @@
 mod blows;
 mod columns;
 mod det_math;
+mod face_store;
 mod facing;
 mod field;
 mod field_parting;
@@ -223,10 +224,11 @@ impl BodyField {
     /// seek() planned (`squads` = per fighting squad [id, foes, units], `foe_ids`,
     /// `members` and `speeds` as seek's). `floats` = [reach_contact, the front's least
     /// dot (ScrumReach.in_front), tick seconds, pace (cells a tick at speed 1),
-    /// scrum_crowding]; per unit: where it stands now, `motion` = [bearing, turn rate,
-    /// backward pace], flags (1: it makes for a slot, 2: its walk chose a point to look
-    /// at), its next point, the foe there and that point. Returns every unit's bearing
-    /// after its turn.
+    /// scrum_crowding]; `valued` = EntryKeys' bit saying a unit's walk chose a point to
+    /// look towards. Where each unit stands, faces and makes for (next, foe_at, toward)
+    /// are read from the unit store's columns, its turn rate and backward pace from its
+    /// record, and its bearing after its turn is written into the column (spec 35 step
+    /// 4d). Returns every unit's bearing after its turn (tests).
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn face(
@@ -235,13 +237,8 @@ impl BodyField {
         squads: PackedInt64Array,
         foe_ids: PackedInt64Array,
         members: PackedInt32Array,
-        ats: PackedVector2Array,
-        motion: PackedFloat64Array,
         speeds: PackedFloat64Array,
-        flags: PackedByteArray,
-        nexts: PackedVector2Array,
-        foe_ats: PackedVector2Array,
-        towards: PackedVector2Array,
+        valued: i64,
     ) -> PackedFloat64Array {
         let began = Instant::now();
         let f = floats.as_slice();
@@ -250,21 +247,23 @@ impl BodyField {
         let triples = squads.as_slice();
         let foe_counts: Vec<i32> = triples.chunks(3).map(|c| c[1] as i32).collect();
         let member_counts: Vec<i32> = triples.chunks(3).map(|c| c[2] as i32).collect();
-        let (ats, nexts, foe_ats, towards) = (v2s(&ats), v2s(&nexts), v2s(&foe_ats), v2s(&towards));
+        let members = members.as_slice();
+        let gathered = face_store::gather(&self.field, members, valued as i32);
         let input = facing::FaceIn {
             foe_counts: &foe_counts,
             foe_ids: foe_ids.as_slice(),
             member_counts: &member_counts,
-            members: members.as_slice(),
-            ats: &ats,
-            motion: motion.as_slice(),
+            members,
+            ats: &gathered.ats,
+            motion: &gathered.motion,
             speeds: speeds.as_slice(),
-            flags: flags.as_slice(),
-            nexts: &nexts,
-            foe_ats: &foe_ats,
-            towards: &towards,
+            flags: &gathered.flags,
+            nexts: &gathered.nexts,
+            foe_ats: &gathered.foe_ats,
+            towards: &gathered.towards,
         };
         let out = facing::face(&mut self.field, &input, &params);
+        face_store::write_back(&mut self.field, members, &out);
         self.usec = began.elapsed().as_micros() as i64;
         PackedFloat64Array::from(out.as_slice())
     }
