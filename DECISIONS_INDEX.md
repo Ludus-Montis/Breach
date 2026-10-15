@@ -150,3 +150,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
 | 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143 |
 | 143 | A unit's rank and column are per-tick state, held in the unit store | 6629 |  |
+| 144 | A pass reads the unit store once, never unit by unit | 6665 |  |

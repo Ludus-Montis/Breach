@@ -6661,3 +6661,47 @@ reversed-lists tests prove that nothing changes.
 **Bounded:** no new loop. A read or write of one place is O(1); the native seek's and
 walk's gathers and the front-first sort fetch the two columns once.
 **Pillar check:** holds. It changes where the state lives, not what any unit does.
+
+### Decision 144 — A pass reads the unit store once, never unit by unit
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-15
+**Amends:** none; extends `principles/bounded-work.md` with a third principle
+
+**Rationale:** Spec 35 already said a pass fetches a column once and doesn't call the store
+per unit, but nothing held a change to it. Step 4a (rank and column in the store) put each
+unit's place behind helpers (`UnitPlace.of`, `fighters()`, `lateral_span`) that loops then
+called unit by unit, and under Rust each scattered read is a call into the native field.
+The bench (`tick_phases engine=rust side=4096 squads=4 fight=3`) showed it: 4a alone made
+the tick 22.6% slower (deaths, blows, the re-form, the march's walk to places), and step 4
+as a whole stayed 2.9% slower than main. Fetching the columns once a pass (#229) made step 4
+20.3% faster than main instead. The user: "the aim of this spec was to improve performance,
+so reducing it is not acceptable", and asked for the principle to be carried forward,
+checked, and applied before steps 5 to 7 move hp, cooldown, stamina, speed and the alive
+flags, which are read in about 130 places.
+- **The rule** (`bounded-work.md` Principle 3): a loop over units never reads or writes the
+  store one unit at a time. It fetches the columns it needs before the loop, indexes them by
+  slot, and commits once after. A helper that reads one unit takes an optional fetched
+  table. Scattered reads are for events, a handful of units, or a loop the bench shows
+  doesn't matter, each marked `# store: scattered (<why>)`.
+- **Held by:** `ci/godot/scripts/check_store_reads.py` (pre-commit and CI, on `sim/`) for
+  direct calls in a loop; the `design-check` skill and the bench against the base for the
+  ones hidden in helpers.
+- **Before a field moves into the store** (spec 35 steps 5 to 7): its readers are listed and
+  each loop's fetch-once plan written into the step, before the field moves.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Leave it to the end-of-spec bench review (Q23) | 4a's cost was found only because a bench was read; steps 5 to 7 touch far more readers. |
+| Hold the hot columns in GDScript as well, under Rust | Two copies of a column to keep in step, against Decision 142's one owner. |
+| The check alone | It can't see a read inside a helper, which is how 4a's slipped through. |
+
+**Rules over cases:** general: one rule for every pass over units, with marked exceptions
+whose reasons are reviewed. No rule of the battle changes.
+**Order:** no order changes: a fetched column is read in the loop's own order, and a commit
+writes what the loop wrote.
+**Bounded:** this is a bounded-work rule: a pass costs one fetch a column plus work per unit,
+not a boundary crossing per unit.
+**Pillar check:** holds. It changes how state is read, not what any unit does.

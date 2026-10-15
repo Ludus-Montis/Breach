@@ -142,6 +142,19 @@ Decision 129 makes GDScript the reference: the digests compare both engines, and
 
 Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squads=4 fight=3`) against its base and records it in spec 34's "Measured" section. Steps 1 to 4a add boundary crossings, and 4a adds a store read wherever a rule reads one unit's place. Step 4 onwards should remove the glue. A single step's numbers are noisy, and runners differ, so judge the series as a whole: the tick at the end against the tick before step 0 (Q20's 380 ms), phase by phase. Name any phase that got slower and stayed slower, and whether a pass should fetch columns once where it now reads per unit.
 
+### Q24. Which per-tick passes should become work lists fed by events?
+**Raised:** 2026-10-15, after spec 35 step 4 (the user: "are there any elements that could be handled via event based arch?") · **Raise when:** A design session on spec 35 steps 5 to 7, or on what follows spec 35 for performance; or any change to deaths, wounds, recovery, taking, carry or `living()`
+
+`principles/bounded-work.md` Principle 2 ("work follows change") already asks for this, and spec 34 item 5 applies it to structural supports only. Several unit passes still scan every unit every tick to find the few that changed (seen at `tick_phases engine=rust side=4096 squads=4 fight=3`, ms a tick):
+- **Deaths (about 22 ms):** `FormationDeaths.bury` checks every living unit's hp each tick. A blow that takes a unit past its threshold could queue it.
+- **Wounds (about 20 ms), taking (about 1 ms), recovery (about 21 ms), carry (about 7 ms):** each walks every unit for the downed, or builds a map of all units, every tick. A list of the downed, kept by the events that down, wake, carry or bury a unit, would bound them by the number of downed.
+- **`living()`:** filters `squad.units` on `is_alive()` into a new array on each of its about 100 calls. A living list kept by deaths, downings and joins would be O(1), and settles step 7's plan for the alive flags (Decision 144).
+- **`fighters()` and ranged combat's rank groups:** rebuilt every tick; they change only on a step-up, a death, a swap or a join.
+- **Squad edges and spans (`SquadEdges`, `SquadMemo`):** worked out per phase; they change only when a squad moves, turns, or its units die or shift.
+- **The re-form's occupancy:** rebuilt every tick while a squad re-forms; it changes only as swaps end and units fall.
+
+Each would need the events to queue every change that matters (Principle 2's correctness rule) and a deterministic order for the list (Decision 97). It is a design subject: likely a spec of its own after spec 35, or folded into steps 5 to 7 where the field moves anyway (deaths and wounds with hp in step 5, `living()` with the alive flags in step 7).
+
 ## Closed
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.
