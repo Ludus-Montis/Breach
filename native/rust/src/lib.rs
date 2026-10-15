@@ -44,9 +44,10 @@ struct BodyField {
 impl BodyField {
     /// Brings the field to the squads as they stand, flat over the squads in list order:
     /// per squad its id, faction, flags (1 routing, 2 destroyed) and how many living units
-    /// follow; per unit its id, point (a fleeing one's offset), flags (1 loose, 2 fleeing),
-    /// and - when not empty - its next point, its base (fleeing) and its bearing. Returns
-    /// the flat indices of units new to the field: enrol() them before any pass.
+    /// follow; per unit its id, flags (1 loose, 2 fleeing) and - when not empty - its next
+    /// point, its base (fleeing) and its bearing. Where each stands is read here from the
+    /// store's columns (spec 35), by its flags: its loose place, its offset, or its position.
+    /// Returns the flat indices of units new to the field: enrol() them before any pass.
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn sync(
@@ -57,7 +58,6 @@ impl BodyField {
         squad_flags: PackedByteArray,
         squad_counts: PackedInt32Array,
         unit_ids: PackedInt64Array,
-        points: PackedVector2Array,
         flags: PackedByteArray,
         nexts: PackedVector2Array,
         bases: PackedVector2Array,
@@ -65,7 +65,6 @@ impl BodyField {
     ) -> PackedInt32Array {
         let began = Instant::now();
         let factions: Vec<String> = squad_factions.as_slice().iter().map(|s| s.to_string()).collect();
-        let points = v2s(&points);
         let nexts = v2s(&nexts);
         let bases = v2s(&bases);
         let input = SyncIn {
@@ -74,7 +73,6 @@ impl BodyField {
             squad_flags: squad_flags.as_slice(),
             squad_counts: squad_counts.as_slice(),
             unit_ids: unit_ids.as_slice(),
-            points: &points,
             flags: flags.as_slice(),
             nexts: &nexts,
             bases: &bases,
@@ -397,6 +395,84 @@ impl BodyField {
     #[func]
     fn held_units(&self) -> PackedInt64Array {
         PackedInt64Array::from(self.field.held_units().as_slice())
+    }
+
+    /// The unit store's point column `name` (UnitColumns: "position", "at", "offset"), by
+    /// slot: one copy.
+    #[func]
+    fn column_points(&mut self, name: GString) -> PackedVector2Array {
+        match self.field.columns.points(&name.to_string()) {
+            Some(column) => column.iter().map(|p| Vector2::new(p.x, p.y)).collect(),
+            None => PackedVector2Array::new(),
+        }
+    }
+
+    /// The unit store's flags column, by slot: one copy.
+    #[func]
+    fn column_flags(&self) -> PackedInt32Array {
+        PackedInt32Array::from(self.field.columns.flags.as_slice())
+    }
+
+    /// Replaces a point column with `values` (by slot, as long as the column).
+    #[func]
+    fn commit_points(&mut self, name: GString, values: PackedVector2Array) {
+        let Some(column) = self.field.columns.points(&name.to_string()) else { return };
+        if values.len() != column.len() {
+            godot_error!("BodyField.commit_points: a column keeps its length");
+            return;
+        }
+        for (slot, p) in values.as_slice().iter().enumerate() {
+            column[slot] = V2 { x: p.x, y: p.y };
+        }
+    }
+
+    /// Replaces the flags column with `values` (by slot, as long as the column).
+    #[func]
+    fn commit_flags(&mut self, values: PackedInt32Array) {
+        let column = &mut self.field.columns.flags;
+        if values.len() != column.len() {
+            godot_error!("BodyField.commit_flags: a column keeps its length");
+            return;
+        }
+        column.copy_from_slice(values.as_slice());
+    }
+
+    /// One slot's value in a point column.
+    #[func]
+    fn point(&mut self, slot: i64, name: GString) -> Vector2 {
+        match self.field.columns.points(&name.to_string()) {
+            Some(column) => {
+                let p = column[slot as usize];
+                Vector2::new(p.x, p.y)
+            }
+            None => Vector2::ZERO,
+        }
+    }
+
+    /// Sets one slot's value in a point column.
+    #[func]
+    fn put_point(&mut self, slot: i64, name: GString, value: Vector2) {
+        if let Some(column) = self.field.columns.points(&name.to_string()) {
+            column[slot as usize] = V2 { x: value.x, y: value.y };
+        }
+    }
+
+    /// Every column blank in `slot` (a slot the store has just given).
+    #[func]
+    fn blank(&mut self, slot: i64) {
+        self.field.columns.blank(slot as usize);
+    }
+
+    /// One slot's flag bits.
+    #[func]
+    fn flags_of(&self, slot: i64) -> i64 {
+        self.field.columns.flags[slot as usize] as i64
+    }
+
+    /// Sets one slot's flag bits.
+    #[func]
+    fn put_flags(&mut self, slot: i64, bits: i64) {
+        self.field.columns.flags[slot as usize] = bits as i32;
     }
 
     /// Microseconds of native work in the last sync, part, plan, walk or face.

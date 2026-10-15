@@ -99,15 +99,22 @@ func _bytes(squads: Array) -> PackedByteArray:
 	return var_to_bytes(state)
 
 
-## The crowd parted for three ticks, each on a field of its own, or (`kept`) four on one
-## field kept across them while a unit dies and another changes squad.
+## The crowd parted for three ticks, each on a field of its own (the store moved onto it),
+## or (`kept`) four on one field kept across them while a unit dies and another changes
+## squad.
 func _crowd_parted(engine: String, reversed: bool, kept := false) -> PackedByteArray:
 	NativeKernels.use(engine)
+	_places = UnitPlaces.new()  # each run its own store: no bit of another run's state
 	var squads := _crowd(reversed)
 	var field := NativeKernels.body_field() if kept else null
+	if field != null:
+		UnitPlaces.onto(field, squads)
 	for tick in range(4 if kept else 3):
 		if kept and tick == 2:
 			_churn(squads)
+		if not kept and NativeKernels.body_field() != null:
+			field = NativeKernels.body_field()
+			UnitPlaces.onto(field, squads)
 		UnitBodies.step(squads, 9 + tick, field)
 	return _bytes(squads)
 

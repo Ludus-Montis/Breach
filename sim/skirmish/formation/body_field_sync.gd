@@ -1,8 +1,10 @@
 class_name BodyFieldSync
 extends RefCounted
 ## Brings a native BodyField (NativeKernels, Decision 129) to the squads as they stand: one
-## call a sync, flat over the squads in list order - each squad's living units, where each
-## stands and how (loose, fleeing). The field keeps its roster across ticks: units it hasn't
+## call a sync, flat over the squads in list order - each squad's living units and how each
+## stands (loose, fleeing, as its own squad's entries say). Where each stands the field
+## reads from the unit store's columns, which live on it (UnitColumnsNative, spec 35). The
+## field keeps its roster across ticks: units it hasn't
 ## seen are enrolled once, with GDScript's own radius, footprint area, initiative and
 ## seeded draw (ScrumContest.draw), so no rule is copied natively; the dead and the gone
 ## drop out; units that changed squad move with it. Two snapshots, as the passes read
@@ -15,7 +17,6 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 ## A body's flags, as the field reads them.
 const LOOSE := 1
@@ -34,7 +35,6 @@ class Batch:
 	var squad_flags := PackedByteArray()
 	var counts := PackedInt32Array()
 	var ids := PackedInt64Array()
-	var points := PackedVector2Array()
 	var flags := PackedByteArray()
 	var nexts := PackedVector2Array()
 	var bases := PackedVector2Array()
@@ -44,20 +44,16 @@ class Batch:
 ## Syncs the field to the scrum's snapshot; returns [units, their squads] by flat index.
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
-	var at := _positions(squads)
-	var loose_at := _column(squads, UnitColumns.LOOSE_AT)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
 		for unit in squad.units:
 			if not unit.is_alive():
 				continue
-			var entry = loose.get(unit.id)
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			batch.points.append(at[unit.slot] if entry == null else loose_at[unit.slot])
-			batch.flags.append(0 if entry == null else LOOSE)
+			batch.flags.append(LOOSE if loose.has(unit.id) else 0)  # a router: where it stands
 			batch.bearings.append(unit.bearing)
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
@@ -66,9 +62,6 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 ## Syncs the field to the bodies as UnitBodies sees them; returns [units, their squads].
 static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
-	var at := _positions(squads)
-	var loose_at := _column(squads, UnitColumns.LOOSE_AT)
-	var offsets := _column(squads, UnitColumns.FLEE_OFFSET)
 	for squad in squads:
 		var before := batch.units.size()
 		var loose: Dictionary = squad.loose
@@ -77,35 +70,20 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 			if not unit.is_alive():
 				continue
 			var entry = loose.get(unit.id)
-			var flight = fleeing.get(unit.id)
-			var flag := 0 if entry == null else LOOSE
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
-			if flight != null:
-				batch.points.append(offsets[unit.slot])
+			var flag := 0 if entry == null else LOOSE
+			if fleeing.has(unit.id):
 				batch.nexts.append(Vector2.ZERO)
 				batch.bases.append(FormationRout.route_point(squad, unit.id))
 				flag |= FLEEING
 			else:
-				batch.points.append(at[unit.slot] if entry == null else loose_at[unit.slot])
 				batch.nexts.append(Vector2.ZERO if entry == null else entry["next"])
 				batch.bases.append(Vector2.ZERO)
 			batch.flags.append(flag)
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
-
-
-## Where the battle's units stand, by slot (the store's column); empty with no squads.
-static func _positions(squads: Array) -> PackedVector2Array:
-	return _column(squads, UnitColumns.POSITION)
-
-
-## One of the battle's place columns (empty if there are no squads).
-static func _column(squads: Array, name: StringName) -> PackedVector2Array:
-	if squads.is_empty():
-		return PackedVector2Array()
-	return squads[0].store.columns.column(name)
 
 
 static func _squad(batch: Batch, squad: SkirmishSquad, count: int) -> void:
@@ -117,6 +95,8 @@ static func _squad(batch: Batch, squad: SkirmishSquad, count: int) -> void:
 
 
 static func _send(field: Object, batch: Batch, fight_seed: int) -> Array:
+	if not batch.owners.is_empty() and batch.owners[0].store.field() != field:
+		push_error("BodyFieldSync: the squads' unit store isn't on this field (spec 35)")
 	var unknown: PackedInt32Array = field.sync(
 		fight_seed,
 		batch.squad_ids,
@@ -124,7 +104,6 @@ static func _send(field: Object, batch: Batch, fight_seed: int) -> Array:
 		batch.squad_flags,
 		batch.counts,
 		batch.ids,
-		batch.points,
 		batch.flags,
 		batch.nexts,
 		batch.bases,

@@ -8,10 +8,18 @@ extends RefCounted
 ## battle's BodyField; NativeKernels.unit_store picks one, as it picks the engine. Columns
 ## of per-tick state are in `columns` (UnitColumns), indexed by slot; a unit's slot is on
 ## its record (SkirmishUnit.slot) and reached through its squad (SkirmishSquad.store).
+## On the native backend the columns live on the field (UnitColumnsNative), and a native
+## pass runs on the field of the squads' own store (`field`).
 
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
-var columns := UnitColumns.new()
+var columns: UnitColumns = UnitColumns.new()
+
+
+## The native BodyField the store and its columns live on; null for the GDScript store.
+func field() -> Object:
+	return null
+
 
 ## The unit's slot: its own if it has one, else the lowest free one.
 @abstract func enrol(unit_id: int) -> int

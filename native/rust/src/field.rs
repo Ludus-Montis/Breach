@@ -10,7 +10,9 @@
 //! A body is also a slot of the battle's unit store (spec 35, Decision 142): a unit the
 //! store holds keeps its slot while it is off the field (dead, downed, gone home), and
 //! is enrolled again when a sync names it. Free slots are reused lowest first. A slot is
-//! storage only: no pass loops in slot order or breaks a tie by it.
+//! storage only: no pass loops in slot order or breaks a tie by it. The store's columns
+//! (`Columns`: where each unit stands, its loose and fleeing places, its flag bits) live
+//! here by slot, so a sync reads them where they are instead of GDScript sending them.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
@@ -36,6 +38,44 @@ pub struct Squad {
     pub members: Vec<u32>,
 }
 
+/// The unit store's columns (spec 35, UnitColumns), by slot: where each unit stands, where a
+/// loose one stands loose, a fleeing one's place off its route, and its flag bits (LOOSE,
+/// FLEEING). A slot newly given starts blank.
+#[derive(Default)]
+pub struct Columns {
+    pub position: Vec<V2>,
+    pub loose_at: Vec<V2>,
+    pub flee_offset: Vec<V2>,
+    pub flags: Vec<i32>,
+}
+
+impl Columns {
+    /// A point column by its UnitColumns name.
+    pub fn points(&mut self, name: &str) -> Option<&mut Vec<V2>> {
+        match name {
+            "position" => Some(&mut self.position),
+            "at" => Some(&mut self.loose_at),
+            "offset" => Some(&mut self.flee_offset),
+            _ => None,
+        }
+    }
+
+    fn grow(&mut self) {
+        self.position.push(V2::ZERO);
+        self.loose_at.push(V2::ZERO);
+        self.flee_offset.push(V2::ZERO);
+        self.flags.push(0);
+    }
+
+    /// Every column blank in `slot`.
+    pub fn blank(&mut self, slot: usize) {
+        self.position[slot] = V2::ZERO;
+        self.loose_at[slot] = V2::ZERO;
+        self.flee_offset[slot] = V2::ZERO;
+        self.flags[slot] = 0;
+    }
+}
+
 /// One sync's input, flat over the squads in list order (see `Field::sync`).
 pub struct SyncIn<'a> {
     pub squad_ids: &'a [i64],
@@ -43,8 +83,8 @@ pub struct SyncIn<'a> {
     pub squad_flags: &'a [u8],
     pub squad_counts: &'a [i32],
     pub unit_ids: &'a [i64],
-    /// Where each stands (a fleeing body: its offset from its base).
-    pub points: &'a [V2],
+    /// How each stands (LOOSE, FLEEING) as its own squad's entries say; where it stands is
+    /// read from the columns by them.
     pub flags: &'a [u8],
     /// A loose body's next point; empty: unchanged.
     pub nexts: &'a [V2],
@@ -101,6 +141,8 @@ pub struct Field {
     held: HashMap<i64, u32>,
     holding: Vec<bool>,
     free: BinaryHeap<Reverse<u32>>,
+    /// The unit store's columns, by slot.
+    pub columns: Columns,
 }
 
 impl Field {
@@ -147,6 +189,7 @@ impl Field {
         };
         self.holding[slot as usize] = true;
         self.held.insert(unit_id, slot);
+        self.columns.blank(slot as usize);
         slot
     }
 
@@ -291,6 +334,7 @@ impl Field {
         self.flags.push(0);
         self.bearing.push(0.0);
         self.flat_of.push(0);
+        self.columns.grow();
     }
 
     /// Writes a synced unit's state into its body.
@@ -313,10 +357,12 @@ impl Field {
             self.bearing[b] = input.bearings[flat];
         }
         if flags & FLEEING != 0 {
-            self.offset[b] = input.points[flat];
+            self.offset[b] = self.columns.flee_offset[b];
             self.at[b] = self.base[b].add(self.offset[b]);
+        } else if flags & LOOSE != 0 {
+            self.at[b] = self.columns.loose_at[b];
         } else {
-            self.at[b] = input.points[flat];
+            self.at[b] = self.columns.position[b];
         }
     }
 
@@ -349,21 +395,53 @@ mod tests {
     use super::*;
 
     fn sync(field: &mut Field, units: &[i64]) -> Vec<i32> {
-        let points = vec![V2::ZERO; units.len()];
-        let flags = vec![0u8; units.len()];
+        sync_seeing(field, units, &vec![0; units.len()], &[])
+    }
+
+    fn sync_seeing(field: &mut Field, units: &[i64], flags: &[u8], bases: &[V2]) -> Vec<i32> {
         let input = SyncIn {
             squad_ids: &[1],
             squad_factions: &["player".to_string()],
             squad_flags: &[0],
             squad_counts: &[units.len() as i32],
             unit_ids: units,
-            points: &points,
-            flags: &flags,
+            flags,
             nexts: &[],
-            bases: &[],
+            bases,
             bearings: &[],
         };
         field.sync(5, &input)
+    }
+
+    fn v(x: f32, y: f32) -> V2 {
+        V2 { x, y }
+    }
+
+    #[test]
+    fn a_sync_reads_where_each_unit_stands_from_the_columns() {
+        let mut field = Field::default();
+        let slots = [field.hold(1), field.hold(2), field.hold(3)].map(|s| s as usize);
+        field.columns.position[slots[0]] = v(1.0, 1.0); // in its frame
+        field.columns.position[slots[1]] = v(9.0, 9.0);
+        field.columns.loose_at[slots[1]] = v(2.0, 2.0); // loose: where it stands loose
+        field.columns.flee_offset[slots[2]] = v(0.5, 0.0); // fleeing: off its base
+        let bases = [V2::ZERO, V2::ZERO, v(10.0, 0.0)];
+        sync_seeing(&mut field, &[1, 2, 3], &[0, LOOSE, LOOSE | FLEEING], &bases);
+        assert_eq!(slots.map(|b| field.at[b]), [v(1.0, 1.0), v(2.0, 2.0), v(10.5, 0.0)]);
+        sync_seeing(&mut field, &[1, 2, 3], &[0, LOOSE, LOOSE], &[]); // the scrum's
+        assert_eq!(field.at[slots[2]], V2::ZERO); // where it stands loose: never set
+    }
+
+    #[test]
+    fn a_slot_given_again_starts_blank() {
+        let mut field = Field::default();
+        let slot = field.hold(1) as usize;
+        field.columns.position[slot] = v(3.0, 4.0);
+        field.columns.flags[slot] = FLEEING as i32;
+        field.release(1);
+        assert_eq!(field.hold(2) as usize, slot);
+        assert_eq!(field.columns.position[slot], V2::ZERO);
+        assert_eq!(field.columns.flags[slot], 0);
     }
 
     #[test]

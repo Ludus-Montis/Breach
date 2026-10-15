@@ -14,6 +14,7 @@ const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 const SEED := 2
 const TICK := 7
@@ -51,6 +52,8 @@ func _squads(ticks: int, reversed: bool) -> Array:
 ## as [striker, target, damage, flank, landed] by ids, every unit's [id, target,
 ## cooldown, last wounding, regeneration halt]].
 func _struck(squads: Array, field: Object) -> Array:
+	if field != null:
+		UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
 	var blows := FormationMelee.blows(squads, 10, SEED, field)
 	BlowLanding.land(blows, [], squads, null, [SEED, TICK], field)
 	var units := []
@@ -124,6 +127,7 @@ func _assert_pressed(squads: Array, field: Object) -> int:
 			squad_of[unit.id] = [unit, squad]
 			everyone.append([unit, unit])
 	var reference := BlowLanding._pressed(squad_of)
+	UnitPlaces.onto(field, squads)
 	FormationMelee.blows(squads, 10, SEED, field)  # syncs the field
 	var whose := ScrumBlowsField.pressed(field, squads, everyone)
 	assert_bool(whose[0] == squad_of).override_failure_message("squads differ").is_true()
