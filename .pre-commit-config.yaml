@@ -136,6 +136,7 @@ repos:
         name: tests-red-then-green (gdUnit4)
         entry: bash ci/godot/scripts/run_tests.sh
         language: system
-        pass_filenames: false
-        always_run: true
+        # Only the staged suites run (staged_tests.py); the full suite is CI's (CLAUDE.md).
+        pass_filenames: true
+        files: ^tests/.*\.gd$
         stages: [pre-commit]

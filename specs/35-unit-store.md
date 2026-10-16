@@ -56,7 +56,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   See "Settled for step 5" below.
 - **Step 5a, the lane skirmish retired: built** (2026-10-15). See "Built" below.
 - **Step 5b, hp and cooldown in the store: built** (2026-10-15), stacked on 5a's PR (the
-  user). The copies measurement carried in from #229 is not done yet: see "Built" below.
+  user), with the copies measured and deaths' step-up made cheaper: the tick 1.5% faster
+  than 5a on the alternating bench. See "Built" below.
 - **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
   See "Built" below.
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
