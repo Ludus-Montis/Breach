@@ -30,11 +30,13 @@ const EPSILON := 0.001
 ## [[where, radius, unit], ...]: every living unit's body in standing squads.
 static func bodies(squads: Array) -> Array:
 	var out := []
+	var views := {}  # store -> where its units stand, read once (Decision 146)
 	for squad in squads:
 		if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
 			continue
+		var standing := UnitView.read_once(views, squad, ScrumReach.STANDING)
 		for unit in squad.living():
-			out.append([ScrumReach.at(squad, unit), ScrumReach.radius(unit), unit])
+			out.append([ScrumReach.at_in(standing, squad, unit), ScrumReach.radius(unit), unit])
 	return out
 
 

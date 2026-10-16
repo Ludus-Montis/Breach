@@ -20,6 +20,8 @@ const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdr
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+## The columns the walk to places sets and steps, held for each squad's pass (UnitView).
+const WALKED := [UnitColumns.POSITION, UnitColumns.BEARING]
 
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).
@@ -124,17 +126,18 @@ static func sync_units(
 		timing = timing + [GroundBodies.ground(squads)]
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
-		var columns: UnitColumns = entry.store.columns
 		var places := UnitView.read(entry, UnitView.PLACES)  # read once a squad (Decision 146)
 		var ranks: PackedInt32Array = places.rank
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
-		# Each column fetched once and committed once (Decision 144); the units in their
-		# places walk after, each reading only its own place, the ground and the lying.
-		var points: PackedVector2Array = columns.column(UnitColumns.POSITION)
-		var facing: PackedFloat64Array = columns.column(UnitColumns.BEARING)
-		var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+		# Points and bearings held for the squad's pass (Decision 146): set in place here, and
+		# the units in their places walk after through the hold, each reading only its own
+		# place, the ground and the lying; released (committed) once.
+		var held := UnitView.hold([entry], WALKED)
+		var points: PackedVector2Array = held.position
+		var facing: PackedFloat64Array = held.bearing
+		var loose_at: PackedVector2Array = entry.store.columns.column(UnitColumns.LOOSE_AT)
 		var route: UnitView = (
 			null if entry.fleeing.is_empty() else UnitView.read(entry, FormationRout.ROUTE)
 		)
@@ -162,8 +165,6 @@ static func sync_units(
 				facing[unit.slot] = entry.heading
 			else:
 				walkers.append(unit)
-		# placement: the routers', the loose and the placed points above (Decision 139)
-		columns.commit(UnitColumns.POSITION, points)
-		columns.commit(UnitColumns.BEARING, facing)
 		for unit in walkers:
 			FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)
+		UnitView.release(held)  # the routers', the loose, the placed and the walked points

@@ -178,6 +178,14 @@ static func read(squad, names: Array) -> UnitView:
 	return _filled(squad.store, names)
 
 
+## `read`, taken once a store into `views` (store -> view: one set of `names` a dictionary),
+## for a pass that moves nobody while it reads.
+static func read_once(views: Dictionary, squad, names: Array) -> UnitView:
+	if not views.has(squad.store):
+		views[squad.store] = read(squad, names)
+	return views[squad.store]
+
+
 static func _filled(from: UnitStore, names: Array) -> UnitView:
 	var view := UnitView.new()
 	view.store = from
