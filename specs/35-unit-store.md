@@ -828,6 +828,12 @@ Kept, where the list above was wider than the code:
   fleeing home gave the same events and the same per-unit state (hp, position, along,
   offset, keys) every tick, old against new, on both engines. Locally at 1,024 a side the
   rout went from about 27 to 18.4 ms, where it was before step 0 (18.0).
+- **Benched** (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side in four squads,
+  against `main` at #234): the tick **7.7% faster** (407.9 to 376.3 ms) and the rout 26%
+  (95.0 to 70.1), every round of each faster than every base round; no phase slower. The
+  rout is still above the 60.9 ms the series bench measured before step 0, on another
+  runner; `FormationRout.where` and the cold paths (`_regroup`, `_break`) still read per
+  unit (Q28).
 - `test_columns_held.gd`: held writes read back and committed, columns not held passing
   through, a whole held column carrying the writes, a slot opened in the pass, releasing a
   store not held, FleeColumns' writes seen by every reader, and its `keep` as EntryKeys'.
