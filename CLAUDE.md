@@ -21,7 +21,8 @@ How sessions work together is `principles/agent-sessions.md`.
   `scaling_check`, `tick_phases` and the other benches. CI's `sim-checks` runs the suite
   and digests on every PR. When CI goes red, read the failing test's part of the log and
   run that one file. For a comparison, start `bench` (`.github/workflows/bench.yml`) and
-  read its `SUMMARY`.
+  read its `SUMMARY`. To judge a change of a few percent, give it `rounds` of 5 or more: one
+  run each swings by more than that whenever the code differs.
 - **Usage is a budget** (`principles/agent-sessions.md`, rule 4). One step per session.
   Keep output small: show only failures from a run, only the failing part of a log, and
   never echo whole files, diffs or listings to look at them.
