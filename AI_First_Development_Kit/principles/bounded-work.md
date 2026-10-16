@@ -69,10 +69,15 @@ Breach's first native ports, rank and column read unit by unit through a helper 
 - A loop over things never reads or writes the store one thing at a time. It fetches the
   columns it needs before the loop, indexes them by the thing's slot, and commits what it
   changed once after.
-- A helper that reads one thing's state takes an optional fetched table, so a loop can
-  pass it; without one it reads the store, for a one-off.
-- Scattered reads are for events (a step-up, a join, a spawn), a handful of things, or a
-  loop the bench shows doesn't matter, each marked with its reason.
+- Fetch into the cheapest form the language indexes. In GDScript only a typed array's
+  index is cheap; a method that reads a held copy costs as much as the crossing. Breach
+  holds a pass's columns as one typed view (Decision 146), and a helper that reads one
+  thing's state takes that view; its scattered form, for a one-off, has a name of its own.
+- Scattered reads are for events (a step-up, a join, a spawn) and a handful of things, or
+  a reference implementation the fast path replaces, each marked with its reason. "The
+  bench shows it doesn't matter" is not a reason: Breach's rout was measured before any
+  unit routed and was 30 ms out.
+- A hold on the store never spans a call into the native code that reads it.
 - A fetched column is a copy as of now: a pass that writes and reads again fetches again,
   or works on its copy and commits it.
 - A pass that moves state to where another pass reads it says so in the same change:
