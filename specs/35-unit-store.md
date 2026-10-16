@@ -950,6 +950,10 @@ Kept, where the list above was wider than the code:
   6b: the loops the check would otherwise flag were converted (above).
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
 - **Bench:** the alternating bench against main, for the PR.
+- **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 146`):
+  the PR modifies about 80 existing files because Decision 146 moves every caller of the
+  three replaced tables, and their tests, to the view in this PR. No new case forced them
+  open.
 
 ## Open, for the implementing session to settle and record here
 
