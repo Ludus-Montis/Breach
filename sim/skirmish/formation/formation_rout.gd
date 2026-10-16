@@ -43,7 +43,17 @@ const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
+const FleeColumns = preload("res://sim/skirmish/formation/flee_columns.gd")
+## The fleeing entries' columns, and the keys that say which an entry holds (SquadEntries).
+const HELD := [
+	UnitColumns.ALONG,
+	UnitColumns.FLEE_OFFSET,
+	UnitColumns.FANNED,
+	UnitColumns.CAUGHT,
+	UnitColumns.HELD_BY,
+	UnitColumns.KEYS,
+]
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 
@@ -59,6 +69,7 @@ static func step(
 	fight_seed := 0
 ) -> Array:
 	var events := []
+	var stores := StoreHolds.hold(squads, HELD)  # read router by router: held
 	var breaking := squads.filter(
 		func(s): return s.state != SkirmishSquad.State.ROUTING and _breaks(s)
 	)
@@ -77,7 +88,13 @@ static func step(
 		_regroup(squad, friends, tick, tick_seconds, events, fight_seed)
 	for squad in breaking:
 		_break(squad, squads, tick, events, terrain)
+	StoreHolds.release(stores)
 	return events
+
+
+## Where the router in `slot` stands, from the rout's held columns (FleeColumns).
+static func _at(squad: SkirmishSquad, flee: FleeColumns, slot: int) -> Vector2:
+	return _route_point(squad, flee.along[slot]) + flee.offset[slot]
 
 
 ## The world point a router stands at.
@@ -132,16 +149,15 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 	var panicked := {}
 	var alone := RoutFriends.alone(motion[3], squad)  # no friend to crush or flee to
 	var friends: Dictionary = {} if alone else motion[3]
-	var columns := squad.store.columns
-	# store: scattered (routers each stepped by RoutFlight, the rout ~1.5 ms at the bench)
+	var flee := FleeColumns.of(squad)  # the held columns, typed: indexed, not called
 	for unit in squad.living():
-		if columns.value(unit.slot, UnitColumns.CAUGHT) > 0:
+		if flee.caught[unit.slot] > 0:
 			continue  # held by a steady friend it ran into
-		var flight := [motion[0], motion[1], motion[2], where(squad, unit.id), friends]
-		RoutFlight.step(squad, unit, home, flight)
+		var at := _at(squad, flee, unit.slot)
+		RoutFlight.step(squad, unit, home, [motion[0], motion[1], motion[2], at, friends, flee])
 		if not alone:
-			_crush([squad, unit, motion[1]], friends, tick, panicked, events)
-		if is_equal_approx(columns.value(unit.slot, UnitColumns.ALONG), home):
+			_crush([squad, unit, motion[1], flee], friends, tick, panicked, events)
+		if is_equal_approx(flee.along[unit.slot], home):
 			SquadEntries.unflee(squad, unit.id)
 			squad.units.erase(unit)
 			var extra := {"unit": unit.id, "definition": unit.definition}
@@ -151,14 +167,16 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 		events.append(FormationEvents.squad_event("scattered", tick, squad))
 
 
-## A router (`who` = [its squad, the unit, the battle seed]) crushes the nearest friend's
-## unit it runs into (ties by their draws). `friends` is the tick's RoutFriends.
+## A router (`who` = [its squad, the unit, the battle seed, its FleeColumns]) crushes the
+## nearest friend's unit it runs into (ties by their draws). `friends` is the tick's
+## RoutFriends.
 static func _crush(
 	who: Array, friends: Dictionary, tick: int, panicked: Dictionary, events: Array
 ) -> void:
 	var squad: SkirmishSquad = who[0]
 	var router: SkirmishUnit = who[1]
-	var hit := RoutFriends.crushed(friends, squad, where(squad, router.id), who[2])  # [friend, unit]
+	var at := _at(squad, who[3], router.slot)
+	var hit := RoutFriends.crushed(friends, squad, at, who[2])  # [friend, unit]
 	if hit.is_empty():
 		return
 	var damage := (
@@ -181,9 +199,9 @@ static func _rallies(
 ) -> Array:
 	var out := []
 	var alone := RoutFriends.alone(friends, squad)  # no friend to rally to or be held by
-	# store: scattered (routers each stepped by RoutFlight, the rout ~1.5 ms at the bench)
+	var flee := FleeColumns.of(squad)  # the held columns, typed: indexed, not called
 	for unit in squad.living():
-		var at := where(squad, unit.id)
+		var at := _at(squad, flee, unit.slot)
 		var leader: SkirmishSquad = null
 		if not alone:
 			var reach := BattleTuning.current().rout_rally_reach
@@ -196,13 +214,10 @@ static func _rallies(
 		if not alone:
 			friend = RoutCatch.holder(squad, unit, at, friends, breadth, fight_seed)
 		var calm := friend != null and FormationMorale.band(friend) == FormationMorale.Band.STEADY
-		var columns := squad.store.columns
-		var held: int = columns.value(unit.slot, UnitColumns.CAUGHT)
+		var held: int = flee.caught[unit.slot]
 		var caught := 0 if friend == null else (held + 1 if calm else maxi(held, 1))
-		EntryKeys.keep(columns, unit.slot, UnitColumns.CAUGHT, caught)
-		EntryKeys.keep(
-			columns, unit.slot, UnitColumns.HELD_BY, null if friend == null else friend.id
-		)
+		flee.keep(unit.slot, UnitColumns.CAUGHT, caught)
+		flee.keep(unit.slot, UnitColumns.HELD_BY, null if friend == null else friend.id)
 		if calm and caught * tick_seconds >= BattleTuning.current().rout_steady_rally_seconds:
 			out.append([_key(friend, unit, at, fight_seed), squad, unit, friend])
 	return out

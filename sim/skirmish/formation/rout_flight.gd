@@ -17,7 +17,7 @@ const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
 const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
-const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const FleeColumns = preload("res://sim/skirmish/formation/flee_columns.gd")
 
 
 ## The unit's own flight angle (radians) off its route's line, at full disorder.
@@ -28,13 +28,14 @@ static func fan(unit: SkirmishUnit, fight_seed: int) -> float:
 
 ## A router's step (it has an entry in its squad's `fleeing`): towards `home` along the route
 ## and out to the side, or towards its refuge. `motion` is [pace (cells a tick at speed 1),
-## fight seed, terrain or null, where it stands, the tick's RoutFriends].
+## fight seed, terrain or null, where it stands, the tick's RoutFriends, the rout's
+## FleeColumns].
 static func step(squad: SkirmishSquad, unit: SkirmishUnit, home: float, motion: Array) -> void:
-	var columns := squad.store.columns
+	var flee: FleeColumns = motion[5]  # the rout's held columns: indexed, not called
 	var full: float = unit.speed * motion[0]
 	var aside := DetMath.sin(fan(unit, motion[1])) * full
-	var fanned: float = columns.value(unit.slot, UnitColumns.FANNED)
-	var along: float = columns.value(unit.slot, UnitColumns.ALONG)
+	var fanned := flee.fanned[unit.slot]
+	var along := flee.along[unit.slot]
 	var heading: Vector2 = squad.route.heading_at(along) if squad.route != null else Vector2.RIGHT
 	var side := heading.orthogonal()
 	var at: Vector2 = motion[3]
@@ -51,11 +52,9 @@ static func step(squad: SkirmishSquad, unit: SkirmishUnit, home: float, motion: 
 		aside = 0.0
 	var ahead := sqrt(full * full - aside * aside) * signf(home - along)
 	var paid := UnitMover.share(unit, at, at + side * aside + heading * ahead, terrain)
-	EntryKeys.keep(columns, unit.slot, UnitColumns.FANNED, fanned + aside * paid)
-	var offset: Vector2 = columns.value(unit.slot, UnitColumns.FLEE_OFFSET) + side * aside * paid
-	columns.put(unit.slot, UnitColumns.FLEE_OFFSET, offset)  # paid: UnitMover.share
-	along = move_toward(along, home, absf(ahead) * paid)
-	columns.put(unit.slot, UnitColumns.ALONG, along)  # paid: UnitMover.share
+	flee.keep(unit.slot, UnitColumns.FANNED, fanned + aside * paid)
+	flee.offset[unit.slot] += side * aside * paid  # paid: UnitMover.share
+	flee.along[unit.slot] = move_toward(along, home, absf(ahead) * paid)  # paid: UnitMover.share
 
 
 ## The standing friendly formation whose unit is nearest `at`, among those between the
