@@ -78,9 +78,10 @@ For each pass the change adds or touches that runs every tick:
    change that matters queues it.
 3. **Does a loop read the store unit by unit?** (Decision 144, `bounded-work.md`
    Principle 3.) Each scattered store read or write of one unit is a call into the native
-   field under Rust. Fetch the columns before the loop (`columns.column`,
-   `UnitPlace.table`), index by slot, commit once after; give a helper that reads one unit
-   an optional fetched table. `check_store_reads.py` sees direct calls only: read the
+   field under Rust. Hold the pass's columns as a typed view (`UnitView.hold`, Decision
+   146), take its arrays into typed locals, index by slot, release once after; give a
+   helper that reads one unit the view. A scattered mark says `few:` or `reference:`, and
+   no hold spans a native call. `check_store_reads.py` sees direct calls only: read the
    helpers the loop calls too. A change that moves a field into the store lists every
    reader of it and how each loop will fetch once, before moving it.
 4. **Measure:** `godot --headless --path . --script res://tools/scaling_check.gd` (also

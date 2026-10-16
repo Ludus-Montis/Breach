@@ -6751,3 +6751,67 @@ the fallen, so no outcome or event order changes; the order a unit fell in never
 anything (Decision 97).
 **Bounded:** deaths costs one sort of the tick's fallen instead of a pass over every unit.
 **Pillar check:** holds. Nothing a unit does changes; only how the fallen are found.
+
+### Decision 146 — Every pass reads the unit store through one typed view, held for the pass
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-16
+**Amends:** Decision 144 (how a helper takes fetched columns, and what a scattered mark may
+say); settles `OPEN_QUESTIONS.md` Q28
+
+**Rationale:** Every pass reaches unit state through `squad.store.columns`, but each supplies
+its own pattern: typed tables for some families (`UnitPlace.table`, `UnitHealth.Table`,
+`FleeColumns`), per-pass fetches in others, and 93 per-unit `value`/`put` calls in `sim/`, 30
+loops marked scattered. On the native store a `value` or `put` is a GDScript method call
+into the field, about 1 us (spec 35 assumed 0.2 us); a held column read through a method is
+as dear (about 1.0 us); only a typed array's index is cheap (about 0.04 us). The rout's loop
+was marked scattered at "~1.5 ms at the bench", measured before any rout began; across spec 35
+it went from 60.9 to 92.4 ms. Holding its columns as typed arrays (#237) made the tick 7.7%
+faster and the rout 26%. The series bench found the bodies snapshot, engage, the walk to
+places and the shuffle's free front place slower too, likely the same way. The user asked
+"do we have a single interface onto the store or are the individual cases (march, rout,
+combat etc.) supplying their own?". Settled in a design session, as proposed:
+- **One mechanism, `UnitView`.** One class with a typed property for every store column,
+  kept in step with `UnitColumns`' columns by a test. A pass holds the columns it names for
+  its own length (`UnitView.hold(squads, names)`, on `StoreHolds` and `ColumnsHeld`), its
+  loops take the arrays into typed locals and index them by slot, and `release` commits
+  them. GDScript's packed arrays share their storage, so every reader in the pass sees the
+  writes. It replaces `FleeColumns` (its `keep` becomes `EntryKeys`' on a view),
+  `UnitHealth.Table` (the view's `hp`; the one writer and the fell queue stay) and
+  `UnitPlace.table`/`read` (the view's `rank` and `column`).
+- **Helpers that read one unit take the view**, not an optional table. The per-unit store
+  form keeps a distinct name the check lists (as `UnitPlace.of` does now), for events.
+- **A scattered mark gives one of two reasons:** `few:` (an event's units, a trade's two) or
+  `reference:` (the GDScript reference's per-unit seek, walk and facing, which Rust runs as
+  native passes). "The bench shows it doesn't matter" is no longer a reason: the rout's
+  measured bound was taken before the case it bounded. `check_store_reads.py` requires the
+  reason and flags the named scattered helpers, `FormationRout.where` among them, as it
+  flags direct calls.
+- **No hold spans a native call.** Every GDScript entry into a native pass (seek, walk,
+  facing, native blows, the field's sync) asserts its store isn't held; the cross-engine
+  digests in `sim-checks` are the backstop.
+- **Order: before spec 35's stamina step.** Spec 35 step 6a builds `UnitView` and converts the
+  rout, hp and places to it; 6b converts the phases the series bench found slower and
+  `FormationRout.where`; 6c is the former step 6 (stamina, speed, exertion), and step 7 is
+  unchanged. 6c's and 7's readers lists are written in terms of the view.
+- **Measured** each PR with the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in
+  four squads) against its base: no phase slower, the phase converted faster. After 6b, the
+  series bench against `1cc4412` (Q23).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Hold every column the GDScript reads for the whole tick, committing around each native pass | Fewer copies, but a stale read can reach further, and the GDScript passes would have to know where the native ones run. |
+| Keep adding a typed table per field family | A class per family, and steps 6 and 7 would add more. |
+| A scattered mark carries a measured bound | The rout's bound was measured, and wrong by 30 ms. |
+| Native entry commits and re-holds whatever is held | Safe, but a hold could then span native calls quietly and pay for copies each time. |
+| Rely on the digests alone for holds | A stale read that happens to match would pass unseen. |
+
+**Rules over cases:** general: one view and one hold for every pass over units; scattered
+calls only for an event's few units or the GDScript reference.
+**Order:** no order changes: a held array is read in each loop's own order and written in
+place, as a `put` was, and release commits what the pass wrote.
+**Bounded:** a pass costs one copy of each column it names, out and back, plus an index per
+unit, not a call per unit. A pass touching a few units doesn't hold.
+**Pillar check:** holds. It changes how state is read, not what any unit does.

@@ -63,6 +63,11 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
   (the user: "the aim of this spec was to improve performance, so reducing it is not
   acceptable"). See "Built" below.
+- **The rout's columns held for its pass: built** (2026-10-16, #237). See "Built" below.
+- **Step 6 designed** (2026-10-16, Decision 146, Q28): 6a builds one typed view onto the
+  store (`UnitView`) and converts the rout, hp and places to it; 6b converts the phases the
+  series bench found slower; 6c is the former step 6 (stamina, speed, exertion). See
+  "Settled for step 6" below.
 
 ## The store
 
@@ -151,11 +156,15 @@ against its base. The numbers go in the PR and in spec 34's "Measured" section.
    **Steps 5 to 7 each begin with a readers list (Decision 144).** Before a field moves,
    the step's spec entry lists every reader and writer of it (grep the tree) and, for each
    loop over units, how it will fetch the column once and commit once; helpers that read
-   one unit take an optional fetched table. `living()` (a filter on `is_alive()`, called in
-   about 100 places) needs its plan in step 7 before the alive flags move. The step's bench
+   one unit take the pass's view (Decision 146; it was an optional fetched table).
+   `living()` (a filter on `is_alive()`, called in about 100 places) needs its plan in step 7 before the alive flags move. The step's bench
    against its base names every phase slower beyond noise, and the step fixes it in its
    own PR.
-6. **Stamina, speed and exertion.** The stamina and recovery passes.
+6. **One typed view, then stamina, speed and exertion** (Decision 146). Three PRs: 6a
+   builds `UnitView` and converts the rout, hp and places to it; 6b converts the phases the
+   series bench found slower and `FormationRout.where`; 6c moves stamina, speed and exertion
+   (the stamina and recovery passes), its readers list written in terms of the view. See
+   "Settled for step 6" below.
 7. **Flags and the rest.** Alive, down and the unit's state. Then inventory
    `SkirmishUnit` for any per-tick field that is left.
 
@@ -281,6 +290,56 @@ cache for the passes after. 5b measures that first (`tick_phases` with the copie
 then fixes what it finds: a table fetched once a pass for all squads, or a native gather of
 just the squad's slots (`column_at(name, slots)`), and the occupancy's place map built from the
 table rather than a dictionary per unit. Deaths' own scan goes in 5b anyway (the fell queue).
+
+## Settled for step 6 (the user, 2026-10-16; Decision 146)
+
+From Q28's design session. Every pass reaches the store through `store.columns`, but each
+had its own pattern, and only a typed array's index is cheap on the native store (about
+0.04 us against about 1 us for a `value`, `put` or a held column read through a method).
+
+- **6a: `UnitView`** (`sim/skirmish/formation/unit_view.gd`).
+  - One class with a typed property for every column in `UnitColumns` (the packed type each
+    backend's `column` returns), and a test that fails when a column is added without one.
+  - `UnitView.hold(squads, names) -> UnitView` holds `names` on every store the squads use
+    (`StoreHolds.hold`, `ColumnsHeld`) and fills those properties with the held copies;
+    the others stay empty, and reading one asserts. `UnitView.of(squad)` gives the view its
+    store is held under (a call: take it once per squad, not per unit).
+    `UnitView.release(view)` commits (`StoreHolds.release`). How a view spans several
+    stores, if the squads use more than one, is for 6a to settle and record here.
+  - A pass's loops take the arrays into typed locals before the loop
+    (`var hp: PackedInt32Array = view.hp`) and index by slot.
+  - **Replaced:** `FleeColumns` goes (the rout names its columns; its `keep` becomes
+    `EntryKeys.keep` on a view). `UnitHealth.Table` goes: `hurt`, `heal` and `put` take a
+    view and write `view.hp` in place, and still push the fell queue (check_one_health.py
+    still holds the one writer). `UnitPlace.table` and `read` go: loops read `view.rank`
+    and `view.column`. Their callers (33 today: grep `StoreHolds.`, `UnitPlace.table`,
+    `UnitHealth.table`) move to a view in this PR, and the rout's hold becomes a view.
+  - **Helpers that read one unit take the view.** Their scattered forms, for events, keep
+    distinct names the check lists (`UnitPlace.of`, `UnitHealth.of_one` and so on).
+  - **No hold spans a native call:** every GDScript entry into a native pass (the seek,
+    walk and facing fields, the native blows, the field's sync and parting) asserts that its
+    store's `columns` isn't `ColumnsHeld`. A test holds a store and calls one entry and
+    expects the assert.
+  - **`check_store_reads.py`:** a mark must read `# store: scattered (few: <why>)` or
+    `# store: scattered (reference: <why>)`; any other reason is flagged. The scattered
+    helpers it flags in a loop add `FormationRout.where` and the new scattered names.
+    Re-mark the 30 marked loops: each takes `few:` or `reference:`, or is converted to the
+    view (6b) and, until then, listed in the PR as waiting for 6b. Tests in
+    `test_check_store_reads.py` first, red then green; `ci/godot/README.md`'s entry for
+    the check says the same.
+  - **Outcomes unchanged:** `sim-checks` digests on both engines.
+  - **Bench:** the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in four squads)
+    against main: no phase slower beyond noise.
+- **6b: the slower phases on the view.** The bodies snapshot, engage, the march's walk to
+  places, the shuffle's free front place, and `FormationRout.where` wherever `UnitBodies`,
+  the march, the rout's blows and the field's sync call it per router; plus the rout's cold
+  paths (`_regroup`, `_break`) if they loop over routers. The PR lists each loop it converts
+  with its columns. One PR if the bench of each stays readable; split per phase otherwise.
+  - **Bench:** the alternating bench against 6a: each converted phase faster, none slower.
+    Then the series bench against `1cc4412` (the last commit before step 0), recorded in
+    spec 34's "Measured" section for Q23: name any phase still slower than before step 0.
+- **6c: stamina, speed and exertion**, as step 6 was. Its readers list (Decision 144) says
+  for each loop which columns its view holds; step 7's does the same.
 
 ## Built
 

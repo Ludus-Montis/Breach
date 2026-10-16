@@ -142,6 +142,8 @@ Decision 129 makes GDScript the reference: the digests compare both engines, and
 
 Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squads=4 fight=3`) against its base and records it in spec 34's "Measured" section. Steps 1 to 4a add boundary crossings, and 4a adds a store read wherever a rule reads one unit's place. Step 4 onwards should remove the glue. A single step's numbers are noisy, and runners differ, so judge the series as a whole: the tick at the end against the tick before step 0 (Q20's 380 ms), phase by phase. Name any phase that got slower and stayed slower, and whether a pass should fetch columns once where it now reads per unit.
 
+**Note (2026-10-16, Decision 146):** spec 35 step 6b ends with the series bench against `1cc4412`, recorded in spec 34's "Measured" section; read it with this review.
+
 ### Q24. Which per-tick passes should become work lists fed by events?
 **Raised:** 2026-10-15, after spec 35 step 4 (the user: "are there any elements that could be handled via event based arch?") · **Raise when:** A design session on spec 35 steps 5 to 7, or on what follows spec 35 for performance; or any change to deaths, wounds, recovery, taking, carry or `living()`
 
@@ -178,22 +180,9 @@ Threads today: only body parting uses Rayon (`native/rust/src/parting.rs`), and 
 
 Measure each with a `bench` run against its base, and the user's PC (a profiler such as VTune or uProf) for cache misses, before any is built. Threads speed up only the Rust part of a pass, so a pass with GDScript glue left gains little until its glue goes.
 
-### Q28. One typed view onto the unit store for every pass, instead of each pass's own
-**Raised:** 2026-10-16, fixing the rout's slowdown after spec 35 step 5b (fix/rout-store-reads; the user: "do we have a single interface onto the store or are the individual cases (march, rout, combat etc.) supplying their own?") · **Raise when:** The next design session (the user: "I will pick that up next with another agent"), before `/run-phase spec 35 step 6`; or any change that adds a `columns.value`/`put` in a loop over units
-
-Every pass reaches unit state through one interface, `squad.store.columns` (`UnitColumns`: `column`/`commit` for a whole column, `value`/`put` for one unit). But each pass supplies its own access pattern. There are typed tables for some field families (`UnitPlace.table` for rank and column, `UnitHealth.Table` for hp, and now `FleeColumns` for the rout's fleeing columns), per-pass fetches in others (the blows' cooldowns, recovery, the walk), and per-unit `value`/`put` calls elsewhere: 93 call sites in `sim/`, 30 loops marked `# store: scattered (<why>)` across 20 files. `EntryKeys` and `SquadEntries` wrap the loose and fleeing entries' keys but are per-unit underneath.
-
-What it cost: on the native store a `value` or `put` is a GDScript method call into the field, about 1 µs. The spec had assumed 0.2 µs. A typed array's index is about 0.04 µs. The rout's loop was marked scattered at "~1.5 ms at the bench", measured at 3 ticks before any rout. At 10 ticks, 4,096 a side, the rout went from 60.9 to 92.4 ms across spec 35 (the series bench, #234 against `1cc4412`). The fix (fix/rout-store-reads) holds the rout's columns for its pass (`StoreHolds`, `ColumnsHeld`) and hands its loops typed arrays (`FleeColumns`). GDScript's packed arrays share their storage, so the typed writes are what every other reader in the pass sees, and release commits them. The same series bench found other phases slower, likely for the same reason: the bodies snapshot +4.1 ms, engage +2.4, the walk to places +2.1, the shuffle's free front place +1.3. `FormationRout.where` is still a scattered read where `UnitBodies`, the march, the rout's blows and the field's sync call it per router.
-
-To settle in the design session:
-- **One mechanism:** a pass names the columns it reads and writes, holds them (`StoreHolds` is general already) and gets typed arrays back, without a hard-coded per-family class. Whether that replaces `UnitPlace.table`, `UnitHealth.Table` and `FleeColumns`, and how a helper that reads one unit takes the view (it reshapes Decision 144's "helpers take an optional fetched table").
-- **The rule for scattered reads:** when a loop may still call `value`/`put` per unit, and whether `check_store_reads.py` should require a measured bound in the mark (or flag any marked loop over a whole squad).
-- **Safety:** nothing native may read a held column while it is held. Whether that is checked, and how a hold meets the native passes (seek, walk, facing) that read the field directly.
-- **Order:** whether this comes before spec 35 steps 6 and 7, which move more fields into the store and would otherwise add more per-case access.
-- **Measuring:** each converted pass checked with the alternating bench (`rounds` 5 or more) against its base, and the series against `1cc4412` (Q23).
-
 ## Closed
 
+- Q28, one typed view onto the unit store for every pass. **Resolved by Decision 146 (2026-10-16):** a pass holds the columns it names as one typed view (`UnitView`), replacing `FleeColumns`, `UnitHealth.Table` and `UnitPlace.table`; a scattered mark gives `few:` or `reference:` only; no hold spans a native call; built as spec 35 steps 6a and 6b, before stamina (6c).
 - Q27, whether one bench run can tell a 5% change from noise. **Resolved (2026-10-15):** it can't; `bench` takes `rounds` and alternates head and base, comparing each phase's medians and ranges ([SSidey/Breach#236](https://github.com/SSidey/Breach/pull/236)). Its first use settled #234: the tick 1.5% faster, deaths 31% faster (spec 35, "Built → Step 5b").
 
 - Q20, the native field owning unit state so the glue goes. **Resolved by Decision 142 (2026-10-14):** a unit store owns every unit's per-tick state as columns, with GDScript and Rust backends, built in steps as spec 35.
