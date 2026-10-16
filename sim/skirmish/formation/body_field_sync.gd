@@ -69,6 +69,10 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	for squad in squads:
 		var before := batch.units.size()
 		var fleeing: Dictionary = squad.fleeing
+		# its routers' ALONG, read once (Decision 146)
+		var route: UnitView = (
+			null if fleeing.is_empty() else UnitView.read(squad, [UnitColumns.ALONG])
+		)
 		for unit in squad.units:
 			if not unit.is_alive():
 				continue
@@ -76,7 +80,9 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
 			var fled := fleeing.has(unit.id)  # its base: its point on its squad's route
-			batch.bases.append(FormationRout.route_point(squad, unit.id) if fled else Vector2.ZERO)
+			batch.bases.append(
+				FormationRout.route_point_in(route, squad, unit) if fled else Vector2.ZERO
+			)
 		_squad(batch, squad, batch.units.size() - before)
 	return _send(field, batch, fight_seed)
 

@@ -20,8 +20,10 @@ const MARGIN := 0.01
 static func index(foes: Array) -> Dictionary:
 	var points := []
 	var widest := 0.0
+	var views := {}  # store -> where its units stand, read once (Decision 146)
 	for entry in foes:
-		points.append(ScrumReach.at(entry[1], entry[0]))
+		var standing := UnitView.read_once(views, entry[1], ScrumReach.STANDING)
+		points.append(ScrumReach.at_in(standing, entry[1], entry[0]))
 		widest = maxf(widest, ScrumReach.radius(entry[0]))
 	return {"foes": foes, "points": points, "grid": BodyGrid.build(points), "widest": widest}
 

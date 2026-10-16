@@ -9,6 +9,11 @@ const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 const ColumnsHeld = preload("res://sim/skirmish/formation/columns_held.gd")
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
+const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
+const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 
 class _Squad:
@@ -142,3 +147,47 @@ func test_a_native_entry_asserts_no_hold_spans_it() -> void:
 		. is_runtime_error("Assertion failed: " + StoreHolds.SPANS)
 	)
 	UnitView.release(view)
+
+
+func test_read_once_reads_a_store_once_into_its_views() -> void:
+	var squad := _squad(NativeKernels.unit_store(null))
+	var other := _squad(squad.store)
+	var views := {}
+	var view := UnitView.read_once(views, squad, ScrumReach.STANDING)
+	assert_object(UnitView.read_once(views, other, ScrumReach.STANDING)).is_same(view)
+	assert_int(views.size()).is_equal(1)
+
+
+## Spec 35 step 6b: where a unit stands, and a router's point, read from a view as the
+## scattered forms read them from the store, on both backends.
+func test_the_view_forms_of_where_a_unit_stands_match_the_scattered_ones() -> void:
+	for backend in _backends():
+		var store: UnitStore = backend[1]
+		var squad := SkirmishSquad.new(
+			1, "player", 1, 0.0, 1, [] as Array[SkirmishUnit], null, store
+		)
+		var units := []
+		for unit_id in [11, 12, 13]:
+			var unit := SkirmishUnit.new()
+			unit.id = unit_id
+			unit.slot = store.admit(unit)
+			squad.units.append(unit)
+			store.columns.put(unit.slot, UnitColumns.POSITION, Vector2(unit_id, 2))
+			units.append(unit)
+		SquadEntries.loosen(squad, units[1], Vector2(5, 6))
+		SquadEntries.flee(squad, units[2], 7.5, Vector2(0, 1))
+		var standing := UnitView.read(squad, ScrumReach.STANDING)
+		for unit in units.slice(0, 2):
+			(
+				assert_vector(ScrumReach.at_in(standing, squad, unit))
+				. override_failure_message(backend[0])
+				. is_equal(ScrumReach.at(squad, unit))
+			)
+		var route := UnitView.read(squad, FormationRout.ROUTE)
+		var router: SkirmishUnit = units[2]
+		assert_vector(FormationRout.where_in(route, squad, router)).is_equal(
+			FormationRout.where(squad, router.id)
+		)
+		assert_vector(FormationRout.route_point_in(route, squad, router)).is_equal(
+			Vector2(7.5, 0.0)
+		)

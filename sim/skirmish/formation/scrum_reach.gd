@@ -12,6 +12,8 @@ const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+## The columns where a unit stands is read from (at_in): its point, and its loose point.
+const STANDING := [UnitColumns.POSITION, UnitColumns.LOOSE_AT]
 
 
 ## Where the unit stands: its place in the scrum, or where its squad puts it.
@@ -19,6 +21,13 @@ static func at(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
 	if squad.loose.has(unit.id):
 		return SquadEntries.loose_at(squad, unit)
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
+
+
+## `at` from a view of the squad's store holding STANDING: an index, not a call.
+static func at_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
+	if squad.loose.has(unit.id):
+		return view.at[unit.slot]
+	return view.position[unit.slot]
 
 
 ## The cells the unit covers, centred where it stands, turned to its squad's heading (the
@@ -37,8 +46,12 @@ static func radius(unit: SkirmishUnit) -> float:
 
 ## Cells between two units' bodies (0 where they touch or overlap).
 static func gap(squad: SkirmishSquad, unit: SkirmishUnit, other: SkirmishSquad, foe) -> float:
-	var apart := at(squad, unit).distance_to(at(other, foe))
-	return maxf(apart - radius(unit) - radius(foe), 0.0)
+	return gap_at(at(squad, unit), unit, at(other, foe), foe)
+
+
+## `gap` for two units standing at `here` and `there`.
+static func gap_at(here: Vector2, unit: SkirmishUnit, there: Vector2, foe) -> float:
+	return maxf(here.distance_to(there) - radius(unit) - radius(foe), 0.0)
 
 
 ## True if the two units' bodies touch: within reach_contact.

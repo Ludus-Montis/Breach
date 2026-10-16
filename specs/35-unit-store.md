@@ -69,6 +69,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   series bench found slower; 6c is the former step 6 (stamina, speed, exertion). See
   "Settled for step 6" below.
 - **Step 6a, one typed view: built** (2026-10-16). See "Built" below.
+- **Step 6b, the slower phases on the view: built** (2026-10-16). See "Built" below.
 
 ## The store
 
@@ -949,11 +950,45 @@ Kept, where the list above was wider than the code:
   RoutCatch's held-by read moved out of its loop header. Nothing is listed as waiting for
   6b: the loops the check would otherwise flag were converted (above).
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
-- **Bench:** the alternating bench against main, for the PR.
+- **Bench:** bench run 34 timed 6a's head alone (`tick_phases engine=rust side=4096 squads=4
+  fight=3`, `rounds=5`, no base): a 305.8 ms tick. Without a base it can't show "no phase
+  slower". 6b's bench against main covers 6a's base as well.
 - **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 146`):
   the PR modifies about 80 existing files because Decision 146 moves every caller of the
   three replaced tables, and their tests, to the view in this PR. No new case forced them
   open.
+
+### Step 6b, the slower phases on the view
+
+The loops converted, with the columns each reads:
+- **The bodies snapshot** (`ScrumSlots.bodies`): every standing unit's point, read from one
+  view of POSITION and LOOSE_AT a store (`ScrumReach.STANDING`, `ScrumReach.at_in`,
+  `UnitView.read_once`) instead of `ScrumReach.at` per unit.
+- **Engage** (`ScrumEngage._span`, `_gap`, and `ScrumNear.index`, which engage and the seek's
+  foe index build): the same view of STANDING, read once a store for the whole step. `_gap`
+  reads both units' points from it and measures with `ScrumReach.gap_at`, where
+  `ScrumReach.gap` was two scattered reads a pair.
+- **The march's walk to places** (`FormationMarch.sync_units`): POSITION and BEARING are held
+  for each squad's pass (`FormationMarch.WALKED`) instead of fetched and committed. The
+  placed, loose and routers' points are set in the hold. Each walker's `FormationWalk.walk`,
+  `UnitMover.step` and `WalkModes` read and write through the hold: a dictionary lookup,
+  where each was a call into the field.
+- **`FormationRout.where` per router:** the march and the rout's blows were converted in 6a
+  (`where_in`). The field's sync (`BodyFieldSync.bodies`) now reads ALONG once a squad with
+  routers (`FormationRout.route_point_in`), and the scattered `route_point` is gone.
+  UnitBodies' `at` runs only on the GDScript reference's parting (`_bodies`); under Rust,
+  parting runs on the field, which the sync feeds.
+- **Not converted, and why:**
+  - **The shuffle's free front place** (`ShuffleFront.free_place`) reads nothing from the
+    store: its cost is a look at every open front column for every unit not in the front
+    rank (`SquadPlaces.vacant`), not store calls. It is left for Q23's review.
+  - **The rout's cold paths** don't loop over routers' store state. `_break` writes each
+    unit's entry once, as its squad breaks (an event). `_join` and `_reform` read one
+    router each.
+- `test_unit_view.gd`: `read_once` reads a store once, and the view forms (`ScrumReach.at_in`,
+  `FormationRout.where_in`, `route_point_in`) match the scattered ones on both backends.
+- **Bench:** the alternating bench against main (6a), then the series bench against
+  `1cc4412` for spec 34's "Measured" section and Q23, both run by the user.
 
 ## Open, for the implementing session to settle and record here
 

@@ -101,11 +101,10 @@ static func where(squad: SkirmishSquad, unit_id: int) -> Vector2:
 	return _route_point(squad, along) + columns.value(slot, UnitColumns.FLEE_OFFSET)
 
 
-## A fleeing unit's point on its route, before its offset: where() is it plus the offset.
-static func route_point(squad: SkirmishSquad, unit_id: int) -> Vector2:
-	return _route_point(
-		squad, squad.store.columns.value(squad.fleeing[unit_id].slot, UnitColumns.ALONG)
-	)
+## A router's point on its route, before its offset (where_in is it plus the offset), from a
+## view holding ALONG: an index, not a call.
+static func route_point_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
+	return _route_point(squad, view.along[unit.slot])
 
 
 static func _breaks(squad: SkirmishSquad) -> bool:
