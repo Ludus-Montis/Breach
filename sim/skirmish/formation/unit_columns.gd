@@ -45,6 +45,18 @@ const COLUMN := &"column"
 const HP := &"hp"
 const ATTACK_COOLDOWN := &"attack_cooldown"
 const REGENERATION_LEFT := &"regeneration_left"
+## The unit's stamina, its pace this tick (cells a second on open ground, from its pace fresh,
+## its gait and how tired it is), whether it spent stamina this tick (1), seconds since it last
+## did, seconds into its present run (below 0: still reacting), whether it ran last tick (1),
+## and its condition: the one number its statuses make of its state, 1 as things stand (spec
+## 35 step 6c; FormationStamina, FormationRecovery).
+const STAMINA := &"stamina"
+const SPEED := &"speed"
+const EXERTED := &"exerted"
+const BREATHER := &"breather"
+const RUN_BUILD := &"run_build"
+const WAS_RUNNING := &"was_running"
+const CONDITION := &"condition"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -74,6 +86,13 @@ const BLANKS := {
 	HP: 0,
 	ATTACK_COOLDOWN: 0,
 	REGENERATION_LEFT: 0.0,
+	STAMINA: 100.0,
+	SPEED: 0.0,
+	EXERTED: 0,
+	BREATHER: 0.0,
+	RUN_BUILD: 0.0,
+	WAS_RUNNING: 0,
+	CONDITION: 1.0,
 }
 
 var _columns := {
@@ -100,6 +119,13 @@ var _columns := {
 	HP: PackedInt32Array(),
 	ATTACK_COOLDOWN: PackedInt32Array(),
 	REGENERATION_LEFT: PackedFloat64Array(),
+	STAMINA: PackedFloat64Array(),
+	SPEED: PackedFloat64Array(),
+	EXERTED: PackedInt32Array(),
+	BREATHER: PackedFloat64Array(),
+	RUN_BUILD: PackedFloat64Array(),
+	WAS_RUNNING: PackedInt32Array(),
+	CONDITION: PackedFloat64Array(),
 }
 
 

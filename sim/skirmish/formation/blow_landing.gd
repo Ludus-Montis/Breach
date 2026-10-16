@@ -61,7 +61,8 @@ static func land(
 		pressed = _pressed(squad_of)
 	var at: PackedVector2Array = squads[0].store.columns.column(UnitColumns.POSITION)
 	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
-	var known := [squad_of, pressed, at, bearings]
+	var stamina: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.STAMINA)
+	var known := [squad_of, pressed, at, bearings, stamina]
 	for blow in melee:
 		_land(blow, false, blow[3], known, terrain, rolls)
 	for shot in shots:
@@ -77,6 +78,7 @@ static func _land(
 	var pressed: Dictionary = known[1]  # unit id -> foes pressing it
 	var at: PackedVector2Array = known[2]  # where each stands, by slot
 	var bearings: PackedFloat64Array = known[3]  # the way each faces, by slot
+	var stamina: PackedFloat64Array = known[4]  # each one's stamina, by slot
 	var striker: SkirmishUnit = blow[0]
 	var target: SkirmishUnit = blow[1]
 	var tuning := BattleTuning.current()
@@ -87,7 +89,8 @@ static func _land(
 	if terrain != null and terrain.high_ground(from, at[target.slot]):
 		shift += tuning.blow_high_ground
 	shift += maxi(0, pressed.get(target.id, 0) - 1) * tuning.blow_surrounded
-	shift += BlowDamage.spill(striker, ranged) + FormationStamina.skill_shift(striker)
+	shift += BlowDamage.spill(striker, ranged)
+	shift += FormationStamina.skill_shift(striker, stamina[striker.slot])
 	var roll := BattleRolls.uniform(rolls[0], [rolls[1], striker.id, "blow", ranged])
 	var side := BlowRoll.side(bearings[target.slot], at[target.slot], from, flank)
 	var landed := BlowRoll.outcome(

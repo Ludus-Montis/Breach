@@ -39,15 +39,16 @@ static func walk(
 	terrain: FormationTerrain = null
 ) -> void:
 	var seconds: float = timing[0]
-	var columns := squad.store.columns
-	if WalkModes.climb(unit, squad, terrain, seconds, unit.speed * timing[1]):
+	var columns := squad.store.columns  # the march's hold (FormationMarch.WALKED)
+	var speed: float = columns.value(unit.slot, UnitColumns.SPEED)
+	if WalkModes.climb(unit, squad, terrain, seconds, speed * timing[1]):
 		return  # on a climb face: it climbs before it moves on
 	var from: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var going := TerrainStep.way(unit, from, place, terrain)  # its way round a barrier
 	var toward: Vector2 = going[0]
 	var way := toward - from
-	var full: float = unit.speed * timing[1] * seconds
-	if not WalkModes.may_step(unit, from, toward, terrain):
+	var full: float = speed * timing[1] * seconds
+	if not WalkModes.may_step(unit, columns, from, toward, terrain):
 		full = 0.0  # spent: it won't start a climb or a swim
 	if timing.size() > 2 and way.length() > EPSILON:  # bodies on the ground (GroundBodies)
 		full *= GroundBodies.underfoot(unit, from + way.normalized() * 0.5, timing[2])

@@ -25,7 +25,7 @@ func _unit(unit_id: int, faction: String, at: Vector2) -> SkirmishUnit:
 	unit.faction_id = faction
 	_places.health(unit, 10)
 	unit.max_hp = 10
-	unit.speed = 1.0
+	_places.pace(unit, 1.0)
 	unit.fresh_speed = 1.0
 	_places.stand(unit, at)
 	unit.attributes = {"strength": 10}

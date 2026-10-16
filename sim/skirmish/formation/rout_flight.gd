@@ -33,7 +33,7 @@ static func step(squad: SkirmishSquad, unit: SkirmishUnit, home: float, motion: 
 	var view: UnitView = motion[5]  # the rout's held view: indexed, not called
 	var routes: PackedFloat64Array = view.along
 	var offsets: PackedVector2Array = view.offset
-	var full: float = unit.speed * motion[0]
+	var full: float = view.speed[unit.slot] * motion[0]
 	var aside := DetMath.sin(fan(unit, motion[1])) * full
 	var fanned: float = view.fanned[unit.slot]
 	var along := routes[unit.slot]

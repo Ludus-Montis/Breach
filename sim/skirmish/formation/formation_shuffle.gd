@@ -126,6 +126,7 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 	var front_first := PlaceOrder.front_first(squad.living(), table.rank, table.column)
 	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	var started := false
+	var paces: PackedFloat64Array = UnitView.read(squad, [UnitColumns.SPEED]).speed
 	for unit: SkirmishUnit in front_first:
 		if occupied["places"][unit].x == 0 or busy.has(unit):
 			continue
@@ -135,7 +136,7 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 		if plan.is_empty():
 			continue
 		var involved: Array = plan["to"].keys()
-		var slowest: float = involved.reduce(func(least, u): return minf(least, u.speed), INF)
+		var slowest: float = involved.reduce(func(least, u): return minf(least, paces[u.slot]), INF)
 		if slowest <= 0.0:
 			continue
 		var crowding := (

@@ -13,13 +13,14 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 
-## The unit's key for a cell it would reach in `arrival` seconds.
-static func key(unit: SkirmishUnit, arrival: float, fight_seed: int, tick: int) -> Array:
+## The unit's key for a cell it would reach in `arrival` seconds at its `speed` (its pace
+## this tick, the store's SPEED).
+static func key(
+	unit: SkirmishUnit, arrival: float, speed: float, fight_seed: int, tick: int
+) -> Array:
 	var die := BattleTuning.current().combat_contest_die  # 0 decides by stats alone
 	var roll := posmod(hash([fight_seed, tick, unit.id]), die + 1) if die > 0 else 0
-	return [
-		arrival, -(roll + unit.initiative), -unit.initiative, -unit.speed, draw(unit, fight_seed)
-	]
+	return [arrival, -(roll + unit.initiative), -unit.initiative, -speed, draw(unit, fight_seed)]
 
 
 ## The unit's draw: seeded by the fight and the unit, 62 bits wide, so two units' draws

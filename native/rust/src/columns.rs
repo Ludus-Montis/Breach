@@ -8,7 +8,10 @@
 //! faces (`bearing`, step 3: degrees clockwise from north), and its place in its squad's
 //! frame (`rank` and `column`, step 4a), and its hp, the ticks till its next blow and the
 //! hp it may still regenerate before it rests (`hp`, `attack_cooldown`,
-//! `regeneration_left`, step 5b). The field holds
+//! `regeneration_left`, step 5b), and its stamina, its pace this tick, whether it spent
+//! stamina this tick, seconds since it last did, seconds into its run, whether it ran last
+//! tick and its condition (`stamina`, `speed`, `exerted`, `breather`, `run_build`,
+//! `was_running`, `condition`, step 6c). The field holds
 //! them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
@@ -29,6 +32,8 @@ pub struct Columns {
     pub column: Vec<i32>,
     pub hp: Vec<i32>,
     pub attack_cooldown: Vec<i32>,
+    pub exerted: Vec<i32>,
+    pub was_running: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -39,12 +44,20 @@ pub struct Columns {
     pub fanned: Vec<f64>,
     pub bearing: Vec<f64>,
     pub regeneration_left: Vec<f64>,
+    pub stamina: Vec<f64>,
+    pub speed: Vec<f64>,
+    pub breather: Vec<f64>,
+    pub run_build: Vec<f64>,
+    pub condition: Vec<f64>,
 }
 
 /// No goal (`goal_slot`).
 const NO_GOAL: i64 = -1;
 /// A unit not yet turned faces east (`bearing`).
 const EAST: f64 = 90.0;
+/// A unit not yet given its own starts fresh (`stamina`) and as things stand (`condition`).
+const FRESH: f64 = 100.0;
+const AS_THINGS_STAND: f64 = 1.0;
 
 impl Columns {
     /// A point column by its name.
@@ -70,6 +83,8 @@ impl Columns {
             "column" => Some(&mut self.column),
             "hp" => Some(&mut self.hp),
             "attack_cooldown" => Some(&mut self.attack_cooldown),
+            "exerted" => Some(&mut self.exerted),
+            "was_running" => Some(&mut self.was_running),
             _ => None,
         }
     }
@@ -94,6 +109,11 @@ impl Columns {
             "fanned" => Some(&mut self.fanned),
             "bearing" => Some(&mut self.bearing),
             "regeneration_left" => Some(&mut self.regeneration_left),
+            "stamina" => Some(&mut self.stamina),
+            "speed" => Some(&mut self.speed),
+            "breather" => Some(&mut self.breather),
+            "run_build" => Some(&mut self.run_build),
+            "condition" => Some(&mut self.condition),
             _ => None,
         }
     }
@@ -118,6 +138,8 @@ impl Columns {
             &mut self.column,
             &mut self.hp,
             &mut self.attack_cooldown,
+            &mut self.exerted,
+            &mut self.was_running,
         ] {
             column.push(0);
         }
@@ -125,13 +147,21 @@ impl Columns {
             column.push(0);
         }
         self.goal_slot.push(NO_GOAL);
-        for column in
-            [&mut self.stuck, &mut self.along, &mut self.fanned, &mut self.regeneration_left]
-        {
+        for column in [
+            &mut self.stuck,
+            &mut self.along,
+            &mut self.fanned,
+            &mut self.regeneration_left,
+            &mut self.speed,
+            &mut self.breather,
+            &mut self.run_build,
+        ] {
             column.push(0.0);
         }
         self.closest.push(f64::INFINITY);
         self.bearing.push(EAST);
+        self.stamina.push(FRESH);
+        self.condition.push(AS_THINGS_STAND);
     }
 
     /// Every column blank in `slot`.
@@ -154,6 +184,8 @@ impl Columns {
             &mut self.column,
             &mut self.hp,
             &mut self.attack_cooldown,
+            &mut self.exerted,
+            &mut self.was_running,
         ] {
             column[slot] = 0;
         }
@@ -161,13 +193,21 @@ impl Columns {
             column[slot] = 0;
         }
         self.goal_slot[slot] = NO_GOAL;
-        for column in
-            [&mut self.stuck, &mut self.along, &mut self.fanned, &mut self.regeneration_left]
-        {
+        for column in [
+            &mut self.stuck,
+            &mut self.along,
+            &mut self.fanned,
+            &mut self.regeneration_left,
+            &mut self.speed,
+            &mut self.breather,
+            &mut self.run_build,
+        ] {
             column[slot] = 0.0;
         }
         self.closest[slot] = f64::INFINITY;
         self.bearing[slot] = EAST;
+        self.stamina[slot] = FRESH;
+        self.condition[slot] = AS_THINGS_STAND;
     }
 }
 
@@ -182,6 +222,8 @@ mod tests {
         assert_eq!(columns.goal_slot[0], NO_GOAL);
         assert_eq!(columns.closest[0], f64::INFINITY);
         assert_eq!(columns.bearing[0], EAST);
+        assert_eq!(columns.stamina[0], FRESH);
+        assert_eq!(columns.condition[0], AS_THINGS_STAND);
         columns.points("next").unwrap()[0] = V2 { x: 1.0, y: 2.0 };
         columns.ints("keys").unwrap()[0] = 5;
         columns.longs("goal_slot").unwrap()[0] = 3;
@@ -191,6 +233,10 @@ mod tests {
         columns.ints("hp").unwrap()[0] = 12;
         columns.ints("attack_cooldown").unwrap()[0] = 4;
         columns.reals("regeneration_left").unwrap()[0] = 2.5;
+        columns.reals("stamina").unwrap()[0] = 42.5;
+        columns.reals("speed").unwrap()[0] = 1.25;
+        columns.ints("exerted").unwrap()[0] = 1;
+        columns.reals("condition").unwrap()[0] = 0.5;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
@@ -201,6 +247,10 @@ mod tests {
         assert_eq!(columns.hp[0], 0);
         assert_eq!(columns.attack_cooldown[0], 0);
         assert_eq!(columns.regeneration_left[0], 0.0);
+        assert_eq!(columns.stamina[0], FRESH);
+        assert_eq!(columns.speed[0], 0.0);
+        assert_eq!(columns.exerted[0], 0);
+        assert_eq!(columns.condition[0], AS_THINGS_STAND);
     }
 
     #[test]
@@ -209,13 +259,35 @@ mod tests {
         for name in ["position", "at", "offset", "next", "foe_at", "toward"] {
             assert!(columns.points(name).is_some(), "{name}");
         }
-        for name in ["flags", "touch", "keys", "rank", "column", "hp", "attack_cooldown"] {
+        for name in [
+            "flags",
+            "touch",
+            "keys",
+            "rank",
+            "column",
+            "hp",
+            "attack_cooldown",
+            "exerted",
+            "was_running",
+        ] {
             assert!(columns.ints(name).is_some(), "{name}");
         }
         for name in ["goal_foe", "goal_slot", "caught", "held_by"] {
             assert!(columns.longs(name).is_some(), "{name}");
         }
-        for name in ["stuck", "closest", "along", "fanned", "bearing", "regeneration_left"] {
+        for name in [
+            "stuck",
+            "closest",
+            "along",
+            "fanned",
+            "bearing",
+            "regeneration_left",
+            "stamina",
+            "speed",
+            "breather",
+            "run_build",
+            "condition",
+        ] {
             assert!(columns.reals(name).is_some(), "{name}");
         }
         assert!(columns.points("flags").is_none());

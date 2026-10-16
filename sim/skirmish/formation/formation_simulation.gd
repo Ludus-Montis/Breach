@@ -292,7 +292,7 @@ func _fight(events: Array) -> void:
 		events.append(FormationEvents.hit(_tick, blow, UnitHealth.of(health, blow[1])))
 	UnitView.release(health)
 	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
-	FormationStamina.strike(blows + shots)
+	FormationStamina.strike(self, blows + shots)
 
 
 ## Ticks in a second: a weapon's attack interval is in seconds (Decision 120).

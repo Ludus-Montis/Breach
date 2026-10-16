@@ -26,15 +26,17 @@ const EPSILON := 0.000001
 
 
 ## Whether `unit` at `from` may step towards `to`: walking always; into a climb or a swim
-## unless it is spent and not already in that mode.
-static func may_step(unit, from: Vector2, to: Vector2, terrain: FormationTerrain) -> bool:
+## unless it is spent and not already in that mode. `columns`: its store's, its STAMINA read.
+static func may_step(
+	unit, columns: UnitColumns, from: Vector2, to: Vector2, terrain: FormationTerrain
+) -> bool:
 	if terrain == null:
 		return true
 	var walker := TerrainWalker.of_unit(unit)
 	var mode := terrain.mode(walker, from, to)
 	if mode == TerrainWalker.Mode.WALKING or terrain.mode(walker, from, from) == mode:
 		return true
-	return ModeStamina.can_start(unit, mode)
+	return ModeStamina.can_start(unit, columns.value(unit.slot, UnitColumns.STAMINA), mode)
 
 
 ## A tick of `seconds` on a climb face for `unit` of `squad` (anything holding the store),
@@ -49,9 +51,11 @@ static func climb(
 	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var share := terrain.factor(unit, unit.foothold, at)
 	unit.climb_left -= share * cells_per_second * seconds
-	unit.stamina = maxf(0.0, unit.stamina - ModeStamina.rate(TerrainWalker.Mode.CLIMBING) * seconds)
+	var stamina: float = columns.value(unit.slot, UnitColumns.STAMINA)
+	stamina = maxf(0.0, stamina - ModeStamina.rate(TerrainWalker.Mode.CLIMBING) * seconds)
+	columns.put(unit.slot, UnitColumns.STAMINA, stamina)
 	unit.on_face = unit.climb_left > EPSILON
-	if unit.on_face and unit.stamina <= 0.0:
+	if unit.on_face and stamina <= 0.0:
 		_fall(unit, squad, terrain)
 		return false
 	return unit.on_face
@@ -73,7 +77,9 @@ static func after_step(
 		return
 	var here := terrain.mode(walker, at, at)
 	if here == TerrainWalker.Mode.SWIMMING and from.distance_to(at) > EPSILON:
-		unit.stamina = maxf(0.0, unit.stamina - ModeStamina.rate(here) * seconds)
+		var stamina: float = columns.value(unit.slot, UnitColumns.STAMINA)
+		stamina = maxf(0.0, stamina - ModeStamina.rate(here) * seconds)
+		columns.put(unit.slot, UnitColumns.STAMINA, stamina)
 	unit.on_face = here == TerrainWalker.Mode.SWIMMING
 	if ClimbStamina.standable(terrain, walker, at):
 		unit.foothold = at

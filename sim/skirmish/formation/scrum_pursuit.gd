@@ -43,6 +43,8 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## discipline) / 100.
 ## The chasers' loose points, held for the pass (UnitView).
 const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT]
+## A chaser's pace, and the stamina that tells when it gives up: read for the pass.
+const PACED := [UnitColumns.SPEED, UnitColumns.STAMINA]
 
 
 ## Applies a retreat order to `squad`: ends its fight, costs a ragged one its scaled rout,
@@ -87,7 +89,9 @@ static func step(
 	var quarries := {}  # foe squad -> its units' index (ScrumNear), where they stand now
 	var chasing := squads.filter(func(s): return not s.chasers.is_empty())
 	var held := UnitView.hold(chasing, HELD)  # each chaser read and stepped: held for the pass
+	var paces := {}  # store -> a read view of PACED (UnitView.read_once)
 	for squad in chasing:
+		var paced := UnitView.read_once(paces, squad, PACED)
 		var homes := TerrainStep.returns(squad, terrain, fight_seed)
 		var places := UnitView.read(squad, UnitView.PLACES)
 		var loose_at: PackedVector2Array = UnitView.of(squad).at
@@ -101,7 +105,7 @@ static func step(
 			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, places))  # back
 			if not chase.get("returning", false):
 				var at: Vector2 = loose_at[unit.slot]
-				var quarry = _quarry(at, unit, foe, quarries, fight_seed)
+				var quarry = _quarry(at, [unit, paced], foe, quarries, fight_seed)
 				if _done(chase, at, unit, quarry):
 					chase["returning"] = true
 				else:
@@ -114,7 +118,7 @@ static func step(
 		var view := UnitView.of(walk[0])
 		var loose_at: PackedVector2Array = view.at
 		var next: PackedVector2Array = view.next
-		var full: float = unit.speed * cells_per_second * seconds
+		var full: float = paces[walk[0].store].speed[unit.slot] * cells_per_second * seconds
 		var at: Vector2 = loose_at[unit.slot]
 		var to := UnitSteer.toward(unit, at, walk[2], bodies, fight_seed, crowd)
 		var columns: UnitColumns = walk[0].store.columns
@@ -128,11 +132,12 @@ static func step(
 
 
 ## Where the nearest unit of the chaser's foe stands (_nearest_in), or null if the chase
-## is over before it looks: its foe gone, or it too tired. `quarries` keeps each foe's index.
+## is over before it looks: its foe gone, or it too tired. `chaser` is [the unit, a view of
+## its store holding STAMINA]; `quarries` keeps each foe's index.
 static func _quarry(
-	at: Vector2, unit: SkirmishUnit, foe: SkirmishSquad, quarries: Dictionary, fight_seed: int
+	at: Vector2, chaser: Array, foe: SkirmishSquad, quarries: Dictionary, fight_seed: int
 ):
-	if foe == null or foe.is_destroyed() or FormationStamina.gives_up(unit):
+	if foe == null or foe.is_destroyed() or FormationStamina.gives_up(chaser[1], chaser[0]):
 		return null
 	if not quarries.has(foe):
 		quarries[foe] = _index(foe)

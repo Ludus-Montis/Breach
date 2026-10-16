@@ -45,11 +45,10 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns a router's point is read from (where_in).
 const ROUTE := [UnitColumns.ALONG, UnitColumns.FLEE_OFFSET]
-## The fleeing entries' columns, and the keys that say which an entry holds (SquadEntries):
-## the rout's view (UnitView), held for its pass.
-const HELD := (
-	ROUTE + [UnitColumns.FANNED, UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.KEYS]
-)
+## The fleeing entries' columns, the keys that say which an entry holds (SquadEntries) and
+## each router's pace (RoutFlight): the rout's view (UnitView), held for its pass.
+const FLED := [UnitColumns.FANNED, UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.KEYS]
+const HELD := ROUTE + FLED + [UnitColumns.SPEED]
 
 const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 

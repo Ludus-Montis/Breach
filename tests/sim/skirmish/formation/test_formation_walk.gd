@@ -47,8 +47,11 @@ func test_a_unit_pushed_off_its_place_walks_back_at_its_pace() -> void:
 	FormationWalk.walk(squad, unit, place, [0.1, PACE])
 
 	var way := place - UnitPlaces.of(squad, unit)
-	var stepped := (
-		unit.speed * PACE * 0.1 * UnitMotion.pace(unit, way, UnitPlaces.bearing_of(squad, unit))
+	var stepped: float = (
+		squad.store.columns.value(unit.slot, UnitColumns.SPEED)
+		* PACE
+		* 0.1
+		* UnitMotion.pace(unit, way, UnitPlaces.bearing_of(squad, unit))
 	)
 	assert_float(UnitPlaces.of(squad, unit).distance_to(place)).is_less(3.0)
 	assert_float(3.0 - UnitPlaces.of(squad, unit).distance_to(place)).is_less_equal(

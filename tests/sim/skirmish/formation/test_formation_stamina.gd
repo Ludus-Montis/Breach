@@ -13,6 +13,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const ItemDef = preload("res://content/definitions/item_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 var _places := UnitPlaces.new()
 
@@ -35,14 +36,28 @@ func _laden(weight: float, hauler: int = 0) -> UnitDef:
 	return unit_def
 
 
+## A unit of its own id in the shared store, at pace 1 with `stamina` of 100.
 func _unit(stamina: float = 100.0) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
-	unit.id = 1
 	_places.health(unit, 10)
-	unit.speed = 1.0
+	_places.pace(unit, 1.0)
 	unit.max_stamina = 100.0
-	unit.stamina = stamina
+	_places.tire(unit, stamina)
 	return unit
+
+
+## `unit`'s stamina, its pace this tick, in the shared store (spec 35 step 6c).
+func _stamina(unit: SkirmishUnit) -> float:
+	return _places.store.columns.value(unit.slot, UnitColumns.STAMINA)
+
+
+func _speed(unit: SkirmishUnit) -> float:
+	return _places.store.columns.value(unit.slot, UnitColumns.SPEED)
+
+
+## A view of the shared store holding STAMINA.
+func _view() -> UnitView:
+	return UnitView.read({"store": _places.store}, [UnitColumns.STAMINA])
 
 
 func _squad(units: Array) -> SkirmishSquad:
@@ -64,8 +79,8 @@ func test_a_laden_unit_is_slower_tires_faster_and_dodges_worse() -> void:
 	var light := FormationUnits.make(_laden(5.0), "player", 1, 1)
 	var heavy := FormationUnits.make(_laden(30.0), "player", 1, 2)
 
-	assert_float(light.speed).is_equal(1.0)
-	assert_float(heavy.speed).is_equal_approx(tuning.load_pace[2], 0.0001)
+	assert_float(light.fresh_speed).is_equal(1.0)
+	assert_float(heavy.fresh_speed).is_equal_approx(tuning.load_pace[2], 0.0001)
 	assert_float(heavy.tiring).is_greater(light.tiring)
 	assert_float(heavy.dodging).is_less(light.dodging)
 	assert_float(light.max_stamina).is_equal(10 * tuning.stamina_per_constitution)
@@ -81,12 +96,12 @@ func test_running_tires_it_and_marching_light_costs_nothing() -> void:
 
 	for _i in range(10):
 		FormationStamina.step([fleeing, _squad([marcher])], 0.1)
-	FormationStamina.strike([[striker]])
+	FormationStamina.strike(_places, [[striker]])
 
-	assert_float(runner.stamina).is_equal_approx(100.0 - tuning.stamina_run, 0.0001)
-	assert_float(marcher.stamina).is_equal(100.0)
-	assert_float(marcher.speed).is_equal(1.0)
-	assert_float(striker.stamina).is_equal_approx(100.0 - tuning.stamina_blow, 0.0001)
+	assert_float(_stamina(runner)).is_equal_approx(100.0 - tuning.stamina_run, 0.0001)
+	assert_float(_stamina(marcher)).is_equal(100.0)
+	assert_float(_speed(marcher)).is_equal(1.0)
+	assert_float(_stamina(striker)).is_equal_approx(100.0 - tuning.stamina_blow, 0.0001)
 
 
 func test_a_run_builds_up_and_a_pursuer_reacts_first() -> void:
@@ -98,13 +113,13 @@ func test_a_run_builds_up_and_a_pursuer_reacts_first() -> void:
 	pursuing.pursuit = {"returning": false}
 	FormationStamina.step([fleeing, pursuing], 0.1)
 
-	assert_float(fleeing_unit.speed).is_greater(1.0)  # building up
-	assert_float(fleeing_unit.speed).is_less(fleeing_unit.run_pace)
-	assert_float(chaser.speed).is_equal(1.0)  # still reacting
+	assert_float(_speed(fleeing_unit)).is_greater(1.0)  # building up
+	assert_float(_speed(fleeing_unit)).is_less(fleeing_unit.run_pace)
+	assert_float(_speed(chaser)).is_equal(1.0)  # still reacting
 	for _i in range(30):
 		FormationStamina.step([fleeing, pursuing], 0.1)
-	assert_float(fleeing_unit.speed).is_equal_approx(fleeing_unit.run_pace, 0.0001)
-	assert_float(chaser.speed).is_equal_approx(chaser.run_pace, 0.0001)
+	assert_float(_speed(fleeing_unit)).is_equal_approx(fleeing_unit.run_pace, 0.0001)
+	assert_float(_speed(chaser)).is_equal_approx(chaser.run_pace, 0.0001)
 
 
 func test_it_recovers_only_after_a_breather_from_its_last_cost() -> void:
@@ -117,15 +132,15 @@ func test_it_recovers_only_after_a_breather_from_its_last_cost() -> void:
 	for _i in range(roundi(delay * 0.75 / 0.1)):
 		FormationStamina.step(squads, 0.1)
 
-	assert_float(resting.stamina).is_equal(50.0)  # still catching its breath
-	assert_float(hardy.stamina).is_greater(50.0)
+	assert_float(_stamina(resting)).is_equal(50.0)  # still catching its breath
+	assert_float(_stamina(hardy)).is_greater(50.0)
 	for _i in range(roundi(delay / 0.1) + 10):
 		FormationStamina.step(squads, 0.1)
-	assert_float(resting.stamina).is_greater(50.0)
-	FormationStamina.strike([[resting]])  # a blow restarts the breather
-	var after := resting.stamina
+	assert_float(_stamina(resting)).is_greater(50.0)
+	FormationStamina.strike(_places, [[resting]])  # a blow restarts the breather
+	var after := _stamina(resting)
 	FormationStamina.step(squads, 0.1)
-	assert_float(resting.stamina).is_equal(after)
+	assert_float(_stamina(resting)).is_equal(after)
 
 
 func test_a_heavy_load_makes_marching_cost_and_a_poor_condition_slows_recovery() -> void:
@@ -133,14 +148,14 @@ func test_a_heavy_load_makes_marching_cost_and_a_poor_condition_slows_recovery()
 	laden.load_stage = 2
 	var marching := _squad([laden])
 	var weak := _unit(50.0)
-	weak.condition = 0.0  # in a bad enough state it doesn't recover
+	_places.store.columns.put(weak.slot, UnitColumns.CONDITION, 0.0)  # too bad to recover
 	var rested := [_squad([weak])]
 	FormationStamina.step([marching], 1.0)
 	for _i in range(100):
 		FormationStamina.step(rested, 0.1)
 
-	assert_float(laden.stamina).is_less(100.0)
-	assert_float(weak.stamina).is_equal(50.0)
+	assert_float(_stamina(laden)).is_less(100.0)
+	assert_float(_stamina(weak)).is_equal(50.0)
 
 
 func test_who_runs() -> void:
@@ -176,7 +191,7 @@ func test_a_spent_unit_cant_run() -> void:
 	fleeing.state = SkirmishSquad.State.ROUTING
 	FormationStamina.step([fleeing], 0.1)
 
-	assert_float(spent.speed).is_equal_approx(BattleTuning.current().stamina_pace[2], 0.0001)
+	assert_float(_speed(spent)).is_equal_approx(BattleTuning.current().stamina_pace[2], 0.0001)
 
 
 func test_tired_it_is_slower_and_less_skilled() -> void:
@@ -186,18 +201,19 @@ func test_tired_it_is_slower_and_less_skilled() -> void:
 	var spent := _unit(5.0)
 	FormationStamina.step([_squad([fresh, tired, spent])], 0.0)
 
-	assert_float(fresh.speed).is_equal(1.0)
-	assert_float(tired.speed).is_equal_approx(tuning.stamina_pace[1], 0.0001)
-	assert_float(spent.speed).is_equal_approx(tuning.stamina_pace[2], 0.0001)
-	assert_float(FormationStamina.skill_shift(fresh)).is_equal(0.0)
-	assert_float(FormationStamina.skill_shift(spent)).is_less(FormationStamina.skill_shift(tired))
+	assert_float(_speed(fresh)).is_equal(1.0)
+	assert_float(_speed(tired)).is_equal_approx(tuning.stamina_pace[1], 0.0001)
+	assert_float(_speed(spent)).is_equal_approx(tuning.stamina_pace[2], 0.0001)
+	var shift := func(u): return FormationStamina.skill_shift(u, _stamina(u))
+	assert_float(shift.call(fresh)).is_equal(0.0)
+	assert_float(shift.call(spent)).is_less(shift.call(tired))
 
 
 func test_a_tired_pursuer_gives_up() -> void:
 	var keen := _unit()
 	var worn := _unit(10.0)
 
-	assert_bool(FormationStamina.gives_up(keen)).is_false()
-	assert_bool(FormationStamina.gives_up(worn)).is_true()
+	assert_bool(FormationStamina.gives_up(_view(), keen)).is_false()
+	assert_bool(FormationStamina.gives_up(_view(), worn)).is_true()
 	assert_bool(FormationStamina.squad_gives_up(_squad([keen, worn]))).is_false()
 	assert_bool(FormationStamina.squad_gives_up(_squad([worn, _unit(5.0), keen]))).is_true()

@@ -118,12 +118,12 @@ func test_contests_go_to_the_earliest_then_the_readiest() -> void:
 	slow.id = 2
 	slow.initiative = 10
 
-	var early := ScrumContest.key(slow, 1.0, 7, 3)
-	var late := ScrumContest.key(quick, 2.0, 7, 3)
+	var early := ScrumContest.key(slow, 1.0, 0.0, 7, 3)
+	var late := ScrumContest.key(quick, 2.0, 0.0, 7, 3)
 	assert_bool(ScrumContest.before(early, late)).is_true()
-	var level := ScrumContest.key(quick, 1.0, 7, 3)
+	var level := ScrumContest.key(quick, 1.0, 0.0, 7, 3)
 	assert_bool(ScrumContest.before(level, early)).is_true()
-	assert_array(ScrumContest.key(slow, 1.0, 7, 3)).is_equal(early)
+	assert_array(ScrumContest.key(slow, 1.0, 0.0, 7, 3)).is_equal(early)
 	assert_int(ScrumContest.draw(slow, 7)).is_not_equal(ScrumContest.draw(quick, 7))
 
 

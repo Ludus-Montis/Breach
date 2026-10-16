@@ -9,6 +9,7 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const SWIMMER := [1.0, 0, 0, true, false]  # height, swimmer, climber, swims, climbs
 const CLIMBER := [1.0, 0, 1, false, true]
@@ -29,6 +30,11 @@ func _unit(at: Vector2, walker: Array = []) -> SkirmishUnit:
 	if not walker.is_empty():
 		unit.walker = TerrainWalker.new(walker[0], walker[1], walker[2], walker[3], walker[4])
 	return unit
+
+
+## `unit`'s stamina, in the shared store (spec 35 step 6c).
+func _stamina(unit: SkirmishUnit) -> float:
+	return _places.store.columns.value(unit.slot, UnitColumns.STAMINA)
 
 
 func _pool() -> FormationTerrain:
@@ -55,24 +61,38 @@ func test_a_swimmer_crosses_deep_water_and_a_grounded_unit_does_not() -> void:
 func test_a_second_swimming_costs_the_swim_rate() -> void:
 	var ground := _pool()
 	var swimmer := _unit(Vector2(10.5, 5.5), SWIMMER)
-	swimmer.stamina = 50.0
+	_places.tire(swimmer, 50.0)
 	var from := Vector2(10.2, 5.5)
 
 	WalkModes.after_step(swimmer, _places.store.columns, from, ground, 1.0)
 
 	var rate := BattleTuning.current().stamina_swim
-	assert_float(swimmer.stamina).is_equal_approx(50.0 - rate, 0.0001)
+	assert_float(_stamina(swimmer)).is_equal_approx(50.0 - rate, 0.0001)
 	assert_bool(swimmer.on_face).is_true()  # no breather in deep water
 
 
 func test_a_spent_unit_starts_no_swim_but_carries_on_one_it_is_in() -> void:
 	var ground := _pool()
 	var spent := _unit(Vector2(9.5, 5.5), SWIMMER)
-	spent.stamina = 0.0
+	_places.tire(spent, 0.0)
 	spent.max_stamina = 100.0
 
-	assert_bool(WalkModes.may_step(spent, Vector2(9.5, 5.5), Vector2(10.5, 5.5), ground)).is_false()
-	assert_bool(WalkModes.may_step(spent, Vector2(11.5, 5.5), Vector2(12.5, 5.5), ground)).is_true()
+	(
+		assert_bool(
+			WalkModes.may_step(
+				spent, _places.store.columns, Vector2(9.5, 5.5), Vector2(10.5, 5.5), ground
+			)
+		)
+		. is_false()
+	)
+	(
+		assert_bool(
+			WalkModes.may_step(
+				spent, _places.store.columns, Vector2(11.5, 5.5), Vector2(12.5, 5.5), ground
+			)
+		)
+		. is_true()
+	)
 
 
 func test_stepping_onto_a_cliff_begins_a_climb_of_its_height() -> void:
@@ -91,14 +111,14 @@ func test_a_climb_takes_time_and_stamina_at_the_climb_pace() -> void:
 	var climber := _unit(Vector2(9.5, 5.5), CLIMBER)
 	_places.move(climber, Vector2(10.1, 5.5))
 	climber.climb_left = 4.0
-	climber.stamina = 30.0
+	_places.tire(climber, 30.0)
 
 	var still := WalkModes.climb(climber, _places, ground, 1.0, 1.0)
 
 	var tuning := BattleTuning.current()
 	assert_bool(still).is_true()
 	assert_float(climber.climb_left).is_equal_approx(4.0 - tuning.ground_climb_pace, 0.0001)
-	assert_float(climber.stamina).is_equal_approx(30.0 - tuning.stamina_climb, 0.0001)
+	assert_float(_stamina(climber)).is_equal_approx(30.0 - tuning.stamina_climb, 0.0001)
 	assert_vector(_places.at(climber)).is_equal(Vector2(10.1, 5.5))
 
 
@@ -107,7 +127,7 @@ func test_a_unit_spent_on_a_climb_face_falls_hurt_by_what_it_climbed() -> void:
 	var climber := _unit(Vector2(9.5, 5.5), CLIMBER)
 	_places.move(climber, Vector2(10.1, 5.5))
 	climber.climb_left = 1.0  # three cells up already
-	climber.stamina = 0.01
+	_places.tire(climber, 0.01)
 
 	var still := WalkModes.climb(climber, _places, ground, 0.1, 1.0)
 

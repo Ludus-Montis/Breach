@@ -64,7 +64,10 @@ static func _battle(contact_seconds: float, battle_seed: int) -> Dictionary:
 
 static func _stamina(squad) -> float:
 	var living: Array = squad.living()
-	var total: float = living.reduce(func(sum, u): return sum + u.stamina / u.max_stamina, 0.0)
+	var stamina: PackedFloat64Array = UnitView.read(squad, [UnitColumns.STAMINA]).stamina
+	var total: float = living.reduce(
+		func(sum, u): return sum + stamina[u.slot] / u.max_stamina, 0.0
+	)
 	return total / maxi(1, living.size())
 
 
