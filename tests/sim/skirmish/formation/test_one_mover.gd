@@ -8,6 +8,9 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const RoutFlight = preload("res://sim/skirmish/formation/rout_flight.gd")
+const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
+const FleeColumns = preload("res://sim/skirmish/formation/flee_columns.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 
@@ -43,7 +46,10 @@ func _flight(terrain) -> float:
 	squad.route = FormationRoute.new(PackedVector2Array([Vector2(0, 16), Vector2(256, 16)]))
 	var unit: SkirmishUnit = _places.stand(_unit(), Vector2(100, 16))  # its slot in the store
 	SquadEntries.flee(squad, unit, 100.0, Vector2.ZERO)
-	RoutFlight.step(squad, unit, 0.0, [1.0, 7, terrain, Vector2(100, 16), {}])
+	var stores := StoreHolds.hold([squad], FormationRout.HELD)  # as the rout holds them
+	var flee := FleeColumns.of(squad)
+	RoutFlight.step(squad, unit, 0.0, [1.0, 7, terrain, Vector2(100, 16), {}, flee])
+	StoreHolds.release(stores)
 	return 100.0 - squad.store.columns.value(unit.slot, UnitColumns.ALONG)
 
 
