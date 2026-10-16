@@ -802,6 +802,40 @@ Kept, where the list above was wider than the code:
   Every other phase's ranges overlap. With 5 rounds, two equal sides fall apart by chance
   for about 1 phase in 125.
 
+### The rout's columns held for its pass (after step 5b)
+
+- **Found by the series bench** (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side
+  in four squads: #234 against `1cc4412`, the last commit before step 0): the tick 3.4%
+  faster (402.7 to 389.0 ms), but the rout 52% slower (60.9 to 92.4 ms). The fleeing
+  entries had moved to the store in steps 1b and 2, and the rout read and wrote them with
+  `columns.value` and `put`: about 1 us each on the native store (a GDScript method call
+  into the field), against a few hundredths of a microsecond for the dictionary entries
+  before. About 8,700 such calls a tick at 1,024 a side.
+- **A hold layer alone didn't help:** a held column read through a method is about as dear
+  as a native one (1.0 against 1.2 us); in GDScript the call is the cost. A typed array's
+  index is about 0.04 us, and GDScript's packed arrays share their storage, so a typed
+  array of a held column is read and written in place by its holder and by every other
+  reader.
+- **`StoreHolds`** (`store_holds.gd`) holds named columns of every store a pass's squads
+  use and releases them: **`ColumnsHeld`** (`columns_held.gd`) is the store's `columns`
+  meanwhile, with the held columns copied out once and served from there, and every other
+  column passing through; a slot opened in the pass grows the copies in place; release
+  commits every held column. **`FleeColumns`** (`flee_columns.gd`) hands the rout's loops
+  (`_flee`, `_crush`, `_rallies`) and `RoutFlight.step` the held fleeing columns typed,
+  with `keep` as EntryKeys.keep. Cold readers in the pass (`SquadEntries`, `RoutCatch`'s
+  `EntryKeys.held`) still go through `store.columns` and see the same values.
+- **Outcomes unchanged:** two 400-tick battles (seeds 2 and 5) with routs, crushes and units
+  fleeing home gave the same events and the same per-unit state (hp, position, along,
+  offset, keys) every tick, old against new, on both engines. Locally at 1,024 a side the
+  rout went from about 27 to 18.4 ms, where it was before step 0 (18.0).
+- `test_columns_held.gd`: held writes read back and committed, columns not held passing
+  through, a whole held column carrying the writes, a slot opened in the pass, releasing a
+  store not held, FleeColumns' writes seen by every reader, and its `keep` as EntryKeys'.
+- **Not done here:** `FormationRout.where` is still a scattered read where `UnitBodies`, the
+  march, the rout's blows and the field's sync call it per router; and the other phases the
+  series bench found slower (the bodies snapshot +4.1 ms, engage +2.4, the walk to places
+  +2.1, the shuffle's free front place +1.3) are likely the same per-unit store calls.
+
 ## Open, for the implementing session to settle and record here
 
 - Nothing open. Presentation's snapshot was settled in step 1a (above).
