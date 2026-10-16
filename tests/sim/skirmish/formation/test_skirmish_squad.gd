@@ -22,7 +22,7 @@ func _unit(
 	unit.footprint_depth = depth
 	unit.footprint_width = width
 	unit.speed = speed
-	unit.hp = 10
+	_places.health(unit, 10)
 	return unit
 
 
@@ -84,6 +84,22 @@ func test_a_wide_unit_only_steps_up_when_its_whole_footprint_is_clear() -> void:
 	squad.units[1].state = SkirmishUnit.State.DEAD
 
 	assert_array(squad.compact()).is_empty()  # column 0 is still held at rank 0
+
+
+func test_a_unit_steps_up_over_passes_and_the_units_behind_follow_while_clear() -> void:
+	var lost := [_unit(1, 0, 0), _unit(2, 1, 0)]  # column 0's two front ranks
+	var climber := _unit(3, 2, 0)  # two ranks to close: one a pass
+	var wide := _unit(6, 3, 0, 1, 2)  # behind it, across columns 0 and 1
+	var squad := _squad(2, lost + [climber, _unit(4, 0, 1), _unit(5, 1, 1), wide])
+	for unit in lost:
+		unit.state = SkirmishUnit.State.DEAD
+
+	var moved := squad.compact()
+
+	assert_array(moved.map(func(u): return u.id)).contains_exactly_in_any_order([3, 6])
+	assert_int(UnitPlace.rank(squad, climber)).is_equal(0)
+	assert_int(UnitPlace.rank(squad, wide)).is_equal(2)  # column 1's rank 1 still holds it
+	assert_int(UnitPlace.rank(squad, squad.units[4])).is_equal(1)
 
 
 func test_lateral_spans_are_centred_and_mirrored_for_the_other_facing() -> void:

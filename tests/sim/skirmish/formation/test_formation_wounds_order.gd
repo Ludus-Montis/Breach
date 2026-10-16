@@ -27,7 +27,7 @@ func _unit(unit_id: int, at: Vector2, faction: String = "player") -> SkirmishUni
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.faction_id = faction
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.max_hp = 10
 	unit.speed = 1.0
 	unit.fresh_speed = 1.0
@@ -48,7 +48,7 @@ func _squad(squad_id: int, members: Array, tends: String = "") -> SkirmishSquad:
 
 
 func _downed(unit: SkirmishUnit, wake_left: float = -1.0) -> SkirmishUnit:
-	unit.hp = 0
+	_places.health(unit, 0)
 	unit.state = SkirmishUnit.State.DOWNED
 	unit.wounded = 1
 	unit.wake_left = wake_left
@@ -73,7 +73,7 @@ func _state(squads: Array) -> String:
 				[
 					unit.id,
 					squad.id,
-					unit.hp,
+					UnitHealth.of(squad, unit),
 					unit.state,
 					UnitPlace.rank(squad, unit),
 					at,

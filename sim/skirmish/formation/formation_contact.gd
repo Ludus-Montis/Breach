@@ -166,7 +166,7 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	for unit in joining.living():
 		var moved := Vector2i(back, (width - joining.width) / 2)
 		UnitPlace.put(joining, unit, UnitPlace.of(joining, unit) + moved)
-		unit.attack_cooldown = 1
+		joining.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, 1)
 		SquadEntries.unloose(joining, unit.id)
 		SquadEntries.unflee(joining, unit.id)
 		FormationCommand.enlist(leader, unit)

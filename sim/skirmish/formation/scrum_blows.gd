@@ -28,6 +28,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 		return out
 	var index := FoeIndex.of(squads)  # one grid a faction, as they stand
 	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
+	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for squad in squads:
 		var near := FoeIndex.struck(index, squad)
 		if near.is_empty():
@@ -42,10 +43,10 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 			var target: SkirmishUnit = pick[0]
 			var target_at: Vector2 = pick[2]
 			unit.target_id = target.id
-			unit.attack_cooldown -= 1
-			if unit.attack_cooldown > 0:
+			cooldowns[unit.slot] -= 1
+			if cooldowns[unit.slot] > 0:
 				continue
-			unit.attack_cooldown = FormationMorale.interval(squad, ticks(interval, unit))
+			cooldowns[unit.slot] = FormationMorale.interval(squad, ticks(interval, unit))
 			var target_squad: SkirmishSquad = pick[1]
 			if (
 				squad.order == SkirmishUnit.Order.RETREAT
@@ -54,6 +55,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 				continue  # turned away: it no longer strikes
 			var flank := not ScrumReach.in_front(bearings[target.slot], target_at, where)
 			out.append([unit, target, FormationCombat.damage(unit), flank])
+	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 	return out
 
 

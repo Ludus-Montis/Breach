@@ -55,6 +55,9 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   and attack cooldown, every hp write through `UnitHealth`, and deaths drains a fell queue.
   See "Settled for step 5" below.
 - **Step 5a, the lane skirmish retired: built** (2026-10-15). See "Built" below.
+- **Step 5b, hp and cooldown in the store: built** (2026-10-15), stacked on 5a's PR (the
+  user), with the copies measured and deaths' step-up made cheaper: the tick 1.5% faster
+  than 5a on the alternating bench. See "Built" below.
 - **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
   See "Built" below.
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
@@ -697,6 +700,107 @@ Kept, where the list above was wider than the code:
   still load them, so they stay for Q25's design session.
 - `SkirmishUnit`'s spec 21 fields (`order`, `distance`, `home_distance`, `wait_ticks`,
   `target_id`): formation code still reads them. Step 7's inventory decides them.
+
+### Step 5b, hp and cooldown in the store
+
+- **`UnitColumns.HP`, `ATTACK_COOLDOWN`** (32-bit ints, blank 0) and **`REGENERATION_LEFT`**
+  (a float, blank 0.0: recovery spends it every tick, so it moved with hp), and Rust's
+  `Columns.hp`, `attack_cooldown` and `regeneration_left`, found by the same names.
+  `SkirmishUnit.hp`, `attack_cooldown` and `regeneration_left` are gone; `max_hp` stays.
+- **`UnitHealth`** (`unit_health.gd`) is hp's one writer: `of`, `hurt`, `heal` and `put`
+  (named `put`, not `set`, as `UnitPlace.put` is, and because `set` is Object's), each
+  taking anything holding the store or a `UnitHealth.Table` (`table`, `commit`): the HP
+  column fetched once for a pass. A write that takes a unit from above 0 to 0 or below
+  pushes its id onto the store's fell queue. `check_one_health.py` (pre-commit and CI, tests
+  in `test_check_one_health.py`) flags any other write to the HP column in `sim/`.
+- **The fell queue** is `FellQueue` (`store.fallen`: `push`, `take`), its own class so the
+  stores keep within the ISP limit; `FellQueueNative` keeps it on the field
+  (`BodyField.fell`, `take_fallen`; `Field.fallen` in Rust), so native passes that land
+  damage later can push to it. No native pass writes hp yet.
+- **`FormationDeaths.bury` drains the queue.** Each id is found again through
+  `UnitStore.admit`, which keeps the unit's record by id (`record_of`) as a squad enrols it,
+  and `settle` forgets it when the unit leaves every list. A unit taken twice, healed above
+  0, no longer living, released by the store or in no squad is skipped. Its current squad
+  is looked for first by its `squad_id` and then through every squad's list (a unit that
+  joined or was reinforced keeps a stale `squad_id`). The rest are sorted by their squad's
+  place in the squad list and then their own place in its list, and died or downed is
+  decided from the final hp, as before.
+- **The passes, as the readers table planned:** blows and shots land through
+  `UnitHealth.hurt` (marked scattered, one write per blow), and `FormationEvents.hit` now
+  takes the target's hp; the rout's crush and a fall from a climb hurt through UnitHealth
+  (`WalkModes.climb` now takes the squad, not the columns); wounds fetch HP and
+  ATTACK_COOLDOWN once for the takings and commit once; recovery fetches HP and
+  REGENERATION_LEFT once for its pass over every unit and commits before units rise;
+  `ScrumBlows`, `ScrumBlowsField._struck`, `RoutBlows` and ranged combat each fetch
+  ATTACK_COOLDOWN once, count down in the copy and commit once; contact's reinforcement
+  puts it per unit (already a marked per-event loop), and the edges and locks fetch and
+  commit it once. `FormationUnits.enter` (moved out of `spawn_squad`, which was at its
+  300-line limit) puts each new unit's place, hp and regeneration left. Presentation fetches
+  HP once a frame; the digest and `tick_phases` read it through the store.
+  `blows_bench.gd` is switched too, but it still doesn't parse (`ScrumBlows._struck_by`
+  went before this step).
+- **Tests.** `test_unit_health.gd` (new): the three columns round-trip and start blank on
+  both backends and live on the native field; only a write crossing the line pushes, and a
+  unit healed and hurt again falls again; a table writes in its copy and commits; `bury`
+  takes the fallen in the lists' order with the squad each is in now, skipping the healed
+  and the taken and ignoring a unit set to 0 hp around UnitHealth; and SkirmishUnit no
+  longer declares them (red before this step). `columns.rs` and `field.rs` test the new
+  columns' blanks and names and the queue's order. Tests that set hp by hand go through
+  `UnitPlaces.health` (which enrols first) or `UnitHealth.put`, and `UnitPlaces.onto` admits
+  the units it moves, so their records go with them.
+- **The copies carried in from #229, measured** (`tick_phases copies`, `ColumnCopies` in
+  `tools/column_copies.gd`: the native columns counted per phase, passed on unchanged).
+  At 4,096 a side in four squads on Rust, every whole-column copy out of the field and into
+  it moves about 1.7 million slots a tick, about 10 MB: the walk to places 89 copies (729k
+  slots), perception 48 (393k), blows 36 (295k), deaths 13 (106k), the rest under 71k
+  each. Against a 219 ms tick that is around 1 ms, so the copies aren't what made deaths,
+  stamina, recovery or the re-form slower, and the fixes they pointed to (a table fetched
+  once a pass for all squads, a native gather of a squad's slots) would buy too little for
+  their code: not built.
+- **Deaths' real cost was the step-up** (`SquadCompact.compact`, about 95% of bury: timed
+  inside bury at 1,024 a side). It now works on typed copies of the rank and column
+  columns, keeps who holds each place as a count on a packed grid (`SquadCompact.Held`)
+  instead of a dictionary of unit lists, filters the living once, and after its first pass
+  looks again only at units with a place in one of their columns changed since they were
+  last looked at. A unit's row ahead lies in its own columns, so the others would find it
+  as held as before: the same units step up in the same order (an A/B run of 250 ticks
+  with 306 step-ups gave the same state and events every tick on both engines;
+  `test_skirmish_squad.gd` gained a unit stepping up over two passes with a wide unit
+  following). The step-up's time fell by about a third.
+- **The re-form's occupancy** (`SquadPlaces.occupancy`, and `SquadPlaces.places` for more
+  than two units) reads ranks and columns from typed locals of the fetched table, not
+  through `UnitPlace.read` per unit: 4a had put a static call and two untyped indexings
+  where `unit.rank` and `unit.column` were (#229's benches: occupancy +35% and +46%).
+- **Stamina and recovery: noise, not a cause.** Neither pass's code changed since step 3,
+  and `SkirmishUnit` only lost fields. On this step's runs, with stamina's code the same,
+  it measured 24.5 against 29.7 ms (-18%) on one runner and 28.2 against 26.1 (+8%) on
+  another, a wider swing than #229's +6% and +11%. Three ticks a run are too few for
+  phases this size to be compared on one bench; nothing was changed for them.
+
+- **Benches** (`tick_phases engine=rust side=4096 squads=4`, each run on one runner, the
+  branch run first):
+
+  | Run | Ticks | Tick (ms) | Deaths (ms) |
+  |---|---|---|---|
+  | `d785d2a` (hp, cooldown, fell queue) vs 5a | 3 | 326.4 → 314.3 | 27.1 → 25.2 |
+  | `af9adef` (the step-up) vs 5a | 3 | 334.0 → 362.4 | 30.3 → 22.6 |
+  | `af9adef` vs `d785d2a` | 3 | 228.9 → 226.8 | 18.0 → 14.0 |
+  | `aeef694` (the occupancy) vs 5a | 10 | 319.2 → 331.7 | 16.6 → 11.9 |
+  | `4ef9e85` vs itself (A/A) | 10 | 467.7 → 468.0 | 16.3 → 16.2 |
+  | `4ef9e85` vs 5a | 10 | 497.1 → 528.5 | 25.5 → 19.1 |
+  | `4ef9e85` vs `d785d2a` | 10 | 404.1 → 423.2 | 20.3 → 16.1 |
+
+  Deaths is 21 to 28% faster in every run. Single runs couldn't settle the tick: it swung
+  from 1% faster to 9% slower, with phases the later commits don't touch moving as much,
+  while an A/A run repeated to within 1%.
+- **Settled by the alternating bench** (#236: `rounds=5`, head and base in turn on one
+  runner, `fight=10`, `2bd84da` against 5a): the tick is **1.5% faster** (317.8 → 313.1 ms,
+  every head round faster than every base round). Apart in every round: deaths -30.7%
+  (17.14 → 11.87), the re-form's occupancy -13.9% (4.47 → 3.85), stamina -4.9%, the
+  engagement fronts -3.9%; and two phases slower, both by under a quarter of a millisecond:
+  `UnitBodies` +1.0% (23.16 → 23.39) and the shuffle's pass through +2.7% (7.45 → 7.65).
+  Every other phase's ranges overlap. With 5 rounds, two equal sides fall apart by chance
+  for about 1 phase in 125.
 
 ## Open, for the implementing session to settle and record here
 

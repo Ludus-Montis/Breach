@@ -13,7 +13,9 @@ const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 func _state(field) -> String:
 	var rows := []
 	for squad in field.sim.squads():
-		var units: Array = squad.units.map(func(u): return [u.id, u.hp, UnitPlaces.of(squad, u)])
+		var units: Array = squad.units.map(
+			func(u): return [u.id, UnitHealth.of(squad, u), UnitPlaces.of(squad, u)]
+		)
 		rows.append([squad.id, squad.state, squad.front_distance, units])
 	return str(rows)
 

@@ -1,14 +1,19 @@
 class_name UnitColumnsNative
 extends UnitColumns
-## The unit store's columns on the battle's native BodyField (spec 35 steps 1c, 2b, 3 and 4a): the
-## field holds every column by slot, so its passes read them where they live. `column` is
-## one copy out of the field and `commit` one copy in; `value` and `put` are one call each.
+## The unit store's columns on the battle's native BodyField (spec 35 steps 1c, 2b, 3, 4a
+## and 5b): the field holds every column by slot, so its passes read them where they live.
+## `column` is one copy out of the field and `commit` one copy in; `value` and `put` are one
+## call each.
 ## The same contract as UnitColumns (test_unit_store.gd, test_entry_keys.gd).
 
 ## Each column's kind on the field: the BodyField calls that reach it.
-const INTS := {FLAGS: true, TOUCH: true, KEYS: true, RANK: true, COLUMN: true}
+const INTS := {
+	FLAGS: true, TOUCH: true, KEYS: true, RANK: true, COLUMN: true, HP: true, ATTACK_COOLDOWN: true
+}
 const LONGS := {GOAL_FOE: true, GOAL_SLOT: true, CAUGHT: true, HELD_BY: true}
-const REALS := {STUCK: true, CLOSEST: true, ALONG: true, FANNED: true, BEARING: true}
+const REALS := {
+	STUCK: true, CLOSEST: true, ALONG: true, FANNED: true, BEARING: true, REGENERATION_LEFT: true
+}
 
 var _field: Object
 

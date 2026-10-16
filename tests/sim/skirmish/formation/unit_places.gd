@@ -58,6 +58,16 @@ func set_place(unit, at: Vector2i):
 	return unit
 
 
+## Sets `unit`'s hp to `hp` in the shared store, through UnitHealth (spec 35 step 5b):
+## enrolled there first if it isn't yet (one without an id is given one); returns it.
+func health(unit, hp: int):
+	if unit.id == 0:
+		unit.id = FIRST_ID + store.count()
+	unit.slot = store.enrol(unit.id)
+	UnitHealth.put(self, unit, hp)
+	return unit
+
+
 ## Where `unit` of `squad` stands, in the squad's store.
 static func of(squad, unit) -> Vector2:
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)
@@ -102,7 +112,7 @@ static func onto(field: Object, squads: Array, others: Array = []) -> UnitStore:
 		var values := UnitColumns.BLANKS.keys().map(
 			func(name): return before.columns.value(unit.slot, name)
 		)
-		unit.slot = moved.enrol(unit.id)
+		unit.slot = moved.admit(unit)
 		for index in values.size():
 			moved.columns.put(unit.slot, UnitColumns.BLANKS.keys()[index], values[index])
 	for squad in squads:

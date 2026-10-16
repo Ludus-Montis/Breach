@@ -24,8 +24,8 @@ static func unit_event(
 
 
 ## blow = [attacker, target, damage, is_flank, how it landed (BlowRoll)], after the damage
-## has been applied.
-static func hit(tick: int, blow: Array) -> Dictionary:
+## has been applied, leaving the target at `target_hp`.
+static func hit(tick: int, blow: Array, target_hp: int) -> Dictionary:
 	return {
 		"type": "hit",
 		"tick": tick,
@@ -35,5 +35,5 @@ static func hit(tick: int, blow: Array) -> Dictionary:
 		"dmg": blow[2],
 		"flank": blow[3],
 		"blow": blow[4],
-		"target_hp": blow[1].hp,
+		"target_hp": target_hp,
 	}

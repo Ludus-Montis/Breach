@@ -14,6 +14,20 @@ extends RefCounted
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 var columns: UnitColumns = UnitColumns.new()
+var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or below (UnitHealth)
+var _records := {}  # unit id -> its record, kept in GDScript on both backends
+
+
+## Enrols a unit's record: its slot, as `enrol`, and the record kept so a unit named by id
+## (the fell queue) is found again (`record_of`).
+func admit(unit) -> int:
+	_records[unit.id] = unit
+	return enrol(unit.id)
+
+
+## The record admitted for a unit id, or null.
+func record_of(unit_id: int):
+	return _records.get(unit_id)
 
 
 ## The native BodyField the store and its columns live on; null for the GDScript store.
@@ -57,3 +71,4 @@ func settle(squads: Array) -> void:
 	for unit_id in ids():
 		if not kept.has(unit_id):
 			drop(unit_id)
+			_records.erase(unit_id)

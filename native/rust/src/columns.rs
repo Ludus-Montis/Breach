@@ -6,7 +6,9 @@
 //! along its route it has fled, how long a friend has held it and which, how far it has
 //! fanned out), with the bits saying which keys an entry holds (`keys`), and the way it
 //! faces (`bearing`, step 3: degrees clockwise from north), and its place in its squad's
-//! frame (`rank` and `column`, step 4a). The field holds
+//! frame (`rank` and `column`, step 4a), and its hp, the ticks till its next blow and the
+//! hp it may still regenerate before it rests (`hp`, `attack_cooldown`,
+//! `regeneration_left`, step 5b). The field holds
 //! them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
@@ -25,6 +27,8 @@ pub struct Columns {
     pub keys: Vec<i32>,
     pub rank: Vec<i32>,
     pub column: Vec<i32>,
+    pub hp: Vec<i32>,
+    pub attack_cooldown: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -34,6 +38,7 @@ pub struct Columns {
     pub along: Vec<f64>,
     pub fanned: Vec<f64>,
     pub bearing: Vec<f64>,
+    pub regeneration_left: Vec<f64>,
 }
 
 /// No goal (`goal_slot`).
@@ -63,6 +68,8 @@ impl Columns {
             "keys" => Some(&mut self.keys),
             "rank" => Some(&mut self.rank),
             "column" => Some(&mut self.column),
+            "hp" => Some(&mut self.hp),
+            "attack_cooldown" => Some(&mut self.attack_cooldown),
             _ => None,
         }
     }
@@ -86,6 +93,7 @@ impl Columns {
             "along" => Some(&mut self.along),
             "fanned" => Some(&mut self.fanned),
             "bearing" => Some(&mut self.bearing),
+            "regeneration_left" => Some(&mut self.regeneration_left),
             _ => None,
         }
     }
@@ -108,6 +116,8 @@ impl Columns {
             &mut self.keys,
             &mut self.rank,
             &mut self.column,
+            &mut self.hp,
+            &mut self.attack_cooldown,
         ] {
             column.push(0);
         }
@@ -115,7 +125,9 @@ impl Columns {
             column.push(0);
         }
         self.goal_slot.push(NO_GOAL);
-        for column in [&mut self.stuck, &mut self.along, &mut self.fanned] {
+        for column in
+            [&mut self.stuck, &mut self.along, &mut self.fanned, &mut self.regeneration_left]
+        {
             column.push(0.0);
         }
         self.closest.push(f64::INFINITY);
@@ -140,6 +152,8 @@ impl Columns {
             &mut self.keys,
             &mut self.rank,
             &mut self.column,
+            &mut self.hp,
+            &mut self.attack_cooldown,
         ] {
             column[slot] = 0;
         }
@@ -147,7 +161,9 @@ impl Columns {
             column[slot] = 0;
         }
         self.goal_slot[slot] = NO_GOAL;
-        for column in [&mut self.stuck, &mut self.along, &mut self.fanned] {
+        for column in
+            [&mut self.stuck, &mut self.along, &mut self.fanned, &mut self.regeneration_left]
+        {
             column[slot] = 0.0;
         }
         self.closest[slot] = f64::INFINITY;
@@ -172,6 +188,9 @@ mod tests {
         columns.reals("closest").unwrap()[0] = 0.5;
         columns.reals("bearing").unwrap()[0] = 237.5;
         columns.ints("rank").unwrap()[0] = 3;
+        columns.ints("hp").unwrap()[0] = 12;
+        columns.ints("attack_cooldown").unwrap()[0] = 4;
+        columns.reals("regeneration_left").unwrap()[0] = 2.5;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
@@ -179,6 +198,9 @@ mod tests {
         assert_eq!(columns.closest[0], f64::INFINITY);
         assert_eq!(columns.bearing[0], EAST);
         assert_eq!(columns.rank[0], 0);
+        assert_eq!(columns.hp[0], 0);
+        assert_eq!(columns.attack_cooldown[0], 0);
+        assert_eq!(columns.regeneration_left[0], 0.0);
     }
 
     #[test]
@@ -187,13 +209,13 @@ mod tests {
         for name in ["position", "at", "offset", "next", "foe_at", "toward"] {
             assert!(columns.points(name).is_some(), "{name}");
         }
-        for name in ["flags", "touch", "keys", "rank", "column"] {
+        for name in ["flags", "touch", "keys", "rank", "column", "hp", "attack_cooldown"] {
             assert!(columns.ints(name).is_some(), "{name}");
         }
         for name in ["goal_foe", "goal_slot", "caught", "held_by"] {
             assert!(columns.longs(name).is_some(), "{name}");
         }
-        for name in ["stuck", "closest", "along", "fanned", "bearing"] {
+        for name in ["stuck", "closest", "along", "fanned", "bearing", "regeneration_left"] {
             assert!(columns.reals(name).is_some(), "{name}");
         }
         assert!(columns.points("flags").is_none());

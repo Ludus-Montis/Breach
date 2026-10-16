@@ -31,7 +31,7 @@ func _scatter(rng: RandomNumberGenerator, count: int, faction: String, first: in
 		var unit := SkirmishUnit.new()
 		unit.id = first + index
 		unit.faction_id = faction
-		unit.hp = 10
+		_places.health(unit, 10)
 		_places.stand(unit, Vector2(rng.randf_range(0, 40), rng.randf_range(0, 40)))
 		var size := 2 if rng.randf() < 0.2 else 1
 		unit.footprint_width = size

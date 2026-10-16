@@ -125,6 +125,9 @@ pub struct Field {
     free: BinaryHeap<Reverse<u32>>,
     /// The unit store's columns, by slot.
     pub columns: Columns,
+    /// The store's fell queue (spec 35 step 5b, Decision 145): the ids of units an hp write
+    /// took from above 0 to 0 or below, in the order they fell, till deaths takes them.
+    fallen: Vec<i64>,
 }
 
 impl Field {
@@ -189,6 +192,17 @@ impl Field {
             self.drawn.retain(|&b| b != slot);
         }
         self.free.push(Reverse(slot));
+    }
+
+    /// A unit fell: an hp write took it from above 0 to 0 or below (UnitHealth).
+    pub fn fell(&mut self, unit_id: i64) {
+        self.fallen.push(unit_id);
+    }
+
+    /// The units fallen since deaths last took them, in the order they fell; the queue is
+    /// left empty.
+    pub fn take_fallen(&mut self) -> Vec<i64> {
+        std::mem::take(&mut self.fallen)
     }
 
     /// Brings the field to the squads as they stand. Returns the flat indices of units new
@@ -436,6 +450,16 @@ mod tests {
         assert_eq!(slots.map(|b| field.at[b]), [v(1.0, 1.0), v(2.0, 2.0), v(10.5, 0.0)]);
         sync_seeing(&mut field, &[1, 2, 3], &[0, LOOSE, LOOSE], &[]); // the scrum's
         assert_eq!(field.at[slots[2]], V2::ZERO); // where it stands loose: never set
+    }
+
+    #[test]
+    fn the_fallen_are_taken_in_the_order_they_fell_and_once() {
+        let mut field = Field::default();
+        field.fell(5);
+        field.fell(2);
+        field.fell(5);
+        assert_eq!(field.take_fallen(), vec![5, 2, 5]);
+        assert!(field.take_fallen().is_empty());
     }
 
     #[test]

@@ -19,7 +19,7 @@ func _unit(rank: int, column: int, depth: int = 1, width: int = 1) -> SkirmishUn
 	var unit := SkirmishUnit.new()
 	unit.footprint_depth = depth
 	unit.footprint_width = width
-	unit.hp = 10
+	_places.health(unit, 10)
 	_places.stand(unit, Vector2.ZERO)
 	_places.set_place(unit, Vector2i(rank, column))
 	return unit

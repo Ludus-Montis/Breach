@@ -37,21 +37,22 @@ static func may_step(unit, from: Vector2, to: Vector2, terrain: FormationTerrain
 	return ModeStamina.can_start(unit, mode)
 
 
-## A tick of `seconds` on a climb face for `unit`, `cells_per_second` its pace on open
-## ground: true while it is climbing (it moves no further this tick). Returns false once
-## it is up, or if it has fallen.
+## A tick of `seconds` on a climb face for `unit` of `squad` (anything holding the store),
+## `cells_per_second` its pace on open ground: true while it is climbing (it moves no
+## further this tick). Returns false once it is up, or if it has fallen.
 static func climb(
-	unit, columns: UnitColumns, terrain: FormationTerrain, seconds: float, cells_per_second: float
+	unit, squad, terrain: FormationTerrain, seconds: float, cells_per_second: float
 ) -> bool:
 	if terrain == null or unit.climb_left <= EPSILON:
 		return false
+	var columns: UnitColumns = squad.store.columns
 	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var share := terrain.factor(unit, unit.foothold, at)
 	unit.climb_left -= share * cells_per_second * seconds
 	unit.stamina = maxf(0.0, unit.stamina - ModeStamina.rate(TerrainWalker.Mode.CLIMBING) * seconds)
 	unit.on_face = unit.climb_left > EPSILON
 	if unit.on_face and unit.stamina <= 0.0:
-		_fall(unit, columns, terrain)
+		_fall(unit, squad, terrain)
 		return false
 	return unit.on_face
 
@@ -79,14 +80,16 @@ static func after_step(
 
 
 ## Drops `unit` from its climb face to where it last stood, hurt by the height it climbed.
-static func _fall(unit, columns: UnitColumns, terrain: FormationTerrain) -> void:
+static func _fall(unit, squad, terrain: FormationTerrain) -> void:
+	var columns: UnitColumns = squad.store.columns
 	var tuning := BattleTuning.current()
 	var at: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
 	var climbed := maxf(0.0, ClimbStamina.drop(terrain, unit.foothold, at) - unit.climb_left)
 	var area := float(unit.footprint_width * unit.footprint_depth)
-	unit.hp -= roundi(
+	var hurt := roundi(
 		tuning.fall_damage_per_cell * climbed * DetMath.pow(area, tuning.fall_mass_power)
 	)
+	UnitHealth.hurt(squad, unit, hurt)
 	# placement: a fall puts it back at the foot of its climb (Decision 139)
 	columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
 	unit.climb_left = 0.0

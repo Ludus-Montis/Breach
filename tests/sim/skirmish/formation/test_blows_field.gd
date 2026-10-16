@@ -59,7 +59,8 @@ func _struck(squads: Array, field: Object) -> Array:
 	var units := []
 	for squad in squads:
 		for unit in squad.units:
-			var left := [unit.target_id, unit.attack_cooldown, unit.last_wounding]
+			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
+			var left := [unit.target_id, cooldown, unit.last_wounding]
 			units.append([unit.id] + left + [unit.regeneration_halt])
 	return [blows.map(func(b): return [b[0].id, b[1].id, b[2], b[3], b[4]]), units]
 
@@ -68,7 +69,8 @@ func _saved(squads: Array) -> Array:
 	var out := []
 	for squad in squads:
 		for unit in squad.units:
-			out.append([unit.target_id, unit.attack_cooldown, unit.last_wounding])
+			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
+			out.append([unit.target_id, cooldown, unit.last_wounding])
 	return out
 
 
@@ -77,7 +79,7 @@ func _restore(squads: Array, saved: Array) -> void:
 	for squad in squads:
 		for unit in squad.units:
 			unit.target_id = saved[index][0]
-			unit.attack_cooldown = saved[index][1]
+			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, saved[index][1])
 			unit.last_wounding = saved[index][2]
 			unit.regeneration_halt = 0.0
 			index += 1
@@ -95,7 +97,7 @@ func _both(squads: Array, field: Object) -> Array:
 func _stirred(squads: Array) -> Array:
 	for squad in squads:
 		for unit in squad.units:
-			unit.attack_cooldown = 1 + unit.id % 2
+			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, 1 + unit.id % 2)
 			UnitPlaces.turn(squad, unit, fposmod(unit.id * 47.3, 360.0))
 	return squads
 

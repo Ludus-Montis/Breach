@@ -24,7 +24,7 @@ func _unit(at: Vector2, walker: Array = []) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	_places.stand(unit, at)
 	unit.foothold = at
-	unit.hp = 20
+	_places.health(unit, 20)
 	unit.max_hp = 20
 	if not walker.is_empty():
 		unit.walker = TerrainWalker.new(walker[0], walker[1], walker[2], walker[3], walker[4])
@@ -93,7 +93,7 @@ func test_a_climb_takes_time_and_stamina_at_the_climb_pace() -> void:
 	climber.climb_left = 4.0
 	climber.stamina = 30.0
 
-	var still := WalkModes.climb(climber, _places.store.columns, ground, 1.0, 1.0)
+	var still := WalkModes.climb(climber, _places, ground, 1.0, 1.0)
 
 	var tuning := BattleTuning.current()
 	assert_bool(still).is_true()
@@ -109,12 +109,12 @@ func test_a_unit_spent_on_a_climb_face_falls_hurt_by_what_it_climbed() -> void:
 	climber.climb_left = 1.0  # three cells up already
 	climber.stamina = 0.01
 
-	var still := WalkModes.climb(climber, _places.store.columns, ground, 0.1, 1.0)
+	var still := WalkModes.climb(climber, _places, ground, 0.1, 1.0)
 
 	var tuning := BattleTuning.current()
 	var climbed := 4.0 - (1.0 - tuning.ground_climb_pace * 0.1)
 	var expected := roundi(tuning.fall_damage_per_cell * climbed)
 	assert_bool(still).is_false()
-	assert_int(climber.hp).is_equal(20 - expected)
+	assert_int(UnitHealth.of(_places, climber)).is_equal(20 - expected)
 	assert_vector(_places.at(climber)).is_equal(Vector2(9.5, 5.5))
 	assert_bool(climber.on_face).is_false()

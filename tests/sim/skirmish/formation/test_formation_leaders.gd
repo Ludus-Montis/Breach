@@ -51,7 +51,7 @@ func test_a_fallen_chieftain_shakes_the_formation() -> void:
 	var placements := [[GREM, Vector2i(0, 0)], [CHIEFTAIN, Vector2i(1, 0)]]
 	var squad := sim.spawn_squad(1, placements, "player", true)
 	var before := squad.morale
-	squad.units[1].hp = 0
+	UnitHealth.put(squad, squad.units[1], 0)
 
 	var log := sim.step()
 

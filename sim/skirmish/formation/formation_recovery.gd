@@ -33,14 +33,20 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 static func step(squads: Array, seconds: float, tick: int, fight_seed: int, events: Array) -> Array:
 	var waking := []  # [unit, its squad]: decided first, so no squad's order moves another's
 	var standing := {"squads": squads, "cunning": {}}  # _lies_still
+	if squads.is_empty():
+		return []
+	var health := UnitHealth.table(squads[0])  # hp and regeneration left: fetched once
+	var left: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.REGENERATION_LEFT)
+	var pools := [health, left]
 	for squad in squads:
 		for unit in squad.units:
 			var downed: bool = unit.state in [SkirmishUnit.State.DOWNED, SkirmishUnit.State.CARRIED]
 			if not (unit.is_alive() or downed):
 				continue
 			unit.condition = condition_of(unit)
-			_regenerate(unit, downed, seconds)
-			if _drain(unit, seconds) and downed and unit.hp <= -FormationDeaths.depth(unit):
+			_regenerate(unit, downed, seconds, pools)
+			var drained := _drain(unit, seconds, health)
+			if drained and downed and UnitHealth.of(health, unit) <= -FormationDeaths.depth(unit):
 				unit.state = SkirmishUnit.State.DEAD
 				events.append(FormationEvents.unit_event("died_of_wounds", tick, squad, unit))
 				continue
@@ -50,6 +56,8 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 				elif not unit.playing_dead:
 					unit.playing_dead = true
 					events.append(FormationEvents.unit_event("playing_dead", tick, squad, unit))
+	UnitHealth.commit(health)
+	squads[0].store.columns.commit(UnitColumns.REGENERATION_LEFT, left)
 	return _rise(waking, squads, tick, fight_seed, events)
 
 
@@ -149,7 +157,8 @@ static func scorch(target: SkirmishUnit, parts: Array, dealt: int) -> void:
 			return
 
 
-static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float) -> void:
+## `pools` is [the hp table, the regeneration-left column], fetched for the pass.
+static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools: Array) -> void:
 	if unit.regeneration <= 0.0:
 		return
 	if downed and unit.traits.get("regenerates_downed", 0) <= 0:
@@ -157,26 +166,29 @@ static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float) -> voi
 	if unit.regeneration_halt > 0.0:
 		unit.regeneration_halt = maxf(0.0, unit.regeneration_halt - seconds)
 		return
-	var gain := minf(unit.regeneration * unit.condition * seconds, unit.regeneration_left)
-	gain = minf(gain, float(unit.max_hp - unit.hp) - unit.regeneration_carry)
+	var health: UnitHealth.Table = pools[0]
+	var left: PackedFloat64Array = pools[1]
+	var gain := minf(unit.regeneration * unit.condition * seconds, left[unit.slot])
+	gain = minf(gain, float(unit.max_hp - UnitHealth.of(health, unit)) - unit.regeneration_carry)
 	if gain <= 0.0:
 		return
-	unit.regeneration_left -= gain
+	left[unit.slot] -= gain
 	unit.regeneration_carry += gain
 	var whole := floori(unit.regeneration_carry + 0.000001)  # float sums fall short
-	unit.hp += whole
+	UnitHealth.heal(health, unit, whole)
 	unit.regeneration_carry -= whole
 
 
-## A poor condition drains its HP; true if it lost any this tick.
-static func _drain(unit: SkirmishUnit, seconds: float) -> bool:
+## A poor condition drains its HP (in `health`, the pass's table); true if it lost any this
+## tick.
+static func _drain(unit: SkirmishUnit, seconds: float, health: UnitHealth.Table) -> bool:
 	var tuning := BattleTuning.current()
 	var below := tuning.condition_drain_below - _unclamped(unit)
 	if below <= 0.0:
 		return false
 	unit.drain_carry += tuning.condition_drain * below / tuning.condition_drain_below * seconds
 	var whole := floori(unit.drain_carry + 0.000001)
-	unit.hp -= whole
+	UnitHealth.hurt(health, unit, whole)
 	unit.drain_carry -= whole
 	return whole > 0
 
@@ -210,7 +222,7 @@ static func _rise(waking: Array, squads: Array, tick: int, fight_seed: int, even
 	var strays := []
 	for plan in plans:
 		var unit: SkirmishUnit = plan[1][0]
-		unit.hp = maxi(unit.hp, 1)
+		UnitHealth.put(plan[1][1], unit, maxi(UnitHealth.of(plan[1][1], unit), 1))
 		unit.state = SkirmishUnit.State.MOVING
 		unit.playing_dead = false
 		var extra := {"alone": plan[2] == null}

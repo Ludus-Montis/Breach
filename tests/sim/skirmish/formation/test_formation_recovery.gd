@@ -26,7 +26,7 @@ func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = unit_id
 	unit.faction_id = "player"
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.max_hp = 10
 	_places.stand(unit, at)
 	unit.attributes = {"constitution": 10}
@@ -40,7 +40,7 @@ func _squad(members: Array) -> SkirmishSquad:
 
 
 func _downed(unit: SkirmishUnit) -> SkirmishUnit:
-	unit.hp = 0
+	_places.health(unit, 0)
 	unit.state = SkirmishUnit.State.DOWNED
 	unit.wounded = 1
 	return unit
@@ -75,8 +75,8 @@ func test_a_poor_condition_drains_it_to_death_the_faster_the_worse() -> void:
 	var events := []
 	_run([_squad([three, four, two])], 5.0, events)
 
-	assert_int(four.hp).is_less(three.hp)
-	assert_int(two.hp).is_equal(0)
+	assert_int(UnitHealth.of(_places, four)).is_less(UnitHealth.of(_places, three))
+	assert_int(UnitHealth.of(_places, two)).is_equal(0)
 	_run([_squad([three, four, two])], 25.0, events)
 	assert_int(three.state).is_equal(SkirmishUnit.State.DEAD)
 	assert_bool(events.any(func(e): return e["type"] == "died_of_wounds")).is_true()
@@ -89,7 +89,7 @@ func test_downed_it_comes_to_and_rejoins_its_formation_in_sight() -> void:
 	var strays := _run([_squad([friend, downed])], 60.0, events)
 
 	assert_bool(downed.is_alive()).is_true()
-	assert_int(downed.hp).is_equal(1)
+	assert_int(UnitHealth.of(_places, downed)).is_equal(1)
 	assert_int(UnitPlace.of(_places, downed).x).is_equal(1)  # at the back
 	assert_array(strays).is_empty()
 	assert_bool(events.any(func(e): return e["type"] == "came_to")).is_true()
@@ -125,30 +125,30 @@ func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:
 
 func test_regeneration_mends_to_its_max_and_no_further_than_its_limit() -> void:
 	var troll := _unit(1, Vector2.ZERO)
-	troll.hp = 2
+	_places.health(troll, 2)
 	troll.regeneration = 2.0
-	troll.regeneration_left = 5.0
+	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 5.0)
 	var squads := [_squad([troll])]
 	_run(squads, 3.0)
 
-	assert_int(troll.hp).is_equal(7)  # 5 regained: its limit until it rests
-	troll.regeneration_left = 100.0
+	assert_int(UnitHealth.of(_places, troll)).is_equal(7)  # 5 regained: its limit until it rests
+	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
 	_run(squads, 7.0)
-	assert_int(troll.hp).is_equal(10)  # never past its max
+	assert_int(UnitHealth.of(_places, troll)).is_equal(10)  # never past its max
 
 
 func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
 	var troll := _unit(1, Vector2.ZERO)
-	troll.hp = 2
+	_places.health(troll, 2)
 	troll.regeneration = 10.0
-	troll.regeneration_left = 100.0
+	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
 	troll.regeneration_stops = ["fire"]
 	FormationRecovery.scorch(troll, [[3.0, "slashing", false]], 3)
 	assert_float(troll.regeneration_halt).is_equal(0.0)
 	FormationRecovery.scorch(troll, [[3.0, "fire", true]], 3)
 	_run([_squad([troll])], 1.0)
 
-	assert_int(troll.hp).is_equal(2)
+	assert_int(UnitHealth.of(_places, troll)).is_equal(2)
 
 
 func test_a_downed_regenerator_mends_only_with_the_trait() -> void:
@@ -156,12 +156,12 @@ func test_a_downed_regenerator_mends_only_with_the_trait() -> void:
 	var troll := _downed(_unit(2, Vector2(1, 0)))
 	for unit in [plain, troll]:
 		unit.regeneration = 10.0
-		unit.regeneration_left = 100.0
+		_places.store.columns.put(unit.slot, UnitColumns.REGENERATION_LEFT, 100.0)
 	troll.traits = {"regenerates_downed": 1}
 	_run([_squad([plain, troll])], 0.5)
 
-	assert_int(plain.hp).is_equal(0)
-	assert_int(troll.hp).is_greater(0)
+	assert_int(UnitHealth.of(_places, plain)).is_equal(0)
+	assert_int(UnitHealth.of(_places, troll)).is_greater(0)
 
 
 func test_it_comes_to_where_it_lies_and_walks_to_the_nearest_friendly_formation() -> void:
@@ -204,7 +204,7 @@ func test_the_fallen_lie_where_they_fell() -> void:
 func test_a_wounding_blow_that_downs_adds_its_wounds() -> void:
 	var FormationDeaths = load("res://sim/skirmish/formation/formation_deaths.gd")
 	var unit := _unit(1, Vector2.ZERO)
-	unit.hp = -2
+	_places.health(unit, -2)
 	unit.last_wounding = 2
 	FormationDeaths.bury([_squad([unit])], 1, [])
 
@@ -270,7 +270,7 @@ func test_a_thorough_foe_is_fooled_less_often() -> void:
 			var theirs := _squad([taker])
 			theirs.faction_id = "the_kingdom"
 			theirs.id = 2
-			body.hp = 0
+			_places.health(body, 0)
 			body.state = SkirmishUnit.State.DOWNED
 			FormationWounds.tend([_squad([body]), theirs], 1, 10, 1, events)
 			if events.is_empty() and taker.target_id == 0:

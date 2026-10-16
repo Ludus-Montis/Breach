@@ -164,8 +164,8 @@ static func _crush(
 	var damage := (
 		BattleTuning.current().rout_crush * router.footprint_width * router.footprint_depth
 	)
-	router.hp -= damage
-	hit[1].hp -= damage
+	UnitHealth.hurt(squad, router, damage)
+	UnitHealth.hurt(squad, hit[1], damage)
 	var extra := {"unit": router.id, "target": hit[1].id, "dmg": damage}
 	events.append(FormationEvents.squad_event("crushed", tick, hit[0], extra))
 	if not panicked.has(hit[0].id):

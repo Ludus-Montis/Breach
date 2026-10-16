@@ -38,7 +38,7 @@ func _laden(weight: float, hauler: int = 0) -> UnitDef:
 func _unit(stamina: float = 100.0) -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = 1
-	unit.hp = 10
+	_places.health(unit, 10)
 	unit.speed = 1.0
 	unit.max_stamina = 100.0
 	unit.stamina = stamina

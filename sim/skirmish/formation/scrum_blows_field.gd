@@ -162,16 +162,21 @@ static func _trimmed(batch: BodyFieldSync.Batch, size: int) -> BodyFieldSync.Bat
 ## cooldown, and its blow when the cooldown runs out (unless it has turned away).
 static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interval: int) -> Array:
 	var out := []
+	if picks.is_empty():
+		return out
+	var columns: UnitColumns = owners[picks[0]].store.columns  # fetched once, committed once
+	var cooldowns: PackedInt32Array = columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for index in range(0, picks.size(), 3):
 		var unit: SkirmishUnit = units[picks[index]]
 		var target: SkirmishUnit = units[picks[index + 1]]
 		unit.target_id = target.id
-		unit.attack_cooldown -= 1
-		if unit.attack_cooldown > 0:
+		cooldowns[unit.slot] -= 1
+		if cooldowns[unit.slot] > 0:
 			continue
 		var usual := ScrumBlows.ticks(interval, unit)
-		unit.attack_cooldown = FormationMorale.interval(owners[picks[index]], usual)
+		cooldowns[unit.slot] = FormationMorale.interval(owners[picks[index]], usual)
 		if picks[index + 2] & AWAY == 0:
 			var flank: bool = picks[index + 2] & FLANK != 0
 			out.append([unit, target, FormationCombat.damage(unit), flank])
+	columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
 	return out

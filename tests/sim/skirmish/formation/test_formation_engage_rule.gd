@@ -21,7 +21,7 @@ func before_test() -> void:
 func _squad(state: SkirmishSquad.State, order: SkirmishUnit.Order) -> SkirmishSquad:
 	var unit := SkirmishUnit.new()
 	unit.id = 1
-	unit.hp = 10
+	_places.health(unit, 10)
 	var squad := SkirmishSquad.new(
 		1, "player", 1, 0.0, 1, [unit] as Array[SkirmishUnit], null, _places.store
 	)

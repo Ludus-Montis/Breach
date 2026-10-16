@@ -153,7 +153,11 @@ func _both_retreat(reversed: bool) -> Array:
 		for squad in [me, foe]:
 			for unit in squad.living():
 				state.append(
-					[unit.id, unit.hp, ScrumReach.at(squad, unit).snapped(Vector2.ONE * 0.0001)]
+					[
+						unit.id,
+						UnitHealth.of(squad, unit),
+						ScrumReach.at(squad, unit).snapped(Vector2.ONE * 0.0001)
+					]
 				)
 		state.sort()
 		states.append(state)

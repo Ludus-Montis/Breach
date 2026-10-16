@@ -200,10 +200,10 @@ func _unit_state(squad: SkirmishSquad, unit: SkirmishUnit, read: Array) -> Array
 	return [
 		[
 			read[0],
-			unit.hp,
+			columns.value(unit.slot, UnitColumns.HP),
 			read[1],
 			columns.value(unit.slot, UnitColumns.BEARING),
-			unit.attack_cooldown
+			columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
 		],
 		[
 			unit.target_id,

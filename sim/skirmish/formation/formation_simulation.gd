@@ -121,9 +121,7 @@ func spawn_squad(
 		_next_squad_id, faction_id, direction, home, width, members, orders, store
 	)
 	_next_squad_id += 1
-	# store: scattered (spawning: once, as a squad enters)
-	for index in members.size():
-		UnitPlace.put(squad, members[index], placements[index][1])
+	FormationUnits.enter(squad, members, placements)
 	squad.route = path
 	FormationMarch.face(squad)
 	squad.wait_ticks = wait_ticks
@@ -279,8 +277,8 @@ func _fight(events: Array) -> void:
 	var shots := FormationCombat.ranged_blows(_squads, interval, fight_seed)
 	var rolls := [fight_seed, _tick] if blow_rolls else []
 	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field)
-	for shot in shots:
-		shot[1].hp -= shot[2]
+	for shot in shots:  # store: scattered (a write per blow landed)
+		UnitHealth.hurt(self, shot[1], shot[2])
 		var spat := {
 			"target": shot[1].id,
 			"dmg": shot[2],
@@ -288,9 +286,9 @@ func _fight(events: Array) -> void:
 			"blow": shot[4]
 		}
 		events.append(FormationEvents.unit_event("spat", _tick, shot[3], shot[0], spat))
-	for blow in blows:
-		blow[1].hp -= blow[2]
-		events.append(FormationEvents.hit(_tick, blow))
+	for blow in blows:  # store: scattered (a write per blow landed)
+		UnitHealth.hurt(self, blow[1], blow[2])
+		events.append(FormationEvents.hit(_tick, blow, UnitHealth.of(self, blow[1])))
 	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
 	FormationStamina.strike(blows + shots)
 

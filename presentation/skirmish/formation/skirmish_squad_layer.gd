@@ -99,10 +99,12 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	for lane_key in _lanes:
-		for squad in _lanes[lane_key]["sim"].squads():
+		var sim = _lanes[lane_key]["sim"]
+		var hp: PackedInt32Array = sim.store.columns.column(UnitColumns.HP)  # once a frame
+		for squad in sim.squads():
 			var chosen: bool = selected == [lane_key, squad.id]
 			for unit in squad.living():
-				_draw_unit(lane_key, squad, unit, chosen)
+				_draw_unit(lane_key, squad, [unit, hp[unit.slot]], chosen)
 	for shot in _spits:
 		var ends := [_find(shot[0], shot[1]), _find(shot[0], shot[2])]
 		if not ends.has(null):
@@ -115,7 +117,9 @@ func _draw() -> void:
 			)
 
 
-func _draw_unit(lane_key: String, squad: SkirmishSquad, unit: SkirmishUnit, chosen: bool) -> void:
+## `drawn` is [the unit, its hp].
+func _draw_unit(lane_key: String, squad: SkirmishSquad, drawn: Array, chosen: bool) -> void:
+	var unit: SkirmishUnit = drawn[0]
 	var points: PackedVector2Array = _lanes[lane_key]["points"]
 	var centre := _centre(lane_key, squad, unit)
 	var along := SkirmishRoute.normal_at(points, _distance(lane_key, unit), cell_size).rotated(
@@ -133,7 +137,7 @@ func _draw_unit(lane_key: String, squad: SkirmishSquad, unit: SkirmishUnit, chos
 		draw_rect(body.grow(CELL_PX * 0.4), Color.WHITE, false, CELL_PX * 0.25)
 	draw_rect(body, color)
 	draw_rect(body, Color("#211d15"), false, CELL_PX * 0.12)
-	var share := clampf(float(unit.hp) / float(maxi(unit.max_hp, 1)), 0.0, 1.0)
+	var share := clampf(float(drawn[1]) / float(maxi(unit.max_hp, 1)), 0.0, 1.0)
 	var bar := Vector2(body.size.x * share, CELL_PX * 0.22)
 	draw_rect(Rect2(body.position, bar), Color("#7fbf88"))
 	var unit_key := _key(lane_key, unit.id)
