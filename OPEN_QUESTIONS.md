@@ -145,7 +145,7 @@ Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squad
 **Note (2026-10-16, Decision 146):** spec 35 step 6b ends with the series bench against `1cc4412`, recorded in spec 34's "Measured" section; read it with this review.
 
 ### Q24. Which per-tick passes should become work lists fed by events?
-**Raised:** 2026-10-15, after spec 35 step 4 (the user: "are there any elements that could be handled via event based arch?") · **Raise when:** A design session on spec 35 steps 5 to 7, or on what follows spec 35 for performance; or any change to deaths, wounds, recovery, taking, carry or `living()`
+**Raised:** 2026-10-15, after spec 35 step 4 (the user: "are there any elements that could be handled via event based arch?") · **Raise when:** A design session on spec 35 steps 5 to 7, or on what follows spec 35 for performance; spec 35 step 7 starts (its readers list); or any change to deaths, wounds, recovery, taking, carry or `living()`
 
 `principles/bounded-work.md` Principle 2 ("work follows change") already asks for this, and spec 34 item 5 applies it to structural supports only. Several unit passes still scan every unit every tick to find the few that changed (seen at `tick_phases engine=rust side=4096 squads=4 fight=3`, ms a tick):
 - **Deaths (about 22 ms):** `FormationDeaths.bury` checks every living unit's hp each tick. A blow that takes a unit past its threshold could queue it.
@@ -158,6 +158,11 @@ Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squad
 Each would need the events to queue every change that matters (Principle 2's correctness rule) and a deterministic order for the list (Decision 97). It is a design subject: likely a spec of its own after spec 35, or folded into steps 5 to 7 where the field moves anyway (deaths and wounds with hp in step 5, `living()` with the alive flags in step 7).
 
 **Partly settled by Decision 145 (2026-10-15):** deaths drains a fell queue fed by hp's one writer in spec 35 step 5b; that store queue (one writer, drained once a tick in a fixed order) is the pattern for the downed list and the living list in step 7. Still open: `fighters()` and combat's rank groups, squad edges and spans, and the re-form's occupancy.
+
+**Deferred at spec 35 step 6c (2026-10-16, the user: "Sounds fine to leave those for later, so long as they are captured as an open question effectively"):** 6c moved stamina, speed, exertion and condition into the store and left recovery's scan of every unit as it was. What is still to do, and where:
+- **The downed list** (wounds about 20 ms, recovery about 21, carry about 7, taking about 1): spec 35 step 7, with the downed flags (Decision 145). Step 7's readers list says how wounds, taking, recovery and carry read it, or the step stops and asks.
+- **The living list** (`living()`, about 100 callers): spec 35 step 7, with the alive flags (Decision 144's plan for `living()`).
+- **`fighters()` and combat's rank groups, squad edges and spans (`SquadEdges`, `SquadMemo`), the re-form's occupancy:** no spec yet. A design session after spec 35, taken with Q23's review.
 
 ### Q25. Game-like maps on the real sims, in place of the old test maps
 **Raised:** 2026-10-15, retiring the lane skirmish (spec 35 step 5a) · **Raise when:** Spec 35 is complete, or any session adds, keeps or rebuilds a test or demo map or scene
