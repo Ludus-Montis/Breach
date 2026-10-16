@@ -75,8 +75,8 @@ func test_a_poor_condition_drains_it_to_death_the_faster_the_worse() -> void:
 	var events := []
 	_run([_squad([three, four, two])], 5.0, events)
 
-	assert_int(UnitHealth.of(_places, four)).is_less(UnitHealth.of(_places, three))
-	assert_int(UnitHealth.of(_places, two)).is_equal(0)
+	assert_int(UnitHealth.of_one(_places, four)).is_less(UnitHealth.of_one(_places, three))
+	assert_int(UnitHealth.of_one(_places, two)).is_equal(0)
 	_run([_squad([three, four, two])], 25.0, events)
 	assert_int(three.state).is_equal(SkirmishUnit.State.DEAD)
 	assert_bool(events.any(func(e): return e["type"] == "died_of_wounds")).is_true()
@@ -89,7 +89,7 @@ func test_downed_it_comes_to_and_rejoins_its_formation_in_sight() -> void:
 	var strays := _run([_squad([friend, downed])], 60.0, events)
 
 	assert_bool(downed.is_alive()).is_true()
-	assert_int(UnitHealth.of(_places, downed)).is_equal(1)
+	assert_int(UnitHealth.of_one(_places, downed)).is_equal(1)
 	assert_int(UnitPlace.of(_places, downed).x).is_equal(1)  # at the back
 	assert_array(strays).is_empty()
 	assert_bool(events.any(func(e): return e["type"] == "came_to")).is_true()
@@ -131,10 +131,10 @@ func test_regeneration_mends_to_its_max_and_no_further_than_its_limit() -> void:
 	var squads := [_squad([troll])]
 	_run(squads, 3.0)
 
-	assert_int(UnitHealth.of(_places, troll)).is_equal(7)  # 5 regained: its limit until it rests
+	assert_int(UnitHealth.of_one(_places, troll)).is_equal(7)  # 5 regained: its limit until it rests
 	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
 	_run(squads, 7.0)
-	assert_int(UnitHealth.of(_places, troll)).is_equal(10)  # never past its max
+	assert_int(UnitHealth.of_one(_places, troll)).is_equal(10)  # never past its max
 
 
 func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
@@ -148,7 +148,7 @@ func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
 	FormationRecovery.scorch(troll, [[3.0, "fire", true]], 3)
 	_run([_squad([troll])], 1.0)
 
-	assert_int(UnitHealth.of(_places, troll)).is_equal(2)
+	assert_int(UnitHealth.of_one(_places, troll)).is_equal(2)
 
 
 func test_a_downed_regenerator_mends_only_with_the_trait() -> void:
@@ -160,8 +160,8 @@ func test_a_downed_regenerator_mends_only_with_the_trait() -> void:
 	troll.traits = {"regenerates_downed": 1}
 	_run([_squad([plain, troll])], 0.5)
 
-	assert_int(UnitHealth.of(_places, plain)).is_equal(0)
-	assert_int(UnitHealth.of(_places, troll)).is_greater(0)
+	assert_int(UnitHealth.of_one(_places, plain)).is_equal(0)
+	assert_int(UnitHealth.of_one(_places, troll)).is_greater(0)
 
 
 func test_it_comes_to_where_it_lies_and_walks_to_the_nearest_friendly_formation() -> void:

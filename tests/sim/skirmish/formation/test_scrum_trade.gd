@@ -37,8 +37,8 @@ func _held_in_front(front_kind: UnitDef, rear_kind: UnitDef) -> Array:
 	var squad := SkirmishSquad.new(
 		1, "player", 1, 0.0, 1, [front, rear] as Array[SkirmishUnit], null, _places.store
 	)
-	_places.stand(front, ScrumStance.anchor(squad, front))
-	var at := _places.at(front) + (_places.at(front) - ScrumStance.anchor(squad, rear))
+	_places.stand(front, ScrumStance.anchor_one(squad, front))
+	var at := _places.at(front) + (_places.at(front) - ScrumStance.anchor_one(squad, rear))
 	SquadEntries.loosen(squad, rear, at)
 	EntryKeys.keep(
 		squad.store.columns,
@@ -68,7 +68,7 @@ func test_a_unit_with_no_like_friend_takes_its_own_place() -> void:
 
 	assert_int(UnitPlace.rank(setup[0], setup[2])).is_equal(1)
 	assert_bool(setup[0].loose.has(setup[2].id)).is_false()
-	assert_vector(_places.at(setup[2])).is_equal(ScrumStance.anchor(setup[0], setup[2]))
+	assert_vector(_places.at(setup[2])).is_equal(ScrumStance.anchor_one(setup[0], setup[2]))
 
 
 func test_a_unit_not_yet_held_long_enough_does_not_trade() -> void:

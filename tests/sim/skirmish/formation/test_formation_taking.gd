@@ -31,7 +31,7 @@ func _setup(count: int, gap: float) -> Array:
 	sim.order(foe.id, SkirmishUnit.Order.HOLD)
 	var body: SkirmishUnit = foe.units[0]
 	UnitPlaces.put(foe, body, Vector2(40.0 + gap, line.position.y))
-	UnitHealth.put(foe, body, 0)
+	UnitHealth.put_one(foe, body, 0)
 	body.state = SkirmishUnit.State.DOWNED
 	body.wake_left = 999.0
 	return [sim, line, body]

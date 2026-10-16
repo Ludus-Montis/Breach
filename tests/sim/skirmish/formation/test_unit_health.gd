@@ -85,26 +85,27 @@ func test_a_write_that_takes_a_unit_to_0_or_below_puts_it_on_the_fell_queue() ->
 		var three := _unit(3)
 		for unit in [one, two, three]:
 			unit.slot = holder.store.enrol(unit.id)
-			UnitHealth.put(holder, unit, 10)
-		UnitHealth.hurt(holder, two, 4)
-		assert_int(UnitHealth.of(holder, two)).is_equal(6)
-		UnitHealth.hurt(holder, two, 6)  # to 0: falls
-		UnitHealth.hurt(holder, two, 3)  # already down: no second fall
-		UnitHealth.put(holder, one, -1)  # set past the line: falls
-		UnitHealth.heal(holder, three, 5)
-		UnitHealth.put(holder, three, 4)
-		assert_int(UnitHealth.of(holder, two)).is_equal(-3)
+			UnitHealth.put_one(holder, unit, 10)
+		UnitHealth.hurt_one(holder, two, 4)
+		assert_int(UnitHealth.of_one(holder, two)).is_equal(6)
+		UnitHealth.hurt_one(holder, two, 6)  # to 0: falls
+		UnitHealth.hurt_one(holder, two, 3)  # already down: no second fall
+		UnitHealth.put_one(holder, one, -1)  # set past the line: falls
+		UnitHealth.put_one(holder, three, UnitHealth.of_one(holder, three) + 5)
+		UnitHealth.put_one(holder, three, 4)
+		assert_int(UnitHealth.of_one(holder, two)).is_equal(-3)
 		var fallen: PackedInt64Array = holder.store.fallen.take()
 		assert_array(Array(fallen)).override_failure_message(said).is_equal([2, 1])
 		assert_array(Array(holder.store.fallen.take())).override_failure_message(said).is_empty()
-		UnitHealth.heal(holder, two, 5)  # back above 0, then down again: a second fall
-		UnitHealth.hurt(holder, two, 2)
+		# back above 0, then down again: a second fall
+		UnitHealth.put_one(holder, two, UnitHealth.of_one(holder, two) + 5)
+		UnitHealth.hurt_one(holder, two, 2)
 		assert_array(Array(holder.store.fallen.take())).is_equal([2])
 
 
-## A pass over many units fetches hp once (UnitHealth.table), writes in the copy and commits
-## once; a write there that crosses the line still pushes the unit.
-func test_a_table_of_hp_writes_in_the_copy_and_commits_once() -> void:
+## A pass over many units holds hp in its view (UnitView, Decision 146) and writes it in
+## place; release commits once, and a write there that crosses the line still pushes the unit.
+func test_a_held_view_of_hp_writes_in_place_and_commits_on_release() -> void:
 	for backend in _backends():
 		var holder := {"store": backend[1]}
 		var said: String = backend[0]
@@ -112,14 +113,15 @@ func test_a_table_of_hp_writes_in_the_copy_and_commits_once() -> void:
 		var two := _unit(2)
 		for unit in [one, two]:
 			unit.slot = holder.store.enrol(unit.id)
-			UnitHealth.put(holder, unit, 10)
-		var table: UnitHealth.Table = UnitHealth.table(holder)
-		UnitHealth.hurt(table, one, 3)
-		UnitHealth.hurt(table, two, 12)
-		assert_int(UnitHealth.of(table, one)).is_equal(7)
-		UnitHealth.commit(table)
-		assert_int(UnitHealth.of(holder, one)).override_failure_message(said).is_equal(7)
-		assert_int(UnitHealth.of(holder, two)).is_equal(-2)
+			UnitHealth.put_one(holder, unit, 10)
+		var view := UnitView.hold([holder], [UnitColumns.HP])
+		UnitHealth.hurt(view, one, 3)
+		UnitHealth.hurt(view, two, 12)
+		assert_int(UnitHealth.of(view, one)).is_equal(7)
+		assert_int(UnitHealth.of_one(holder, one)).is_equal(7)  # every reader in the pass
+		UnitView.release(view)
+		assert_int(UnitHealth.of_one(holder, one)).override_failure_message(said).is_equal(7)
+		assert_int(UnitHealth.of_one(holder, two)).is_equal(-2)
 		assert_array(Array(holder.store.fallen.take())).override_failure_message(said).is_equal([2])
 
 
@@ -137,13 +139,13 @@ func test_bury_takes_the_fallen_from_the_queue_in_the_lists_order() -> void:
 		var first := _squad(1, [units[0], units[1], units[2]], places.store)
 		var second := _squad(2, [units[3], units[4], units[5], units[6]], places.store)
 		for unit in units:
-			UnitHealth.put(first, unit, 10)
-		UnitHealth.hurt(second, units[6], 10)  # 7 falls first
-		UnitHealth.hurt(first, units[1], 20)  # 2: past its constitution
-		UnitHealth.hurt(second, units[3], 10)  # 4, healed again below
-		UnitHealth.hurt(first, units[2], 10)  # 3, moved to the second squad below
-		UnitHealth.hurt(second, units[4], 10)  # 5, no longer living below
-		UnitHealth.heal(second, units[3], 1)
+			UnitHealth.put_one(first, unit, 10)
+		UnitHealth.hurt_one(second, units[6], 10)  # 7 falls first
+		UnitHealth.hurt_one(first, units[1], 20)  # 2: past its constitution
+		UnitHealth.hurt_one(second, units[3], 10)  # 4, healed again below
+		UnitHealth.hurt_one(first, units[2], 10)  # 3, moved to the second squad below
+		UnitHealth.hurt_one(second, units[4], 10)  # 5, no longer living below
+		UnitHealth.put_one(second, units[3], UnitHealth.of_one(second, units[3]) + 1)
 		units[4].state = SkirmishUnit.State.TAKEN
 		first.units.erase(units[2])
 		second.units.append(units[2])
@@ -157,7 +159,7 @@ func test_bury_takes_the_fallen_from_the_queue_in_the_lists_order() -> void:
 		assert_array(order).override_failure_message(said).is_equal(
 			[["died", 2, 1], ["downed", 7, 2], ["downed", 3, 2]]
 		)
-		assert_int(UnitHealth.of(second, units[6])).is_equal(0)  # the excess lost
+		assert_int(UnitHealth.of_one(second, units[6])).is_equal(0)  # the excess lost
 		assert_int(units[0].state).is_equal(SkirmishUnit.State.MOVING)
 		assert_array(Array(places.store.fallen.take())).override_failure_message(said).is_empty()
 
@@ -167,3 +169,17 @@ func test_hp_cooldown_and_regeneration_left_are_the_store_s_alone() -> void:
 	assert_bool("hp" in unit).is_false()  # removed, not forwarded
 	assert_bool("attack_cooldown" in unit).is_false()
 	assert_bool("regeneration_left" in unit).is_false()
+
+
+## A read view holds nothing to commit: hp is written through a held one.
+func test_hp_written_through_a_read_view_asserts() -> void:
+	var holder := {"store": NativeKernels.unit_store(null)}
+	var unit := _unit(1)
+	unit.slot = holder.store.enrol(unit.id)
+	var view := UnitView.read(holder, [UnitColumns.HP])
+	await (
+		assert_error(func(): UnitHealth.put(view, unit, 3))
+		. is_runtime_error(
+			"Assertion failed: hp is written through a held view (UnitView.hold), not a read one"
+		)
+	)

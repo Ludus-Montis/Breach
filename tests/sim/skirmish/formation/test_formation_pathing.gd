@@ -34,7 +34,7 @@ func _group(sim: FormationSimulation, route: FormationRoute, count: int) -> Skir
 func _advance(squad: SkirmishSquad, cells: float) -> void:
 	squad.front_distance = cells / 64.0
 	for unit in squad.units:
-		UnitPlaces.put(squad, unit, FormationWalk.place_of(squad, unit))
+		UnitPlaces.put(squad, unit, FormationWalk.place_of_one(squad, unit))
 
 
 func _lane() -> FormationRoute:

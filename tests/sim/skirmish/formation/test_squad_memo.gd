@@ -36,7 +36,7 @@ func test_it_gives_what_the_pure_functions_give_for_turned_squads() -> void:
 	var sim := FormationSimulation.new(2.0, 0.1)
 	var east = _block(sim, [Vector2(0, 0), Vector2(100, 0)], 12, 4, "player")
 	var slant = _block(sim, [Vector2(6, -3), Vector2(60, 50)], 9, 3, "the_kingdom")
-	UnitHealth.put(slant, slant.units[4], 0)  # a fallen unit counts for neither
+	UnitHealth.put_one(slant, slant.units[4], 0)  # a fallen unit counts for neither
 	var memo := SquadMemo.new()
 	for pair in [[east, slant], [slant, east]]:
 		var axis := SquadFrame.lateral_axis(pair[0].heading)

@@ -130,4 +130,4 @@ func test_a_captained_line_turning_to_a_flank_fills_its_front_rank() -> void:
 	assert_int(line.state).is_not_equal(SkirmishSquad.State.FIGHTING)
 	for unit in line.living():  # none stuck short of its place, as one was in front of the captain
 		var at := ScrumReach.at(line, unit)
-		assert_float(at.distance_to(ScrumStance.anchor(line, unit))).is_less(0.05)
+		assert_float(at.distance_to(ScrumStance.anchor_one(line, unit))).is_less(0.05)

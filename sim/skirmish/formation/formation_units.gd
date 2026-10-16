@@ -97,11 +97,11 @@ static func _arm(unit: SkirmishUnit, unit_def: UnitDef) -> void:
 ## A squad's `members` just spawned from `placements` ([[UnitDef, place], ...], in the
 ## same order): each at its place, at its full hp, with all its regeneration to come.
 static func enter(squad, members: Array, placements: Array) -> void:
-	# store: scattered (spawning: once, as a squad enters)
+	# store: scattered (few: spawning, once as a squad enters)
 	for index in placements.size():
 		var unit: SkirmishUnit = members[index]
 		var unit_def: UnitDef = placements[index][0]
 		UnitPlace.put(squad, unit, placements[index][1])
-		UnitHealth.put(squad, unit, unit_def.hp)
+		UnitHealth.put_one(squad, unit, unit_def.hp)
 		var left := unit_def.regeneration_limit * unit_def.hp
 		squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_LEFT, left)

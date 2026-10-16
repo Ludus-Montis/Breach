@@ -140,7 +140,7 @@ func test_a_death_cancels_a_swap_and_it_starts_again() -> void:
 	var brute: Object = _of_def(squad, 2)[0]
 	_steps(sim, 4)
 
-	UnitHealth.put(squad, squad.units[0], 0)  # a grem the brute is passing falls
+	UnitHealth.put_one(squad, squad.units[0], 0)  # a grem the brute is passing falls
 	_steps(sim, 6)  # past when the first swap would have finished
 	var after_cancel: int = UnitPlace.rank(squad, brute)
 	_steps(sim, 10)

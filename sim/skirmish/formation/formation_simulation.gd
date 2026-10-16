@@ -277,8 +277,9 @@ func _fight(events: Array) -> void:
 	var shots := FormationCombat.ranged_blows(_squads, interval, fight_seed)
 	var rolls := [fight_seed, _tick] if blow_rolls else []
 	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field)
-	for shot in shots:  # store: scattered (a write per blow landed)
-		UnitHealth.hurt(self, shot[1], shot[2])
+	var health := UnitView.hold([self], [UnitColumns.HP])  # a write per blow landed: held
+	for shot in shots:
+		UnitHealth.hurt(health, shot[1], shot[2])
 		var spat := {
 			"target": shot[1].id,
 			"dmg": shot[2],
@@ -286,9 +287,10 @@ func _fight(events: Array) -> void:
 			"blow": shot[4]
 		}
 		events.append(FormationEvents.unit_event("spat", _tick, shot[3], shot[0], spat))
-	for blow in blows:  # store: scattered (a write per blow landed)
-		UnitHealth.hurt(self, blow[1], blow[2])
-		events.append(FormationEvents.hit(_tick, blow, UnitHealth.of(self, blow[1])))
+	for blow in blows:
+		UnitHealth.hurt(health, blow[1], blow[2])
+		events.append(FormationEvents.hit(_tick, blow, UnitHealth.of(health, blow[1])))
+	UnitView.release(health)
 	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
 	FormationStamina.strike(blows + shots)
 

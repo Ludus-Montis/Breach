@@ -43,7 +43,7 @@ func _crowd(seed_value: int, kind: UnitDef) -> SkirmishSquad:
 		members.append(unit)
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 4, members, null, _places.store)
 	for unit in members:
-		_places.stand(unit, ScrumStance.anchor(squad, unit))
+		_places.stand(unit, ScrumStance.anchor_one(squad, unit))
 		if rng.randf() < 0.5:
 			var at := _places.at(unit) + Vector2(rng.randf_range(-5, 5), rng.randf_range(-5, 5))
 			SquadEntries.loosen(squad, unit, at)
@@ -82,11 +82,11 @@ func _trade_looking_at_every_friend(squad: SkirmishSquad, fight_seed: int) -> vo
 	)
 	for unit in stalled:
 		var at: Vector2 = SquadEntries.loose_at(squad, unit)
-		var own := ScrumStance.anchor(squad, unit).distance_to(at)
+		var own := ScrumStance.anchor_one(squad, unit).distance_to(at)
 		var best: SkirmishUnit = null
 		var best_key := []
 		for friend in squad.living():
-			var there := ScrumStance.anchor(squad, friend).distance_to(at)
+			var there := ScrumStance.anchor_one(squad, friend).distance_to(at)
 			if friend == unit or there >= own - ScrumTrade.PROGRESS:
 				continue
 			var key := [snappedf(there, 0.000001), ScrumContest.draw(friend, fight_seed)]

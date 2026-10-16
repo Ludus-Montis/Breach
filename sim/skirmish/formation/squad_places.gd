@@ -11,14 +11,15 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 ## {"cells": {Vector2i(rank, column): [unit, ...]}, "order": {unit: where it comes in the
 ## squad's living units}, "places": {unit: Vector2i(rank, column)}, "table": the store's
-## ranks and columns (UnitPlace.table, fetched once)} as the squad's living units stand now.
+## ranks and columns (a view of UnitView.PLACES, read once)} as the squad's living units
+## stand now.
 static func occupancy(squad: SkirmishSquad) -> Dictionary:
 	var cells := {}
 	var order := {}
 	var places := {}
-	var table := UnitPlace.table(squad)
-	var ranks: PackedInt32Array = table[0]
-	var files: PackedInt32Array = table[1]
+	var table := UnitView.read(squad, UnitView.PLACES)
+	var ranks: PackedInt32Array = table.rank
+	var files: PackedInt32Array = table.column
 	var living := squad.living()
 	for index in range(living.size()):
 		var unit: SkirmishUnit = living[index]
@@ -77,13 +78,13 @@ static func claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> v
 static func places(squad: SkirmishSquad, units: Array) -> Dictionary:
 	var out := {}
 	if units.size() <= 2:
-		# store: scattered (two units at most: read each)
+		# store: scattered (few: two units at most, read each)
 		for unit in units:
 			out[unit] = UnitPlace.of(squad, unit)
 		return out
-	var table := UnitPlace.table(squad)
-	var ranks: PackedInt32Array = table[0]
-	var files: PackedInt32Array = table[1]
+	var table := UnitView.read(squad, UnitView.PLACES)
+	var ranks: PackedInt32Array = table.rank
+	var files: PackedInt32Array = table.column
 	for unit in units:
 		out[unit] = Vector2i(ranks[unit.slot], files[unit.slot])
 	return out

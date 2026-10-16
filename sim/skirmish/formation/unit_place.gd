@@ -2,9 +2,9 @@ class_name UnitPlace
 extends RefCounted
 ## A unit's place in its squad's frame (spec 35 step 4a): its rank back from the front and
 ## its column from the squad's left, held in the unit store's RANK and COLUMN columns.
-## Scattered use; a pass over many units fetches the two columns once instead (`table`) and
-## reads each unit's place from them (`read`): under Rust each scattered read is a call
-## into the field.
+## `of`, `put` and `rank` are scattered, for an event's few units: under Rust each is a call
+## into the field. A pass over many units reads a view of the two (UnitView.PLACES) and
+## reads each unit's place from it (`in_view`), an index.
 
 
 ## The unit's place, (rank, column), in its squad's store.
@@ -22,19 +22,9 @@ static func rank(squad, unit) -> int:
 	return squad.store.columns.value(unit.slot, UnitColumns.RANK)
 
 
-## The squad's store's ranks and columns, fetched once: [ranks, columns], by slot. A copy as
-## of now: a pass that moves units fetches again.
-static func table(squad) -> Array:
-	var columns: UnitColumns = squad.store.columns
-	return [columns.column(UnitColumns.RANK), columns.column(UnitColumns.COLUMN)]
-
-
-## The unit's place, (rank, column), from `places` (table(squad)); read from the store if
-## `places` is empty.
-static func read(places: Array, squad, unit) -> Vector2i:
-	if places.is_empty():
-		return of(squad, unit)
-	return Vector2i(places[0][unit.slot], places[1][unit.slot])
+## The unit's place, (rank, column), from a view holding RANK and COLUMN (UnitView.PLACES).
+static func in_view(view: UnitView, unit) -> Vector2i:
+	return Vector2i(view.rank[unit.slot], view.column[unit.slot])
 
 
 ## The place, (rank, column), held in `slot` of `columns`.

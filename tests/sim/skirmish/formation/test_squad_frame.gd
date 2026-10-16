@@ -65,7 +65,8 @@ func test_a_straight_route_reproduces_the_lanes_lateral_spans() -> void:
 		var rect := SquadFrame.unit_rect(squad.position, heading, 5, 0.5, unit, _at(unit))
 
 		assert_vector(Vector2(rect.position.y, rect.end.y)).is_equal_approx(
-			squad.lateral_span(unit), Vector2(0.0001, 0.0001)
+			squad.lateral_span(unit, Vector2.ZERO, UnitPlace.of(squad, unit)),
+			Vector2(0.0001, 0.0001)
 		)
 
 

@@ -24,18 +24,18 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 			continue
 		var fallen_squad: SkirmishSquad = squads[index]
 		var fallen: Array = by_squad[index]
-		for unit in fallen:  # store: scattered (the tick's fallen, a few)
-			if UnitHealth.of(fallen_squad, unit) <= -depth(unit):
+		for unit in fallen:  # store: scattered (few: the tick's fallen)
+			if UnitHealth.of_one(fallen_squad, unit) <= -depth(unit):
 				unit.state = SkirmishUnit.State.DEAD
 				events.append(FormationEvents.unit_event("died", tick, fallen_squad, unit))
 			else:
-				UnitHealth.put(fallen_squad, unit, 0)
+				UnitHealth.put_one(fallen_squad, unit, 0)
 				unit.state = SkirmishUnit.State.DOWNED
 				unit.wounded += 1 + unit.last_wounding  # lowering its condition (Decision 126)
 				unit.wake_left = -1.0
 				events.append(FormationEvents.unit_event("downed", tick, fallen_squad, unit))
 		FormationMorale.losses(fallen_squad, fallen, tick, events)
-		# store: scattered (step-ups: the few units that moved up)
+		# store: scattered (few: the step-ups, the units that moved up)
 		for moved in fallen_squad.compact():
 			var extra := {"rank": UnitPlace.rank(fallen_squad, moved)}
 			events.append(
@@ -62,7 +62,7 @@ static func _fallen(squads: Array) -> Dictionary:
 	var found := {}  # squad index -> [[index in its list, unit], ...]
 	var seen := {}
 	for store: UnitStore in stores:
-		for unit_id in store.fallen.take():
+		for unit_id in store.fallen.take():  # store: scattered (few: the tick's fallen)
 			if seen.has(unit_id):
 				continue
 			seen[unit_id] = true
@@ -70,7 +70,7 @@ static func _fallen(squads: Array) -> Dictionary:
 			if unit == null or store.slot_of(unit_id) < 0 or not unit.is_alive():
 				continue
 			var at := _place(unit, squads, where)
-			if at.is_empty() or UnitHealth.of(squads[at[0]], unit) > 0:
+			if at.is_empty() or UnitHealth.of_one(squads[at[0]], unit) > 0:
 				continue
 			if not found.has(at[0]):
 				found[at[0]] = []

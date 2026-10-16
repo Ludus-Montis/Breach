@@ -33,7 +33,7 @@ static func _join(
 ) -> void:
 	var kind := "reinforced" if leader.state == SkirmishSquad.State.FIGHTING else "merged"
 	events.append(FormationEvents.squad_event(kind, tick, joining, {"into": leader.id}))
-	# store: scattered (step-ups after a join)
+	# store: scattered (few: the step-ups after a join)
 	for moved in FormationContact.reinforce(leader, joining):
 		var rank := UnitPlace.rank(leader, moved)
 		events.append(FormationEvents.unit_event("stepped_up", tick, leader, moved, {"rank": rank}))

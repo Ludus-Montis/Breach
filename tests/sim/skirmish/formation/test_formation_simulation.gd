@@ -74,7 +74,7 @@ func test_the_spec_21_duel_still_holds() -> void:
 
 	var first: int = _of(log, "hit")[0]["tick"]  # from the first blow, as spec 21 counts
 	assert_float((sim.tick_number() - first) * TICK).is_equal_approx(3.0, 0.0001)
-	assert_int(UnitHealth.of(theirs, theirs.units[0])).is_equal(2)
+	assert_int(UnitHealth.of_one(theirs, theirs.units[0])).is_equal(2)
 
 
 func test_a_back_band_unit_fights_only_once_the_front_has_fallen() -> void:

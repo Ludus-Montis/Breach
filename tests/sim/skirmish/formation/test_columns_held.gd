@@ -1,13 +1,12 @@
 extends GdUnitTestSuite
 ## ColumnsHeld and StoreHolds (fix/rout-store-reads): a pass holds the columns it reads unit
 ## by unit, so each scattered read and write is a local one, and every reader in the pass
-## sees the same values; releasing commits them. The same contract on both backends.
+## sees the same values; releasing commits them. The same contract on both backends. The
+## typed view a pass takes of a hold is UnitView's (test_unit_view.gd).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
-const FleeColumns = preload("res://sim/skirmish/formation/flee_columns.gd")
-const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 func after_test() -> void:
@@ -102,50 +101,3 @@ func test_releasing_a_store_not_held_changes_nothing() -> void:
 		var inner := store.columns
 		StoreHolds.release([store])
 		assert_object(store.columns).is_same(inner)
-
-
-class _Squad:
-	var store: UnitStore
-
-
-func test_flee_columns_write_in_place_where_every_reader_in_the_pass_sees_them() -> void:
-	for backend in _backends():
-		var squad := _Squad.new()
-		squad.store = backend[1]
-		StoreHolds.hold([squad], [UnitColumns.ALONG, UnitColumns.KEYS, UnitColumns.HELD_BY])
-		var flee := FleeColumns.of(squad)
-		flee.along[1] = 3.0
-		assert_float(squad.store.columns.value(1, UnitColumns.ALONG)).is_equal(3.0)
-		squad.store.columns.put(2, UnitColumns.ALONG, 6.0)
-		assert_float(flee.along[2]).is_equal(6.0)
-		StoreHolds.release([squad.store])
-		(
-			assert_float(squad.store.columns.value(1, UnitColumns.ALONG))
-			. override_failure_message(backend[0])
-			. is_equal(3.0)
-		)
-
-
-func test_flee_columns_keep_as_entry_keys_keeps() -> void:
-	for backend in _backends():
-		var squad := _Squad.new()
-		squad.store = backend[1]
-		var names := [UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.FANNED, UnitColumns.KEYS]
-		StoreHolds.hold([squad], names)
-		var flee := FleeColumns.of(squad)
-		flee.keep(0, UnitColumns.CAUGHT, 2)
-		flee.keep(0, UnitColumns.HELD_BY, 7)
-		flee.keep(0, UnitColumns.FANNED, 1.5)
-		flee.keep(0, UnitColumns.HELD_BY, null)
-		var columns := squad.store.columns
-		EntryKeys.keep(columns, 1, UnitColumns.CAUGHT, 2)
-		EntryKeys.keep(columns, 1, UnitColumns.HELD_BY, 7)
-		EntryKeys.keep(columns, 1, UnitColumns.FANNED, 1.5)
-		EntryKeys.keep(columns, 1, UnitColumns.HELD_BY, null)
-		StoreHolds.release([squad.store])
-		for name in names:
-			(
-				assert_that(squad.store.columns.value(0, name))
-				. override_failure_message("%s %s" % [backend[0], name])
-				. is_equal(squad.store.columns.value(1, name))
-			)

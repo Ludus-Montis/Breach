@@ -167,7 +167,7 @@ func _centre(lane_key: String, squad: SkirmishSquad, unit: SkirmishUnit) -> Vect
 	var points: PackedVector2Array = _lanes[lane_key]["points"]
 	var depth_back := (unit.footprint_depth - 1) * SkirmishSquad.RANK_DEPTH * 0.5
 	var distance := _distance(lane_key, unit) - squad.direction * depth_back
-	var span := squad.lateral_span(unit)
+	var span := squad.lateral_span(unit, Vector2.ZERO, UnitPlace.of(squad, unit))
 	var moving := FormationShuffle.offset(squad, unit).y * squad.direction
 	var lateral := ((span.x + span.y) * 0.5 + moving) * COLUMN_PX
 	return (

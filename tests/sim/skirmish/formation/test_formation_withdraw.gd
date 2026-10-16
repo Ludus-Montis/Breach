@@ -155,7 +155,7 @@ func _both_retreat(reversed: bool) -> Array:
 				state.append(
 					[
 						unit.id,
-						UnitHealth.of(squad, unit),
+						UnitHealth.of_one(squad, unit),
 						ScrumReach.at(squad, unit).snapped(Vector2.ONE * 0.0001)
 					]
 				)

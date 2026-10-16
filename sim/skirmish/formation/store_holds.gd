@@ -5,6 +5,8 @@ extends RefCounted
 ## commits what changed and restores the store's own columns.
 
 const ColumnsHeld = preload("res://sim/skirmish/formation/columns_held.gd")
+## What a native entry asserts (none_held).
+const SPANS := "no hold spans a native call (Decision 146)"
 
 
 ## Holds `names` on every store `squads` use; returns those stores, for `release`.
@@ -32,3 +34,17 @@ static func release(stores: Array) -> void:
 			var held: ColumnsHeld = store.columns
 			held.commit_held()
 			store.columns = held.inner
+
+
+## Whether `store` is held by no pass: every GDScript entry into a native pass asserts it,
+## since the native pass reads the field's own columns, not the hold's (Decision 146).
+static func unheld(store: UnitStore) -> bool:
+	return store == null or not store.columns is ColumnsHeld
+
+
+## Whether no store `squads` use is held: each GDScript entry into a native pass asserts it.
+static func none_held(squads: Array) -> bool:
+	for squad in squads:
+		if not unheld(squad.store):
+			return false
+	return true

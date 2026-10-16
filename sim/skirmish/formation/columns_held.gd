@@ -6,12 +6,13 @@ extends UnitColumns
 ## the held columns are copied out once, when the hold is taken, and the columns not held
 ## pass straight through. Every reader in the pass goes through `store.columns`, so all of
 ## them see the same values, and `column` hands out the held copy itself: a typed array of
-## it (FleeColumns) is read and written in place, about 0.04 us an index, and every other
+## it (UnitView) is read and written in place, about 0.04 us an index, and every other
 ## reader sees those writes. Releasing commits every held column and gives the store its
 ## own columns back (StoreHolds). A slot opened in the pass grows the copies in place and
 ## starts blank there. Nothing native may read a held column while it is held.
 
 var inner: UnitColumns  # the store's own columns
+var view: RefCounted  # the UnitView the store is held under (UnitView.hold)
 var _held := {}  # name -> its copy, for the pass
 
 

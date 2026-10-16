@@ -41,6 +41,8 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
 ## discipline) / 100.
+## The chasers' loose points, held for the pass (UnitView).
+const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT]
 
 
 ## Applies a retreat order to `squad`: ends its fight, costs a ragged one its scaled rout,
@@ -83,11 +85,12 @@ static func step(
 		by_id[entry.id] = entry
 	var walks := []  # [unit, its place in the scrum, where it heads]
 	var quarries := {}  # foe squad -> its units' index (ScrumNear), where they stand now
-	for squad in squads:
-		var homes := (
-			{} if squad.chasers.is_empty() else TerrainStep.returns(squad, terrain, fight_seed)
-		)
-		# store: scattered (chasers each stepped by UnitMover, under 0.1 ms at the bench)
+	var chasing := squads.filter(func(s): return not s.chasers.is_empty())
+	var held := UnitView.hold(chasing, HELD)  # each chaser read and stepped: held for the pass
+	for squad in chasing:
+		var homes := TerrainStep.returns(squad, terrain, fight_seed)
+		var places := UnitView.read(squad, UnitView.PLACES)
+		var loose_at: PackedVector2Array = UnitView.of(squad).at
 		for unit_id in squad.chasers.keys():
 			var chase: Dictionary = squad.chasers[unit_id]
 			var foe: SkirmishSquad = by_id.get(chase["foe"])
@@ -95,9 +98,9 @@ static func step(
 			if not unit.is_alive() or not squad.loose.has(unit_id):
 				squad.chasers.erase(unit_id)
 				continue
-			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))  # back
+			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, places))  # back
 			if not chase.get("returning", false):
-				var at: Vector2 = SquadEntries.loose_at(squad, unit)
+				var at: Vector2 = loose_at[unit.slot]
 				var quarry = _quarry(at, unit, foe, quarries, fight_seed)
 				if _done(chase, at, unit, quarry):
 					chase["returning"] = true
@@ -106,19 +109,22 @@ static func step(
 			walks.append([squad, unit, heads, chase.get("returning", false)])
 	var bodies := ScrumSlots.bodies(squads) if not walks.is_empty() else []
 	var crowd := BodyGrid.of_bodies(bodies) if not walks.is_empty() else {}
-	# store: scattered (chasers each stepped by UnitMover, under 0.1 ms at the bench)
 	for walk in walks:
 		var unit: SkirmishUnit = walk[1]
+		var view := UnitView.of(walk[0])
+		var loose_at: PackedVector2Array = view.at
+		var next: PackedVector2Array = view.next
 		var full: float = unit.speed * cells_per_second * seconds
-		var at: Vector2 = SquadEntries.loose_at(walk[0], unit)
+		var at: Vector2 = loose_at[unit.slot]
 		var to := UnitSteer.toward(unit, at, walk[2], bodies, fight_seed, crowd)
 		var columns: UnitColumns = walk[0].store.columns
 		var stepped := UnitMover.step(unit, columns, at, to, full, seconds, terrain)
-		columns.put(unit.slot, UnitColumns.LOOSE_AT, stepped)
-		columns.put(unit.slot, UnitColumns.NEXT, stepped)
+		loose_at[unit.slot] = stepped  # placement: its step, by UnitMover (Decision 139)
+		next[unit.slot] = stepped
 		if walk[3] and stepped.distance_to(walk[2]) < 0.000001:
 			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
 			SquadEntries.unloose(walk[0], unit.id)
+	UnitView.release(held)
 
 
 ## Where the nearest unit of the chaser's foe stands (_nearest_in), or null if the chase

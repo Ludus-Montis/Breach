@@ -89,7 +89,7 @@ static func _fall(unit, squad, terrain: FormationTerrain) -> void:
 	var hurt := roundi(
 		tuning.fall_damage_per_cell * climbed * DetMath.pow(area, tuning.fall_mass_power)
 	)
-	UnitHealth.hurt(squad, unit, hurt)
+	UnitHealth.hurt_one(squad, unit, hurt)
 	# placement: a fall puts it back at the foot of its climb (Decision 139)
 	columns.put(unit.slot, UnitColumns.POSITION, unit.foothold)
 	unit.climb_left = 0.0

@@ -62,7 +62,7 @@ func test_brought_to_zero_it_is_downed_and_past_its_constitution_it_dies() -> vo
 	FormationDeaths.bury([_squad(1, "player", [downed, killed])], 1, events)
 
 	assert_int(downed.state).is_equal(SkirmishUnit.State.DOWNED)
-	assert_int(UnitHealth.of(_places, downed)).is_equal(0)
+	assert_int(UnitHealth.of_one(_places, downed)).is_equal(0)
 	assert_int(killed.state).is_equal(SkirmishUnit.State.DEAD)
 	assert_array(_types(events)).contains(["downed", "died"])
 	assert_bool(downed.is_alive()).is_false()
@@ -76,7 +76,7 @@ func test_an_unguarded_body_is_struck_through_deaths_door_till_it_dies() -> void
 
 	var body: SkirmishUnit = scene[1]
 	assert_int(body.state).is_equal(SkirmishUnit.State.DEAD)
-	assert_int(UnitHealth.of(_places, body)).is_less_equal(-6)
+	assert_int(UnitHealth.of_one(_places, body)).is_less_equal(-6)
 	assert_array(_types(events)).contains(["finished"])
 
 
@@ -101,8 +101,8 @@ func test_a_friend_near_guards_it_and_a_foe_near_keeps_the_taker_fighting() -> v
 		FormationWounds.tend(guarded[0], tick, SECOND, 1, events)
 		FormationWounds.tend(pressed[0], tick, SECOND, 1, events)
 
-	assert_int(UnitHealth.of(_places, guarded[1])).is_equal(0)
-	assert_int(UnitHealth.of(_places, pressed[1])).is_equal(0)
+	assert_int(UnitHealth.of_one(_places, guarded[1])).is_equal(0)
+	assert_int(UnitHealth.of_one(_places, pressed[1])).is_equal(0)
 	assert_array(events).is_empty()
 
 

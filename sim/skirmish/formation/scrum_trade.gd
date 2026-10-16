@@ -49,7 +49,7 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 		draws[unit] = ScrumContest.draw(unit, fight_seed)
 	stalled.sort_custom(func(a, b): return draws[a] < draws[b])
 	var places := _places(squad, stalled)
-	# store: scattered (the few stalled units trading, two at a time)
+	# store: scattered (few: the stalled units trading, two at a time)
 	for unit in stalled:
 		if not squad.loose.has(unit.id):
 			continue
@@ -60,7 +60,7 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 			_traded(places, unit, friend)
 		elif squad.stance.is_empty():
 			SquadEntries.unloose(squad, unit.id)
-			var anchor := ScrumStance.anchor(squad, unit)
+			var anchor := ScrumStance.anchor_one(squad, unit)
 			# placement: it takes its place in its frame (Decision 139)
 			squad.store.columns.put(unit.slot, UnitColumns.POSITION, anchor)
 
@@ -88,7 +88,7 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 	var points := []
 	var of := {}
 	var order := {}
-	var table := UnitPlace.table(squad)  # fetched once (spec 35)
+	var table := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
 	for index in range(living.size()):
 		points.append(ScrumStance.anchor(squad, living[index], table))
 		of[living[index]] = index
@@ -108,7 +108,7 @@ static func _nearest_place(
 ) -> SkirmishUnit:
 	var places: Dictionary = lookup[0]
 	var fight_seed: int = lookup[1]
-	var own := ScrumStance.anchor(squad, unit).distance_to(at)
+	var own := ScrumStance.anchor_one(squad, unit).distance_to(at)
 	var best: SkirmishUnit = null
 	var best_key := []
 	if places.is_empty():
@@ -145,6 +145,6 @@ static func _swap(squad: SkirmishSquad, unit: SkirmishUnit, friend: SkirmishUnit
 	if not squad.loose.has(friend.id):
 		var at: Vector2 = squad.store.columns.value(friend.slot, UnitColumns.POSITION)
 		SquadEntries.loosen(squad, friend, at)
-	# store: scattered (the few stalled units trading, two at a time)
+	# store: scattered (few: the stalled units trading, two at a time)
 	for moved in [unit, friend]:
 		EntryKeys.forget(squad.store.columns, moved.slot, [UnitColumns.CLOSEST, UnitColumns.STUCK])

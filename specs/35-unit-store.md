@@ -68,6 +68,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   store (`UnitView`) and converts the rout, hp and places to it; 6b converts the phases the
   series bench found slower; 6c is the former step 6 (stamina, speed, exertion). See
   "Settled for step 6" below.
+- **Step 6a, one typed view: built** (2026-10-16). See "Built" below.
 
 ## The store
 
@@ -330,6 +331,21 @@ had its own pattern, and only a typed array's index is cheap on the native store
   - **Outcomes unchanged:** `sim-checks` digests on both engines.
   - **Bench:** the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in four squads)
     against main: no phase slower beyond noise.
+- **Settled while building 6a** (the user, 2026-10-16):
+  - **Read views.** A pass that only reads takes `UnitView.read(squad, names)`: copies of the
+    named columns with no hold and nothing to release. On a store a pass holds, a held name
+    is that hold's own copy, so the reader sees its writes. A write to a read view isn't
+    committed, and `UnitHealth.put` asserts its view is held. The place readers (about 20
+    helpers, some called inside the rout's hold) take read views; `hold` and `release`
+    are for passes that write.
+  - **A view spans one store.** A squad's slots index its own store, so `hold` gives each
+    store held its own view (`UnitView.of(squad)` takes it), and `release` of any of them
+    releases every store held with it. A battle has one store; tests may have several.
+  - **The loops the new check flags are converted, not marked.** `ScrumPursuit`'s chasers
+    and `ScrumRegroup._walk_back`, marked "under 0.1 ms at the bench", now hold their loose
+    points and bearings. The march's and the rout blows' per-router `FormationRout.where`
+    now read a view (`FormationRout.where_in`). 6b's `where` list is left with UnitBodies
+    and the field's sync, which call it through helpers.
 - **6b: the slower phases on the view.** The bodies snapshot, engage, the march's walk to
   places, the shuffle's free front place, and `FormationRout.where` wherever `UnitBodies`,
   the march, the rout's blows and the field's sync call it per router; plus the rout's cold
@@ -900,6 +916,40 @@ Kept, where the list above was wider than the code:
   march, the rout's blows and the field's sync call it per router; and the other phases the
   series bench found slower (the bodies snapshot +4.1 ms, engage +2.4, the walk to places
   +2.1, the shuffle's free front place +1.3) are likely the same per-unit store calls.
+
+### Step 6a, `UnitView`
+
+- **`UnitView`** (`unit_view.gd`): a typed property for every column in `UnitColumns`, each
+  the packed array its backends' `column` returns. A getter asserts the view names the
+  column. `test_unit_view.gd` fails when a column is added without one, or with the wrong
+  type. `hold(squads, names)`, `of(squad)` and `release(view)` sit on `StoreHolds` and
+  `ColumnsHeld`, which now carries its view. `read(squad, names)` is the read-only form.
+  `PLACES` is RANK and COLUMN. `keep` is EntryKeys.keep on the view, written in place.
+- **Replaced:** `FleeColumns` is gone. The rout holds `FormationRout.HELD` as a view, and
+  `RoutFlight.step` takes it. `UnitHealth.Table` is gone: `of`, `hurt`, `heal` and `put`
+  take a view holding HP and write it in place, still pushing the fell queue. Their
+  scattered forms are `of_one`, `hurt_one` and `put_one`. Recovery holds HP and
+  regeneration left, wounds' taking holds HP and attack cooldown, and the fight's blows hold
+  HP (they were a scattered write per blow). `UnitPlace.table` and `read` are gone:
+  readers take a read view and `UnitPlace.in_view`.
+- **Helpers that read one unit take the view.** `ScrumStance.anchor` and
+  `FormationWalk.place_of` take one, and each has a scattered twin (`anchor_one`,
+  `place_of_one`). `SquadGeometry.unit_gap` takes one. `FormationPour.place` and
+  `SkirmishSquad.lateral_span` take the unit's place itself, from `UnitPlace.in_view` or,
+  for an event, `UnitPlace.of`, which the check lists. A twin would have put SkirmishSquad
+  over the ISP budget. `PlaceOrder.front_first` takes the rank and column arrays.
+- **No hold spans a native call:** `BodyParting.step`, `ScrumSeekField.plan`,
+  `ScrumWalkField.walk`, `ScrumFaceField.face`, `ScrumBlowsField.blows` and `pressed`, and
+  `BodyFieldSync.scrum` and `bodies` assert `StoreHolds.none_held` on their squads. A test
+  holds a store and calls `pressed`.
+- **`check_store_reads.py`:** a mark reads `few:` or `reference:`. The check also flags
+  `UnitHealth.*_one` and `FormationRout.where` in a loop. Every mark was re-marked:
+  `reference:` for the GDScript seek, walk and facing, `few:` for the rest. The deaths'
+  fell-queue loop and the risers' loop gained a `few:` mark, since `of_one` is now flagged.
+  RoutCatch's held-by read moved out of its loop header. Nothing is listed as waiting for
+  6b: the loops the check would otherwise flag were converted (above).
+- **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
+- **Bench:** the alternating bench against main, for the PR.
 
 ## Open, for the implementing session to settle and record here
 

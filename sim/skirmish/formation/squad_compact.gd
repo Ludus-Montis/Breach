@@ -67,13 +67,9 @@ static func compact(squad: SkirmishSquad) -> Array[SkirmishUnit]:
 	return moved
 
 
-## PlaceOrder.front_first on the ranks and files being worked on, holding no reference to
-## them after, so writing them doesn't copy them.
+## PlaceOrder.front_first on the ranks and files being worked on.
 static func _front_first(living: Array, ranks: PackedInt32Array, files: PackedInt32Array) -> Array:
-	var places := [ranks, files]
-	var order := PlaceOrder.front_first(living, places)
-	places.clear()
-	return order
+	return PlaceOrder.front_first(living, ranks, files)
 
 
 ## The places held while a squad closes up, as a count per place on a grid over every place

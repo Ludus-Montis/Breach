@@ -169,7 +169,7 @@ func _saved(squads: Array) -> Array:
 					squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN),
 					unit.regeneration_halt,
 					unit.last_wounding,
-					UnitHealth.of(squad, unit),
+					UnitHealth.of_one(squad, unit),
 					unit.stamina,
 					unit.state
 				]
@@ -186,7 +186,7 @@ func _put(squads: Array, saved: Array) -> void:
 			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, was[1])
 			unit.regeneration_halt = was[2]
 			unit.last_wounding = was[3]
-			UnitHealth.put(squad, unit, was[4])
+			UnitHealth.put_one(squad, unit, was[4])
 			unit.stamina = was[5]
 			unit.state = was[6]
 			index += 1
@@ -217,8 +217,8 @@ func _staged(sim: Sim, spent: Dictionary) -> void:
 	_landing(sim, blows, shots, spent, lap)
 	var events := []
 	for blow in blows:
-		UnitHealth.hurt(sim, blow[1], blow[2])
-		events.append(FormationEvents.hit(sim.tick_number(), blow, UnitHealth.of(sim, blow[1])))
+		UnitHealth.hurt_one(sim, blow[1], blow[2])
+		events.append(FormationEvents.hit(sim.tick_number(), blow, UnitHealth.of_one(sim, blow[1])))
 	_lap(spent, lap, "hit points, events")
 	FormationWounds.surrender(blows, squads, sim.fight_seed, sim.tick_number(), events)
 	_lap(spent, lap, "surrender")

@@ -24,10 +24,18 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 
 
-## The place a unit keeps to: in its squad's stance if it has one. `places`:
-## UnitPlace.table, if the caller has it.
-static func anchor(squad: SkirmishSquad, unit: SkirmishUnit, places: Array = []) -> Vector2:
-	var at := UnitPlace.read(places, squad, unit)
+## The place a unit keeps to: in its squad's stance if it has one. `places`: a view of the
+## squad's store holding UnitView.PLACES.
+static func anchor(squad: SkirmishSquad, unit: SkirmishUnit, places: UnitView) -> Vector2:
+	return _anchor(squad, unit, UnitPlace.in_view(places, unit))
+
+
+## `anchor` for one unit, its place read from the store: scattered, for an event's few.
+static func anchor_one(squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
+	return _anchor(squad, unit, UnitPlace.of(squad, unit))
+
+
+static func _anchor(squad: SkirmishSquad, unit: SkirmishUnit, at: Vector2i) -> Vector2:
 	if squad.stance.is_empty():
 		return SquadFrame.place(
 			squad.position, squad.heading, squad.width, squad.centre_shift, unit, at

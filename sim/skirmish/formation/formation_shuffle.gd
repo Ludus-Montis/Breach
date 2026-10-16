@@ -53,7 +53,7 @@ static func step(
 		swap["ticks"] -= 1
 		if swap["ticks"] > 0:
 			continue
-		# store: scattered (a swap ending, its step-ups, a widening: per event)
+		# store: scattered (few: a swap ending, its step-ups, a widening)
 		for unit in swap["to"]:
 			UnitPlace.put(squad, unit, swap["to"][unit])
 		squad.swaps.remove_at(index)
@@ -64,7 +64,7 @@ static func step(
 		events.append(
 			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
 		)
-		# store: scattered (a swap ending, its step-ups, a widening: per event)
+		# store: scattered (few: a swap ending, its step-ups, a widening)
 		for moved in squad.compact():  # close the gaps the move left
 			var rank := UnitPlace.rank(squad, moved)
 			events.append(
@@ -122,7 +122,8 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 		for unit in swap["to"]:
 			busy[unit] = true
 			_claim(claimed, swap["to"][unit], unit)
-	var front_first := PlaceOrder.front_first(squad.living(), occupied["table"])
+	var table: UnitView = occupied["table"]
+	var front_first := PlaceOrder.front_first(squad.living(), table.rank, table.column)
 	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	var started := false
 	for unit: SkirmishUnit in front_first:
@@ -169,15 +170,15 @@ static func _claim(claimed: Dictionary, place: Vector2i, unit: SkirmishUnit) -> 
 static func _widen_to_fit(squad: SkirmishSquad) -> void:
 	var left := 0
 	var right := squad.width
-	var places := UnitPlace.table(squad)  # fetched once (spec 35)
+	var files: PackedInt32Array = UnitView.read(squad, [UnitColumns.COLUMN]).column  # read once
 	for unit in squad.living():
-		var column: int = places[1][unit.slot]
+		var column: int = files[unit.slot]
 		left = mini(left, column)
 		right = maxi(right, column + unit.footprint_width)
 	if left == 0 and right == squad.width:
 		return
 	squad.centre_shift += left + (right - left - squad.width) / 2.0
-	# store: scattered (a swap ending, its step-ups, a widening: per event)
+	# store: scattered (few: a swap ending, its step-ups, a widening)
 	for unit in squad.units:
 		UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(0, left))
 	for swap in squad.swaps:

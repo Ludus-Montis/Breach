@@ -13,6 +13,7 @@ extends RefCounted
 ## in GDScript: the same bodies stepped round, the same maths in the same precision,
 ## DetMath's asin, sin and cos (native/README.md).
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
@@ -40,6 +41,7 @@ class Batch:
 
 ## Walks every unit of the tick's slot search (ScrumSeekField) on ctx["field"].
 static func walk(ctx: Dictionary) -> void:
+	assert(StoreHolds.none_held(ctx["squads"]), StoreHolds.SPANS)
 	var field: Object = ctx["field"]
 	var seek = ctx["seek_batch"]  # ScrumSeekField.Batch, with its plan's answer
 	var began := Time.get_ticks_usec()

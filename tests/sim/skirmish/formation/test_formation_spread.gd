@@ -73,12 +73,19 @@ func test_the_front_already_in_place_stays_where_it_was() -> void:
 	var sim: FormationSimulation = setup[0]
 	var first: SkirmishSquad = setup[1]
 	var front := first.fighters()
-	var spans_before := front.map(func(u): return first.lateral_span(u))
+	var spans_before := front.map(
+		func(u): return first.lateral_span(u, Vector2.ZERO, UnitPlace.of(first, u))
+	)
 	sim.spawn_squad(2, _block(_def(1.0), 2, 2), "player", true)
 
 	_run(sim, func(): return first.living().size() == 8 and _settled(first))
 
-	assert_array(front.map(func(u): return first.lateral_span(u))).is_equal(spans_before)
+	(
+		assert_array(
+			front.map(func(u): return first.lateral_span(u, Vector2.ZERO, UnitPlace.of(first, u)))
+		)
+		. is_equal(spans_before)
+	)
 	assert_array(front.map(func(u): return UnitPlace.rank(first, u))).is_equal([0, 0])
 
 
@@ -96,7 +103,7 @@ func test_the_line_stays_on_the_lane() -> void:
 	var first: SkirmishSquad = setup[1]
 
 	for unit in first.living():
-		var span := first.lateral_span(unit)
+		var span := first.lateral_span(unit, Vector2.ZERO, UnitPlace.of(first, unit))
 		assert_float(span.x).is_greater_equal(-3.0)  # half the lane, plus half a column
 		assert_float(span.y).is_less_equal(3.0)
 

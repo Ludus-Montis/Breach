@@ -214,7 +214,7 @@ func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 	var lap := Time.get_ticks_usec()
 	for walk in walks:
 		if not walk[1]:
-			walk[2] = ScrumStance.anchor(walk[4], walk[0])
+			walk[2] = ScrumStance.anchor_one(walk[4], walk[0])
 	spent.append(Time.get_ticks_usec() - lap)
 	lap = Time.get_ticks_usec()
 	for walk in walks:

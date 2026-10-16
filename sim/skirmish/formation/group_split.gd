@@ -65,8 +65,10 @@ static func _behind(squad: SkirmishSquad) -> Array:
 	)
 	var far := {}  # unit id -> whether it stands further than walk_lost from its place
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
+	var places := UnitView.read(squad, UnitView.PLACES)  # read once (Decision 146)
 	for unit in placed:
-		far[unit.id] = at[unit.slot].distance_to(FormationWalk.place_of(squad, unit)) > lost
+		var place := FormationWalk.place_of(squad, unit, null, places)
+		far[unit.id] = at[unit.slot].distance_to(place) > lost
 	if not far.values().has(true):
 		return []  # nobody has fallen behind: nothing to cluster
 	var out := []
@@ -118,7 +120,7 @@ static func _group(squad: SkirmishSquad, cluster: Array, fight_seed: int) -> Ski
 	keyed.sort_custom(func(a, b): return a.slice(0, 2) < b.slice(0, 2))
 	var members: Array[SkirmishUnit] = []
 	var front := -INF
-	# store: scattered (a split: once, as a group breaks off)
+	# store: scattered (few: a split, once as a group breaks off)
 	for entry in keyed:
 		var unit: SkirmishUnit = entry[2]
 		squad.units.erase(unit)
