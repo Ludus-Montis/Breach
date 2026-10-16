@@ -54,6 +54,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 5 designed** (2026-10-15, Decision 145): 5a retires the lane skirmish; 5b moves hp
   and attack cooldown, every hp write through `UnitHealth`, and deaths drains a fell queue.
   See "Settled for step 5" below.
+- **Step 5a, the lane skirmish retired: built** (2026-10-15). See "Built" below.
 - **Store reads held once a pass (Decision 144): built** (2026-10-15), on the same PR.
   See "Built" below.
 - **Places read once a pass: built** (2026-10-15), stacked on 4e's PR, after step 4's bench
@@ -677,6 +678,25 @@ table rather than a dictionary per unit. Deaths' own scan goes in 5b anyway (the
 - **Not seen by the check, left for a later port:** the march's walk itself
   (`FormationWalk.walk` → `WalkModes`, `UnitMover`, `UnitMotion`) reads and writes each
   unit's position and bearing per unit, inside helpers; it is spec 34's "the walk" port.
+
+### Step 5a, the lane skirmish retired
+
+Gone: `sim/skirmish/skirmish_simulation.gd`, `skirmish_production.gd`,
+`presentation/skirmish/skirmish.tscn`, `skirmish_scene.gd`, `skirmish_unit_layer.gd`, and
+their tests (`test_skirmish_simulation.gd`, `test_skirmish_production.gd`,
+`test_skirmish_scene.gd`), with their entries in `ci/godot/test_times.json`. Also gone:
+`skirmish_hud.gd`, which only `skirmish_scene.gd` used. The formation scene's test stops
+loading the old scene.
+
+Kept, where the list above was wider than the code:
+- `presentation/skirmish/skirmish_route.gd` and its test: the formation battle's squad layer
+  and scene lay units along routes with it (`normal_at`, `point_at`, `length_cells`).
+- `skirmish_camera_rig.gd`, `skirmish_camera.gd` and `sim/skirmish/skirmish_clock.gd`: the
+  formation scenes use them.
+- `sim/lane_simulation.gd` and `presentation/lane_view.gd`: `main.gd` and several tests
+  still load them, so they stay for Q25's design session.
+- `SkirmishUnit`'s spec 21 fields (`order`, `distance`, `home_distance`, `wait_ticks`,
+  `target_id`): formation code still reads them. Step 7's inventory decides them.
 
 ## Open, for the implementing session to settle and record here
 

@@ -1,7 +1,7 @@
 class_name SkirmishRoute
 extends RefCounted
-## Maps a skirmish unit's distance along its route (in cells, as SkirmishSimulation
-## measures it) to a point on the route polyline (the link's route from
+## Maps a skirmish unit's distance along its route (in cells) to a point on the route
+## polyline (the link's route from
 ## MapLayoutView.route_points), per specs/21-realtime-skirmish-feel-test.md. Pure.
 
 

@@ -1,7 +1,7 @@
 class_name SkirmishUnit
 extends RefCounted
-## One unit in the real-time skirmish feel test (specs/21-realtime-skirmish-feel-test.md).
-## Plain data; SkirmishSimulation owns every rule that changes it.
+## One unit in the formation battle (specs/22-formation-feel-test.md). Plain data; the
+## formation simulation's passes own every rule that changes it.
 
 ## The player's standing instruction. Applied by the simulation on the next tick.
 enum Order { ADVANCE, HOLD, RETREAT }
@@ -58,7 +58,7 @@ var attack_cooldown: int = 0
 ## Ticks to stand still after spawning, so a wave leaves as a staggered group.
 var wait_ticks: int = 0
 
-# Formation fields (specs/22-formation-feel-test.md); unused by the spec 21 SkirmishSimulation.
+# Formation fields (specs/22-formation-feel-test.md).
 ## The squad (wave) this unit marches in; 0 = none.
 var squad_id: int = 0
 ## The command it follows, and the one it started under (FormationCommand, spec 30 round
