@@ -112,9 +112,7 @@ func test_flee_columns_write_in_place_where_every_reader_in_the_pass_sees_them()
 	for backend in _backends():
 		var squad := _Squad.new()
 		squad.store = backend[1]
-		StoreHolds.hold(
-			squad_list(squad), [UnitColumns.ALONG, UnitColumns.KEYS, UnitColumns.HELD_BY]
-		)
+		StoreHolds.hold([squad], [UnitColumns.ALONG, UnitColumns.KEYS, UnitColumns.HELD_BY])
 		var flee := FleeColumns.of(squad)
 		flee.along[1] = 3.0
 		assert_float(squad.store.columns.value(1, UnitColumns.ALONG)).is_equal(3.0)
