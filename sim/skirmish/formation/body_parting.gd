@@ -8,6 +8,7 @@ extends RefCounted
 ## order (Vector2 maths in 32-bit floats, scalars in 64-bit, pairs in order); a pair lying
 ## exactly on each other asks `way` (UnitBodies.part_way) which way it parts.
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -25,6 +26,7 @@ static var spent := PackedInt64Array([0, 0, 0, 0])
 static func step(
 	field: Object, squads: Array, fight_seed: int, way: Callable, threaded: bool
 ) -> void:
+	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var began := Time.get_ticks_usec()
 	var synced := BodyFieldSync.bodies(field, squads, fight_seed)
 	var called := Time.get_ticks_usec()
@@ -51,5 +53,6 @@ static func _write_back(field: Object, units: Array, owners: Array, out: Array) 
 	var points: PackedVector2Array = columns.column(UnitColumns.POSITION)  # fetched once
 	for index in out[3]:
 		var unit: SkirmishUnit = units[index]
-		SquadEntries.loosen(owners[index], unit, points[unit.slot])  # store: scattered (newly loosened)
+		# store: scattered (few: the newly loosened)
+		SquadEntries.loosen(owners[index], unit, points[unit.slot])
 	field.commit_part()

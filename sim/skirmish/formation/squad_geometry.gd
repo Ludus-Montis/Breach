@@ -25,11 +25,11 @@ static func gap(from: SkirmishSquad, to: SkirmishSquad) -> float:
 
 
 ## How far a unit's rank stands ahead of `from`'s front along its heading, in tiles.
-## `places`: UnitPlace.table of `to`'s store, if the caller has it.
+## `places`: a view of `to`'s store holding its ranks (UnitView.PLACES).
 static func unit_gap(
-	from: SkirmishSquad, to: SkirmishSquad, unit: SkirmishUnit, places: Array = []
+	from: SkirmishSquad, to: SkirmishSquad, unit: SkirmishUnit, places: UnitView
 ) -> float:
-	var rank: int = UnitPlace.read(places, to, unit).x
+	var rank: int = places.rank[unit.slot]
 	var point := to.position - UnitMotion.vector(to.heading) * rank
 	return (point - from.position).dot(UnitMotion.vector(from.heading)) / CELLS
 
@@ -57,8 +57,8 @@ static func facing_off(from: SkirmishSquad, to: SkirmishSquad) -> bool:
 ## spans (empty: none).
 static func lateral(squad: SkirmishSquad, axis := Vector2.ZERO) -> Vector2:
 	var extent := Vector2(INF, -INF)
-	var places := UnitPlace.table(squad)  # fetched once (spec 35)
+	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
 	for unit in squad.living():
-		var span := squad.lateral_span(unit, axis, places)
+		var span := squad.lateral_span(unit, axis, UnitPlace.in_view(places, unit))
 		extent = Vector2(minf(extent.x, span.x), maxf(extent.y, span.y))
 	return extent

@@ -34,14 +34,14 @@ func test_a_placed_squad_stands_on_its_places() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 3)
 	for unit in squad.units:
-		assert_vector(UnitPlaces.of(squad, unit)).is_equal(FormationWalk.place_of(squad, unit))
+		assert_vector(UnitPlaces.of(squad, unit)).is_equal(FormationWalk.place_of_one(squad, unit))
 
 
 func test_a_unit_pushed_off_its_place_walks_back_at_its_pace() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 3)
 	var unit: SkirmishUnit = squad.units[0]
-	var place := FormationWalk.place_of(squad, unit)
+	var place := FormationWalk.place_of_one(squad, unit)
 	UnitPlaces.put(squad, unit, place - UnitMotion.vector(squad.heading) * 3.0)  # pushed 3 cells back
 
 	FormationWalk.walk(squad, unit, place, [0.1, PACE])
@@ -60,7 +60,7 @@ func test_far_from_its_place_it_faces_its_way_and_near_it_its_formations() -> vo
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 1)
 	var unit: SkirmishUnit = squad.units[0]
-	var place := FormationWalk.place_of(squad, unit)
+	var place := FormationWalk.place_of_one(squad, unit)
 	var across := UnitMotion.vector(squad.heading).orthogonal()
 	UnitPlaces.put(squad, unit, place + across * 6.0)
 	for _tick in 10:
@@ -80,7 +80,7 @@ func test_the_frame_waits_while_a_unit_lags_beyond_its_slack() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 3)
 	var unit: SkirmishUnit = squad.units[1]
-	var place := FormationWalk.place_of(squad, unit)
+	var place := FormationWalk.place_of_one(squad, unit)
 	var back := -UnitMotion.vector(squad.heading)
 	var slack := FormationWalk.slack_of(squad)
 
@@ -108,7 +108,7 @@ func test_a_unit_fallen_far_behind_is_waited_for_only_if_no_man_is_left_behind()
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 2)
 	var unit: SkirmishUnit = squad.units[0]
-	var place := FormationWalk.place_of(squad, unit)
+	var place := FormationWalk.place_of_one(squad, unit)
 	var lost := BattleTuning.current().walk_lost + 1
 	UnitPlaces.put(squad, unit, place - UnitMotion.vector(squad.heading) * lost)
 
@@ -122,7 +122,7 @@ func test_fall_behind_left_behind_never_waits() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 2)
 	var unit: SkirmishUnit = squad.units[0]
-	UnitPlaces.put(squad, unit, FormationWalk.place_of(squad, unit) + Vector2(0, 3))
+	UnitPlaces.put(squad, unit, FormationWalk.place_of_one(squad, unit) + Vector2(0, 3))
 	unit.leadership = 1
 	unit.traits["fall_behind_left_behind"] = 1
 
@@ -138,7 +138,7 @@ func test_a_marching_line_keeps_its_units_on_their_places() -> void:
 		sim.step()
 	assert_float(squad.front_distance).is_greater(start)
 	for unit in squad.units:
-		var lag := UnitPlaces.of(squad, unit).distance_to(FormationWalk.place_of(squad, unit))
+		var lag := UnitPlaces.of(squad, unit).distance_to(FormationWalk.place_of_one(squad, unit))
 		assert_float(lag).is_less_equal(FormationWalk.slack_of(squad))
 
 
@@ -156,7 +156,7 @@ func test_a_unit_whose_place_is_barred_squeezes_in_towards_the_centre_line() -> 
 	for unit in squad.units:
 		var target := FormationWalk.target_of(squad, unit, terrain)
 		assert_float(terrain.factor(unit, target, target)).is_greater(0.0)
-		var place := FormationWalk.place_of(squad, unit)
+		var place := FormationWalk.place_of_one(squad, unit)
 		assert_float(target.x).is_less_equal(place.x + 0.0001)  # across it, or filed in behind
 
 

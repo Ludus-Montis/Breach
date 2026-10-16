@@ -35,10 +35,10 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 	var standing := {"squads": squads, "cunning": {}}  # _lies_still
 	if squads.is_empty():
 		return []
-	var health := UnitHealth.table(squads[0])  # hp and regeneration left: fetched once
-	var left: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.REGENERATION_LEFT)
-	var pools := [health, left]
+	var held := UnitView.hold(squads, [UnitColumns.HP, UnitColumns.REGENERATION_LEFT])
 	for squad in squads:
+		var health := UnitView.of(squad)  # hp and regeneration left: held for the pass
+		var pools := [health, health.regeneration_left]
 		for unit in squad.units:
 			var downed: bool = unit.state in [SkirmishUnit.State.DOWNED, SkirmishUnit.State.CARRIED]
 			if not (unit.is_alive() or downed):
@@ -56,8 +56,7 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 				elif not unit.playing_dead:
 					unit.playing_dead = true
 					events.append(FormationEvents.unit_event("playing_dead", tick, squad, unit))
-	UnitHealth.commit(health)
-	squads[0].store.columns.commit(UnitColumns.REGENERATION_LEFT, left)
+	UnitView.release(held)
 	return _rise(waking, squads, tick, fight_seed, events)
 
 
@@ -157,7 +156,7 @@ static func scorch(target: SkirmishUnit, parts: Array, dealt: int) -> void:
 			return
 
 
-## `pools` is [the hp table, the regeneration-left column], fetched for the pass.
+## `pools` is [the pass's view, its regeneration-left column], held for the pass.
 static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools: Array) -> void:
 	if unit.regeneration <= 0.0:
 		return
@@ -166,7 +165,7 @@ static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools:
 	if unit.regeneration_halt > 0.0:
 		unit.regeneration_halt = maxf(0.0, unit.regeneration_halt - seconds)
 		return
-	var health: UnitHealth.Table = pools[0]
+	var health: UnitView = pools[0]
 	var left: PackedFloat64Array = pools[1]
 	var gain := minf(unit.regeneration * unit.condition * seconds, left[unit.slot])
 	gain = minf(gain, float(unit.max_hp - UnitHealth.of(health, unit)) - unit.regeneration_carry)
@@ -179,9 +178,9 @@ static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools:
 	unit.regeneration_carry -= whole
 
 
-## A poor condition drains its HP (in `health`, the pass's table); true if it lost any this
+## A poor condition drains its HP (in `health`, the pass's view); true if it lost any this
 ## tick.
-static func _drain(unit: SkirmishUnit, seconds: float, health: UnitHealth.Table) -> bool:
+static func _drain(unit: SkirmishUnit, seconds: float, health: UnitView) -> bool:
 	var tuning := BattleTuning.current()
 	var below := tuning.condition_drain_below - _unclamped(unit)
 	if below <= 0.0:
@@ -220,9 +219,9 @@ static func _rise(waking: Array, squads: Array, tick: int, fight_seed: int, even
 		plans.append([[pick[1], ScrumContest.draw(entry[0], fight_seed)], entry, pick[0]])
 	plans.sort_custom(func(a, b): return ScrumContest.before(a[0], b[0]))
 	var strays := []
-	for plan in plans:
+	for plan in plans:  # store: scattered (few: the units coming to this tick)
 		var unit: SkirmishUnit = plan[1][0]
-		UnitHealth.put(plan[1][1], unit, maxi(UnitHealth.of(plan[1][1], unit), 1))
+		UnitHealth.put_one(plan[1][1], unit, maxi(UnitHealth.of_one(plan[1][1], unit), 1))
 		unit.state = SkirmishUnit.State.MOVING
 		unit.playing_dead = false
 		var extra := {"alone": plan[2] == null}
@@ -266,7 +265,7 @@ static func _nearest(unit: SkirmishUnit, friends: Dictionary) -> Array:
 ## The unit joins `best`, walking from where it lay to a place at its back.
 static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -> void:
 	var back := 0
-	var ranks: PackedInt32Array = UnitPlace.table(best)[0]  # fetched once (spec 35)
+	var ranks: PackedInt32Array = UnitView.read(best, [UnitColumns.RANK]).rank  # read once
 	for other in best.living():
 		if other != unit:
 			back = maxi(back, ranks[other.slot] + other.footprint_depth)

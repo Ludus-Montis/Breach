@@ -125,7 +125,8 @@ static func sync_units(
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
 		var columns: UnitColumns = entry.store.columns
-		var ranks: PackedInt32Array = columns.column(UnitColumns.RANK)  # fetched once
+		var places := UnitView.read(entry, UnitView.PLACES)  # read once a squad (Decision 146)
+		var ranks: PackedInt32Array = places.rank
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
@@ -134,7 +135,9 @@ static func sync_units(
 		var points: PackedVector2Array = columns.column(UnitColumns.POSITION)
 		var facing: PackedFloat64Array = columns.column(UnitColumns.BEARING)
 		var loose_at: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
-		var places := UnitPlace.table(entry)
+		var route: UnitView = (
+			null if entry.fleeing.is_empty() else UnitView.read(entry, FormationRout.ROUTE)
+		)
 		var walkers := []
 		for unit in entry.units:
 			if not unit.is_alive():
@@ -146,7 +149,7 @@ static func sync_units(
 			)
 			if entry.fleeing.has(unit.id):
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
-				points[unit.slot] = FormationRout.where(entry, unit.id)
+				points[unit.slot] = FormationRout.where_in(route, entry, unit)
 				if not entry.loose.has(unit.id):
 					facing[unit.slot] = entry.heading
 			elif entry.loose.has(unit.id):

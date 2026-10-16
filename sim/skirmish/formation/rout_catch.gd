@@ -25,10 +25,8 @@ static func holder(
 	reach: float,
 	fight_seed: int = 0
 ) -> SkirmishSquad:
-	# store: scattered (read once a call: the loop's header)
-	for friend in RoutFriends.with_id(
-		friends, EntryKeys.held(squad.store.columns, unit.slot, UnitColumns.HELD_BY)
-	):
+	var held_by = EntryKeys.held(squad.store.columns, unit.slot, UnitColumns.HELD_BY)
+	for friend in RoutFriends.with_id(friends, held_by):
 		if stands(friend):
 			return friend
 	return friend_near(squad, at, friends, reach, false, fight_seed)

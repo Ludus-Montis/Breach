@@ -115,6 +115,6 @@ func test_a_unit_spent_on_a_climb_face_falls_hurt_by_what_it_climbed() -> void:
 	var climbed := 4.0 - (1.0 - tuning.ground_climb_pace * 0.1)
 	var expected := roundi(tuning.fall_damage_per_cell * climbed)
 	assert_bool(still).is_false()
-	assert_int(UnitHealth.of(_places, climber)).is_equal(20 - expected)
+	assert_int(UnitHealth.of_one(_places, climber)).is_equal(20 - expected)
 	assert_vector(_places.at(climber)).is_equal(Vector2(9.5, 5.5))
 	assert_bool(climber.on_face).is_false()

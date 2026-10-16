@@ -10,14 +10,12 @@ extends RefCounted
 const LIMIT := 1 << 20
 
 
-## `units`, front rank first, each rank left to right, by their places in `places` (the
-## unit store's ranks and columns, UnitPlace.table).
-static func front_first(units: Array, places: Array) -> Array:
+## `units`, front rank first, each rank left to right, by their places in `ranks` and
+## `files` (the unit store's RANK and COLUMN, by slot: a view's, UnitView.PLACES).
+static func front_first(units: Array, ranks: PackedInt32Array, files: PackedInt32Array) -> Array:
 	var count := units.size()
 	var keys := PackedInt64Array()
 	keys.resize(count)
-	var ranks: PackedInt32Array = places[0]
-	var files: PackedInt32Array = places[1]
 	for index in range(count):
 		var slot: int = units[index].slot
 		if absi(ranks[slot]) >= LIMIT or absi(files[slot]) >= LIMIT:

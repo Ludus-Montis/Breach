@@ -19,7 +19,7 @@ yet. Every script here was run against a deliberately broken case before being t
 | `naming-grep-discoverable` | `ci/godot/scripts/check_generic_naming.py` | pre-commit |
 | `order-independent-simulation` (static half) | `ci/godot/scripts/check_id_order.py` | pre-commit and CI, on `sim/` |
 | `one-mover` | `ci/godot/scripts/check_one_mover.py` | pre-commit and CI, on `sim/`: a position written outside UnitMover unless marked `# placement: <why>` (Decision 139) |
-| `store-reads-once` | `ci/godot/scripts/check_store_reads.py` | pre-commit and CI, on `sim/`: the unit store read or written unit by unit inside a loop, unless the line or its loop is marked `# store: scattered (<why>)` (Decision 144) |
+| `store-reads-once` | `ci/godot/scripts/check_store_reads.py` | pre-commit and CI, on `sim/`: the unit store read or written unit by unit inside a loop, unless the line or its loop is marked `# store: scattered (few: <why>)` or `(reference: <why>)` (Decisions 144 and 146) |
 | `order-independent-simulation` (trial half) | swapped-spawn-order trial, per `.claude/skills/design-check` | procedural, on any change to simulation outcomes |
 | `isp-method-count` / `isp-stub-detection` | `ci/godot/scripts/check_isp.py` | pre-commit and CI |
 | `no-cross-cutting-helper-violation` | `ci/godot/scripts/check_helper_promotion.py` | pre-commit and CI |
@@ -88,11 +88,14 @@ Every check that doesn't need another's output runs in its own job, side by side
 ## Heuristic limits (stated plainly, not hidden)
 
 - `check_store_reads.py` — flags a scattered store call (`columns.value`/`put`,
-  `UnitPlace.of`/`rank`/`put`, `SquadEntries.loose_at`, `EntryKeys.*`) written directly
-  inside a `for` or `while` body. It can't see one hidden in a helper the loop calls, which
-  is how spec 35 step 4a's place reads slipped through: helpers that read one unit take an
-  optional fetched table instead, and `bench` (`tick_phases`) against the base is the
-  backstop. A multi-line loop header's reads count as the loop's body.
+  `UnitPlace.of`/`rank`/`put`, `UnitHealth.*_one`, `FormationRout.where`,
+  `SquadEntries.loose_at`, `EntryKeys.*`) written directly inside a `for` or `while` body,
+  unless it is marked `few:` (an event's few units) or `reference:` (the GDScript
+  reference's per-unit seek, walk and facing). Any other reason is flagged (Decision 146).
+  It can't see a call hidden in a helper the loop calls, which is how spec 35 step 4a's place
+  reads slipped through. Such helpers take the pass's view (`UnitView`) instead, and
+  `bench` (`tick_phases`) against the base is the backstop. A multi-line loop header's
+  reads count as the loop's body.
 
 - `check_id_order.py` — flags an id compared with `<`/`>`, arithmetic on an id, an id
   inside an array-literal key (unless the line salts a seeded draw: `hash(`,

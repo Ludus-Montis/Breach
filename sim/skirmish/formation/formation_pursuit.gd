@@ -132,10 +132,12 @@ static func _ahead(squad: SkirmishSquad, at: Vector2) -> float:
 ## pursues as a body, its frame waiting for its rearmost (Decision 103).
 static func _lagging(squad: SkirmishSquad) -> bool:
 	var forward := UnitMotion.vector(squad.heading)
+	var places := UnitView.read(squad, UnitView.PLACES)  # read once (Decision 146)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # one out on its own makes its own way (Decision 112)
-		var behind := (ScrumStance.anchor(squad, unit) - ScrumReach.at(squad, unit)).dot(forward)
+		var anchor := ScrumStance.anchor(squad, unit, places)
+		var behind := (anchor - ScrumReach.at(squad, unit)).dot(forward)
 		if behind > BattleTuning.current().reach_pursuit_lag:
 			return true
 	return false

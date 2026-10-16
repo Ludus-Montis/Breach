@@ -64,13 +64,11 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 			taken[body[0].id].append(taker)
 	if taken.is_empty():
 		return
-	var store: UnitStore = downed[0][1].store
-	var health := UnitHealth.table(downed[0][1])  # hp and cooldowns: fetched once, committed once
-	var cooldowns: PackedInt32Array = store.columns.column(UnitColumns.ATTACK_COOLDOWN)
+	var health := UnitView.hold([downed[0][1]], [UnitColumns.HP, UnitColumns.ATTACK_COOLDOWN])
+	var cooldowns: PackedInt32Array = health.attack_cooldown  # held for the pass
 	for body_id in taken:
 		_take(taken[body_id], squads, [tick, interval, health, cooldowns], events)
-	UnitHealth.commit(health)
-	store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	UnitView.release(health)
 
 
 ## The BodyGrid cells (a set) holding every point within `reach` of an entry's unit.
@@ -111,7 +109,7 @@ static func surrender(
 		var caught: SkirmishUnit = blow[1]
 		if not routing.has(caught.id) or blow[2] <= 0 or not caught.is_alive():
 			continue
-		if UnitHealth.of(routing[caught.id], caught) <= 0:  # store: scattered (a struck router)
+		if UnitHealth.of_one(routing[caught.id], caught) <= 0:  # store: scattered (few: a struck router)
 			continue
 		if caught.traits.get("never_surrenders", 0) > 0:
 			continue
@@ -190,12 +188,12 @@ static func _guarded(body: SkirmishUnit, standing: Array, near: Dictionary) -> b
 
 
 ## One body's takers act: a captor captures it; else a leader's messenger sends it home;
-## else each taker due strikes it. `when` is [the tick, ticks a second, the hp table and the
-## cooldown column fetched for the pass].
+## else each taker due strikes it. `when` is [the tick, ticks a second, the pass's view and
+## its cooldown column, held for the pass].
 static func _take(taking: Array, squads: Array, when: Array, events: Array) -> void:
 	var tick: int = when[0]
 	var interval: int = when[1]
-	var health: UnitHealth.Table = when[2]
+	var health: UnitView = when[2]
 	var cooldowns: PackedInt32Array = when[3]
 	var body: SkirmishUnit = taking[0]
 	var takers := taking.slice(2)

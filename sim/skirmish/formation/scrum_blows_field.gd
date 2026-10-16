@@ -9,6 +9,7 @@ extends RefCounted
 ## GDScript's, taken unit by unit in ScrumBlows' order, so the results are the reference's
 ## bit for bit (native/README.md).
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -36,6 +37,7 @@ static var _synced := 0
 ## striker's target and cooldown. Clears every living unit's target first, as the fight
 ## begins (FormationMelee).
 static func blows(field: Object, squads: Array, interval: int, fight_seed: int) -> Array:
+	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var began := Time.get_ticks_usec()
 	_synced = 0
 	if not _any_strike(squads):
@@ -71,6 +73,7 @@ static func synced(field: Object) -> bool:
 ## blows() made: each striker's [unit, squad], and how many touching foes fight each
 ## target this tick (by the units' targets now).
 static func pressed(field: Object, squads: Array, landing: Array) -> Array:
+	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var targets := PackedInt64Array()
 	for squad in squads:
 		for unit: SkirmishUnit in squad.units:

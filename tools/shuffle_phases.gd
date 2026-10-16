@@ -59,7 +59,8 @@ static func _start_moves(squad: SkirmishSquad, paced: Array, lap: Callable) -> b
 			busy[unit] = true
 			FormationShuffle._claim(claimed, swap["to"][unit], unit)
 	lap.call("shuffle: plan: who stands where")
-	var front_first := PlaceOrder.front_first(squad.living(), occupied["table"])
+	var table: UnitView = occupied["table"]
+	var front_first := PlaceOrder.front_first(squad.living(), table.rank, table.column)
 	lap.call("shuffle: plan: front-first order")
 	var open := ShuffleFront.open(squad, front_first, claimed, occupied)
 	lap.call("shuffle: plan: free front places")

@@ -106,8 +106,20 @@ func test_lateral_spans_are_centred_and_mirrored_for_the_other_facing() -> void:
 	var squad := _squad(4, [_unit(1, 0, 0)])
 	var mirrored := _squad(4, [_unit(2, 0, 0)], -1)
 
-	assert_object(squad.lateral_span(squad.units[0])).is_equal(Vector2(-2.0, -1.0))
-	assert_object(mirrored.lateral_span(mirrored.units[0])).is_equal(Vector2(1.0, 2.0))
+	(
+		assert_object(
+			squad.lateral_span(squad.units[0], Vector2.ZERO, UnitPlace.of(squad, squad.units[0]))
+		)
+		. is_equal(Vector2(-2.0, -1.0))
+	)
+	(
+		assert_object(
+			mirrored.lateral_span(
+				mirrored.units[0], Vector2.ZERO, UnitPlace.of(mirrored, mirrored.units[0])
+			)
+		)
+		. is_equal(Vector2(1.0, 2.0))
+	)
 
 
 func test_no_one_steps_up_into_a_place_a_move_under_way_is_heading_for() -> void:

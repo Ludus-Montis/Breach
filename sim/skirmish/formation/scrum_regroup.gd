@@ -30,6 +30,8 @@ const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+## The walking-back units' loose points and bearings, held for the pass (UnitView).
+const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT, UnitColumns.BEARING]
 
 
 ## Units of squads out of the fight walk to their places (in the stance, if any) at the
@@ -81,19 +83,23 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 	var seconds: float = moving["seconds"]
 	var reform := FormationDiscipline.reform_pace(squad)  # the same for each of its units
 	var homes := TerrainStep.returns(squad, moving["terrain"], moving["seed"])
-	var columns := squad.store.columns
-	# store: scattered (regrouping units each stepped by UnitMover, under 0.1 ms at the bench)
+	var held := UnitView.hold([squad], HELD)  # each unit read and stepped: held for the pass
+	var columns := squad.store.columns  # the hold's, for the helpers that step a unit
+	var places := UnitView.read(squad, UnitView.PLACES)
+	var loose_at: PackedVector2Array = held.at
+	var next: PackedVector2Array = held.next
+	var bearing: PackedFloat64Array = held.bearing
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
 		var unit: SkirmishUnit = squad.loose[unit_id]
-		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit))
+		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, places))
 		var step: float = unit.speed * moving["pace"] * reform
 		var heading: float = squad.stance.get("heading", squad.heading)
 		var foe_at = foes.get(unit_id)
-		var at: Vector2 = SquadEntries.loose_at(squad, unit)
+		var at: Vector2 = loose_at[unit.slot]
 		if foe_at == null:  # it takes its place the quicker way, arriving facing its squad's
-			var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
+			var facing: float = bearing[unit.slot]
 			foe_at = UnitShuffle.look(unit, at, facing, place, heading, step / seconds)
 		var gap: float = at.distance_to(place)
 		ScrumTrade.track(columns, unit.slot, gap, seconds)
@@ -103,9 +109,10 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 				unit, at, place, moving["bodies"], moving["seed"], moving["crowd"]
 			)
 			at = UnitMover.step(unit, columns, at, to, step, seconds, moving["terrain"], foe_at)
-			columns.put(unit.slot, UnitColumns.LOOSE_AT, at)
-		columns.put(unit.slot, UnitColumns.NEXT, at)
+			loose_at[unit.slot] = at  # placement: its step, by UnitMover (Decision 139)
+		next[unit.slot] = at
 		EntryKeys.set_goal(columns, unit.slot, null)
 		var faced := arrived and UnitMotion.turn(unit, columns, heading, seconds)
 		if squad.stance.is_empty() and faced:
 			SquadEntries.unloose(squad, unit_id)  # in its place and facing the squad's way
+	UnitView.release(held)

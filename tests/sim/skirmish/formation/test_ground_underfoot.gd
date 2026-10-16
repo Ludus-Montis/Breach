@@ -62,7 +62,7 @@ func test_a_unit_walking_back_to_its_place_over_a_body_is_slowed() -> void:
 		var grem: UnitDef = load("res://content/units/grem.tres")
 		var squad := sim.spawn_squad(1, [[grem, Vector2i(0, 0)]], "player", true)
 		var unit: SkirmishUnit = squad.units[0]
-		var place := FormationWalk.place_of(squad, unit)
+		var place := FormationWalk.place_of_one(squad, unit)
 		var back := -UnitMotion.vector(squad.heading)
 		UnitPlaces.put(squad, unit, place + back * 4.0)
 		var lying := []

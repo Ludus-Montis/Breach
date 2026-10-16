@@ -9,16 +9,21 @@ place reads cost a 22.6% slower tick that way. Flags, in simulation code (`sim/`
 scattered store call inside a `for` or `while` loop:
 - `.value(` or `.put(` on the store's columns,
 - `UnitPlace.of(`, `UnitPlace.rank(`, `UnitPlace.put(`,
+- `UnitHealth.of_one(`, `UnitHealth.hurt_one(`, `UnitHealth.heal_one(`,
+  `UnitHealth.put_one(` (hp's scattered forms; `of`, `hurt`, `heal`, `put` take a view),
+- `FormationRout.where(`,
 - `SquadEntries.loose_at(`, `EntryKeys.held(`, `EntryKeys.goal(`, `EntryKeys.keep(`,
   `EntryKeys.forget(`,
 unless the line, or the one above it, or the loop's own line (or the one above that),
-carries `# store: scattered (<why>)`: a loop over a few units (an event's, a trade's
-two), the GDScript reference's per-unit step where the Rust engine runs a native pass,
-or one the bench shows doesn't matter. The reason is required and reviewed. A pass over many units fetches the column once
-(`columns.column(...)`, `UnitPlace.table(...)`), indexes it by slot, and commits once.
+carries `# store: scattered (few: <why>)`, a loop over a few units (an event's, a trade's
+two), or `# store: scattered (reference: <why>)`, the GDScript reference's per-unit step
+where the Rust engine runs a native pass (Decision 146). Any other reason is flagged: a
+bench's bound is no longer one. A pass over many units holds or reads one typed view
+(`UnitView.hold(...)`, `UnitView.read(...)`), takes its arrays into typed locals and
+indexes them by slot.
 
 Heuristic limit: a read hidden inside a helper the loop calls isn't seen (4a's were).
-Helpers that read one unit take an optional fetched table; the bench is the backstop.
+Helpers that read one unit take the view; the bench is the backstop.
 
 Usage: check_store_reads.py [files...]  (no files: every .gd under sim/)
 """
@@ -32,10 +37,11 @@ REPO_ROOT = Path(
 )
 READ = re.compile(
     r"(\bcolumns\.(value|put)\(|\.columns\.(value|put)\(|\bUnitPlace\.(of|rank|put)\("
+    r"|\bUnitHealth\.(of_one|hurt_one|heal_one|put_one)\(|\bFormationRout\.where\("
     r"|\bSquadEntries\.loose_at\(|\bEntryKeys\.(held|goal|keep|forget)\()"
 )
 LOOP = re.compile(r"^\s*(for|while)\b")
-MARK = re.compile(r"#\s*store:\s*scattered\s*\(\s*[^)\s]")
+MARK = re.compile(r"#\s*store:\s*scattered\s*\(\s*(few|reference):\s*[^)\s]")
 # The store's own definitions, which every read goes through.
 OWN_FILES = {"unit_columns.gd", "unit_columns_native.gd", "unit_place.gd", "entry_keys.gd"}
 
@@ -82,8 +88,9 @@ def main(arguments: list) -> int:
     if report:
         print("check_store_reads: store read unit by unit inside a loop (Decision 144):")
         print("\n".join(report))
-        print("Fetch the column once before the loop (columns.column, UnitPlace.table) and")
-        print("commit once after, or mark a loop over a few units '# store: scattered (<why>)'.")
+        print("Hold or read a view before the loop (UnitView.hold, UnitView.read) and index its")
+        print("arrays by slot, or mark the loop '# store: scattered (few: <why>)' (an event's")
+        print("few units) or '# store: scattered (reference: <why>)' (the GDScript reference).")
         return 1
     print("check_store_reads: OK")
     return 0

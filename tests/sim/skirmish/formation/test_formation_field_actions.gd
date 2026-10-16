@@ -14,7 +14,7 @@ func _state(field) -> String:
 	var rows := []
 	for squad in field.sim.squads():
 		var units: Array = squad.units.map(
-			func(u): return [u.id, UnitHealth.of(squad, u), UnitPlaces.of(squad, u)]
+			func(u): return [u.id, UnitHealth.of_one(squad, u), UnitPlaces.of(squad, u)]
 		)
 		rows.append([squad.id, squad.state, squad.front_distance, units])
 	return str(rows)

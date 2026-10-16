@@ -116,7 +116,7 @@ func test_routers_crush_friends_they_run_through() -> void:
 
 	assert_bool(_of(log, "crushed").is_empty()).is_false()
 	assert_int(behind.morale).is_less(calm)
-	assert_bool(behind.living().any(func(u): return UnitHealth.of(behind, u) < 100)).is_true()
+	assert_bool(behind.living().any(func(u): return UnitHealth.of_one(behind, u) < 100)).is_true()
 
 
 func test_routers_rally_to_a_led_formation() -> void:

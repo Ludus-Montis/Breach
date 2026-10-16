@@ -66,7 +66,7 @@ func test_the_squeezed_file_in_behind_front_first_then_nearest_the_centre_line()
 	var across := ahead.orthogonal()
 	var by_offset := {}  # how far across the frame a unit's place lies -> its target
 	for unit in squad.living():
-		var off := (FormationWalk.place_of(squad, unit) - squad.position).dot(across)
+		var off := (FormationWalk.place_of_one(squad, unit) - squad.position).dot(across)
 		by_offset[roundi(off * 2.0)] = FormationWalk.target_of(squad, unit, made[1])
 	for side in [-1, 1]:  # 2.5 and 3.5 cells out squeeze onto one point: the nearer leads
 		var nearer: Vector2 = by_offset[5 * side]
@@ -79,7 +79,7 @@ func test_a_unit_whose_place_it_can_walk_keeps_to_its_place() -> void:
 	var squad: SkirmishSquad = made[0]
 	for unit in squad.living():
 		var target := FormationWalk.target_of(squad, unit, made[1])
-		assert_vector(target).is_equal(FormationWalk.place_of(squad, unit))
+		assert_vector(target).is_equal(FormationWalk.place_of_one(squad, unit))
 
 
 ## Two squads' framed units: two of one line on each other, a third half overlapping.

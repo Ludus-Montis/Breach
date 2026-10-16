@@ -225,7 +225,7 @@ func _battle(engine: String) -> Array:
 		died = (
 			died
 			or sim.squads().any(
-				func(s): return s.units.any(func(u): return UnitHealth.of(s, u) <= 0)
+				func(s): return s.units.any(func(u): return UnitHealth.of_one(s, u) <= 0)
 			)
 		)
 	assert_bool(died).override_failure_message("the battle needs deaths").is_true()
@@ -257,7 +257,7 @@ func _state(sim: FormationSimulation) -> String:
 			var at: Vector2 = points[unit.slot].snapped(Vector2(0.0001, 0.0001))
 			var row := [
 				unit.id,
-				UnitHealth.of(squad, unit),
+				UnitHealth.of_one(squad, unit),
 				UnitPlace.of(squad, unit),
 				at,
 				bearings[unit.slot]

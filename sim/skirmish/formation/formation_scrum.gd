@@ -175,7 +175,7 @@ static func face(fighting: Array, ctx: Dictionary) -> void:
 static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 	var seconds: float = ctx["seconds"]
 	var columns := squad.store.columns
-	# store: scattered (the GDScript reference's walk and facing; the Rust engine runs native passes)
+	# store: scattered (reference: the GDScript walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # out chasing on its own (ScrumPursuit)
@@ -190,7 +190,7 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			var slid := UnitMover.slide(unit, columns, at, to, paced, ctx["terrain"])
 			columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
 		elif columns.value(unit.slot, UnitColumns.TOUCH) == 0:
-			var place := ScrumStance.anchor(squad, unit)
+			var place := ScrumStance.anchor_one(squad, unit)
 			var heading: float = squad.stance.get("heading", squad.heading)
 			var speed := full / seconds
 			var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
@@ -225,7 +225,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
 	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT)
 	var bearings: PackedFloat64Array = columns.column(UnitColumns.BEARING)
-	# store: scattered (the GDScript reference's walk and facing; the Rust engine runs native passes)
+	# store: scattered (reference: the GDScript walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue

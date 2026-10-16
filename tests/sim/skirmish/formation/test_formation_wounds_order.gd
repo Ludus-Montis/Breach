@@ -73,7 +73,7 @@ func _state(squads: Array) -> String:
 				[
 					unit.id,
 					squad.id,
-					UnitHealth.of(squad, unit),
+					UnitHealth.of_one(squad, unit),
 					unit.state,
 					UnitPlace.rank(squad, unit),
 					at,

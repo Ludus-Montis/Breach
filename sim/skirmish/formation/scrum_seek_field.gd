@@ -14,6 +14,7 @@ extends RefCounted
 ## What the core says each unit does (BodyField.seek).
 enum Outcome { TOUCH, STAND, AIM, PRESS, IDLE }
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -55,6 +56,7 @@ class Say:
 
 ## Plans every fighting squad's units on ctx["field"] (see ScrumSeek.plan).
 static func plan(ctx: Dictionary) -> void:
+	assert(StoreHolds.none_held(ctx["squads"]), StoreHolds.SPANS)
 	var field: Object = ctx["field"]
 	var began := Time.get_ticks_usec()
 	var synced := BodyFieldSync.scrum(field, ctx["squads"], ctx["seed"])

@@ -194,10 +194,10 @@ func rank_distance(rank: int) -> float:
 ## The unit's columns as a lateral span along `axis` (its squad's lateral axis if none):
 ## turned from its (rank, column), never mirrored (Decision 74). On a straight lane both
 ## sides share the lane's lateral axis, centred on it (less any centre_shift).
-## `places`: UnitPlace.table(self), if the caller has it.
-func lateral_span(unit: SkirmishUnit, axis := Vector2.ZERO, places: Array = []) -> Vector2:
+## `at`: the unit's place (rank, column), from a pass's view (UnitPlace.in_view) or, for an
+## event's few, the store (UnitPlace.of).
+func lateral_span(unit: SkirmishUnit, axis: Vector2, at: Vector2i) -> Vector2:
 	var along := SquadFrame.lateral_axis(heading) if axis == Vector2.ZERO else axis
-	var at := UnitPlace.read(places, self, unit)
 	var points := SquadFrame.corners(position, heading, width, centre_shift, unit, at)
 	return SquadFrame.extent(points, along)
 
@@ -205,9 +205,9 @@ func lateral_span(unit: SkirmishUnit, axis := Vector2.ZERO, places: Array = []) 
 ## The front rank, left to right: only it fights in melee (Decision 47). A column whose
 ## front cell is empty has no fighter, so the enemy facing it wraps onto the flank.
 func fighters() -> Array[SkirmishUnit]:
-	var places := UnitPlace.table(self)  # fetched once (spec 35)
-	var ranks: PackedInt32Array = places[0]
-	var files: PackedInt32Array = places[1]
+	var places := UnitView.read(self, UnitView.PLACES)  # read once (Decision 146)
+	var ranks: PackedInt32Array = places.rank
+	var files: PackedInt32Array = places.column
 	var out: Array[SkirmishUnit] = living().filter(func(u): return ranks[u.slot] == 0)
 	out.sort_custom(func(a, b): return files[a.slot] < files[b.slot])
 	return out

@@ -52,7 +52,7 @@ func test_a_slanting_line_turns_its_own_frame_to_meet_a_flank() -> void:
 	var outward := Vector2(-1, -1).normalized()  # the new face: north-west of the line
 	var face: Vector2 = line.stance["anchor"]
 	for unit in line.living():  # its places lie behind the new face, the line turned to it
-		var place := ScrumStance.anchor(line, unit)
+		var place := ScrumStance.anchor_one(line, unit)
 		assert_float((place - face).dot(outward)).is_less_equal(0.0)
 		assert_float((place - face).dot(outward)).is_greater(-1.0)
 

@@ -14,6 +14,7 @@ extends RefCounted
 ## sync's flat indices, for writing results back. A new unit's record (its preferred band,
 ## footprint, turn rate and backward pace) is enrolled with it (spec 35 steps 4b, 4c).
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
@@ -46,6 +47,7 @@ class Batch:
 
 ## Syncs the field to the scrum's snapshot; returns [units, their squads] by flat index.
 static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
+	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var batch := Batch.new()
 	for squad in squads:
 		var before := batch.units.size()
@@ -61,6 +63,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 
 ## Syncs the field to the bodies as UnitBodies sees them; returns [units, their squads].
 static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
+	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var batch := Batch.new()
 	batch.mode = BODIES
 	for squad in squads:

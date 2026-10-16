@@ -1,0 +1,144 @@
+extends GdUnitTestSuite
+## UnitView (spec 35 step 6a, Decision 146): one typed view onto the unit store, a typed
+## property for every column; a pass holds the columns it names and writes them in place,
+## or reads them with no hold. The same contract on both backends.
+
+const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const ColumnsHeld = preload("res://sim/skirmish/formation/columns_held.gd")
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
+const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
+
+
+class _Squad:
+	var store: UnitStore
+
+
+func after_test() -> void:
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+
+
+func _backends() -> Array:
+	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
+	NativeKernels.use(NativeKernels.RUST)
+	var field := NativeKernels.body_field()
+	NativeKernels.use(NativeKernels.GDSCRIPT)
+	if field == null:
+		print("test_unit_view: the Rust core isn't built - its half skipped")
+	else:
+		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	for backend in out:
+		for unit_id in [1, 2, 3]:
+			backend[1].enrol(unit_id)
+	return out
+
+
+func _squad(store: UnitStore) -> _Squad:
+	var squad := _Squad.new()
+	squad.store = store
+	return squad
+
+
+func test_every_column_has_a_typed_property_of_its_own_type() -> void:
+	var properties := {}
+	for property in UnitView.new().get_property_list():
+		properties[property["name"]] = property["type"]
+	var columns := UnitColumns.new()
+	for name: StringName in UnitColumns.BLANKS:
+		var said := "UnitView has no typed property for the column %s" % name
+		assert_bool(properties.has(String(name))).override_failure_message(said).is_true()
+		var own: int = typeof(columns.column(name))
+		assert_int(properties.get(String(name), TYPE_NIL)).override_failure_message(said).is_equal(
+			own
+		)
+
+
+func test_a_held_view_writes_in_place_and_release_commits() -> void:
+	for backend in _backends():
+		var squad := _squad(backend[1])
+		var view := UnitView.hold([squad], [UnitColumns.ALONG, UnitColumns.HP])
+		assert_object(UnitView.of(squad)).is_same(view)
+		var along: PackedFloat64Array = view.along
+		along[1] = 3.0
+		assert_float(squad.store.columns.value(1, UnitColumns.ALONG)).is_equal(3.0)
+		squad.store.columns.put(2, UnitColumns.ALONG, 6.0)
+		assert_float(along[2]).is_equal(6.0)
+		UnitView.release(view)
+		assert_bool(squad.store.columns is ColumnsHeld).is_false()
+		(
+			assert_float(squad.store.columns.value(1, UnitColumns.ALONG))
+			. override_failure_message(backend[0])
+			. is_equal(3.0)
+		)
+
+
+func test_a_view_spans_one_store_and_each_store_held_gets_its_own() -> void:
+	var first := _squad(NativeKernels.unit_store(null))
+	var second := _squad(NativeKernels.unit_store(null))
+	for squad in [first, second]:
+		squad.store.enrol(1)
+	var view := UnitView.hold([first, second], [UnitColumns.RANK])
+	assert_object(view.store).is_same(first.store)
+	assert_object(UnitView.of(second).store).is_same(second.store)
+	var ranks: PackedInt32Array = UnitView.of(second).rank
+	ranks[0] = 4
+	UnitView.release(view)  # every store held with it
+	assert_bool(second.store.columns is ColumnsHeld).is_false()
+	assert_int(second.store.columns.value(0, UnitColumns.RANK)).is_equal(4)
+
+
+func test_a_read_view_holds_nothing_and_shares_a_held_copy() -> void:
+	for backend in _backends():
+		var squad := _squad(backend[1])
+		squad.store.columns.put(1, UnitColumns.RANK, 2)
+		var read := UnitView.read(squad, [UnitColumns.RANK, UnitColumns.COLUMN])
+		assert_bool(squad.store.columns is ColumnsHeld).is_false()
+		assert_int(read.rank[1]).override_failure_message(backend[0]).is_equal(2)
+		var held := UnitView.hold([squad], [UnitColumns.RANK])
+		var ranks: PackedInt32Array = held.rank
+		ranks[2] = 5
+		assert_int(UnitView.read(squad, [UnitColumns.RANK]).rank[2]).is_equal(5)
+		UnitView.release(held)
+
+
+func test_keep_on_a_view_keeps_as_entry_keys_keeps() -> void:
+	for backend in _backends():
+		var squad := _squad(backend[1])
+		var names := [UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.FANNED, UnitColumns.KEYS]
+		var view := UnitView.hold([squad], names)
+		view.keep(0, UnitColumns.CAUGHT, 2)
+		view.keep(0, UnitColumns.HELD_BY, 7)
+		view.keep(0, UnitColumns.FANNED, 1.5)
+		view.keep(0, UnitColumns.HELD_BY, null)
+		var columns := squad.store.columns
+		EntryKeys.keep(columns, 1, UnitColumns.CAUGHT, 2)
+		EntryKeys.keep(columns, 1, UnitColumns.HELD_BY, 7)
+		EntryKeys.keep(columns, 1, UnitColumns.FANNED, 1.5)
+		EntryKeys.keep(columns, 1, UnitColumns.HELD_BY, null)
+		UnitView.release(view)
+		for name in names:
+			(
+				assert_that(squad.store.columns.value(0, name))
+				. override_failure_message("%s %s" % [backend[0], name])
+				. is_equal(squad.store.columns.value(1, name))
+			)
+
+
+func test_reading_a_column_the_view_doesnt_hold_asserts() -> void:
+	var squad := _squad(NativeKernels.unit_store(null))
+	var view := UnitView.read(squad, [UnitColumns.RANK])
+	await (
+		assert_error(func(): return view.hp)
+		. is_runtime_error("Assertion failed: " + UnitView.NOT_NAMED % UnitColumns.HP)
+	)
+
+
+func test_a_native_entry_asserts_no_hold_spans_it() -> void:
+	var squad := _squad(NativeKernels.unit_store(null))
+	var view := UnitView.hold([squad], [UnitColumns.HP])
+	await (
+		assert_error(func(): ScrumBlowsField.pressed(null, [squad], []))
+		. is_runtime_error("Assertion failed: " + StoreHolds.SPANS)
+	)
+	UnitView.release(view)

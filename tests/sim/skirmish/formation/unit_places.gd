@@ -64,7 +64,7 @@ func health(unit, hp: int):
 	if unit.id == 0:
 		unit.id = FIRST_ID + store.count()
 	unit.slot = store.enrol(unit.id)
-	UnitHealth.put(self, unit, hp)
+	UnitHealth.put_one(self, unit, hp)
 	return unit
 
 

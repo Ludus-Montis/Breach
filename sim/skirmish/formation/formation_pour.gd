@@ -26,18 +26,14 @@ const EPSILON := 0.000001
 const SQUEEZE_STEP := 0.5
 
 
-## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
-## FormationShuffle.movers for the squad, `places`: UnitPlace.table, if the caller has them).
-static func place(
-	squad: SkirmishSquad, unit: SkirmishUnit, moving = null, places: Array = []
-) -> Vector2:
+## Where `unit` belongs in its squad's frame now, standing at `place` (rank, column),
+## including any swap under way (`moving`: FormationShuffle.movers for the squad, or null).
+static func place(squad: SkirmishSquad, unit: SkirmishUnit, moving, place: Vector2i) -> Vector2:
 	var swapping := FormationShuffle.offset(squad, unit, moving)
 	var ahead := UnitMotion.vector(squad.heading)
 	var shift := ahead * swapping.x - ahead.orthogonal() * swapping.y
 	var frame := [squad.position, squad.heading, squad.width, squad.centre_shift]
-	var at := SquadFrame.place(
-		frame[0], frame[1], frame[2], frame[3], unit, UnitPlace.read(places, squad, unit)
-	)
+	var at := SquadFrame.place(frame[0], frame[1], frame[2], frame[3], unit, place)
 	return at + shift
 
 
@@ -58,7 +54,7 @@ static func targets(
 ) -> Dictionary:
 	var aims := []  # [unit, its place, its point, squeezed]
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	var places := UnitPlace.table(squad)  # fetched once (spec 35)
+	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
 	for unit in squad.living():
 		if squad.fleeing.has(unit.id) or (squad.loose.has(unit.id) and not with_loose):
 			continue
@@ -66,7 +62,7 @@ static func targets(
 			var body: SkirmishUnit = squad.taking[unit.id]
 			aims.append([unit, at[unit.slot], _beside(at[unit.slot], at[body.slot]), false])
 			continue
-		var own := place(squad, unit, moving, places)
+		var own := place(squad, unit, moving, UnitPlace.in_view(places, unit))
 		var aim := _aim(squad, unit, own, terrain)
 		aims.append([unit, own, aim, not aim.is_equal_approx(own)])
 	return _queue(squad, aims, terrain, fight_seed)

@@ -9,6 +9,7 @@ extends RefCounted
 ## step 4d), exactly as UnitMotion.turn writes it in GDScript: the same foes, the same
 ## maths in the same precision, DetMath's atan2 and acos (native/README.md).
 
+const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
@@ -21,6 +22,7 @@ static var spent := PackedInt64Array([0, 0, 0, 0])
 
 ## Turns every unit of the tick's slot search (ScrumSeekField) on ctx["field"].
 static func face(ctx: Dictionary) -> void:
+	assert(StoreHolds.none_held(ctx["squads"]), StoreHolds.SPANS)
 	var field: Object = ctx["field"]
 	var seek = ctx["seek_batch"]  # ScrumSeekField.Batch
 	var tuning := BattleTuning.current()

@@ -23,8 +23,11 @@ static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var routers := []  # [unit, where it stands, its faction]
 	for routing in squads:
 		if routing.state == SkirmishSquad.State.ROUTING:
+			var route := UnitView.read(routing, FormationRout.ROUTE)  # read once a squad
 			for unit in routing.living():
-				routers.append([unit, FormationRout.where(routing, unit.id), routing.faction_id])
+				routers.append(
+					[unit, FormationRout.where_in(route, routing, unit), routing.faction_id]
+				)
 	if routers.is_empty():
 		return []
 	var out := []

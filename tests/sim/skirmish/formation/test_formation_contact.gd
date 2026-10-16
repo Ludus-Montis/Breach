@@ -83,12 +83,18 @@ func test_a_wider_wave_lines_up_on_the_same_centre() -> void:
 	var setup := _second_wave_behind_a_fight(5)
 	var sim: FormationSimulation = setup[0]
 	var first: SkirmishSquad = setup[1]
-	var spans_before := first.units.map(func(u): return first.lateral_span(u))
+	var spans_before := first.units.map(
+		func(u): return first.lateral_span(u, Vector2.ZERO, UnitPlace.of(first, u))
+	)
 
 	_run(sim, func(): return _players(sim).size() == 1)
 
 	(
-		assert_array(first.units.slice(0, 3).map(func(u): return first.lateral_span(u)))
+		assert_array(
+			first.units.slice(0, 3).map(
+				func(u): return first.lateral_span(u, Vector2.ZERO, UnitPlace.of(first, u))
+			)
+		)
 		. is_equal(spans_before)
 	)
 	assert_int(first.width).is_equal(5)
