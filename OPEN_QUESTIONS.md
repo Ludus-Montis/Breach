@@ -208,23 +208,9 @@ When a branch's digests differ from main's, `check_outcomes.py` names the runs a
 
 Gate 2 stays the owner's: the tool shows the change, and the owner judges it. Settle the window, what a trace holds, and whether the scene is a Godot scene or a page in `tools/`. Building the trace and the text diff first would be useful even without the scene.
 
-### Q30. Track open questions and upcoming work as GitHub issues, milestones, labels and a project?
-**Raised:** 2026-10-17, after spec 35 step 7b (the user: "could we leverage more of github's features in our PR cycle?") · **Raise when:** The next design session, before more entries are added here or a new spec round starts
-
-Today the open questions are this file, upcoming work is each spec's steps, and the decisions are the design spec's ledger. GitHub could hold some of it:
-- **Issues:** a PR that says `Closes #N` closes its issue on merge, so each answered question or finished step links to the PR that did it.
-- **Milestones:** one per spec (for example "Spec 35: the unit store"), with a progress bar over its issues and PRs.
-- **Labels, to filter by:** the kind of work (`design`, `implementation`, `chore`), the area (`sim`, `native`, `designer`, `ci`), and review flags (`outcomes-changed`, `needs-design`). A **Raise when** could be a label such as `raise-when:spec-35-done`.
-- **A project:** a board or table over issues and PRs with fields of its own (status, spec, priority). A PR's "Projects" box shows the boards it is on and its values there. It is one view of what is in flight, next and blocked, across sessions.
-
-A hybrid to weigh: Decisions, specs and the design spec stay in the repo (the ledger is append-only and checked by `/design-check`), while open questions and upcoming steps become issues, specs become milestones, and PRs close issues. The costs:
-- `CLAUDE.md` says what should change how the next agent works goes in the repo. Issues bend that, so it needs a Decision the owner authorises.
-- Agents fetch issues through the GitHub tools instead of reading a file: a few more calls a session.
-- The open entries here move once (a script can do it).
-- `/run-phase`, `/handoff` and `/design-check` change to read and close issues.
-
 ## Closed
 
+- Q30, track open questions and upcoming work on GitHub. **Resolved by Decision 148 (2026-10-17):** open questions become issues labelled `question` (a `raise-when:` label each); a PR names its spec as a milestone and its step as a `step:<id>` label; Decisions, specs, their steps and hand-offs stay in the repo; a `github-sync` workflow makes the labels and milestones and migrates the entries; the Project is the owner's. Built as spec 36.
 - Q28, one typed view onto the unit store for every pass. **Resolved by Decision 146 (2026-10-16):** a pass holds the columns it names as one typed view (`UnitView`), replacing `FleeColumns`, `UnitHealth.Table` and `UnitPlace.table`; a scattered mark gives `few:` or `reference:` only; no hold spans a native call; built as spec 35 steps 6a and 6b, before stamina (6c).
 - Q27, whether one bench run can tell a 5% change from noise. **Resolved (2026-10-15):** it can't; `bench` takes `rounds` and alternates head and base, comparing each phase's medians and ranges ([SSidey/Breach#236](https://github.com/SSidey/Breach/pull/236)). Its first use settled #234: the tick 1.5% faster, deaths 31% faster (spec 35, "Built → Step 5b").
 

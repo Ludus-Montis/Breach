@@ -6867,3 +6867,60 @@ rebuilds the kept lists after reversing `squad.units`.
 **Bounded:** wounds, recovery, carry and taking cost per downed unit, `living()` is O(1), and
 joins and splits cost per event.
 **Pillar check:** holds. Nothing a unit does changes; only how units are found.
+
+### Decision 148 — Open questions are GitHub issues; the rest of the project's memory stays in the repo
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-17
+**Amends:** `AI_First_Development_Kit/principles/agent-sessions.md` rule 5 and `CLAUDE.md`'s
+"anything that should change how the next agent works goes in the repo"; answers
+`OPEN_QUESTIONS.md` Q30
+
+**Rationale:** The user asked to use more of GitHub in the PR cycle, to see what is in flight
+across sessions. Open questions suit issues best: a PR that says `Closes #N` links an answer
+to the PR that settled it. They are also the part that costs least to keep outside git.
+Settled with the user:
+- **What moves:** every open entry in `OPEN_QUESTIONS.md` becomes an issue labelled
+  `question`, keeping its question, **Raised** and **Raise when**. The file keeps its Closed
+  archive and points to the label, and a check fails CI if an entry is added under Open.
+- **What stays:** Decisions, the design spec and addenda, specs and their steps, and
+  hand-offs (PR bodies).
+- **Only the owner closes a question,** as before: a PR that settles one says `Closes #N`, so
+  the owner's merge closes it. An agent may comment "Possibly settled by Decision N"; it never
+  closes a question itself.
+- **A PR names its spec and step:** the spec is its milestone ("Spec 35: the unit store"),
+  and the step is a label (`step:7b`). A PR has one milestone, so the step can't be one; a
+  label is filterable alongside it, and the milestone keeps a progress bar over the whole spec.
+- **Labels:** kind (`design`, `implementation`, `chore`), area (`sim`, `native`, `designer`,
+  `ci`, `tooling`), flags (`outcomes-changed`, `needs-design`), `question`, `step:<N><letter>`,
+  and `raise-when:next-design`, `raise-when:spec-NN` or `raise-when:other` (a trigger only
+  words can say; the body keeps the words).
+- **Mechanics run in a workflow,** since cloud agents have no tool to create labels or
+  milestones: `github-sync` (run by hand, `GITHUB_TOKEN`) creates the labels, a milestone per
+  `specs/NN-*.md` and a step label per `### Step` heading, changing nothing on a second run;
+  asked to, it migrates the open entries once.
+- **The Project is the owner's.** Agents never write to it; GitHub's built-in project
+  workflows add items and set their status.
+- **The skills change:** `/run-phase` lists open `question` issues instead of reading the
+  file, opens its PR with the GitHub tools (not `gh`), with the spec's milestone, the step's
+  label, kind and area, and `Closes #N` for a question it settles. `/handoff` raises
+  questions as issues. `/design-check` is unchanged.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep everything in the repo | No view across PRs, and nothing links an answer to its PR. |
+| Spec steps as issues too | A copy of every step drifts from the spec, which is the hand-off (rule 3). |
+| Decisions as issues | The ledger is append-only and checked by a diff; an issue can be edited. |
+| A milestone per step | No progress bar over a spec, and about twenty milestones for spec 35 alone. |
+| Agents keep the Project | They have no tool for it, it costs calls every session, and the built-in workflows do it. |
+
+**Rules over cases:** general: every open question is an issue, and nothing else moves.
+**Order:** not applicable; nothing under `sim/` changes.
+**Bounded:** about one call a session (a filtered `list_issues` for numbers, titles and
+labels) in place of one file read.
+**Pillar check:** holds. Tooling only.
+**Cost:** a clone without network no longer holds the open questions, and their history
+leaves git. What governs how work is done (Decisions, specs, skills) stays in the repo.
+Built as spec 36.
