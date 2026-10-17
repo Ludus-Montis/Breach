@@ -151,5 +151,6 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143 |
 | 143 | A unit's rank and column are per-tick state, held in the unit store | 6629 |  |
 | 144 | A pass reads the unit store once, never unit by unit | 6665 | amended by 146 |
-| 145 | hp changes through one writer, and the fallen are an event queue | 6709 |  |
+| 145 | hp changes through one writer, and the fallen are an event queue | 6709 | amended by 147 |
 | 146 | Every pass reads the unit store through one typed view, held for the pass | 6755 |  |
+| 147 | A unit's state changes through one writer, and each squad keeps its living and its downed | 6819 |  |

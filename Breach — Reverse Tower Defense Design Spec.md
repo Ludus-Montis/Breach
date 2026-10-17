@@ -6815,3 +6815,55 @@ place, as a `put` was, and release commits what the pass wrote.
 **Bounded:** a pass costs one copy of each column it names, out and back, plus an index per
 unit, not a call per unit. A pass touching a few units doesn't hold.
 **Pillar check:** holds. It changes how state is read, not what any unit does.
+
+### Decision 147 — A unit's state changes through one writer, and each squad keeps its living and its downed
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-17
+**Amends:** none; applies Decision 145's pattern to the state flags, settles spec 35 step 7's
+shape and `OPEN_QUESTIONS.md` Q24's downed and living lists
+
+**Rationale:** Step 7 was larger than steps 5 or 6 (`.state` 138 references in 55 files,
+`living()` 131 in 59), so its implementing session stopped for a design session. In the tree,
+a unit's state is written in 11 places, all events: bury's death and downing, waking, a
+taking, a release, a carry and a drop, and the downed's two deaths. Its cost is in the
+reading: `living()` filters `squad.units` on each call, and wounds, recovery and carry walk
+every unit for the downed each tick (about 49 ms at `tick_phases engine=rust side=4096
+squads=4 fight=3`). Settled with the user, as proposed:
+- **One writer.** `UnitState` makes every change to a unit's state, held by
+  `check_one_state.py` (flags `.state = SkirmishUnit.State.` outside it). State stays on the
+  record, as an event-only field (spec 35 step 6c's rule); step 7b decides whether native
+  passes need a STATE column.
+- **Kept lists.** Each squad keeps a living list and a downed list (`DOWNED` or `CARRIED`;
+  taken and released units leave the field), both in `squad.units` order. Only `UnitState`
+  changes them; joins and splits rebuild the squads they touch. `living()` returns its list
+  in O(1). Wounds, recovery, carry and taking read the lists instead of every unit.
+- **No write under a walk.** A pass that changes state while walking a kept list walks a
+  copy, and `UnitState` asserts when a write lands on a list being walked. Callers never
+  change a kept list.
+- **The inventory.** What changes within a tick becomes a column: recovery's
+  `regeneration_carry`, `regeneration_halt`, `wake_left` and `drain_carry`, and
+  `last_wounding` (written with hp by each blow, so native blows need no glue write), in 7b;
+  `target_id`, `distance` and the walker's `foothold`, `on_face` and `climb_left` in 7c.
+  `wounded`, `playing_dead`, `carrying`, `carried_by`, `wounding` and `advance_direction`
+  stay on the record. The unit copies of `order`, `home_distance` and `wait_ticks` (written
+  only on squads) are deleted.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| One battle-wide downed list, sorted when it changes | Each reader looks up each entry's squad, and it is a second mechanism beside the per-squad living list; no faster (tens of microseconds a tick either way). |
+| A STATE column first, then the lists | Moves an event-only field before fixing the reading it costs. |
+| `UnitState` defers writes made during a walk | Changes when a write takes effect; a copy keeps today's meaning. |
+| `last_wounding` stays on the record | A native blow pass would still need GDScript to write it after. |
+
+**Rules over cases:** general: one writer for a unit's state, and lists kept by it, as
+Decision 145 set for hp; a write during a walk goes to a copy.
+**Order:** the lists keep `squad.units` order, the order today's scans meet units in, so
+nothing new ranks a unit (Decision 97) and events and digests stay identical. Recovery splits
+its loop over living and downed only if no event order changes. The reversed-lists test
+rebuilds the kept lists after reversing `squad.units`.
+**Bounded:** wounds, recovery, carry and taking cost per downed unit, `living()` is O(1), and
+joins and splits cost per event.
+**Pillar check:** holds. Nothing a unit does changes; only how units are found.

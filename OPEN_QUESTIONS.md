@@ -166,6 +166,8 @@ Each would need the events to queue every change that matters (Principle 2's cor
 - **The living list** (`living()`, about 100 callers): spec 35 step 7, with the alive flags (Decision 144's plan for `living()`).
 - **`fighters()` and combat's rank groups, squad edges and spans (`SquadEdges`, `SquadMemo`), the re-form's occupancy:** no spec yet. A design session after spec 35, taken with Q23's review.
 
+**The downed and living lists settled by Decision 147 (2026-10-17):** each squad keeps a living list and a downed list (`DOWNED` or `CARRIED`) in `squad.units` order, kept by state's one writer `UnitState` and rebuilt at joins and splits; wounds, recovery, carry and taking read them (spec 35, "Settled for step 7", built as step 7a). Still open here: the three lists above.
+
 ### Q25. Game-like maps on the real sims, in place of the old test maps
 **Raised:** 2026-10-15, retiring the lane skirmish (spec 35 step 5a) · **Raise when:** Spec 35 is complete, or any session adds, keeps or rebuilds a test or demo map or scene
 
