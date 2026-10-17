@@ -168,6 +168,26 @@ var last_wounding: PackedInt32Array:
 	get:
 		assert(names.has(UnitColumns.LAST_WOUNDING), NOT_NAMED % UnitColumns.LAST_WOUNDING)
 		return last_wounding
+var target_id: PackedInt64Array:
+	get:
+		assert(names.has(UnitColumns.TARGET_ID), NOT_NAMED % UnitColumns.TARGET_ID)
+		return target_id
+var distance: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.DISTANCE), NOT_NAMED % UnitColumns.DISTANCE)
+		return distance
+var foothold: PackedVector2Array:
+	get:
+		assert(names.has(UnitColumns.FOOTHOLD), NOT_NAMED % UnitColumns.FOOTHOLD)
+		return foothold
+var on_face: PackedInt32Array:
+	get:
+		assert(names.has(UnitColumns.ON_FACE), NOT_NAMED % UnitColumns.ON_FACE)
+		return on_face
+var climb_left: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.CLIMB_LEFT), NOT_NAMED % UnitColumns.CLIMB_LEFT)
+		return climb_left
 
 var _held_with := []  # the stores held with it (hold), for release
 

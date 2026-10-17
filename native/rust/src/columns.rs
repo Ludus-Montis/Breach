@@ -14,8 +14,10 @@
 //! `was_running`, `condition`, step 6c), and the downed's and recovery's: the part of a point
 //! regained, the seconds regeneration is stopped, the seconds left downed, the part of a
 //! point drained, and the wounds the last blow would add (`regeneration_carry`,
-//! `regeneration_halt`, `wake_left`, `drain_carry`, `last_wounding`, step 7b). The field holds
-//! them so its passes read them where they live. A slot newly given starts blank, each
+//! `regeneration_halt`, `wake_left`, `drain_carry`, `last_wounding`, step 7b), and the rest:
+//! the unit it fights, how far along its route it stands, the last place it could stand,
+//! whether it is on a climb face or in deep water, and the climb still above it (`target_id`,
+//! `distance`, `foothold`, `on_face`, `climb_left`, step 7c). The field holds them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
 use crate::maths::V2;
@@ -28,6 +30,7 @@ pub struct Columns {
     pub next: Vec<V2>,
     pub foe_at: Vec<V2>,
     pub toward: Vec<V2>,
+    pub foothold: Vec<V2>,
     pub flags: Vec<i32>,
     pub touch: Vec<i32>,
     pub keys: Vec<i32>,
@@ -38,10 +41,12 @@ pub struct Columns {
     pub exerted: Vec<i32>,
     pub was_running: Vec<i32>,
     pub last_wounding: Vec<i32>,
+    pub on_face: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
     pub held_by: Vec<i64>,
+    pub target_id: Vec<i64>,
     pub stuck: Vec<f64>,
     pub closest: Vec<f64>,
     pub along: Vec<f64>,
@@ -57,6 +62,8 @@ pub struct Columns {
     pub regeneration_halt: Vec<f64>,
     pub wake_left: Vec<f64>,
     pub drain_carry: Vec<f64>,
+    pub distance: Vec<f64>,
+    pub climb_left: Vec<f64>,
 }
 
 /// No goal (`goal_slot`).
@@ -79,6 +86,7 @@ impl Columns {
             "next" => Some(&mut self.next),
             "foe_at" => Some(&mut self.foe_at),
             "toward" => Some(&mut self.toward),
+            "foothold" => Some(&mut self.foothold),
             _ => None,
         }
     }
@@ -96,6 +104,7 @@ impl Columns {
             "exerted" => Some(&mut self.exerted),
             "was_running" => Some(&mut self.was_running),
             "last_wounding" => Some(&mut self.last_wounding),
+            "on_face" => Some(&mut self.on_face),
             _ => None,
         }
     }
@@ -107,6 +116,7 @@ impl Columns {
             "goal_slot" => Some(&mut self.goal_slot),
             "caught" => Some(&mut self.caught),
             "held_by" => Some(&mut self.held_by),
+            "target_id" => Some(&mut self.target_id),
             _ => None,
         }
     }
@@ -129,6 +139,8 @@ impl Columns {
             "regeneration_halt" => Some(&mut self.regeneration_halt),
             "wake_left" => Some(&mut self.wake_left),
             "drain_carry" => Some(&mut self.drain_carry),
+            "distance" => Some(&mut self.distance),
+            "climb_left" => Some(&mut self.climb_left),
             _ => None,
         }
     }
@@ -142,6 +154,7 @@ impl Columns {
             &mut self.next,
             &mut self.foe_at,
             &mut self.toward,
+            &mut self.foothold,
         ] {
             column.push(V2::ZERO);
         }
@@ -156,10 +169,16 @@ impl Columns {
             &mut self.exerted,
             &mut self.was_running,
             &mut self.last_wounding,
+            &mut self.on_face,
         ] {
             column.push(0);
         }
-        for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by] {
+        for column in [
+            &mut self.goal_foe,
+            &mut self.caught,
+            &mut self.held_by,
+            &mut self.target_id,
+        ] {
             column.push(0);
         }
         self.goal_slot.push(NO_GOAL);
@@ -174,6 +193,8 @@ impl Columns {
             &mut self.regeneration_carry,
             &mut self.regeneration_halt,
             &mut self.drain_carry,
+            &mut self.distance,
+            &mut self.climb_left,
         ] {
             column.push(0.0);
         }
@@ -193,6 +214,7 @@ impl Columns {
             &mut self.next,
             &mut self.foe_at,
             &mut self.toward,
+            &mut self.foothold,
         ] {
             column[slot] = V2::ZERO;
         }
@@ -207,10 +229,16 @@ impl Columns {
             &mut self.exerted,
             &mut self.was_running,
             &mut self.last_wounding,
+            &mut self.on_face,
         ] {
             column[slot] = 0;
         }
-        for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by] {
+        for column in [
+            &mut self.goal_foe,
+            &mut self.caught,
+            &mut self.held_by,
+            &mut self.target_id,
+        ] {
             column[slot] = 0;
         }
         self.goal_slot[slot] = NO_GOAL;
@@ -225,6 +253,8 @@ impl Columns {
             &mut self.regeneration_carry,
             &mut self.regeneration_halt,
             &mut self.drain_carry,
+            &mut self.distance,
+            &mut self.climb_left,
         ] {
             column[slot] = 0.0;
         }
@@ -268,6 +298,11 @@ mod tests {
         columns.reals("wake_left").unwrap()[0] = 4.5;
         columns.reals("drain_carry").unwrap()[0] = 0.75;
         columns.ints("last_wounding").unwrap()[0] = 2;
+        columns.longs("target_id").unwrap()[0] = 7;
+        columns.reals("distance").unwrap()[0] = 2.5;
+        columns.points("foothold").unwrap()[0] = V2 { x: 3.5, y: 1.5 };
+        columns.ints("on_face").unwrap()[0] = 1;
+        columns.reals("climb_left").unwrap()[0] = 4.0;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
@@ -287,12 +322,19 @@ mod tests {
         assert_eq!(columns.wake_left[0], NOT_RECKONED);
         assert_eq!(columns.drain_carry[0], 0.0);
         assert_eq!(columns.last_wounding[0], 0);
+        assert_eq!(columns.target_id[0], 0);
+        assert_eq!(columns.distance[0], 0.0);
+        assert_eq!(columns.foothold[0], V2::ZERO);
+        assert_eq!(columns.on_face[0], 0);
+        assert_eq!(columns.climb_left[0], 0.0);
     }
 
     #[test]
     fn every_column_is_found_by_its_unit_columns_name_and_no_other() {
         let mut columns = Columns::default();
-        for name in ["position", "at", "offset", "next", "foe_at", "toward"] {
+        for name in [
+            "position", "at", "offset", "next", "foe_at", "toward", "foothold",
+        ] {
             assert!(columns.points(name).is_some(), "{name}");
         }
         for name in [
@@ -306,10 +348,11 @@ mod tests {
             "exerted",
             "was_running",
             "last_wounding",
+            "on_face",
         ] {
             assert!(columns.ints(name).is_some(), "{name}");
         }
-        for name in ["goal_foe", "goal_slot", "caught", "held_by"] {
+        for name in ["goal_foe", "goal_slot", "caught", "held_by", "target_id"] {
             assert!(columns.longs(name).is_some(), "{name}");
         }
         for name in [
@@ -328,6 +371,8 @@ mod tests {
             "regeneration_halt",
             "wake_left",
             "drain_carry",
+            "distance",
+            "climb_left",
         ] {
             assert!(columns.reals(name).is_some(), "{name}");
         }

@@ -15,8 +15,6 @@ var id: int = 0
 var faction_id: String = ""
 var max_hp: int = 0
 var dmg: int = 0
-## Cells along the route, from the player's end (0) to the kingdom's (route length).
-var distance: float = 0.0
 ## Formation sim: its slot in the battle's unit store (spec 35), given when it enrols and
 ## fixed while it is held. Where it stands and the rest of its per-tick state are there.
 var slot := -1
@@ -43,16 +41,9 @@ var backward_pace := 0.4
 ## Formation sim: the definition it was made from (a router fleeing home rejoins the
 ## reserve as one of these).
 var definition: Resource = null
-## Where this unit started: the end it retreats to.
-var home_distance: float = 0.0
 ## +1 advances toward the kingdom's end, -1 toward the player's.
 var advance_direction: int = 1
-var order: Order = Order.ADVANCE
 var state: State = State.MOVING
-## The unit being fought; 0 = none.
-var target_id: int = 0
-## Ticks to stand still after spawning, so a wave leaves as a staggered group.
-var wait_ticks: int = 0
 
 # Formation fields (specs/22-formation-feel-test.md).
 ## The squad (wave) this unit marches in; 0 = none.
@@ -61,13 +52,12 @@ var squad_id: int = 0
 ## 3); typed loosely to keep the unit free of formation code.
 var command: RefCounted = null
 var origin: RefCounted = null
-## How it crosses terrain (TerrainWalker: swimming, climbing), from its definition; the
-## last place it could stand, whether it is on a climb face or in deep water now (no
-## breather there), and the cells of a climb still above it (WalkModes).
+## How it crosses terrain (TerrainWalker: swimming, climbing), from its definition. The
+## last place it could stand, whether it is on a climb face and the climb still above it
+## live in the unit store, as do the unit it fights and how far along its route it stands
+## (UnitColumns.FOOTHOLD, ON_FACE, CLIMB_LEFT, TARGET_ID, DISTANCE; spec 35 step 7c). Its
+## order, home and wait are its squad's.
 var walker: RefCounted = null
-var foothold := Vector2.ZERO
-var on_face := false
-var climb_left := 0.0
 ## Its rank and column in its squad's formation live in the unit store (UnitColumns.RANK,
 ## COLUMN; spec 35 step 4a).
 ## Slots it occupies, depth (ranks) x width (columns) - Decision 40.

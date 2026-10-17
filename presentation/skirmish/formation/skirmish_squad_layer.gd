@@ -45,12 +45,14 @@ func snapshot() -> void:
 	_previous = _current.duplicate()
 	_current = {}
 	for lane_key in _lanes:
-		for squad in _lanes[lane_key]["sim"].squads():
+		var sim = _lanes[lane_key]["sim"]
+		var along: PackedFloat64Array = sim.store.columns.column(UnitColumns.DISTANCE)  # once
+		for squad in sim.squads():
 			for unit in squad.units:
 				var unit_key := _key(lane_key, unit.id)
-				_current[unit_key] = unit.distance
+				_current[unit_key] = along[unit.slot]
 				if not _previous.has(unit_key):
-					_previous[unit_key] = unit.distance
+					_previous[unit_key] = along[unit.slot]
 
 
 func flash(lane_key: String, unit_id: int) -> void:
@@ -101,10 +103,11 @@ func _draw() -> void:
 	for lane_key in _lanes:
 		var sim = _lanes[lane_key]["sim"]
 		var hp: PackedInt32Array = sim.store.columns.column(UnitColumns.HP)  # once a frame
+		var targets: PackedInt64Array = sim.store.columns.column(UnitColumns.TARGET_ID)
 		for squad in sim.squads():
 			var chosen: bool = selected == [lane_key, squad.id]
 			for unit in squad.living():
-				_draw_unit(lane_key, squad, [unit, hp[unit.slot]], chosen)
+				_draw_unit(lane_key, squad, [unit, hp[unit.slot], targets[unit.slot]], chosen)
 	for shot in _spits:
 		var ends := [_find(shot[0], shot[1]), _find(shot[0], shot[2])]
 		if not ends.has(null):
@@ -117,7 +120,7 @@ func _draw() -> void:
 			)
 
 
-## `drawn` is [the unit, its hp].
+## `drawn` is [the unit, its hp, its target's id].
 func _draw_unit(lane_key: String, squad: SkirmishSquad, drawn: Array, chosen: bool) -> void:
 	var unit: SkirmishUnit = drawn[0]
 	var points: PackedVector2Array = _lanes[lane_key]["points"]
@@ -150,14 +153,19 @@ func _draw_unit(lane_key: String, squad: SkirmishSquad, drawn: Array, chosen: bo
 		)
 	if unit.attack_range > 0:
 		draw_circle(Vector2.ZERO, CELL_PX * 0.22, Color("#d8f0c0"))
-	if unit.target_id != 0:
+	if drawn[2] != 0:
 		draw_circle(Vector2(size.x * 0.5 * squad.direction, 0), CELL_PX * 0.15, Color.WHITE)
 	draw_set_transform(Vector2.ZERO, 0.0)
 
 
 func _distance(lane_key: String, unit: SkirmishUnit) -> float:
-	var previous: float = _previous.get(_key(lane_key, unit.id), unit.distance)
-	var current: float = _current.get(_key(lane_key, unit.id), unit.distance)
+	var unit_key := _key(lane_key, unit.id)
+	var current: float
+	if _current.has(unit_key):
+		current = _current[unit_key]
+	else:  # not yet snapshotted: where it stands now (scattered: a unit or two)
+		current = _lanes[lane_key]["sim"].store.columns.value(unit.slot, UnitColumns.DISTANCE)
+	var previous: float = _previous.get(unit_key, current)
 	return TickInterpolation.interpolate_position(previous, current, fraction)
 
 

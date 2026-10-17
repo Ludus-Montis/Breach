@@ -19,9 +19,7 @@ static func blows(squads: Array, interval: int, fight_seed: int, field: Object =
 	if field != null:
 		out = ScrumBlowsField.blows(field, squads, interval, fight_seed)
 	else:
-		for squad in squads:
-			for unit in squad.living():
-				unit.target_id = 0
+		ScrumBlows.clear_targets(squads)
 		out = ScrumBlows.blows(squads, interval, fight_seed)
 	out.append_array(RoutBlows.blows(squads, interval, fight_seed))
 	return out

@@ -40,10 +40,8 @@ static func blows(field: Object, squads: Array, interval: int, fight_seed: int) 
 	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var began := Time.get_ticks_usec()
 	_synced = 0
+	ScrumBlows.clear_targets(squads)
 	if not _any_strike(squads):
-		for squad in squads:
-			for unit in squad.living():
-				unit.target_id = 0
 		return []
 	var synced := _sync(field, squads, fight_seed)
 	_synced = field.get_instance_id()
@@ -75,9 +73,10 @@ static func synced(field: Object) -> bool:
 static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var targets := PackedInt64Array()
+	var target_ids: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
 	for squad in squads:
 		for unit: SkirmishUnit in squad.living():
-			targets.append(unit.target_id)
+			targets.append(target_ids[unit.slot])
 	var asked := PackedInt64Array()
 	for blow in landing:
 		asked.append(blow[0].id)
@@ -119,8 +118,8 @@ static func _any_strike(squads: Array) -> bool:
 
 
 ## Brings the field to the scrum as BodyFieldSync.scrum does (where ScrumReach puts each
-## unit, and its bearing), clearing each living unit's target as it goes; returns [units,
-## their squads] by flat index. The arrays are sized once and filled in place.
+## unit, and its bearing); returns [units, their squads] by flat index. The arrays are sized
+## once and filled in place.
 static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := _sized(squads)
 	var units := batch.units
@@ -130,7 +129,6 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	for squad in squads:
 		var before := flat
 		for unit: SkirmishUnit in squad.living():
-			unit.target_id = 0
 			units[flat] = unit
 			owners[flat] = squad
 			ids[flat] = unit.id
@@ -166,10 +164,11 @@ static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interv
 		return out
 	var columns: UnitColumns = owners[picks[0]].store.columns  # fetched once, committed once
 	var cooldowns: PackedInt32Array = columns.column(UnitColumns.ATTACK_COOLDOWN)
+	var targets: PackedInt64Array = columns.column(UnitColumns.TARGET_ID)
 	for index in range(0, picks.size(), 3):
 		var unit: SkirmishUnit = units[picks[index]]
 		var target: SkirmishUnit = units[picks[index + 1]]
-		unit.target_id = target.id
+		targets[unit.slot] = target.id
 		cooldowns[unit.slot] -= 1
 		if cooldowns[unit.slot] > 0:
 			continue
@@ -179,4 +178,5 @@ static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interv
 			var flank: bool = picks[index + 2] & FLANK != 0
 			out.append([unit, target, FormationCombat.damage(unit), flank])
 	columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	columns.commit(UnitColumns.TARGET_ID, targets)
 	return out
