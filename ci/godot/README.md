@@ -247,6 +247,9 @@ Every check that doesn't need another's output runs in its own job, side by side
 pip install pre-commit "gdtoolkit==4.*"
 pre-commit install                       # wires .git/hooks/pre-commit and commit-msg
 export GODOT_BIN=/path/to/Godot_v4.7.2-stable_win64.exe   # or add godot to PATH
+# Linux, or a cloud session without Godot: fetch the version CI pins (once; it imports the
+# project too), then export the GODOT_BIN it prints
+bash ci/godot/scripts/get_godot.sh
 
 # Before every commit (pre-commit runs this automatically once installed)
 pre-commit run --all-files
