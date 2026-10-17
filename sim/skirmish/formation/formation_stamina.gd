@@ -19,7 +19,8 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 ## The columns a tick's pass reads and writes, held for it (spec 35 step 6c, UnitView);
-## each unit's condition is read alongside.
+## each unit's condition, and whether it is on a climb face or in deep water (ON_FACE, step
+## 7c), are read alongside (READ).
 const STEPPED := [
 	UnitColumns.STAMINA,
 	UnitColumns.SPEED,
@@ -28,6 +29,7 @@ const STEPPED := [
 	UnitColumns.RUN_BUILD,
 	UnitColumns.WAS_RUNNING,
 ]
+const READ := [UnitColumns.CONDITION, UnitColumns.ON_FACE]
 ## The columns a blow's cost writes.
 const SPENT := [UnitColumns.STAMINA, UnitColumns.EXERTED, UnitColumns.BREATHER]
 
@@ -51,18 +53,16 @@ static func step(squads: Array, seconds: float) -> void:
 	if squads.is_empty():
 		return
 	var held := UnitView.hold(squads, STEPPED)
-	var conditions := {}  # store -> a read view of CONDITION (UnitView.read_once)
+	var reads := {}  # store -> a read view of READ (UnitView.read_once)
 	for squad in squads:
-		var condition := UnitView.read_once(conditions, squad, [UnitColumns.CONDITION]).condition
-		_step_squad(squad, UnitView.of(squad), condition, seconds)
+		var read := UnitView.read_once(reads, squad, READ)
+		_step_squad(squad, UnitView.of(squad), [read.condition, read.on_face], seconds)
 	UnitView.release(held)
 
 
 ## `step` for one squad: its view's columns taken once into typed locals and indexed per
-## unit (a getter per unit would be a call each).
-static func _step_squad(
-	squad: SkirmishSquad, view: UnitView, condition: PackedFloat64Array, seconds: float
-) -> void:
+## unit (a getter per unit would be a call each). `read` is [CONDITION, ON_FACE].
+static func _step_squad(squad: SkirmishSquad, view: UnitView, read: Array, seconds: float) -> void:
 	var tuning := BattleTuning.current()
 	var stamina: PackedFloat64Array = view.stamina
 	var speeds: PackedFloat64Array = view.speed
@@ -70,6 +70,8 @@ static func _step_squad(
 	var breather: PackedFloat64Array = view.breather
 	var ran: PackedInt32Array = view.was_running
 	var build: PackedFloat64Array = view.run_build
+	var condition: PackedFloat64Array = read[0]
+	var on_face: PackedInt32Array = read[1]
 	var running := runs(squad)
 	var marching: bool = squad.state == SkirmishSquad.State.MOVING
 	for unit in squad.living():
@@ -89,7 +91,7 @@ static func _step_squad(
 		elif marching and _march_cost(unit) > 0.0:
 			_spend(stamina, exerted, breather, slot, _march_cost(unit) * seconds)
 		ran[slot] = 1 if runner else 0
-		if exerted[slot] == 0:
+		if exerted[slot] == 0 and on_face[slot] == 0:  # no breather on a face (WalkModes)
 			_breathe(stamina, breather, unit, condition[slot], seconds)
 		exerted[slot] = 0
 		speeds[slot] = (
@@ -193,8 +195,6 @@ static func _breathe(
 	var hardiness := (
 		maxf(1.0, unit.attributes.get("constitution", UnitDef.AVERAGE)) / UnitDef.AVERAGE
 	)
-	if unit.on_face:
-		return  # no breather on a climb face or in deep water (WalkModes)
 	breather[unit.slot] += seconds
 	if breather[unit.slot] < tuning.stamina_delay / hardiness:
 		return

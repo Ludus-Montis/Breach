@@ -67,6 +67,15 @@ const REGENERATION_HALT := &"regeneration_halt"
 const WAKE_LEFT := &"wake_left"
 const DRAIN_CARRY := &"drain_carry"
 const LAST_WOUNDING := &"last_wounding"
+## The rest (spec 35 step 7c; the blows, FormationMarch, WalkModes): the id of the unit it
+## fights (0: none), how far along its route it stands in cells from the player's end, the
+## last place it could stand, whether it is on a climb face or in deep water (1: no breather
+## there), and the cells of a climb still above it.
+const TARGET_ID := &"target_id"
+const DISTANCE := &"distance"
+const FOOTHOLD := &"foothold"
+const ON_FACE := &"on_face"
+const CLIMB_LEFT := &"climb_left"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -108,6 +117,11 @@ const BLANKS := {
 	WAKE_LEFT: -1.0,
 	DRAIN_CARRY: 0.0,
 	LAST_WOUNDING: 0,
+	TARGET_ID: 0,
+	DISTANCE: 0.0,
+	FOOTHOLD: Vector2.ZERO,
+	ON_FACE: 0,
+	CLIMB_LEFT: 0.0,
 }
 
 var _columns := {
@@ -146,6 +160,11 @@ var _columns := {
 	WAKE_LEFT: PackedFloat64Array(),
 	DRAIN_CARRY: PackedFloat64Array(),
 	LAST_WOUNDING: PackedInt32Array(),
+	TARGET_ID: PackedInt64Array(),
+	DISTANCE: PackedFloat64Array(),
+	FOOTHOLD: PackedVector2Array(),
+	ON_FACE: PackedInt32Array(),
+	CLIMB_LEFT: PackedFloat64Array(),
 }
 
 

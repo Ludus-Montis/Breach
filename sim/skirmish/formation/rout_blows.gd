@@ -34,6 +34,7 @@ static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var near := BodyGrid.build(routers.map(func(router): return router[1]))
 	var reach := BattleTuning.current().rout_strike_reach + BodyGrid.MARGIN
 	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
+	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
 	for hunter in squads:
 		if not FormationContact.can_engage(hunter):
 			continue
@@ -44,12 +45,13 @@ static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 			var target := _nearest([fighter, here], hunter.faction_id, close, fight_seed)
 			if target == null:
 				continue
-			fighter.target_id = target.id
+			targets[fighter.slot] = target.id
 			cooldowns[fighter.slot] -= 1
 			if cooldowns[fighter.slot] <= 0:
 				cooldowns[fighter.slot] = maxi(1, roundi(interval * fighter.melee_seconds))
 				out.append([fighter, target, FormationCombat.damage(fighter), true])
 	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	squads[0].store.columns.commit(UnitColumns.TARGET_ID, targets)
 	return out
 
 

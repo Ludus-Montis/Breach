@@ -282,7 +282,8 @@ func test_a_thorough_foe_is_fooled_less_often() -> void:
 			_places.health(body, 0)
 			UnitState.start(body, SkirmishUnit.State.DOWNED)
 			FormationWounds.tend([_squad([body]), theirs], 1, 10, 1, events)
-			if events.is_empty() and taker.target_id == 0:
+			var target: int = _places.store.columns.value(taker.slot, UnitColumns.TARGET_ID)
+			if events.is_empty() and target == 0:
 				fooled[which] += 1
 
 	assert_int(fooled[0]).is_greater(fooled[1])
