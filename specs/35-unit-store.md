@@ -1194,8 +1194,13 @@ The loops converted, with the columns each reads:
   call `regather`, the reversed-lists test (`test_formation_list_order.gd`, `_reverse`) among
   them, so it still checks the reversed order.
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
-- **Bench:** the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in four squads,
-  Rust) against main, started with the PR. Its result goes here and in spec 34's "Measured".
+- **Bench** (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side in four squads,
+  Rust, `ce6eabf` against main at `a941e7d`; spec 34, "Measured"): the tick −11.6% (282.4 →
+  249.6 ms, ranges apart). Carry −78.3%, taking the downed −93.4%, recovery −20.5% and wounds
+  −8.5%, all with ranges apart, as the step meant. Because `living()` now costs nothing to
+  ask, perception (−46.4%), blows (−28.0%), engage (−13.0%) and the rout (−5.5%) are faster
+  too. No phase is slower beyond noise. The first bench of the PR came before the trade's fix
+  changed its outcomes back, so it isn't counted.
 
 ## Open, for the implementing session to settle and record here
 

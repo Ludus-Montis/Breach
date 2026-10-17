@@ -184,6 +184,18 @@ percentages):
   - The bodies snapshot (14.80 → 13.18) and engage (13.99 → 11.82), which the series bench
     found slower before step 6, are now faster than before step 0.
 
+**Spec 35 step 7a, a unit's state through one writer, with each squad's living and downed kept**
+(#247; bench run 39026873513, `ce6eabf` against main at `a941e7d`, `fight=10`, `rounds=5`, AMD
+EPYC 9V74): **282.4 → 249.6 ms a tick** (−11.6%*). The step's targets: carry 7.24 → 1.57
+(−78.3%*), taking the downed 0.91 → 0.06 (−93.4%*), recovery 20.35 → 16.18 (−20.5%*), wounds
+21.43 → 19.60 (−8.5%*). `living()` costing nothing to ask also shows in passes that call it
+often: perception 11.15 → 5.98 (−46.4%*), blows 22.05 → 15.88 (−28.0%*), engage 10.91 → 9.49
+(−13.0%*), groups 1.16 → 0.65 (−44.0%*), morale 1.18 → 0.87 (−26.3%*), the shuffle's
+front-first order 1.59 → 1.12 (−29.6%*) and the rout 52.70 → 49.81 (−5.5%*). No phase is
+slower beyond noise: the walk to places (+2.0%) and the free front place (+1.3%) have
+overlapping ranges. An earlier run (38993065664, `4d187a6`) came before a fix that
+changed outcomes (the trade's places), so it isn't counted.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
