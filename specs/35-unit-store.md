@@ -1238,9 +1238,15 @@ The loops converted, with the columns each reads:
   columns' blanks and names (`cargo test`, run here).
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI). The
   digest names its columns, so the new ones don't change its bytes.
-- **Bench:** started on the PR (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side in
-  four squads, Rust, against main at `356bb76`); its numbers go here and in spec 34's
-  "Measured" when it finishes.
+- **Bench** (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side in four squads,
+  Rust, `cee9142` against main at `356bb76`; spec 34, "Measured"): the tick −2.8% (232.5 →
+  225.9 ms, ranges overlapping). Carry −28.9% with ranges apart, though 7b doesn't change its
+  code; recovery −2.4%, blows −5.9% and bury −2.9%, within noise. No phase is slower beyond
+  noise.
+- **CI found a test that shared slots:** `test_with_a_foe_near_some_play_dead_and_the_cunning_more_often`
+  built two batches with the same ids in one store, so each pair shared a slot. On the record
+  that didn't matter; as a column, the first batch's run overwrote the second's WAKE_LEFT. The
+  second batch now has a store of its own, keeping its ids and so its seeded rolls.
 - **Built in a cloud session without Godot** (its network policy blocks the Godot download):
   `test_unit_downed.gd` was written red against the tree but first runs in CI, as do the
   other touched test files. Its `.uid` file comes with the first import.
