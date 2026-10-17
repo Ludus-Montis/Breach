@@ -49,6 +49,7 @@ func _scrum(ticks: int, reversed: bool, stirred := false) -> Array:
 		squads.reverse()
 		for squad in squads:
 			squad.units.reverse()
+			UnitState.regather(squad)
 	return squads
 
 
@@ -62,7 +63,7 @@ func _lay_bodies(squads: Array) -> void:
 				continue
 			var body := SkirmishUnit.new()
 			body.id = 100000 + unit.id
-			body.state = SkirmishUnit.State.DOWNED
+			UnitState.start(body, SkirmishUnit.State.DOWNED)
 			var size := 3 if unit.id % 4 == 0 else 1
 			body.footprint_width = size
 			body.footprint_depth = size
@@ -72,6 +73,7 @@ func _lay_bodies(squads: Array) -> void:
 			laid.append([squad, body])
 	for pair in laid:
 		pair[0].units.append(pair[1])
+		UnitState.regather(pair[0])
 
 
 ## Plans the fighting squads' units once on `field` (null: GDScript), pushes the way of

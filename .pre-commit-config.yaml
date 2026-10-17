@@ -64,6 +64,13 @@ repos:
         pass_filenames: true
         files: ^sim/.*\.gd$
 
+      - id: check-one-state
+        name: one-state (a unit's state changes through UnitState, Decision 147)
+        entry: python3 ci/godot/scripts/check_one_state.py
+        language: system
+        pass_filenames: true
+        files: ^(sim|tools|presentation|tests)/.*\.gd$
+
       - id: check-store-reads
         name: store-reads-once (no store read unit by unit in a loop, Decision 144)
         entry: python3 ci/godot/scripts/check_store_reads.py

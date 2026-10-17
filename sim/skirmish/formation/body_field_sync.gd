@@ -51,9 +51,7 @@ static func scrum(field: Object, squads: Array, fight_seed: int) -> Array:
 	var batch := Batch.new()
 	for squad in squads:
 		var before := batch.units.size()
-		for unit in squad.units:
-			if not unit.is_alive():
-				continue
+		for unit in squad.living():
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)
@@ -73,9 +71,7 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 		var route: UnitView = (
 			null if fleeing.is_empty() else UnitView.read(squad, [UnitColumns.ALONG])
 		)
-		for unit in squad.units:
-			if not unit.is_alive():
-				continue
+		for unit in squad.living():
 			batch.units.append(unit)
 			batch.owners.append(squad)
 			batch.ids.append(unit.id)

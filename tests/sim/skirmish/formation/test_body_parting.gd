@@ -62,6 +62,7 @@ func _crowd(reversed: bool) -> Array:
 	)
 	for index in range(4):
 		line.units.append(units[index])
+		UnitState.regather(line)
 		_places.stand(units[index], points[index])
 	for index in [1, 2]:
 		var at: Vector2 = points[index]
@@ -79,6 +80,7 @@ func _crowd(reversed: bool) -> Array:
 	if reversed:
 		squads.reverse()
 		line.units.reverse()
+		UnitState.regather(line)
 	return squads
 
 
@@ -130,10 +132,12 @@ func _churn(squads: Array) -> void:
 		by_id[squad.id] = squad
 		for unit in squad.living():
 			if unit.id == 3:
-				unit.state = SkirmishUnit.State.DEAD
+				UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 	var mover: SkirmishUnit = by_id[2].units[0]
 	by_id[2].units.erase(mover)
+	UnitState.regather(by_id[2])
 	by_id[1].units.append(mover)
+	UnitState.regather(by_id[1])
 
 
 func test_a_field_kept_across_ticks_parts_as_gdscript_does_as_units_die_and_move() -> void:

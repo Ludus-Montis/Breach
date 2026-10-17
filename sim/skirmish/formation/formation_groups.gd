@@ -133,6 +133,7 @@ static func _return_origins(
 	# store: scattered (few: rejoining, once as a group comes home)
 	for unit in back:
 		group.units.erase(unit)
+		UnitState.regather(group)
 		SquadEntries.unloose(group, unit.id)
 		home.store.columns.put(unit.slot, UnitColumns.RANK, _back_row(home))
 		FormationCommand.enlist(home, unit)

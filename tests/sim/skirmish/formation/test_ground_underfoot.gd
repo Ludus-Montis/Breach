@@ -25,7 +25,7 @@ func _body(at: Vector2, size: int) -> SkirmishUnit:
 	_places.stand(body, at)
 	body.footprint_width = size
 	body.footprint_depth = size
-	body.state = SkirmishUnit.State.DOWNED
+	UnitState.start(body, SkirmishUnit.State.DOWNED)
 	return body
 
 

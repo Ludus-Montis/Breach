@@ -26,11 +26,11 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 		var fallen: Array = by_squad[index]
 		for unit in fallen:  # store: scattered (few: the tick's fallen)
 			if UnitHealth.of_one(fallen_squad, unit) <= -depth(unit):
-				unit.state = SkirmishUnit.State.DEAD
+				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DEAD)
 				events.append(FormationEvents.unit_event("died", tick, fallen_squad, unit))
 			else:
 				UnitHealth.put_one(fallen_squad, unit, 0)
-				unit.state = SkirmishUnit.State.DOWNED
+				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DOWNED)
 				unit.wounded += 1 + unit.last_wounding  # lowering its condition (Decision 126)
 				unit.wake_left = -1.0
 				events.append(FormationEvents.unit_event("downed", tick, fallen_squad, unit))

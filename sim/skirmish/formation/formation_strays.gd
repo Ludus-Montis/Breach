@@ -19,6 +19,7 @@ const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 ## `squad`, fleeing home along `squad`'s route from where it stands.
 static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	squad.units.erase(unit)
+	UnitState.regather(squad)
 	SquadEntries.unloose(squad, unit.id)
 	SquadEntries.unflee(squad, unit.id)
 	squad.chasers.erase(unit.id)

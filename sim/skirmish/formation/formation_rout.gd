@@ -156,6 +156,7 @@ static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array)
 		if is_equal_approx(along[unit.slot], home):
 			SquadEntries.unflee(squad, unit.id)
 			squad.units.erase(unit)
+			UnitState.regather(squad)
 			var extra := {"unit": unit.id, "definition": unit.definition}
 			events.append(FormationEvents.squad_event("fled_home", tick, squad, extra))
 	if squad.living().is_empty():
@@ -250,6 +251,7 @@ static func _join(
 	var settled := where(squad, unit.id)
 	SquadEntries.unflee(squad, unit.id)
 	squad.units.erase(unit)
+	UnitState.regather(squad)
 	UnitPlace.put(squad, unit, Vector2i.ZERO)
 	var members: Array[SkirmishUnit] = [unit]
 	var single := SkirmishSquad.new(

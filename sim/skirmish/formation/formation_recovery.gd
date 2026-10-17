@@ -43,18 +43,22 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 		var health := UnitView.of(squad)  # hp, regeneration left and condition: held for the pass
 		var pools := [health, health.regeneration_left, health.condition]
 		var conditions: PackedFloat64Array = pools[2]
-		for unit in squad.units:
-			var downed: bool = unit.state in [SkirmishUnit.State.DOWNED, SkirmishUnit.State.CARRIED]
-			if not (unit.is_alive() or downed):
-				continue
+		# the standing touch only themselves and raise no event, so they go first and the
+		# downed's events keep their order
+		for unit in squad.living():
 			conditions[unit.slot] = condition_of(unit)
-			_regenerate(unit, downed, seconds, pools)
+			_regenerate(unit, false, seconds, pools)
+			_drain(unit, seconds, health)
+		# a death below rebuilds the kept list as a new one: this walk is the list as it began
+		for unit in UnitState.downed(squad):
+			conditions[unit.slot] = condition_of(unit)
+			_regenerate(unit, true, seconds, pools)
 			var drained := _drain(unit, seconds, health)
-			if drained and downed and UnitHealth.of(health, unit) <= -FormationDeaths.depth(unit):
-				unit.state = SkirmishUnit.State.DEAD
+			if drained and UnitHealth.of(health, unit) <= -FormationDeaths.depth(unit):
+				UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 				events.append(FormationEvents.unit_event("died_of_wounds", tick, squad, unit))
 				continue
-			if downed and _wakes(unit, seconds, fight_seed):
+			if _wakes(unit, seconds, fight_seed):
 				if not _lies_still(unit, squad, standing, fight_seed):
 					waking.append([unit, squad])
 				elif not unit.playing_dead:
@@ -228,7 +232,7 @@ static func _rise(waking: Array, squads: Array, tick: int, fight_seed: int, even
 	for plan in plans:  # store: scattered (few: the units coming to this tick)
 		var unit: SkirmishUnit = plan[1][0]
 		UnitHealth.put_one(plan[1][1], unit, maxi(UnitHealth.of_one(plan[1][1], unit), 1))
-		unit.state = SkirmishUnit.State.MOVING
+		UnitState.put(plan[1][1], unit, SkirmishUnit.State.MOVING)
 		unit.playing_dead = false
 		var extra := {"alone": plan[2] == null}
 		if plan[2] == null:
@@ -279,6 +283,7 @@ static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -
 		SquadEntries.unloose(own, unit.id)
 		SquadEntries.unflee(own, unit.id)
 		own.units.erase(unit)
+		UnitState.regather(own)
 		FormationCommand.enlist(best, unit)
 	UnitPlace.put(best, unit, Vector2i(back, 0))
 	best.reforming = true

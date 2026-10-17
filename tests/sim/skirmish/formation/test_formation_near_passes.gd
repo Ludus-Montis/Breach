@@ -60,7 +60,7 @@ func _field() -> Array:
 		var members := _scatter(rng, 40, faction, squad_id * 100)
 		for unit in members:
 			if rng.randf() < 0.3:
-				unit.state = SkirmishUnit.State.DOWNED
+				UnitState.start(unit, SkirmishUnit.State.DOWNED)
 		squads.append(_squad(squad_id, faction, members))
 	return squads
 

@@ -46,7 +46,7 @@ func _squad(squad_id: int, faction: String, members: Array, tends: String = "") 
 func _scene(tends: String) -> Array:
 	var body := _unit(1, "player", Vector2.ZERO)
 	_places.health(body, 0)
-	body.state = SkirmishUnit.State.DOWNED
+	UnitState.start(body, SkirmishUnit.State.DOWNED)
 	var bearer := _unit(2, "player", Vector2(1, 0))
 	return [[_squad(1, "player", [body]), _squad(2, "player", [bearer], tends)], body, bearer]
 
@@ -92,7 +92,7 @@ func test_a_bearer_that_falls_drops_its_body() -> void:
 	var scene := _scene("carry")
 	FormationCarry.step(scene[0], 1, 1, [])
 	_places.stand(scene[2], Vector2(4, 0))
-	scene[2].state = SkirmishUnit.State.DOWNED
+	UnitState.put(scene[0][1], scene[2], SkirmishUnit.State.DOWNED)
 	FormationCarry.step(scene[0], 2, 1, [])
 
 	assert_int(scene[1].state).is_equal(SkirmishUnit.State.DOWNED)

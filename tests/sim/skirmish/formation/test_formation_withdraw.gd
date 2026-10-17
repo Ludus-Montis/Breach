@@ -148,6 +148,7 @@ func _both_retreat(reversed: bool) -> Array:
 			sim.squads().reverse()
 			for squad in sim.squads():
 				squad.units.reverse()
+				UnitState.regather(squad)
 		sim.step()
 		var state := []
 		for squad in [me, foe]:

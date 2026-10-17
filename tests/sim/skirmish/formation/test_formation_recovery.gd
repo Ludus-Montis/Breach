@@ -41,7 +41,7 @@ func _squad(members: Array) -> SkirmishSquad:
 
 func _downed(unit: SkirmishUnit) -> SkirmishUnit:
 	_places.health(unit, 0)
-	unit.state = SkirmishUnit.State.DOWNED
+	UnitState.start(unit, SkirmishUnit.State.DOWNED)
 	unit.wounded = 1
 	return unit
 
@@ -271,7 +271,7 @@ func test_a_thorough_foe_is_fooled_less_often() -> void:
 			theirs.faction_id = "the_kingdom"
 			theirs.id = 2
 			_places.health(body, 0)
-			body.state = SkirmishUnit.State.DOWNED
+			UnitState.start(body, SkirmishUnit.State.DOWNED)
 			FormationWounds.tend([_squad([body]), theirs], 1, 10, 1, events)
 			if events.is_empty() and taker.target_id == 0:
 				fooled[which] += 1

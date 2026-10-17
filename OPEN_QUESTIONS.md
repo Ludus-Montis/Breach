@@ -168,6 +168,8 @@ Each would need the events to queue every change that matters (Principle 2's cor
 
 **The downed and living lists settled by Decision 147 (2026-10-17):** each squad keeps a living list and a downed list (`DOWNED` or `CARRIED`) in `squad.units` order, kept by state's one writer `UnitState` and rebuilt at joins and splits; wounds, recovery, carry and taking read them (spec 35, "Settled for step 7", built as step 7a). Still open here: the three lists above.
 
+**Built at spec 35 step 7a (2026-10-17, Decision 147):** the downed list and the living list. `UnitState` keeps each squad's, and wounds, recovery, carry and taking read them. The rest is as above.
+
 ### Q25. Game-like maps on the real sims, in place of the old test maps
 **Raised:** 2026-10-15, retiring the lane skirmish (spec 35 step 5a) · **Raise when:** Spec 35 is complete, or any session adds, keeps or rebuilds a test or demo map or scene
 

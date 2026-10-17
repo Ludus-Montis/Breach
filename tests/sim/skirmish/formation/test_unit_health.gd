@@ -146,9 +146,11 @@ func test_bury_takes_the_fallen_from_the_queue_in_the_lists_order() -> void:
 		UnitHealth.hurt_one(first, units[2], 10)  # 3, moved to the second squad below
 		UnitHealth.hurt_one(second, units[4], 10)  # 5, no longer living below
 		UnitHealth.put_one(second, units[3], UnitHealth.of_one(second, units[3]) + 1)
-		units[4].state = SkirmishUnit.State.TAKEN
+		UnitState.put(second, units[4], SkirmishUnit.State.TAKEN)
 		first.units.erase(units[2])
+		UnitState.regather(first)
 		second.units.append(units[2])
+		UnitState.regather(second)
 		places.store.columns.put(units[0].slot, UnitColumns.HP, 0)  # no write through UnitHealth
 		var events := []
 

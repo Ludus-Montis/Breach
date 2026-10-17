@@ -35,8 +35,8 @@ static func step(
 ):
 	var downed := []
 	for squad in squads:
-		for unit in squad.units:
-			if unit.state == SkirmishUnit.State.DOWNED:
+		for unit in UnitState.downed(squad):
+			if unit.state == SkirmishUnit.State.DOWNED:  # a borne body isn't taken
 				downed.append(unit)
 	for squad in squads:
 		var threatened := FormationPerception.threatened(perception, squad)

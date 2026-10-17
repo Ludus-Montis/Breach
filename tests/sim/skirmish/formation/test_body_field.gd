@@ -74,10 +74,12 @@ func test_the_roster_is_kept_across_syncs_and_changes_only_where_units_do() -> v
 	var other := SkirmishSquad.new(2, "player", 1, 0.0, 1, others, null, _places.store)
 	BodyFieldSync.bodies(field, [one, other], 7)
 	assert_int(field.count()).is_equal(3)
-	one.units[0].state = SkirmishUnit.State.DEAD
+	UnitState.put(one, one.units[0], SkirmishUnit.State.DEAD)
 	var moved := one.units[1]
 	one.units.erase(moved)
+	UnitState.regather(one)
 	other.units.append(moved)
+	UnitState.regather(other)
 	_places.stand(moved, Vector2(6, 5))
 	var synced := BodyFieldSync.bodies(field, [one, other], 7)
 	assert_int(field.count()).is_equal(2)  # the dead dropped, the mover kept
@@ -117,6 +119,7 @@ func _scrum(ticks: int, reversed: bool) -> Array:
 		squads.reverse()
 		for squad in squads:
 			squad.units.reverse()
+			UnitState.regather(squad)
 	return squads
 
 

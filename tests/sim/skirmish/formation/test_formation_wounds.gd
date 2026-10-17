@@ -43,7 +43,7 @@ func _squad(squad_id: int, faction: String, members: Array) -> SkirmishSquad:
 func _scene() -> Array:
 	var body := _unit(1, "the_kingdom", Vector2.ZERO)
 	_places.health(body, 0)
-	body.state = SkirmishUnit.State.DOWNED
+	UnitState.start(body, SkirmishUnit.State.DOWNED)
 	var taker := _unit(2, "player", Vector2(1, 0))
 	return [[_squad(1, "the_kingdom", [body]), _squad(2, "player", [taker])], body, taker]
 
@@ -94,8 +94,10 @@ func test_a_captor_captures_it_instead() -> void:
 func test_a_friend_near_guards_it_and_a_foe_near_keeps_the_taker_fighting() -> void:
 	var guarded := _scene()
 	guarded[0][0].units.append(_unit(3, "the_kingdom", Vector2(-3.5, 0)))  # guards it
+	UnitState.regather(guarded[0][0])
 	var pressed := _scene()
 	pressed[0][0].units.append(_unit(3, "the_kingdom", Vector2(5, 0)))  # near the taker
+	UnitState.regather(pressed[0][0])
 	var events := []
 	for tick in range(1, 4 * SECOND):
 		FormationWounds.tend(guarded[0], tick, SECOND, 1, events)
@@ -112,6 +114,7 @@ func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
 	leader.leadership = 2
 	leader.traits = {"messenger": 1}
 	scene[0][1].units.append(leader)
+	UnitState.regather(scene[0][1])
 	var events := []
 
 	FormationWounds.tend(scene[0], 1, SECOND, 1, events)

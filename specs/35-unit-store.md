@@ -75,6 +75,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 7 designed** (2026-10-17, Decision 147, Q24): 7a puts a unit's state behind one
   writer, `UnitState`, with each squad's living and downed lists; 7b moves the downed's and
   recovery's per-tick fields and `last_wounding`; 7c moves the rest. See "Settled for step 7".
+- **Step 7a, one writer for state and the kept lists: built** (2026-10-17). See "Built" below.
 
 ## The store
 
@@ -1141,6 +1142,57 @@ The loops converted, with the columns each reads:
   each step that moves a field): the PR modifies about 40 existing files because Decision 142
   moves the fields and Decision 144 moves every reader of them in the same step. No new case
   forced them open.
+
+### Step 7a, one writer for state and the kept lists
+
+- **`UnitState`** (`unit_state.gd`): `put(squad, unit, state)` makes every change to a unit's
+  state. The ten writes in `sim/` call it: bury's death and downing, recovery's bleed-out and
+  waking, wounds' surrender, capture, release and finishing, and carry's drop and pick-up.
+  (The design session counted 11. The tree at `a941e7d` has ten.) `start(unit, state)` sets
+  the state of a unit no squad lists yet, for tests' lone bodies; the check flags it in `sim/`.
+- **The kept lists.** Each squad holds `kept` (`UnitState.Kept`): its living and its downed
+  (`DOWNED` or `CARRIED`), in `squad.units` order. `living()` returns the living list and
+  `UnitState.downed(squad)` the downed. **Settled here: mark, then rebuild once at the next
+  read.** A write, and `regather(squad)` for a join, a leaving or a reordering, mark the
+  squad. Its next read refilters its units once, however many changed, into **new** arrays.
+  `FormationCommand.enlist` regathers for every join. The leavings regather where they erase:
+  the rout's fled home and lone routers, strays, splits, a joining squad cleared, a group
+  rejoining, recovery's join of another formation, and carry's bodies brought home. A read
+  asserts that the squad has as many units as at its last rebuild, so a leaving or a join
+  that skips `regather` fails a test.
+- **No write under a walk, by construction.** A rebuild makes new arrays and never changes
+  one already handed out, so a pass that writes while walking a list walks it as it was when
+  it began. Nothing has to take a copy, and `UnitState` has no walk to assert on, so the
+  spec's assert and its test are replaced by `test_a_walk_is_not_changed_by_a_write_during_it`.
+  A list handed out is read-only (`make_read_only`), and changing it is an error. The one
+  caller that changed its list, `SquadRanks.close` (it sorts), now takes `.duplicate()`.
+- **`check_one_state.py`** (tests first, `test_check_one_state.py`): it flags
+  `.state = SkirmishUnit.State.` outside UnitState in `sim/`, `tools/`, `presentation/` and
+  `tests/`, `UnitState.start` in `sim/`, and a mutator on `living()` or `UnitState.downed`,
+  or on a variable a function took from one. It runs in pre-commit and CI, and
+  `ci/godot/README.md` lists it.
+- **Readers and writers (Decision 144), from the tree at `a941e7d`:**
+
+  | Where | Was | Now |
+  |---|---|---|
+  | `formation_wounds.gd` `tend` (strikes on the downed) | every unit, for `DOWNED` | the downed lists, skipping `CARRIED` |
+  | `formation_wounds.gd` `tend` (the standing near a body) | every unit, `is_alive()` | `living()` |
+  | `formation_recovery.gd` `step` | every unit, living or downed | `living()` (condition, regeneration, drain: own unit only, no event), then the downed list. Event order is unchanged: only the downed raise events, still in the squad's order. |
+  | `formation_carry.gd` `step` | a map of every unit | bodies from the downed lists. Bearers come from each squad's units with `carrying != 0`: a downed or dead bearer must still set its load down, and it is on neither list. |
+  | `formation_taking.gd` `step` (bodies to send takers to) | every unit, for `DOWNED` | the downed lists, skipping `CARRIED` |
+  | `formation_carry.gd` `_unguarded` | every unit in the map | the living lists and the bodies |
+  | `body_field_sync.gd` `scrum`, `bodies`; `scrum_blows_field.gd` `pressed`, the batch | every unit, `is_alive()` | `living()` |
+  | `.state` readers, `living()` callers | | unchanged (state stays on the record) |
+
+- **Tests.** `test_unit_state.gd` (new, red before this step): the lists keep the squad's
+  order, a write changes them by the next read, a walk isn't changed by a write during it,
+  a join and a leaving change them, and a list handed out is read-only. The 26 tests that
+  set a unit's state call `UnitState.put` or `start`. The tests that change a squad's units
+  call `regather`, the reversed-lists test (`test_formation_list_order.gd`, `_reverse`) among
+  them, so it still checks the reversed order.
+- **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
+- **Bench:** the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in four squads,
+  Rust) against main, started with the PR. Its result goes here and in spec 34's "Measured".
 
 ## Open, for the implementing session to settle and record here
 

@@ -124,6 +124,7 @@ static func _group(squad: SkirmishSquad, cluster: Array, fight_seed: int) -> Ski
 	for entry in keyed:
 		var unit: SkirmishUnit = entry[2]
 		squad.units.erase(unit)
+		UnitState.regather(squad)
 		SquadEntries.unloose(squad, unit.id)
 		SquadEntries.unflee(squad, unit.id)
 		UnitPlace.put(squad, unit, Vector2i(0, members.size()))

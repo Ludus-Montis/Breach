@@ -126,6 +126,8 @@ var wait_ticks: int = 0
 var reforming := false
 var swaps := []
 var units: Array[SkirmishUnit] = []
+## Its living and downed units, kept by UnitState (Decision 147).
+var kept := UnitState.Kept.new()
 ## The lane's combat width: how wide joined units may spread the line in a fight (Decision
 ## 51); 0 keeps them within the squad's own columns.
 var combat_width := 0
@@ -171,8 +173,9 @@ func _init(
 		FormationCommand.enlist(self, unit)
 
 
+## Its standing units, in its order: kept by UnitState, so asking costs nothing. Read-only.
 func living() -> Array[SkirmishUnit]:
-	return units.filter(func(u): return u.is_alive())
+	return UnitState.living(self)
 
 
 func is_destroyed() -> bool:
