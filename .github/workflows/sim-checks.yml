@@ -104,7 +104,10 @@ jobs:
           if-no-files-found: ignore
 
   # One job per digest set: each compares its own two engines' files, so splitting the
-  # sets across machines changes nothing (a digest is the same wherever it is taken).
+  # sets across machines changes nothing (a digest is the same wherever it is taken). Each
+  # also takes the base's GDScript digest of its set and compares the branch's with it
+  # (check_outcomes.py), so an outcome change both engines share is seen too: it fails
+  # unless one of the branch's commits says why (`Outcomes-changed: <why>`).
   digests:
     needs: build
     runs-on: ubuntu-latest
@@ -113,8 +116,13 @@ jobs:
       fail-fast: false
       matrix:
         set: [standard, clash160, wide]
+    env:
+      # The PR's base branch; a manual run compares with main.
+      BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || 'origin/main' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/download-artifact@v7
         with:
@@ -134,6 +142,19 @@ jobs:
               out=digests/${{ matrix.set }}.$engine.txt > /dev/null 2>&1
           done
           (cd digests && sha256sum *.txt)
+
+      # The base's own GDScript digest, from a worktree of the base, against the branch's.
+      - name: Digest ${{ matrix.set }} against the base
+        run: |
+          git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
+          (cd ../base && /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true)
+          (cd ../base && BREACH_NATIVE=gdscript /opt/godot/godot --headless --path . \
+            --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
+            out="$GITHUB_WORKSPACE/digests/${{ matrix.set }}.base.txt" > /dev/null 2>&1 || true)
+          python3 ci/godot/scripts/check_outcomes.py ${{ matrix.set }} \
+            digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.gdscript.txt "$BASE_REF" \
+            | tee digests/${{ matrix.set }}.outcomes.txt
+          exit "${PIPESTATUS[0]}"
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -210,7 +231,8 @@ jobs:
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if the build
-  # failed or the two engines' digests differ (each other job fails on its own). Named as
+  # failed or the two engines' digests differ (each other job fails on its own, the digests
+  # also when the branch changes outcomes against its base without saying why). Named as
   # the single job was, so the check keeps its name.
   sim-checks:
     needs: [scope, build, suite, digests, trials, scaling]
@@ -240,6 +262,7 @@ jobs:
               r=$(sha256sum $set.rust.txt 2>/dev/null | cut -c1-16)
               verdict=$([ -s $set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
               echo "digest $set: gdscript $g rust $r $verdict"
+              head -1 $set.outcomes.txt 2>/dev/null || echo "check_outcomes $set: no result"
             done
             cat trials.txt 2>/dev/null
             for stage in march fight stacks; do
