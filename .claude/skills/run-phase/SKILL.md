@@ -73,6 +73,15 @@ step, in the order the spec's own "Test-first order" section lays out:
    `"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a
    res://tests/<path>.gd -c --ignoreHeadlessMode`. Heavy runs never go in the session
    (see `CLAUDE.md`).
+   **Before the first run in a session**, import the project once
+   (`"$GODOT_BIN" --headless --path . --import`) so gdUnit4's class names resolve. Build
+   the Rust core (`bash native/build.sh`, a few minutes) only when the step changes
+   `native/` or the store's columns, or its test compares both engines and you need the
+   Rust half before CI. Otherwise don't: tests that compare the engines skip their Rust
+   half when the core isn't built, and CI's `sim-checks` runs both engines on every PR.
+   A cloud session gets Godot from its environment's setup script (`GODOT_BIN` set
+   there). If it is missing, say so, and install it as `.github/actions/godot/action.yml`
+   does rather than skipping red then green.
 3. Implement the minimum to go **green**. Do not implement behaviour with no test.
 4. Refactor with the suite as a safety net, checking against
    `AI_First_Development_Kit/principles/ai-first-organisation.md` and
