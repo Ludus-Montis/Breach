@@ -57,6 +57,16 @@ const BREATHER := &"breather"
 const RUN_BUILD := &"run_build"
 const WAS_RUNNING := &"was_running"
 const CONDITION := &"condition"
+## The downed's and recovery's (spec 35 step 7b; FormationRecovery, BlowLanding): the part of
+## a point regeneration has regained so far, the seconds a blow it fears stops it for, the
+## seconds a downed unit has yet to lie before it comes to (below 0: not yet reckoned), the
+## part of a point its poor condition has drained so far, and the wounds the last blow that
+## struck it would add (its striker's "wounding N").
+const REGENERATION_CARRY := &"regeneration_carry"
+const REGENERATION_HALT := &"regeneration_halt"
+const WAKE_LEFT := &"wake_left"
+const DRAIN_CARRY := &"drain_carry"
+const LAST_WOUNDING := &"last_wounding"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -93,6 +103,11 @@ const BLANKS := {
 	RUN_BUILD: 0.0,
 	WAS_RUNNING: 0,
 	CONDITION: 1.0,
+	REGENERATION_CARRY: 0.0,
+	REGENERATION_HALT: 0.0,
+	WAKE_LEFT: -1.0,
+	DRAIN_CARRY: 0.0,
+	LAST_WOUNDING: 0,
 }
 
 var _columns := {
@@ -126,6 +141,11 @@ var _columns := {
 	RUN_BUILD: PackedFloat64Array(),
 	WAS_RUNNING: PackedInt32Array(),
 	CONDITION: PackedFloat64Array(),
+	REGENERATION_CARRY: PackedFloat64Array(),
+	REGENERATION_HALT: PackedFloat64Array(),
+	WAKE_LEFT: PackedFloat64Array(),
+	DRAIN_CARRY: PackedFloat64Array(),
+	LAST_WOUNDING: PackedInt32Array(),
 }
 
 

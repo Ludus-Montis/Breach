@@ -10,9 +10,8 @@ extends RefCounted
 ## can see - its own, or one that bore it - walking to a place at its back, and otherwise
 ## makes for home on its own, as a lone router (FormationStrays), to be caught, taken, or
 ## reach the reserve. With a foe within a few cells when it could get up, it may play dead
-## instead (Decision 127). **Regeneration** mends HP up to its limit per rest, times its
-## condition, through damage; a blow of a type it fears stops it a while; downed, it runs
-## only with "regenerates_downed". Pure over the squads it is given.
+## instead (Decision 127). **Regeneration** is FormationRegeneration's, run here. Pure over
+## the squads it is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
@@ -26,9 +25,20 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const FormationRegeneration = preload("res://sim/skirmish/formation/formation_regeneration.gd")
 ## The columns the pass reads and writes, held for it: each unit's hp, the hp it may still
-## regenerate, and its condition (spec 35 steps 5b and 6c).
-const HELD := [UnitColumns.HP, UnitColumns.REGENERATION_LEFT, UnitColumns.CONDITION]
+## regenerate, and its condition (spec 35 steps 5b and 6c), and the part of a point it has
+## regained, the seconds its regeneration is stopped, the seconds it has yet to lie downed and
+## the part of a point it has drained (step 7b).
+const HELD := [
+	UnitColumns.HP,
+	UnitColumns.REGENERATION_LEFT,
+	UnitColumns.CONDITION,
+	UnitColumns.REGENERATION_CARRY,
+	UnitColumns.REGENERATION_HALT,
+	UnitColumns.WAKE_LEFT,
+	UnitColumns.DRAIN_CARRY,
+]
 
 
 ## One tick of `seconds`. Returns [[unit, its squad], ...] for those that came to apart from
@@ -40,26 +50,34 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 		return []
 	var held := UnitView.hold(squads, HELD)
 	for squad in squads:
-		var health := UnitView.of(squad)  # hp, regeneration left and condition: held for the pass
-		var pools := [health, health.regeneration_left, health.condition]
+		var health := UnitView.of(squad)  # hp, regeneration and the downed's: held for the pass
+		var pools := [
+			health,
+			health.regeneration_left,
+			health.condition,
+			health.regeneration_carry,
+			health.regeneration_halt,
+		]
 		var conditions: PackedFloat64Array = pools[2]
+		var drains: PackedFloat64Array = health.drain_carry
+		var wakes: PackedFloat64Array = health.wake_left
 		# the standing touch only themselves and raise no event, so they go first and the
 		# downed's events keep their order
 		for unit in squad.living():
 			conditions[unit.slot] = condition_of(unit)
-			_regenerate(unit, false, seconds, pools)
-			_drain(unit, seconds, health)
+			FormationRegeneration.mend(unit, false, seconds, pools)
+			_drain(unit, seconds, health, drains)
 		# a death below rebuilds the kept list as a new one: this walk is the list as it began
 		for unit in UnitState.downed(squad):
 			conditions[unit.slot] = condition_of(unit)
-			_regenerate(unit, true, seconds, pools)
-			var drained := _drain(unit, seconds, health)
+			FormationRegeneration.mend(unit, true, seconds, pools)
+			var drained := _drain(unit, seconds, health, drains)
 			if drained and UnitHealth.of(health, unit) <= -FormationDeaths.depth(unit):
 				UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 				events.append(FormationEvents.unit_event("died_of_wounds", tick, squad, unit))
 				continue
-			if _wakes(unit, seconds, fight_seed):
-				if not _lies_still(unit, squad, standing, fight_seed):
+			if _wakes(unit, seconds, fight_seed, wakes):
+				if not _lies_still(unit, squad, standing, fight_seed, wakes):
 					waking.append([unit, squad])
 				elif not unit.playing_dead:
 					unit.playing_dead = true
@@ -72,9 +90,13 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 ## near, one already playing dead keeps at it, and one not yet decides by a seeded chance
 ## from its wits and cunning; either looks again a few seconds on. `standing` holds the
 ## squads, and once found the standing units by faction (_index) and each squad's leaders'
-## cunning.
+## cunning; `wakes` is the pass's WAKE_LEFT, held.
 static func _lies_still(
-	unit: SkirmishUnit, squad: SkirmishSquad, standing: Dictionary, fight_seed: int
+	unit: SkirmishUnit,
+	squad: SkirmishSquad,
+	standing: Dictionary,
+	fight_seed: int,
+	wakes: PackedFloat64Array
 ) -> bool:
 	var tuning := BattleTuning.current()
 	var reach := tuning.wounds_danger_reach
@@ -99,7 +121,7 @@ static func _lies_still(
 		chance += cunning * tuning.wounds_cunning
 		if BattleRolls.uniform(fight_seed, [unit.id, unit.wounded, "play dead"]) >= chance:
 			return false
-	unit.wake_left = tuning.wounds_play_dead_check
+	wakes[unit.slot] = tuning.wounds_play_dead_check
 	return true
 
 
@@ -154,66 +176,39 @@ static func _unclamped(unit: SkirmishUnit) -> float:
 	return 1.0 - wounds * BattleTuning.current().wounds_condition
 
 
-## A blow that landed of a type that stops the target's regeneration stops it a while.
-static func scorch(target: SkirmishUnit, parts: Array, dealt: int) -> void:
-	if dealt <= 0 or target.regeneration_stops.is_empty():
-		return
-	for part in parts:
-		if target.regeneration_stops.has(part[1]):
-			target.regeneration_halt = BattleTuning.current().wounds_regeneration_halt
-			return
-
-
-## `pools` is [the pass's view, its regeneration-left and condition columns], held for the
-## pass.
-static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools: Array) -> void:
-	if unit.regeneration <= 0.0:
-		return
-	if downed and unit.traits.get("regenerates_downed", 0) <= 0:
-		return
-	if unit.regeneration_halt > 0.0:
-		unit.regeneration_halt = maxf(0.0, unit.regeneration_halt - seconds)
-		return
-	var health: UnitView = pools[0]
-	var left: PackedFloat64Array = pools[1]
-	var condition: PackedFloat64Array = pools[2]
-	var gain := minf(unit.regeneration * condition[unit.slot] * seconds, left[unit.slot])
-	gain = minf(gain, float(unit.max_hp - UnitHealth.of(health, unit)) - unit.regeneration_carry)
-	if gain <= 0.0:
-		return
-	left[unit.slot] -= gain
-	unit.regeneration_carry += gain
-	var whole := floori(unit.regeneration_carry + 0.000001)  # float sums fall short
-	UnitHealth.heal(health, unit, whole)
-	unit.regeneration_carry -= whole
-
-
-## A poor condition drains its HP (in `health`, the pass's view); true if it lost any this
-## tick.
-static func _drain(unit: SkirmishUnit, seconds: float, health: UnitView) -> bool:
+## A poor condition drains its HP (in `health`, the pass's view; the part of a point drained
+## in `drains`, its DRAIN_CARRY); true if it lost any this tick.
+static func _drain(
+	unit: SkirmishUnit, seconds: float, health: UnitView, drains: PackedFloat64Array
+) -> bool:
 	var tuning := BattleTuning.current()
 	var below := tuning.condition_drain_below - _unclamped(unit)
 	if below <= 0.0:
 		return false
-	unit.drain_carry += tuning.condition_drain * below / tuning.condition_drain_below * seconds
-	var whole := floori(unit.drain_carry + 0.000001)
+	var slot := unit.slot
+	drains[slot] += tuning.condition_drain * below / tuning.condition_drain_below * seconds
+	var whole := floori(drains[slot] + 0.000001)
 	UnitHealth.hurt(health, unit, whole)
-	unit.drain_carry -= whole
+	drains[slot] -= whole
 	return whole > 0
 
 
-## Counts down its time downed, reckoning it first if it hasn't been; true once it is up.
-static func _wakes(unit: SkirmishUnit, seconds: float, fight_seed: int) -> bool:
+## Counts down its time downed (in `wakes`, the pass's WAKE_LEFT), reckoning it first if it
+## hasn't been; true once it is up.
+static func _wakes(
+	unit: SkirmishUnit, seconds: float, fight_seed: int, wakes: PackedFloat64Array
+) -> bool:
 	var tuning := BattleTuning.current()
-	if unit.wake_left < 0.0:
+	var slot := unit.slot
+	if wakes[slot] < 0.0:
 		var spread: Array[float] = tuning.wounds_wake_spread
 		var roll := BattleRolls.uniform(fight_seed, [unit.id, unit.wounded, "wake"])
 		var hardiness: float = (
 			maxf(1.0, unit.attributes.get("constitution", UnitDef.AVERAGE)) / UnitDef.AVERAGE
 		)
-		unit.wake_left = tuning.wounds_wake_seconds * lerpf(spread[0], spread[1], roll) / hardiness
-	unit.wake_left -= seconds
-	return unit.wake_left <= 0.0
+		wakes[slot] = tuning.wounds_wake_seconds * lerpf(spread[0], spread[1], roll) / hardiness
+	wakes[slot] -= seconds
+	return wakes[slot] <= 0.0
 
 
 ## Those coming to this tick ([unit, its squad]) get up together (Decision 97): each finds

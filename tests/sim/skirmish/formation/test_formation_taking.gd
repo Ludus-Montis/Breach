@@ -33,7 +33,7 @@ func _setup(count: int, gap: float) -> Array:
 	UnitPlaces.put(foe, body, Vector2(40.0 + gap, line.position.y))
 	UnitHealth.put_one(foe, body, 0)
 	UnitState.put(foe, body, SkirmishUnit.State.DOWNED)
-	body.wake_left = 999.0
+	foe.store.columns.put(body.slot, UnitColumns.WAKE_LEFT, 999.0)
 	return [sim, line, body]
 
 

@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 ## otherwise makes for home alone; regeneration mends up to its limit, times condition.
 
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
+const FormationRegeneration = preload("res://sim/skirmish/formation/formation_regeneration.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
@@ -118,7 +119,7 @@ func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:
 	sim.step()
 	var unit: SkirmishUnit = squad.units[0]
 	_downed(unit, squad)
-	unit.wake_left = 0.05
+	squad.store.columns.put(unit.slot, UnitColumns.WAKE_LEFT, 0.05)
 	var events := []
 	for _i in range(200):
 		events.append_array(sim.step())
@@ -147,9 +148,12 @@ func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
 	troll.regeneration = 10.0
 	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
 	troll.regeneration_stops = ["fire"]
-	FormationRecovery.scorch(troll, [[3.0, "slashing", false]], 3)
-	assert_float(troll.regeneration_halt).is_equal(0.0)
-	FormationRecovery.scorch(troll, [[3.0, "fire", true]], 3)
+	var marks := UnitView.hold([_places], [UnitColumns.REGENERATION_HALT])
+	var halts: PackedFloat64Array = marks.regeneration_halt
+	FormationRegeneration.scorch(halts, troll, [[3.0, "slashing", false]], 3)
+	assert_float(halts[troll.slot]).is_equal(0.0)
+	FormationRegeneration.scorch(halts, troll, [[3.0, "fire", true]], 3)
+	UnitView.release(marks)
 	_run([_squad([troll])], 1.0)
 
 	assert_int(UnitHealth.of_one(_places, troll)).is_equal(2)
@@ -209,7 +213,7 @@ func test_a_wounding_blow_that_downs_adds_its_wounds() -> void:
 	var FormationDeaths = load("res://sim/skirmish/formation/formation_deaths.gd")
 	var unit := _unit(1, Vector2.ZERO)
 	_places.health(unit, -2)
-	unit.last_wounding = 2
+	_places.store.columns.put(unit.slot, UnitColumns.LAST_WOUNDING, 2)
 	FormationDeaths.bury([_squad([unit])], 1, [])
 
 	assert_int(unit.wounded).is_equal(3)
@@ -221,7 +225,7 @@ func _due_with_foes(count: int, cunning: int = 0) -> Array:
 	var foes := []
 	for index in range(count):
 		var unit := _downed(_unit(index + 1, Vector2(index * 20, 0)))
-		unit.wake_left = 0.05
+		_places.store.columns.put(unit.slot, UnitColumns.WAKE_LEFT, 0.05)
 		unit.traits = {"cunning": cunning}
 		downed.append(unit)
 		var foe := _unit(100 + index, Vector2(index * 20 + 2, 0))

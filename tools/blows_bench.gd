@@ -167,8 +167,8 @@ func _saved(squads: Array) -> Array:
 				[
 					unit.target_id,
 					squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN),
-					unit.regeneration_halt,
-					unit.last_wounding,
+					squad.store.columns.value(unit.slot, UnitColumns.REGENERATION_HALT),
+					squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING),
 					UnitHealth.of_one(squad, unit),
 					squad.store.columns.value(unit.slot, UnitColumns.STAMINA),
 					unit.state
@@ -184,8 +184,8 @@ func _put(squads: Array, saved: Array) -> void:
 			var was: Array = saved[index]
 			unit.target_id = was[0]
 			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, was[1])
-			unit.regeneration_halt = was[2]
-			unit.last_wounding = was[3]
+			squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_HALT, was[2])
+			squad.store.columns.put(unit.slot, UnitColumns.LAST_WOUNDING, was[3])
 			UnitHealth.put_one(squad, unit, was[4])
 			squad.store.columns.put(unit.slot, UnitColumns.STAMINA, was[5])
 			unit.state = was[6]
