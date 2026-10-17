@@ -197,20 +197,10 @@ Threads today: only body parting uses Rayon (`native/rust/src/parting.rs`), and 
 
 Measure each with a `bench` run against its base, and the user's PC (a profiler such as VTune or uProf) for cache misses, before any is built. Threads speed up only the Rust part of a pass, so a pass with GDScript glue left gains little until its glue goes.
 
-### Q29. A side-by-side view of an outcome change, for the owner to sign it off
-**Raised:** 2026-10-17, after spec 35 step 7b (the user: "it would be good to be able to view the difference ... It would help me observe and sign off on behaviour changes") · **Raise when:** The next design session; or any PR whose digests move (`check_outcomes.py` names changed runs, an `Outcomes-changed:` trailer)
-
-When a branch's digests differ from main's, `check_outcomes.py` names the runs and their ticks, but nothing shows what changed. Battles replay from their seed and orders (Decision 93), so any digest run can be replayed on both main and the branch. A proposal to settle:
-- **A trace tool, headless.** For a digest set, run and window of ticks (for example 20 before the first difference to 40 after), it writes each unit's position, facing, hp, state and columns, and the tick's events, as JSON. It runs on main and on the branch, each in its own git worktree.
-- **A text diff of the two traces.** It names the first unit and field to differ, and the events around them.
-- **A playback scene.** Two panes, one scrubber, play and step controls, and the units that differ highlighted, drawn as the skirmish layer draws them.
-- **CI attaches the traces.** When `check_outcomes.py` finds changed runs, CI uploads both traces as an artifact, so signing off is: download it, open it in the scene, approve.
-
-Gate 2 stays the owner's: the tool shows the change, and the owner judges it. Settle the window, what a trace holds, and whether the scene is a Godot scene or a page in `tools/`. Building the trace and the text diff first would be useful even without the scene.
-
 ## Closed
 
 - Q30, track open questions and upcoming work on GitHub. **Resolved by Decision 148 (2026-10-17):** open questions become issues labelled `question` (a `raise-when:` label each); a PR names its spec as a milestone and its step as a `step:<spec>-<step>` label (`step:35-7b`); Decisions, specs, their steps and hand-offs stay in the repo; a `github-sync` workflow makes the labels and milestones and migrates the entries; the Project is the owner's. Built as spec 36.
+- Q29, a side-by-side view of an outcome change. **Resolved (2026-10-17), settled with the owner as spec 37, no Decision (tooling only):** the digest writes a named trace of 20 ticks before to 40 after a run's first difference; `trace_diff.py` names the first unit and field to differ; CI traces up to 3 changed runs a set on base and branch and attaches them; a page in `tools/trace_view/` plays the two side by side.
 - Q28, one typed view onto the unit store for every pass. **Resolved by Decision 146 (2026-10-16):** a pass holds the columns it names as one typed view (`UnitView`), replacing `FleeColumns`, `UnitHealth.Table` and `UnitPlace.table`; a scattered mark gives `few:` or `reference:` only; no hold spans a native call; built as spec 35 steps 6a and 6b, before stamina (6c).
 - Q27, whether one bench run can tell a 5% change from noise. **Resolved (2026-10-15):** it can't; `bench` takes `rounds` and alternates head and base, comparing each phase's medians and ranges ([SSidey/Breach#236](https://github.com/SSidey/Breach/pull/236)). Its first use settled #234: the tick 1.5% faster, deaths 31% faster (spec 35, "Built → Step 5b").
 
