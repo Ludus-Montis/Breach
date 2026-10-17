@@ -1166,6 +1166,9 @@ The loops converted, with the columns each reads:
   spec's assert and its test are replaced by `test_a_walk_is_not_changed_by_a_write_during_it`.
   A list handed out is read-only (`make_read_only`), and changing it is an error. The one
   caller that changed its list, `SquadRanks.close` (it sorts), now takes `.duplicate()`.
+  CI found a second one the check can't see: `ScrumTrade._places` handed its living list on
+  as the places that `_traded` swaps by index. The write failed on the read-only list, the
+  trade was lost, and two `standard` digest runs moved. It now takes a copy too.
 - **`check_one_state.py`** (tests first, `test_check_one_state.py`): it flags
   `.state = SkirmishUnit.State.` outside UnitState in `sim/`, `tools/`, `presentation/` and
   `tests/`, `UnitState.start` in `sim/`, and a mutator on `living()` or `UnitState.downed`,
