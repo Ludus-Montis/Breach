@@ -987,8 +987,12 @@ The loops converted, with the columns each reads:
     router each.
 - `test_unit_view.gd`: `read_once` reads a store once, and the view forms (`ScrumReach.at_in`,
   `FormationRout.where_in`, `route_point_in`) match the scattered ones on both backends.
-- **Bench:** the alternating bench against main (6a), then the series bench against
-  `1cc4412` for spec 34's "Measured" section and Q23, both run by the user.
+- **Bench** (spec 34, "Measured", step 6): against 6a, the tick was unchanged (+0.1%). The
+  bodies snapshot was 21.1% faster and engage 15.1%, and no phase was slower beyond noise.
+  The walk to places didn't move (+0.7%), although its hold makes each walker's reads local.
+  The series against `1cc4412`: the tick 19.5% faster. Still slower than before step 0: the
+  rout (+16.9%), the free front place (+9.9%), engage's fronts and the shuffle's moves under
+  way. Q23 has these.
 
 ## Open, for the implementing session to settle and record here
 

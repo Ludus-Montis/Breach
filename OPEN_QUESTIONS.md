@@ -144,6 +144,8 @@ Each spec 35 step starts a `bench` run (`tick_phases engine=rust side=4096 squad
 
 **Note (2026-10-16, Decision 146):** spec 35 step 6b ends with the series bench against `1cc4412`, recorded in spec 34's "Measured" section; read it with this review.
 
+**Note (2026-10-17):** that series bench (after 6b, `fight=10`) has the tick 19.5% faster than before step 0 (380.4 → 306.1 ms). Still slower: the rout (47.1 → 55.1 ms, +16.9%), the shuffle's free front place (+9.9%, not store reads), engage's fronts (+29.5%) and the shuffle's moves under way (+27%).
+
 ### Q24. Which per-tick passes should become work lists fed by events?
 **Raised:** 2026-10-15, after spec 35 step 4 (the user: "are there any elements that could be handled via event based arch?") · **Raise when:** A design session on spec 35 steps 5 to 7, or on what follows spec 35 for performance; or any change to deaths, wounds, recovery, taking, carry or `living()`
 
