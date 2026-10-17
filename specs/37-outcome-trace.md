@@ -37,7 +37,13 @@ Agreed in the design session of 2026-10-17. Four steps, each its own PR, built w
 - **A trace is JSON lines, one per tick in the window:** `{"run", "tick", "events",
   "squads": [{"id", <named fields>, "units": [{"id", <named fields>}, ...]}, ...]}`. Values
   are the digest's plain values (`_plain`: objects by id), vectors as `[x, y]`, floats
-  written so they read back bit for bit (`%.17g`).
+  written so they read back bit for bit (`%.17g`). *Step 1:* as `var_to_str` writes them,
+  the shortest text that reads back exactly (as Python's `repr`); GDScript has no `%g`, and
+  `JSON.stringify`'s full precision gets the 17th digit wrong (1.8500000000000005 written
+  …03). Godot's own text-to-float reading is off by an ulp on such text too, so the trace is
+  read exactly by Python and JS, and `test_digest_trace.gd` compares floats by their text.
+  The state and its field names moved to `tools/digest_state.gd`, the writer to
+  `tools/digest_trace.gd`.
 - **The window:** 20 ticks before the first difference to 40 after (`from` = first − 20,
   clamped to 1; `to` = first + 40, clamped to the run's end). The CI step passes them;
   the options take any window.
