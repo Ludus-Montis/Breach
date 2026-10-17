@@ -1291,7 +1291,7 @@ The loops converted, with the columns each reads:
   `wait_ticks`. `columns.rs` tests the new columns' blanks and names (`cargo test`, run here).
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
 - **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 147`): the
-  existing files it counts, because Decision 147 moves the fields and Decision 144 moves every
+  21 existing files, because Decision 147 moves the fields and Decision 144 moves every
   reader with them in the same step.
 
 ## Open, for the implementing session to settle and record here
