@@ -11,7 +11,10 @@
 //! `regeneration_left`, step 5b), and its stamina, its pace this tick, whether it spent
 //! stamina this tick, seconds since it last did, seconds into its run, whether it ran last
 //! tick and its condition (`stamina`, `speed`, `exerted`, `breather`, `run_build`,
-//! `was_running`, `condition`, step 6c). The field holds
+//! `was_running`, `condition`, step 6c), and the downed's and recovery's: the part of a point
+//! regained, the seconds regeneration is stopped, the seconds left downed, the part of a
+//! point drained, and the wounds the last blow would add (`regeneration_carry`,
+//! `regeneration_halt`, `wake_left`, `drain_carry`, `last_wounding`, step 7b). The field holds
 //! them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
@@ -34,6 +37,7 @@ pub struct Columns {
     pub attack_cooldown: Vec<i32>,
     pub exerted: Vec<i32>,
     pub was_running: Vec<i32>,
+    pub last_wounding: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -49,6 +53,10 @@ pub struct Columns {
     pub breather: Vec<f64>,
     pub run_build: Vec<f64>,
     pub condition: Vec<f64>,
+    pub regeneration_carry: Vec<f64>,
+    pub regeneration_halt: Vec<f64>,
+    pub wake_left: Vec<f64>,
+    pub drain_carry: Vec<f64>,
 }
 
 /// No goal (`goal_slot`).
@@ -58,6 +66,8 @@ const EAST: f64 = 90.0;
 /// A unit not yet given its own starts fresh (`stamina`) and as things stand (`condition`).
 const FRESH: f64 = 100.0;
 const AS_THINGS_STAND: f64 = 1.0;
+/// A unit not yet downed hasn't reckoned how long it lies (`wake_left`).
+const NOT_RECKONED: f64 = -1.0;
 
 impl Columns {
     /// A point column by its name.
@@ -85,6 +95,7 @@ impl Columns {
             "attack_cooldown" => Some(&mut self.attack_cooldown),
             "exerted" => Some(&mut self.exerted),
             "was_running" => Some(&mut self.was_running),
+            "last_wounding" => Some(&mut self.last_wounding),
             _ => None,
         }
     }
@@ -114,6 +125,10 @@ impl Columns {
             "breather" => Some(&mut self.breather),
             "run_build" => Some(&mut self.run_build),
             "condition" => Some(&mut self.condition),
+            "regeneration_carry" => Some(&mut self.regeneration_carry),
+            "regeneration_halt" => Some(&mut self.regeneration_halt),
+            "wake_left" => Some(&mut self.wake_left),
+            "drain_carry" => Some(&mut self.drain_carry),
             _ => None,
         }
     }
@@ -140,6 +155,7 @@ impl Columns {
             &mut self.attack_cooldown,
             &mut self.exerted,
             &mut self.was_running,
+            &mut self.last_wounding,
         ] {
             column.push(0);
         }
@@ -155,6 +171,9 @@ impl Columns {
             &mut self.speed,
             &mut self.breather,
             &mut self.run_build,
+            &mut self.regeneration_carry,
+            &mut self.regeneration_halt,
+            &mut self.drain_carry,
         ] {
             column.push(0.0);
         }
@@ -162,6 +181,7 @@ impl Columns {
         self.bearing.push(EAST);
         self.stamina.push(FRESH);
         self.condition.push(AS_THINGS_STAND);
+        self.wake_left.push(NOT_RECKONED);
     }
 
     /// Every column blank in `slot`.
@@ -186,6 +206,7 @@ impl Columns {
             &mut self.attack_cooldown,
             &mut self.exerted,
             &mut self.was_running,
+            &mut self.last_wounding,
         ] {
             column[slot] = 0;
         }
@@ -201,6 +222,9 @@ impl Columns {
             &mut self.speed,
             &mut self.breather,
             &mut self.run_build,
+            &mut self.regeneration_carry,
+            &mut self.regeneration_halt,
+            &mut self.drain_carry,
         ] {
             column[slot] = 0.0;
         }
@@ -208,6 +232,7 @@ impl Columns {
         self.bearing[slot] = EAST;
         self.stamina[slot] = FRESH;
         self.condition[slot] = AS_THINGS_STAND;
+        self.wake_left[slot] = NOT_RECKONED;
     }
 }
 
@@ -224,6 +249,7 @@ mod tests {
         assert_eq!(columns.bearing[0], EAST);
         assert_eq!(columns.stamina[0], FRESH);
         assert_eq!(columns.condition[0], AS_THINGS_STAND);
+        assert_eq!(columns.wake_left[0], NOT_RECKONED);
         columns.points("next").unwrap()[0] = V2 { x: 1.0, y: 2.0 };
         columns.ints("keys").unwrap()[0] = 5;
         columns.longs("goal_slot").unwrap()[0] = 3;
@@ -237,6 +263,11 @@ mod tests {
         columns.reals("speed").unwrap()[0] = 1.25;
         columns.ints("exerted").unwrap()[0] = 1;
         columns.reals("condition").unwrap()[0] = 0.5;
+        columns.reals("regeneration_carry").unwrap()[0] = 0.25;
+        columns.reals("regeneration_halt").unwrap()[0] = 1.5;
+        columns.reals("wake_left").unwrap()[0] = 4.5;
+        columns.reals("drain_carry").unwrap()[0] = 0.75;
+        columns.ints("last_wounding").unwrap()[0] = 2;
         columns.blank(0);
         assert_eq!(columns.next[0], V2::ZERO);
         assert_eq!(columns.keys[0], 0);
@@ -251,6 +282,11 @@ mod tests {
         assert_eq!(columns.speed[0], 0.0);
         assert_eq!(columns.exerted[0], 0);
         assert_eq!(columns.condition[0], AS_THINGS_STAND);
+        assert_eq!(columns.regeneration_carry[0], 0.0);
+        assert_eq!(columns.regeneration_halt[0], 0.0);
+        assert_eq!(columns.wake_left[0], NOT_RECKONED);
+        assert_eq!(columns.drain_carry[0], 0.0);
+        assert_eq!(columns.last_wounding[0], 0);
     }
 
     #[test]
@@ -269,6 +305,7 @@ mod tests {
             "attack_cooldown",
             "exerted",
             "was_running",
+            "last_wounding",
         ] {
             assert!(columns.ints(name).is_some(), "{name}");
         }
@@ -287,6 +324,10 @@ mod tests {
             "breather",
             "run_build",
             "condition",
+            "regeneration_carry",
+            "regeneration_halt",
+            "wake_left",
+            "drain_carry",
         ] {
             assert!(columns.reals(name).is_some(), "{name}");
         }

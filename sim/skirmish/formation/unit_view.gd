@@ -146,6 +146,28 @@ var condition: PackedFloat64Array:
 	get:
 		assert(names.has(UnitColumns.CONDITION), NOT_NAMED % UnitColumns.CONDITION)
 		return condition
+var regeneration_carry: PackedFloat64Array:
+	get:
+		assert(
+			names.has(UnitColumns.REGENERATION_CARRY), NOT_NAMED % UnitColumns.REGENERATION_CARRY
+		)
+		return regeneration_carry
+var regeneration_halt: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.REGENERATION_HALT), NOT_NAMED % UnitColumns.REGENERATION_HALT)
+		return regeneration_halt
+var wake_left: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.WAKE_LEFT), NOT_NAMED % UnitColumns.WAKE_LEFT)
+		return wake_left
+var drain_carry: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.DRAIN_CARRY), NOT_NAMED % UnitColumns.DRAIN_CARRY)
+		return drain_carry
+var last_wounding: PackedInt32Array:
+	get:
+		assert(names.has(UnitColumns.LAST_WOUNDING), NOT_NAMED % UnitColumns.LAST_WOUNDING)
+		return last_wounding
 
 var _held_with := []  # the stores held with it (hold), for release
 

@@ -61,8 +61,9 @@ func _struck(squads: Array, field: Object) -> Array:
 	for squad in squads:
 		for unit in squad.units:
 			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
-			var left := [unit.target_id, cooldown, unit.last_wounding]
-			units.append([unit.id] + left + [unit.regeneration_halt])
+			var wounding: int = squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
+			var halt: float = squad.store.columns.value(unit.slot, UnitColumns.REGENERATION_HALT)
+			units.append([unit.id, unit.target_id, cooldown, wounding, halt])
 	return [blows.map(func(b): return [b[0].id, b[1].id, b[2], b[3], b[4]]), units]
 
 
@@ -71,7 +72,8 @@ func _saved(squads: Array) -> Array:
 	for squad in squads:
 		for unit in squad.units:
 			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
-			out.append([unit.target_id, cooldown, unit.last_wounding])
+			var wounding: int = squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
+			out.append([unit.target_id, cooldown, wounding])
 	return out
 
 
@@ -81,8 +83,8 @@ func _restore(squads: Array, saved: Array) -> void:
 		for unit in squad.units:
 			unit.target_id = saved[index][0]
 			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, saved[index][1])
-			unit.last_wounding = saved[index][2]
-			unit.regeneration_halt = 0.0
+			squad.store.columns.put(unit.slot, UnitColumns.LAST_WOUNDING, saved[index][2])
+			squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_HALT, 0.0)
 			index += 1
 
 

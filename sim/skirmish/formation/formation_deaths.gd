@@ -15,6 +15,7 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 static func bury(squads: Array, tick: int, events: Array) -> void:
@@ -31,8 +32,10 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 			else:
 				UnitHealth.put_one(fallen_squad, unit, 0)
 				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DOWNED)
-				unit.wounded += 1 + unit.last_wounding  # lowering its condition (Decision 126)
-				unit.wake_left = -1.0
+				var columns := fallen_squad.store.columns
+				var wounding: int = columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
+				unit.wounded += 1 + wounding  # lowering its condition (Decision 126)
+				columns.put(unit.slot, UnitColumns.WAKE_LEFT, -1.0)  # not yet reckoned
 				events.append(FormationEvents.unit_event("downed", tick, fallen_squad, unit))
 		FormationMorale.losses(fallen_squad, fallen, tick, events)
 		# store: scattered (few: the step-ups, the units that moved up)

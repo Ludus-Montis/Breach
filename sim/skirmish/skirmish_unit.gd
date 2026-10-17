@@ -111,24 +111,21 @@ var dodging := 1.0
 ## Formation sim: how much faster it runs than it marches, and its stage of load.
 var run_pace := 1.5
 var load_stage := 0
-## Formation sim: its regeneration (Decision 121): HP a second, the damage types that stop
-## it, seconds it stays stopped, and the part of a point regained so far. Its hp, the HP it
-## has left to regain before it must rest and the ticks till its next blow are the unit
-## store's (UnitHealth, UnitColumns.REGENERATION_LEFT and ATTACK_COOLDOWN, spec 35 step 5b).
+## Formation sim: its regeneration (Decision 121): HP a second, and the damage types that
+## stop it. Its hp, the HP it has left to regain before it must rest and the ticks till its
+## next blow are the unit store's (UnitHealth, UnitColumns.REGENERATION_LEFT and
+## ATTACK_COOLDOWN, spec 35 step 5b), as are the seconds it stays stopped and the part of a
+## point regained so far (REGENERATION_HALT, REGENERATION_CARRY, step 7b).
 var regeneration := 0.0
 var regeneration_stops: Array[String] = []
-var regeneration_halt := 0.0
-var regeneration_carry := 0.0
-## Formation sim: its wounds (Decision 126) - a time downed each, lowering its condition -
-## seconds it has yet to lie downed before it comes to (-1: not yet reckoned), and the
-## part of a point its poor condition has drained so far.
+## Formation sim: its wounds (Decision 126) - a time downed each, lowering its condition. The
+## seconds it has yet to lie downed and the part of a point its poor condition has drained
+## are the store's (WAKE_LEFT, DRAIN_CARRY, step 7b).
 var wounded := 0
-var wake_left := -1.0
-var drain_carry := 0.0
 ## Formation sim: the wounds its weapons add to a foe they down ("wounding N", the most of
-## its weapons'), and those the last blow that struck it would add.
+## its weapons'). Those the last blow that struck it would add are the store's
+## (LAST_WOUNDING, step 7b).
 var wounding := 0
-var last_wounding := 0
 ## Formation sim: lying still while foes are near, though it could get up (Decision 127).
 var playing_dead := false
 ## Formation sim: the friend it bears, or the friend bearing it (unit ids; 0: none), and the

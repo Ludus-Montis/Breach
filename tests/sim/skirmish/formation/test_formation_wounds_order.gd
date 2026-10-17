@@ -51,7 +51,7 @@ func _downed(unit: SkirmishUnit, wake_left: float = -1.0) -> SkirmishUnit:
 	_places.health(unit, 0)
 	UnitState.start(unit, SkirmishUnit.State.DOWNED)
 	unit.wounded = 1
-	unit.wake_left = wake_left
+	_places.store.columns.put(unit.slot, UnitColumns.WAKE_LEFT, wake_left)
 	return unit
 
 
@@ -68,7 +68,8 @@ func _state(squads: Array) -> String:
 	for squad in squads:
 		for unit in squad.units:
 			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
-			var wounds := [unit.wounded, snappedf(unit.wake_left, 0.0001), unit.playing_dead]
+			var wake: float = squad.store.columns.value(unit.slot, UnitColumns.WAKE_LEFT)
+			var wounds := [unit.wounded, snappedf(wake, 0.0001), unit.playing_dead]
 			var stamina: float = squad.store.columns.value(unit.slot, UnitColumns.STAMINA)
 			var borne := [unit.carrying, unit.carried_by, snappedf(stamina, 0.0001)]
 			rows.append(

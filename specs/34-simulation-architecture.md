@@ -196,6 +196,14 @@ slower beyond noise: the walk to places (+2.0%) and the free front place (+1.3%)
 overlapping ranges. An earlier run (38993065664, `4d187a6`) came before a fix that
 changed outcomes (the trade's places), so it isn't counted.
 
+**Spec 35 step 7b, the downed's and recovery's fields in the store** (#248; bench run
+39030647717, `cee9142` against main at `356bb76`, `fight=10`, `rounds=5`, AMD EPYC 9V45):
+**232.5 → 225.9 ms a tick** (−2.8%, ranges overlapping). Carry 2.11 → 1.50 (−28.9%*), though
+7b doesn't change carry's code; recovery 17.09 → 16.68 (−2.4%), blows 18.34 → 17.26 (−5.9%)
+and bury 10.70 → 10.39 (−2.9%), all within noise. No phase is slower beyond noise: the free
+front places (+7.7%), morale (+2.5%), stamina (+0.8%) and the rout (+0.7%) have overlapping
+ranges.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
