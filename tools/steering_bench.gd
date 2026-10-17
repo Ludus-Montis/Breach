@@ -268,7 +268,7 @@ func _walks(fighting: Array, ctx: Dictionary) -> Array:
 				or (not seeks and columns.value(unit.slot, UnitColumns.TOUCH))
 			):
 				continue
-			var pace: float = unit.speed * ctx["pace"] * crowding
+			var pace: float = columns.value(unit.slot, UnitColumns.SPEED) * ctx["pace"] * crowding
 			var at := SquadEntries.loose_at(squad, unit)
 			walks.append([unit, seeks, columns.value(unit.slot, UnitColumns.NEXT), pace, squad, at])
 	return walks

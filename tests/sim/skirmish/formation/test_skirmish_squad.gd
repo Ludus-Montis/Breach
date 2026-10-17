@@ -21,7 +21,7 @@ func _unit(
 	_places.set_place(unit, Vector2i(rank, column))
 	unit.footprint_depth = depth
 	unit.footprint_width = width
-	unit.speed = speed
+	_places.pace(unit, speed)
 	_places.health(unit, 10)
 	return unit
 

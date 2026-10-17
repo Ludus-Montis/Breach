@@ -68,6 +68,29 @@ func health(unit, hp: int):
 	return unit
 
 
+## Sets `unit`'s pace to `speed` in the shared store, and its pace fresh on its record (spec
+## 35 step 6c): enrolled there first if it isn't yet; returns it.
+func pace(unit, speed: float):
+	_enrolled(unit)
+	unit.fresh_speed = speed
+	store.columns.put(unit.slot, UnitColumns.SPEED, speed)
+	return unit
+
+
+## Sets `unit`'s stamina to `stamina` in the shared store (spec 35 step 6c): enrolled there
+## first if it isn't yet; returns it.
+func tire(unit, stamina: float):
+	_enrolled(unit)
+	store.columns.put(unit.slot, UnitColumns.STAMINA, stamina)
+	return unit
+
+
+func _enrolled(unit) -> void:
+	if unit.id == 0:
+		unit.id = FIRST_ID + store.count()
+	unit.slot = store.enrol(unit.id)
+
+
 ## Where `unit` of `squad` stands, in the squad's store.
 static func of(squad, unit) -> Vector2:
 	return squad.store.columns.value(unit.slot, UnitColumns.POSITION)

@@ -130,8 +130,10 @@ static func _say(units: Array, squads: Array) -> Say:
 			say.anchors.append(squad.stance["anchor"])
 		say.chaser_counts.append(squad.chasers.size())
 		say.chaser_ids.append_array(squad.chasers.keys())
-	for unit: SkirmishUnit in units:
-		say.speeds.append(unit.speed)
+	if not units.is_empty():  # the synced units share the squads' store: its SPEED, read once
+		var paces: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.SPEED)
+		for unit: SkirmishUnit in units:
+			say.speeds.append(paces[unit.slot])
 	return say
 
 
@@ -161,6 +163,8 @@ static func gathered(units: Array, owners: Array, squads: Array) -> Batch:
 	var batch := Batch.new()
 	var current: SkirmishSquad = null
 	var counted := 0  # the batch's units when the current squad opened
+	var paces := {}  # store -> a read view of SPEED (UnitView.read_once)
+	var speeds := PackedFloat64Array()  # the current squad's store's
 	for index in range(units.size()):
 		var squad: SkirmishSquad = owners[index]
 		if squad.state != SkirmishSquad.State.FIGHTING:
@@ -171,12 +175,13 @@ static func gathered(units: Array, owners: Array, squads: Array) -> Batch:
 			batch.squads.append_array([squad.id, foes.size(), 0])
 			batch.foe_ids.append_array(foes)
 			counted = batch.units.size()
+			speeds = UnitView.read_once(paces, squad, [UnitColumns.SPEED]).speed
 		var unit: SkirmishUnit = units[index]
 		if squad.chasers.has(unit.id):
 			continue
 		batch.units.append(unit)
 		batch.owners.append(squad)
 		batch.members.append(index)
-		batch.speeds.append(unit.speed)
+		batch.speeds.append(speeds[unit.slot])
 		batch.squads[batch.squads.size() - 1] = batch.units.size() - counted
 	return batch

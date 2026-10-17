@@ -64,11 +64,9 @@ func test_stamina_is_paid_per_second_so_half_pace_costs_twice() -> void:
 func test_a_spent_unit_cannot_start_a_climb_or_a_swim() -> void:
 	var unit := SkirmishUnit.new()
 	unit.max_stamina = 100.0
-	unit.stamina = 100.0
 
-	assert_bool(ModeStamina.can_start(unit, TerrainWalker.Mode.CLIMBING)).is_true()
-	unit.stamina = 1.0
-	assert_bool(ModeStamina.can_start(unit, TerrainWalker.Mode.CLIMBING)).is_false()
-	assert_bool(ModeStamina.can_start(unit, TerrainWalker.Mode.SWIMMING)).is_false()
-	assert_bool(ModeStamina.can_start(unit, TerrainWalker.Mode.WALKING)).is_true()
+	assert_bool(ModeStamina.can_start(unit, 100.0, TerrainWalker.Mode.CLIMBING)).is_true()
+	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.CLIMBING)).is_false()
+	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.SWIMMING)).is_false()
+	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.WALKING)).is_true()
 	assert_float(ModeStamina.rate(TerrainWalker.Mode.WALKING)).is_equal(0.0)

@@ -118,6 +118,34 @@ var regeneration_left: PackedFloat64Array:
 	get:
 		assert(names.has(UnitColumns.REGENERATION_LEFT), NOT_NAMED % UnitColumns.REGENERATION_LEFT)
 		return regeneration_left
+var stamina: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.STAMINA), NOT_NAMED % UnitColumns.STAMINA)
+		return stamina
+var speed: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.SPEED), NOT_NAMED % UnitColumns.SPEED)
+		return speed
+var exerted: PackedInt32Array:
+	get:
+		assert(names.has(UnitColumns.EXERTED), NOT_NAMED % UnitColumns.EXERTED)
+		return exerted
+var breather: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.BREATHER), NOT_NAMED % UnitColumns.BREATHER)
+		return breather
+var run_build: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.RUN_BUILD), NOT_NAMED % UnitColumns.RUN_BUILD)
+		return run_build
+var was_running: PackedInt32Array:
+	get:
+		assert(names.has(UnitColumns.WAS_RUNNING), NOT_NAMED % UnitColumns.WAS_RUNNING)
+		return was_running
+var condition: PackedFloat64Array:
+	get:
+		assert(names.has(UnitColumns.CONDITION), NOT_NAMED % UnitColumns.CONDITION)
+		return condition
 
 var _held_with := []  # the stores held with it (hold), for release
 

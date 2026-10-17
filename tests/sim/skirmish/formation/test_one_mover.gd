@@ -32,7 +32,7 @@ func _wood() -> FormationTerrain:
 func _unit() -> SkirmishUnit:
 	var unit := SkirmishUnit.new()
 	unit.id = 1
-	unit.speed = 1.0
+	_places.pace(unit, 1.0)
 	return unit
 
 

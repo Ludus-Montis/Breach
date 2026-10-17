@@ -29,7 +29,7 @@ func _unit(unit_id: int, at: Vector2, faction: String = "player") -> SkirmishUni
 	unit.faction_id = faction
 	_places.health(unit, 10)
 	unit.max_hp = 10
-	unit.speed = 1.0
+	_places.pace(unit, 1.0)
 	unit.fresh_speed = 1.0
 	_places.stand(unit, at)
 	unit.attributes = {"constitution": 10, "strength": 10}
@@ -68,7 +68,8 @@ func _state(squads: Array) -> String:
 		for unit in squad.units:
 			var at: Vector2 = UnitPlaces.of(squad, unit).snapped(Vector2(0.0001, 0.0001))
 			var wounds := [unit.wounded, snappedf(unit.wake_left, 0.0001), unit.playing_dead]
-			var borne := [unit.carrying, unit.carried_by, snappedf(unit.stamina, 0.0001)]
+			var stamina: float = squad.store.columns.value(unit.slot, UnitColumns.STAMINA)
+			var borne := [unit.carrying, unit.carried_by, snappedf(stamina, 0.0001)]
 			rows.append(
 				[
 					unit.id,

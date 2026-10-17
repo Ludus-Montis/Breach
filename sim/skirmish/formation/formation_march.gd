@@ -20,8 +20,9 @@ const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdr
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-## The columns the walk to places sets and steps, held for each squad's pass (UnitView).
-const WALKED := [UnitColumns.POSITION, UnitColumns.BEARING]
+## The columns the walk to places sets and steps, held for each squad's pass (UnitView):
+## where each stands and faces, its pace, and the stamina a climb or a swim spends.
+const WALKED := [UnitColumns.POSITION, UnitColumns.BEARING, UnitColumns.SPEED, UnitColumns.STAMINA]
 
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).

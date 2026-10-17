@@ -15,8 +15,6 @@ var id: int = 0
 var faction_id: String = ""
 var max_hp: int = 0
 var dmg: int = 0
-## Cells per second.
-var speed: float = 0.0
 ## Cells along the route, from the player's end (0) to the kingdom's (route length).
 var distance: float = 0.0
 ## Formation sim: its slot in the battle's unit store (spec 35), given when it enrols and
@@ -102,26 +100,17 @@ var resistances: Array[String] = []
 var immunities: Array[String] = []
 var armour := 0
 var ward := 0
-## Formation sim: its stamina (spec 28 part 7) - now and at most - its pace fresh, how
-## fast it tires and how well it dodges under its load (UnitArms.load_stage), and whether
-## it exerted itself this tick.
-var stamina := 100.0
+## Formation sim: its stamina at most (spec 28 part 7), its pace fresh, how fast it tires
+## and how well it dodges under its load (UnitArms.load_stage). Its stamina now, its pace
+## this tick, whether it exerted itself, seconds since it last did (Decision 125), its run
+## (Decision 126) and its condition are the unit store's (spec 35 step 6c: UnitColumns).
 var max_stamina := 100.0
 var fresh_speed := 0.0
 var tiring := 1.0
 var dodging := 1.0
-var exerted := false
-## Formation sim: how much faster it runs than it marches, its stage of load, seconds since
-## it last spent stamina (Decision 125), and its condition - the one number its statuses,
-## traits and surroundings make of its state, 1 as things stand.
+## Formation sim: how much faster it runs than it marches, and its stage of load.
 var run_pace := 1.5
 var load_stage := 0
-var breather := 0.0
-var condition := 1.0
-## Formation sim: seconds into its present run (below 0: still reacting), and whether it
-## ran last tick (Decision 126).
-var run_build := 0.0
-var was_running := false
 ## Formation sim: its regeneration (Decision 121): HP a second, the damage types that stop
 ## it, seconds it stays stopped, and the part of a point regained so far. Its hp, the HP it
 ## has left to regain before it must rest and the ticks till its next blow are the unit

@@ -100,7 +100,8 @@ static func _condition(squad: SkirmishSquad) -> float:
 	var living := squad.living()
 	if living.is_empty():
 		return 1.0
-	var total: float = living.reduce(func(sum, u): return sum + u.condition, 0.0)
+	var condition: PackedFloat64Array = UnitView.read(squad, [UnitColumns.CONDITION]).condition
+	var total: float = living.reduce(func(sum, u): return sum + condition[u.slot], 0.0)
 	return clampf(total / living.size(), 0.0, _tuning().condition_cap)
 
 

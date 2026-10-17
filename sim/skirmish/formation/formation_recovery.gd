@@ -26,6 +26,9 @@ const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+## The columns the pass reads and writes, held for it: each unit's hp, the hp it may still
+## regenerate, and its condition (spec 35 steps 5b and 6c).
+const HELD := [UnitColumns.HP, UnitColumns.REGENERATION_LEFT, UnitColumns.CONDITION]
 
 
 ## One tick of `seconds`. Returns [[unit, its squad], ...] for those that came to apart from
@@ -35,15 +38,16 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 	var standing := {"squads": squads, "cunning": {}}  # _lies_still
 	if squads.is_empty():
 		return []
-	var held := UnitView.hold(squads, [UnitColumns.HP, UnitColumns.REGENERATION_LEFT])
+	var held := UnitView.hold(squads, HELD)
 	for squad in squads:
-		var health := UnitView.of(squad)  # hp and regeneration left: held for the pass
-		var pools := [health, health.regeneration_left]
+		var health := UnitView.of(squad)  # hp, regeneration left and condition: held for the pass
+		var pools := [health, health.regeneration_left, health.condition]
+		var conditions: PackedFloat64Array = pools[2]
 		for unit in squad.units:
 			var downed: bool = unit.state in [SkirmishUnit.State.DOWNED, SkirmishUnit.State.CARRIED]
 			if not (unit.is_alive() or downed):
 				continue
-			unit.condition = condition_of(unit)
+			conditions[unit.slot] = condition_of(unit)
 			_regenerate(unit, downed, seconds, pools)
 			var drained := _drain(unit, seconds, health)
 			if drained and downed and UnitHealth.of(health, unit) <= -FormationDeaths.depth(unit):
@@ -156,7 +160,8 @@ static func scorch(target: SkirmishUnit, parts: Array, dealt: int) -> void:
 			return
 
 
-## `pools` is [the pass's view, its regeneration-left column], held for the pass.
+## `pools` is [the pass's view, its regeneration-left and condition columns], held for the
+## pass.
 static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools: Array) -> void:
 	if unit.regeneration <= 0.0:
 		return
@@ -167,7 +172,8 @@ static func _regenerate(unit: SkirmishUnit, downed: bool, seconds: float, pools:
 		return
 	var health: UnitView = pools[0]
 	var left: PackedFloat64Array = pools[1]
-	var gain := minf(unit.regeneration * unit.condition * seconds, left[unit.slot])
+	var condition: PackedFloat64Array = pools[2]
+	var gain := minf(unit.regeneration * condition[unit.slot] * seconds, left[unit.slot])
 	gain = minf(gain, float(unit.max_hp - UnitHealth.of(health, unit)) - unit.regeneration_carry)
 	if gain <= 0.0:
 		return

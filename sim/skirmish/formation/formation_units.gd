@@ -12,8 +12,9 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
-## Its place in its squad's frame, its hp and the hp it may regenerate are the unit
-## store's, set once the squad enrols it (spec 35 steps 4a and 5b: `enter`).
+## Its place in its squad's frame, its hp and the hp it may regenerate, its stamina and its
+## pace are the unit store's, set once the squad enrols it (spec 35 steps 4a, 5b and 6c:
+## `enter`).
 static func make(
 	unit_def: UnitDef, faction_id: String, direction: int, unit_id: int
 ) -> SkirmishUnit:
@@ -22,7 +23,6 @@ static func make(
 	unit.faction_id = faction_id
 	unit.walker = TerrainWalker.of(unit_def)
 	unit.max_hp = unit_def.hp
-	unit.speed = unit_def.speed
 	unit.footprint_depth = unit_def.footprint_depth
 	unit.footprint_width = unit_def.footprint_width
 	unit.preferred_position = unit_def.preferred_position
@@ -76,8 +76,7 @@ static func _arm(unit: SkirmishUnit, unit_def: UnitDef) -> void:
 	unit.immunities = unit_def.immunities.duplicate()
 	var tuning := BattleTuning.current()
 	var stage := UnitArms.load_stage(unit_def)
-	unit.speed = unit_def.speed * tuning.load_pace[stage]
-	unit.fresh_speed = unit.speed
+	unit.fresh_speed = unit_def.speed * tuning.load_pace[stage]
 	unit.run_pace = unit_def.run_pace
 	unit.load_stage = stage
 	unit.gear_weight = UnitArms.carried_weight(unit_def)
@@ -86,7 +85,6 @@ static func _arm(unit: SkirmishUnit, unit_def: UnitDef) -> void:
 	unit.tiring = tuning.load_tiring[stage]
 	unit.dodging = tuning.load_dodge[stage]
 	unit.max_stamina = unit_def.constitution * tuning.stamina_per_constitution
-	unit.stamina = unit.max_stamina
 	unit.regeneration = unit_def.regeneration
 	unit.regeneration_stops = unit_def.regeneration_stops.duplicate()
 	var protection := UnitArms.protection(unit_def)
@@ -95,7 +93,8 @@ static func _arm(unit: SkirmishUnit, unit_def: UnitDef) -> void:
 
 
 ## A squad's `members` just spawned from `placements` ([[UnitDef, place], ...], in the
-## same order): each at its place, at its full hp, with all its regeneration to come.
+## same order): each at its place, at its full hp, with all its regeneration to come, at
+## its full stamina and at its pace fresh.
 static func enter(squad, members: Array, placements: Array) -> void:
 	# store: scattered (few: spawning, once as a squad enters)
 	for index in placements.size():
@@ -105,3 +104,5 @@ static func enter(squad, members: Array, placements: Array) -> void:
 		UnitHealth.put_one(squad, unit, unit_def.hp)
 		var left := unit_def.regeneration_limit * unit_def.hp
 		squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_LEFT, left)
+		squad.store.columns.put(unit.slot, UnitColumns.STAMINA, unit.max_stamina)
+		squad.store.columns.put(unit.slot, UnitColumns.SPEED, unit.fresh_speed)

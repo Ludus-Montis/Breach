@@ -39,7 +39,10 @@ static func step_cost(
 	return INF if pace <= 0.0 else from.distance_to(to) / pace * spend
 
 
-## Whether `unit` may start moving in `mode`: walking always; climbing or swimming unless
-## it is spent.
-static func can_start(unit: SkirmishUnit, mode: TerrainWalker.Mode) -> bool:
-	return mode == TerrainWalker.Mode.WALKING or FormationStamina.stage(unit) < SPENT
+## Whether `unit`, with `stamina` left, may start moving in `mode`: walking always;
+## climbing or swimming unless it is spent.
+static func can_start(unit: SkirmishUnit, stamina: float, mode: TerrainWalker.Mode) -> bool:
+	return (
+		mode == TerrainWalker.Mode.WALKING
+		or FormationStamina.stage_at(stamina, unit.max_stamina) < SPENT
+	)

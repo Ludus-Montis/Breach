@@ -175,11 +175,12 @@ static func face(fighting: Array, ctx: Dictionary) -> void:
 static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 	var seconds: float = ctx["seconds"]
 	var columns := squad.store.columns
+	var speeds: PackedFloat64Array = columns.column(UnitColumns.SPEED)
 	# store: scattered (reference: the GDScript walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
 			continue  # out chasing on its own (ScrumPursuit)
-		var full: float = unit.speed * pace
+		var full: float = speeds[unit.slot] * pace
 		var at: Vector2 = SquadEntries.loose_at(squad, unit)
 		var toward = null
 		if columns.value(unit.slot, UnitColumns.GOAL_SLOT) >= 0:
@@ -225,6 +226,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
 	var goal_slots: PackedInt64Array = columns.column(UnitColumns.GOAL_SLOT)
 	var bearings: PackedFloat64Array = columns.column(UnitColumns.BEARING)
+	var speeds: PackedFloat64Array = columns.column(UnitColumns.SPEED)
 	# store: scattered (reference: the GDScript walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
@@ -233,7 +235,7 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 		var foes := ScrumNear.around(near, at, ScrumReach.radius(unit) + reach)
 		var look = ScrumBlows.nearest_touching(squad, unit, foes, ctx["seed"])
 		if look == null and goal_slots[unit.slot] >= 0:
-			look = _seeking_look(unit, columns, at, ctx)
+			look = _seeking_look(unit, [columns, speeds[unit.slot]], at, ctx)
 		if look == null:
 			look = EntryKeys.held(columns, unit.slot, UnitColumns.TOWARD)
 		if look != null:
@@ -242,11 +244,11 @@ static func _faces(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 
 
 ## Where a unit making for the slot it seeks looks: so as to arrive facing the foe it will
-## touch there, the quicker way (UnitShuffle); `at` is where it stands.
-static func _seeking_look(unit: SkirmishUnit, columns: UnitColumns, at: Vector2, ctx: Dictionary):
-	var speed: float = (
-		unit.speed * ctx["pace"] * BattleTuning.current().scrum_crowding / ctx["seconds"]
-	)
+## touch there, the quicker way (UnitShuffle); `at` is where it stands, `own` [its store's
+## columns, its pace this tick].
+static func _seeking_look(unit: SkirmishUnit, own: Array, at: Vector2, ctx: Dictionary):
+	var columns: UnitColumns = own[0]
+	var speed: float = own[1] * ctx["pace"] * BattleTuning.current().scrum_crowding / ctx["seconds"]
 	var next: Vector2 = columns.value(unit.slot, UnitColumns.NEXT)
 	var foe_at: Vector2 = columns.value(unit.slot, UnitColumns.FOE_AT)
 	var facing: float = columns.value(unit.slot, UnitColumns.BEARING)

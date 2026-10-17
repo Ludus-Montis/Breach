@@ -84,7 +84,8 @@ static func _start_moves(squad: SkirmishSquad, paced: Array, lap: Callable) -> b
 ## Starts `plan` as _start_moves does, if all involved can move. `held`: [busy, claimed].
 static func _begin(squad: SkirmishSquad, plan: Dictionary, paced: Array, held: Array) -> bool:
 	var involved: Array = plan["to"].keys()
-	var slowest: float = involved.reduce(func(least, u): return minf(least, u.speed), INF)
+	var paces: PackedFloat64Array = squad.store.columns.column(UnitColumns.SPEED)
+	var slowest: float = involved.reduce(func(least, u): return minf(least, paces[u.slot]), INF)
 	if slowest <= 0.0:
 		return false
 	var crowding := (

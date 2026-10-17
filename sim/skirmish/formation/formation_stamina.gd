@@ -17,38 +17,84 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+## The columns a tick's pass reads and writes, held for it (spec 35 step 6c, UnitView);
+## each unit's condition is read alongside.
+const STEPPED := [
+	UnitColumns.STAMINA,
+	UnitColumns.SPEED,
+	UnitColumns.EXERTED,
+	UnitColumns.BREATHER,
+	UnitColumns.RUN_BUILD,
+	UnitColumns.WAS_RUNNING,
+]
+## The columns a blow's cost writes.
+const SPENT := [UnitColumns.STAMINA, UnitColumns.EXERTED, UnitColumns.BREATHER]
 
 
-## Each unit's stamina spent on this tick's blows ([striker, ...]).
-static func strike(blows: Array) -> void:
+## Each unit's stamina spent on this tick's blows ([striker, ...]); `holder` holds the
+## battle's store (its squads share it).
+static func strike(holder, blows: Array) -> void:
+	if blows.is_empty():
+		return
+	var view := UnitView.hold([holder], SPENT)  # a write per blow: held
+	var spent := [view.stamina, view.exerted, view.breather]
+	var tuning := BattleTuning.current()
 	for blow in blows:
-		_spend(blow[0], BattleTuning.current().stamina_blow * blow[0].tiring)
+		_spend(spent[0], spent[1], spent[2], blow[0].slot, tuning.stamina_blow * blow[0].tiring)
+	UnitView.release(view)
 
 
 ## One tick of `seconds`: runners and laden marchers tire, the rest recover after their
 ## breather, and each unit's pace follows its gait and how tired it is.
 static func step(squads: Array, seconds: float) -> void:
-	var tuning := BattleTuning.current()
+	if squads.is_empty():
+		return
+	var held := UnitView.hold(squads, STEPPED)
+	var conditions := {}  # store -> a read view of CONDITION (UnitView.read_once)
 	for squad in squads:
-		var running := runs(squad)
-		var marching: bool = squad.state == SkirmishSquad.State.MOVING
-		for unit in squad.living():
-			if unit.fresh_speed <= 0.0:
-				unit.fresh_speed = unit.speed  # one made by hand, not from its sheet
-			var gait := 1.0
-			var runner: bool = (running or squad.chasers.has(unit.id)) and stage(unit) < 2
-			if runner:
-				var pursuing: bool = not squad.pursuit.is_empty() or squad.chasers.has(unit.id)
-				gait = _build(unit, pursuing, seconds)
-				if unit.run_build > 0.0:
-					_spend(unit, tuning.stamina_run * unit.tiring * seconds)
-			elif marching and _march_cost(unit) > 0.0:
-				_spend(unit, _march_cost(unit) * seconds)
-			unit.was_running = runner
-			if not unit.exerted:
-				_breathe(unit, seconds)
-			unit.exerted = false
-			unit.speed = unit.fresh_speed * gait * tuning.stamina_pace[stage(unit)]
+		var condition := UnitView.read_once(conditions, squad, [UnitColumns.CONDITION]).condition
+		_step_squad(squad, UnitView.of(squad), condition, seconds)
+	UnitView.release(held)
+
+
+## `step` for one squad: its view's columns taken once into typed locals and indexed per
+## unit (a getter per unit would be a call each).
+static func _step_squad(
+	squad: SkirmishSquad, view: UnitView, condition: PackedFloat64Array, seconds: float
+) -> void:
+	var tuning := BattleTuning.current()
+	var stamina: PackedFloat64Array = view.stamina
+	var speeds: PackedFloat64Array = view.speed
+	var exerted: PackedInt32Array = view.exerted
+	var breather: PackedFloat64Array = view.breather
+	var ran: PackedInt32Array = view.was_running
+	var build: PackedFloat64Array = view.run_build
+	var running := runs(squad)
+	var marching: bool = squad.state == SkirmishSquad.State.MOVING
+	for unit in squad.living():
+		var slot: int = unit.slot
+		if unit.fresh_speed <= 0.0:
+			unit.fresh_speed = speeds[slot]  # one made by hand, not from its sheet
+		var gait := 1.0
+		var runner: bool = (
+			(running or squad.chasers.has(unit.id))
+			and stage_at(stamina[slot], unit.max_stamina) < 2
+		)
+		if runner:
+			var pursuing: bool = not squad.pursuit.is_empty() or squad.chasers.has(unit.id)
+			gait = _build(build, ran[slot] != 0, unit, pursuing, seconds)
+			if build[slot] > 0.0:
+				_spend(stamina, exerted, breather, slot, tuning.stamina_run * unit.tiring * seconds)
+		elif marching and _march_cost(unit) > 0.0:
+			_spend(stamina, exerted, breather, slot, _march_cost(unit) * seconds)
+		ran[slot] = 1 if runner else 0
+		if exerted[slot] == 0:
+			_breathe(stamina, breather, unit, condition[slot], seconds)
+		exerted[slot] = 0
+		speeds[slot] = (
+			unit.fresh_speed * gait * tuning.stamina_pace[stage_at(stamina[slot], unit.max_stamina)]
+		)
 
 
 ## True if the formation runs: fleeing; pursuing or retreating, unless its leader - or
@@ -66,41 +112,49 @@ static func runs(squad: SkirmishSquad) -> bool:
 	return squad.hurry
 
 
-## 0 fresh, 1 tired, 2 spent.
-static func stage(unit: SkirmishUnit) -> int:
+## 0 fresh, 1 tired, 2 spent: the stage of a unit with `stamina` of `most`.
+static func stage_at(stamina: float, most: float) -> int:
 	var tuning := BattleTuning.current()
-	var share := unit.stamina / maxf(unit.max_stamina, 0.000001)
+	var share := stamina / maxf(most, 0.000001)
 	if share < tuning.stamina_spent:
 		return 2
 	return 1 if share < tuning.stamina_tired else 0
 
 
-## The shift to its blows' margins its tiredness makes.
-static func skill_shift(unit: SkirmishUnit) -> float:
-	return BattleTuning.current().stamina_skill[stage(unit)]
+## The shift to its blows' margins its tiredness makes, with `stamina` left.
+static func skill_shift(unit: SkirmishUnit, stamina: float) -> float:
+	return BattleTuning.current().stamina_skill[stage_at(stamina, unit.max_stamina)]
 
 
-## True if the unit is too tired to keep up a chase.
-static func gives_up(unit: SkirmishUnit) -> bool:
-	return unit.stamina < unit.max_stamina * BattleTuning.current().stamina_give_up
+## True if the unit is too tired to keep up a chase (a view holding STAMINA).
+static func gives_up(view: UnitView, unit: SkirmishUnit) -> bool:
+	return view.stamina[unit.slot] < unit.max_stamina * BattleTuning.current().stamina_give_up
 
 
 ## True if most of the squad's units are too tired to keep up a chase.
 static func squad_gives_up(squad: SkirmishSquad) -> bool:
 	var living := squad.living()
-	var tired := living.filter(func(u): return gives_up(u)).size()
-	return not living.is_empty() and tired * 2 > living.size()
+	if living.is_empty():
+		return false
+	var stamina: PackedFloat64Array = UnitView.read(squad, [UnitColumns.STAMINA]).stamina
+	var give_up := BattleTuning.current().stamina_give_up
+	var tired := living.filter(func(u): return stamina[u.slot] < u.max_stamina * give_up).size()
+	return tired * 2 > living.size()
 
 
 ## Its gait this tick of a run: building from its march to its run pace over
-## run_build_seconds, a pursuer first reacting (the sooner, the quicker its wits).
-static func _build(unit: SkirmishUnit, pursuing: bool, seconds: float) -> float:
+## run_build_seconds, a pursuer first reacting (the sooner, the quicker its wits). `build`
+## is the RUN_BUILD column, written in place; `was_running` whether it ran last tick.
+static func _build(
+	build: PackedFloat64Array, was_running: bool, unit: SkirmishUnit, pursuing: bool, seconds: float
+) -> float:
 	var tuning := BattleTuning.current()
-	if not unit.was_running:
+	var slot: int = unit.slot
+	if not was_running:
 		var wits: float = maxf(1.0, unit.attributes.get("wits", UnitDef.AVERAGE))
-		unit.run_build = -tuning.run_reaction * UnitDef.AVERAGE / wits if pursuing else 0.0
-	unit.run_build += seconds
-	var built := clampf(unit.run_build / maxf(tuning.run_build_seconds, 0.000001), 0.0, 1.0)
+		build[slot] = -tuning.run_reaction * UnitDef.AVERAGE / wits if pursuing else 0.0
+	build[slot] += seconds
+	var built := clampf(build[slot] / maxf(tuning.run_build_seconds, 0.000001), 0.0, 1.0)
 	return 1.0 + (unit.run_pace - 1.0) * built
 
 
@@ -112,27 +166,42 @@ static func _marches(squad: SkirmishSquad, trait_id: String) -> bool:
 	return not living.is_empty() and living.all(func(u): return u.traits.get(trait_id, 0) > 0)
 
 
-## Spends stamina: it restarts the unit's breather.
-static func _spend(unit: SkirmishUnit, amount: float) -> void:
-	unit.stamina = maxf(0.0, unit.stamina - amount)
-	unit.exerted = true
-	unit.breather = 0.0
+## Spends `amount` of the slot's stamina: it restarts its breather. The columns are
+## STAMINA, EXERTED and BREATHER, written in place.
+static func _spend(
+	stamina: PackedFloat64Array,
+	exerted: PackedInt32Array,
+	breather: PackedFloat64Array,
+	slot: int,
+	amount: float
+) -> void:
+	stamina[slot] = maxf(0.0, stamina[slot] - amount)
+	exerted[slot] = 1
+	breather[slot] = 0.0
 
 
-## A tick without cost: once its breather is long enough, it recovers.
-static func _breathe(unit: SkirmishUnit, seconds: float) -> void:
+## A tick without cost: once its breather is long enough, it recovers, at its `condition`.
+## `stamina` and `breather` are its columns, written in place.
+static func _breathe(
+	stamina: PackedFloat64Array,
+	breather: PackedFloat64Array,
+	unit: SkirmishUnit,
+	condition: float,
+	seconds: float
+) -> void:
 	var tuning := BattleTuning.current()
 	var hardiness := (
 		maxf(1.0, unit.attributes.get("constitution", UnitDef.AVERAGE)) / UnitDef.AVERAGE
 	)
 	if unit.on_face:
 		return  # no breather on a climb face or in deep water (WalkModes)
-	unit.breather += seconds
-	if unit.breather < tuning.stamina_delay / hardiness:
+	breather[unit.slot] += seconds
+	if breather[unit.slot] < tuning.stamina_delay / hardiness:
 		return
-	var condition := clampf(unit.condition, 0.0, tuning.condition_cap)
-	var gain := tuning.stamina_recovery * hardiness * condition * seconds
-	unit.stamina = minf(unit.max_stamina, unit.stamina + gain)
+	var gain := (
+		tuning.stamina_recovery * hardiness * clampf(condition, 0.0, tuning.condition_cap) * seconds
+	)
+	stamina[unit.slot] = minf(unit.max_stamina, stamina[unit.slot] + gain)
 
 
 static func _march_cost(unit: SkirmishUnit) -> float:

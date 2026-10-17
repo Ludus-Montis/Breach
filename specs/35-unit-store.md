@@ -70,6 +70,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   "Settled for step 6" below.
 - **Step 6a, one typed view: built** (2026-10-16). See "Built" below.
 - **Step 6b, the slower phases on the view: built** (2026-10-16). See "Built" below.
+- **Step 6c, stamina, speed and exertion: built** (2026-10-16), with each unit's condition
+  (the user). See "Settled for step 6" and "Built" below.
 
 ## The store
 
@@ -357,6 +359,16 @@ had its own pattern, and only a typed array's index is cheap on the native store
     spec 34's "Measured" section for Q23: name any phase still slower than before step 0.
 - **6c: stamina, speed and exertion**, as step 6 was. Its readers list (Decision 144) says
   for each loop which columns its view holds; step 7's does the same.
+- **Settled while building 6c** (the user, 2026-10-16):
+  - **The columns: everything the stamina pass changes each tick, and condition.** `STAMINA`,
+    `SPEED` (its pace this tick), `EXERTED`, `BREATHER`, `RUN_BUILD`, `WAS_RUNNING`, and
+    `CONDITION`, which recovery writes every tick and the stamina pass reads. The record keeps
+    what changes only on an event: `max_stamina`, `fresh_speed` (its pace fresh; carrying sets
+    it), `tiring`, `dodging`, `run_pace`, `load_stage`.
+  - **Recovery's other per-tick fields wait for step 7:** `regeneration_carry` and
+    `regeneration_halt`, and the downed's `wake_left` and `drain_carry`, go with the downed
+    flags and step 7's inventory. So does recovery's scan of every unit for the downed
+    (`OPEN_QUESTIONS.md` Q24: the downed list, Decision 145).
 
 ## Built
 
@@ -993,6 +1005,73 @@ The loops converted, with the columns each reads:
   The series against `1cc4412`: the tick 19.5% faster. Still slower than before step 0: the
   rout (+16.9%), the free front place (+9.9%), engage's fronts and the shuffle's moves under
   way. Q23 has these.
+
+### Step 6c, stamina, speed and exertion
+
+- **`UnitColumns.STAMINA`, `SPEED`, `EXERTED`, `BREATHER`, `RUN_BUILD`, `WAS_RUNNING` and
+  `CONDITION`**, both backends, and Rust's `Columns` by the same names. EXERTED and WAS_RUNNING
+  are 32-bit ints (1 or 0), the rest floats. Each blank is what the record's field started at:
+  STAMINA 100, CONDITION 1, the rest 0. `SkirmishUnit` no longer declares them, nor `speed`;
+  `fresh_speed` and `max_stamina` stay on the record. `UnitView` has a property for each.
+- **A unit's starting values:** `FormationUnits.make` sets its pace fresh and its most stamina
+  on the record; `FormationUnits.enter` puts STAMINA (its most) and SPEED (its pace fresh) once
+  the squad enrols it, as it puts its hp. A unit made by hand starts from the blanks, as it
+  did from the record's defaults; tests set its pace and stamina through `UnitPlaces.pace`
+  and `tire`.
+- **Readers and writers (Decision 144), each loop with the columns its view holds:**
+
+  | Where | Columns | How |
+  |---|---|---|
+  | `FormationStamina.step` | STAMINA, SPEED, EXERTED, BREATHER, RUN_BUILD, WAS_RUNNING written; CONDITION read | held for the pass (`STEPPED`); CONDITION read once a store (`read_once`) |
+  | `FormationStamina.strike` (each blow's cost) | STAMINA, EXERTED, BREATHER | held on the battle's store (`SPENT`): a write per blow |
+  | `FormationStamina.squad_gives_up` (pursuit, the fatigue trials) | STAMINA | a read view per call, once a squad |
+  | `FormationRecovery.step` | CONDITION written for every unit, read by regeneration | joins HP and REGENERATION_LEFT in its hold (`HELD`) |
+  | `FormationMorale._condition` | CONDITION | a read view per squad |
+  | The march's walk to places (`FormationWalk.walk`, `WalkModes.climb`, `after_step`, `may_step`) | SPEED read; STAMINA read and written by a climb or a swim | join POSITION and BEARING in the march's hold (`FormationMarch.WALKED`) |
+  | The rout (`RoutFlight.step`) | SPEED | joins the rout's hold (`FormationRout.HELD`) |
+  | `ScrumPursuit.step` and `_quarry` | SPEED, STAMINA | read once a store (`PACED`) |
+  | `ScrumRegroup._walk_back`, `FormationShuffle._start_moves`, `FormationWithdraw` | SPEED | a read view per squad |
+  | `SkirmishSquad.speed()` (the march, staging, pursuit) | SPEED | the column fetched once a call |
+  | `ScrumSeekField._say`, `gathered` (the native seek's speeds) | SPEED | fetched once a store |
+  | `BlowLanding` (a blow's skill shift) | STAMINA | fetched once for the landing, with POSITION and BEARING |
+  | The GDScript reference: `ScrumSeek._seekers_of` (and `ScrumContest.key`, which now takes the speed), `FormationScrum._walk`, `_faces` | SPEED | fetched once a squad |
+  | `FormationUnits.enter` | STAMINA, SPEED | put per new unit (`few:` spawning) |
+  | Tools: `fatigue_trials.gd`, `shuffle_phases.gd`, `steering_bench.gd`, `blows_bench.gd` | STAMINA, SPEED | through the store (`blows_bench.gd` still doesn't parse, as before) |
+
+- **Helpers that read one unit** take the value: `FormationStamina.stage_at(stamina, most)`,
+  `skill_shift(unit, stamina)`, `ModeStamina.can_start(unit, stamina, mode)`; `gives_up` takes a
+  view holding STAMINA. The stage of a unit from a view is the pass's own typed index.
+- **Tests.** `test_unit_stamina.gd` (new): the seven columns round-trip and start blank on both
+  backends and live on the native field; a unit entering its squad starts at its most stamina
+  and its pace fresh; the stamina pass leaves the same columns on both backends; and
+  SkirmishUnit no longer declares them (red before this step). `columns.rs` tests the new
+  columns' blanks and names. The tests that set a hand-made unit's pace or stamina put them
+  in the store.
+- **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI). The
+  digest names its columns, so the new ones don't change its bytes.
+- **Bench** (the alternating bench, `rounds=5`, 4,096 a side in four squads, Rust, `90dec71`
+  against main at 6b): the tick +1.0% (238.1 → 240.5 ms, ranges apart) and **stamina +14.3%**
+  (19.33 → 22.10, ranges apart); recovery level (-0.5%), every other phase's ranges overlap.
+  The cause was the stamina pass's helpers (`_build`, `_spend`, `_breathe`) reading the
+  view's properties per unit: each read is a getter with its assert, several per unit. They
+  now take the typed columns, which `_step_squad` takes from the view once a squad, and
+  `squad_gives_up` indexes a typed local. Outcomes unchanged: the three digest sets on the
+  GDScript engine match main's tick for tick.
+- **Benched with the fix** (the same bench, `2928e72` against main at 6b, another runner): the
+  tick -1.6% (209.0 → 205.6 ms, ranges overlapping) and **stamina -12.2%** (17.17 → 15.07,
+  ranges apart). Taking the downed came out -22.7% (0.75 → 0.58, ranges apart), though 6c
+  doesn't touch it. Perception +8.7% (12.62 → 13.72) is within noise: its ranges overlap
+  (12.13-13.28 against 12.12-14.16), and 6c doesn't touch it either. No phase slower beyond
+  noise.
+- **Gate 2 deferred** (the user, 2026-10-17): until a game-like map exists (`OPEN_QUESTIONS.md`
+  Q25), play-feel review waits. `formation_field.tscn` "feels fine"; `formation_skirmish.tscn`
+  draws units on their formation places, so it isn't used for review.
+- **A view's properties are getters:** a loop takes each into a typed local before it, and
+  helpers it calls per unit take those locals, not the view (6a's rule, now also for helpers).
+- **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 142`, as
+  each step that moves a field): the PR modifies about 40 existing files because Decision 142
+  moves the fields and Decision 144 moves every reader of them in the same step. No new case
+  forced them open.
 
 ## Open, for the implementing session to settle and record here
 

@@ -179,10 +179,12 @@ func is_destroyed() -> bool:
 	return living().is_empty()
 
 
+## Its slowest living unit's pace this tick (the store's SPEED, read once).
 func speed() -> float:
 	var slowest := INF
+	var paces: PackedFloat64Array = store.columns.column(UnitColumns.SPEED)
 	for unit in living():
-		slowest = minf(slowest, unit.speed)
+		slowest = minf(slowest, paces[unit.slot])
 	return 0.0 if slowest == INF else slowest
 
 

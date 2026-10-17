@@ -100,9 +100,10 @@ static func step(
 	for entry in withdrawing:
 		var squad: SkirmishSquad = entry[0]
 		var order := [disorder(squad), FormationDiscipline.reform_pace(squad)]  # its units'
+		var paces: PackedFloat64Array = UnitView.read(squad, [UnitColumns.SPEED]).speed
 		for unit in squad.living():
-			var motion := [pace, seconds, fight_seed, entry[2].has(unit.id)] + order
-			_flee(squad, unit, motion, terrain)
+			var motion := [pace * paces[unit.slot], seconds, fight_seed, entry[2].has(unit.id)]
+			_flee(squad, unit, motion + order, terrain)
 		squad.withdraw["safe_ticks"] = squad.withdraw["safe_ticks"] + 1 if entry[1] else 0
 		var long_enough: bool = (
 			squad.withdraw["safe_ticks"] * seconds >= BattleTuning.current().rout_rally_seconds
@@ -111,7 +112,7 @@ static func step(
 			_reform_here(squad, tick, events)
 
 
-## `motion` is [pace (cells a tick at speed 1), seconds, fight seed, still disengaging,
+## `motion` is [its pace (cells a tick, its speed in), seconds, fight seed, still disengaging,
 ## its squad's disorder, its re-form pace].
 ## Disengaging is a manoeuvre, as re-forming is: until it is clear of the foes it touches,
 ## a unit turns and steps away at its formation's re-form pace; then it is in flight.
@@ -123,7 +124,7 @@ static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terra
 	if absf(along - home) < HOME_CELLS:
 		return  # home
 	var homeward := _homeward(squad.route, along, home)
-	var full: float = unit.speed * motion[0]
+	var full: float = motion[0]
 	var heading := DetMath.rotated(homeward, RoutFlight.fan(unit, motion[2]) * motion[4])
 	var side := homeward.orthogonal()
 	var aside: float = (at - squad.route.point_at(along)).dot(side)

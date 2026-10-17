@@ -151,6 +151,7 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var out := []
 	var columns := squad.store.columns
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
+	var speeds: PackedFloat64Array = columns.column(UnitColumns.SPEED)
 	# store: scattered (reference: the GDScript seek; the Rust engine runs ScrumSeekField)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
@@ -168,8 +169,9 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 		if not _may_seek(squad, unit, front_left) or not near["any"]:
 			EntryKeys.set_goal(columns, unit.slot, null)
 			continue
-		var arrival := ScrumNear.gap_to(near, at, radius) / maxf(unit.speed, 0.01)
-		var key := ScrumContest.key(unit, arrival, ctx["seed"], ctx["tick"])
+		var speed := speeds[unit.slot]
+		var arrival := ScrumNear.gap_to(near, at, radius) / maxf(speed, 0.01)
+		var key := ScrumContest.key(unit, arrival, speed, ctx["seed"], ctx["tick"])
 		out.append([key, squad, unit, _ring(squad, near, radius, ctx)])
 	return out
 
