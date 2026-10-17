@@ -1045,8 +1045,16 @@ The loops converted, with the columns each reads:
   in the store.
 - **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI). The
   digest names its columns, so the new ones don't change its bytes.
-- **Bench:** the alternating bench (`rounds=5`, `fight=10`, 4,096 a side in four squads)
-  against main (6b): stamina and recovery faster or level, no phase slower. Run by the user.
+- **Bench** (the alternating bench, `rounds=5`, 4,096 a side in four squads, Rust, `90dec71`
+  against main at 6b): the tick +1.0% (238.1 → 240.5 ms, ranges apart) and **stamina +14.3%**
+  (19.33 → 22.10, ranges apart); recovery level (-0.5%), every other phase's ranges overlap.
+  The cause was the stamina pass's helpers (`_build`, `_spend`, `_breathe`) reading the
+  view's properties per unit: each read is a getter with its assert, several per unit. They
+  now take the typed columns, which `_step_squad` takes from the view once a squad, and
+  `squad_gives_up` indexes a typed local. Outcomes unchanged: the three digest sets on the
+  GDScript engine match main's tick for tick. The fix's own bench against main is the user's.
+- **A view's properties are getters:** a loop takes each into a typed local before it, and
+  helpers it calls per unit take those locals, not the view (6a's rule, now also for helpers).
 - **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 142`, as
   each step that moves a field): the PR modifies about 40 existing files because Decision 142
   moves the fields and Decision 144 moves every reader of them in the same step. No new case
