@@ -79,9 +79,11 @@ step, in the order the spec's own "Test-first order" section lays out:
    `native/` or the store's columns, or its test compares both engines and you need the
    Rust half before CI. Otherwise don't: tests that compare the engines skip their Rust
    half when the core isn't built, and CI's `sim-checks` runs both engines on every PR.
-   A cloud session gets Godot from its environment's setup script (`GODOT_BIN` set
-   there). If it is missing, say so, and install it as `.github/actions/godot/action.yml`
-   does rather than skipping red then green.
+   A cloud session without Godot (`GODOT_BIN` unset) fetches it when a step first needs it:
+   `bash ci/godot/scripts/get_godot.sh`, then export the `GODOT_BIN` it prints. It installs
+   the version CI pins, checks it against Godot's published sums and imports the project
+   (so the import above is done). If its download is blocked, say so and name the host the
+   environment's network policy must allow; don't skip red then green.
 3. Implement the minimum to go **green**. Do not implement behaviour with no test.
 4. Refactor with the suite as a safety net, checking against
    `AI_First_Development_Kit/principles/ai-first-organisation.md` and
