@@ -76,6 +76,7 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   writer, `UnitState`, with each squad's living and downed lists; 7b moves the downed's and
   recovery's per-tick fields and `last_wounding`; 7c moves the rest. See "Settled for step 7".
 - **Step 7a, one writer for state and the kept lists: built** (2026-10-17). See "Built" below.
+- **Step 7b, the downed's fields and recovery's: built** (2026-10-17). See "Built" below.
 
 ## The store
 
@@ -1201,6 +1202,51 @@ The loops converted, with the columns each reads:
   ask, perception (−46.4%), blows (−28.0%), engage (−13.0%) and the rout (−5.5%) are faster
   too. No phase is slower beyond noise. The first bench of the PR came before the trade's fix
   changed its outcomes back, so it isn't counted.
+
+### Step 7b, the downed's fields and recovery's
+
+- **`UnitColumns.REGENERATION_CARRY`, `REGENERATION_HALT`, `WAKE_LEFT`, `DRAIN_CARRY` and
+  `LAST_WOUNDING`**, both backends, and Rust's `Columns` by the same names. LAST_WOUNDING is
+  a 32-bit int, the rest floats. Each blank is what the record's field started at: WAKE_LEFT
+  -1 (not yet reckoned), the rest 0. `SkirmishUnit` no longer declares them; `wounded`,
+  `wounding`, `regeneration` and `regeneration_stops` stay on the record (event-only, or the
+  unit's stats). `UnitView` has a property for each.
+- **No STATE column** (Decision 147 left it to 7b): no native pass reads a unit's state. The
+  seek, walk, facing, parting and blows on the field are handed the living lists
+  (`BodyFieldSync`, `ScrumBlowsField`), and no Rust source names a state. State stays on the
+  record.
+- **Readers and writers (Decision 144), from the tree at `356bb76`:**
+
+  | Where | Columns | How |
+  |---|---|---|
+  | `FormationRecovery.step` (regeneration, drain, waking, playing dead) | the four recovery columns read and written | join HP, REGENERATION_LEFT and CONDITION in its hold (`HELD`); its helpers take the typed columns, taken from the view once a squad |
+  | `FormationRegeneration.scorch` (a landed blow of a type the target fears) | REGENERATION_HALT written | the blows' hold (`BlowLanding.MARKED`), handed in as a typed column |
+  | `BlowLanding.land` and `_land` | LAST_WOUNDING written per blow that deals damage | `MARKED` held on the battle's store once a landing, after the native count of the foes pressing each target (no hold spans a native call) |
+  | `FormationDeaths.bury` | LAST_WOUNDING read, WAKE_LEFT reset to -1 | scattered (few: the tick's fallen), as its hp; a read view would copy the column for each squad with a fallen unit |
+  | Tests: `test_formation_recovery.gd`, `test_formation_wounds_order.gd`, `test_formation_perception.gd`, `test_formation_taking.gd`, `test_blows_field.gd` | WAKE_LEFT, LAST_WOUNDING, REGENERATION_HALT | through the store |
+  | Tools: `blows_bench.gd` | REGENERATION_HALT, LAST_WOUNDING | through the store (it still doesn't parse, as before) |
+  | `tools/formation_digest.gd`, presentation | | none read them |
+
+- **Regeneration has its own file.** The new columns took `formation_recovery.gd` past its
+  300 lines, so `scorch` and the mend (`_regenerate`, now `mend`) moved to
+  `FormationRegeneration` (`formation_regeneration.gd`), unchanged but for the columns.
+- **Tests.** `test_unit_downed.gd` (new, red before this step): the five columns round-trip
+  and start blank on both backends and live on the native field; the recovery pass leaves the
+  same columns on both backends (a halt counted down, a downed unit drained and its time
+  downed counted down); a landed blow writes its wounds and its halt to the store and bury
+  reads the wounds back; and SkirmishUnit no longer declares them. `columns.rs` tests the new
+  columns' blanks and names (`cargo test`, run here).
+- **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI). The
+  digest names its columns, so the new ones don't change its bytes.
+- **Bench:** started on the PR (the alternating bench, `rounds=5`, `fight=10`, 4,096 a side in
+  four squads, Rust, against main at `356bb76`); its numbers go here and in spec 34's
+  "Measured" when it finishes.
+- **Built in a cloud session without Godot** (its network policy blocks the Godot download):
+  `test_unit_downed.gd` was written red against the tree but first runs in CI, as do the
+  other touched test files. Its `.uid` file comes with the first import.
+- **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 147`): 13
+  existing files, because Decision 147 moves the fields and Decision 144 moves every reader
+  with them in the same step.
 
 ## Open, for the implementing session to settle and record here
 
