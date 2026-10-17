@@ -6889,15 +6889,16 @@ Settled with the user:
   the owner's merge closes it. An agent may comment "Possibly settled by Decision N"; it never
   closes a question itself.
 - **A PR names its spec and step:** the spec is its milestone ("Spec 35: the unit store"),
-  and the step is a label (`step:7b`). A PR has one milestone, so the step can't be one; a
-  label is filterable alongside it, and the milestone keeps a progress bar over the whole spec.
+  and the step is a label naming spec and step (`step:35-7b`). A PR has one milestone, so the
+  step can't be one; the label carries the spec's number so it means one step anywhere it is
+  filtered or grouped, and the milestone keeps a progress bar over the whole spec.
 - **Labels:** kind (`design`, `implementation`, `chore`), area (`sim`, `native`, `designer`,
-  `ci`, `tooling`), flags (`outcomes-changed`, `needs-design`), `question`, `step:<N><letter>`,
+  `ci`, `tooling`), flags (`outcomes-changed`, `needs-design`), `question`, `step:<spec>-<step>`,
   and `raise-when:next-design`, `raise-when:spec-NN` or `raise-when:other` (a trigger only
   words can say; the body keeps the words).
 - **Mechanics run in a workflow,** since cloud agents have no tool to create labels or
   milestones: `github-sync` (run by hand, `GITHUB_TOKEN`) creates the labels, a milestone per
-  `specs/NN-*.md` and a step label per `### Step` heading, changing nothing on a second run;
+  `specs/NN-*.md` and a step label `step:NN-<id>` per `### Step <id>` heading, changing nothing on a second run;
   asked to, it migrates the open entries once.
 - **The Project is the owner's.** Agents never write to it; GitHub's built-in project
   workflows add items and set their status.

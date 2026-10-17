@@ -210,7 +210,7 @@ Gate 2 stays the owner's: the tool shows the change, and the owner judges it. Se
 
 ## Closed
 
-- Q30, track open questions and upcoming work on GitHub. **Resolved by Decision 148 (2026-10-17):** open questions become issues labelled `question` (a `raise-when:` label each); a PR names its spec as a milestone and its step as a `step:<id>` label; Decisions, specs, their steps and hand-offs stay in the repo; a `github-sync` workflow makes the labels and milestones and migrates the entries; the Project is the owner's. Built as spec 36.
+- Q30, track open questions and upcoming work on GitHub. **Resolved by Decision 148 (2026-10-17):** open questions become issues labelled `question` (a `raise-when:` label each); a PR names its spec as a milestone and its step as a `step:<spec>-<step>` label (`step:35-7b`); Decisions, specs, their steps and hand-offs stay in the repo; a `github-sync` workflow makes the labels and milestones and migrates the entries; the Project is the owner's. Built as spec 36.
 - Q28, one typed view onto the unit store for every pass. **Resolved by Decision 146 (2026-10-16):** a pass holds the columns it names as one typed view (`UnitView`), replacing `FleeColumns`, `UnitHealth.Table` and `UnitPlace.table`; a scattered mark gives `few:` or `reference:` only; no hold spans a native call; built as spec 35 steps 6a and 6b, before stamina (6c).
 - Q27, whether one bench run can tell a 5% change from noise. **Resolved (2026-10-15):** it can't; `bench` takes `rounds` and alternates head and base, comparing each phase's medians and ranges ([SSidey/Breach#236](https://github.com/SSidey/Breach/pull/236)). Its first use settled #234: the tick 1.5% faster, deaths 31% faster (spec 35, "Built → Step 5b").
 

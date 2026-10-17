@@ -36,7 +36,8 @@ labels and milestones are made by a workflow, and the Project by the owner.
    - `labels.py` holds the fixed label set (Decision 148) with a colour and description each.
    - `sync.py` plans, from the tree, every label and milestone that should exist: the fixed
      set; a milestone `Spec NN: <title>` per `specs/NN-*.md` (the title from its `# Spec NN:`
-     heading); a label `step:<id>` per `### Step <id>,` heading in any spec. It reads what
+     heading); a label `step:NN-<id>` per `### Step <id>,` heading in spec NN (the spec's number in the
+     label, so `step:35-1` and `step:36-1` never share one). It reads what
      exists through the REST API and creates only what is missing. It never renames or
      deletes.
    - `migrate_questions.py` parses `OPEN_QUESTIONS.md`'s Open section into entries (number,
@@ -57,7 +58,7 @@ labels and milestones are made by a workflow, and the Project by the owner.
    - `/run-phase`: list open `question` issues (`list_issues`, `labels: [question]`,
      `fields: [number, title, labels]`) instead of reading the file; open the PR with
      `create_pull_request` (not `gh pr create`); then one `issue_write` on the PR's number
-     setting the spec's milestone, `step:<id>`, kind and area labels; `Closes #N` in the body
+     setting the spec's milestone, `step:NN-<id>`, kind and area labels; `Closes #N` in the body
      for a question it settles; if a label or milestone is missing, trigger `github-sync`
      and say so rather than wait.
    - `/handoff`: an open question becomes an issue (`issue_write`, `question` and a
@@ -74,7 +75,12 @@ labels and milestones are made by a workflow, and the Project by the owner.
   `### Step 7b, …`) and `36-github-issues-for-questions.md`
 - When `sync.py` plans
 - Then the plan holds every fixed label, milestones `Spec 35: The unit store` and
-  `Spec 36: GitHub issues for open questions`, and labels `step:1a` and `step:7b`
+  `Spec 36: GitHub issues for open questions`, and labels `step:35-1a` and `step:35-7b`
+
+**Scenario: two specs' steps of the same name get two labels**
+- Given spec 35 and spec 36 each have a `### Step 1,` heading
+- When `sync.py` plans
+- Then it holds `step:35-1` and `step:36-1`, and no `step:1`
 
 **Scenario: a second run changes nothing**
 - Given the API reports every planned label and milestone as existing
