@@ -239,6 +239,7 @@ func _due_with_foes(count: int, cunning: int = 0) -> Array:
 
 func test_with_a_foe_near_some_play_dead_and_the_cunning_more_often() -> void:
 	var plain := _due_with_foes(40)
+	_places = UnitPlaces.new()  # the same ids, so a store of its own: a slot is one unit's
 	var cunning := _due_with_foes(40, 2)
 	_run(plain[0], 0.1)
 	_run(cunning[0], 0.1)
