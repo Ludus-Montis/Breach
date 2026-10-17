@@ -1052,7 +1052,16 @@ The loops converted, with the columns each reads:
   view's properties per unit: each read is a getter with its assert, several per unit. They
   now take the typed columns, which `_step_squad` takes from the view once a squad, and
   `squad_gives_up` indexes a typed local. Outcomes unchanged: the three digest sets on the
-  GDScript engine match main's tick for tick. The fix's own bench against main is the user's.
+  GDScript engine match main's tick for tick.
+- **Benched with the fix** (the same bench, `2928e72` against main at 6b, another runner): the
+  tick -1.6% (209.0 → 205.6 ms, ranges overlapping) and **stamina -12.2%** (17.17 → 15.07,
+  ranges apart). Taking the downed came out -22.7% (0.75 → 0.58, ranges apart), though 6c
+  doesn't touch it. Perception +8.7% (12.62 → 13.72) is within noise: its ranges overlap
+  (12.13-13.28 against 12.12-14.16), and 6c doesn't touch it either. No phase slower beyond
+  noise.
+- **Gate 2 deferred** (the user, 2026-10-17): until a game-like map exists (`OPEN_QUESTIONS.md`
+  Q25), play-feel review waits. `formation_field.tscn` "feels fine"; `formation_skirmish.tscn`
+  draws units on their formation places, so it isn't used for review.
 - **A view's properties are getters:** a loop takes each into a typed local before it, and
   helpers it calls per unit take those locals, not the view (6a's rule, now also for helpers).
 - **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 142`, as
