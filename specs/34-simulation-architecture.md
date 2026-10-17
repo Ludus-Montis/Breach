@@ -157,6 +157,33 @@ fight=3`; runners differ between runs, so compare percentages):
   the same phases above main (deaths 17.2 → 19.4, stamina 16.7 → 18.5, recovery 16.9 → 18.1,
   the re-form's occupancy 3.4 → 4.9): not noise. Spec 35 step 5b measures and fixes it.
 
+**Spec 35 step 6, one typed view onto the store** (#239 and #240; bench runs 38980543066 and
+38980545149, `tick_phases engine=rust side=4096 squads=4 fight=10`, 5 alternating rounds,
+medians; `*` = the rounds' ranges don't overlap; runners differ between the two runs, so compare
+percentages):
+- **6b against 6a** (#240's head fc7d473 against main fe6e240; AMD EPYC 9V45): **271.1 →
+  271.4 ms a tick** (+0.1%, within noise). The two phases 6b moved onto read views are faster:
+  the bodies snapshot **13.85 → 10.93** (−21.1%*) and engage, prepare and stance **12.12 →
+  10.29** (−15.1%*). The walk to places, which now holds its points and bearings for the
+  pass, didn't move (15.05 → 15.15, +0.7%). No phase is slower beyond noise: blows (22.65 →
+  25.75, +13.7%) and carry (8.03 → 8.67) swung within overlapping ranges.
+- **The series: spec 35 so far against `1cc4412`, the last commit before step 0** (fc7d473
+  against 1cc4412; Intel Xeon 6973P-C): **380.4 → 306.1 ms a tick** (−19.5%*). The largest
+  gains: the scrum's walk 20.24 → 4.28, the seek's gather 15.28 → 2.65 and its sync 10.63 →
+  4.61, body parting 41.23 → 22.23, deaths 17.24 → 11.55, the walk to places 21.35 → 17.94,
+  blows 31.30 → 27.93.
+- **Still slower than before step 0 (Q23):**
+  - **The rout: 47.08 → 55.06** (+16.9%*), the only large one. #237 and 6a held its columns,
+    but it stays above its pre-store cost: its loops now index typed arrays, and what remains
+    is for Q23 to find.
+  - **The shuffle's free front place: 5.96 → 6.55** (+9.9%*). It reads no store state
+    (spec 35 step 6b), so the cause isn't the store.
+  - **Engage's fronts: 2.44 → 3.16** (+29.5%*).
+  - **The shuffle's moves under way: 0.37 → 0.47** (+27.0%*).
+  - The chasers (0.02 → 0.04) are too small to read.
+  - The bodies snapshot (14.80 → 13.18) and engage (13.99 → 11.82), which the series bench
+    found slower before step 6, are now faster than before step 0.
+
 **Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
