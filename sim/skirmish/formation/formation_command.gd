@@ -43,3 +43,4 @@ static func enlist(squad, unit) -> void:
 	if unit.origin == null:
 		unit.origin = squad.command
 	squad.units.append(unit)
+	UnitState.regather(squad)

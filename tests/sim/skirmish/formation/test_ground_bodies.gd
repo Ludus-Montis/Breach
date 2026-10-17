@@ -36,11 +36,11 @@ func _march(body: SkirmishUnit) -> float:
 
 func test_a_body_its_own_weight_halves_its_pace_and_a_great_one_blocks_it() -> void:
 	var grem := _unit(2, Vector2(0.8, 0))
-	grem.state = SkirmishUnit.State.DOWNED
+	UnitState.start(grem, SkirmishUnit.State.DOWNED)
 	var dragon := _unit(3, Vector2(2.0, 0), 4)
-	dragon.state = SkirmishUnit.State.DEAD
+	UnitState.start(dragon, SkirmishUnit.State.DEAD)
 	var aside := _unit(4, Vector2(0.5, 3))
-	aside.state = SkirmishUnit.State.DOWNED
+	UnitState.start(aside, SkirmishUnit.State.DOWNED)
 	var standing := _unit(5, Vector2(0.8, 0))
 
 	assert_float(_march(grem)).is_equal_approx(0.5, 0.0001)

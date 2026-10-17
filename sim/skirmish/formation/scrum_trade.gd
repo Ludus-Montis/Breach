@@ -96,7 +96,11 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 	if stalled.any(func(unit): return not of.has(unit)):
 		return {}
 	return {
-		"points": points, "grid": BodyGrid.build(points), "held": living, "of": of, "order": order
+		"points": points,
+		"grid": BodyGrid.build(points),
+		"held": living.duplicate(),  # traded in place (_traded)
+		"of": of,
+		"order": order,
 	}
 
 

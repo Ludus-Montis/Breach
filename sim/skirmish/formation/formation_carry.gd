@@ -24,14 +24,20 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 ## and are picked up. `events` are this tick's so far (a bearer's "fled_home"). Returns
 ## [[bearer, its squad], ...] setting off home alone with a body.
 static func step(squads: Array, tick: int, fight_seed: int, events: Array) -> Array:
-	var units := {}  # unit id -> [unit, its squad]
+	var bodies := {}  # body id -> [body, its squad]: the downed, in the squads' order
+	var bearers := {}  # bearer id -> [bearer, its squad], standing or not
 	for squad in squads:
+		for body in UnitState.downed(squad):
+			bodies[body.id] = [body, squad]
 		for unit in squad.units:
-			units[unit.id] = [unit, squad]
-	_bring_home(units, tick, events)
-	for unit_id in units:
-		_follow(units[unit_id][0], units)
-	return _pick_up(squads, units, tick, fight_seed, events)
+			if unit.carrying != 0:
+				bearers[unit.id] = [unit, squad]
+	_bring_home(bodies, tick, events)
+	for body_id in bodies:
+		_follow(bodies[body_id], bearers)
+	for bearer_id in bearers:
+		_hold(bearers[bearer_id][0], bodies)
+	return _pick_up(squads, bodies, tick, fight_seed, events)
 
 
 ## The weight its body is, borne.
@@ -40,46 +46,53 @@ static func body_weight(body: SkirmishUnit) -> float:
 
 
 ## Bodies whose bearers fled home this tick come home too.
-static func _bring_home(units: Dictionary, tick: int, events: Array) -> void:
+static func _bring_home(bodies: Dictionary, tick: int, events: Array) -> void:
 	var homes := events.filter(func(e): return e["type"] == "fled_home")
 	for event in homes:
-		for unit_id in units:
-			var body: SkirmishUnit = units[unit_id][0]
+		for body_id in bodies:
+			var body: SkirmishUnit = bodies[body_id][0]
+			var squad: SkirmishSquad = bodies[body_id][1]
 			if body.state == SkirmishUnit.State.CARRIED and body.carried_by == event["unit"]:
-				units[unit_id][1].units.erase(body)
+				squad.units.erase(body)
+				UnitState.regather(squad)
 				var extra := {"unit": body.id, "definition": body.definition}
-				events.append(
-					FormationEvents.squad_event("fled_home", tick, units[unit_id][1], extra)
-				)
+				events.append(FormationEvents.squad_event("fled_home", tick, squad, extra))
 
 
-## A body follows its bearer; a bearer down drops it, and one come to is set down.
-static func _follow(unit: SkirmishUnit, units: Dictionary) -> void:
-	if unit.state == SkirmishUnit.State.CARRIED:
-		var bearer: SkirmishUnit = units[unit.carried_by][0] if units.has(unit.carried_by) else null
-		if bearer == null or not bearer.is_alive():
-			unit.state = SkirmishUnit.State.DOWNED  # dropped where it is
-			unit.carried_by = 0
-		else:
-			var columns: UnitColumns = units[unit.id][1].store.columns
-			# placement: a carried body is where its bearer is (Decision 139)
-			columns.put(
-				unit.slot, UnitColumns.POSITION, columns.value(bearer.slot, UnitColumns.POSITION)
-			)
-	if unit.carrying != 0:
-		var body: SkirmishUnit = units[unit.carrying][0] if units.has(unit.carrying) else null
-		if body == null or body.state != SkirmishUnit.State.CARRIED or not unit.is_alive():
-			unit.carrying = 0
-			_bear(unit, null)
+## A body ([body, its squad]) follows its bearer; one whose bearer is down or gone is
+## dropped where it is.
+static func _follow(entry: Array, bearers: Dictionary) -> void:
+	var body: SkirmishUnit = entry[0]
+	if body.state != SkirmishUnit.State.CARRIED:
+		return
+	var bearer: SkirmishUnit = bearers[body.carried_by][0] if bearers.has(body.carried_by) else null
+	if bearer == null or not bearer.is_alive():
+		UnitState.put(entry[1], body, SkirmishUnit.State.DOWNED)  # dropped where it is
+		body.carried_by = 0
+	else:
+		var columns: UnitColumns = entry[1].store.columns
+		# placement: a carried body is where its bearer is (Decision 139)
+		columns.put(
+			body.slot, UnitColumns.POSITION, columns.value(bearer.slot, UnitColumns.POSITION)
+		)
+
+
+## A bearer that is down, or whose body is no longer borne (it came to, died or went
+## home), sets its load down.
+static func _hold(unit: SkirmishUnit, bodies: Dictionary) -> void:
+	var body: SkirmishUnit = bodies[unit.carrying][0] if bodies.has(unit.carrying) else null
+	if body == null or body.state != SkirmishUnit.State.CARRIED or not unit.is_alive():
+		unit.carrying = 0
+		_bear(unit, null)
 
 
 ## Every free unit of a formation that tends its downed, beside a friendly body it can
 ## still move bearing, may pick it up: the nearest pairs first, ties by the body's then the
 ## bearer's seeded draws - never the lists (Decision 97) - each body and bearer once.
 static func _pick_up(
-	squads: Array, units: Dictionary, tick: int, fight_seed: int, events: Array
+	squads: Array, bodies: Dictionary, tick: int, fight_seed: int, events: Array
 ) -> Array:
-	var pairs := _pairs(squads, units, fight_seed)
+	var pairs := _pairs(squads, bodies, fight_seed)
 	pairs.sort_custom(func(a, b): return ScrumContest.before(a[0], b[0]))
 	var strays := []
 	for pair in pairs:
@@ -87,7 +100,7 @@ static func _pick_up(
 		var bearer: SkirmishUnit = pair[2]
 		if body.state != SkirmishUnit.State.DOWNED or bearer.carrying != 0:
 			continue
-		body.state = SkirmishUnit.State.CARRIED
+		UnitState.put(bodies[body.id][1], body, SkirmishUnit.State.CARRIED)
 		body.carried_by = bearer.id
 		bearer.carrying = body.id
 		_bear(bearer, body)
@@ -99,14 +112,15 @@ static func _pick_up(
 
 
 ## [key, body, bearer, its squad] for each friendly body a free unit of a formation that
-## tends its downed could pick up, as all stand. The downed are found once, and whether a
-## foe guards each; each formation's bearers through a grid of where they stand.
-static func _pairs(squads: Array, units: Dictionary, fight_seed: int) -> Array:
+## tends its downed could pick up, as all stand (`bodies`: body id -> [body, its squad]).
+## The downed are found once, and whether a foe guards each; each formation's bearers
+## through a grid of where they stand.
+static func _pairs(squads: Array, bodies: Dictionary, fight_seed: int) -> Array:
 	var reach := BattleTuning.current().wounds_reach
 	var pairs := []
 	var free := {}  # faction -> [downed body no foe is near, ...]: found if any tends
 	if squads.any(func(squad): return _tending(squad)):
-		free = _unguarded(units)
+		free = _unguarded(squads, bodies)
 	for squad in squads:
 		if not _tending(squad) or not free.has(squad.faction_id):
 			continue
@@ -135,20 +149,19 @@ static func _tending(squad: SkirmishSquad) -> bool:
 
 
 ## {faction: [each downed body of it with no foe standing within wounds_guard_reach, in
-## the order of `units`]}: the standing found through a grid of where they stand.
-static func _unguarded(units: Dictionary) -> Dictionary:
+## the order of `bodies`]}: the standing found through a grid of where they stand.
+static func _unguarded(squads: Array, bodies: Dictionary) -> Dictionary:
 	var guard := BattleTuning.current().wounds_guard_reach
-	var standing := []
 	var downed := []
-	for unit_id in units:
-		var unit: SkirmishUnit = units[unit_id][0]
-		if unit.is_alive():
-			standing.append(unit)
-		elif unit.state == SkirmishUnit.State.DOWNED:
-			downed.append(unit)
+	for body_id in bodies:
+		if bodies[body_id][0].state == SkirmishUnit.State.DOWNED:
+			downed.append(bodies[body_id][0])
 	if downed.is_empty():
 		return {}
-	var at: PackedVector2Array = units[downed[0].id][1].store.columns.column(UnitColumns.POSITION)
+	var standing := []
+	for squad in squads:
+		standing.append_array(squad.living())
+	var at: PackedVector2Array = bodies[downed[0].id][1].store.columns.column(UnitColumns.POSITION)
 	var grid := BodyGrid.build(standing.map(func(unit): return at[unit.slot]))
 	var free := {}
 	for body in downed:

@@ -49,7 +49,7 @@ func _squad(squad_id: int, members: Array, tends: String = "") -> SkirmishSquad:
 
 func _downed(unit: SkirmishUnit, wake_left: float = -1.0) -> SkirmishUnit:
 	_places.health(unit, 0)
-	unit.state = SkirmishUnit.State.DOWNED
+	UnitState.start(unit, SkirmishUnit.State.DOWNED)
 	unit.wounded = 1
 	unit.wake_left = wake_left
 	return unit
@@ -59,6 +59,7 @@ func _reversed(squads: Array) -> void:
 	squads.reverse()
 	for squad in squads:
 		squad.units.reverse()
+		UnitState.regather(squad)
 
 
 ## Everything about the wounded, by id: hp, place, state, wounds, stamina, what it bears.
@@ -92,6 +93,7 @@ func _two_come_to(reverse: bool) -> String:
 	var standing := _unit(1, Vector2(2, 0))
 	var squad := _squad(1, [standing, _downed(_unit(2, Vector2(0, 1)), 0.05)])
 	squad.units.append(_downed(_unit(3, Vector2(0, -1)), 0.05))
+	UnitState.regather(squad)
 	var squads := [squad]
 	if reverse:
 		_reversed(squads)

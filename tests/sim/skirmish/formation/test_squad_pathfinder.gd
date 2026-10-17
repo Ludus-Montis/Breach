@@ -29,7 +29,7 @@ func test_the_wittiest_living_unit_finds_the_way_whoever_leads() -> void:
 	squad.units[0].leadership = 50
 
 	assert_object(SquadPathfinder.pick(squad, 1)).is_same(squad.units[1])
-	squad.units[1].state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, squad.units[1], SkirmishUnit.State.DEAD)
 	assert_object(SquadPathfinder.pick(squad, 1)).is_same(squad.units[2])
 
 
@@ -40,14 +40,16 @@ func test_equal_wits_go_to_the_seeded_draw_not_the_list_order() -> void:
 		var chosen = SquadPathfinder.pick(squad, fight_seed)
 		assert_bool(chosen == squad.units[0] or chosen == squad.units[1]).is_true()
 		squad.units.reverse()
+		UnitState.regather(squad)
 		assert_object(SquadPathfinder.pick(squad, fight_seed)).is_same(chosen)
 		squad.units.reverse()
+		UnitState.regather(squad)
 		picked[chosen.id] = true
 	assert_int(picked.size()).is_equal(2)
 
 
 func test_a_squad_with_none_standing_has_no_pathfinder() -> void:
 	var squad = _squad([10])
-	squad.units[0].state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, squad.units[0], SkirmishUnit.State.DEAD)
 
 	assert_object(SquadPathfinder.pick(squad, 1)).is_null()

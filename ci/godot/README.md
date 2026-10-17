@@ -19,6 +19,7 @@ yet. Every script here was run against a deliberately broken case before being t
 | `naming-grep-discoverable` | `ci/godot/scripts/check_generic_naming.py` | pre-commit |
 | `order-independent-simulation` (static half) | `ci/godot/scripts/check_id_order.py` | pre-commit and CI, on `sim/` |
 | `one-mover` | `ci/godot/scripts/check_one_mover.py` | pre-commit and CI, on `sim/`: a position written outside UnitMover unless marked `# placement: <why>` (Decision 139) |
+| `one-state` | `ci/godot/scripts/check_one_state.py` | pre-commit and CI, on `sim/`, `tools/`, `presentation/` and `tests/`: a unit's state written outside UnitState (`.state = SkirmishUnit.State.`), `UnitState.start` in `sim/`, or a kept list from `living()` or `UnitState.downed` changed by its caller (Decision 147) |
 | `store-reads-once` | `ci/godot/scripts/check_store_reads.py` | pre-commit and CI, on `sim/`: the unit store read or written unit by unit inside a loop, unless the line or its loop is marked `# store: scattered (few: <why>)` or `(reference: <why>)` (Decisions 144 and 146) |
 | `order-independent-simulation` (trial half) | swapped-spawn-order trial, per `.claude/skills/design-check` | procedural, on any change to simulation outcomes |
 | `isp-method-count` / `isp-stub-detection` | `ci/godot/scripts/check_isp.py` | pre-commit and CI |

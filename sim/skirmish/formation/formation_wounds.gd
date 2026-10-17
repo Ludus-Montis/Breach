@@ -32,8 +32,8 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 static func tend(squads: Array, tick: int, interval: int, fight_seed: int, events: Array) -> void:
 	var downed := []
 	for squad in squads:
-		for unit in squad.units:
-			if unit.state == SkirmishUnit.State.DOWNED:
+		for unit in UnitState.downed(squad):
+			if unit.state == SkirmishUnit.State.DOWNED:  # a borne body isn't taken
 				downed.append([unit, squad])
 	if downed.is_empty():
 		return
@@ -42,8 +42,8 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 	var around := _cells_around(downed, at, tuning.wounds_reach + tuning.wounds_guard_reach)
 	var standing := []  # [unit, squad], near a downed body
 	for squad in squads:
-		for unit in squad.units:
-			if unit.is_alive() and around.has(BodyGrid.cell_of(at[unit.slot])):
+		for unit in squad.living():
+			if around.has(BodyGrid.cell_of(at[unit.slot])):
 				standing.append([unit, squad])
 	# taken and taking in the units' seeded draws' order, never the list's (Decision 97):
 	# a captor or a leader's last messenger goes to the first of them
@@ -115,7 +115,7 @@ static func surrender(
 			continue
 		var want := chance * (1.0 - clampf(caught.courage / 100.0, 0.0, 1.0))
 		if BattleRolls.uniform(fight_seed, [tick, caught.id, "surrender"]) < want:
-			caught.state = SkirmishUnit.State.TAKEN
+			UnitState.put(routing[caught.id], caught, SkirmishUnit.State.TAKEN)
 			events.append(
 				FormationEvents.unit_event("surrendered", tick, routing[caught.id], caught)
 			)
@@ -199,7 +199,7 @@ static func _take(taking: Array, squads: Array, when: Array, events: Array) -> v
 	var takers := taking.slice(2)
 	for taker in takers:
 		if taker[0].traits.get("captor", 0) > 0:
-			body.state = SkirmishUnit.State.TAKEN
+			UnitState.put(taking[1], body, SkirmishUnit.State.TAKEN)
 			var extra := {"by": taker[0].id}
 			events.append(FormationEvents.unit_event("captured", tick, taking[1], body, extra))
 			return
@@ -207,7 +207,7 @@ static func _take(taking: Array, squads: Array, when: Array, events: Array) -> v
 		var leader := _messenger(taker[1])
 		if leader != null:
 			leader.traits["messenger"] = leader.traits["messenger"] - 1
-			body.state = SkirmishUnit.State.RELEASED
+			UnitState.put(taking[1], body, SkirmishUnit.State.RELEASED)
 			events.append(FormationEvents.unit_event("sent_home", tick, taking[1], body))
 			for squad in squads:
 				if squad.faction_id == body.faction_id and not squad.is_destroyed():
@@ -223,7 +223,7 @@ static func _take(taking: Array, squads: Array, when: Array, events: Array) -> v
 		cooldowns[striker.slot] = maxi(1, roundi(interval * striker.melee_seconds))
 		UnitHealth.hurt(health, body, striker.dmg)
 	if UnitHealth.of(health, body) <= -FormationDeaths.depth(body):
-		body.state = SkirmishUnit.State.DEAD
+		UnitState.put(taking[1], body, SkirmishUnit.State.DEAD)
 		events.append(FormationEvents.unit_event("finished", tick, taking[1], body))
 
 

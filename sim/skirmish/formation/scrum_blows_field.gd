@@ -76,9 +76,8 @@ static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var targets := PackedInt64Array()
 	for squad in squads:
-		for unit: SkirmishUnit in squad.units:
-			if unit.is_alive():
-				targets.append(unit.target_id)
+		for unit: SkirmishUnit in squad.living():
+			targets.append(unit.target_id)
 	var asked := PackedInt64Array()
 	for blow in landing:
 		asked.append(blow[0].id)
@@ -130,9 +129,7 @@ static func _sync(field: Object, squads: Array, fight_seed: int) -> Array:
 	var flat := 0
 	for squad in squads:
 		var before := flat
-		for unit: SkirmishUnit in squad.units:
-			if not unit.is_alive():
-				continue
+		for unit: SkirmishUnit in squad.living():
 			unit.target_id = 0
 			units[flat] = unit
 			owners[flat] = squad

@@ -161,7 +161,7 @@ func test_a_fallen_leader_shocks_the_squad_and_lowers_its_ceiling() -> void:
 	var squad := _squad(1, [_unit(1, 0), leader])
 	squad.morale = FormationMorale.ceiling(squad)
 	assert_int(squad.morale).is_equal(80)
-	leader.state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, leader, SkirmishUnit.State.DEAD)
 	var events := []
 
 	FormationMorale.losses(squad, [leader], 5, events)

@@ -78,6 +78,7 @@ func _scrum(ticks: int, reversed: bool) -> Array:
 		squads.reverse()
 		for squad in squads:
 			squad.units.reverse()
+			UnitState.regather(squad)
 	return squads
 
 

@@ -172,6 +172,7 @@ func test_the_view_forms_of_where_a_unit_stands_match_the_scattered_ones() -> vo
 			unit.id = unit_id
 			unit.slot = store.admit(unit)
 			squad.units.append(unit)
+			UnitState.regather(squad)
 			store.columns.put(unit.slot, UnitColumns.POSITION, Vector2(unit_id, 2))
 			units.append(unit)
 		SquadEntries.loosen(squad, units[1], Vector2(5, 6))

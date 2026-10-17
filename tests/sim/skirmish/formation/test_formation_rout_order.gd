@@ -39,6 +39,7 @@ func _reverse(squads: Array) -> void:
 	squads.reverse()
 	for squad in squads:
 		squad.units.reverse()
+		UnitState.regather(squad)
 
 
 ## The field with both waves built; `waits` sends B to wait in the wood and A after it.

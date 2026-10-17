@@ -32,7 +32,7 @@ func _setup(count: int, gap: float) -> Array:
 	var body: SkirmishUnit = foe.units[0]
 	UnitPlaces.put(foe, body, Vector2(40.0 + gap, line.position.y))
 	UnitHealth.put_one(foe, body, 0)
-	body.state = SkirmishUnit.State.DOWNED
+	UnitState.put(foe, body, SkirmishUnit.State.DOWNED)
 	body.wake_left = 999.0
 	return [sim, line, body]
 
@@ -121,9 +121,11 @@ func test_each_unit_takes_one_body_whatever_the_list_order() -> void:
 		second.slot = sim.store.enrol(second.id)
 		UnitPlaces.put(foe, second, lay)
 		foe.units.append(second)
+		UnitState.regather(foe)
 		if reverse:
 			sim.squads().reverse()
 			line.units.reverse()
+			UnitState.regather(line)
 		_run(sim, 1)
 		var taken := {}
 		for unit_id in line.taking:

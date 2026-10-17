@@ -73,6 +73,7 @@ func test_a_unit_taken_into_another_group_follows_its_command_and_keeps_its_orig
 	var unit: SkirmishUnit = own.units[0]
 
 	own.units.erase(unit)
+	UnitState.regather(own)
 	FormationCommand.enlist(other, unit)
 
 	assert_object(unit.command).is_same(other.command)

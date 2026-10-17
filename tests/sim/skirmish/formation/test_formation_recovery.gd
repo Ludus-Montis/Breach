@@ -39,9 +39,13 @@ func _squad(members: Array) -> SkirmishSquad:
 	return SkirmishSquad.new(1, "player", 1, 0.0, members.size(), typed, null, _places.store)
 
 
-func _downed(unit: SkirmishUnit) -> SkirmishUnit:
+## Downs `unit`; `squad` is the one it is in, if it is in one yet.
+func _downed(unit: SkirmishUnit, squad: SkirmishSquad = null) -> SkirmishUnit:
 	_places.health(unit, 0)
-	unit.state = SkirmishUnit.State.DOWNED
+	if squad != null:
+		UnitState.put(squad, unit, SkirmishUnit.State.DOWNED)
+	else:
+		UnitState.start(unit, SkirmishUnit.State.DOWNED)
 	unit.wounded = 1
 	return unit
 
@@ -113,7 +117,7 @@ func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:
 	squad.front_distance = 0.5
 	sim.step()
 	var unit: SkirmishUnit = squad.units[0]
-	_downed(unit)
+	_downed(unit, squad)
 	unit.wake_left = 0.05
 	var events := []
 	for _i in range(200):
@@ -191,7 +195,7 @@ func test_the_fallen_lie_where_they_fell() -> void:
 	)
 	sim.step()
 	var fallen: SkirmishUnit = squad.units[0]
-	_downed(fallen)
+	_downed(fallen, squad)
 	var where := UnitPlaces.of(squad, fallen)
 	for _i in range(20):
 		sim.step()
@@ -271,7 +275,7 @@ func test_a_thorough_foe_is_fooled_less_often() -> void:
 			theirs.faction_id = "the_kingdom"
 			theirs.id = 2
 			_places.health(body, 0)
-			body.state = SkirmishUnit.State.DOWNED
+			UnitState.start(body, SkirmishUnit.State.DOWNED)
 			FormationWounds.tend([_squad([body]), theirs], 1, 10, 1, events)
 			if events.is_empty() and taker.target_id == 0:
 				fooled[which] += 1

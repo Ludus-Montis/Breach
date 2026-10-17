@@ -9,7 +9,7 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 
 
 static func close(squad: SkirmishSquad) -> void:
-	var order := squad.living()
+	var order := squad.living().duplicate()  # sorted below
 	var places := {}  # unit -> its place, read once
 	var table := UnitView.read(squad, UnitView.PLACES)
 	for unit in order:

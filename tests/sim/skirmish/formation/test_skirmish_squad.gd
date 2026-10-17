@@ -52,7 +52,7 @@ func test_a_squad_moves_at_its_slowest_living_units_speed() -> void:
 	var squad := _squad(1, [_unit(1, 0, 0), slow])
 
 	assert_float(squad.speed()).is_equal(0.5)
-	slow.state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, slow, SkirmishUnit.State.DEAD)
 	assert_float(squad.speed()).is_equal(1.0)
 
 
@@ -68,7 +68,7 @@ func test_fighters_are_the_foremost_living_unit_of_each_column() -> void:
 func test_step_up_closes_the_column_after_a_front_death() -> void:
 	var front := _unit(1, 0, 0)
 	var squad := _squad(1, [front, _unit(2, 1, 0), _unit(3, 2, 0)])
-	front.state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, front, SkirmishUnit.State.DEAD)
 
 	var moved := squad.compact()
 
@@ -81,7 +81,7 @@ func test_step_up_closes_the_column_after_a_front_death() -> void:
 func test_a_wide_unit_only_steps_up_when_its_whole_footprint_is_clear() -> void:
 	var blocker := _unit(1, 0, 0)
 	var squad := _squad(2, [blocker, _unit(2, 0, 1), _unit(3, 1, 0, 1, 2)])
-	squad.units[1].state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, squad.units[1], SkirmishUnit.State.DEAD)
 
 	assert_array(squad.compact()).is_empty()  # column 0 is still held at rank 0
 
@@ -92,7 +92,7 @@ func test_a_unit_steps_up_over_passes_and_the_units_behind_follow_while_clear() 
 	var wide := _unit(6, 3, 0, 1, 2)  # behind it, across columns 0 and 1
 	var squad := _squad(2, lost + [climber, _unit(4, 0, 1), _unit(5, 1, 1), wide])
 	for unit in lost:
-		unit.state = SkirmishUnit.State.DEAD
+		UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 
 	var moved := squad.compact()
 
@@ -128,7 +128,7 @@ func test_no_one_steps_up_into_a_place_a_move_under_way_is_heading_for() -> void
 	var mover := _unit(3, 1, 1)  # on its way to that same place
 	var squad := _squad(3, [fallen, behind, mover, _unit(4, 0, 2)])  # the front still stands
 	squad.swaps.append({"to": {mover: Vector2i(0, 0)}, "from": {mover: Vector2i(1, 1)}})
-	fallen.state = SkirmishUnit.State.DEAD
+	UnitState.put(squad, fallen, SkirmishUnit.State.DEAD)
 
 	assert_array(squad.compact()).is_empty()  # the hole is the mover's
 	assert_int(UnitPlace.rank(squad, behind)).is_equal(1)

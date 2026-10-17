@@ -174,6 +174,7 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	leader.centre_shift += (width - leader.width) / 2.0 - shift  # the leader stays put
 	leader.width = width
 	joining.units.clear()
+	UnitState.regather(joining)
 	return leader.compact()
 
 

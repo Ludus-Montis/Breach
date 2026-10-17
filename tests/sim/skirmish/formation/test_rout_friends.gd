@@ -142,7 +142,7 @@ func _ids(hit: Array) -> Array:
 func _fell(squads: Array) -> void:
 	for squad in squads:
 		for unit in squad.units.slice(0, 24, 5):
-			unit.state = SkirmishUnit.State.DEAD
+			UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 
 
 # The searches of every unit, as they were before the grids.

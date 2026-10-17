@@ -57,6 +57,7 @@ func _reverse(squads: Array) -> void:
 	squads.reverse()
 	for squad in squads:
 		squad.units.reverse()
+		UnitState.regather(squad)
 
 
 ## The first tick (1-based) at which a battle and its list-reversed twin differ; 0 if none.
