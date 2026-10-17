@@ -1075,4 +1075,17 @@ The loops converted, with the columns each reads:
 
 ## Open, for the implementing session to settle and record here
 
-- Nothing open. Presentation's snapshot was settled in step 1a (above).
+- Presentation's snapshot was settled in step 1a (above).
+- **Step 7 waits for a design session** (the user, 2026-10-17, starting `/run-phase spec 35
+  step 7`). It is larger than step 5 or 6 was. In the tree at `f86ba12`, `.state` has 138
+  references in 55 files and `living()` 131 in 59. Per-tick fields still on `SkirmishUnit`
+  include `target_id`, `wait_ticks`, `home_distance`, `distance`, the walker's `foothold`,
+  `on_face` and `climb_left`, recovery's `regeneration_carry` and `regeneration_halt`, the
+  downed's `wake_left`, `drain_carry` and `wounded`, `wounding`, `last_wounding`,
+  `playing_dead`, `carrying` and `carried_by`, and maybe `order`. The session settles how
+  step 7 splits into PRs, and how wounds, taking, recovery and carry read the downed list
+  (`OPEN_QUESTIONS.md` Q24).
+  - **Already settled, `living()`: a kept list** (the user, 2026-10-17). Each squad keeps its
+    living units in `squad.units` order. The state writer, joins and splits maintain it.
+    `living()` returns it in O(1), and callers don't change it. Decision 145's fell queue
+    is the pattern.
