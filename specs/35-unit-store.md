@@ -72,6 +72,9 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
 - **Step 6b, the slower phases on the view: built** (2026-10-16). See "Built" below.
 - **Step 6c, stamina, speed and exertion: built** (2026-10-16), with each unit's condition
   (the user). See "Settled for step 6" and "Built" below.
+- **Step 7 designed** (2026-10-17, Decision 147, Q24): 7a puts a unit's state behind one
+  writer, `UnitState`, with each squad's living and downed lists; 7b moves the downed's and
+  recovery's per-tick fields and `last_wounding`; 7c moves the rest. See "Settled for step 7".
 
 ## The store
 
@@ -171,6 +174,7 @@ against its base. The numbers go in the PR and in spec 34's "Measured" section.
    "Settled for step 6" below.
 7. **Flags and the rest.** Alive, down and the unit's state. Then inventory
    `SkirmishUnit` for any per-tick field that is left.
+   Three PRs (Decision 147): see "Settled for step 7" below.
 
 Steps 1 to 3 change outcomes nowhere. The ported passes keep calling into Rust as today,
 but read from the store instead of a sync. The glue is gone at step 4.
@@ -369,6 +373,71 @@ had its own pattern, and only a typed array's index is cheap on the native store
     `regeneration_halt`, and the downed's `wake_left` and `drain_carry`, go with the downed
     flags and step 7's inventory. So does recovery's scan of every unit for the downed
     (`OPEN_QUESTIONS.md` Q24: the downed list, Decision 145).
+
+## Settled for step 7 (the user, 2026-10-17; Decision 147)
+
+From the step 7 design session. In the tree at `f86ba12`, a unit's state is written in 11
+places, all events, and its cost is in the reading: `living()` filters on every call, and
+wounds, recovery and carry walk every unit for the downed (Q24). Taken and released units
+leave the field, so **the downed are `DOWNED` or `CARRIED`**.
+
+- **7a: one writer for state, and the kept lists.**
+  - **`UnitState`** makes every change to a unit's state: the 11 writes (bury's death and
+    downing in `formation_deaths.gd`, recovery's bleed-out and waking, wounds' taking,
+    release and finishing, carry's pick-up and drop) call it. `check_one_state.py`, in the
+    style of `check_one_health.py`, flags `.state = SkirmishUnit.State.` anywhere else
+    (squads use `SkirmishSquad.State`, so the two don't mix). Tests in its own test file
+    first, red then green; `ci/godot/README.md` lists it. **State stays on the record**: it
+    changes only on events (step 6c's rule). 7b records whether native passes need a STATE
+    column.
+  - **Each squad keeps a living list and a downed list**, both in `squad.units` order. Only
+    `UnitState` changes them; joins and splits (`group_split.gd` and wherever units change
+    squad) rebuild the lists of the squads they touch. `living()` returns its list in O(1).
+    Whether a change inserts the unit in its place or marks the squad for one rebuild at its
+    next read is 7a's choice, by the bench.
+  - **No write under a walk.** A pass that changes state while walking a kept list walks a
+    copy of it; `UnitState` asserts when a write lands on a list being walked (a test calls
+    one and expects the assert). In the tree only recovery's downed loop does this (a
+    bleed-out). Callers never change a kept list: the check flags `living()` followed by
+    `append`, `erase`, `sort`, `reverse` or another mutator.
+  - **The reversed-lists test** (`test_formation_list_order.gd`, `_reverse`) rebuilds the
+    kept lists after reversing `squad.units`, as a join does, or it checks nothing.
+- **7b: the downed's fields and recovery's.** Columns `REGENERATION_CARRY`,
+  `REGENERATION_HALT`, `WAKE_LEFT`, `DRAIN_CARRY` and `LAST_WOUNDING`, both backends, off
+  `SkirmishUnit`. `last_wounding` moves although it changes per blow, not per tick: hp's
+  blows write it, and a native blow pass would otherwise need a glue write.
+- **7c: the rest.** Columns `TARGET_ID`, `DISTANCE`, `FOOTHOLD`, `ON_FACE` and `CLIMB_LEFT`.
+  The unit copies of `order`, `home_distance` and `wait_ticks` are written only on squads:
+  7c greps for a reader of the unit copy and deletes them.
+- **Stay on the record** (event-only): `wounded` (at downing), `playing_dead`, `carrying`,
+  `carried_by`, `wounding` and `advance_direction` (at make), `max_hp`, and the rest of the
+  unit's stats.
+
+**Readers and writers (Decision 144), in outline.** Each PR completes its list from a grep
+before it changes code, as 5b did.
+
+| Where | Reads, writes | Plan |
+|---|---|---|
+| the 11 state writes | write state | `UnitState`, which keeps both lists (7a) |
+| `.state` readers (138) | read state | unchanged in 7a (state stays on the record) |
+| `living()` callers (131) | read the living list | unchanged; O(1); never mutated (7a) |
+| `formation_wounds.gd:34` (strikes on the downed) | the downed | walk the downed lists, skip `CARRIED` (7a) |
+| `formation_wounds.gd:44`, `:103` (taking) | the standing | `living()` (7a) |
+| `formation_recovery.gd:42` (regeneration, drain, waking, bleed-out) | living and downed | the living list, then a copy of the downed list, but only if regeneration emits no event and touches only its own unit (7a checks); otherwise the two lists merged in `squad.units` order so no event moves (7a). 7b: its view holds the four recovery columns with `HP` and `CONDITION` |
+| `formation_carry.gd:28` (a map of every unit) | the downed, bearers | bodies from the downed lists; bearers through `carried_by` by an id lookup the battle already keeps (7a) |
+| `body_field_sync.gd:55`, `:77`, `scrum_blows_field.gd:80`, `:134` | alive | walk the living list (7a) |
+| `blow_landing.gd:44`, `:105` | write `last_wounding` | the blows' hp view (7b) |
+| `formation_deaths.gd` (bury) | read `last_wounding` | a read view (7b) |
+| blows: `scrum_blows.gd`, `scrum_blows_field.gd`, `rout_blows.gd`, `formation_combat.gd`, `formation_melee.gd`, `formation_wounds.gd:219` | write `target_id` | the views that hold `ATTACK_COOLDOWN` add `TARGET_ID`; the native field's twin writes it (7c) |
+| `formation_march.gd:150` | write `distance` | the march holds `DISTANCE` (7c) |
+| `walk_modes.gd`, `formation_march.gd` | `foothold`, `on_face`, `climb_left` | the walk holds them; `formation_stamina.gd` reads `ON_FACE` by a read view (7c) |
+| presentation `skirmish_squad_layer.gd` | `target_id`, `distance` | one column fetch a frame (7c) |
+| `tools/formation_digest.gd`, `blows_bench.gd` | the moved fields | through the store |
+
+**Every PR:** outcomes unchanged (the `sim-checks` digests, both engines; a moved digest
+means the mirror trials, `design-check`). The alternating bench (`rounds=5`) against its
+base: 7a shows wounds, recovery, carry and taking faster, and every PR shows no phase slower
+beyond noise. When 7c is built, raise Q23 and Q26 (and Q24's remainder) in one design session.
 
 ## Built
 
@@ -1076,16 +1145,5 @@ The loops converted, with the columns each reads:
 ## Open, for the implementing session to settle and record here
 
 - Presentation's snapshot was settled in step 1a (above).
-- **Step 7 waits for a design session** (the user, 2026-10-17, starting `/run-phase spec 35
-  step 7`). It is larger than step 5 or 6 was. In the tree at `f86ba12`, `.state` has 138
-  references in 55 files and `living()` 131 in 59. Per-tick fields still on `SkirmishUnit`
-  include `target_id`, `wait_ticks`, `home_distance`, `distance`, the walker's `foothold`,
-  `on_face` and `climb_left`, recovery's `regeneration_carry` and `regeneration_halt`, the
-  downed's `wake_left`, `drain_carry` and `wounded`, `wounding`, `last_wounding`,
-  `playing_dead`, `carrying` and `carried_by`, and maybe `order`. The session settles how
-  step 7 splits into PRs, and how wounds, taking, recovery and carry read the downed list
-  (`OPEN_QUESTIONS.md` Q24).
-  - **Already settled, `living()`: a kept list** (the user, 2026-10-17). Each squad keeps its
-    living units in `squad.units` order. The state writer, joins and splits maintain it.
-    `living()` returns it in O(1), and callers don't change it. Decision 145's fell queue
-    is the pattern.
+- **Step 7 waited for a design session** (the user, 2026-10-17); settled in it: see
+  "Settled for step 7" and Decision 147.
