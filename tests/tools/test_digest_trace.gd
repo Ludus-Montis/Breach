@@ -88,6 +88,15 @@ func test_the_trace_holds_the_window_and_nothing_else() -> void:
 		assert_bool(_trace[index]["squads"].is_empty()).is_false()
 
 
+## Each squad's side, for the page to colour by (not hashed: the digest's state leaves it out).
+func test_each_squad_says_its_faction() -> void:
+	var sim: FormationSimulation = _mirror(10)[0]
+	var factions := sim.squads().map(func(s): return s.faction_id)
+	var traced: Array = _trace[0]["squads"].map(func(s): return s.get("faction"))
+	assert_array(traced).is_equal(factions)
+	assert_int(factions.filter(func(f): return f != factions[0]).size()).is_greater(0)
+
+
 func test_the_trace_says_what_the_digest_hashes() -> void:
 	var tick := 12
 	var line: Dictionary = _trace[tick - 10]

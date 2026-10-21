@@ -8,12 +8,13 @@ const DigestState = preload("res://tools/digest_state.gd")
 
 
 ## `events` and `state` as the digest hashes them: DigestState.plain(events) and
-## DigestState.state(...).
-static func line(run: String, tick: int, events: Array, state: Array) -> String:
+## DigestState.state(...). `factions`: each squad's side, in the state's order, for the page
+## to colour by; written beside the named fields, not hashed.
+static func line(run: String, tick: int, events: Array, state: Array, factions: Array) -> String:
 	var squads := []
-	for squad in state:
-		var named := {}
-		_name(DigestState.SQUAD_FIELDS, squad, named)
+	for index in range(state.size()):
+		var named := {"faction": factions[index]}
+		_name(DigestState.SQUAD_FIELDS, state[index], named)
 		var units := []
 		for unit in named["units"]:
 			var named_unit := {}
