@@ -182,7 +182,8 @@ func _record(
 	var bytes := var_to_bytes([plain_events, state])
 	chain.update(bytes)
 	if _trace != null and tick >= _from and (_to < 0 or tick <= _to):
-		_trace.store_line(DigestTrace.line(label, tick, plain_events, state))
+		var factions := sim.squads().map(func(s): return s.faction_id)
+		_trace.store_line(DigestTrace.line(label, tick, plain_events, state, factions))
 	if _out != null:
 		var one := HashingContext.new()
 		one.start(HashingContext.HASH_SHA256)

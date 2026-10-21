@@ -13,6 +13,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [Design a map and import it](../tools/designer/README.md)
 - [Build the Rust core](../native/README.md#building)
 - [Run the checks locally](../ci/godot/README.md#running-the-checks-locally)
+- [See an outcome change side by side](../tools/trace_view/README.md)
 - [Replace the placeholder art](../assets/placeholder/README.md)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels and milestones come from the `github-sync` workflow)

@@ -1,0 +1,62 @@
+:root {
+  --bg: #f6f6f3;
+  --panel: #ffffff;
+  --ink: #1d1f21;
+  --muted: #5f6368;
+  --line: #d7d7d2;
+  --ring: #d93025;
+  --changed: #fde8e6;
+  --side-a: #1a73e8;
+  --side-b: #e37400;
+  --side-c: #188038;
+  --side-d: #9334e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a;
+    --panel: #212226;
+    --ink: #e8eaed;
+    --muted: #9aa0a6;
+    --line: #3c4043;
+    --ring: #f28b82;
+    --changed: #5c2b29;
+    --side-a: #8ab4f8;
+    --side-b: #fdd663;
+    --side-c: #81c995;
+    --side-d: #d7aefb;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+.app { max-width: 1340px; margin: 0 auto; padding: 16px; }
+h1 { margin: 0 0 4px; font-size: 20px; }
+h2 { margin: 0 0 8px; font-size: 15px; }
+.hint { margin: 0 0 8px; color: var(--muted); }
+.files { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.files label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
+.first { font-family: ui-monospace, monospace; margin: 10px 0; overflow-wrap: anywhere; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.controls input[type="range"] { flex: 1 1 200px; }
+.tick { font-family: ui-monospace, monospace; min-width: 8ch; }
+button {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+figcaption { padding: 6px 10px; color: var(--muted); border-bottom: 1px solid var(--line); }
+canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+.selected { margin-top: 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 10px; overflow-x: auto; }
+table { border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 13px; }
+th, td { text-align: left; padding: 2px 12px 2px 0; vertical-align: top; }
+tr.differs td { background: var(--changed); }

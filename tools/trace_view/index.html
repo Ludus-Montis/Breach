@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Outcome Trace</title>
+<link rel="stylesheet" href="trace_view.css" />
+</head>
+<body>
+<!-- The outcome trace, base and head side by side (specs/37-outcome-trace.md, step 4).
+     Open from disk; load the traces and diff from a sim-digests-<set> artifact's traces/. -->
+<main class="app">
+  <header class="top">
+    <h1>Outcome trace</h1>
+    <p class="hint">Load a run's <code>.base.jsonl</code>, <code>.head.jsonl</code> and
+      <code>.diff.json</code> from the <code>traces/</code> folder of a
+      <code>sim-digests-&lt;set&gt;</code> artifact.</p>
+    <div class="files">
+      <label>Base trace <input type="file" id="baseFile" accept=".jsonl,.json" /></label>
+      <label>Head trace <input type="file" id="headFile" accept=".jsonl,.json" /></label>
+      <label>Diff JSON <input type="file" id="diffFile" accept=".json" /></label>
+    </div>
+    <p class="first" id="first">No traces loaded.</p>
+  </header>
+
+  <section class="controls" aria-label="Playback">
+    <button type="button" id="back" title="Step back">&#9664;&#9664;</button>
+    <button type="button" id="play">Play</button>
+    <button type="button" id="forward" title="Step forward">&#9654;&#9654;</button>
+    <input type="range" id="scrubber" min="0" max="0" value="0" aria-label="Tick" />
+    <span class="tick" id="tick">tick &ndash;</span>
+  </section>
+
+  <section class="boards">
+    <figure>
+      <figcaption>Base</figcaption>
+      <canvas id="baseCanvas" width="640" height="480"></canvas>
+    </figure>
+    <figure>
+      <figcaption>Head</figcaption>
+      <canvas id="headCanvas" width="640" height="480"></canvas>
+    </figure>
+  </section>
+
+  <section class="selected" aria-live="polite">
+    <h2 id="selectedTitle">Click a unit to see its fields on both sides</h2>
+    <table id="fields"></table>
+  </section>
+</main>
+<script src="trace_view.js"></script>
+<script src="trace_page.js"></script>
+</body>
+</html>

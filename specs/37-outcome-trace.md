@@ -67,7 +67,8 @@ Agreed in the design session of 2026-10-17. Four steps, each its own PR, built w
 - **The page, not a Godot scene:** `tools/trace_view/` (static HTML and JS, no build, opened
   from disk like the designer). It loads a base trace, a head trace and the diff JSON, and
   shows two canvases with one scrubber, play, pause and step, each unit drawn as a dot with
-  its facing, coloured by side, the differing ones ringed, and the selected unit's fields on
+  its facing, coloured by side (*step 4:* the digest doesn't hash a squad's faction, so the
+  trace writes each squad's `faction` beside its named fields, unhashed), the differing ones ringed, and the selected unit's fields on
   both sides. It draws positions, not the skirmish layer's art (the user, 2026-10-17: a
   page, opened without Godot, is enough to sign off).
 

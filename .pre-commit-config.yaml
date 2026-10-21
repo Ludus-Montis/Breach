@@ -125,11 +125,11 @@ repos:
         exclude: ^addons/
 
       - id: tools-python-tests
-        name: tools-python-tests (tools/, tools/designer, ci/godot/scripts and ci/github, stdlib unittest)
-        entry: bash -c 'python3 -m unittest discover -s tools/designer -p "test_*.py" && python3 -m unittest discover -s tools -p "test_*.py" && python3 -m unittest discover -s ci/godot/scripts -p "test_*.py" && python3 -m unittest discover -s ci/github -p "test_*.py"'
+        name: tools-python-tests (tools/, tools/designer, tools/trace_view, ci/godot/scripts and ci/github, stdlib unittest)
+        entry: bash -c 'python3 -m unittest discover -s tools/designer -p "test_*.py" && python3 -m unittest discover -s tools/trace_view -p "test_*.py" && python3 -m unittest discover -s tools -p "test_*.py" && python3 -m unittest discover -s ci/godot/scripts -p "test_*.py" && python3 -m unittest discover -s ci/github -p "test_*.py"'
         language: system
         pass_filenames: false
-        files: ^(tools/.*\.py|assets/placeholder/.*|ci/godot/scripts/.*\.py|ci/github/.*)$
+        files: ^(tools/.*\.(py|js)|assets/placeholder/.*|ci/godot/scripts/.*\.py|ci/github/.*)$
 
       - id: check-branch-name
         name: branch-name-conforms
