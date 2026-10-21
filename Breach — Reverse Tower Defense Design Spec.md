@@ -7011,3 +7011,56 @@ them, with ties going to where squads stand (Decision 97).
 **Bounded:** a pass costs one read a column and one index a faction, plus work per squad or
 pair found by an index, not squads × battle size.
 **Pillar check:** holds. It changes how state is read, not what any unit does.
+
+### Decision 151 — A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-21
+**Amends:** Decision 129 (when the reference retires, and what guards outcomes after it);
+answers issue #277 (Q22)
+
+**Rationale:** Spec 38 ports about six more passes to Rust. Under Decision 129 each kept a
+GDScript twin, so every later change to a ported rule had to be written twice and match bit
+for bit. Decision 129 already expected the reference to retire once a port was proven. What
+it left open was what guards outcomes afterwards (Q22). The user chose to retire each twin
+with its port ("B sounds fine to me"), and added: "if we can improve performance while still
+observing expected unit behaviour (doesn't have to be identical) I am fine with that, I just
+don't want our implementation towards performance adversely impacting the AI of the game".
+- **A twin retires in the PR that ports its pass.** That PR's digests must show both engines
+  identical on its own commit. The same PR then deletes the pass's GDScript code and its
+  parity tests. `BREACH_NATIVE=gdscript` runs the reference wherever one still exists; it is
+  no longer a full engine. Every checkout builds the Rust core (`native/build.sh`).
+- **Outcomes are guarded on Rust.** CI's outcome check (`check_outcomes.py`) compares the
+  branch's Rust digests with the base's, the base built natively as `bench` already does. The
+  two-engine digest comparison stays while any twin exists, and goes with the last one.
+- **A performance change may change outcomes,** under all of these conditions:
+  - It stays deterministic and replays bit for bit on every machine (Decision 130).
+  - It decides nothing by id or list order (Decision 97), shown by the mirror trials both
+    ways round.
+  - Units still sense, decide and act by the same rules. It changes how a result is computed
+    (float width, summation order, which tick's snapshot a pass reads), never what a unit
+    perceives or decides, or how often (Decisions 131 and 138).
+  - Its commit says so (`Outcomes-changed: <why>`), and the owner signs it off at Gate 2,
+    with the outcome trace (spec 37) when it is built.
+- **Still declined, because they change behaviour:** level of detail, or simplifying units
+  away from the fighting (Decision 131); a lower or higher tick rate; weighted-sum steering;
+  thinning decisions beyond each unit's own beat (Decision 138). Reopening any of them is
+  the owner's call, in a Decision of its own.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep every twin | Every later change to a ported rule written twice; about six more twins in spec 38 alone. |
+| Retire all twins at once, after spec 38 step 4 | The same twin costs until then, for one cut-over later. |
+| Keep bit-for-bit identity for every performance change | It rules out `f32` columns and parallel reductions whose order differs from today's, which change no behaviour. |
+| Let performance changes simplify behaviour where no one would notice | The owner: performance must not adversely affect the game's AI. |
+
+**Rules over cases:** general: one rule for every port and every performance change.
+**Order:** unchanged. Decision 97 holds for every change, and the trials check it.
+**Bounded:** not a per-tick change; one twin fewer to maintain per port.
+**Pillar check:** holds. Pillar 6 (legible depth) is served: units keep the same rules, and
+an outcome change is signed off before it lands.
+**Cost:** a checkout without the Rust toolchain no longer runs the battle, and a port's
+mistake can't later be found by comparing it with a twin. The trials, digests and outcome
+trace are the guard instead.

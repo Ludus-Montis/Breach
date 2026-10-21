@@ -23,13 +23,15 @@ what is left by measured gain per tick:
 4. **Stamina, the downed's passes and the walk to places** ported (step 4).
 5. **Threading, then slot packing** (step 5).
 
-**Settled by Decision 150** (steps 1 and 2). Decisions 97, 129 (with 131), 139, 144 and 146
-still hold. Answers issue #278 (Q23) and carries issues #279 (Q24), #281 (Q26) and #277 (Q22).
+**Settled by Decisions 150** (steps 1 and 2) **and 151** (ports retire their GDScript twin,
+step 2b; a performance change may change outcomes but never behaviour). Decisions 97, 129
+(with 131 and 151), 130, 138, 139, 144 and 146 still hold. Answers issues #278 (Q23) and #277
+(Q22); carries #279 (Q24) and #281 (Q26).
 
 ## Status
 
-Agreed in the design session of 2026-10-21. Steps 1 and 2 are settled and built with
-`/run-phase` as "spec 38 step N", one PR each. Steps 3, 4 and 5 are ordered here but each
+Agreed in the design session of 2026-10-21. Steps 1a, 1b, 1c, 2 and 2b are settled and
+built with `/run-phase` as "spec 38 step N", one PR each, in that order. Steps 3, 4 and 5 are ordered here but each
 needs a design session before it is built; their subjects are under each step.
 
 ## Evidence (bench runs on the 7c branch, `e0231cd`)
@@ -131,6 +133,18 @@ GDScript loops.
   "Measured" and in this spec's "Built", with the order of steps 3 and 4 re-checked against
   them.
 
+### Step 2b, the outcome check on Rust (Decision 151)
+
+- CI's `digests` job builds the base's Rust core in its worktree (`native/build.sh release`,
+  as `bench` prepares its base) and takes the base's digest with `BREACH_NATIVE=rust`.
+  `check_outcomes.py` compares it with the branch's Rust digest. The two-engine comparison of
+  the branch stays as it is.
+- Nothing retires in this step: it makes the guard that retiring needs. Outcomes are
+  unchanged, and the check passes on a branch with no outcome change, as before.
+- **Scenario:** given a branch whose Rust digest differs from the base's and no
+  `Outcomes-changed:` trailer, the check fails. With the trailer, it passes and names the runs,
+  as it does today for GDScript.
+
 ### Step 3, the ground and the mover in Rust, then the rout (design first)
 
 The rout costs about 72 ms a tick while it lasts, and it is the phase that stayed slower than
@@ -147,26 +161,29 @@ regrouping and re-forming a squad stay in GDScript: per-squad rules, Decision 13
 The fell queue is drained in squad and member order (`FormationDeaths._fallen`).
 
 **Subjects for its design session:** how terrain and routes reach Rust and stay current (spec
-34 items 3 and 5, issue #268 Q12); the reference's fate under Q22 (#277); and step 2's terrain
-numbers.
+34 items 3 and 5, issue #268 Q12), and step 2's terrain numbers. Settled already: each port
+retires its GDScript twin in its own PR (Decision 151).
 
 ### Step 4, stamina, the downed's passes and the walk to places (design first)
 
 Ported to Rust in this order: stamina, about 22 ms (arithmetic over each unit, no queries);
 wounds, recovery and deaths, about 64 ms; the walk to places, about 21 ms, after step 3,
 since it pays the ground. Decision 131 already moves per-unit work to Rust. Each is its own
-PR and must match the reference bit for bit (Decision 129).
+PR, matches the reference bit for bit on its own commit, and retires its GDScript twin in the
+same PR (Decision 151).
 
-**Subjects for its design session:** Q22 (#277), which decides whether each port keeps a
-GDScript twin; and step 2's counts. A pass that changes few of the units it visits is a work
-list fed by events before it is a port (Q24, #279).
+**Subject for its design session:** step 2's counts. A pass that changes few of the units it
+visits is a work list fed by events before it is a port (Q24, #279).
 
 ### Step 5, threading, then slot packing (design first)
 
 Rust runs about 50 ms of the tick today, so threads on every kernel would save at most about
 35 ms (Amdahl's law). Slot packing speeds up only native passes. Both come after steps 3 and
 4 have moved more of the tick into Rust. **Subjects:** Q26 (#281) as written; each needs a
-Decision the user authorises.
+Decision the user authorises. Decision 151 reopens two options Q26 ruled out only because
+they broke identity with the reference: `f32` columns and parallel reductions in a different
+fixed order. Both change outcomes but not behaviour, so each is allowed under that
+Decision's conditions.
 
 ## Scenarios
 

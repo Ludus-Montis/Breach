@@ -135,7 +135,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 126 | Wounds work through condition; the downed come to on a timer; retreats and pursuits run by default; the wounded can be borne | 6037 |  |
 | 127 | The downed may play dead while foes are near; a foe may take it for dead | 6092 |  |
 | 128 | A registry of tags, traits and statuses; tags carry where a trait may sit; items grant traits; the designer's Library browses it | 6125 |  |
-| 129 | Rust for the simulation's hot core | 6162 | amended by 131 |
+| 129 | Rust for the simulation's hot core | 6162 | amended by 131, 151 |
 | 130 | Battles replay bit for bit across machines: the simulation's maths is its own | 6214 |  |
 | 131 | Every unit is fully simulated, always; the per-unit work moves to Rust | 6254 | amended by 142 |
 | 132 | The native field owns where units stand, routed in a series of changes | 6293 | amended by 139, 142 |
@@ -157,3 +157,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 |  |
 | 149 | Documentation is part of done: README, changelog and docs/ in every PR | 6929 |  |
 | 150 | A pass reads each column and builds each index once, not once per squad or per pair | 6970 |  |
+| 151 | A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour | 7015 |  |
