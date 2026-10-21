@@ -14,6 +14,37 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+
+
+## A store's columns with every whole-column read counted by name (Decision 150).
+class CountedColumns:
+	extends "res://sim/skirmish/formation/unit_columns.gd"
+	var inner
+	var reads := {}
+
+	func _init(own) -> void:
+		inner = own
+		_columns.clear()  # every column is the store's
+
+	func column(name: StringName) -> Variant:
+		reads[name] = reads.get(name, 0) + 1
+		return inner.column(name)
+
+	func commit(name: StringName, values: Variant) -> void:
+		inner.commit(name, values)
+
+	func value(slot: int, name: StringName) -> Variant:
+		return inner.value(slot, name)
+
+	func put(slot: int, name: StringName, data: Variant) -> void:
+		inner.put(slot, name, data)
+
+	func open(slot: int) -> void:
+		inner.open(slot)
+
+	func reach(slot: int) -> void:
+		inner.reach(slot)
 
 
 ## A player line `count` wide with its front `front` cells along the lane, placed there.
@@ -197,3 +228,21 @@ func test_the_same_meetings_decide_the_same_whatever_the_list_order() -> void:
 		kept.sort()
 		outcomes.append([left, kept])
 	assert_array(outcomes[0]).is_equal(outcomes[1])
+
+
+## Three groups that may form up, near enough to be looked at but too far apart to meet
+## (spec 38 step 1a, Decision 150): forming up reads RANK and POSITION once a pass, not once
+## a pair.
+func test_forming_up_reads_rank_and_position_once_a_pass() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var lines := [_line(sim, 4, 40.0), _line(sim, 4, 45.0), _line(sim, 4, 50.0)]
+	assert_object(lines[1].store).is_same(lines[0].store)
+	var counted := CountedColumns.new(lines[0].store.columns)
+	lines[0].store.columns = counted
+
+	FormationGroups._form_up(sim.squads(), 1, 7, [])
+
+	lines[0].store.columns = counted.inner
+	assert_int(sim.squads().size()).is_equal(3)
+	assert_int(counted.reads.get(UnitColumns.RANK, 0)).is_equal(1)
+	assert_int(counted.reads.get(UnitColumns.POSITION, 0)).is_equal(1)

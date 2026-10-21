@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 ## formation one coming to joins, and the gap between two groups meeting - each checked
 ## against a plain search of every unit over a scattered field.
 
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
@@ -168,7 +169,8 @@ func test_the_gap_between_groups_is_exact_within_group_join() -> void:
 				var apart: float = _places.at(unit).distance_to(_places.at(friend))
 				least = minf(least, apart - ScrumReach.radius(unit) - ScrumReach.radius(friend))
 		least = maxf(least, 0.0)
-		var gap := FormationGroups._gap(one, other, {})
+		var at: PackedVector2Array = one.store.columns.column(UnitColumns.POSITION)
+		var gap := FormationGroups._gap(one, other, {}, at)
 		if least <= join:
 			assert_float(gap).is_equal(least)
 			within += 1
