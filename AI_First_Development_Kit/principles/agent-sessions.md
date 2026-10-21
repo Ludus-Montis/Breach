@@ -129,6 +129,11 @@ It checks entries whose trigger matches the work it is starting. It may **propos
 closing an entry it thinks a Decision has settled, but only the owner closes one, for
 the same reason only a human supersedes a Decision.
 
+The register may be an issue tracker instead of a file, if each entry keeps the same
+fields (the trigger as a label, its words in the body) and only the owner closes one. A
+change that settles an entry names it (`Closes #N`), so the owner's merge closes it and
+the answer links to the change. Breach does this (Decision 148).
+
 ## 6. Hand-overs go through the shared remote
 
 Agents on different machines can't see each other's sessions, terminals or uncommitted

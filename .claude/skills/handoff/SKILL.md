@@ -27,8 +27,10 @@ they're leaving.
 4. **Write or update the `## Handoff` section** at the top of the PR description, using
    the template below. Replace it each time; it describes now, not history.
 5. **Move open questions to the register.** Anything still undecided, and any "remind
-   me when…", goes into `OPEN_QUESTIONS.md` with a **Raise when** trigger. The PR's
-   *Open questions* line points to those entries rather than holding the only copy.
+   me when…", becomes an issue (Decision 148): `issue_write` with `method: create`, title
+   `Q<n>. <the question>`, labels `question` and one `raise-when:` label, and the body
+   shape in `OPEN_QUESTIONS.md`'s header, with its **Raise when** trigger. The PR's
+   *Open questions* line lists those issue numbers rather than holding the only copy.
 6. **Tell the user** the PR link and one line on what the next agent should do first. If
    you started another agent, give its session link (see "Starting another agent").
 
@@ -67,7 +69,7 @@ session. The implementation session starts from the spec, not from the discussio
 - <test command, scripted run, or designer view to open, and what passing looks like>
 
 **Open questions for the user**
-- <OPEN_QUESTIONS.md entries this work raised or depends on, by Q number; none if none>
+- <`question` issues this work raised or depends on, as #N; none if none>
 
 **Gotchas**
 - <anything surprising: a check that is red and why, a file not to touch, an environment need>

@@ -42,14 +42,15 @@ How sessions work together is `principles/agent-sessions.md`.
   `content/definitions/` must also update `tools/designer/` (export, `loadFromExport`, the
   importer under `content/import/`).
 - **Anything that should change how the next agent works goes in the repo,** not in your
-  own memory: here, a skill, a Decision or `OPEN_QUESTIONS.md`.
+  own memory: here, a skill, a Decision or an issue labelled `question` (Decision 148).
 
 ## Which session are you?
 
 - **Design:** you discuss options with the user, one subject at a time. You write
-  Decisions, spec rounds under `specs/`, and `OPEN_QUESTIONS.md` entries. You don't write
-  code. You finish a round by pushing a `docs:` PR whose hand-off names the next `/run-phase`
-  item.
+  Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
+  (how: `OPEN_QUESTIONS.md`'s header). You don't write code. You finish a round by pushing a
+  `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
+  each question it settles.
 - **Implementation:** you build one spec round with `/run-phase`. Build what the spec
   settles as written. Stop and ask only where it is silent, and record the answer in the
   spec or a Decision.
@@ -63,7 +64,7 @@ How sessions work together is `principles/agent-sessions.md`.
 | Decisions | `DECISIONS_INDEX.md` lists each Decision with its line. Read by line; don't read the whole design spec (it is 400 KB) |
 | Design spec and addenda | `Breach — Reverse Tower Defense Design Spec.md`, `breach-addendum-*.md` |
 | Specs, one per feature or round | `specs/NN-*.md` |
-| Open questions and the user's "remind me when…" | `OPEN_QUESTIONS.md`. Check entries whose **Raise when** matches your work |
+| Open questions and the user's "remind me when…" | Issues labelled `question` (Decision 148); check those whose `raise-when:` label or **Raise when** matches your work. `OPEN_QUESTIONS.md` says how to raise one and keeps the closed archive |
 | README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
 | CI and checks | `ci/godot/`, with known environment problems listed in `ci/godot/README.md` |

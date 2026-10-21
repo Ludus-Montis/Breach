@@ -20,6 +20,10 @@ Agreed in the design session of 2026-10-17. Two steps, each its own PR, built wi
 `/run-phase` as "spec 36 step N". Between them the owner runs the migration (step 1's last
 scenario), so the entries are still on `main` when it reads them.
 
+**Built:** step 1 in [#254](https://github.com/SSidey/Breach/pull/254); the owner ran the
+migration on 2026-10-21 (Q1 to Q26 became #257 to #281, the table in `OPEN_QUESTIONS.md`);
+step 2 after it.
+
 ## What cloud agents can and can't do
 
 Cloud sessions use the GitHub MCP tools, not `gh` (it is not logged in). They can create,

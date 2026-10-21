@@ -26,8 +26,11 @@ regardless of size, goes on its own branch and through a PR that a human merges.
   test-first order, and any Decisions in `Breach — Reverse Tower Defense Design
   Spec.md`'s `## Decisions` section that bear on this item. Find them in
   `DECISIONS_INDEX.md` and read each by its line; don't read the whole spec.
-- Check `OPEN_QUESTIONS.md` for entries whose **Raise when** matches this item, and
-  raise them with the user before planning.
+- Check the open questions (Decision 148): `list_issues` with `labels: [question]`,
+  `state: OPEN` and `fields: [number, title, labels]` (`gh` isn't logged in on a cloud
+  session; use the GitHub MCP tools). Read an issue's body (`issue_read`) only when its
+  `raise-when:` label or title may match this item, and raise the ones that match with the
+  user before planning.
 - What the spec and its Decisions settle, build as written: don't re-plan or re-ask it.
   Plan mode is for a new spec, or for a gap the spec leaves open
   (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3).
@@ -175,7 +178,8 @@ until its documentation is. Read only the sections the change touches.
 
 ## 6. Open the PR — do not merge it
 
-Push the branch and open a PR with `gh pr create`, body from
+Push the branch and open a PR with `create_pull_request` (the GitHub MCP tools, not
+`gh pr create`), body from
 `AI_First_Development_Kit/templates/pr-description.md`: summary, link to the spec/plan
 item, the rubric checklist from step 5, the Documentation block from step 5b, and for the
 two Gate sections:
@@ -185,6 +189,18 @@ two Gate sections:
   there's a pending entry for a human to fill in. Never write the play-feel judgement
   yourself — `progress-tracking.md`: "an agent judging whether its own change was an
   improvement has an obvious conflict of interest."
+- **Closes** — `Closes #N` for each `question` issue this PR settles, so the owner's merge
+  closes it. Never close a question yourself; on one this PR may settle without being sure,
+  comment "Possibly settled by …" instead.
+
+Then name the PR's spec and step (Decision 148): one `issue_write` with `method: update` on
+the PR's number (a PR is an issue) setting `milestone` to the spec's (`Spec NN: <title>`;
+its number from the milestone's link or an issue in it) and `labels` to `step:NN-<id>`, one
+kind (`implementation`, `design` or `chore`), the areas it touches (`sim`, `native`,
+`designer`, `ci`, `tooling`) and any flag (`outcomes-changed`, `needs-design`). If a label or
+milestone is missing (a new spec or step), start the `github-sync` workflow
+(`actions_run_trigger`, `workflow_id: github-sync.yml`, `ref: main`), set what exists, and
+tell the user what is missing rather than wait for the run.
 
 **Do not poll or watch CI to completion after opening the PR.** Notify the user that
 the PR is open (a link and a short summary of what landed), **end with the exact next
