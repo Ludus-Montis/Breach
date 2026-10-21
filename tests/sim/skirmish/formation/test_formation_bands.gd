@@ -54,6 +54,11 @@ func _steps(sim: FormationSimulation, ticks: int) -> Array:
 	return log
 
 
+## How far along the route `unit` of `squad` stands, in the store (spec 35 step 7c).
+func _along(squad: SkirmishSquad, unit: SkirmishUnit) -> float:
+	return squad.store.columns.value(unit.slot, UnitColumns.DISTANCE)
+
+
 func _militia_line(sim: FormationSimulation, count: int) -> SkirmishSquad:
 	var line := []
 	for column in range(count):
@@ -74,11 +79,11 @@ func test_a_spitter_does_not_step_into_a_fallen_front_cell() -> void:
 	var spitter: SkirmishUnit = mine.units[2]
 
 	_until(sim, func(): return not weak.is_alive())
-	var where := spitter.distance
+	var where := _along(mine, spitter)
 	_steps(sim, 10)
 
 	assert_int(UnitPlace.rank(mine, spitter)).is_equal(1)
-	assert_float(spitter.distance).is_equal_approx(where, 0.0001)
+	assert_float(_along(mine, spitter)).is_equal_approx(where, 0.0001)
 
 
 func test_the_enemy_facing_the_empty_cell_seeks_another_foe() -> void:
@@ -108,14 +113,14 @@ func test_when_the_whole_front_falls_the_enemy_must_advance_to_the_back_rank() -
 	var theirs := _militia_line(sim, 1)
 	var spitter: SkirmishUnit = mine.units[1]
 	_until(sim, func(): return not mine.units[0].is_alive())
-	var where := spitter.distance
+	var where := _along(mine, spitter)
 
 	assert_int(UnitPlace.rank(mine, spitter)).is_equal(0)  # re-anchored where it stood
-	assert_float(spitter.distance).is_equal_approx(where, 0.0001)
+	assert_float(_along(mine, spitter)).is_equal_approx(where, 0.0001)
 	var log := _until(sim, func(): return mine.state == SkirmishSquad.State.FIGHTING, 200)
 	log.append_array(_steps(sim, 20))
 
-	assert_float(spitter.distance).is_equal_approx(where, 0.0001)  # it never ran forward
+	assert_float(_along(mine, spitter)).is_equal_approx(where, 0.0001)  # it never ran forward
 	var its_hits := log.filter(func(e): return e["type"] == "hit" and e["unit"] == spitter.id)
 	assert_bool(its_hits.is_empty()).is_false()
 	assert_int(its_hits[0]["dmg"]).is_equal(2)  # claw and bite

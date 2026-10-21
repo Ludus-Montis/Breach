@@ -155,3 +155,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 146 | Every pass reads the unit store through one typed view, held for the pass | 6755 |  |
 | 147 | A unit's state changes through one writer, and each squad keeps its living and its downed | 6819 |  |
 | 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 |  |
+| 149 | Documentation is part of done: README, changelog and docs/ in every PR | 6929 |  |

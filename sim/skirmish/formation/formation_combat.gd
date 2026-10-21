@@ -25,6 +25,7 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 		return blows
 	var marks := _marks(squads)
 	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
+	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
 	for own in squads:
 		if own.is_destroyed() or own.state == SkirmishSquad.State.ARRIVED:
 			continue
@@ -43,12 +44,13 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 			var target := _in_range(own, shooter, rows, [fight_seed, places])
 			if target == null:
 				continue
-			shooter.target_id = target.id
+			targets[shooter.slot] = target.id
 			cooldowns[shooter.slot] -= 1
 			if cooldowns[shooter.slot] <= 0:
 				cooldowns[shooter.slot] = maxi(1, roundi(interval_ticks * shooter.ranged_seconds))
 				blows.append([shooter, target, shooter.ranged_dmg, own])
 	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	squads[0].store.columns.commit(UnitColumns.TARGET_ID, targets)
 	return blows
 
 

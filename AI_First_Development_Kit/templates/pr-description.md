@@ -29,6 +29,15 @@ status: active
 CI reports these automatically; this checklist is for the human reviewer's visibility,
 not a manual re-check.
 
+### Documentation
+
+<per `principles/documentation-phases.md`; "N/A" needs a reason. "Changelog: N/A" also
+tells the CI docs gate to skip its changelog check>
+
+- README: updated | verified, no change | N/A (reason)
+- Changelog: entry added under [Unreleased] | N/A (reason)
+- Docs: <paths updated/created> | N/A (reason)
+
 ## Progress log entry
 
 <link to the row the project's Gate 1 script appended to the durable progress log, per

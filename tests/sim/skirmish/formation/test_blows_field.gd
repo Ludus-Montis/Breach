@@ -63,7 +63,8 @@ func _struck(squads: Array, field: Object) -> Array:
 			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
 			var wounding: int = squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
 			var halt: float = squad.store.columns.value(unit.slot, UnitColumns.REGENERATION_HALT)
-			units.append([unit.id, unit.target_id, cooldown, wounding, halt])
+			var target: int = squad.store.columns.value(unit.slot, UnitColumns.TARGET_ID)
+			units.append([unit.id, target, cooldown, wounding, halt])
 	return [blows.map(func(b): return [b[0].id, b[1].id, b[2], b[3], b[4]]), units]
 
 
@@ -73,7 +74,8 @@ func _saved(squads: Array) -> Array:
 		for unit in squad.units:
 			var cooldown: int = squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN)
 			var wounding: int = squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
-			out.append([unit.target_id, cooldown, wounding])
+			var target: int = squad.store.columns.value(unit.slot, UnitColumns.TARGET_ID)
+			out.append([target, cooldown, wounding])
 	return out
 
 
@@ -81,7 +83,7 @@ func _restore(squads: Array, saved: Array) -> void:
 	var index := 0
 	for squad in squads:
 		for unit in squad.units:
-			unit.target_id = saved[index][0]
+			squad.store.columns.put(unit.slot, UnitColumns.TARGET_ID, saved[index][0])
 			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, saved[index][1])
 			squad.store.columns.put(unit.slot, UnitColumns.LAST_WOUNDING, saved[index][2])
 			squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_HALT, 0.0)
@@ -131,7 +133,8 @@ func _assert_pressed(squads: Array, field: Object) -> int:
 		for unit in squad.living():
 			squad_of[unit.id] = [unit, squad]
 			everyone.append([unit, unit])
-	var reference := BlowLanding._pressed(squad_of)
+	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
+	var reference := BlowLanding._pressed(squad_of, targets)
 	UnitPlaces.onto(field, squads)
 	FormationMelee.blows(squads, 10, SEED, field)  # syncs the field
 	var whose := ScrumBlowsField.pressed(field, squads, everyone)

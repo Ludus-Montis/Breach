@@ -77,6 +77,8 @@ Agreed in the design session of 2026-10-14. Build one step at a time with `/run-
   recovery's per-tick fields and `last_wounding`; 7c moves the rest. See "Settled for step 7".
 - **Step 7a, one writer for state and the kept lists: built** (2026-10-17). See "Built" below.
 - **Step 7b, the downed's fields and recovery's: built** (2026-10-17). See "Built" below.
+- **Step 7c, the rest: built** (2026-10-17). See "Built" below. Spec 35 is complete: Q23, Q24's
+  remainder and Q26 are for one design session.
 
 ## The store
 
@@ -1253,6 +1255,44 @@ The loops converted, with the columns each reads:
 - **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 147`): 13
   existing files, because Decision 147 moves the fields and Decision 144 moves every reader
   with them in the same step.
+
+### Step 7c, the rest
+
+- **`UnitColumns.TARGET_ID`, `DISTANCE`, `FOOTHOLD`, `ON_FACE` and `CLIMB_LEFT`**, both
+  backends, and Rust's `Columns` by the same names. TARGET_ID is a 64-bit int (an id, as
+  GOAL_FOE), ON_FACE a 32-bit int (1: on a climb face or in deep water), FOOTHOLD a point, the
+  rest floats; every blank is what the record's field started at (0, or the zero point).
+  `UnitView` has a property for each. `SkirmishUnit` no longer declares them.
+- **The unit copies of `order`, `home_distance` and `wait_ticks` are deleted.** The grep found
+  no reader of them: every reader and writer is on the squad (`SkirmishSquad`), the type the
+  passes hand round as `mover`, `target` and `other`.
+- **Readers and writers (Decision 144), from the tree at `ad66bb6`:**
+
+  | Where | Columns | How |
+  |---|---|---|
+  | `ScrumBlows.blows`, `RoutBlows.blows`, `FormationCombat.ranged_blows` | TARGET_ID written | fetched with ATTACK_COOLDOWN, written in place, committed with it |
+  | `FormationWounds.tend` (the takers' strikes) | TARGET_ID written | joins HP and ATTACK_COOLDOWN in its hold (`STRUCK`) |
+  | `FormationMelee.blows`, `ScrumBlowsField.blows` (a fight begins) | TARGET_ID cleared for the living | `ScrumBlows.clear_targets`: one fetch and commit. The native path clears before its sync, not in it; nothing reads a target between |
+  | `ScrumBlowsField._struck` (the native field's twin) | TARGET_ID written | fetched with ATTACK_COOLDOWN, as the reference. The Rust search doesn't read or write it: it is handed the targets (`pressed`) |
+  | `ScrumBlowsField.pressed`, `BlowLanding._pressed` | TARGET_ID read | one fetch a call |
+  | `FormationMarch.sync_units` | DISTANCE, FOOTHOLD written | its hold (`WALKED`) gains DISTANCE, FOOTHOLD, ON_FACE and CLIMB_LEFT |
+  | `WalkModes` (`climb`, `after_step`, `_fall`) | FOOTHOLD, ON_FACE, CLIMB_LEFT read and written | `columns.value` and `put` on the march's hold, as its stamina |
+  | `FormationStamina.step` | ON_FACE read | a read view (`READ`, with CONDITION), once a store. The breather is skipped on a face before `_breathe`, which wrote nothing on one |
+  | presentation `skirmish_squad_layer.gd` | DISTANCE, TARGET_ID read | one column fetch a frame (DISTANCE at each snapshot); a unit not yet snapshotted reads its own, scattered |
+  | `tools/formation_digest.gd` | TARGET_ID read | through the store, the same value, so the same bytes |
+  | `tools/blows_bench.gd` | TARGET_ID | through the store (it still doesn't parse, as before) |
+  | Tests: `test_walk_modes.gd`, `test_formation_bands.gd`, `test_blows_field.gd`, `test_formation_recovery.gd` | the moved fields | through the store |
+
+- **Tests.** `test_unit_walk_columns.gd` (new, red before this step): the five columns
+  round-trip and start blank on both backends and live on the native field; the melee clears
+  each target in the store on both backends; the march writes each unit's distance along the
+  route, on both engines; the walk keeps its climb in the store and stamina reads ON_FACE
+  there; and SkirmishUnit declares none of the five, nor `order`, `home_distance` or
+  `wait_ticks`. `columns.rs` tests the new columns' blanks and names (`cargo test`, run here).
+- **Outcomes unchanged**, as far as `sim-checks`' digests on both engines show (CI).
+- **Shotgun surgery waived** (`check_ocp_shotgun_surgery.py`, `Waived-by: Decision 147`): the
+  21 existing files, because Decision 147 moves the fields and Decision 144 moves every
+  reader with them in the same step.
 
 ## Open, for the implementing session to settle and record here
 

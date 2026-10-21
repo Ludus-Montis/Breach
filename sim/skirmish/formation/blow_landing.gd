@@ -67,7 +67,7 @@ static func land(
 		for squad in squads:
 			for unit in squad.living():
 				squad_of[unit.id] = [unit, squad]
-		pressed = _pressed(squad_of)
+		pressed = _pressed(squad_of, squads[0].store.columns.column(UnitColumns.TARGET_ID))
 	var at: PackedVector2Array = squads[0].store.columns.column(UnitColumns.POSITION)
 	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
 	var stamina: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.STAMINA)
@@ -120,14 +120,16 @@ static func _land(
 	blow.append(landed)
 
 
-## Target id -> how many foes touching it are fighting it this tick.
-static func _pressed(squad_of: Dictionary) -> Dictionary:
+## Target id -> how many foes touching it are fighting it this tick (`targets`: TARGET_ID,
+## by slot).
+static func _pressed(squad_of: Dictionary, targets: PackedInt64Array) -> Dictionary:
 	var out := {}
 	for unit_id in squad_of:
 		var unit: SkirmishUnit = squad_of[unit_id][0]
-		if not squad_of.has(unit.target_id):
+		var target_id: int = targets[unit.slot]
+		if not squad_of.has(target_id):
 			continue
-		var foe: Array = squad_of[unit.target_id]
+		var foe: Array = squad_of[target_id]
 		if ScrumReach.touching(squad_of[unit_id][1], unit, foe[1], foe[0]):
-			out[unit.target_id] = out.get(unit.target_id, 0) + 1
+			out[target_id] = out.get(target_id, 0) + 1
 	return out

@@ -21,8 +21,19 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns the walk to places sets and steps, held for each squad's pass (UnitView):
-## where each stands and faces, its pace, and the stamina a climb or a swim spends.
-const WALKED := [UnitColumns.POSITION, UnitColumns.BEARING, UnitColumns.SPEED, UnitColumns.STAMINA]
+## where each stands and faces, its pace, the stamina a climb or a swim spends, how far along
+## the route it stands, and its climb (WalkModes: where it last stood, whether it is on a
+## face, the climb left; spec 35 step 7c).
+const WALKED := [
+	UnitColumns.POSITION,
+	UnitColumns.BEARING,
+	UnitColumns.SPEED,
+	UnitColumns.STAMINA,
+	UnitColumns.DISTANCE,
+	UnitColumns.FOOTHOLD,
+	UnitColumns.ON_FACE,
+	UnitColumns.CLIMB_LEFT,
+]
 
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).
@@ -116,7 +127,7 @@ static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events
 
 
 ## Units follow their squad's placement - including any swap under way - and views read
-## unit.distance (along the route). Placing (no `timing`) sets each unit on its place;
+## DISTANCE (along the route). Placing (no `timing`) sets each unit on its place;
 ## otherwise a unit in its place walks to where it makes for ([seconds, cells a second at
 ## speed 1], FormationWalk; FormationPour.targets, its queues' draws by `fight_seed`), and
 ## loose and fleeing units stand where their own moves took them.
@@ -138,6 +149,8 @@ static func sync_units(
 		var held := UnitView.hold([entry], WALKED)
 		var points: PackedVector2Array = held.position
 		var facing: PackedFloat64Array = held.bearing
+		var distances: PackedFloat64Array = held.distance
+		var footholds: PackedVector2Array = held.foothold
 		var loose_at: PackedVector2Array = entry.store.columns.column(UnitColumns.LOOSE_AT)
 		var route: UnitView = (
 			null if entry.fleeing.is_empty() else UnitView.read(entry, FormationRout.ROUTE)
@@ -147,7 +160,7 @@ static func sync_units(
 			if not unit.is_alive():
 				continue  # the fallen lie where they fell (Decision 126)
 			var swapping := FormationShuffle.offset(entry, unit, moving)
-			unit.distance = (
+			distances[unit.slot] = (
 				entry.rank_distance(ranks[unit.slot])
 				+ entry.direction * swapping.x * SkirmishSquad.RANK_DEPTH
 			)
@@ -160,9 +173,9 @@ static func sync_units(
 				# placement: its loose point, moved by UnitMover (Decision 139)
 				points[unit.slot] = loose_at[unit.slot]
 			elif timing.is_empty():
-				unit.foothold = FormationWalk.place_of(entry, unit, moving, places)
+				footholds[unit.slot] = FormationWalk.place_of(entry, unit, moving, places)
 				# placement: its frame's slot, set before any walking (Decision 139)
-				points[unit.slot] = unit.foothold
+				points[unit.slot] = footholds[unit.slot]
 				facing[unit.slot] = entry.heading
 			else:
 				walkers.append(unit)

@@ -165,7 +165,7 @@ func _saved(squads: Array) -> Array:
 		for unit in squad.units:
 			out.append(
 				[
-					unit.target_id,
+					squad.store.columns.value(unit.slot, UnitColumns.TARGET_ID),
 					squad.store.columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN),
 					squad.store.columns.value(unit.slot, UnitColumns.REGENERATION_HALT),
 					squad.store.columns.value(unit.slot, UnitColumns.LAST_WOUNDING),
@@ -182,7 +182,7 @@ func _put(squads: Array, saved: Array) -> void:
 	for squad in squads:
 		for unit in squad.units:
 			var was: Array = saved[index]
-			unit.target_id = was[0]
+			squad.store.columns.put(unit.slot, UnitColumns.TARGET_ID, was[0])
 			squad.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, was[1])
 			squad.store.columns.put(unit.slot, UnitColumns.REGENERATION_HALT, was[2])
 			squad.store.columns.put(unit.slot, UnitColumns.LAST_WOUNDING, was[3])
@@ -204,9 +204,7 @@ func _stages(sim: Sim, saved: Array, spent: Dictionary) -> void:
 func _staged(sim: Sim, spent: Dictionary) -> void:
 	var squads := sim.squads()
 	var lap := [Time.get_ticks_usec()]
-	for squad in squads:
-		for unit in squad.living():
-			unit.target_id = 0
+	ScrumBlows.clear_targets(squads)
 	_lap(spent, lap, "zero targets")
 	var interval := sim._attack_interval_ticks()
 	var blows := _scrum_blows(squads, interval, sim.fight_seed, spent, lap)
@@ -237,7 +235,7 @@ func _landing(sim: Sim, blows: Array, shots: Array, spent: Dictionary, lap: Arra
 		for unit in squad.living():
 			squad_of[unit.id] = [unit, squad]
 	_lap(spent, lap, "land: who's whose")
-	var pressed := BlowLanding._pressed(squad_of)
+	var pressed := BlowLanding._pressed(squad_of, sim.store.columns.column(UnitColumns.TARGET_ID))
 	_lap(spent, lap, "land: pressed")
 	for blow in blows:
 		var known := [squad_of, pressed, sim.store.columns.column(UnitColumns.POSITION)]
@@ -273,7 +271,7 @@ func _scrum_blows(squads: Array, interval: int, seed: int, spent: Dictionary, la
 func _strike(squad, unit: SkirmishUnit, pick: Array, interval: int, out: Array) -> void:
 	var where := ScrumReach.at(squad, unit)
 	var columns: UnitColumns = squad.store.columns
-	unit.target_id = pick[0].id
+	columns.put(unit.slot, UnitColumns.TARGET_ID, pick[0].id)
 	var cooldown: int = columns.value(unit.slot, UnitColumns.ATTACK_COOLDOWN) - 1
 	columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, cooldown)
 	if cooldown > 0:

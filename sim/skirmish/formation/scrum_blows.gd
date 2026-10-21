@@ -29,6 +29,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 	var index := FoeIndex.of(squads)  # one grid a faction, as they stand
 	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
 	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
+	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
 	for squad in squads:
 		var near := FoeIndex.struck(index, squad)
 		if near.is_empty():
@@ -42,7 +43,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 				continue
 			var target: SkirmishUnit = pick[0]
 			var target_at: Vector2 = pick[2]
-			unit.target_id = target.id
+			targets[unit.slot] = target.id
 			cooldowns[unit.slot] -= 1
 			if cooldowns[unit.slot] > 0:
 				continue
@@ -56,6 +57,7 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 			var flank := not ScrumReach.in_front(bearings[target.slot], target_at, where)
 			out.append([unit, target, FormationCombat.damage(unit), flank])
 	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	squads[0].store.columns.commit(UnitColumns.TARGET_ID, targets)
 	return out
 
 
@@ -107,6 +109,19 @@ static func _pick(
 			best = [other, entry[1], there]
 			best_key = key
 	return best
+
+
+## Clears every living unit's target, as a fight begins (FormationMelee): TARGET_ID 0 in
+## the battle's store, which the squads share.
+static func clear_targets(squads: Array) -> void:
+	if squads.is_empty():
+		return
+	var columns: UnitColumns = squads[0].store.columns
+	var targets: PackedInt64Array = columns.column(UnitColumns.TARGET_ID)
+	for squad in squads:
+		for unit: SkirmishUnit in squad.living():
+			targets[unit.slot] = 0
+	columns.commit(UnitColumns.TARGET_ID, targets)
 
 
 ## True if `unit`'s draw goes before `other`'s: the last of _pick's key.
