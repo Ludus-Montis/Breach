@@ -8,9 +8,11 @@ fix, a digest that hashes something new - says why in an `Outcomes-changed: <why
 on any of its commits: the check then names the runs that changed and passes. Without one
 it fails. A set the base can't digest (it didn't exist there) passes with a note.
 
-    check_outcomes.py <set> <base digest file> <head digest file> [base ref]
+    check_outcomes.py <set> <base digest file> <head digest file> [base ref] [--changed <file>]
 
-The base ref (base_ref.py) gives the branch's commits whose trailers are read.
+The base ref (base_ref.py) gives the branch's commits whose trailers are read. --changed
+writes `<run>\t<first differing tick>` per changed run, in the head's order (empty when
+none), for the digests job to trace (specs/37-outcome-trace.md).
 """
 import re
 import subprocess
@@ -102,6 +104,14 @@ def _lines(path: str) -> list:
 
 
 def main(argv: list) -> int:
+    changed_file = None
+    if "--changed" in argv:
+        at = argv.index("--changed")
+        if at + 1 >= len(argv):
+            print(__doc__)
+            return 2
+        changed_file = argv[at + 1]
+        argv = argv[:at] + argv[at + 2 :]
     if len(argv) < 4:
         print(__doc__)
         return 2
@@ -112,7 +122,11 @@ def main(argv: list) -> int:
     except subprocess.CalledProcessError as error:
         print(f"check_outcomes {name}: could not read the branch's commits against '{base_ref}': {error}")
         messages = []
-    passed, lines = verdict(name, _lines(base_file), _lines(head_file), messages)
+    base, head = _lines(base_file), _lines(head_file)
+    passed, lines = verdict(name, base, head, messages)
+    if changed_file is not None:
+        runs = changed_runs(base, head) if base else []
+        Path(changed_file).write_text("".join(f"{run}\t{tick}\n" for run, tick in runs))
     print("\n".join(lines))
     return 0 if passed else 1
 

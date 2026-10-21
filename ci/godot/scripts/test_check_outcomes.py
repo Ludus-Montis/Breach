@@ -1,8 +1,14 @@
 """Tests for check_outcomes.py: a PR's digests are compared with its base's, so an outcome
 change both engines share is still seen; a branch meaning to change outcomes says why in an
 `Outcomes-changed:` commit trailer, and the check reports and passes."""
+import contextlib
+import io
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+import check_outcomes
 from check_outcomes import changed_runs, reason, verdict
 
 BASE = [
@@ -73,6 +79,29 @@ class VerdictTest(unittest.TestCase):
         passed, lines = verdict("standard", [], BASE, [])
         self.assertTrue(passed)
         self.assertIn("no base digest", lines[0])
+
+
+class ChangedFileTest(unittest.TestCase):
+    """`--changed <file>`: each changed run and its first differing tick, for the trace step."""
+
+    def _run(self, base, head):
+        folder = Path(tempfile.mkdtemp())
+        (folder / "base.txt").write_text("\n".join(base) + "\n")
+        (folder / "head.txt").write_text("\n".join(head) + "\n")
+        out = folder / "out.txt"
+        argv = ["check_outcomes.py", "standard", str(folder / "base.txt"), str(folder / "head.txt")]
+        with mock.patch.object(check_outcomes, "branch_messages", return_value=[]):
+            with contextlib.redirect_stdout(io.StringIO()):
+                check_outcomes.main(argv + ["origin/main", "--changed", str(out)])
+        return out.read_text()
+
+    def test_the_changed_runs_are_written(self):
+        base = ["a 6 1111", "a 7 2222", "b 30 3333", "c 1 4444"]
+        head = ["a 6 1111", "a 7 9999", "b 30 8888", "c 1 4444"]
+        self.assertEqual(self._run(base, head), "a\t7\nb\t30\n")
+
+    def test_nothing_changed_nothing_written(self):
+        self.assertEqual(self._run(BASE, list(BASE)), "")
 
 
 if __name__ == "__main__":

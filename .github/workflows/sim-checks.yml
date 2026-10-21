@@ -153,8 +153,20 @@ jobs:
             out="$GITHUB_WORKSPACE/digests/${{ matrix.set }}.base.txt" > /dev/null 2>&1 || true)
           python3 ci/godot/scripts/check_outcomes.py ${{ matrix.set }} \
             digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.gdscript.txt "$BASE_REF" \
+            --changed digests/${{ matrix.set }}.changed.txt \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
+
+      # When outcomes changed: the first 3 changed runs traced on the base and the branch
+      # around their first difference, and diffed (specs/37-outcome-trace.md), into traces/.
+      - name: Trace ${{ matrix.set }}'s changed runs
+        if: always()
+        run: |
+          if [ -s digests/${{ matrix.set }}.changed.txt ]; then
+            bash ci/godot/scripts/trace_changed.sh digests/${{ matrix.set }}.changed.txt \
+              ../base digests/traces 3
+            head -qn 1 digests/traces/*.diff.txt 2>/dev/null || true
+          fi
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -263,6 +275,9 @@ jobs:
               verdict=$([ -s $set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
               echo "digest $set: gdscript $g rust $r $verdict"
               head -1 $set.outcomes.txt 2>/dev/null || echo "check_outcomes $set: no result"
+            done
+            for diff in traces/*.diff.txt; do
+              [ -e "$diff" ] && echo "trace $(head -1 "$diff")"
             done
             cat trials.txt 2>/dev/null
             for stage in march fight stacks; do
