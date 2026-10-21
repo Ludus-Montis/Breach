@@ -64,6 +64,6 @@ How sessions work together is `principles/agent-sessions.md`.
 | Design spec and addenda | `Breach — Reverse Tower Defense Design Spec.md`, `breach-addendum-*.md` |
 | Specs, one per feature or round | `specs/NN-*.md` |
 | Open questions and the user's "remind me when…" | `OPEN_QUESTIONS.md`. Check entries whose **Raise when** matches your work |
-| README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/README.md` (Diátaxis; links to docs that live beside their code) |
+| README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
 | CI and checks | `ci/godot/`, with known environment problems listed in `ci/godot/README.md` |

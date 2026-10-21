@@ -111,7 +111,7 @@ moving or copying it.
 **Actions:**
 1. Using the impact assessment, update or create the doc in the matching quadrant. Do not
    mix quadrants in one page.
-2. Update `docs/README.md` (the index) so every page is reachable.
+2. Update `docs/index.md` (the index) so every page is reachable.
 3. Record architectural decisions (see "Decisions" below).
 4. Remove or fix any doc now contradicted by the change.
 

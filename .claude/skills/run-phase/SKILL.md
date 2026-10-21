@@ -165,7 +165,7 @@ until its documentation is. Read only the sections the change touches.
    written for the player or designer ("Squads now X", not "Moved Y into Z"). A refactor,
    a speed-up nobody sees, tests or CI: `Changelog: N/A (<reason>)` in the PR body, which
    the `docs-gate` check reads.
-4. **Docs** (`docs/README.md`, Diátaxis): add or fix the page in its quadrant and link it
+4. **Docs** (`docs/index.md`, Diátaxis): add or fix the page in its quadrant and link it
    from the index. A tool's own README stays where it is and is linked. Decisions are this
    project's ADRs: never write a separate ADR, and never record a Decision yourself without
    the user's authorisation (step 3 above).

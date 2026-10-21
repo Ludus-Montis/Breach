@@ -27,7 +27,7 @@ complete. Paths are as in `principles/documentation-phases.md`: kit-relative, ex
 
 ## Phase 3: Documentation
 > Using the impact assessment, create or update pages under `docs/` per Phase 3, placing each
-> in the correct Diátaxis quadrant. Update `docs/README.md`. Propose a Decision (or, in a
+> in the correct Diátaxis quadrant. Update `docs/index.md`. Propose a Decision (or, in a
 > project without a decision ledger, an ADR) for any architectural decision; a human
 > authorises it. Run `scripts/check-docs.sh docs` and fix any failures.
 

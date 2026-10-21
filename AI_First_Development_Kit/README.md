@@ -56,7 +56,7 @@ templates/
   documentation-prompts.md   Agent prompts for each documentation phase
   README.template.md         Standard Readme skeleton for the project root
   CHANGELOG.template.md      Keep a Changelog skeleton for the project root
-  docs/README.template.md    Diátaxis index for docs/
+  docs/index.template.md     Diátaxis index for docs/
   adr.template.md            ADR, only for a project without a decision ledger
   ci/docs-gate.yml           CI workflow running the documentation gate
 

@@ -75,7 +75,7 @@ check_changelog() {
 }
 
 check_docs() {
-  local index="$DOCS_DIR/README.md"
+  local index="$DOCS_DIR/index.md"
   [ -f "$index" ] || { fail "$index (docs index) not found"; return; }
 
   # Every relative link in the index must resolve.
@@ -90,7 +90,7 @@ check_docs() {
   local page rel
   while IFS= read -r page; do
     rel="${page#"$DOCS_DIR"/}"
-    [ "$rel" = "README.md" ] && continue
+    [ "$rel" = "index.md" ] && continue
     grep -q -F "($rel" "$index" || fail "orphan doc page not linked from index: $rel"
   done < <(find "$DOCS_DIR" -type f -name '*.md' | sort)
 

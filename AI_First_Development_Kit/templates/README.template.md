@@ -28,7 +28,7 @@ Optional longer description: what this is, who it is for, and what problem it so
 
 ## Documentation
 
-Full documentation is in [`docs/`](docs/README.md). Release history is in [CHANGELOG.md](CHANGELOG.md).
+Full documentation is in [`docs/`](docs/index.md). Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 

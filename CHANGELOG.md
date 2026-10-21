@@ -10,7 +10,7 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
-- A project README, this changelog and a documentation index (`docs/README.md`), kept
+- A project README, this changelog and a documentation index (`docs/index.md`), kept
   current by the documentation phases every change now goes through.
 
 [Unreleased]: https://github.com/SSidey/Breach/commits/main

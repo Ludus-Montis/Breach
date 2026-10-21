@@ -69,7 +69,7 @@ python tools/designer/serve.py
 
 ## Documentation
 
-Everything beyond this page is indexed in [`docs/`](docs/README.md). Notable changes are in
+Everything beyond this page is indexed in [`docs/`](docs/index.md). Notable changes are in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing

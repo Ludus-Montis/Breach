@@ -116,8 +116,8 @@ Then, per `principles/agent-sessions.md`:
 - **If the Decision ledger lives in a long spec,** add the generated index and its gate
   check once the ledger outgrows a quick read. A new project can wait until it does.
 - **Set up the documentation** (`principles/documentation-phases.md`): `README.md`,
-  `CHANGELOG.md` and `docs/README.md` from `templates/README.template.md`,
-  `templates/CHANGELOG.template.md` and `templates/docs/README.template.md`, and
+  `CHANGELOG.md` and `docs/index.md` from `templates/README.template.md`,
+  `templates/CHANGELOG.template.md` and `templates/docs/index.template.md`, and
   `templates/ci/docs-gate.yml` as a CI workflow. Add the documentation phases to the
   procedure above, between the gate and opening the proposal.
 
