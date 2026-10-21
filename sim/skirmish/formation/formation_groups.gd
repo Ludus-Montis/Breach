@@ -35,6 +35,7 @@ const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const GroupPairs = preload("res://sim/skirmish/formation/group_pairs.gd")
 
 const EPSILON := 0.000001
 ## Pairs of units two groups meeting may have and still be looked at pair by pair (_gap).
@@ -55,19 +56,24 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 static func _form_up(squads: Array, tick: int, fight_seed: int, events: Array) -> void:
 	var meetings := []  # [key, one, other]
 	var groups := squads.filter(func(s): return s.state in AT_EASE and not s.living().is_empty())
+	var join := BattleTuning.current().group_join
+	var views := {}  # store -> its RANK and POSITION, read once a pass (Decision 150)
+	var reaches := []  # how far each group's bodies may lie from its position
+	for group: SkirmishSquad in groups:
+		var view := UnitView.read_once(views, group, [UnitColumns.RANK, UnitColumns.POSITION])
+		reaches.append(group.width + _back_row_in(group, view.rank))
 	var grids := {}  # squad -> a grid of its units (_gap), each made once
-	for i in groups.size():
-		for j in range(i + 1, groups.size()):
-			var one: SkirmishSquad = groups[i]
-			var other: SkirmishSquad = groups[j]
-			if one.faction_id != other.faction_id or not _together(one, other):
-				continue
-			var gap := _gap(one, other, grids)
-			if gap <= BattleTuning.current().group_join + EPSILON:
-				var draws := [ScrumContest.squad_draw(one, fight_seed)]
-				draws.append(ScrumContest.squad_draw(other, fight_seed))
-				draws.sort()
-				meetings.append([[snappedf(gap, 0.000001)] + draws, one, other])
+	for pair in GroupPairs.near(groups, reaches, join):
+		var one: SkirmishSquad = groups[pair[0]]
+		var other: SkirmishSquad = groups[pair[1]]
+		if one.faction_id != other.faction_id or not _together(one, other):
+			continue
+		var gap := _gap(one, other, grids, views[one.store].position)
+		if gap <= join + EPSILON:
+			var draws := [ScrumContest.squad_draw(one, fight_seed)]
+			draws.append(ScrumContest.squad_draw(other, fight_seed))
+			draws.sort()
+			meetings.append([[snappedf(gap, 0.000001)] + draws, one, other])
 	meetings.sort_custom(func(a, b): return a[0] < b[0])
 	var gone := {}
 	for meeting in meetings:
@@ -189,25 +195,28 @@ static func _merging(one: SkirmishSquad, other: SkirmishSquad) -> bool:
 
 
 static func _back_row(squad: SkirmishSquad) -> int:
+	return _back_row_in(squad, UnitView.read(squad, [UnitColumns.RANK]).rank)  # read once
+
+
+## The squad's back row, from its store's RANK column as read for the pass.
+static func _back_row_in(squad: SkirmishSquad, ranks: PackedInt32Array) -> int:
 	var rows := 0
-	var ranks: PackedInt32Array = UnitView.read(squad, [UnitColumns.RANK]).rank  # read once
 	for unit in squad.living():
 		rows = maxi(rows, ranks[unit.slot] + unit.footprint_depth)
 	return rows
 
 
 ## Cells between the two groups' nearest bodies, exact up to group_join; beyond it, more
-## than group_join (INF if their frames are too far apart). Small groups look at every
-## pair; otherwise only the other's units that could come within group_join of each unit
-## are looked at, through a grid of them (kept in `grids`).
-static func _gap(one: SkirmishSquad, other: SkirmishSquad, grids: Dictionary) -> float:
+## than group_join. Only pairs of groups near enough are asked (GroupPairs). Small groups
+## look at every pair of units; otherwise only the other's units that could come within
+## group_join of each unit are looked at, through a grid of them (kept in `grids`). `at` is
+## the store's POSITION column, read for the pass.
+static func _gap(
+	one: SkirmishSquad, other: SkirmishSquad, grids: Dictionary, at: PackedVector2Array
+) -> float:
 	var join := BattleTuning.current().group_join
-	var reach := one.width + other.width + _back_row(one) + _back_row(other)
-	if one.position.distance_to(other.position) > reach + join:
-		return INF
 	var ours: Array = one.living()
 	var theirs: Array = other.living()
-	var at: PackedVector2Array = one.store.columns.column(UnitColumns.POSITION)
 	var grid := {}
 	if ours.size() * theirs.size() > ALL_PAIRS:
 		if not grids.has(other):

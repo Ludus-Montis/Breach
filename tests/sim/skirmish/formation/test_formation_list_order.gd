@@ -10,6 +10,9 @@ const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd"
 const BattleTrials = preload("res://sim/skirmish/formation/battle_trials.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const FormationGroups = preload("res://sim/skirmish/formation/formation_groups.gd")
+const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd")
 
 const TICK := 0.1
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
@@ -189,3 +192,30 @@ func _merging_arrivals(long_first: bool) -> Dictionary:
 
 func test_waves_meeting_on_one_road_queue_by_where_they_stand_not_spawn_order() -> void:
 	assert_dict(_merging_arrivals(true)).is_equal(_merging_arrivals(false))
+
+
+## Three standing groups set to merge, the middle one near enough to meet both at once (spec
+## 38 step 1a).
+func _three_groups() -> Callable:
+	return func():
+		var sim := FormationSimulation.new(4.0, TICK)
+		for front in [40.0, 42.5, 45.0]:
+			var squad := sim.spawn_squad(4, _row(4), "player", true)
+			squad.order = SkirmishUnit.Order.HOLD
+			squad.state = SkirmishSquad.State.HOLDING
+			squad.front_distance = front / 64.0
+			squad.fought = true
+			squad.merges = true
+			FormationMarch.sync_units([squad])
+		return sim
+
+
+func _form_up_step(sim: FormationSimulation, tick: int) -> void:
+	FormationGroups.step(sim.squads(), tick + 1, sim.fight_seed, [], 1000)
+
+
+func test_three_groups_meeting_at_once_merge_the_same_with_their_lists_reversed() -> void:
+	var sim: FormationSimulation = _three_groups().call()
+	_form_up_step(sim, 0)
+	assert_int(sim.squads().size()).is_less(3)  # they did meet
+	assert_int(_first_difference(_three_groups(), _form_up_step, 3)).is_equal(0)

@@ -238,9 +238,38 @@ Decision's conditions.
 
 ## Built
 
-(For the implementing sessions, a section per step.)
+### Step 1a, groups bounded
+
+- **`FormationGroups._form_up`** reads RANK and POSITION once a pass per store
+  (`UnitView.read_once`) before any pair is looked at, and works out each group's back row
+  once a pass (`_back_row_in`). `_gap` takes the store's POSITION column as read for the pass,
+  and no longer checks how far apart the two groups are: `GroupPairs` does that. `_back_row`
+  still reads RANK live for `_return_origins`, which writes RANK as each unit comes home, so
+  it must see the last write.
+- **`GroupPairs.near`** (new) finds candidate pairs through a grid of the groups' positions.
+  Its cells are as wide as the largest distance a pair may stand apart and still be looked at
+  (`2 × the largest reach + group_join`, where a group's reach is its width plus its back
+  row), so every candidate is in a neighbouring cell. Its test is the old one, unchanged:
+  positions within both reaches and `group_join`.
+- **Order (open item settled):** `GroupPairs` returns pairs in the groups' own list order,
+  i ascending and then j ascending, which is the order trying every pair gave them. So
+  meetings are gathered in the same order as before, and the sort sees the same list. The
+  meeting key is [gap, the two squads' seeded draws], and each draw is a 62-bit hash of the
+  battle seed and the squad (`ScrumContest.squad_draw`). Two different meetings tie only if
+  two squads draw the same value, so no positions were added to the key.
+- **Not in this step:** `GroupSplit.step`, also timed under "groups (form up, split)", copies
+  POSITION once per squad and reads PLACES once per squad (`_behind`, `_group`). Step 1c's
+  audit takes it.
+- **Tests:**
+  - `test_formation_groups.gd`: forming up reads RANK and POSITION once a pass, through a
+    store whose columns count reads. It was red at 6 and 3 reads.
+  - `test_formation_list_order.gd`: three groups meeting at once merge the same with their
+    lists reversed.
+  - `test_group_pairs.gd`: the pairs found are exactly those trying every pair finds, in the
+    same order.
+  - `test_formation_near_passes.gd`: passes the column to `_gap`.
+- **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
 ## Open, for the implementing session to settle and record here
 
-- Step 1a: whether the meeting key can tie, and if so the positions added to it.
 - Step 2: the `terrain=mixed` layout.
