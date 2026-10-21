@@ -135,7 +135,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 126 | Wounds work through condition; the downed come to on a timer; retreats and pursuits run by default; the wounded can be borne | 6037 |  |
 | 127 | The downed may play dead while foes are near; a foe may take it for dead | 6092 |  |
 | 128 | A registry of tags, traits and statuses; tags carry where a trait may sit; items grant traits; the designer's Library browses it | 6125 |  |
-| 129 | Rust for the simulation's hot core | 6162 | amended by 131 |
+| 129 | Rust for the simulation's hot core | 6162 | amended by 131, 151 |
 | 130 | Battles replay bit for bit across machines: the simulation's maths is its own | 6214 |  |
 | 131 | Every unit is fully simulated, always; the per-unit work moves to Rust | 6254 | amended by 142 |
 | 132 | The native field owns where units stand, routed in a series of changes | 6293 | amended by 139, 142 |
@@ -150,9 +150,11 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
 | 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143 |
 | 143 | A unit's rank and column are per-tick state, held in the unit store | 6629 |  |
-| 144 | A pass reads the unit store once, never unit by unit | 6665 | amended by 146 |
+| 144 | A pass reads the unit store once, never unit by unit | 6665 | amended by 146, 150 |
 | 145 | hp changes through one writer, and the fallen are an event queue | 6709 | amended by 147 |
 | 146 | Every pass reads the unit store through one typed view, held for the pass | 6755 |  |
 | 147 | A unit's state changes through one writer, and each squad keeps its living and its downed | 6819 |  |
 | 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 |  |
 | 149 | Documentation is part of done: README, changelog and docs/ in every PR | 6929 |  |
+| 150 | A pass reads each column and builds each index once, not once per squad or per pair | 6970 |  |
+| 151 | A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour | 7015 |  |
