@@ -20,6 +20,7 @@ Information-oriented. Precise descriptions of APIs, config, formats.
 - [CI checks: each rubric row and the tool that checks it](../ci/godot/README.md)
 - [Rust core: what it owns and how it is loaded](../native/README.md)
 - [Specs, one per feature or round](../specs/)
+- [The outcome trace: the digest's per-tick JSON lines](../specs/37-outcome-trace.md#settled)
 
 ## Explanation
 Understanding-oriented. Background and design decisions.
