@@ -93,6 +93,13 @@ repos:
         pass_filenames: false
         files: ^(Breach — Reverse Tower Defense Design Spec\.md|DECISIONS_INDEX\.md|tools/decisions_index\.py)$
 
+      - id: check-open-questions
+        name: open-questions (no entry under Open; they are issues, Decision 148)
+        entry: python3 ci/github/check_open_questions.py
+        language: system
+        pass_filenames: false
+        files: ^(OPEN_QUESTIONS\.md|ci/github/check_open_questions\.py)$
+
       - id: check-helper-promotion
         name: no-cross-cutting-helper-violation
         entry: python3 ci/godot/scripts/check_helper_promotion.py

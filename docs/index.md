@@ -14,6 +14,8 @@ Task-oriented. Steps to achieve a specific goal.
 - [Build the Rust core](../native/README.md#building)
 - [Run the checks locally](../ci/godot/README.md#running-the-checks-locally)
 - [Replace the placeholder art](../assets/placeholder/README.md)
+- [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
+  `question`; labels and milestones come from the `github-sync` workflow)
 
 ## Reference
 Information-oriented. Precise descriptions of APIs, config, formats.
