@@ -1,0 +1,35 @@
+name: github-sync
+
+# Spec 36, Decision 148. Cloud agents can't create labels or milestones, so this does:
+# the fixed labels, a milestone per specs/NN-*.md and a step:NN-<id> label per
+# `### Step <id>` heading (ci/github/sync.py). It creates only what is missing, so a
+# second run changes nothing. With `migrate`, it then moves OPEN_QUESTIONS.md's open
+# entries to issues labelled `question` and prints the Q<n> -> #<issue> table
+# (ci/github/migrate_questions.py); an entry already moved is skipped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      migrate:
+        description: "Also move OPEN_QUESTIONS.md's open entries to issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Labels and milestones
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 ci/github/sync.py
+      - name: Migrate the open questions
+        if: ${{ inputs.migrate }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 ci/github/migrate_questions.py
