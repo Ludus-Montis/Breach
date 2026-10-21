@@ -7038,8 +7038,9 @@ don't want our implementation towards performance adversely impacting the AI of 
   - It decides nothing by id or list order (Decision 97), shown by the mirror trials both
     ways round.
   - Units still sense, decide and act by the same rules. It changes how a result is computed
-    (float width, summation order, which tick's snapshot a pass reads), never what a unit
-    perceives or decides, or how often (Decisions 131 and 138).
+    (float width, summation order), never what a unit perceives or decides, or how often
+    (Decisions 131 and 138). Reading the last tick's state instead of this one's changes
+    what a unit perceives, so it is outside this rule.
   - Its commit says so (`Outcomes-changed: <why>`), and the owner signs it off at Gate 2,
     with the outcome trace (spec 37) when it is built.
 - **Still declined, because they change behaviour:** level of detail, or simplifying units
