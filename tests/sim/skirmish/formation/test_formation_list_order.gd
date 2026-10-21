@@ -13,6 +13,8 @@ const UnitDef = preload("res://content/definitions/unit_def.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationGroups = preload("res://sim/skirmish/formation/formation_groups.gd")
 const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd")
+const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
+const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const TICK := 0.1
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
@@ -219,3 +221,47 @@ func test_three_groups_meeting_at_once_merge_the_same_with_their_lists_reversed(
 	_form_up_step(sim, 0)
 	assert_int(sim.squads().size()).is_less(3)  # they did meet
 	assert_int(_first_difference(_three_groups(), _form_up_step, 3)).is_equal(0)
+
+
+## Two drilled player squads retreating, every unit 2 cells out of its place, and a kingdom
+## squad close by (spec 38 step 1b): both regroup on one tick, through one hostile index.
+func _two_regrouping() -> Callable:
+	return func():
+		var sim := FormationSimulation.new(1.0, TICK)
+		var drilled := _def()
+		drilled.discipline = 80  # it meets threats: a retreat backs away facing its foes
+		for y in [20.0, 26.0]:
+			var lane := FormationRoute.new(PackedVector2Array([Vector2(20, y), Vector2(60, y)]))
+			var placements := range(4).map(func(column): return [drilled, Vector2i(0, column)])
+			var squad := sim.spawn_squad(4, placements, "player", true, 0, lane)
+			squad.order = SkirmishUnit.Order.RETREAT
+			for unit in squad.living():
+				SquadEntries.loosen(squad, unit, UnitPlaces.of(squad, unit) + Vector2(2, 0))
+		var foes := FormationRoute.new(PackedVector2Array([Vector2(24, 23), Vector2(0, 23)]))
+		sim.spawn_squad(4, _row(4), "the_kingdom", true, 0, foes)
+		return sim
+
+
+## Where each loose unit of the battle stands, by id.
+func _loose(squads: Array) -> String:
+	var rows := []
+	for squad in squads:
+		for unit_id in squad.loose:
+			var unit: SkirmishUnit = squad.loose[unit_id]
+			var at := SquadEntries.loose_at(squad, unit).snapped(Vector2(0.0001, 0.0001))
+			rows.append([unit_id, at, UnitPlaces.bearing_of(squad, unit)])
+	rows.sort()
+	return str(rows)
+
+
+func test_two_regrouping_squads_of_one_side_walk_back_the_same_with_their_lists_reversed() -> void:
+	var usual: FormationSimulation = _two_regrouping().call()
+	var reversed: FormationSimulation = _two_regrouping().call()
+	_reverse(reversed.squads())
+	for _tick in range(3):
+		for sim in [usual, reversed]:
+			ScrumRegroup.step(sim.squads(), 0.25, TICK, sim.fight_seed)
+
+	assert_str(_loose(usual.squads())).is_not_equal("[]")  # still walking back
+	assert_str(_loose(reversed.squads())).is_equal(_loose(usual.squads()))
+	assert_str(_state(reversed.squads())).is_equal(_state(usual.squads()))

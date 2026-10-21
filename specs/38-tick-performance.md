@@ -270,6 +270,36 @@ Decision's conditions.
   - `test_formation_near_passes.gd`: passes the column to `_gap`.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
+### Step 1b, regroup bounded
+
+- **`ScrumRegroup.step`** keeps each faction's hostile index for the pass (`hostile`,
+  faction → `ScrumNear.index` of `ScrumBlows.hostile_units`), built the first time a
+  drilled retreat of that faction needs it. Every squad of a faction has the same foes:
+  `hostile_units` passes over only the squad's own faction, the routing and the destroyed.
+  All foes are still worked out before any squad walks.
+- **One hold for every squad walking:** `step` holds the walking squads' stores once
+  (`UnitView.hold(walking, HELD)`) before the walk loop and releases after the last trade;
+  `_walk_back` takes its squad's view with `UnitView.of`. SPEED is read once a store
+  (`UnitView.read_once`); nothing in the pass writes it.
+- **RANK and COLUMN are held too,** where before each walk read them fresh: a squad's trade
+  (`ScrumTrade.trade`, between walks) writes its own places through `store.columns`, so
+  holding them keeps every later reader on the last write, as reading after each trade did.
+- **No native call while it is held (Decision 146, checked):** the walk and the trade call
+  only GDScript (`TerrainStep`/`FormationPour`, `UnitSteer`, `UnitMover`, `UnitMotion`,
+  `UnitShuffle`, `ScrumStance`, `SquadEntries`, `EntryKeys`, `UnitPlace`). Every native
+  entry (`ScrumSeekField`, `ScrumWalkField`, `ScrumFaceField`, `ScrumBlowsField`,
+  `BodyParting`, `BodyFieldSync`) asserts `StoreHolds.none_held`, and none is reached from
+  regroup.
+- **Tests:**
+  - `test_scrum_regroup.gd`: two regrouping squads of one side read POSITION, LOOSE_AT,
+    NEXT, BEARING, RANK, COLUMN and SPEED as often as one does (a store whose columns count
+    reads, now `tests/.../counted_columns.gd`, shared with `test_formation_groups.gd`). It
+    was red with every column read once more per squad, POSITION and LOOSE_AT for the
+    index. And the first squad's units walk back as they do alone.
+  - `test_formation_list_order.gd`: two regrouping squads of one side walk back the same
+    with their lists reversed.
+- **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
+
 ## Open, for the implementing session to settle and record here
 
 - Step 2: the `terrain=mixed` layout.

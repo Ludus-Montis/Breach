@@ -31,7 +31,15 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 ## The walking-back units' loose points and bearings, held for the pass (UnitView).
-const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT, UnitColumns.BEARING]
+## Their places too (UnitView.PLACES): a squad's trade (ScrumTrade) writes them as the
+## walks go on, so every walk reads the last write.
+const HELD := [
+	UnitColumns.LOOSE_AT,
+	UnitColumns.NEXT,
+	UnitColumns.BEARING,
+	UnitColumns.RANK,
+	UnitColumns.COLUMN
+]
 
 
 ## Units of squads out of the fight walk to their places (in the stance, if any) at the
@@ -43,29 +51,45 @@ static func step(
 	squads: Array, pace: float, seconds: float, fight_seed: int, terrain: FormationTerrain = null
 ) -> void:
 	var regrouping := []
+	var hostile := {}  # faction -> the index of its foes, built the first time it's needed
 	for squad in squads:
 		if squad.state in [SkirmishSquad.State.FIGHTING, SkirmishSquad.State.ROUTING]:
 			continue
 		var held: bool = squad.loose.keys().any(func(id): return not squad.chasers.has(id))
 		if squad.state == SkirmishSquad.State.MOVING and held:
 			squad.state = SkirmishSquad.State.HOLDING  # it stands while its units regroup
-		regrouping.append([squad, _foes_faced(squad, squads, fight_seed)])
+		regrouping.append([squad, _foes_faced(squad, squads, fight_seed, hostile)])
+	var walking := (
+		regrouping
+		. map(func(entry): return entry[0])
+		. filter(func(squad): return not squad.loose.is_empty())
+	)
 	var moving := {"pace": pace, "seconds": seconds, "seed": fight_seed, "terrain": terrain}
-	if regrouping.any(func(entry): return not entry[0].loose.is_empty()):  # anyone to walk
+	if not walking.is_empty():  # anyone to walk
 		moving["bodies"] = ScrumSlots.bodies(squads)
 		moving["crowd"] = BodyGrid.of_bodies(moving["bodies"])
+	# each unit read and stepped: held once for every squad walking (nothing native runs
+	# in the walks or trades)
+	var held := UnitView.hold(walking, HELD)
+	moving["paces"] = {}  # store -> a read view of SPEED, which nothing here writes
 	for entry in regrouping:
 		_walk_back(entry[0], entry[1], moving)
 		ScrumTrade.trade(entry[0], fight_seed)  # a unit its own ranks hold off trades places
+	UnitView.release(held)
 
 
 ## unit id -> where the foe it touches stands, for a drilled retreat's units ({} for any
-## other squad).
-static func _foes_faced(squad: SkirmishSquad, squads: Array, fight_seed: int) -> Dictionary:
+## other squad). `hostile` (faction -> ScrumNear.index of its foes) keeps each faction's
+## index for the pass: every squad of a faction has the same foes (ScrumBlows.hostile_units).
+static func _foes_faced(
+	squad: SkirmishSquad, squads: Array, fight_seed: int, hostile: Dictionary
+) -> Dictionary:
 	var out := {}
 	if squad.order != SkirmishUnit.Order.RETREAT or not FormationDiscipline.meets_threats(squad):
 		return out
-	var near := ScrumNear.index(ScrumBlows.hostile_units(squad, squads))
+	if not hostile.has(squad.faction_id):
+		hostile[squad.faction_id] = ScrumNear.index(ScrumBlows.hostile_units(squad, squads))
+	var near: Dictionary = hostile[squad.faction_id]
 	var reach := BattleTuning.current().reach_contact
 	for unit_id in squad.loose:
 		var unit: SkirmishUnit = squad.loose[unit_id]
@@ -75,26 +99,27 @@ static func _foes_faced(squad: SkirmishSquad, squads: Array, fight_seed: int) ->
 	return out
 
 
-## `moving` = {pace, seconds, seed, terrain, bodies, crowd}: they step round bodies in their
-## way (UnitSteer).
+## `moving` = {pace, seconds, seed, terrain, bodies, crowd, paces}: they step round bodies
+## in their way (UnitSteer). Its store is held (`step`).
 static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionary) -> void:
 	if squad.loose.is_empty():
 		return
 	var seconds: float = moving["seconds"]
 	var reform := FormationDiscipline.reform_pace(squad)  # the same for each of its units
 	var homes := TerrainStep.returns(squad, moving["terrain"], moving["seed"])
-	var held := UnitView.hold([squad], HELD)  # each unit read and stepped: held for the pass
+	var held := UnitView.of(squad)  # once per squad: an index, not a copy
 	var columns := squad.store.columns  # the hold's, for the helpers that step a unit
-	var places := UnitView.read(squad, UnitView.PLACES)
 	var loose_at: PackedVector2Array = held.at
 	var next: PackedVector2Array = held.next
 	var bearing: PackedFloat64Array = held.bearing
-	var paces: PackedFloat64Array = UnitView.read(squad, [UnitColumns.SPEED]).speed
+	var paces: PackedFloat64Array = (
+		UnitView.read_once(moving["paces"], squad, [UnitColumns.SPEED]).speed
+	)
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
 		var unit: SkirmishUnit = squad.loose[unit_id]
-		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, places))
+		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, held))
 		var step: float = paces[unit.slot] * moving["pace"] * reform
 		var heading: float = squad.stance.get("heading", squad.heading)
 		var foe_at = foes.get(unit_id)
@@ -116,4 +141,3 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 		var faced := arrived and UnitMotion.turn(unit, columns, heading, seconds)
 		if squad.stance.is_empty() and faced:
 			SquadEntries.unloose(squad, unit_id)  # in its place and facing the squad's way
-	UnitView.release(held)
