@@ -28,6 +28,7 @@ yet. Every script here was run against a deliberately broken case before being t
 | `ai-first-thresholds-respected` (context-locality half) | `ci/godot/scripts/check_context_locality.py <base-ref>` | CI only, informational (never fails) — see Decision 12 and Heuristic limits below |
 | outcomes kept (not a named rubric row: spec 35's "a speed-up must leave every line the same") | `ci/godot/scripts/check_outcomes.py <set> <base digest> <head digest> <base-ref>` | CI only, in `sim-checks`' `digests` jobs: each set's GDScript digest against the base's, tick for tick. A change fails unless one of the branch's commits says why in an `Outcomes-changed: <why>` trailer (a Decision, a fix, a digest that hashes more) |
 | `branch-name-conforms` | `ci/godot/scripts/check_branch_name.sh` | pre-commit stage |
+| `docs-current` | `AI_First_Development_Kit/scripts/check-docs.sh all <base-ref>` (README structure, changelog format and that it changed with the source, docs index links) | CI (`docs-gate` workflow); skips the changelog check when the PR body says `Changelog: N/A`. Whether the words are still true is procedural: the PR's Documentation block |
 | `commit-message-conforms` (format half) | `ci/godot/scripts/check_commit_message.sh` | commit-msg stage |
 | `commit-message-conforms` (type-vs-diff half) | same script, heuristic warning only — see Heuristic limits | commit-msg stage |
 | `progress-trend` | `ci/godot/scripts/gate1_progress_log.py` | run manually at the end of an implementation pass; see `principles/progress-tracking.md` |

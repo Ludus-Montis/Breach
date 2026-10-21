@@ -1,0 +1,18 @@
+# The documentation gate (AI_First_Development_Kit/principles/documentation-phases.md),
+# from the kit's templates/ci/docs-gate.yml.
+# `edited` re-runs the gate when the PR description changes, so adding
+# "Changelog: N/A (<reason>)" to the Documentation block takes effect without a push.
+name: docs-gate
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - name: Documentation gate
+        env:
+          DOCS_SKIP_CHANGELOG: "${{ contains(github.event.pull_request.body, 'Changelog: N/A') && '1' || '0' }}"
+        run: bash AI_First_Development_Kit/scripts/check-docs.sh all origin/${{ github.base_ref }}

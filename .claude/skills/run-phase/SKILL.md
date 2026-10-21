@@ -149,11 +149,36 @@ hard, and not skippable:
    open item to re-flag on every PR. This check is for your own confirmation before
    opening the PR, not something the reviewer needs restated each time.
 
+## 5b. Documentation phases (before opening a PR)
+
+Per `AI_First_Development_Kit/principles/documentation-phases.md`: the change is not done
+until its documentation is. Read only the sections the change touches.
+
+1. **Impact assessment** (`templates/doc-impact-assessment.md`, kept in your head or the PR,
+   not committed). In Breach: a change a player or the map designer would notice (units,
+   combat, content, the designer) is user-visible; a change under `content/definitions/` is
+   a data-format change (reference docs, alongside the designer update `CLAUDE.md` already
+   requires); a new Decision is an architectural decision.
+2. **README** (`README.md`): only Install, Usage and Background can go stale. Update them
+   when setup, a command or the project's layout changes; otherwise "verified, no change".
+3. **Changelog** (`CHANGELOG.md`): one line per notable change under `## [Unreleased]`,
+   written for the player or designer ("Squads now X", not "Moved Y into Z"). A refactor,
+   a speed-up nobody sees, tests or CI: `Changelog: N/A (<reason>)` in the PR body, which
+   the `docs-gate` check reads.
+4. **Docs** (`docs/README.md`, Diátaxis): add or fix the page in its quadrant and link it
+   from the index. A tool's own README stays where it is and is linked. Decisions are this
+   project's ADRs: never write a separate ADR, and never record a Decision yourself without
+   the user's authorisation (step 3 above).
+5. Run `bash AI_First_Development_Kit/scripts/check-docs.sh all origin/main` (seconds) and
+   fix any failure, with `DOCS_SKIP_CHANGELOG=1` when the PR body will say
+   `Changelog: N/A`.
+
 ## 6. Open the PR — do not merge it
 
 Push the branch and open a PR with `gh pr create`, body from
 `AI_First_Development_Kit/templates/pr-description.md`: summary, link to the spec/plan
-item, the rubric checklist from step 5, and for the two Gate sections:
+item, the rubric checklist from step 5, the Documentation block from step 5b, and for the
+two Gate sections:
 - **Progress log entry** — link/quote the row `gate1_progress_log.py` just appended to
   `PROGRESS_LOG.md`, so the reviewer doesn't have to open another file.
 - **Human qualitative review (Gate 2)** — link to `QUALITATIVE_REVIEW_LOG.md` and note

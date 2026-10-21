@@ -48,7 +48,11 @@ runs identically every time rather than being re-derived per session:
 3. Implement via `principles/tdd-bdd-workflow.md`.
 4. Run the `rubrics/run-baseline.rubrics.md` gate and record the
    `principles/progress-tracking.md` Gate 1 entry.
-5. Open the reviewable proposal and **stop** — do not merge it (see below).
+5. Run the documentation phases (`principles/documentation-phases.md`): the impact
+   assessment, then README, changelog and `docs/`, each updated or marked N/A with a
+   reason.
+6. Open the reviewable proposal, with its Documentation block, and **stop** — do not
+   merge it (see below).
 
 A stack's `ci/<stack>/` layer is where the *mechanical* half of this lives (linters, test
 runners, CI config); this procedure is the *sequencing* half, and belongs in whatever
