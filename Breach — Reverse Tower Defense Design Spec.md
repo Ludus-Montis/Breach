@@ -6966,3 +6966,48 @@ only with a reason.
 **Pillar check:** holds. Process only.
 **Cost:** a line in `CHANGELOG.md` per user-visible PR, so parallel PRs can conflict there
 (resolved by keeping both lines).
+
+### Decision 150 — A pass reads each column and builds each index once, not once per squad or per pair
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-21
+**Amends:** Decision 144 (extends "once a pass" from loops over units to loops over squads and
+pairs of squads)
+
+**Rationale:** The design session after spec 35 profiled the tick at three points in the fight
+(`tick_phases engine=rust side=4096 squads=4`, bench runs 39043391384 and 39043393472). Just
+after contact the tick was 335 ms. Later it was 466 ms at `settle=40` and 385 ms at
+`settle=100`, with **regroup at 177–186 ms and groups at 131 ms**: about 310 ms that the bench
+read until then (10 ticks after contact) never showed. Under Rust a view copies the whole
+battle's column, not one squad's. `FormationGroups._form_up` read RANK and POSITION that way
+once per pair of groups, and `ScrumRegroup` built an index of every hostile unit and held the
+battle's columns once per regrouping squad. Decision 144 made a loop over units read once a
+pass, but said nothing of a loop over squads. The user agreed to the rule and to spec 38's
+order ("sounds fine").
+- **The rule:** a pass reads each store column it needs, and builds each index it needs (such
+  as a faction's hostile units), once a pass, before its loops over squads or pairs. An index
+  more than one pass needs is built once a tick and shared, as `RoutFriends` keeps the rout's.
+  A loop over squads or pairs takes what it needs from those, never a fresh copy.
+- **Exceptions** are marked `# store: per squad (<why>)` with a reason the bench has shown
+  doesn't matter.
+- **Held by:** `check_store_reads.py`, which also flags `UnitView.hold`, `UnitView.read` and
+  `.column(` inside a loop (spec 38 step 1c). Also the whole-battle bench (`tick_phases
+  series=1`, spec 38 step 2), since a cost that grows with the number of squads shows only
+  after a battle has split into many.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Fix groups and regroup, with no rule | The same shape is in morale, withdraw, the shuffle and speed. Without a check, the next pass written per squad repeats it. |
+| Views that copy one squad's slots, not the battle's | Many small copies still cost one boundary crossing each under Rust; reading once a pass costs one. |
+| Port groups and regroup to Rust | They are per-squad rules (Decision 131), and the cost is how they read, not GDScript itself. |
+
+**Rules over cases:** general: one rule for every pass, whatever it loops over; marked
+exceptions with reasons.
+**Order:** no order changes. Values read once are the values each squad read before. Where a
+pass's pairs are gathered differently (spec 38 step 1a), its sort key must order any two of
+them, with ties going to where squads stand (Decision 97).
+**Bounded:** a pass costs one read a column and one index a faction, plus work per squad or
+pair found by an index, not squads × battle size.
+**Pillar check:** holds. It changes how state is read, not what any unit does.

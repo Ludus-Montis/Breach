@@ -204,7 +204,27 @@ and bury 10.70 → 10.39 (−2.9%), all within noise. No phase is slower beyond 
 front places (+7.7%), morale (+2.5%), stamina (+0.8%) and the rout (+0.7%) have overlapping
 ranges.
 
-**Next, in order:** slot search (measure its parts first: field sync, gathering, the core,
+**Spec 35 step 7c, the rest of a unit's per-tick fields** (#251; bench run 39033559815,
+`e0231cd` against main at `ad66bb6`, `fight=10`, `rounds=5`, AMD EPYC 7763): **329.1 → 332.2 ms a
+tick** (+0.9%, ranges overlapping). No phase moved beyond noise.
+
+**Spec 35 as a whole (Q23, issue #278)** (bench run 39043389452, `e0231cd` against `1cc4412`, the
+last commit before step 0, `fight=10`, `rounds=5`, AMD EPYC 7763): **428.0 → 335.3 ms a tick
+(−21.7%*).** The store paid for itself. Largest gains: the seek's gather 19.19 → 2.05 (−89.3%*),
+carry 9.16 → 2.12 (−76.9%*), the scrum walk 20.22 → 5.60 (−72.3%*), the seek's sync 11.92 → 4.84
+(−59.4%*), perception 13.73 → 7.51 (−45.3%*), bodies 42.95 → 26.07 (−39.3%*), blows 32.45 → 22.12
+(−31.8%*), deaths 20.87 → 15.60 (−25.3%*). Still slower than before step 0: **the rout 62.54 →
+72.32 (+15.6%*)**, the shuffle's free front place 8.40 → 10.04 (+19.5%*), engage's fronts 2.96 →
+3.40 (+14.9%*), the shuffle's pass-through 9.54 → 10.12 (+6.1%*). Spec 38 step 3 takes the rout.
+
+**The tick later in the fight** (bench runs 39043391384 and 39043393472, `e0231cd`, one round
+each, AMD EPYC 9V45): at `settle=40 fight=10` **466.5 ms**, at `settle=100 fight=10` **385.5 ms**,
+with **regroup 177.3 and 186.1 and groups 131.4 and 131.2**. Both read whole-battle columns once
+per squad or per pair of squads. The bench read until now (10 ticks after contact) never showed
+them. Decision 150 and spec 38 step 1.
+
+**Next, in order:** spec 38 (`specs/38-tick-performance.md`), which replaces the list below.
+Was: slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
 walk. Each is a small PR that must reproduce the reference
 digests (sim-checks). Long runs go to the `bench` workflow (`.github/workflows/bench.yml`,
