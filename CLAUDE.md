@@ -26,6 +26,10 @@ How sessions work together is `principles/agent-sessions.md`.
 - **Usage is a budget** (`principles/agent-sessions.md`, rule 4). One step per session.
   Keep output small: show only failures from a run, only the failing part of a log, and
   never echo whole files, diffs or listings to look at them.
+- **Documentation is part of done** (`principles/documentation-phases.md`, Decision 149).
+  Before a PR: the impact assessment, then `README.md`, `CHANGELOG.md` and `docs/`, each
+  updated or marked N/A with a reason in the PR's Documentation block. CI's `docs-gate`
+  runs `AI_First_Development_Kit/scripts/check-docs.sh`.
 - **Every finished step names the next command.** The last message of a step gives the
   exact next command (`/run-phase spec N step M`), or says the next work needs a design
   session and names its subject. The user starts it in a new session.
@@ -60,5 +64,6 @@ How sessions work together is `principles/agent-sessions.md`.
 | Design spec and addenda | `Breach — Reverse Tower Defense Design Spec.md`, `breach-addendum-*.md` |
 | Specs, one per feature or round | `specs/NN-*.md` |
 | Open questions and the user's "remind me when…" | `OPEN_QUESTIONS.md`. Check entries whose **Raise when** matches your work |
+| README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
 | CI and checks | `ci/godot/`, with known environment problems listed in `ci/godot/README.md` |

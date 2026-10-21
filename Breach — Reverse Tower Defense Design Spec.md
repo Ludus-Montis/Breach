@@ -6925,3 +6925,44 @@ labels) in place of one file read.
 **Cost:** a clone without network no longer holds the open questions, and their history
 leaves git. What governs how work is done (Decisions, specs, skills) stays in the repo.
 Built as spec 36.
+
+### Decision 149 — Documentation is part of done: README, changelog and docs/ in every PR
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-21
+**Amends:** `AI_First_Development_Kit/principles/agent-workflow.md` (the per-change
+sequence), `rubrics/run-baseline.rubrics.md` and `CLAUDE.md`'s non-negotiables
+
+**Rationale:** The user supplied documentation phases for the kit and asked for them in the
+general workflow, so documentation stays up to date. The project had no README, changelog or
+docs index. Settled:
+- **Three phases after implementation, before the PR** (`principles/documentation-phases.md`):
+  an impact assessment, then the README (Standard Readme), the changelog (Keep a Changelog)
+  and `docs/` (Diátaxis). Each is updated or marked N/A with a reason in the PR's
+  Documentation block.
+- **A CI gate,** `docs-gate`, runs the kit's `scripts/check-docs.sh`: README structure, the
+  changelog's format, that it changed when source changed, and that the docs index has no
+  broken links or orphan pages. `Changelog: N/A` in the PR body skips the changelog check,
+  so a refactor or CI change says why instead of padding the changelog.
+- **The Decision ledger is the ADR record.** No separate ADRs: two records of one decision
+  drift. The kit's ADR template is only for a project without a ledger.
+- **Docs that live beside their code stay there** (the designer's, the Rust core's, the CI
+  layer's READMEs); the index links them in their quadrant.
+- **`/run-phase` gains step 5b,** and the PR template a Documentation block.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Docs written at release time | They drift between releases, and no one remembers what changed. |
+| ADRs under `docs/explanation/adr/` too | A second record of each Decision, outside the append-only ledger. |
+| Move existing READMEs into `docs/` | Breaks every link to them and parts docs from the code they describe. |
+| No CI gate, checklist only | A checklist alone becomes an honour system (`agent-workflow.md`). |
+
+**Rules over cases:** general: every PR goes through the same three phases; N/A is allowed
+only with a reason.
+**Order:** not applicable; nothing under `sim/` changes.
+**Bounded:** a few section reads and one script run of seconds per PR.
+**Pillar check:** holds. Process only.
+**Cost:** a line in `CHANGELOG.md` per user-visible PR, so parallel PRs can conflict there
+(resolved by keeping both lines).

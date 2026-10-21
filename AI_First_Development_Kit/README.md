@@ -40,6 +40,8 @@ principles/
   rules-over-cases.md        General rules over special cases; identity and order never
                               decide outcomes
   bounded-work.md            Per-tick work is local and bounded; work follows change
+  documentation-phases.md    README, changelog and docs/ kept true as part of done:
+                              impact assessment, then three phases
 
 rubrics/
   spec-baseline.rubrics.md   Checked when a specification is authored
@@ -50,6 +52,16 @@ templates/
   commit-message.md          Conventional Commits template + type-vs-diff correctness
   pr-description.md          PR template linking rubric checklist + progress log
   ci-tool-mapping.md         Template for a stack-specific ci/<stack>/README.md
+  doc-impact-assessment.md   Which documentation a change needs (Step 0)
+  documentation-prompts.md   Agent prompts for each documentation phase
+  README.template.md         Standard Readme skeleton for the project root
+  CHANGELOG.template.md      Keep a Changelog skeleton for the project root
+  docs/index.template.md     Diátaxis index for docs/
+  adr.template.md            ADR, only for a project without a decision ledger
+  ci/docs-gate.yml           CI workflow running the documentation gate
+
+scripts/
+  check-docs.sh              The documentation gate (readme | changelog | docs | all)
 
 config/
   thresholds.yaml            All configurable numeric thresholds in one place
@@ -63,8 +75,9 @@ config/
 2. `principles/tdd-bdd-workflow.md` — how behaviour gets specified and implemented.
 3. `principles/agent-workflow.md` and `principles/agent-sessions.md` — how a change
    actually gets proposed and landed, and how work passes between agent sessions.
-4. `principles/decision-ledger.md` and `principles/progress-tracking.md` — how the
-   project records its own history and trend.
+4. `principles/decision-ledger.md`, `principles/progress-tracking.md` and
+   `principles/documentation-phases.md` — how the project records its own history and
+   trend, and keeps its documentation true.
 5. `rubrics/spec-baseline.rubrics.md` and `rubrics/run-baseline.rubrics.md` — the
    checklists that tie 1–4 into concrete pass/fail gates.
 6. `templates/` — the boilerplate you'll actually copy while working.
