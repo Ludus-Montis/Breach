@@ -6,7 +6,8 @@ Design questions still open, and reminders the owner asked for, are GitHub issue
 keeps the entries closed before that, and a table from the old numbers to the issues.
 
 **Raise one** when a question is raised and not settled in the same session: an issue
-titled `Q<n>. <the question, short>` (the next number after the highest `Q` issue),
+titled `Q<n>. <the question, short>` (the next number after the highest used, by an
+issue or under Closed below; Q31 was next at the migration),
 labelled `question` and one `raise-when:` label (`raise-when:next-design`,
 `raise-when:spec-NN` with the spec's milestone, or `raise-when:other`), with this body:
 
