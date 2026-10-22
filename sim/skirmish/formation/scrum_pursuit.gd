@@ -96,6 +96,7 @@ static func step(
 		var homes := TerrainStep.returns(squad, terrain, fight_seed)
 		var places := UnitView.of(squad)  # its places, held: an index, not a copy
 		var loose_at: PackedVector2Array = places.at
+		var basis := ScrumStance.frame(squad)  # once a squad: no chase moves its frame
 		for unit_id in squad.chasers.keys():
 			var chase: Dictionary = squad.chasers[unit_id]
 			var foe: SkirmishSquad = by_id.get(chase["foe"])
@@ -103,7 +104,7 @@ static func step(
 			if not unit.is_alive() or not squad.loose.has(unit_id):
 				squad.chasers.erase(unit_id)
 				continue
-			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, places))  # back
+			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(basis, unit, places))  # back
 			if not chase.get("returning", false):
 				var at: Vector2 = loose_at[unit.slot]
 				var quarry = _quarry(at, [unit, paced], foe, quarries, fight_seed)

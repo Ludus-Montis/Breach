@@ -32,11 +32,12 @@ static func reverse_ranks(squad: SkirmishSquad) -> int:
 	# store: scattered (few: turning about, once as a squad turns)
 	for unit in squad.living():
 		depth = maxi(depth, UnitPlace.rank(squad, unit) + unit.footprint_depth)
+	var width := squad.width  # read once (Decision 144)
 	# store: scattered (few: turning about, once as a squad turns)
 	for unit in squad.living():
 		var at := UnitPlace.of(squad, unit)
 		var rank := depth - at.x - unit.footprint_depth
-		UnitPlace.put(squad, unit, Vector2i(rank, squad.width - at.y - unit.footprint_width))
+		UnitPlace.put(squad, unit, Vector2i(rank, width - at.y - unit.footprint_width))
 	squad.centre_shift = -squad.centre_shift
 	squad.swaps.clear()
 	squad.reforming = true

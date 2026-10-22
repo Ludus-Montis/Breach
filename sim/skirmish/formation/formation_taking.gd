@@ -67,12 +67,13 @@ static func _recall(squad: SkirmishSquad, tick: int, seconds: float, threatened:
 	var held := (tick - squad.taking_since) * seconds
 	var lasting := FormationWalk.rule_of(squad) == "no_man_left_behind"
 	var out_of_time: bool = not lasting and held >= BattleTuning.current().take_hold
+	var at_ease: bool = squad.state in AT_EASE  # read once (Decision 144)
 	for unit_id in squad.taking.keys():
 		var body: SkirmishUnit = squad.taking[unit_id]
 		var taker = squad.units.filter(func(u): return u.id == unit_id)
 		if out_of_time or body.state != SkirmishUnit.State.DOWNED or taker.is_empty():
 			squad.taking.erase(unit_id)
-		elif threatened or not taker[0].is_alive() or squad.state not in AT_EASE:
+		elif threatened or not taker[0].is_alive() or not at_ease:
 			squad.taking.erase(unit_id)
 	if squad.taking.is_empty():
 		squad.taking_since = -1

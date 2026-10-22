@@ -149,9 +149,7 @@ func rank_distance(rank: int) -> float:
 ## `at`: the unit's place (rank, column), from a pass's view (UnitPlace.in_view) or, for an
 ## event's few, the store (UnitPlace.of).
 func lateral_span(unit: SkirmishUnit, axis: Vector2, at: Vector2i) -> Vector2:
-	var along := SquadFrame.lateral_axis(heading) if axis == Vector2.ZERO else axis
-	var points := SquadFrame.corners(position, heading, width, centre_shift, unit, at)
-	return SquadFrame.extent(points, along)
+	return SquadFrame.span(frame(), unit, axis, at)
 
 
 ## The front rank, left to right: only it fights in melee (Decision 47). A column whose

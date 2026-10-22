@@ -198,6 +198,12 @@ var centre_shift: float:
 		store.squads.put(slot, SquadColumns.CENTRE_SHIFT, value)
 
 
+## Its frame read once a pass (Decision 144): [its position, heading, width, centre shift],
+## for SquadFrame's place(), corners() and span() over many of its units.
+func frame() -> Array:
+	return [position, heading, width, centre_shift]
+
+
 ## Puts its front where its front distance says along its route.
 func _place() -> void:
 	position = _point_at(front_distance * MapLayoutDef.CELLS_PER_TILE)

@@ -27,7 +27,7 @@ static func holder(
 ) -> SkirmishSquad:
 	var held_by = EntryKeys.held(squad.store.columns, unit.slot, UnitColumns.HELD_BY)
 	for friend in RoutFriends.with_id(friends, held_by):
-		if stands(friend):
+		if read_once(friends, friend, "stands"):
 			return friend
 	return friend_near(squad, at, friends, reach, false, fight_seed)
 
@@ -49,7 +49,10 @@ static func friend_near(
 		if gap > reach:
 			continue
 		var snapped := snappedf(gap, 0.000001)
-		if ScrumNear.beats(best, snapped, near[0], fight_seed) and behind(squad, at, near[2]):
+		if (
+			ScrumNear.beats(best, snapped, near[0], fight_seed)
+			and _behind(squad, at, near[2], read_once(friends, squad, "home"))
+		):
 			best = [snapped, null, near[0], near[1]]
 	return null if best.is_empty() else best[3]
 
@@ -63,11 +66,11 @@ static func gap(squad: SkirmishSquad, at: Vector2) -> float:
 
 
 ## True if a router at `at` has got behind a friend's unit at `there`: past it, on the
-## side of its route towards home, so the friend stands between it and the enemy.
-static func behind(squad: SkirmishSquad, at: Vector2, there: Vector2) -> bool:
+## side of its route towards home (`home`: cells along it), so the friend stands between it
+## and the enemy.
+static func _behind(squad: SkirmishSquad, at: Vector2, there: Vector2, home: float) -> bool:
 	if squad.route == null:
 		return true
-	var home: float = squad.home_distance * MapLayoutDef.CELLS_PER_TILE
 	var mine: float = squad.route.distance_of(at)
 	var theirs: float = squad.route.distance_of(there)
 	return (mine - theirs) * (home - theirs) >= 0.0
@@ -76,3 +79,24 @@ static func behind(squad: SkirmishSquad, at: Vector2, there: Vector2) -> bool:
 ## True if the formation is neither routing nor destroyed.
 static func stands(squad: SkirmishSquad) -> bool:
 	return not squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]
+
+
+## What the rallies read of a squad - "home" (cells along its route), "stands" or "band"
+## (FormationMorale's) - once for all its routers (Decision 144): kept in `friends["read"]`
+## while the rallies are found, when nothing changes a squad; read afresh without it. A band
+## is first read where a router first asks it, as before.
+static func read_once(friends: Dictionary, squad: SkirmishSquad, what: String) -> Variant:
+	var read: Dictionary = friends.get("read", {})
+	var key := [squad.id, what]
+	if not read.has(key):
+		read[key] = _read(squad, what)
+	return read[key]
+
+
+static func _read(squad: SkirmishSquad, what: String) -> Variant:
+	match what:
+		"home":
+			return squad.home_distance * MapLayoutDef.CELLS_PER_TILE
+		"stands":
+			return stands(squad)
+	return FormationMorale.band(squad)

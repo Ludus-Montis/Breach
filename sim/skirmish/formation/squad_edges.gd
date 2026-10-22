@@ -25,8 +25,9 @@ static func bounds(squad: SkirmishSquad) -> Rect2:
 	var area := Rect2()
 	var first := true
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var frame := squad.frame()
 	for unit in squad.living():
-		var rect := _rect(squad, unit, places)
+		var rect := _rect(frame, unit, places)
 		area = rect if first else area.merge(rect)
 		first = false
 	return area
@@ -47,15 +48,16 @@ static func edge_units(squad: SkirmishSquad, edge: int) -> Array[SkirmishUnit]:
 	var living := squad.living()
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
 	var out: Array[SkirmishUnit] = []
+	var frame := squad.frame()
 	for unit in living:
-		var points := _corners(squad, unit, places)
+		var points := _corners(frame, unit, places)
 		var span := SquadFrame.extent(points, across)
 		var reach := SquadFrame.extent(points, outward).y
 		var covered := false
 		for other in living:
 			if other == unit:
 				continue
-			var other_points := _corners(squad, other, places)
+			var other_points := _corners(frame, other, places)
 			var other_span := SquadFrame.extent(other_points, across)
 			var overlap := minf(span.y, other_span.y) - maxf(span.x, other_span.x)
 			if overlap > EPSILON and SquadFrame.extent(other_points, outward).y > reach + EPSILON:
@@ -83,37 +85,31 @@ static func overlap_across(from: SkirmishSquad, to: SkirmishSquad) -> bool:
 	var axis := SquadFrame.lateral_axis(from.heading)
 	var mine := Vector2(INF, -INF)
 	var places := UnitView.read(from, UnitView.PLACES)  # read once a pass (Decision 146)
+	var frame := from.frame()
 	for unit in from.living():
-		var span := from.lateral_span(unit, axis, UnitPlace.in_view(places, unit))
+		var span := SquadFrame.span(frame, unit, axis, UnitPlace.in_view(places, unit))
 		mine = Vector2(minf(mine.x, span.x), maxf(mine.y, span.y))
 	var theirs := reach(to, axis)
 	return minf(mine.y, theirs.y) - maxf(mine.x, theirs.x) > EPSILON
 
 
-static func _rect(squad: SkirmishSquad, unit: SkirmishUnit, places: UnitView) -> Rect2:
-	return SquadFrame.unit_rect(
-		squad.position,
-		squad.heading,
-		squad.width,
-		squad.centre_shift,
-		unit,
-		UnitPlace.in_view(places, unit)
-	)
-
-
-static func _corners(
-	squad: SkirmishSquad, unit: SkirmishUnit, places: UnitView
-) -> PackedVector2Array:
+## A unit's cells in its squad's frame (`frame`: StoredSquad.frame, read once a pass).
+static func _rect(frame: Array, unit: SkirmishUnit, places: UnitView) -> Rect2:
 	var at := UnitPlace.in_view(places, unit)
-	return SquadFrame.corners(
-		squad.position, squad.heading, squad.width, squad.centre_shift, unit, at
-	)
+	return SquadFrame.unit_rect(frame[0], frame[1], frame[2], frame[3], unit, at)
+
+
+## A unit's footprint's corners in its squad's frame (`frame`: StoredSquad.frame).
+static func _corners(frame: Array, unit: SkirmishUnit, places: UnitView) -> PackedVector2Array:
+	var at := UnitPlace.in_view(places, unit)
+	return SquadFrame.corners(frame[0], frame[1], frame[2], frame[3], unit, at)
 
 
 ## The corners of all the squad's living units' footprints.
 static func _all_corners(squad: SkirmishSquad) -> PackedVector2Array:
 	var points := PackedVector2Array()
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var frame := squad.frame()
 	for unit in squad.living():
-		points.append_array(_corners(squad, unit, places))
+		points.append_array(_corners(frame, unit, places))
 	return points

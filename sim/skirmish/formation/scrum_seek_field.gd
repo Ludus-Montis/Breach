@@ -165,9 +165,12 @@ static func gathered(units: Array, owners: Array, squads: Array) -> Batch:
 	var counted := 0  # the batch's units when the current squad opened
 	var paces := {}  # store -> a read view of SPEED (UnitView.read_once)
 	var speeds := PackedFloat64Array()  # the current squad's store's
+	var fights := {}  # squad -> whether it is fighting, read once (Decision 144)
 	for index in range(units.size()):
 		var squad: SkirmishSquad = owners[index]
-		if squad.state != SkirmishSquad.State.FIGHTING:
+		if not fights.has(squad):
+			fights[squad] = squad.state == SkirmishSquad.State.FIGHTING
+		if not fights[squad]:
 			continue
 		if squad != current:
 			current = squad

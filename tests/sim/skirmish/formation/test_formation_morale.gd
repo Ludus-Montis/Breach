@@ -175,9 +175,9 @@ func test_a_wavering_squad_strikes_more_slowly() -> void:
 	var squad := _squad(1, [_unit(1, 0)])
 	squad.morale = 10
 
-	assert_int(FormationMorale.interval(squad, 10)).is_equal(15)
+	assert_int(FormationMorale.interval(FormationMorale.band(squad), 10)).is_equal(15)
 	squad.morale = 40
-	assert_int(FormationMorale.interval(squad, 10)).is_equal(10)
+	assert_int(FormationMorale.interval(FormationMorale.band(squad), 10)).is_equal(10)
 
 
 func test_a_frontal_fight_between_equals_does_not_break_either_side() -> void:

@@ -50,9 +50,11 @@ static func _plan(ctx: Dictionary) -> void:
 	ctx["rings"] = {}  # squad -> {seeker radius -> the slots round its foes (SlotSearch)}
 	ctx["claims"] = {}  # cell -> points claimed (SlotSearch.claim)
 	ctx["foes"] = FoeIndex.of(ctx["squads"])  # where they stand as the seeking begins
+	ctx["frames"] = {}  # squad -> ScrumStance.frame, read once a pass (Decision 144)
 	var seekers := []
 	for squad in ctx["squads"]:
 		if squad.state == SkirmishSquad.State.FIGHTING:
+			ctx["frames"][squad] = ScrumStance.frame(squad)
 			seekers.append_array(_seekers_of(squad, ctx))
 	seekers.sort_custom(func(a, b): return ScrumContest.before(a[0], b[0]))
 	var claimed := []
@@ -82,7 +84,7 @@ static func _ground(
 	squad: SkirmishSquad, unit: SkirmishUnit, claimed: Array, ctx: Dictionary, draw_seed: int
 ) -> Array:
 	return [
-		ScrumStance.anchor_one(squad, unit),  # the GDScript reference's seek, per unit
+		SquadFrame.place_in(ctx["frames"][squad], unit, UnitPlace.of(squad, unit)),  # reference
 		ctx["bodies"],
 		claimed,
 		ctx["terrain"],
@@ -148,6 +150,7 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 	var near := FoeIndex.fought(ctx["foes"], squad)
 	var reach := BattleTuning.current().reach_contact
 	var front_left := squad.living().any(func(u): return u.preferred_position == 0)
+	var retreating := squad.order == SkirmishUnit.Order.RETREAT  # read once a pass
 	var out := []
 	var columns := squad.store.columns
 	var ats: PackedVector2Array = columns.column(UnitColumns.LOOSE_AT)
@@ -166,7 +169,7 @@ static func _seekers_of(squad: SkirmishSquad, ctx: Dictionary) -> Array:
 			columns.put(unit.slot, UnitColumns.NEXT, at)
 			ctx["active"][squad.id] = true
 			continue
-		if not _may_seek(squad, unit, front_left) or not near["any"]:
+		if not _may_seek(unit, front_left, retreating) or not near["any"]:
 			EntryKeys.set_goal(columns, unit.slot, null)
 			continue
 		var speed := speeds[unit.slot]
@@ -192,13 +195,13 @@ static func _ring(
 
 
 ## Front-band units seek; the rest too once no front-band unit is left (`front_left`: one
-## is).
-static func _may_seek(squad: SkirmishSquad, unit: SkirmishUnit, front_left: bool) -> bool:
+## is); none of a squad ordered to retreat (`retreating`).
+static func _may_seek(unit: SkirmishUnit, front_left: bool, retreating: bool) -> bool:
 	return (
 		(unit.preferred_position == 0 or not front_left)
 		and unit.footprint_width == 1
 		and unit.footprint_depth == 1
-		and squad.order != SkirmishUnit.Order.RETREAT
+		and not retreating
 	)
 
 

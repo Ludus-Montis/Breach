@@ -160,27 +160,32 @@ static func sync_units(
 		var loose_at: PackedVector2Array = held.at
 		var route: UnitView = null if entry.fleeing.is_empty() else held
 		var walkers := []
+		# read once a squad (Decision 144): nothing here moves its frame
+		var basis: Array = entry.frame()
+		var front: float = entry.front_distance
+		var direction: int = entry.direction
+		var heading: float = entry.heading
 		for unit in entry.units:
 			if not unit.is_alive():
 				continue  # the fallen lie where they fell (Decision 126)
 			var swapping := FormationShuffle.offset(entry, unit, moving)
 			distances[unit.slot] = (
-				entry.rank_distance(ranks[unit.slot])
-				+ entry.direction * swapping.x * SkirmishSquad.RANK_DEPTH
+				(front - direction * ranks[unit.slot] * SkirmishSquad.RANK_DEPTH)  # rank_distance
+				+ direction * swapping.x * SkirmishSquad.RANK_DEPTH
 			)
 			if entry.fleeing.has(unit.id):
 				# placement: a router's point on its route, moved by RoutFlight (Decision 139)
 				points[unit.slot] = FormationRout.where_in(route, entry, unit)
 				if not entry.loose.has(unit.id):
-					facing[unit.slot] = entry.heading
+					facing[unit.slot] = heading
 			elif entry.loose.has(unit.id):
 				# placement: its loose point, moved by UnitMover (Decision 139)
 				points[unit.slot] = loose_at[unit.slot]
 			elif timing.is_empty():
-				footholds[unit.slot] = FormationWalk.place_of(entry, unit, moving, places)
+				footholds[unit.slot] = FormationWalk.place_of(entry, basis, unit, moving, places)
 				# placement: its frame's slot, set before any walking (Decision 139)
 				points[unit.slot] = footholds[unit.slot]
-				facing[unit.slot] = entry.heading
+				facing[unit.slot] = heading
 			else:
 				walkers.append(unit)
 		for unit in walkers:

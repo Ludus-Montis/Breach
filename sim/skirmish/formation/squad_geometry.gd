@@ -24,14 +24,13 @@ static func gap(from: SkirmishSquad, to: SkirmishSquad) -> float:
 	return (to.position - from.position).dot(UnitMotion.vector(from.heading)) / CELLS
 
 
-## How far a unit's rank stands ahead of `from`'s front along its heading, in tiles.
+## How far a unit of `to` stands by its rank ahead of `from`'s front along its heading, in
+## tiles. `from` and `to`: the two squads' frames (StoredSquad.frame, read once a pass);
 ## `places`: a view of `to`'s store holding its ranks (UnitView.PLACES).
-static func unit_gap(
-	from: SkirmishSquad, to: SkirmishSquad, unit: SkirmishUnit, places: UnitView
-) -> float:
+static func unit_gap(from: Array, to: Array, unit: SkirmishUnit, places: UnitView) -> float:
 	var rank: int = places.rank[unit.slot]
-	var point := to.position - UnitMotion.vector(to.heading) * rank
-	return (point - from.position).dot(UnitMotion.vector(from.heading)) / CELLS
+	var point: Vector2 = to[0] - UnitMotion.vector(to[1]) * rank
+	return (point - from[0]).dot(UnitMotion.vector(from[1])) / CELLS
 
 
 ## True if the two squads' lines overlap across `from`'s heading, the two headed along
@@ -58,7 +57,8 @@ static func facing_off(from: SkirmishSquad, to: SkirmishSquad) -> bool:
 static func lateral(squad: SkirmishSquad, axis := Vector2.ZERO) -> Vector2:
 	var extent := Vector2(INF, -INF)
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var frame := squad.frame()
 	for unit in squad.living():
-		var span := squad.lateral_span(unit, axis, UnitPlace.in_view(places, unit))
+		var span := SquadFrame.span(frame, unit, axis, UnitPlace.in_view(places, unit))
 		extent = Vector2(minf(extent.x, span.x), maxf(extent.y, span.y))
 	return extent

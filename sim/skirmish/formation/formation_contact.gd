@@ -162,9 +162,9 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	# store: scattered (few: a reinforcement, once as a squad joins)
 	for unit in leader.units:
 		UnitPlace.put(leader, unit, UnitPlace.of(leader, unit) + Vector2i(0, shift))
+	var moved := Vector2i(back, (width - joining.width) / 2)  # read once (Decision 144)
 	# store: scattered (few: a reinforcement, once as a squad joins)
 	for unit in joining.living():
-		var moved := Vector2i(back, (width - joining.width) / 2)
 		UnitPlace.put(joining, unit, UnitPlace.of(joining, unit) + moved)
 		joining.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, 1)
 		SquadEntries.unloose(joining, unit.id)

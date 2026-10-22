@@ -66,11 +66,11 @@ func test_a_units_area_is_its_footprint_turned_to_the_heading() -> void:
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, members, null, _places.store)
 
 	squad.heading = 0.0
-	assert_vector(ScrumReach.area(squad, unit).size).is_equal(Vector2(2, 1))
+	assert_vector(ScrumReach.area(squad, unit, squad.heading).size).is_equal(Vector2(2, 1))
 	squad.heading = 90.0
-	assert_vector(ScrumReach.area(squad, unit).size).is_equal(Vector2(1, 2))
+	assert_vector(ScrumReach.area(squad, unit, squad.heading).size).is_equal(Vector2(1, 2))
 	squad.heading = 45.0
 	var half := sqrt(0.5)
-	assert_vector(ScrumReach.area(squad, unit).size).is_equal_approx(
+	assert_vector(ScrumReach.area(squad, unit, squad.heading).size).is_equal_approx(
 		Vector2(3 * half, 3 * half), Vector2(0.0001, 0.0001)
 	)

@@ -35,6 +35,8 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 		if near.is_empty():
 			continue
 		var reach := BattleTuning.current().reach_contact
+		var retreating: bool = squad.order == SkirmishUnit.Order.RETREAT  # read once (Decision 144)
+		var banded := -1  # its morale band, read at its first blow
 		for unit in squad.living():
 			var where := ScrumReach.at(squad, unit)
 			var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)
@@ -47,12 +49,11 @@ static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
 			cooldowns[unit.slot] -= 1
 			if cooldowns[unit.slot] > 0:
 				continue
-			cooldowns[unit.slot] = FormationMorale.interval(squad, ticks(interval, unit))
+			if banded < 0:
+				banded = FormationMorale.band(squad)
+			cooldowns[unit.slot] = FormationMorale.interval(banded, ticks(interval, unit))
 			var target_squad: SkirmishSquad = pick[1]
-			if (
-				squad.order == SkirmishUnit.Order.RETREAT
-				and not ScrumReach.in_front(bearings[unit.slot], where, target_at)
-			):
+			if retreating and not ScrumReach.in_front(bearings[unit.slot], where, target_at):
 				continue  # turned away: it no longer strikes
 			var flank := not ScrumReach.in_front(bearings[target.slot], target_at, where)
 			out.append([unit, target, FormationCombat.damage(unit), flank])
