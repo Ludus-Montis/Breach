@@ -229,6 +229,13 @@ regroup 327.3 → 326.3, every range overlapping. Forming up wasn't where the ph
 `GroupSplit.step`, timed in the same phase, copied POSITION twice and the places once for every
 group at ease. Spec 38 step 1c reads them once a pass.
 
+**Spec 38 steps 1b and 1c** (bench runs 39691303604, 39693763983 and 39693767164, each
+against its base, 5 rounds, AMD EPYC 7763): no change. At `settle=40`, 1c moved the tick
+781.9 → 789.7 ms, regroup 326.5 → 324.5 and groups 208.8 → 209.9. At `settle=100`, round 1 moved
+the tick 648.3 → 648.0, regroup 342.0 → 340.3 and groups 204.8 → 207.6. 1b's round 1 moved
+regroup 340.9 → 335.4. Every range overlaps. The per-squad copies were not the cost. Spec 38,
+step 1c, "Measured", says what is left and why the step stopped.
+
 **Next, in order:** spec 38 (`specs/38-tick-performance.md`), which replaces the list below.
 Was: slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the

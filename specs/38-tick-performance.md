@@ -345,9 +345,28 @@ Decision's conditions.
     a reason; `UnitView.of` and `read_once` in a loop pass. Red at 2 failures, then green.
   - `test_formation_groups.gd`: looking for splits reads POSITION, RANK and COLUMN once a
     pass. Red against the old `GroupSplit` (one read a group), then green.
-- **Measure:** `bench` against `main` with `rounds=5` at `settle=40 fight=10` and `settle=100
-  fight=10`, started with the PR. The results, and whether groups and regroup are each under
-  10 ms, go here and in spec 34's "Measured" section.
+- **Measured: not done.** Groups and regroup did not move. All runs used 5 rounds against
+  the base on an AMD EPYC 7763 (spec 34, "Measured"):
+
+  | Run | Arguments | Regroup (ms) | Groups (ms) |
+  |---|---|---|---|
+  | 1a, 39685116478 | `settle=40` | 327.3 → 326.3 | 208.0 → 209.4 |
+  | 1b, 39691303604 | `settle=40` | 340.9 → 335.4 (round 1) | 206.7 → 206.4 (round 1) |
+  | 1c, 39693763983 | `settle=40` | 326.5 → 324.5 | 208.8 → 209.9 |
+  | 1c, 39693767164 | `settle=100` | 342.0 → 340.3 (round 1) | 204.8 → 207.6 (round 1) |
+
+  Every range overlaps. **Why:** the copies Decision 150 named are gone. The read-count
+  tests show them gone, and `check_store_reads.py` finds none left in `sim/`. Their cost
+  was never the phases' cost. What is left grows with the units each phase visits:
+  - regroup walks, steers and keys every loose unit, with several scattered native
+    `value`/`put` calls each (`ScrumTrade.track`, `EntryKeys.set_goal`, `UnitMotion.turn`);
+  - `GroupSplit` looks at every unit of every group at ease (`place_of`, `_clusters`).
+
+  That is a reading of the code, not a measurement: the bench times each phase whole. **The
+  step stops here for the user** (step 1c's rule). The phases need measuring inside before
+  any more is changed. Step 2's `counts=1` (changed against living, per phase) is the
+  instrument, and a design session should settle what bounds the work once it has those
+  counts.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
 ## Open, for the implementing session to settle and record here
