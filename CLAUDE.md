@@ -12,6 +12,9 @@ How sessions work together is `principles/agent-sessions.md`.
 
 - **Every change goes on a branch and through a PR, and the user merges.** Never merge,
   and don't poll CI after opening a PR. Use `/run-phase` (`.claude/skills/run-phase/`).
+  The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;
+  `/run-phase` step 1); a design session's `docs:` PR goes on `chore/`. A cloud session's
+  assigned `claude/…` or `ccr-…` branch is not one: create your own from `main`, push that.
 - **Tests come first:** red, then green (`principles/tdd-bdd-workflow.md`). Run the suite
   with `bash ci/godot/scripts/run_tests.sh`, which needs `GODOT_BIN` set.
 - **CI is the test runner. No long-running tests in a session, ever.** In a session, run
