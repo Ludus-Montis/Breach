@@ -10,6 +10,7 @@ renames or deletes.
 |---|---|
 | Push to `main` changing `specs/**` or the sync itself, or by hand | The labels in `labels.FIXED`; per `specs/NN-*.md` a milestone `Spec NN: <title>`, a `raise-when:spec-NN` label and a `step:NN-<id>` label per distinct `### Step <id>` heading; a parent issue `Spec NN: <title>` with a sub-issue `Spec NN step <id>: <title>` per step id, in the milestone. A step whose `step:` label is on a merged PR is created closed. |
 | Several issues carry one marker | The lowest-numbered is the sync's own; each later one that is open is closed as a duplicate with a comment naming the kept one (spec 40 step 4). |
+| A kept step isn't under its spec's kept parent | It is attached there (`replace_parent`), open or closed; the sync reads each kept step's parent once a run and writes only where it differs. |
 | A step's heading is gone | Its issue, if the sync made it and it is open, is closed as not planned with a comment naming the spec's steps now. |
 | A PR changing `specs/NN-*.md` | The labels, and the spec's milestone (created if missing) on the PR and on each issue its body `Closes`, `Fixes` or `Resolves`, unless one is set. With several specs, the lowest-numbered. No step issues. |
 | By hand with `migrate` | `migrate_questions.py` moves `OPEN_QUESTIONS.md`'s open entries to issues labelled `question`. |

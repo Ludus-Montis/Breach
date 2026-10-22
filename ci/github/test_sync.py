@@ -228,10 +228,12 @@ class OneIssuePerMarkerTest(unittest.TestCase):
     def tearDown(self):
         self._dir.cleanup()
 
-    def add_marked(self, number, marker, hidden=False):
+    def add_marked(self, number, marker, hidden=False, parent=None):
         self.client.add_issue(
             marker, body=f"x\n<!-- github-sync: {marker} -->", number=number, milestone=self.milestone, hidden=hidden
         )
+        if parent is not None:
+            self.client.parents[number] = parent
 
     def test_the_run_says_what_it_read_before_any_write(self):
         for number in range(1, 7):
@@ -243,8 +245,9 @@ class OneIssuePerMarkerTest(unittest.TestCase):
         self.assertEqual([i["title"] for i in self.client.created_issues], ["Spec 37 step 4"])
 
     def test_an_issue_the_listing_missed_is_found_in_the_milestone(self):
-        for number, marker in enumerate(["spec 37"] + [f"step 37-{n}" for n in "1234"], 300):
-            self.add_marked(number, marker, hidden=True)
+        self.add_marked(300, "spec 37", hidden=True)
+        for number, step in enumerate("1234", 301):
+            self.add_marked(number, f"step 37-{step}", hidden=True, parent=300)
         _quiet(sync.apply, self.client, self.plan)
         self.assertEqual(self.client.created_issues, [])
         self.assertEqual(self.client.sub_issues, [])
@@ -258,6 +261,22 @@ class OneIssuePerMarkerTest(unittest.TestCase):
         self.assertEqual(self.client.comments, [(400, "A copy of #310, which github-sync keeps for `step 37-1`.")])
         self.assertEqual(self.client.records[310]["state"], "closed")
         self.assertNotIn("Spec 37 step 1", [i["title"] for i in self.client.created_issues])
+
+    def test_a_step_made_under_a_copy_moves_to_the_kept_parent(self):
+        self.add_marked(300, "spec 37")
+        self.add_marked(450, "spec 37")
+        self.add_marked(548, "step 37-4", parent=450)
+        _quiet(sync.apply, self.client, self.plan)
+        self.assertIn((450, "duplicate"), self.client.closed)
+        self.assertEqual(self.client.parents[548], 300)
+        self.assertIn((300, 548), self.client.sub_issues)
+        self.assertEqual(self.client.records[548]["state"], "open")
+
+    def test_a_step_already_under_the_kept_parent_isnt_written(self):
+        self.add_marked(300, "spec 37")
+        self.add_marked(301, "step 37-1", parent=300)
+        _quiet(sync.apply, self.client, self.plan)
+        self.assertNotIn(301, [child for _, child in self.client.sub_issues])
 
     def test_a_second_run_still_changes_nothing(self):
         self.add_marked(310, "step 37-1")

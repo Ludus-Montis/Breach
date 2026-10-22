@@ -8,6 +8,7 @@ class FakeClient:
         self.records = {}
         # Issues the full listing misses but a milestone's listing finds (spec 40 step 4).
         self.hidden = set()
+        self.parents = {}
         for number, title in issues:
             self.add_issue(title, number=number)
         self.pr_files = {}
@@ -90,7 +91,13 @@ class FakeClient:
     def comment(self, number, body):
         self.comments.append((number, body))
 
-    def add_sub_issue(self, parent, child):
+    def get_parent(self, number):
+        return self.parents.get(number)
+
+    def add_sub_issue(self, parent, child, replace_parent=False):
+        if child in self.parents and not replace_parent:
+            raise ValueError(f"#{child} already has a parent")
+        self.parents[child] = parent
         self.sub_issues.append((parent, child))
 
     def list_pr_files(self, number):

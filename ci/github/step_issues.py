@@ -121,11 +121,20 @@ def _read_milestone(client, spec, milestone, copies):
     _add(copies, found)
 
 
+def _keep_under(client, parent, step):
+    """Attaches a kept step to the kept parent, open or closed, where it sits elsewhere or
+    nowhere; a step made under a copy moves (spec 40 step 4)."""
+    if client.get_parent(step) != parent:
+        client.add_sub_issue(parent, step, replace_parent=True)
+        print(f"moved #{step} under #{parent}")
+
+
 def _create_spec(client, spec, milestone, marked, merged):
     parent = marked.get(spec.parent.marker)
     parent_number = parent["number"] if parent else _create(client, spec.parent, milestone)
     for step in spec.steps:
         if step.marker in marked:
+            _keep_under(client, parent_number, marked[step.marker]["number"])
             continue
         number = _create(client, step, milestone)
         client.add_sub_issue(parent_number, number)
