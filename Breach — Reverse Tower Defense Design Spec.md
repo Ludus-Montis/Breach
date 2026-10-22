@@ -7279,7 +7279,8 @@ renaming one closes its issue and opens another.
 milestone stood at 83%: the sync closed only step issues whose heading was gone. The same
 day, two push runs of `github-sync` each created all 87 parents and steps (among #299–386
 at 15:37, then among #388–475 at 16:17 from step 3's merge, which didn't change the sync):
-the 16:17 run read none of the sync's own issues, though a listing run by hand afterwards
+a third, from 16:18, made most of a third set (#476–546) before the owner's cancel. Those
+runs read none of the sync's own issues, though a listing run by hand afterwards
 read them all. The cause is not known; the run logged nothing of what it read. The owner
 disabled the workflow until the fix merges. Settled with the owner:
 - **One issue per marker, checked twice:** before creating a spec's issues, the sync also
@@ -7287,7 +7288,7 @@ disabled the workflow until the fix merges. Settled with the owner:
   its own. Each run logs how many issues and PRs it listed and how many of its own it found.
   Where two or more issues carry one marker, the lowest-numbered is the sync's own and each
   later one is closed as a duplicate, with one comment naming the one kept. So the first
-  fixed run closes the second set (the sync's issues among #388–475) and keeps the first (#299–386), which holds the steps already closed by hand
+  fixed run closes the later sets (the sync's issues among #388–546) and keeps the first (#299–386), which holds the steps already closed by hand
   and by merges.
 - **A parent mirrors its steps:** a spec's parent is open while any of its step sub-issues
   is open, and closed when all are. It closes as completed if any step completed, and as not

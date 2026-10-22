@@ -120,7 +120,8 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
 ### Step 4, one issue per marker
 
 `ci/github/step_issues.py`, `github_client.py`, `sync.py`, with tests. Two push runs (at
-15:37 and 16:17 on 2026-10-22) each made all 87 parents and steps; the second read none of
+15:37 and 16:17 on 2026-10-22) each made all 87 parents and steps, and a third (16:18, cancelled)
+most of them again (#476–546); the later runs read none of
 the sync's own issues, though the same listing run by hand finds them. The logs show nothing
 of what was read, so the cause is open; read the code for one (pagination, the `_own` map,
 the repo's move to Ludus-Montis) and say what you found in the PR, but the fix below doesn't
