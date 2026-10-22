@@ -7336,3 +7336,43 @@ Project backfill lists once and adds only what is missing.
 **Pillar check:** holds. Tooling only.
 **Cost:** `github-sync` stays off until the fix merges; the owner turns it back on and runs
 it by hand. A run per issue closed or reopened.
+
+
+### Decision 157 — Spec 39's ports may open more files than the OCP check allows
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+**Amends:** none; a waiver of Decision 20's limit for spec 39's series, as Decision 142's was
+for spec 35's
+
+**Rationale:** Spec 39 moves the simulation into the Rust crate pass by pass, and each step
+changes how state is reached, not what any unit does. Step 1 put each squad's scalar state in
+the squad store behind `SkirmishSquad`'s unchanged API, and then made every loop over units
+that read its squad's fields read them once a pass (Decision 144). The user chose to do all of
+them now ("Hoist all ~40 now") rather than only those a bench names. That reaches 33
+pre-existing files, against the OCP check's 11. The check can't tell a new case forcing many
+files open from a planned change of how state is read, and its own text says such a change is
+recorded as a Decision. The user chose a Decision of its own for the series over citing 142.
+- **The rule:** a spec 39 step's PR may modify more pre-existing files than the OCP check
+  allows. Each such PR states its count, says why the files changed together, and carries a
+  `Waived-by: Decision 157` trailer on one of its commits.
+- **Not covered:** a rule change (spec 39: "no rule changes ride a port"), or a change outside
+  spec 39's steps.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Cite Decision 142 | 142 covers spec 35's unit store series; the user preferred a Decision for spec 39's. |
+| Hoist only the reads a bench shows to matter | The user chose to hoist every loop now. |
+| Split step 1 to stay under 11 files a PR | The hoisting is one change across the passes; split, each part would still be over the limit. |
+
+**Consequences:** spec 39's later steps, which retire whole GDScript passes, may cite this
+Decision. Each PR's count and reason keep the waiver reviewable.
+
+**Rules over cases:** general: one waiver for a planned series that changes how state is
+reached, with its count stated in each PR.
+**Order:** no outcome changes: each unit reads the value it read before, once a pass instead
+of once a unit. CI's digests compare both engines with `main`.
+**Bounded:** this lowers per-tick work: a squad's fields are read once a pass, not once a unit.
+**Pillar check:** holds. Process only.

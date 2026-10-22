@@ -18,14 +18,16 @@ How sessions work together is `principles/agent-sessions.md`.
 - **Tests come first:** red, then green (`principles/tdd-bdd-workflow.md`). Run the suite
   with `bash ci/godot/scripts/run_tests.sh`, which needs `GODOT_BIN` set.
 - **CI is the test runner. No long-running tests in a session, ever.** In a session, run
-  only the test file you are writing red, then green (`-a res://tests/<file>.gd`), plus
-  lint and the static checks. Everything else runs in CI: the other test files a change
-  touches, the full suite, the digests (`formation_digest.gd`), the trials,
-  `scaling_check`, `tick_phases` and the other benches. CI's `sim-checks` runs the suite
-  and digests on every PR. When CI goes red, read the failing test's part of the log and
-  run that one file. For a comparison, start `bench` (`.github/workflows/bench.yml`) and
-  read its `SUMMARY`. To judge a change of a few percent, give it `rounds` of 5 or more: one
-  run each swings by more than that whenever the code differs.
+  only the test you are writing red, then green (`-a res://tests/<file>.gd`, or for the
+  Rust crate `cargo test <name>` in `native/rust/`), plus lint and the static checks.
+  Everything else runs in CI: the other test files a change touches, the full suite, the
+  digests (`formation_digest.gd`), the trials, `scaling_check`, `tick_phases` and the other
+  benches. CI's `sim-checks` runs the suite and digests on every PR, and its `rust` job the
+  crate's format, clippy and cargo tests on every PR that touches `native/`. When CI goes
+  red, read the failing test's part of the log and run that one file. For a comparison,
+  start `bench` (`.github/workflows/bench.yml`) and read its `SUMMARY`. To judge a change of
+  a few percent, give it `rounds` of 5 or more: one run each swings by more than that
+  whenever the code differs.
 - **Usage is a budget** (`principles/agent-sessions.md`, rule 4). One step per session.
   Keep output small: show only failures from a run, only the failing part of a log, and
   never echo whole files, diffs or listings to look at them.

@@ -26,7 +26,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 17 | Gate 1's test-count regression check accepts a disclosed decrease | 974 |  |
 | 18 | Raised `ocp.max_touched_files_per_new_case` from 5 to 8 | 1007 |  |
 | 19 | `NodeDef.position` is rendering-only, never authoritative for movement/combat | 1037 |  |
-| 20 | Raised `ocp.max_touched_files_per_new_case` from 8 to 11 | 1059 |  |
+| 20 | Raised `ocp.max_touched_files_per_new_case` from 8 to 11 | 1059 | amended by 157 |
 | 21 | Map scene authoring tool built now, ahead of the "2–3 maps before tooling" guidance | 1087 |  |
 | 22 | Explicit extra edges refine "tracks not a grid," not contradict it | 1135 |  |
 | 23 | Resource typing, assignment roles, faction, and reward: additive schema, zero sim/ behavior change | 1181 | superseded by 24 |
@@ -148,7 +148,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 139 | Units move through one mover, which pays the ground | 6439 |  |
 | 140 | Agents share one entry file; design and implementation run as separate sessions; open questions live in one register | 6465 |  |
 | 141 | Keeping the way back clear of spoil is a squad's order, on by default | 6508 |  |
-| 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143 |
+| 142 | The unit store owns every unit's per-tick state, as columns, in GDScript and in Rust | 6553 | amended by 143, 157 |
 | 143 | A unit's rank and column are per-tick state, held in the unit store | 6629 |  |
 | 144 | A pass reads the unit store once, never unit by unit | 6665 | amended by 146, 150 |
 | 145 | hp changes through one writer, and the fallen are an event queue | 6709 | amended by 147 |
@@ -163,3 +163,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 154 | The simulation is tested under cargo, one phase at a time on a built state | 7161 |  |
 | 155 | Spec steps become issues under a parent per spec, and the Project's Status follows each PR | 7201 | amended by 156 |
 | 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
+| 157 | Spec 39's ports may open more files than the OCP check allows | 7341 |  |
