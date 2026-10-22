@@ -1,24 +1,33 @@
 """The small REST client sync.py and migrate_questions.py use: list and create for labels,
-milestones and issues, nothing more (spec 36, isp-fit)."""
+milestones and issues (spec 36), and the issue writes the step issues and a spec PR's
+milestone need (spec 40), nothing more (isp-fit)."""
 import json
 import os
 import re
+import time
+import urllib.error
 import urllib.request
 
 API = "https://api.github.com"
 NEXT_LINK = re.compile(r'<([^>]+)>;\s*rel="next"')
+# GitHub's secondary rate limit: a second between writes. The first step-issue backfill
+# makes a few hundred.
+WRITE_PAUSE = 1.0
 
 
 class GitHubClient:
     def __init__(self, repo, token):
         self.base = f"{API}/repos/{repo}"
         self.token = token
+        self._ids = {}
 
     @classmethod
     def from_env(cls):
         return cls(os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_TOKEN"])
 
     def _request(self, method, url, payload=None):
+        if method != "GET":
+            time.sleep(WRITE_PAUSE)
         data = json.dumps(payload).encode() if payload is not None else None
         request = urllib.request.Request(url, data=data, method=method)
         request.add_header("Authorization", f"Bearer {self.token}")
@@ -55,4 +64,49 @@ class GitHubClient:
         payload = {"title": title, "body": body, "labels": labels}
         if milestone is not None:
             payload["milestone"] = milestone
-        return self._request("POST", f"{self.base}/issues", payload)[0]["number"]
+        issue = self._request("POST", f"{self.base}/issues", payload)[0]
+        self._ids[issue["number"]] = issue["id"]
+        return issue["number"]
+
+    @staticmethod
+    def _record(issue):
+        pull_request = issue.get("pull_request")
+        return {
+            "number": issue["number"],
+            "title": issue["title"],
+            "body": issue.get("body") or "",
+            "state": issue["state"],
+            "labels": [label["name"] for label in issue["labels"]],
+            "milestone": issue["milestone"]["number"] if issue.get("milestone") else None,
+            "pull_request": pull_request is not None,
+            "merged": bool(pull_request and pull_request.get("merged_at")),
+        }
+
+    def list_issue_records(self):
+        """Every issue and PR, once: what step_issues.py reads its own issues from."""
+        return [self._record(issue) for issue in self._list("issues?state=all")]
+
+    def get_issue(self, number):
+        try:
+            return self._record(self._request("GET", f"{self.base}/issues/{number}")[0])
+        except urllib.error.HTTPError as error:
+            if error.code in (404, 410):
+                return None
+            raise
+
+    def set_milestone(self, number, milestone):
+        self._request("PATCH", f"{self.base}/issues/{number}", {"milestone": milestone})
+
+    def close_issue(self, number, reason):
+        self._request("PATCH", f"{self.base}/issues/{number}", {"state": "closed", "state_reason": reason})
+
+    def comment(self, number, body):
+        self._request("POST", f"{self.base}/issues/{number}/comments", {"body": body})
+
+    def add_sub_issue(self, parent, child):
+        if child not in self._ids:
+            self._ids[child] = self._request("GET", f"{self.base}/issues/{child}")[0]["id"]
+        self._request("POST", f"{self.base}/issues/{parent}/sub_issues", {"sub_issue_id": self._ids[child]})
+
+    def list_pr_files(self, number):
+        return [f["filename"] for f in self._list(f"pulls/{number}/files")]

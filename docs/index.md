@@ -16,12 +16,13 @@ Task-oriented. Steps to achieve a specific goal.
 - [See an outcome change side by side](../tools/trace_view/README.md)
 - [Replace the placeholder art](../assets/placeholder/README.md)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
-  `question`; labels and milestones come from the `github-sync` workflow)
+  `question`; labels, milestones and step issues come from the `github-sync` workflow)
 
 ## Reference
 Information-oriented. Precise descriptions of APIs, config, formats.
 - [CI checks: each rubric row and the tool that checks it](../ci/godot/README.md)
 - [Rust core: what it owns and how it is loaded](../native/README.md)
+- [The GitHub sync: labels, milestones and step issues](../ci/github/README.md)
 - [Specs, one per feature or round](../specs/)
 - [The outcome trace: the digest's per-tick JSON lines](../specs/37-outcome-trace.md#settled)
 

@@ -17,6 +17,7 @@ FIXED = [
     ("tooling", "c2e0c6", "Touches other tools or skills"),
     ("outcomes-changed", "d93f0b", "Moves simulation outcomes (digests)"),
     ("needs-design", "e99695", "Waits on a design session"),
+    ("handoff", "f9d0c4", "Parked; waiting to be picked up"),
     ("question", "d876e3", "An open question for the owner (Decision 148)"),
     ("raise-when:next-design", RAISE_WHEN_COLOR, "Raise at the next design session"),
     ("raise-when:other", RAISE_WHEN_COLOR, "Raise when the body's trigger is met"),
