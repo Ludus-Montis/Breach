@@ -22,6 +22,13 @@ bench's bound is no longer one. A pass over many units holds or reads one typed 
 (`UnitView.hold(...)`, `UnitView.read(...)`), takes its arrays into typed locals and
 indexes them by slot.
 
+A pass also reads each column, and builds each view of the store, once a pass (Decision
+150): it flags `UnitView.hold(`, `UnitView.read(` and `.column(` inside a loop, a copy of
+the battle's column under Rust, unless the line, the one above it, or a loop it is in
+carries `# store: per squad (<why>)`, a reason the bench has shown doesn't matter.
+`UnitView.of(squad)` on a view held for the pass is an index, not a copy, and
+`UnitView.read_once` reads once a store: neither is flagged.
+
 Heuristic limit: a read hidden inside a helper the loop calls isn't seen (4a's were).
 Helpers that read one unit take the view; the bench is the backstop.
 
@@ -40,16 +47,26 @@ READ = re.compile(
     r"|\bUnitHealth\.(of_one|hurt_one|heal_one|put_one)\(|\bFormationRout\.where\("
     r"|\bSquadEntries\.loose_at\(|\bEntryKeys\.(held|goal|keep|forget)\()"
 )
+COPY = re.compile(r"(\bUnitView\.(hold|read)\(|\.column\()")
 LOOP = re.compile(r"^\s*(for|while)\b")
 MARK = re.compile(r"#\s*store:\s*scattered\s*\(\s*(few|reference):\s*[^)\s]")
-# The store's own definitions, which every read goes through.
-OWN_FILES = {"unit_columns.gd", "unit_columns_native.gd", "unit_place.gd", "entry_keys.gd"}
+PER_SQUAD = re.compile(r"#\s*store:\s*per squad\s*\(\s*[^)\s]")
+# The store's own definitions, which every read goes through: the views and holds copy
+# columns by name, once each.
+OWN_FILES = {
+    "unit_columns.gd",
+    "unit_columns_native.gd",
+    "unit_place.gd",
+    "entry_keys.gd",
+    "unit_view.gd",
+    "columns_held.gd",
+}
 
 
 def violations_in(text: str) -> list:
     found = []
     lines = text.splitlines()
-    loops = []  # [indentation, marked] of each enclosing loop
+    loops = []  # [indentation, marked scattered, marked per squad] of each enclosing loop
     for number, line in enumerate(lines, start=1):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -60,13 +77,18 @@ def violations_in(text: str) -> list:
         if stripped.startswith("func ") or stripped.startswith("static func "):
             loops.clear()
         code = line.split("#", 1)[0]
-        marked = MARK.search(line) or (number > 1 and MARK.search(lines[number - 2]))
+        above = lines[number - 2] if number > 1 else ""
+        marked = MARK.search(line) or MARK.search(above)
+        per_squad = PER_SQUAD.search(line) or PER_SQUAD.search(above)
         header = LOOP.match(line) is not None  # its own header runs once: outer loops count
         if READ.search(code) is not None and loops:
             if not (marked or any(loop[1] for loop in loops)):
                 found.append((number, "a scattered store call inside a loop over units"))
+        if COPY.search(code) is not None and loops:
+            if not (per_squad or any(loop[2] for loop in loops)):
+                found.append((number, "a copy of the store's columns inside a loop"))
         if header:
-            loops.append([indent, bool(marked)])
+            loops.append([indent, bool(marked), bool(per_squad)])
     return found
 
 
@@ -86,11 +108,14 @@ def main(arguments: list) -> int:
         for number, why in violations_in(path.read_text(encoding="utf-8")):
             report.append(f"  {path.relative_to(REPO_ROOT)}:{number}: {why}")
     if report:
-        print("check_store_reads: store read unit by unit inside a loop (Decision 144):")
+        print("check_store_reads: store read in a loop (Decisions 144 and 150):")
         print("\n".join(report))
         print("Hold or read a view before the loop (UnitView.hold, UnitView.read) and index its")
         print("arrays by slot, or mark the loop '# store: scattered (few: <why>)' (an event's")
         print("few units) or '# store: scattered (reference: <why>)' (the GDScript reference).")
+        print("A view or column copied in a loop: take it once a pass before the loop")
+        print("(UnitView.read_once, or one hold and UnitView.of), or mark it")
+        print("'# store: per squad (<why>)' with a reason the bench has shown doesn't matter.")
         return 1
     print("check_store_reads: OK")
     return 0
