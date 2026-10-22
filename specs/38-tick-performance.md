@@ -133,10 +133,18 @@ more is changed, each phase is timed alone and in its stages.
     `place_of`), and the clustering (`_clusters`).
   - Each bench reports the units it visited in each stage, so the cost per unit can be
     read off.
-- **Open, for the user:** how a bench builds its state. Either directly, with formations
-  set up as the phase needs them (as `rout_bench.gd` does; nothing is stepped), or from
-  a snapshot of a settled battle taken once. The implementing session recommends building
-  directly; see the hand-off.
+- **Settled by the user (2026-10-22): the benches build their state directly, and the
+  building blocks are timed too.** No battle is stepped first.
+  - **Building directly:** each bench builds the formations its phase needs, from builders
+    shared with the phase's unit tests, as `rout_bench.gd` and the tests do. The knobs are
+    the loose units, the squads and how crowded they stand.
+  - **The building blocks:** a third bench times one whole-column copy out and one commit
+    in, at 8192 slots, and one `value` and one `put` across the boundary. The copy count
+    multiplied by these costs gives what each phase's store access costs, without running
+    the phase.
+  - **The test shape:** the builders live under `tests/`. A count test (a store that
+    counts its calls, as `CountedColumns` does) pins each phase's store calls per unit.
+    Being exact, it runs in a session in milliseconds, where timings stay on the bench.
 - **Then** the stage that dominates is fixed in its own step, measured with its phase's
   bench and then with `tick_phases`.
 
