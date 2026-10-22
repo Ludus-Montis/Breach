@@ -92,6 +92,11 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(reader.calls, [("pull_request", 7)])
         self.assertNotIn("pull_request", [call[0] for call in writer.calls])
 
+    def test_the_option_name_ignores_case(self):
+        project = dict(PROJECT, options={"In Progress": "o2"})
+        _, writer = self.apply(pull(draft=True), items={"PR": "iPR"}, project=project)
+        self.assertEqual(writer.calls[-1], ("set_status", "iPR", "o2"))
+
     def test_an_unknown_status_option_fails_clearly(self):
         project = dict(PROJECT, options={"In review": "o3"})
         with self.assertRaisesRegex(SystemExit, "`Next` .it has: In review."):

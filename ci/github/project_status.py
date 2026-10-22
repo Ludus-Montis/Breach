@@ -38,7 +38,8 @@ def apply(reader, writer, repo, number, project_owner, project_number):
     pr = reader.pull_request(owner, name, number)
     status = status_for(pr["draft"], pr["labels"])
     project = writer.project(project_owner, project_number)
-    option = project["options"].get(status)
+    # Case-insensitive: GitHub's default Status options are "In Progress" and so on.
+    option = next((option_id for name, option_id in project["options"].items() if name.casefold() == status.casefold()), None)
     if option is None:
         names = ", ".join(project["options"])
         raise SystemExit(f"The Project's Status field has no option `{status}` (it has: {names}); add it (spec 40).")

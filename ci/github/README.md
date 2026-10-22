@@ -40,6 +40,6 @@ Merged or closed is left to the Project's built-in workflows (Done). It reads th
 `GITHUB_TOKEN` and writes the Project with a token minted each run from the owner's
 GitHub App: repo variables `PROJECT_APP_ID`, `PROJECT_OWNER` and `PROJECT_NUMBER`, and the
 secret `PROJECT_APP_PRIVATE_KEY` (spec 40, "The owner's setup"). Until they are set, the job
-says so and passes. An item not yet in the Project is added; a Status option missing from
+says so and passes. An item not yet in the Project is added. Option names ignore case; one missing from
 the Project fails the job naming it. Files: `project_status.py` (the rule, the gate and
 apply), `graphql_client.py` (the GraphQL calls).
