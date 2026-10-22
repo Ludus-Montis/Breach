@@ -413,6 +413,11 @@ Decision's conditions.
     a reason; `UnitView.of` and `read_once` in a loop pass. Red at 2 failures, then green.
   - `test_formation_groups.gd`: looking for splits reads POSITION, RANK and COLUMN once a
     pass. Red against the old `GroupSplit` (one read a group), then green.
+- **Breadth (waived by Decision 150):** the audit changes 13 existing files, one for each
+  pass it fixed plus its test, over the shotgun-surgery check's threshold of 11. That is
+  the audit Decision 150 orders ("the same shape is in morale, withdraw, the shuffle and
+  speed"), not one new case spread over many files, so the branch carries `Waived-by:
+  Decision 150`.
 - **Measured: not done.** Groups and regroup did not move. All runs used 5 rounds against
   the base on an AMD EPYC 7763 (spec 34, "Measured"):
 
