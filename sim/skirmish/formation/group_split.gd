@@ -20,6 +20,9 @@ const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
+## Where units stand and their places, read once a pass (Decision 150): nobody moves until
+## every split is found.
+const STANDING := [UnitColumns.POSITION, UnitColumns.RANK, UnitColumns.COLUMN]
 const AT_EASE := [
 	SkirmishSquad.State.MOVING, SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED
 ]
@@ -28,17 +31,19 @@ const AT_EASE := [
 ## Splits off every group's fallen-behind units; new groups are numbered from `next_id`
 ## and added to `squads`. Returns the next free squad id.
 static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_id: int) -> int:
-	var splits := []  # [draw, squad, cluster]
+	var splits := []  # [draw, squad, cluster, where its store's units stand]
+	var views := {}  # store -> STANDING, read once a pass
 	for squad in squads:
 		if squad.state not in AT_EASE or squad.route == null:
 			continue
-		var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-		for cluster in _clusters(_behind(squad), at):
+		var standing := UnitView.read_once(views, squad, STANDING)
+		var at: PackedVector2Array = standing.position
+		for cluster in _clusters(_behind(squad, standing), at):
 			var least: int = cluster.map(func(u): return ScrumContest.draw(u, fight_seed)).min()
-			splits.append([least, squad, cluster])
+			splits.append([least, squad, cluster, at])
 	splits.sort_custom(func(a, b): return a[0] < b[0])
-	for split in splits:
-		var group := _group(split[1], split[2], fight_seed)
+	for split in splits:  # no split moves a unit: where they stand holds for every one
+		var group := _group(split[1], split[2], fight_seed, split[3])
 		group.id = next_id
 		for unit in group.units:
 			unit.squad_id = next_id
@@ -51,7 +56,8 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 ## The squad's units in their places, fallen behind them and cut off from the rest: no
 ## unit of the group within its cluster stands near its place. None if the frame waits
 ## for every unit, or if every cluster is behind (the frame is where they are going).
-static func _behind(squad: SkirmishSquad) -> Array:
+## `standing` holds STANDING, as read for the pass.
+static func _behind(squad: SkirmishSquad, standing: UnitView) -> Array:
 	if FormationWalk.rule_of(squad) == "no_man_left_behind":
 		return []
 	var lost := BattleTuning.current().walk_lost
@@ -64,10 +70,9 @@ static func _behind(squad: SkirmishSquad) -> Array:
 			)
 	)
 	var far := {}  # unit id -> whether it stands further than walk_lost from its place
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once (Decision 146)
+	var at: PackedVector2Array = standing.position
 	for unit in placed:
-		var place := FormationWalk.place_of(squad, unit, null, places)
+		var place := FormationWalk.place_of(squad, unit, null, standing)
 		far[unit.id] = at[unit.slot].distance_to(place) > lost
 	if not far.values().has(true):
 		return []  # nobody has fallen behind: nothing to cluster
@@ -110,9 +115,11 @@ static func _clusters(units: Array, points: PackedVector2Array) -> Array:
 
 
 ## A new group of `cluster`, taken out of `squad`: the same command, route and orders.
-static func _group(squad: SkirmishSquad, cluster: Array, fight_seed: int) -> SkirmishSquad:
+## `at`: where the store's units stand, as read for the pass.
+static func _group(
+	squad: SkirmishSquad, cluster: Array, fight_seed: int, at: PackedVector2Array
+) -> SkirmishSquad:
 	var across := UnitMotion.vector(squad.heading).orthogonal()
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	var keyed := cluster.map(
 		func(u):
 			return [snappedf(at[u.slot].dot(across), 0.0001), ScrumContest.draw(u, fight_seed), u]

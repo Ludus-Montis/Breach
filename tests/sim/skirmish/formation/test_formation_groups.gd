@@ -217,3 +217,19 @@ func test_forming_up_reads_rank_and_position_once_a_pass() -> void:
 	assert_int(sim.squads().size()).is_equal(3)
 	assert_int(counted.reads.get(UnitColumns.RANK, 0)).is_equal(1)
 	assert_int(counted.reads.get(UnitColumns.POSITION, 0)).is_equal(1)
+
+
+## Three groups at ease, nobody fallen behind (spec 38 step 1c, Decision 150): looking for
+## splits reads where units stand and their places once a pass, not once a group.
+func test_splitting_reads_position_and_places_once_a_pass() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var lines := [_line(sim, 4, 40.0), _line(sim, 4, 45.0), _line(sim, 4, 50.0)]
+	var counted := CountedColumns.new(lines[0].store.columns)
+	lines[0].store.columns = counted
+
+	GroupSplit.step(sim.squads(), 1, 7, [], 100)
+
+	lines[0].store.columns = counted.inner
+	assert_int(sim.squads().size()).is_equal(3)
+	for name in [UnitColumns.POSITION, UnitColumns.RANK, UnitColumns.COLUMN]:
+		assert_int(counted.reads.get(name, 0)).override_failure_message(String(name)).is_equal(1)

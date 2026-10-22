@@ -64,12 +64,12 @@ static func bodies(field: Object, squads: Array, fight_seed: int) -> Array:
 	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
 	var batch := Batch.new()
 	batch.mode = BODIES
+	var views := {}  # store -> its routers' ALONG, read once a pass (Decision 150)
 	for squad in squads:
 		var before := batch.units.size()
 		var fleeing: Dictionary = squad.fleeing
-		# its routers' ALONG, read once (Decision 146)
 		var route: UnitView = (
-			null if fleeing.is_empty() else UnitView.read(squad, [UnitColumns.ALONG])
+			null if fleeing.is_empty() else UnitView.read_once(views, squad, [UnitColumns.ALONG])
 		)
 		for unit in squad.living():
 			batch.units.append(unit)

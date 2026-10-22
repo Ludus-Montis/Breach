@@ -300,6 +300,56 @@ Decision's conditions.
     with their lists reversed.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
+### Step 1c, the other passes, and the check
+
+- **The check:** `check_store_reads.py` also flags `UnitView.hold(`, `UnitView.read(` and
+  `.column(` inside a loop, unless the line, the one above it or a loop it is in carries
+  `# store: per squad (<why>)`. `UnitView.of` and `UnitView.read_once` aren't flagged. A
+  `scattered` mark doesn't cover a copy, and a `per squad` mark doesn't cover a scattered
+  call. `unit_view.gd` and `columns_held.gd` join the store's own files, which copy columns by
+  name, once each.
+- **What step 1a's bench showed:** groups didn't move (208.0 → 209.4 ms; spec 34, "Measured").
+  Most of that phase is `GroupSplit.step`, not forming up.
+- **The audit.** Each pass below took a view, a column or an index once per squad (or per
+  faction), and now takes it once a pass:
+
+  | Pass | What it read per squad | Once a pass |
+  |---|---|---|
+  | `GroupSplit.step`, `_behind`, `_group` | POSITION twice, and the places, for every group at ease | one read of POSITION, RANK and COLUMN a store (`STANDING`, `read_once`) before any split; the splits use it, and no split moves a unit |
+  | `ScrumRegroup` (1b's follow-up) | `ScrumTrade.trade` read STUCK whole for every regrouping squad, its loose units or none | `trade` returns at once with nobody loose; STUCK joins the walk's one hold |
+  | `FormationMarch.sync_units` (units walk to places) | a hold of `WALKED`, the places, LOOSE_AT and the routes, and `FormationPour.targets`' POSITION and places, for each squad | one hold over every squad of `WALKED`, the places, LOOSE_AT and ROUTE (`SYNCED`), each squad's view by `UnitView.of`. Nothing in it writes the places, loose points or routes, and every helper's read of a held column indexes the hold |
+  | `FormationWithdraw.step` | an index of every hostile unit, and SPEED | the hostile index per faction, as regroup's; SPEED by `read_once` |
+  | `FormationMorale.step` (`_condition`) | CONDITION | `read_once` |
+  | `FormationCombat.ranged_blows`, `_marks` | the places, for each squad and again for each shooting squad | one `read_once` set shared by both |
+  | `RoutBlows.blows` | ROUTE for each routing squad, POSITION for each hunter | `read_once` each |
+  | `ScrumPursuit.step` | the places, for each chasing squad | RANK and COLUMN join its one hold |
+  | `FormationCarry._pairs` | POSITION for each tending squad | `read_once` |
+  | `FormationRecovery._index` | POSITION for each faction | `read_once` |
+  | `BodyFieldSync.bodies` | ALONG for each routing squad | `read_once` |
+
+- **Left as they are, with the reasons:**
+  - **The shuffle** (`FormationShuffle`, `SquadPlaces.occupancy`) reads SPEED, COLUMN and the
+    places only when a squad's swap ends or a move is planned, and each swap writes the
+    places in between, so reading once a pass would be wrong. The bench gives it 0.02 ms.
+  - **Speed** (`SkirmishSquad.speed`, `FormationWalk.share`) reads SPEED, POSITION and the
+    places once per marching squad. The whole march is 0.16 ms in the bench, and
+    `formation_simulation.gd` is at its 300-line budget.
+  - **`SkirmishSquad.fighters()`** reads the places once a call, and `RoutBlows` and
+    `FormationCombat` call it once per squad. It is left for the whole-battle bench (step 2) to
+    weigh.
+  - The check can't see these, because each copy sits in a helper and not in the loop's own
+    lines. That is the check's heuristic limit, as with scattered reads.
+- **Tests:**
+  - `test_check_store_reads.py`: a view, a hold or a column copied in a loop over squads is
+    caught, naming the line; marked `# store: per squad (<why>)` it passes, and the mark needs
+    a reason; `UnitView.of` and `read_once` in a loop pass. Red at 2 failures, then green.
+  - `test_formation_groups.gd`: looking for splits reads POSITION, RANK and COLUMN once a
+    pass. Red against the old `GroupSplit` (one read a group), then green.
+- **Measure:** `bench` against `main` with `rounds=5` at `settle=40 fight=10` and `settle=100
+  fight=10`, started with the PR. The results, and whether groups and regroup are each under
+  10 ms, go here and in spec 34's "Measured" section.
+- **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
+
 ## Open, for the implementing session to settle and record here
 
 - Step 2: the `terrain=mixed` layout.

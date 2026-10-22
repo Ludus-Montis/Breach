@@ -81,13 +81,17 @@ static func losses(squad: SkirmishSquad, fallen: Array, tick: int, events: Array
 static func step(squads: Array, tick: int, ticks_per_second: int, events: Array) -> void:
 	if tick % maxi(1, ticks_per_second) != 0:
 		return
+	var conditions := {}  # store -> its CONDITION, read once a pass: no morale changes it
 	for squad in squads:
 		if squad.is_destroyed() or squad.state == SkirmishSquad.State.ROUTING:
 			continue
 		var sides := _sides_engaged(squad)
 		var morale := _morale(squad)
 		if sides.is_empty():
-			morale += roundi(_tuning().morale_recovery * _condition(squad)) + leadership(squad)
+			morale += (
+				roundi(_tuning().morale_recovery * _condition(squad, conditions))
+				+ leadership(squad)
+			)
 		else:
 			var count := maxi(1, sides.size() - _supported(squad, squads, sides))
 			var pressure := _tuning().morale_pressure
@@ -96,11 +100,14 @@ static func step(squads: Array, tick: int, ticks_per_second: int, events: Array)
 
 
 ## Its units' mean condition (Decision 125), which their morale recovers by.
-static func _condition(squad: SkirmishSquad) -> float:
+## `views`: store -> its CONDITION, read once a pass (Decision 150).
+static func _condition(squad: SkirmishSquad, views: Dictionary) -> float:
 	var living := squad.living()
 	if living.is_empty():
 		return 1.0
-	var condition: PackedFloat64Array = UnitView.read(squad, [UnitColumns.CONDITION]).condition
+	var condition: PackedFloat64Array = (
+		UnitView.read_once(views, squad, [UnitColumns.CONDITION]).condition
+	)
 	var total: float = living.reduce(func(sum, u): return sum + condition[u.slot], 0.0)
 	return clampf(total / living.size(), 0.0, _tuning().condition_cap)
 

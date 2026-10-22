@@ -42,7 +42,8 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
 ## discipline) / 100.
 ## The chasers' loose points, held for the pass (UnitView).
-const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT]
+## Their places too, once for every chasing squad (Decision 150).
+const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT, UnitColumns.RANK, UnitColumns.COLUMN]
 ## A chaser's pace, and the stamina that tells when it gives up: read for the pass.
 const PACED := [UnitColumns.SPEED, UnitColumns.STAMINA]
 
@@ -93,8 +94,8 @@ static func step(
 	for squad in chasing:
 		var paced := UnitView.read_once(paces, squad, PACED)
 		var homes := TerrainStep.returns(squad, terrain, fight_seed)
-		var places := UnitView.read(squad, UnitView.PLACES)
-		var loose_at: PackedVector2Array = UnitView.of(squad).at
+		var places := UnitView.of(squad)  # its places, held: an index, not a copy
+		var loose_at: PackedVector2Array = places.at
 		for unit_id in squad.chasers.keys():
 			var chase: Dictionary = squad.chasers[unit_id]
 			var foe: SkirmishSquad = by_id.get(chase["foe"])

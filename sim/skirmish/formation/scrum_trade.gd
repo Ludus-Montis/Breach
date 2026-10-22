@@ -35,6 +35,8 @@ static func track(columns: UnitColumns, slot: int, gap: float, seconds: float) -
 ## Each stalled unit of the squad trades places, if a friend's place is nearer it; one that
 ## can't is as near its place as the press allows, and takes it there and then.
 static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
+	if squad.loose.is_empty():
+		return  # nobody to trade: STUCK isn't read (Decision 150)
 	var stalled := []
 	var stuck: PackedFloat64Array = squad.store.columns.column(UnitColumns.STUCK)
 	var trade_after: float = BattleTuning.current().scrum_trade_seconds - 0.000001

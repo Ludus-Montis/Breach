@@ -223,6 +223,12 @@ with **regroup 177.3 and 186.1 and groups 131.4 and 131.2**. Both read whole-bat
 per squad or per pair of squads. The bench read until now (10 ticks after contact) never showed
 them. Decision 150 and spec 38 step 1.
 
+**Spec 38 step 1a, groups bounded** (#286, bench run 39685116478 against its base, 5 rounds,
+`settle=40 fight=10`, AMD EPYC 7763): tick 782.4 → 787.7 ms, **groups 208.0 → 209.4 ms** and
+regroup 327.3 → 326.3, every range overlapping. Forming up wasn't where the phase's time went:
+`GroupSplit.step`, timed in the same phase, copied POSITION twice and the places once for every
+group at ease. Spec 38 step 1c reads them once a pass.
+
 **Next, in order:** spec 38 (`specs/38-tick-performance.md`), which replaces the list below.
 Was: slot search (measure its parts first: field sync, gathering, the core,
 write-back); body parting; wounds' port; blows; deaths; recovery; stamina; steering; the
