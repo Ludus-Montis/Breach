@@ -7268,3 +7268,71 @@ filtered `list_issues` by `step:` label in `/run-phase`.
 **Cost:** about 80 issues on the first backfill, and one issue per step after. A token with
 Project write access for the owner to keep and rotate. A step heading becomes a contract:
 renaming one closes its issue and opens another.
+
+### Decision 156 — One issue per marker, and a spec's parent and milestone stay open only while something in them is open
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+**Amends:** Decision 155 (nothing closed a spec's parent or its milestone); answers Q34 (#446)
+
+**Rationale:** After spec 40's three steps merged, its parent (#383) stayed open and its
+milestone stood at 83%: the sync closed only step issues whose heading was gone. The same
+day, two push runs of `github-sync` each created all 87 parents and steps (among #299–386
+at 15:37, then among #388–475 at 16:17 from step 3's merge, which didn't change the sync):
+a third, from 16:18, made most of a third set (#476–546) before the owner's cancel. Those
+runs read none of the sync's own issues, though a listing run by hand afterwards
+read them all. The cause is not known; the run logged nothing of what it read. The owner
+disabled the workflow until the fix merges. Settled with the owner:
+- **One issue per marker, checked twice:** before creating a spec's issues, the sync also
+  lists that spec's milestone's issues (open and closed) and counts any marker found there as
+  its own. Each run logs how many issues and PRs it listed and how many of its own it found.
+  Where two or more issues carry one marker, the lowest-numbered is the sync's own and each
+  later one is closed as a duplicate, with one comment naming the one kept. So the first
+  fixed run closes the later sets (the sync's issues among #388–546) and keeps the first (#299–386), which holds the steps already closed by hand
+  and by merges.
+- **A parent mirrors its steps:** a spec's parent is open while any of its step sub-issues
+  is open, and closed when all are. It closes as completed if any step completed, and as not
+  planned if every step was closed as not planned. A new step heading opens a step issue,
+  which reopens the parent.
+- **A parent with no steps is the owner's:** many older specs have none. The rule doesn't
+  touch such a parent; the owner closes it. (The owner's choice: a one-off close would also
+  shut specs still in progress that have no step headings, such as spec 34.)
+- **A spec's milestone is open while anything in it is open,** and closed when everything
+  in it (the parent, steps, questions and PRs) is closed. An item that opens in a closed
+  milestone reopens it. Only milestones named `Spec NN: <title>` are touched.
+- **Who applies them:** the sync, on every run, to every parent and spec milestone; this
+  also covers its own closes, since writes made with `GITHUB_TOKEN` start no workflows. And
+  `github-sync` gains `issues: closed, reopened`, which checks only the changed issue's
+  parent (if it is a sync step) and its milestone, so a parent closes when its last step's
+  PR merges, not on the next spec push. It creates nothing on that event.
+- **Backfill:** none needed. The first run closes the parents (and milestones) whose steps
+  are all closed already, such as specs 37 and 40.
+- **The Project backfill:** issues made before the Project's auto-add was on aren't in the
+  Project, and GitHub's bulk add depends on its issue search. A `project-backfill` workflow,
+  run by hand with the App's token, lists the open issues and PRs through the REST API and
+  adds each one the Project lacks. The built-in workflow puts them in Inbox.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Close the parent on the sync's runs only | A run needs a push to `specs/**`; a parent would stay open for days after its last step merged. |
+| The issues event only | The sync's own closes (a gone step) start no workflow, so its parents would never close. |
+| Close only, never reopen | A step added to a finished spec would sit under a closed parent. |
+| Close every step-less parent once | Specs in progress with no step headings would be closed wrongly. |
+| Stop making parents for step-less specs | Not chosen; the owner keeps them and closes them. |
+| Milestones stay the owner's | The owner asked for them to close with the work. |
+| Keep the newest duplicate | The oldest set holds the closes already made; the newest would need redoing. |
+| A guard that stops a run creating "too many" issues | A threshold is a special case; the second read decides each spec on its own. |
+
+**Rules over cases:** general: each marker has one issue; a parent is open while any of its
+steps is, and a spec's milestone while any of its items is. Special case: a parent with no
+steps is left alone (the owner's reason, above).
+**Order:** not applicable; nothing under `sim/` changes. A duplicate's fate goes by issue
+number, which is the order of creation, by design.
+**Bounded:** a sync run still lists issues once, plus one milestone listing per spec it
+would create in. An `issues` event reads one parent's sub-issues and one milestone. The
+Project backfill lists once and adds only what is missing.
+**Pillar check:** holds. Tooling only.
+**Cost:** `github-sync` stays off until the fix merges; the owner turns it back on and runs
+it by hand. A run per issue closed or reopened.

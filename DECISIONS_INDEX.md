@@ -161,4 +161,5 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 152 | The whole simulation is a Rust library; Godot presents it | 7069 |  |
 | 153 | The Rust crate owns the content schema; the designer writes it | 7124 |  |
 | 154 | The simulation is tested under cargo, one phase at a time on a built state | 7161 |  |
-| 155 | Spec steps become issues under a parent per spec, and the Project's Status follows each PR | 7201 |  |
+| 155 | Spec steps become issues under a parent per spec, and the Project's Status follows each PR | 7201 | amended by 156 |
+| 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
