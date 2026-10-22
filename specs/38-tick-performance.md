@@ -26,7 +26,8 @@ what is left by measured gain per tick:
 **Settled by Decisions 150** (steps 1 and 2) **and 151** (ports retire their GDScript twin,
 step 2b; a performance change may change outcomes but never behaviour). Decisions 97, 129
 (with 131 and 151), 130, 138, 139, 144 and 146 still hold. Answers issues #278 (Q23) and #277
-(Q22); carries #279 (Q24) and #281 (Q26).
+(Q22); carries #279 (Q24), #281 (Q26), #291 (Q32, rules on a beat or a cadence) and
+#292 (Q33, the whole simulation as a Rust library).
 
 ## Status
 
@@ -145,6 +146,13 @@ more is changed, each phase is timed alone and in its stages.
   - **The test shape:** the builders live under `tests/`. A count test (a store that
     counts its calls, as `CountedColumns` does) pins each phase's store calls per unit.
     Being exact, it runs in a session in milliseconds, where timings stay on the bench.
+- **Per-unit GDScript costs to time in the stages** (added 2026-10-22). These are no
+  rule changes, and each is kept only if its stage's bench shows a gain:
+  - dictionary lookups per unit (`squad.loose`, `homes.get`, `foes.get`);
+  - `map` and `filter` building new arrays inside loops;
+  - `BattleTuning.current()` and `FormationDiscipline` worked out per unit or per squad
+    where the pass could take them once;
+  - lambdas made per call.
 - **Then** the stage that dominates is fixed in its own step, measured with its phase's
   bench and then with `tick_phases`.
 
@@ -199,7 +207,13 @@ regrouping and re-forming a squad stay in GDScript: per-squad rules, Decision 13
 The fell queue is drained in squad and member order (`FormationDeaths._fallen`).
 
 **Subjects for its design session:** how terrain and routes reach Rust and stay current (spec
-34 items 3 and 5, issue #268 Q12), and step 2's terrain numbers. Settled already: each port
+34 items 3 and 5, issue #268 Q12), and step 2's terrain numbers. Also (added 2026-10-22, after step 1c): regroup's walk back to places
+is nearly a case the native scrum walk already runs (`ScrumWalkField`: a unit with no slot
+walks back to its place round the bodies in its way). Once the ground is in Rust, regroup's
+walk could go through that kernel and keep its per-squad rules (the trade, the stance, the
+re-form pace) in GDScript. `GroupSplit`'s check (each unit's distance from its place, then
+clusters on a grid) is arithmetic over columns and suits a kernel too. Neither phase is on a
+port list yet, though together they are about 70% of the tick at `settle=40`. Settled already: each port
 retires its GDScript twin in its own PR (Decision 151).
 
 ### Step 4, stamina, the downed's passes and the walk to places (design first)
