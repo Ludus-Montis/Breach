@@ -7197,3 +7197,74 @@ better, i want (if possible without side effects) to be able to reduce our test 
 reversed states. **Bounded:** not a per-tick change.
 **Cost:** each chunk's tests are rewritten once; snapshot files are kept in the repo and
 regenerated with outcome changes.
+
+### Decision 155 — Spec steps become issues under a parent per spec, and the Project's Status follows each PR
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+**Amends:** Decision 148 (its rejected "Spec steps as issues too", and `github-sync` running
+only by hand); answers Q31 (#287)
+
+**Rationale:** The Project didn't give the visibility the owner expected. A milestone listed
+only the steps that already had a PR, so the work still to come didn't show, and every PR
+stayed in Inbox. Settled with the owner:
+- **A question's path:** a new question waits in Inbox (built-in workflow); the owner moves
+  the ones to do soon to Next. The design PR that answers it says `Closes #N`, which moves it
+  to In progress. When that PR writes a spec, the question and the PR join the spec's
+  milestone, and so do later `docs:` PRs for that spec. A question settled by a Decision
+  alone gets no milestone.
+- **The milestone exists before the spec merges:** `github-sync` also runs on a PR that
+  changes `specs/NN-*.md`. It creates the spec's milestone and sets it on the PR and on each
+  issue the PR `Closes`.
+- **The steps become issues on merge:** on a push to `main` that changes `specs/**`,
+  `github-sync` creates one parent issue per spec (`Spec NN: <title>`) in its milestone, and
+  a sub-issue per step id, the same ids the `step:` labels come from: each distinct
+  `### Step <id>` heading in the spec, wherever it sits (`Spec NN step <id>: <title>`, the
+  title from the first heading of that id that has one), labelled `step:NN-<id>`. A step issue links to its part of
+  the spec and doesn't copy its scope, so the spec stays the source of truth. A split step's
+  parts are sub-issues of the spec's parent too: one level.
+- **A removed step is closed:** when no `### Step <id>` heading is left for a step's id
+  (split, renamed or dropped), the sync closes that step's issue as not planned, with a comment
+  naming the steps the spec now has. It closes only step issues it created and changes
+  nothing else.
+- **Backfill:** the first run creates the issues for every spec. A step whose PR with its
+  `step:` label has merged gets its issue created closed.
+- **`/run-phase` finds a step's issue by its `step:` label** and writes `Closes #N` in the
+  PR, so the owner's merge closes it.
+- **A PR's Status follows its state,** set by a `project-status` workflow (a token with
+  Project write access, held as a repo secret, set up by the owner):
+
+  | PR | Status |
+  |---|---|
+  | Draft with the `handoff` label (parked) | Next |
+  | Draft without it (picked up) | In progress |
+  | Ready for review (opened ready, or marked ready) | In review |
+  | Merged or closed | Done (built-in workflow) |
+
+  Each issue the PR `Closes` gets the same Status, so a step and its PR share a column.
+  `/handoff` adds the `handoff` label when it parks work and removes it when the work is
+  picked up.
+- **Next is otherwise the owner's:** no workflow sets it except for a parked hand-off.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Step issues flat in the milestone, no parent | The milestone bar counts issues and PRs together, not steps; a parent's sub-issue progress counts steps exactly. |
+| A step group as a parent (4 holding 4a–4e) | Specs have no group headings, so the parent would be guessed from the id. One level is enough. |
+| Keep a removed step's issue open for the owner to close | The progress count stays wrong until someone notices. |
+| Status from the event (opened → In progress) | `/run-phase` opens PRs ready for review, so no "ready" event follows. |
+| "A new push means picked up" | The agent handing off may push again; a label is explicit. |
+| Agents write the Project | Unchanged from Decision 148: they have no tool for it. A workflow does it. |
+
+**Rules over cases:** general: every step id in a spec has exactly one issue, open until its
+PR merges or its heading is gone; a PR's Status is a function of its
+state, and the issues it closes follow it.
+**Order:** not applicable; nothing under `sim/` changes.
+**Bounded:** a sync run lists issues, labels and milestones once each, then creates or closes
+only what differs. The status workflow makes a few calls per PR event. Agents add one
+filtered `list_issues` by `step:` label in `/run-phase`.
+**Pillar check:** holds. Tooling only.
+**Cost:** about 80 issues on the first backfill, and one issue per step after. A token with
+Project write access for the owner to keep and rotate. A step heading becomes a contract:
+renaming one closes its issue and opens another.
