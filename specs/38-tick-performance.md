@@ -123,6 +123,22 @@ more is changed, each phase is timed alone and in its stages.
   the bench, at `settle=40 fight=10`. It shows each phase's whole-column copies and
   scattered `value`/`put` calls, and it says whether regroup's cost is scattered native
   calls per unit.
+- **The column count, read** (bench run 39699914519: `copies=true`, `settle=40 fight=10`, one
+  round, this branch against `main` at `5f661ef`):
+  - **Copies are cheap.** Step 1c cut a tick's whole-column copies from about 270
+    (2.9 million slots) to about 155 (1.27 million). The walk to places alone fell from 185
+    to 27. Its time fell about 2.6 ms (33.4 → 30.8, one round), so a copy costs about 2 ns a
+    slot, and all the copies left cost about 2.5 ms a tick. Handing copies from phase to
+    phase would save at most that.
+  - **Regroup** makes about 8,700 scattered `value` and 14,000 `put` calls a tick: about
+    23 ms at about 1 us each, of its 337 ms. The other 310 ms or so is GDScript running per
+    loose unit.
+  - **Groups** makes 5 copies and no scattered calls, and still costs 201 ms. That is
+    GDScript computing, nothing else.
+  - **Perception** copies POSITION 28 times a tick (6.7 ms all told). It was missed by the
+    check (the copy is in a helper), and it costs little.
+  - So the tick's cost is GDScript doing per-unit work, not the store. That is Q33's (#292)
+    subject.
 - **A bench per phase**, after the pattern of `steering_bench.gd`. Each one runs only the
   phase, `reps` times on one state, restores what the phase changes between repetitions,
   and times the phase's stages:
