@@ -86,6 +86,10 @@ class GitHubClient:
         """Every issue and PR, once: what step_issues.py reads its own issues from."""
         return [self._record(issue) for issue in self._list("issues?state=all")]
 
+    def list_milestone_issue_records(self, milestone):
+        """A milestone's issues and PRs: the sync's second read before it creates (spec 40 step 4)."""
+        return [self._record(issue) for issue in self._list(f"issues?milestone={milestone}&state=all")]
+
     def get_issue(self, number):
         try:
             return self._record(self._request("GET", f"{self.base}/issues/{number}")[0])
@@ -103,10 +107,22 @@ class GitHubClient:
     def comment(self, number, body):
         self._request("POST", f"{self.base}/issues/{number}/comments", {"body": body})
 
-    def add_sub_issue(self, parent, child):
+    def get_parent(self, number):
+        """The issue's parent's number, or None if it has none."""
+        try:
+            return self._request("GET", f"{self.base}/issues/{number}/parent")[0]["number"]
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return None
+            raise
+
+    def add_sub_issue(self, parent, child, replace_parent=False):
         if child not in self._ids:
             self._ids[child] = self._request("GET", f"{self.base}/issues/{child}")[0]["id"]
-        self._request("POST", f"{self.base}/issues/{parent}/sub_issues", {"sub_issue_id": self._ids[child]})
+        payload = {"sub_issue_id": self._ids[child]}
+        if replace_parent:
+            payload["replace_parent"] = True
+        self._request("POST", f"{self.base}/issues/{parent}/sub_issues", payload)
 
     def list_pr_files(self, number):
         return [f["filename"] for f in self._list(f"pulls/{number}/files")]
