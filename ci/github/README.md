@@ -47,3 +47,13 @@ secret `PROJECT_APP_PRIVATE_KEY` (spec 40, "The owner's setup"). Until they are 
 says so and passes. An item not yet in the Project is added. Option names ignore case; one missing from
 the Project fails the job naming it. Files: `project_status.py` (the rule, the gate and
 apply), `graphql_client.py` (the GraphQL calls).
+
+## The Project backfill
+
+`project_backfill.py`, run by hand by the `project-backfill` workflow
+(`.github/workflows/project-backfill.yml`, spec 40 step 6). It lists the open issues and PRs
+with `GITHUB_TOKEN` (REST, no search), lists the Project's items once (paged) with the App's
+token, and adds each open issue or PR that isn't there. Status is left to the Project's
+built-in workflow (Inbox). It prints how many it added and how many were already there, so a
+second run adds nothing. Skipped like `project-status` until the App is set up. Files:
+`project_backfill.py` (the gate, the REST read and apply); it reuses `graphql_client.py`.
