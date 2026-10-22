@@ -86,6 +86,10 @@ class GitHubClient:
         """Every issue and PR, once: what step_issues.py reads its own issues from."""
         return [self._record(issue) for issue in self._list("issues?state=all")]
 
+    def list_milestone_issue_records(self, milestone):
+        """A milestone's issues and PRs: the sync's second read before it creates (spec 40 step 4)."""
+        return [self._record(issue) for issue in self._list(f"issues?milestone={milestone}&state=all")]
+
     def get_issue(self, number):
         try:
             return self._record(self._request("GET", f"{self.base}/issues/{number}")[0])

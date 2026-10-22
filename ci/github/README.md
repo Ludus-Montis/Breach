@@ -9,12 +9,15 @@ renames or deletes.
 | When | What `sync.py` does |
 |---|---|
 | Push to `main` changing `specs/**` or the sync itself, or by hand | The labels in `labels.FIXED`; per `specs/NN-*.md` a milestone `Spec NN: <title>`, a `raise-when:spec-NN` label and a `step:NN-<id>` label per distinct `### Step <id>` heading; a parent issue `Spec NN: <title>` with a sub-issue `Spec NN step <id>: <title>` per step id, in the milestone. A step whose `step:` label is on a merged PR is created closed. |
+| Several issues carry one marker | The lowest-numbered is the sync's own; each later one that is open is closed as a duplicate with a comment naming the kept one (spec 40 step 4). |
 | A step's heading is gone | Its issue, if the sync made it and it is open, is closed as not planned with a comment naming the spec's steps now. |
 | A PR changing `specs/NN-*.md` | The labels, and the spec's milestone (created if missing) on the PR and on each issue its body `Closes`, `Fixes` or `Resolves`, unless one is set. With several specs, the lowest-numbered. No step issues. |
 | By hand with `migrate` | `migrate_questions.py` moves `OPEN_QUESTIONS.md`'s open entries to issues labelled `question`. |
 
 The sync knows its own issues by a marker line in the body, `<!-- github-sync: spec NN -->`
-or `<!-- github-sync: step NN-<id> -->`. A step heading is a contract: renaming one closes
+or `<!-- github-sync: step NN-<id> -->`. Each run prints how many issues, PRs and markers it
+read before it writes; before creating anything for a spec it also reads that spec's
+milestone, and counts the markers there as its own too. A step heading is a contract: renaming one closes
 its issue and opens another. Writes are paced a second apart (GitHub's secondary rate
 limit), so the first backfill takes a few minutes.
 

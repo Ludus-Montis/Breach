@@ -212,6 +212,65 @@ class StepApplyTest(unittest.TestCase):
         self.assertEqual(client.comments, [])
 
 
+class OneIssuePerMarkerTest(unittest.TestCase):
+    """Spec 40 step 4: the run logs what it read, reads the milestone before creating, and
+    keeps the lowest-numbered issue per marker."""
+
+    def setUp(self):
+        self._dir = tempfile.TemporaryDirectory()
+        self.specs = Path(self._dir.name)
+        text = (FIXTURES / "37-outcome-trace.md").read_text(encoding="utf-8")
+        (self.specs / "37-outcome-trace.md").write_text(text, encoding="utf-8")
+        self.plan = sync.plan(self.specs, REPO_URL)
+        self.client = _fake_from(self.plan)
+        self.milestone = self.client.milestones["Spec 37: The outcome trace"]
+
+    def tearDown(self):
+        self._dir.cleanup()
+
+    def add_marked(self, number, marker, hidden=False):
+        self.client.add_issue(
+            marker, body=f"x\n<!-- github-sync: {marker} -->", number=number, milestone=self.milestone, hidden=hidden
+        )
+
+    def test_the_run_says_what_it_read_before_any_write(self):
+        for number in range(1, 7):
+            self.client.add_issue(f"plain {number}", number=number)
+        for number, marker in enumerate(["spec 37", "step 37-1", "step 37-2", "step 37-3"], 7):
+            self.add_marked(number, marker)
+        out = _quiet(sync.apply, self.client, self.plan)
+        self.assertEqual(out.splitlines()[0], "read 10 issues and 0 PRs; 4 with sync markers")
+        self.assertEqual([i["title"] for i in self.client.created_issues], ["Spec 37 step 4"])
+
+    def test_an_issue_the_listing_missed_is_found_in_the_milestone(self):
+        for number, marker in enumerate(["spec 37"] + [f"step 37-{n}" for n in "1234"], 300):
+            self.add_marked(number, marker, hidden=True)
+        _quiet(sync.apply, self.client, self.plan)
+        self.assertEqual(self.client.created_issues, [])
+        self.assertEqual(self.client.sub_issues, [])
+
+    def test_the_later_copy_is_closed_as_a_duplicate(self):
+        self.add_marked(310, "step 37-1")
+        self.client.records[310]["state"] = "closed"
+        self.add_marked(400, "step 37-1")
+        _quiet(sync.apply, self.client, self.plan)
+        self.assertEqual(self.client.closed, [(400, "duplicate")])
+        self.assertEqual(self.client.comments, [(400, "A copy of #310, which github-sync keeps for `step 37-1`.")])
+        self.assertEqual(self.client.records[310]["state"], "closed")
+        self.assertNotIn("Spec 37 step 1", [i["title"] for i in self.client.created_issues])
+
+    def test_a_second_run_still_changes_nothing(self):
+        self.add_marked(310, "step 37-1")
+        self.add_marked(400, "step 37-1")
+        _quiet(sync.apply, self.client, self.plan)
+        self.client.reset_writes()
+        _quiet(sync.apply, self.client, self.plan)
+        self.assertEqual(self.client.created_issues, [])
+        self.assertEqual(self.client.closed, [])
+        self.assertEqual(self.client.comments, [])
+        self.assertEqual(self.client.sub_issues, [])
+
+
 class SpecPullRequestTest(unittest.TestCase):
     def setUp(self):
         self._dir = tempfile.TemporaryDirectory()

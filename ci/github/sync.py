@@ -73,13 +73,14 @@ def apply_labels(client, wanted):
 
 def apply(client, wanted):
     """Creates every planned label, milestone and step issue the client doesn't report."""
+    own = step_issues.read(client)
     apply_labels(client, wanted)
     have_milestones = client.list_milestones()
     for title in wanted.milestones:
         if title not in have_milestones:
             have_milestones[title] = client.create_milestone(title)
             print(f"milestone {title}")
-    step_issues.apply(client, wanted.specs, have_milestones)
+    step_issues.apply(client, wanted.specs, have_milestones, own)
 
 
 def apply_pull_request(client, wanted, pr_number):

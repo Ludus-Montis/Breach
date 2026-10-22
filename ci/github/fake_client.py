@@ -6,6 +6,8 @@ class FakeClient:
         self.labels = list(labels)
         self.milestones = {title: number for number, title in enumerate(milestones, 1)}
         self.records = {}
+        # Issues the full listing misses but a milestone's listing finds (spec 40 step 4).
+        self.hidden = set()
         for number, title in issues:
             self.add_issue(title, number=number)
         self.pr_files = {}
@@ -19,7 +21,7 @@ class FakeClient:
         self.comments = []
         self.sub_issues = []
 
-    def add_issue(self, title, body="", labels=(), number=None, milestone=None, pull_request=False, merged=False):
+    def add_issue(self, title, body="", labels=(), number=None, milestone=None, pull_request=False, merged=False, hidden=False):
         number = number if number is not None else 1000 + len(self.records)
         self.records[number] = {
             "number": number,
@@ -31,6 +33,8 @@ class FakeClient:
             "pull_request": pull_request,
             "merged": merged,
         }
+        if hidden:
+            self.hidden.add(number)
         return number
 
     def add_pull_request(self, number, labels=(), merged=False, body="", files=()):
@@ -62,7 +66,11 @@ class FakeClient:
         return [(n, r["title"]) for n, r in self.records.items() if not r["pull_request"]]
 
     def list_issue_records(self):
-        return [dict(record) for record in self.records.values()]
+        """Newest first, as GitHub lists them."""
+        return [dict(self.records[n]) for n in sorted(self.records, reverse=True) if n not in self.hidden]
+
+    def list_milestone_issue_records(self, milestone):
+        return [dict(r) for n, r in sorted(self.records.items(), reverse=True) if r["milestone"] == milestone]
 
     def get_issue(self, number):
         return dict(self.records[number]) if number in self.records else None
