@@ -247,13 +247,13 @@ func _landing(sim: Sim, blows: Array, shots: Array, spent: Dictionary, lap: Arra
 func _scrum_blows(squads: Array, interval: int, seed: int, spent: Dictionary, lap: Array) -> Array:
 	var out := []
 	var reach := BattleTuning.current().reach_contact
+	var index := FoeIndex.of(squads)
+	_lap(spent, lap, "scrum: foe index (FoeIndex.of)")
 	for squad in squads:
-		var foes := ScrumBlows._struck_by(squad, squads)
-		_lap(spent, lap, "scrum: foes struck (_struck_by)")
-		if foes.is_empty():
+		var near := FoeIndex.struck(index, squad)  # builds the faction's grid on first use
+		_lap(spent, lap, "scrum: foes struck (FoeIndex.struck)")
+		if near.is_empty():
 			continue
-		var near := ScrumNear.index(foes)
-		_lap(spent, lap, "scrum: foe grid (ScrumNear.index)")
 		for unit in squad.living():
 			var where := ScrumReach.at(squad, unit)
 			var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)

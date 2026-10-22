@@ -94,7 +94,7 @@ static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 	return [squad_of, pressing]
 
 
-## True if some squad may strike in the scrum (ScrumBlows._struck_by would give it foes),
+## True if some squad may strike in the scrum (FoeIndex.struck would give it foes),
 ## by the squads' states, orders and factions alone: a squad standing (not routing nor
 ## destroyed) and fighting or retreating strikes any other faction's standing squad,
 ## another only one retreating.
