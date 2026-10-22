@@ -101,22 +101,40 @@ def read(client):
     prs = sum(1 for record in records if record["pull_request"])
     marked = sum(len(found) for found in copies.values())
     print(f"read {len(records) - prs} issues and {prs} PRs; {marked} with sync markers")
-    return copies, merged
+    return copies, merged, {record["number"]: record for record in records}
 
 
-def _create(client, issue, milestone):
+def _create(client, issue, milestone, records):
     number = client.create_issue(issue.title, issue.body, issue.labels, milestone)
     print(f"issue #{number} {issue.title}")
+    records[number] = {
+        "number": number,
+        "title": issue.title,
+        "body": issue.body,
+        "state": "open",
+        "state_reason": None,
+        "labels": list(issue.labels),
+        "milestone": milestone,
+        "pull_request": False,
+        "merged": False,
+    }
     return number
+
+
+def _close(client, record, reason):
+    """Closes an issue and records it, so the parent and milestone rule sees the run's writes."""
+    client.close_issue(record["number"], reason)
+    record.update(state="closed", state_reason=reason)
 
 
 def _missing(spec, copies):
     return any(issue.marker not in copies for issue in [spec.parent] + spec.steps)
 
 
-def _read_milestone(client, spec, milestone, copies):
+def _read_milestone(client, spec, milestone, copies, records):
     """A second read before creating: the milestone's own listing (spec 40 step 4)."""
-    found, _ = _own(client.list_milestone_issue_records(milestone))
+    listing = [records.setdefault(r["number"], r) for r in client.list_milestone_issue_records(milestone)]
+    found, _ = _own(listing)
     print(f"read milestone {spec.milestone}: {sum(len(f) for f in found.values())} with sync markers")
     _add(copies, found)
 
@@ -129,17 +147,17 @@ def _keep_under(client, parent, step):
         print(f"moved #{step} under #{parent}")
 
 
-def _create_spec(client, spec, milestone, marked, merged):
+def _create_spec(client, spec, milestone, marked, merged, records):
     parent = marked.get(spec.parent.marker)
-    parent_number = parent["number"] if parent else _create(client, spec.parent, milestone)
+    parent_number = parent["number"] if parent else _create(client, spec.parent, milestone, records)
     for step in spec.steps:
         if step.marker in marked:
             _keep_under(client, parent_number, marked[step.marker]["number"])
             continue
-        number = _create(client, step, milestone)
+        number = _create(client, step, milestone, records)
         client.add_sub_issue(parent_number, number)
         if step.labels[0] in merged:
-            client.close_issue(number, "completed")
+            _close(client, records[number], "completed")
 
 
 def _close_copies(client, copies):
@@ -150,7 +168,7 @@ def _close_copies(client, copies):
             if number == kept or records[number]["state"] != "open":
                 continue
             client.comment(number, f"A copy of #{kept}, which github-sync keeps for `{marker}`.")
-            client.close_issue(number, "duplicate")
+            _close(client, records[number], "duplicate")
             print(f"closed #{number} (a copy of #{kept})")
 
 
@@ -168,18 +186,19 @@ def _close_gone(client, specs, marked):
             record["number"],
             f"No `### Step {step}` heading in `{path}` any more; the spec's steps are now: {ids}.",
         )
-        client.close_issue(record["number"], "not_planned")
+        _close(client, record, "not_planned")
         print(f"closed #{record['number']} ({marker} is gone)")
 
 
 def apply(client, specs, milestones, own):
     """Creates the missing parents and steps, closes later copies of a marker as duplicates,
-    and closes the sync's steps that are gone. `own` is what read() found."""
-    copies, merged = own
+    and closes the sync's steps that are gone. `own` is what read() found; its records take
+    the run's writes."""
+    copies, merged, records = own
     for spec in specs:
         milestone = milestones[spec.milestone]
         if _missing(spec, copies):
-            _read_milestone(client, spec, milestone, copies)
-        _create_spec(client, spec, milestone, _kept(copies), merged)
+            _read_milestone(client, spec, milestone, copies, records)
+        _create_spec(client, spec, milestone, _kept(copies), merged, records)
     _close_copies(client, copies)
     _close_gone(client, specs, _kept(copies))
