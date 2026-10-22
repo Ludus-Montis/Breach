@@ -22,7 +22,8 @@ Task-oriented. Steps to achieve a specific goal.
 Information-oriented. Precise descriptions of APIs, config, formats.
 - [CI checks: each rubric row and the tool that checks it](../ci/godot/README.md)
 - [Rust core: what it owns and how it is loaded](../native/README.md)
-- [The GitHub sync: labels, milestones and step issues](../ci/github/README.md)
+- [The GitHub sync: labels, milestones and step issues](../ci/github/README.md), and
+  [the Project's Status per PR](../ci/github/README.md#the-projects-status)
 - [Specs, one per feature or round](../specs/)
 - [The outcome trace: the digest's per-tick JSON lines](../specs/37-outcome-trace.md#settled)
 

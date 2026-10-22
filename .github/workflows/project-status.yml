@@ -1,0 +1,50 @@
+name: project-status
+
+# Spec 40 step 3, Decision 155. Sets each PR's Status in the owner's Project, and the same
+# Status on each issue it closes (ci/github/project_status.py): a draft labelled `handoff`
+# is Next, another draft In progress, a ready PR In review. Merged or closed is the
+# Project's built-in workflows' (Done). GITHUB_TOKEN reads the PR; it can't write a
+# Project, so a token minted each run from the owner's GitHub App does (PROJECT_APP_ID,
+# PROJECT_APP_PRIVATE_KEY; the Project is PROJECT_OWNER/PROJECT_NUMBER). Until the App is
+# set up, the job says so and passes. A label event for any label but `handoff` does nothing.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, converted_to_draft, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: project-status-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Should it act
+        id: gate
+        env:
+          PROJECT_APP_ID: ${{ vars.PROJECT_APP_ID }}
+          HAS_APP_KEY: ${{ secrets.PROJECT_APP_PRIVATE_KEY != '' }}
+        run: python3 ci/github/project_status.py gate
+      - name: The App's token
+        id: app
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+          owner: ${{ vars.PROJECT_OWNER }}
+      - name: Set the Status
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: python3 ci/github/project_status.py apply
