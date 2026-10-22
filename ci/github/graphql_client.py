@@ -1,5 +1,6 @@
-"""The small GraphQL client project_status.py uses: read a PR, find a Project's Status
-field, and find, add and set an item (spec 40 step 3), nothing more (isp-fit). One instance
+"""The small GraphQL client project_status.py and project_backfill.py use: read a PR, find a
+Project's Status field, find, add and set an item (spec 40 step 3), and list a Project's
+items (step 6), nothing more (isp-fit). One instance
 per token: GITHUB_TOKEN reads the PR, the App's token writes the Project."""
 import json
 import urllib.request
@@ -35,6 +36,18 @@ query($id: ID!) {
   node(id: $id) {
     ... on Issue { projectItems(first: 50) { nodes { id project { id } } } }
     ... on PullRequest { projectItems(first: 50) { nodes { id project { id } } } }
+  }
+}"""
+
+PROJECT_ITEMS = """
+query($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on ProjectV2 {
+      items(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { content { ... on Issue { id } ... on PullRequest { id } } }
+      }
+    }
   }
 }"""
 
@@ -85,6 +98,16 @@ class ProjectClient:
         node = self._query(ITEMS, id=content_id)["node"] or {}
         items = (node.get("projectItems") or {}).get("nodes", [])
         return next((item["id"] for item in items if item["project"]["id"] == project_id), None)
+
+    def item_contents(self, project_id):
+        """The node ids of every issue and PR in the Project, paged; draft items have none."""
+        contents, after = set(), None
+        while True:
+            items = self._query(PROJECT_ITEMS, id=project_id, after=after)["node"]["items"]
+            contents.update(node["content"]["id"] for node in items["nodes"] if (node.get("content") or {}).get("id"))
+            if not items["pageInfo"]["hasNextPage"]:
+                return contents
+            after = items["pageInfo"]["endCursor"]
 
     def add_item(self, project_id, content_id):
         return self._query(ADD_ITEM, project=project_id, content=content_id)["addProjectV2ItemById"]["item"]["id"]

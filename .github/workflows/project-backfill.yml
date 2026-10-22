@@ -1,0 +1,47 @@
+name: project-backfill
+
+# Spec 40 step 6, Decision 156. Run by hand: adds each open issue and PR that isn't yet in
+# the owner's Project (ci/github/project_backfill.py), listing the Project's items once.
+# Status is left to the Project's built-in workflow (Inbox). GITHUB_TOKEN lists the issues
+# and PRs; a token minted from the owner's GitHub App writes the Project, as project-status.
+# Until the App is set up, the job says so and passes. A second run adds nothing.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: project-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Should it act
+        id: gate
+        env:
+          PROJECT_APP_ID: ${{ vars.PROJECT_APP_ID }}
+          HAS_APP_KEY: ${{ secrets.PROJECT_APP_PRIVATE_KEY != '' }}
+        run: python3 ci/github/project_backfill.py gate
+      - name: The App's token
+        id: app
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+          owner: ${{ vars.PROJECT_OWNER }}
+      - name: Add the missing items
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: python3 ci/github/project_backfill.py apply
