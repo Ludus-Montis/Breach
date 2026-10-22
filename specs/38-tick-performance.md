@@ -33,6 +33,8 @@ step 2b; a performance change may change outcomes but never behaviour). Decision
 Agreed in the design session of 2026-10-21. Steps 1a, 1b, 1c, 2 and 2b are settled and
 built with `/run-phase` as "spec 38 step N", one PR each, in that order. Steps 3, 4 and 5 are ordered here but each
 needs a design session before it is built; their subjects are under each step.
+On 2026-10-22, after step 1c's bench, the user put step 1d (regroup and the split measured
+on their own) before step 2.
 
 ## Evidence (bench runs on the 7c branch, `e0231cd`)
 
@@ -109,6 +111,34 @@ GDScript loops.
 - **Measure:** `bench` against the base with `rounds=5` at `settle=40 fight=10` and
   `settle=100 fight=10`. The step is done when groups and regroup are each under 10 ms at
   both. If they aren't, the step records why and stops for the user.
+
+### Step 1d, regroup and the split measured on their own (agreed 2026-10-22)
+
+Steps 1a to 1c removed the per-squad copies without moving either phase (step 1c,
+"Measured"). The whole-tick bench times each phase only as a whole, so before anything
+more is changed, each phase is timed alone and in its stages.
+
+- **The column count first** (no code): `tick_phases ... copies=true` (`ColumnCopies`) on
+  the bench, at `settle=40 fight=10`. It shows each phase's whole-column copies and
+  scattered `value`/`put` calls, and it says whether regroup's cost is scattered native
+  calls per unit.
+- **A bench per phase**, after the pattern of `steering_bench.gd`. Each one runs only the
+  phase, `reps` times on one state, restores what the phase changes between repetitions,
+  and times the phase's stages:
+  - **regroup** (`ScrumRegroup.step`): the hostile index, the bodies snapshot
+    (`ScrumSlots.bodies`, `BodyGrid.of_bodies`), the hold, each unit's steer
+    (`UnitSteer.toward`), step (`UnitMover.step`) and keys (`ScrumTrade.track`,
+    `EntryKeys.set_goal`, `UnitMotion.turn`), the trade, and the release;
+  - **the split** (`GroupSplit.step`): the read, each group's place check (`_behind`, with
+    `place_of`), and the clustering (`_clusters`).
+  - Each bench reports the units it visited in each stage, so the cost per unit can be
+    read off.
+- **Open, for the user:** how a bench builds its state. Either directly, with formations
+  set up as the phase needs them (as `rout_bench.gd` does; nothing is stepped), or from
+  a snapshot of a settled battle taken once. The implementing session recommends building
+  directly; see the hand-off.
+- **Then** the stage that dominates is fixed in its own step, measured with its phase's
+  bench and then with `tick_phases`.
 
 ### Step 2, the bench covers the whole battle
 
