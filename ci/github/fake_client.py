@@ -5,6 +5,7 @@ class FakeClient:
     def __init__(self, labels=(), milestones=(), issues=()):
         self.labels = list(labels)
         self.milestones = {title: number for number, title in enumerate(milestones, 1)}
+        self.milestone_states = {number: "open" for number in self.milestones.values()}
         self.records = {}
         # Issues the full listing misses but a milestone's listing finds (spec 40 step 4).
         self.hidden = set()
@@ -21,6 +22,8 @@ class FakeClient:
         self.closed = []
         self.comments = []
         self.sub_issues = []
+        self.reopened = []
+        self.milestone_writes = []
 
     def add_issue(self, title, body="", labels=(), number=None, milestone=None, pull_request=False, merged=False, hidden=False):
         number = number if number is not None else 1000 + len(self.records)
@@ -29,6 +32,7 @@ class FakeClient:
             "title": title,
             "body": body,
             "state": "open",
+            "state_reason": None,
             "labels": list(labels),
             "milestone": milestone,
             "pull_request": pull_request,
@@ -61,6 +65,7 @@ class FakeClient:
     def create_milestone(self, title):
         self.created_milestones.append(title)
         self.milestones[title] = len(self.milestones) + 1
+        self.milestone_states[self.milestones[title]] = "open"
         return self.milestones[title]
 
     def list_issues(self):
@@ -85,8 +90,22 @@ class FakeClient:
         self.records[number]["milestone"] = milestone
 
     def close_issue(self, number, reason):
-        self.records[number]["state"] = "closed"
+        self.records[number].update(state="closed", state_reason=reason)
         self.closed.append((number, reason))
+
+    def reopen_issue(self, number):
+        self.records[number].update(state="open", state_reason="reopened")
+        self.reopened.append(number)
+
+    def list_milestone_records(self):
+        return [{"number": n, "title": t, "state": self.milestone_states[n]} for t, n in self.milestones.items()]
+
+    def get_milestone(self, number):
+        return next(m for m in self.list_milestone_records() if m["number"] == number)
+
+    def set_milestone_state(self, number, state):
+        self.milestone_states[number] = state
+        self.milestone_writes.append((number, state))
 
     def comment(self, number, body):
         self.comments.append((number, body))
@@ -99,6 +118,9 @@ class FakeClient:
             raise ValueError(f"#{child} already has a parent")
         self.parents[child] = parent
         self.sub_issues.append((parent, child))
+
+    def list_sub_issues(self, parent):
+        return [dict(self.records[n]) for n, p in sorted(self.parents.items()) if p == parent]
 
     def list_pr_files(self, number):
         return list(self.pr_files.get(number, []))

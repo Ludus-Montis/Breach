@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import labels
+import open_while_open
 import spec_pr
 import step_issues
 
@@ -81,12 +82,18 @@ def apply(client, wanted):
             have_milestones[title] = client.create_milestone(title)
             print(f"milestone {title}")
     step_issues.apply(client, wanted.specs, have_milestones, own)
+    open_while_open.apply_run(client, own[2])
 
 
 def apply_pull_request(client, wanted, pr_number):
     """Labels, and the milestone of the spec the PR changes on the PR and what it closes."""
     apply_labels(client, wanted)
     spec_pr.apply(client, {spec.number: spec.milestone for spec in wanted.specs}, pr_number)
+
+
+def apply_issue_event(client, issue_number):
+    """An issue closed or reopened: its parent and milestone follow it (spec 40 step 5)."""
+    open_while_open.apply_issue_event(client, issue_number)
 
 
 def main():
@@ -97,6 +104,9 @@ def main():
     if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
         apply_pull_request(client, wanted, event["pull_request"]["number"])
+    elif os.environ.get("GITHUB_EVENT_NAME") == "issues":
+        event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+        apply_issue_event(client, event["issue"]["number"])
     else:
         apply(client, wanted)
     return 0

@@ -1,6 +1,7 @@
 """The small REST client sync.py and migrate_questions.py use: list and create for labels,
 milestones and issues (spec 36), and the issue writes the step issues and a spec PR's
-milestone need (spec 40), nothing more (isp-fit)."""
+milestone need, and the closes and reopens of a parent and its milestone (spec 40), nothing
+more (isp-fit)."""
 import json
 import os
 import re
@@ -53,6 +54,20 @@ class GitHubClient:
     def list_milestones(self):
         return {m["title"]: m["number"] for m in self._list("milestones?state=all")}
 
+    def list_milestone_records(self):
+        """Every milestone's number, title and state: what the parent and milestone rule reads."""
+        return [self._milestone(m) for m in self._list("milestones?state=all")]
+
+    def get_milestone(self, number):
+        return self._milestone(self._request("GET", f"{self.base}/milestones/{number}")[0])
+
+    @staticmethod
+    def _milestone(milestone):
+        return {"number": milestone["number"], "title": milestone["title"], "state": milestone["state"]}
+
+    def set_milestone_state(self, number, state):
+        self._request("PATCH", f"{self.base}/milestones/{number}", {"state": state})
+
     def create_milestone(self, title):
         return self._request("POST", f"{self.base}/milestones", {"title": title})[0]["number"]
 
@@ -76,6 +91,7 @@ class GitHubClient:
             "title": issue["title"],
             "body": issue.get("body") or "",
             "state": issue["state"],
+            "state_reason": issue.get("state_reason"),
             "labels": [label["name"] for label in issue["labels"]],
             "milestone": issue["milestone"]["number"] if issue.get("milestone") else None,
             "pull_request": pull_request is not None,
@@ -104,6 +120,9 @@ class GitHubClient:
     def close_issue(self, number, reason):
         self._request("PATCH", f"{self.base}/issues/{number}", {"state": "closed", "state_reason": reason})
 
+    def reopen_issue(self, number):
+        self._request("PATCH", f"{self.base}/issues/{number}", {"state": "open"})
+
     def comment(self, number, body):
         self._request("POST", f"{self.base}/issues/{number}/comments", {"body": body})
 
@@ -123,6 +142,9 @@ class GitHubClient:
         if replace_parent:
             payload["replace_parent"] = True
         self._request("POST", f"{self.base}/issues/{parent}/sub_issues", payload)
+
+    def list_sub_issues(self, parent):
+        return [self._record(issue) for issue in self._list(f"issues/{parent}/sub_issues")]
 
     def list_pr_files(self, number):
         return [f["filename"] for f in self._list(f"pulls/{number}/files")]
