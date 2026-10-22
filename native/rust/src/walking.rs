@@ -92,14 +92,8 @@ pub fn walk(field: &Field, input: &WalkIn, params: &Params) -> WalkOut {
         widest: input.lying_radii.iter().copied().fold(0.0, f64::max),
     };
     let count = input.members.len();
-    let ats = input
-        .members
-        .iter()
-        .map(|&flat| field.at[field.flat[flat as usize] as usize]);
-    let mut out = WalkOut {
-        ats: ats.collect(),
-        towards: vec![V2::ZERO; count],
-    };
+    let ats = input.members.iter().map(|&flat| field.at[field.flat[flat as usize] as usize]);
+    let mut out = WalkOut { ats: ats.collect(), towards: vec![V2::ZERO; count] };
     let mut member = 0usize;
     for (s, &units) in input.member_counts.iter().enumerate() {
         for _ in 0..units {
@@ -146,11 +140,8 @@ fn step(
     let to = toward(field, crowd, body, at, goal, params);
     let footing = footing(lying, field, body, at, to, params);
     let full_step = full * footing;
-    out.ats[m] = move_toward(
-        at,
-        to,
-        (full_step * motion::pace(&unit, to.sub(at), unit.bearing)) as f32,
-    );
+    out.ats[m] =
+        move_toward(at, to, (full_step * motion::pace(&unit, to.sub(at), unit.bearing)) as f32);
 }
 
 /// ScrumSlots.bodies: the bodies standing (not a routing or destroyed squad's), indexed.
@@ -163,15 +154,8 @@ fn crowd(field: &Field) -> Index {
         }
     }
     let points: Vec<V2> = bodies.iter().map(|&b| field.at[b as usize]).collect();
-    let widest = bodies
-        .iter()
-        .map(|&b| field.radius[b as usize])
-        .fold(0.0, f64::max);
-    Index {
-        grid: Grid::build(&points),
-        bodies,
-        widest,
-    }
+    let widest = bodies.iter().map(|&b| field.radius[b as usize]).fold(0.0, f64::max);
+    Index { grid: Grid::build(&points), bodies, widest }
 }
 
 /// SquadFrame.place: the centre of the unit's place in its squad's frame.
@@ -182,9 +166,7 @@ fn place(input: &WalkIn, s: usize, m: usize, heading: f64) -> V2 {
     let across = f[0] - width / 2.0 + shift + f[2] / 2.0;
     let back = f[1] + f[3] / 2.0;
     let orthogonal = V2::new(ahead.y, -ahead.x);
-    input.squad_anchors[s]
-        .add(orthogonal.scale(-across))
-        .sub(ahead.scale(back))
+    input.squad_anchors[s].add(orthogonal.scale(-across)).sub(ahead.scale(back))
 }
 
 /// UnitSteer.toward: the point the unit at `at` heads for this step on its way to `goal`:
@@ -198,11 +180,7 @@ fn toward(field: &Field, crowd: &Index, me: usize, at: V2, goal: V2, p: &Params)
     let ahead = V2::new(way.x / length, way.y / length);
     let across = V2::new(ahead.y, -ahead.x);
     let own = field.radius[me];
-    let span = if (length as f64) < p.look {
-        length as f64
-    } else {
-        p.look
-    };
+    let span = if (length as f64) < p.look { length as f64 } else { p.look };
     let end = at.add(ahead.scale(span));
     // Every body that could stand within a breadth of the way (a box round it).
     let half = ((end.x - at.x).abs().max((end.y - at.y).abs()) as f64) / 2.0;
@@ -242,11 +220,7 @@ fn toward(field: &Field, crowd: &Index, me: usize, at: V2, goal: V2, p: &Params)
     let mut side = -sign(aside);
     if aside.abs() < EPSILON {
         let keys = [Key::Int(field.draw[me]), Key::Int(draw), Key::Str("steer")];
-        side = if ghash::uniform(p.seed, &keys) < 0.5 {
-            1.0
-        } else {
-            -1.0
-        };
+        side = if ghash::uniform(p.seed, &keys) < 0.5 { 1.0 } else { -1.0 };
     }
     round(at, field.at[b], clearance + p.clear, across.scale(side))
 }
@@ -364,9 +338,6 @@ mod tests {
         assert!(left.x < 0.0 && right.x > 0.0);
         assert!((left.x + right.x).abs() < 1e-6);
         // already within reach: beside the centre
-        assert_eq!(
-            round(at, V2::new(0.0, -0.5), 1.0, V2::new(1.0, 0.0)),
-            V2::new(1.0, -0.5)
-        );
+        assert_eq!(round(at, V2::new(0.0, -0.5), 1.0, V2::new(1.0, 0.0)), V2::new(1.0, -0.5));
     }
 }

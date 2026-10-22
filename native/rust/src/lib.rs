@@ -70,7 +70,8 @@ impl BodyField {
         bases: PackedVector2Array,
     ) -> PackedInt32Array {
         let began = Instant::now();
-        let factions: Vec<String> = squad_factions.as_slice().iter().map(|s| s.to_string()).collect();
+        let factions: Vec<String> =
+            squad_factions.as_slice().iter().map(|s| s.to_string()).collect();
         let bases = v2s(&bases);
         let input = SyncIn {
             squad_ids: squad_ids.as_slice(),
@@ -91,6 +92,7 @@ impl BodyField {
     /// each one's record, 3 per unit: preferred position, footprint width and depth, and
     /// its paces, 2 per unit: turn rate and backward pace.
     #[func]
+    #[allow(clippy::too_many_arguments)]
     fn enrol(
         &mut self,
         flat: PackedInt32Array,
@@ -219,7 +221,8 @@ impl BodyField {
             !ground || within.callv(&varray![flat, Vector2::new(p.x, p.y)]).to::<bool>()
         };
         let out = scrum::plan(&self.field, &input, &params, &mut ask);
-        let active = seeking::write_back(&mut self.field, &gathered, &out, [i[3] as i32, i[4] as i32]);
+        let active =
+            seeking::write_back(&mut self.field, &gathered, &out, [i[3] as i32, i[4] as i32]);
         self.usec = began.elapsed().as_micros() as i64;
         varray![
             &PackedInt64Array::from(gathered.fighters.as_slice()),
@@ -378,7 +381,14 @@ impl BodyField {
         };
         let out = walking::walk(&self.field, &input, &params);
         let b = bits.as_slice();
-        walk_store::write_back(&mut self.field, members, codes, &out.ats, &out.towards, [b[0], b[1]]);
+        walk_store::write_back(
+            &mut self.field,
+            members,
+            codes,
+            &out.ats,
+            &out.towards,
+            [b[0], b[1]],
+        );
         self.usec = began.elapsed().as_micros() as i64;
         varray![&packed(&out.ats), &packed(&out.towards)]
     }
@@ -623,10 +633,14 @@ impl BodyField {
     /// Where every body on the field stands, by the last sync's flat indices (tests).
     #[func]
     fn points(&self) -> PackedVector2Array {
-        self.field.flat.iter().map(|&b| {
-            let p = self.field.at[b as usize];
-            Vector2::new(p.x, p.y)
-        }).collect()
+        self.field
+            .flat
+            .iter()
+            .map(|&b| {
+                let p = self.field.at[b as usize];
+                Vector2::new(p.x, p.y)
+            })
+            .collect()
     }
 
     /// Godot's hash() of an Array of ints and Strings as the core computes it (the suite

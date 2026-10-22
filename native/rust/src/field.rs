@@ -388,12 +388,8 @@ impl Field {
             return; // every body on the field was named (bodies are named once each)
         }
         let stamp = self.stamp;
-        let gone: Vec<u32> = self
-            .by_unit
-            .values()
-            .copied()
-            .filter(|&b| self.seen[b as usize] != stamp)
-            .collect();
+        let gone: Vec<u32> =
+            self.by_unit.values().copied().filter(|&b| self.seen[b as usize] != stamp).collect();
         for body in gone {
             self.by_unit.remove(&self.unit_id[body as usize]);
             self.enrolled[body as usize] = false;

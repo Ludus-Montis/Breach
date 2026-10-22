@@ -1,0 +1,41 @@
+name: Rust
+
+# The Rust crate's own checks (spec 39 step 1, Decision 154): formatting, clippy with
+# warnings as errors, and its cargo tests. None starts Godot. Runs on every PR that touches
+# native/.
+
+on:
+  pull_request:
+    paths:
+      - "native/**"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: native/rust
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-check-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-check-${{ runner.os }}-
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test

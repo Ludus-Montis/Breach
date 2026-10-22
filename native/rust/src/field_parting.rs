@@ -55,7 +55,11 @@ pub fn part_field(
     let mut out = FieldOutcome {
         passes: outcome.passes,
         pairs: outcome.pairs,
-        loosened: outcome.loosened.iter().map(|&i| field.flat_of[order[i as usize]] as i32).collect(),
+        loosened: outcome
+            .loosened
+            .iter()
+            .map(|&i| field.flat_of[order[i as usize]] as i32)
+            .collect(),
         ..Default::default()
     };
     for (index, &b) in order.iter().enumerate() {

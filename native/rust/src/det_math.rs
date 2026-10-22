@@ -248,136 +248,32 @@ mod tests {
     // Inputs and the bits DetMath.sin and DetMath.cos give for them, printed by Godot
     // 4.7.2: radians from 1e-9 to 12345.678 and the bearings' deg_to_rad of 0 to 359.
     const CASES: [(f64, u64, u64); 26] = [
-        (
-            f64::from_bits(0x0000000000000000),
-            0x0000000000000000,
-            0x3ff0000000000000,
-        ),
-        (
-            f64::from_bits(0x3e112e0be826d695),
-            0x3e112e0be826d695,
-            0x3ff0000000000000,
-        ),
-        (
-            f64::from_bits(0x3fe0000000000000),
-            0x3fdeaee8744b05f0,
-            0x3fec1528065b7d50,
-        ),
-        (
-            f64::from_bits(0xbfe8000000000000),
-            0xbfe5cffc16bf8f0d,
-            0x3fe769fec655211f,
-        ),
-        (
-            f64::from_bits(0x3ff0000000000000),
-            0x3feaed548f090cee,
-            0x3fe14a280fb5068c,
-        ),
-        (
-            f64::from_bits(0x3fe921fb54442d18),
-            0x3fe6a09e667f3bcc,
-            0x3fe6a09e667f3bcd,
-        ),
-        (
-            f64::from_bits(0x3ff921fb54442d18),
-            0x3ff0000000000000,
-            0x3c91a62633145c00,
-        ),
-        (
-            f64::from_bits(0x400921fb54442d18),
-            0x3ca1a62633145c00,
-            0xbff0000000000000,
-        ),
-        (
-            f64::from_bits(0x4000000000000000),
-            0x3fed18f6ead1b446,
-            0xbfdaa22657537205,
-        ),
-        (
-            f64::from_bits(0x4008000000000000),
-            0x3fc210386db6d55b,
-            0xbfefae04be85e5d2,
-        ),
-        (
-            f64::from_bits(0xc00c000000000000),
-            0x3fd6733b7eba621f,
-            0xbfedf77403c11a5f,
-        ),
-        (
-            f64::from_bits(0x401921fb54442d18),
-            0xbcb1a62633145c00,
-            0x3ff0000000000000,
-        ),
-        (
-            f64::from_bits(0x4024000000000000),
-            0xbfe1689ef5f34f53,
-            0xbfead9ac890c6b1f,
-        ),
-        (
-            f64::from_bits(0xc059000000000000),
-            0x3fe03425b78c4db8,
-            0x3feb981dbf665fdf,
-        ),
-        (
-            f64::from_bits(0x408f420000000000),
-            0x3fee1702343c0531,
-            0x3fd5c7d948a31cf2,
-        ),
-        (
-            f64::from_bits(0x40c81cd6c8b43958),
-            0xbfe687d5890974a5,
-            0x3fe6b94c3bbe24b8,
-        ),
-        (
-            f64::from_bits(0x0000000000000000),
-            0x0000000000000000,
-            0x3ff0000000000000,
-        ),
-        (
-            f64::from_bits(0x3fe0c152382d7365),
-            0x3fdfffffffffffff,
-            0x3febb67ae8584cab,
-        ),
-        (
-            f64::from_bits(0x3fe921fb54442d18),
-            0x3fe6a09e667f3bcc,
-            0x3fe6a09e667f3bcd,
-        ),
-        (
-            f64::from_bits(0x3ff921fb54442d18),
-            0x3ff0000000000000,
-            0x3c91a62633145c00,
-        ),
-        (
-            f64::from_bits(0x4002d97c7f3321d2),
-            0x3fe6a09e667f3bcd,
-            0xbfe6a09e667f3bcc,
-        ),
-        (
-            f64::from_bits(0x400921fb54442d18),
-            0x3ca1a62633145c00,
-            0xbff0000000000000,
-        ),
-        (
-            f64::from_bits(0x400f111dc8299b4c),
-            0xbfe59e6f5ae6a0a6,
-            0xbfe797c6a435ce85,
-        ),
-        (
-            f64::from_bits(0x4012d97c7f3321d2),
-            0xbff0000000000000,
-            0xbcaa79394c9e8a00,
-        ),
-        (
-            f64::from_bits(0x4019101c0da1da7b),
-            0xbf91df0b2b89dd2c,
-            0x3feffec097f5af8a,
-        ),
-        (
-            f64::from_bits(0x40178fdb9effea47),
-            0xbfd87de2a6aea95f,
-            0x3fed906bcf328d47,
-        ),
+        (f64::from_bits(0x0000000000000000), 0x0000000000000000, 0x3ff0000000000000),
+        (f64::from_bits(0x3e112e0be826d695), 0x3e112e0be826d695, 0x3ff0000000000000),
+        (f64::from_bits(0x3fe0000000000000), 0x3fdeaee8744b05f0, 0x3fec1528065b7d50),
+        (f64::from_bits(0xbfe8000000000000), 0xbfe5cffc16bf8f0d, 0x3fe769fec655211f),
+        (f64::from_bits(0x3ff0000000000000), 0x3feaed548f090cee, 0x3fe14a280fb5068c),
+        (f64::from_bits(0x3fe921fb54442d18), 0x3fe6a09e667f3bcc, 0x3fe6a09e667f3bcd),
+        (f64::from_bits(0x3ff921fb54442d18), 0x3ff0000000000000, 0x3c91a62633145c00),
+        (f64::from_bits(0x400921fb54442d18), 0x3ca1a62633145c00, 0xbff0000000000000),
+        (f64::from_bits(0x4000000000000000), 0x3fed18f6ead1b446, 0xbfdaa22657537205),
+        (f64::from_bits(0x4008000000000000), 0x3fc210386db6d55b, 0xbfefae04be85e5d2),
+        (f64::from_bits(0xc00c000000000000), 0x3fd6733b7eba621f, 0xbfedf77403c11a5f),
+        (f64::from_bits(0x401921fb54442d18), 0xbcb1a62633145c00, 0x3ff0000000000000),
+        (f64::from_bits(0x4024000000000000), 0xbfe1689ef5f34f53, 0xbfead9ac890c6b1f),
+        (f64::from_bits(0xc059000000000000), 0x3fe03425b78c4db8, 0x3feb981dbf665fdf),
+        (f64::from_bits(0x408f420000000000), 0x3fee1702343c0531, 0x3fd5c7d948a31cf2),
+        (f64::from_bits(0x40c81cd6c8b43958), 0xbfe687d5890974a5, 0x3fe6b94c3bbe24b8),
+        (f64::from_bits(0x0000000000000000), 0x0000000000000000, 0x3ff0000000000000),
+        (f64::from_bits(0x3fe0c152382d7365), 0x3fdfffffffffffff, 0x3febb67ae8584cab),
+        (f64::from_bits(0x3fe921fb54442d18), 0x3fe6a09e667f3bcc, 0x3fe6a09e667f3bcd),
+        (f64::from_bits(0x3ff921fb54442d18), 0x3ff0000000000000, 0x3c91a62633145c00),
+        (f64::from_bits(0x4002d97c7f3321d2), 0x3fe6a09e667f3bcd, 0xbfe6a09e667f3bcc),
+        (f64::from_bits(0x400921fb54442d18), 0x3ca1a62633145c00, 0xbff0000000000000),
+        (f64::from_bits(0x400f111dc8299b4c), 0xbfe59e6f5ae6a0a6, 0xbfe797c6a435ce85),
+        (f64::from_bits(0x4012d97c7f3321d2), 0xbff0000000000000, 0xbcaa79394c9e8a00),
+        (f64::from_bits(0x4019101c0da1da7b), 0xbf91df0b2b89dd2c, 0x3feffec097f5af8a),
+        (f64::from_bits(0x40178fdb9effea47), 0xbfd87de2a6aea95f, 0x3fed906bcf328d47),
     ];
 
     // Inputs and the bits DetMath.acos and DetMath.asin give for them, printed by Godot

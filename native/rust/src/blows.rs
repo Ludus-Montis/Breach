@@ -108,9 +108,8 @@ pub fn pressed(field: &Field, targets: &[i64], asked: &[i64], reach: f64) -> Vec
         let Some(foe) = field.body_of(target) else { continue };
         let unit = field.flat[flat] as usize;
         let f = foe as usize;
-        let gap = field.at[unit].distance_to(field.at[f]) as f64
-            - field.radius[unit]
-            - field.radius[f];
+        let gap =
+            field.at[unit].distance_to(field.at[f]) as f64 - field.radius[unit] - field.radius[f];
         if (if gap > 0.0 { gap } else { 0.0 }) <= reach {
             *count.entry(foe).or_insert(0) += 1;
         }
