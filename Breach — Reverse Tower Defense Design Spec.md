@@ -7066,6 +7066,138 @@ an outcome change is signed off before it lands.
 mistake can't later be found by comparing it with a twin. The trials, digests and outcome
 trace are the guard instead.
 
+### Decision 152 — The whole simulation is a Rust library; Godot presents it
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+**Amends:** Decision 129 ("what stays in GDScript") and Decision 131 (rules decided per squad
+may stay in GDScript); answers issue #292 (Q33)
+
+**Rationale:** Spec 38 steps 1a to 1c removed every per-squad copy of the store, and the tick
+barely moved. The column count (bench run 39699914519, `settle=40 fight=10`) showed why. The
+store's copies cost about 2.5 ms of a 784 ms tick, and the native calls about 23 ms. Regroup
+(337 ms) and groups (201 ms) are GDScript running rules over every loose unit. Rust runs about
+50 ms of the tick. The per-squad rules are the cost, so Decision 131's split (per-unit work in
+Rust, rules in GDScript) can't reach 100 ms. Nothing measured points at Godot itself. The user:
+"the aim is ultimately to have the rust run and provide back to godot for the draw/render,
+ultimately this should allow us to avoid spinning full sims when isolating issues within a
+tick and allow us to aim towards more time-efficient unit tests instead". On the path: "I just
+want it as fast as possible with respect to me needing to sign off PRs/test run time/time to
+write / efficient for usage".
+- **Everything under `sim/` moves to the Rust crate,** rules included: the battle (orders,
+  morale, groups, wounds, the rout), then the lanes, economy and structures. The crate's
+  simulation has no Godot dependency. One module binds it to GDExtension.
+- **Godot presents.** It sends commands and steps the simulation with one call a tick. It
+  reads the columns and events it draws. The scenes, the designer and the presentation stay
+  in Godot. Changing presentation engine later would cost only the presentation.
+- **The path, chosen for the fewest sign-offs, the least writing and the shortest test runs**
+  (spec 39):
+  - **The squads' state moves into the crate first,** as the units' did (spec 35). Every port
+    after it reads squads in place, with no glue that is written and then deleted.
+  - **Then ports in chunks of related phases,** about eight, each a step of spec 39. A chunk
+    reproduces the GDScript bit for bit on the digests on its own commit, then deletes its
+    GDScript and its gdUnit tests in the same PR (Decision 151). An identical port changes no
+    outcome, so it merges on green CI with no Gate 2 sign-off.
+  - **Then the tick loop itself,** and last the rest of `sim/`.
+- **Decision 151's rule still holds after the move:** a later performance change may change
+  outcomes, never behaviour, and its commit says so.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Port per-unit passes only, rules in GDScript (Decision 131 as written) | The rules are where the tick goes (regroup and groups, about 70% at `settle=40`). |
+| Leave Godot for another engine or a bespoke one | Nothing measured points at Godot. It would rebuild rendering, input, UI, export and the designer's import, and make the simulation no faster than this does. |
+| Port one pass per PR | Several times the sign-offs and CI runs for the same code. |
+| A parallel rewrite, cut over at the end | A long stretch with nothing landing, and two simulations drifting apart. |
+| Rewrite with outcomes free | Every PR would need the owner's Gate 2 sign-off. Identity proves a port right for free. |
+
+**Rules over cases:** general: one rule for where the simulation runs. No game rule changes.
+**Order:** unchanged. Ports are identical to the reference, so no order can change. The
+reversed-lists tests port to cargo with their passes.
+**Bounded:** no per-tick work is added. Decisions 144 and 146 (store access through a held view)
+apply only while a pass is still GDScript.
+**Pillar check:** holds: units keep the same rules (Pillar 6).
+**Cost:** about 16,000 lines of GDScript rewritten in Rust. While the migration is under way,
+a rule change to a pass not yet ported is still made in GDScript.
+
+### Decision 153 — The Rust crate owns the content schema; the designer writes it
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+
+**Rationale:** Once the simulation is in Rust (Decision 152), units, weapons, tuning, terrain and
+maps are read by Rust, not Godot. Today maps come from the designer's JSON and are imported to
+`.tres`, and units, weapons and tuning are hand-written `.tres` files that Rust can't read. The
+user: "Target rust only, our designer should output in the best format for that, does not need
+to be json if [there's] a better way of representing our maps and data structure".
+- **The schema is the crate's serde structs.** The crate generates a JSON Schema from them,
+  and the designer validates against it. The designer's export and every simulation definition
+  are files in that format.
+- **The format is JSON.** The designer is a web app and writes it natively, and it diffs and
+  reviews in git. The crate reads it with serde, and a file that doesn't match the schema
+  fails to load and names its field.
+- **One source.** While the migration is under way, the GDScript side's definitions
+  (`content/definitions/`) are filled from what the crate loaded, never from their own `.tres`.
+  Once every reader is in Rust, they and `content/import` retire. Godot reads what it draws (the
+  layout, terrain, colours) through the crate.
+- **The schema rule stays and moves:** a change to the schema updates the designer in the same
+  PR. Its home becomes the crate's content module.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Godot loads `.tres` and hands Rust a setup at battle start | Two schemas kept in step; cargo can't load real content without Godot. |
+| A binary format (bincode, postcard) | Not reviewable in git; the designer would need a writer. Load time isn't a cost at this size. |
+| RON or TOML | Libraries in the designer for no gain over JSON. |
+
+**Rules over cases:** general: one schema and one loader for all content.
+**Order:** unaffected. Content is loaded before the battle.
+**Bounded:** not a per-tick change.
+**Cost:** units, weapons, tuning and terrain convert once from `.tres`; the designer's export
+changes shape once.
+
+### Decision 154 — The simulation is tested under cargo, one phase at a time on a built state
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-10-22
+
+**Rationale:** The simulation's gdUnit suites (about 140 files) each start Godot and most step
+battles to reach a situation. The user: "if we want to test out individual parts of the sim
+phases, we should be able to establish state and only test specific parts, pushing towards unit
+test style runs over full sims. If those could be used to prove out the digests then all the
+better, i want (if possible without side effects) to be able to reduce our test run time".
+- **Each port rewrites its scenarios as cargo tests,** red first, and deletes the gdUnit files
+  with the twin. gdUnit keeps the presentation, the designer's import while it lasts and one test
+  of the boundary.
+- **A test builds its state and steps one phase.** Builders shared by tests and benches make
+  squads and units where they are needed. A test runs the phase under test, not the tick, and
+  never steps a battle to get there. A phase's inputs are its state and the setup, so it can be
+  run alone.
+- **Snapshots tie phase tests to the digests.** The digest can write the whole simulation's
+  state at chosen ticks of its battles, serialised by the crate. A snapshot test loads one,
+  steps one phase and compares the result's fingerprint with the recorded one. An outcome change
+  then names the phase that moved, in milliseconds. A change with an `Outcomes-changed:`
+  trailer regenerates the snapshots it moves.
+- **The whole digests, trials and benches become cargo binaries** once the tick loop is in Rust.
+  CI runs them in release mode without Godot, and `cargo test` runs in parallel. They still run
+  whole in CI: snapshots catch a phase's change, and only whole battles catch how phases meet.
+- **CI gains a `rust` job** (format, clippy, `cargo test`) with spec 39's first step. In a
+  session, `cargo test <name>` is the red-then-green run, as `-a <file>` is for gdUnit.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep gdUnit for behaviour, driving Rust through the boundary | Every run still starts Godot; no state can be built except through GDScript. |
+| Snapshots in place of the whole digests | A snapshot can't see one phase's change reach another. The whole runs stay in CI. |
+
+**Rules over cases:** general. **Order:** the reversed-lists tests port as tests that build
+reversed states. **Bounded:** not a per-tick change.
+**Cost:** each chunk's tests are rewritten once; snapshot files are kept in the repo and
+regenerated with outcome changes.
+
 ### Decision 155 — Spec steps become issues under a parent per spec, and the Project's Status follows each PR
 
 **Authorised by:** Simeon Sidey
