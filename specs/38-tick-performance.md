@@ -452,6 +452,24 @@ Decision's conditions.
   counts.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
+### Step 2b, the outcome check on Rust
+
+- **`base-build`** (`sim-checks.yml`) checks out the merge base, builds its Rust core
+  (`native/build.sh release`, with the same cargo cache as `build`) and hands it on as the
+  `native-bin-base` artifact. One build, not one per digest set.
+- **`digests`** gives the base's worktree that core and takes the base's digest with
+  `BREACH_NATIVE=rust`. `check_outcomes.py` compares it with the branch's Rust digest, and
+  `--engine rust` names the engine in its report (`check_outcomes standard (rust): ...`). The
+  two-engine comparison of the branch is as it was.
+- **Without the base's core the check can't stand,** because a checkout without the library
+  runs on GDScript silently. So the copy is not optional, and `sim-checks` fails when
+  `base-build` does: the `digests` jobs would be skipped, not failed.
+- **The traces follow the check:** `trace_changed.sh` traces both sides on Rust.
+- **Tests:** `test_check_outcomes.py`'s `EngineTest` covers the scenario: a Rust digest that
+  differs and no trailer fails, naming the engine and the runs; with the trailer it passes.
+- **Outcomes unchanged:** nothing under `sim/` or `native/` changed. This PR's own run
+  compares the base's Rust digest with the branch's for the first time.
+
 ## Open, for the implementing session to settle and record here
 
 - Step 2: the `terrain=mixed` layout.

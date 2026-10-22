@@ -104,5 +104,40 @@ class ChangedFileTest(unittest.TestCase):
         self.assertEqual(self._run(BASE, list(BASE)), "")
 
 
+class EngineTest(unittest.TestCase):
+    """`--engine <name>`: the engine both digests were taken on, named in the report
+    (Decision 151: outcomes are guarded on Rust, the base built natively)."""
+
+    def _run(self, base, head, messages):
+        folder = Path(tempfile.mkdtemp())
+        (folder / "base.txt").write_text("\n".join(base) + "\n")
+        (folder / "head.txt").write_text("\n".join(head) + "\n")
+        argv = ["check_outcomes.py", "standard", str(folder / "base.txt"), str(folder / "head.txt")]
+        out = io.StringIO()
+        with mock.patch.object(check_outcomes, "branch_messages", return_value=messages):
+            with contextlib.redirect_stdout(out):
+                code = check_outcomes.main(argv + ["origin/main", "--engine", "rust"])
+        return code, out.getvalue()
+
+    def test_a_rust_digest_that_differs_without_a_trailer_fails_naming_the_engine(self):
+        head = [BASE[0], "mirror_headon s1 rtrue 2 dddd", BASE[2]]
+        code, out = self._run(BASE, head, ["perf: x"])
+        self.assertEqual(code, 1)
+        self.assertIn("check_outcomes standard (rust): 1 run changed", out)
+        self.assertIn("mirror_headon s1 rtrue from tick 2", out)
+
+    def test_with_the_trailer_it_passes_and_names_the_runs(self):
+        head = [BASE[0], "mirror_headon s1 rtrue 2 dddd", BASE[2]]
+        code, out = self._run(BASE, head, ["perf: x\n\nOutcomes-changed: f32 columns"])
+        self.assertEqual(code, 0)
+        self.assertIn("check_outcomes standard (rust): 1 run changed, as the branch says: f32", out)
+        self.assertIn("mirror_headon s1 rtrue from tick 2", out)
+
+    def test_the_same_rust_digest_passes(self):
+        code, out = self._run(BASE, list(BASE), [])
+        self.assertEqual(code, 0)
+        self.assertIn("check_outcomes standard (rust): same as the base", out)
+
+
 if __name__ == "__main__":
     unittest.main()

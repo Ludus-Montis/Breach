@@ -2,17 +2,19 @@
 """check_outcomes: a PR's battle digests (tools/formation_digest.gd) against its base's.
 
 The digest job compares a branch's two engines with each other, so an outcome change both
-engines share would pass it. This compares the branch's GDScript digest of a set with the
-base's, tick by tick. A branch that means to change outcomes - a rule a Decision changes, a
+engines share would pass it. This compares the branch's digest of a set with the base's, tick
+by tick, both taken on one engine: Rust in CI, the base's core built natively (Decision 151). A branch that means to change outcomes - a rule a Decision changes, a
 fix, a digest that hashes something new - says why in an `Outcomes-changed: <why>` trailer
 on any of its commits: the check then names the runs that changed and passes. Without one
 it fails. A set the base can't digest (it didn't exist there) passes with a note.
 
     check_outcomes.py <set> <base digest file> <head digest file> [base ref] [--changed <file>]
+                      [--engine <name>]
 
 The base ref (base_ref.py) gives the branch's commits whose trailers are read. --changed
 writes `<run>\t<first differing tick>` per changed run, in the head's order (empty when
-none), for the digests job to trace (specs/37-outcome-trace.md).
+none), for the digests job to trace (specs/37-outcome-trace.md). --engine names the engine
+the two digests were taken on in the report.
 """
 import re
 import subprocess
@@ -103,27 +105,32 @@ def _lines(path: str) -> list:
     return file.read_text(encoding="utf-8").splitlines() if file.is_file() else []
 
 
+def _option(argv: list, flag: str):
+    """(argv without `flag <value>`, the value or None); the value is False when it is missing."""
+    if flag not in argv:
+        return argv, None
+    at = argv.index(flag)
+    if at + 1 >= len(argv):
+        return argv, False
+    return argv[:at] + argv[at + 2 :], argv[at + 1]
+
+
 def main(argv: list) -> int:
-    changed_file = None
-    if "--changed" in argv:
-        at = argv.index("--changed")
-        if at + 1 >= len(argv):
-            print(__doc__)
-            return 2
-        changed_file = argv[at + 1]
-        argv = argv[:at] + argv[at + 2 :]
-    if len(argv) < 4:
+    argv, changed_file = _option(argv, "--changed")
+    argv, engine = _option(argv, "--engine")
+    if changed_file is False or engine is False or len(argv) < 4:
         print(__doc__)
         return 2
     name, base_file, head_file = argv[1:4]
+    label = f"{name} ({engine})" if engine else name
     base_ref = base_ref_module.resolve(["", argv[4]] if len(argv) > 4 else [""])
     try:
         messages = branch_messages(base_ref)
     except subprocess.CalledProcessError as error:
-        print(f"check_outcomes {name}: could not read the branch's commits against '{base_ref}': {error}")
+        print(f"check_outcomes {label}: could not read the branch's commits against '{base_ref}': {error}")
         messages = []
     base, head = _lines(base_file), _lines(head_file)
-    passed, lines = verdict(name, base, head, messages)
+    passed, lines = verdict(label, base, head, messages)
     if changed_file is not None:
         runs = changed_runs(base, head) if base else []
         Path(changed_file).write_text("".join(f"{run}\t{tick}\n" for run, tick in runs))

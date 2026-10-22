@@ -59,6 +59,44 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The base's Rust core, built once from the merge base as `bench` builds its base, for the
+  # digests jobs' outcome check (Decision 151: outcomes are guarded on Rust).
+  base-build:
+    needs: scope
+    if: needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The PR's base branch; a manual run compares with main.
+      BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || 'origin/main' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check out the merge base
+        run: git checkout -q --detach "$(git merge-base "$BASE_REF" HEAD)"
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Build the base's Rust core
+        run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-bin-base
+          path: native/bin/
+          if-no-files-found: error
+          retention-days: 1
+
   suite:
     needs: build
     runs-on: ubuntu-latest
@@ -105,11 +143,12 @@ jobs:
 
   # One job per digest set: each compares its own two engines' files, so splitting the
   # sets across machines changes nothing (a digest is the same wherever it is taken). Each
-  # also takes the base's GDScript digest of its set and compares the branch's with it
-  # (check_outcomes.py), so an outcome change both engines share is seen too: it fails
-  # unless one of the branch's commits says why (`Outcomes-changed: <why>`).
+  # also takes the base's Rust digest of its set, on the core `base-build` built, and compares
+  # the branch's Rust digest with it (check_outcomes.py, Decision 151), so an outcome change
+  # both engines share is seen too: it fails unless one of the branch's commits says why
+  # (`Outcomes-changed: <why>`).
   digests:
-    needs: build
+    needs: [build, base-build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -143,17 +182,25 @@ jobs:
           done
           (cd digests && sha256sum *.txt)
 
-      # The base's own GDScript digest, from a worktree of the base, against the branch's.
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin-base
+          path: ${{ runner.temp }}/native-bin-base/
+
+      # The base's own Rust digest, from a worktree of the base with its core, against the
+      # branch's. Without the core the base would run on GDScript silently, so it must be there.
       - name: Digest ${{ matrix.set }} against the base
         run: |
           git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
+          mkdir -p ../base/native/bin
+          cp "$RUNNER_TEMP"/native-bin-base/* ../base/native/bin/
           (cd ../base && /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true)
-          (cd ../base && BREACH_NATIVE=gdscript /opt/godot/godot --headless --path . \
+          (cd ../base && BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
             --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
             out="$GITHUB_WORKSPACE/digests/${{ matrix.set }}.base.txt" > /dev/null 2>&1 || true)
           python3 ci/godot/scripts/check_outcomes.py ${{ matrix.set }} \
-            digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.gdscript.txt "$BASE_REF" \
-            --changed digests/${{ matrix.set }}.changed.txt \
+            digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.rust.txt "$BASE_REF" \
+            --changed digests/${{ matrix.set }}.changed.txt --engine rust \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
 
@@ -242,12 +289,13 @@ jobs:
           path: scaling.${{ matrix.stage }}.txt
           retention-days: 7
 
-  # The outcome in one place, as the single job printed it before: fails if the build
-  # failed or the two engines' digests differ (each other job fails on its own, the digests
+  # The outcome in one place, as the single job printed it before: fails if either build
+  # failed (without the base's, the digests jobs are skipped, not failed) or the two engines'
+  # digests differ (each other job fails on its own, the digests
   # also when the branch changes outcomes against its base without saying why). Named as
   # the single job was, so the check keeps its name.
   sim-checks:
-    needs: [scope, build, suite, digests, trials, scaling]
+    needs: [scope, build, base-build, suite, digests, trials, scaling]
     if: always() && needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -260,7 +308,7 @@ jobs:
         run: |
           {
             echo "SUMMARY BEGIN"
-            echo "build: ${{ needs.build.result }}"
+            echo "build: ${{ needs.build.result }}, base's core: ${{ needs.base-build.result }}"
             failed=0
             for log in suite.*.log; do
               [ -e "$log" ] || continue
@@ -287,4 +335,5 @@ jobs:
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           [ "${{ needs.build.result }}" = "success" ]
+          [ "${{ needs.base-build.result }}" = "success" ]
           ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"
