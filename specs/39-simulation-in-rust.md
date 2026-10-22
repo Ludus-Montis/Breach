@@ -21,8 +21,8 @@ CI time, writing and usage.
 **Settled by Decisions 152** (the whole simulation in Rust, the path), **153** (the crate owns
 the content schema, and the designer writes JSON in it) **and 154** (cargo tests, one phase on
 a built state, snapshots cut from the digests). Decisions 97, 130, 138, 139 and 151 still hold.
-Answers #292 (Q33). Takes over spec 38's steps 3 and 4. Spec 38's step 5 (threading, slot
-packing, Q26 #281) follows this round's step 8. Q24 (#279) and Q32 (#291) stay open: they are
+Answers #292 (Q33). Takes over spec 38's steps 3 and 4, and spec 38's step 5 (threading, slot
+packing, Q26 #281) as step 10, after step 8. Q24 (#279) and Q32 (#291) stay open: they are
 rule questions, and this round ports the rules as they are.
 
 ## Status
@@ -30,7 +30,8 @@ rule questions, and this round ports the rules as they are.
 Agreed in the design session of 2026-10-22. Before step 1, spec 38 step 2b is built (the
 outcome check on Rust), because every step here retires GDScript. Spec 38's steps 1d and 2 are
 dropped. Their benches would time GDScript that this round deletes, and step 2's whole-battle
-series is rebuilt under cargo in step 8.
+series is rebuilt under cargo in step 8. Step 10 (spec 38's step 5, moved here the same day)
+needs a design session before it is built.
 
 Each step is built with `/run-phase` as "spec 39 step N", as one PR. A step too large for one
 session splits into lettered PRs (4a, 4b). Each lettered PR keeps the rules below, and the
@@ -139,6 +140,20 @@ events. After this step no battle phase runs in GDScript.
 
 The lanes, the economy, structures, the clock and commands. After it, `sim/` holds no GDScript,
 and `content/definitions/` and `content/import/` keep only what presentation reads.
+
+### Step 10, threading, then slot packing (design first)
+
+Moved from spec 38 step 5 on 2026-10-22. It needs step 8, when the whole tick runs in Rust and
+the benches run under cargo; it does not need step 9. Threads help only work in Rust: with
+about 50 ms of the tick native before this round, threads on every kernel would have saved
+at most about 35 ms (Amdahl's law). Slot packing, too, speeds up only native passes.
+
+**Subjects for its design session:** Q26 (#281) as written, measured with step 8's
+`tick_phases` (the series, `terrain=mixed` and per-pass changed counts). Each needs a
+Decision the user authorises. Decision 151 reopens two options Q26 ruled out only because
+they broke identity with the reference: `f32` columns and parallel reductions in a different
+fixed order. Both change outcomes but not behaviour, so each is allowed under that
+Decision's conditions.
 
 ## Scenarios
 
