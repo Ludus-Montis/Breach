@@ -23,7 +23,9 @@ they're leaving.
 2. **Push the branch:** `git push -u origin <branch>`.
 3. **Make sure a pull request exists.** If the work isn't ready for review, open it as a
    **draft**. A draft is a hand-off vehicle, not a request for review: mark it ready only
-   when Gate 1 passes (`run-phase` step 5).
+   when Gate 1 passes (`run-phase` step 5). A parked draft gets the `handoff` label, in
+   the same `issue_write` that sets its other labels (`run-phase` section 6), and still
+   says `Closes #N` for its step's issue, so the Project shows it under **Next**.
 4. **Write or update the `## Handoff` section** at the top of the PR description, using
    the template below. Replace it each time; it describes now, not history.
 5. **Move open questions to the register.** Anything still undecided, and any "remind
@@ -48,7 +50,10 @@ a cloud session the user starts can pick it up.
 A design session (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3) hands
 off by pushing its outcome as Decisions and a spec round in a `docs:` PR, with the
 `## Handoff` section's **Next** naming the `/run-phase` item for a fresh implementation
-session. The implementation session starts from the spec, not from the discussion.
+session. The implementation session starts from the spec, not from the discussion. The
+PR says `Closes #N` for each `question` issue it settles. It sets no milestone:
+`github-sync` gives the PR and those issues the spec's milestone, and makes the spec's
+step issues once the PR merges.
 
 ### The `## Handoff` template
 
@@ -91,7 +96,9 @@ Decision or the spec, not here.
 4. **Check out the branch and pull:** `git checkout <branch> && git pull`. Run the tests
    once, to confirm the state the hand-off describes.
 5. **Claim it:** update the `## Handoff` section's State line to say you're working on it,
-   with the time, and push that edit (the PR description, not a commit).
+   with the time, and push that edit (the PR description, not a commit). Before your first
+   push, remove the `handoff` label: `issue_write` with `method: update` on the PR's number
+   and `labels` set to its labels less `handoff`.
 6. Carry on with `run-phase` from the hand-off's **Next** step.
 
 ## Rules

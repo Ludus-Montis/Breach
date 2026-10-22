@@ -194,8 +194,8 @@ two Gate sections:
   there's a pending entry for a human to fill in. Never write the play-feel judgement
   yourself — `progress-tracking.md`: "an agent judging whether its own change was an
   improvement has an obvious conflict of interest."
-- **Closes** — `Closes #N` for each `question` issue this PR settles, so the owner's merge
-  closes it. Never close a question yourself; on one this PR may settle without being sure,
+- **Closes** — `Closes #N` for the step's issue (below) and for each `question` issue this
+  PR settles, so the owner's merge closes them. Never close a question yourself; on one this PR may settle without being sure,
   comment "Possibly settled by …" instead.
 
 Then name the PR's spec and step (Decision 148): one `issue_write` with `method: update` on
@@ -206,6 +206,13 @@ kind (`implementation`, `design` or `chore`), the areas it touches (`sim`, `nati
 milestone is missing (a new spec or step), start the `github-sync` workflow
 (`actions_run_trigger`, `workflow_id: github-sync.yml`, `ref: main`), set what exists, and
 tell the user what is missing rather than wait for the run.
+
+Then close the step's issue from the PR (spec 40). `github-sync` makes one issue per
+`### Step <id>` heading, under the spec's parent issue `Spec NN: <title>`. Find it with
+`list_issues`, `labels: [step:NN-<id>]`, `state: OPEN`, `fields: [number, title]`, and add
+`Closes #<it>` to the PR body (`update_pull_request`). A PR that builds two steps closes
+both. If none is found (the sync hasn't run for this spec), say so in the PR body and start
+`github-sync` as above, rather than wait for it.
 
 **Do not poll or watch CI to completion after opening the PR.** Notify the user that
 the PR is open (a link and a short summary of what landed), **end with the exact next

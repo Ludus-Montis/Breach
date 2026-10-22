@@ -53,7 +53,8 @@ How sessions work together is `principles/agent-sessions.md`.
   Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
   (how: `OPEN_QUESTIONS.md`'s header). You don't write code. You finish a round by pushing a
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
-  each question it settles.
+  each question it settles. `github-sync` gives the PR and those questions the spec's
+  milestone; set none yourself.
 - **Implementation:** you build one spec round with `/run-phase`. Build what the spec
   settles as written. Stop and ask only where it is silent, and record the answer in the
   spec or a Decision.
@@ -66,7 +67,7 @@ How sessions work together is `principles/agent-sessions.md`.
 |---|---|
 | Decisions | `DECISIONS_INDEX.md` lists each Decision with its line. Read by line; don't read the whole design spec (it is 400 KB) |
 | Design spec and addenda | `Breach — Reverse Tower Defense Design Spec.md`, `breach-addendum-*.md` |
-| Specs, one per feature or round | `specs/NN-*.md` |
+| Specs, one per feature or round | `specs/NN-*.md`, the source. `github-sync` makes each spec's steps issues under `Spec NN: <title>`, one per `### Step <id>`; a step's PR closes its issue |
 | Open questions and the user's "remind me when…" | Issues labelled `question` (Decision 148); check those whose `raise-when:` label or **Raise when** matches your work. `OPEN_QUESTIONS.md` says how to raise one and keeps the closed archive |
 | README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
