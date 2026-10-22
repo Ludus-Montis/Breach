@@ -135,7 +135,14 @@ depend on finding it.
 - **One issue per marker:** where several issues carry one marker, the lowest-numbered is
   the sync's own (today `_own` keeps the first in listing order, which is newest first).
   Each later one, if open, is closed with state reason `duplicate` and one comment:
-  "A copy of #<kept>, which github-sync keeps for `<marker>`." It doesn't move sub-issues.
+  "A copy of #<kept>, which github-sync keeps for `<marker>`."
+- **Each kept step sits under its spec's kept parent:** a kept step whose parent isn't the
+  kept parent (or that has none) is attached to it (`POST /issues/{parent}/sub_issues` with
+  `replace_parent: true`), open or closed. So the steps made under a copy, such as spec 40's
+  steps 4 to 6 (#548–550, made under #472 on 2026-10-22, when the old sync kept the newest
+  copy), move to the parent kept (#383). The sync reads each kept step's parent once a run
+  (`GET /issues/{n}/parent`) and writes only for those that differ. A copy's steps that are
+  themselves copies are closed, not moved.
 - **The workflow's comment** says the sync keeps one issue per marker.
 
 ### Step 5, a parent and its milestone follow their items
@@ -329,6 +336,17 @@ No code; the skills' text. Checked by reading the PR (`/run-phase`'s own end-of-
 - Given two issues marked `step 37-1`, #310 closed and #400 open
 - When the sync applies
 - Then #400 is closed as `duplicate` with one comment naming #310, and #310 is unchanged
+
+**Scenario: a step made under a copy moves to the kept parent**
+- Given parents #300 and #450 both marked `spec 40`, and step `step 40-4` (#548) only under
+  #450
+- When the sync applies
+- Then #450 is closed as `duplicate`, #548 is a sub-issue of #300, and #548 stays open
+
+**Scenario: a step already under the kept parent isn't written**
+- Given step `step 40-1` already a sub-issue of the kept parent
+- When the sync applies
+- Then it makes no sub-issue call for it
 
 **Scenario: a second run still changes nothing**
 - Given the duplicate already closed
