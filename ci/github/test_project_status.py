@@ -94,7 +94,7 @@ class ApplyTest(unittest.TestCase):
 
     def test_an_unknown_status_option_fails_clearly(self):
         project = dict(PROJECT, options={"In review": "o3"})
-        with self.assertRaisesRegex(SystemExit, "Next"):
+        with self.assertRaisesRegex(SystemExit, "`Next` .it has: In review."):
             self.apply(pull(draft=True, labels=["handoff"]), project=project)
 
 

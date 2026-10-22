@@ -40,7 +40,8 @@ def apply(reader, writer, repo, number, project_owner, project_number):
     project = writer.project(project_owner, project_number)
     option = project["options"].get(status)
     if option is None:
-        raise SystemExit(f"The Project's Status field has no option `{status}`; add it (spec 40).")
+        names = ", ".join(project["options"])
+        raise SystemExit(f"The Project's Status field has no option `{status}` (it has: {names}); add it (spec 40).")
     for content_id in [pr["id"], *pr["closing"]]:
         _set(writer, project, content_id, option)
     print(f"PR #{number} and {len(pr['closing'])} closing issue(s): {status}")
