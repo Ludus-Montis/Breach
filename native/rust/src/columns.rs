@@ -20,9 +20,11 @@
 //! `distance`, `foothold`, `on_face`, `climb_left`, step 7c). The field holds them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
+use serde::{Deserialize, Serialize};
+
 use crate::maths::V2;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Columns {
     pub position: Vec<V2>,
     pub loose_at: Vec<V2>,

@@ -6,6 +6,8 @@
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
 mod blows;
+#[cfg(test)]
+mod build;
 mod columns;
 mod det_math;
 mod face_store;
@@ -16,9 +18,12 @@ mod ghash;
 mod grid;
 mod maths;
 mod motion;
+mod ordered;
 mod parting;
 mod scrum;
 mod seeking;
+mod snapshot;
+mod squads;
 mod walk_store;
 mod walking;
 
@@ -29,6 +34,7 @@ use godot::prelude::*;
 use field::{Enrol, Field, SyncIn};
 use maths::V2;
 use parting::Tuning;
+use squads::Squads;
 
 struct BreachNative;
 
@@ -40,6 +46,8 @@ unsafe impl ExtensionLibrary for BreachNative {}
 #[class(base = RefCounted, init)]
 struct BodyField {
     field: Field,
+    /// The squad store (spec 39 step 1, SquadColumnsNative).
+    squads: Squads,
     /// Microseconds of native work in the last call (the bench reads it).
     usec: i64,
     /// The last part()'s moved bodies (flat indices), points and nexts, for commit_part().
@@ -409,6 +417,85 @@ impl BodyField {
         let out: Vec<f64> =
             (0..a.len()).map(|i| f(a[i], b.get(i).copied().unwrap_or(0.0))).collect();
         PackedFloat64Array::from(out.as_slice())
+    }
+
+    /// The squad store (spec 39 step 1) takes a new squad: returns its slot, kept for the
+    /// battle, every column blank there.
+    #[func]
+    fn squad_open(&mut self, squad_id: i64) -> i64 {
+        self.squads.open(squad_id) as i64
+    }
+
+    /// An int column's value in a squad's slot, by the column's index (SquadColumns).
+    #[func]
+    fn squad_int(&mut self, slot: i64, column: i64) -> i64 {
+        self.squads.int(slot as usize, column as usize)
+    }
+
+    #[func]
+    fn put_squad_int(&mut self, slot: i64, column: i64, value: i64) {
+        self.squads.set_int(slot as usize, column as usize, value);
+    }
+
+    /// A real column's value in a squad's slot.
+    #[func]
+    fn squad_real(&mut self, slot: i64, column: i64) -> f64 {
+        self.squads.real(slot as usize, column as usize)
+    }
+
+    #[func]
+    fn put_squad_real(&mut self, slot: i64, column: i64, value: f64) {
+        self.squads.set_real(slot as usize, column as usize, value);
+    }
+
+    /// The point column's value in a squad's slot.
+    #[func]
+    fn squad_point(&mut self, slot: i64, column: i64) -> Vector2 {
+        let p = self.squads.point(slot as usize, column as usize);
+        Vector2::new(p.x, p.y)
+    }
+
+    #[func]
+    fn put_squad_point(&mut self, slot: i64, column: i64, value: Vector2) {
+        self.squads.set_point(slot as usize, column as usize, V2::new(value.x, value.y));
+    }
+
+    /// A squad's members: its units' unit-store slots, in its list's order.
+    #[func]
+    fn squad_members(&self, slot: i64) -> PackedInt32Array {
+        PackedInt32Array::from(self.squads.members[slot as usize].as_slice())
+    }
+
+    #[func]
+    fn put_squad_members(&mut self, slot: i64, members: PackedInt32Array) {
+        self.squads.members[slot as usize] = members.as_slice().to_vec();
+    }
+
+    /// The crate's whole state after `tick` of the battle seeded `seed` (spec 39 step 1,
+    /// `snapshot`): the units, the squads, the tick and the seed.
+    #[func]
+    fn snapshot(&self, tick: i64, seed: i64) -> PackedByteArray {
+        PackedByteArray::from(snapshot::write(tick, seed, &self.field, &self.squads).as_slice())
+    }
+
+    /// Squads the squad store holds.
+    #[func]
+    fn squad_count(&self) -> i64 {
+        self.squads.count() as i64
+    }
+
+    /// Reads back a state `snapshot` wrote, in place of this one; returns its [tick, seed],
+    /// or nothing (the state unchanged) if the bytes aren't a state.
+    #[func]
+    fn restore(&mut self, bytes: PackedByteArray) -> PackedInt64Array {
+        match snapshot::read(bytes.as_slice()) {
+            Ok(state) => {
+                self.field = state.field;
+                self.squads = state.squads;
+                PackedInt64Array::from(&[state.tick, state.seed])
+            }
+            Err(_) => PackedInt64Array::new(),
+        }
     }
 
     /// Bodies on the field.
