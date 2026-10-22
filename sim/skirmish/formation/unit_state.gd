@@ -7,10 +7,11 @@ extends RefCounted
 ## `downed` cost nothing to ask; the passes that wanted the downed walked every unit.
 ##
 ## A write, and a join or a leaving (`regather`), mark the squad's lists for a rebuild at
-## their next read: one filter of its units, however many changed. A rebuild makes new
-## arrays, so a pass walking a list while it writes walks the list as it was when it began,
-## as it did when every read filtered afresh. The lists handed out are read-only: a caller
-## that wants to change one takes `.duplicate()`.
+## their next read: one filter of its units, however many changed. A rebuild after a join or
+## a leaving also writes the squad's members to the squad store (`_list_members`). A rebuild
+## makes new arrays, so a pass walking a list while it writes walks the list as it was when it
+## began, as it did when every read filtered afresh. The lists handed out are read-only: a
+## caller that wants to change one takes `.duplicate()`.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
@@ -22,6 +23,7 @@ class Kept:
 	var downed: Array[SkirmishUnit] = []
 	var stale := true
 	var counted := 0  # how many units the squad had at the last rebuild
+	var listed := false  # its members in the squad store are its units (spec 39 step 1)
 
 
 ## Sets the unit's state; `squad` is the one whose units it is in.
@@ -40,6 +42,7 @@ static func start(unit: SkirmishUnit, state: SkirmishUnit.State) -> void:
 ## their next read. FormationCommand.enlist calls it for a join.
 static func regather(squad) -> void:
 	squad.kept.stale = true
+	squad.kept.listed = false
 
 
 ## The squad's standing units, in its order (SkirmishSquad.living()).
@@ -70,5 +73,19 @@ static func _kept(squad) -> Kept:
 		kept.downed = downed
 		kept.counted = units.size()
 		kept.stale = false
+		if not kept.listed:
+			_list_members(squad)  # once a rebuild, however many joined or left
+			kept.listed = true
 	assert(kept.counted == units.size(), "squad.units changed without UnitState.regather")
 	return kept
+
+
+## Writes the squad's members - its units' unit-store slots, in its order - to the squad
+## store (spec 39 step 1).
+static func _list_members(squad) -> void:
+	var units: Array[SkirmishUnit] = squad.units
+	var slots := PackedInt32Array()
+	slots.resize(units.size())
+	for index in units.size():
+		slots[index] = units[index].slot
+	squad.store.squads.put_members(squad.slot, slots)
