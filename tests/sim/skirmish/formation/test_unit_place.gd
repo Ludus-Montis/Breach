@@ -56,7 +56,7 @@ func test_a_unit_s_place_round_trips_and_a_new_slot_starts_at_the_front_left() -
 
 func test_a_spawned_unit_stands_where_its_layout_places_it() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
-	var grem: Resource = load("res://content/units/grem.tres")
+	var grem: Resource = CrateContent.unit("grem")
 	var places := [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0), Vector2i(2, 1)]
 	var squad = sim.spawn_squad(2, places.map(func(place): return [grem, place]), "player", true)
 	for index in places.size():

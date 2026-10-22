@@ -74,8 +74,8 @@ func test_backing_away_keeps_facing_the_foe() -> void:
 
 
 func test_a_grem_is_nimbler_than_a_brute() -> void:
-	var grem := FormationUnits.make(load("res://content/units/grem.tres"), "p", 1, 1)
-	var brute := FormationUnits.make(load("res://content/units/grem_brute.tres"), "p", 1, 2)
+	var grem := FormationUnits.make(CrateContent.unit("grem"), "p", 1, 1)
+	var brute := FormationUnits.make(CrateContent.unit("grem_brute"), "p", 1, 2)
 	_places.stand(grem, Vector2.ZERO)
 	_places.stand(brute, Vector2.ZERO)
 	_places.face(grem, 0.0)

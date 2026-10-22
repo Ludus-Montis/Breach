@@ -1,12 +1,13 @@
 """The content library the designer's Library page browses (Decision 128).
 
 Reads the registry - content/registry/{tags,traits,statuses}.json - and finds where each
-tag and trait is used across the repo's content (.tres definitions under content/, and the
+tag and trait is used across the repo's content (the simulation's JSON definitions under
+content/units, weapons and armour, Decision 153; the .tres left under content/; and the
 designer's own libraries), so the page can show, search and filter them. A trait's
 targets - the kinds of thing it may sit on - follow the same rule as Godot's
 ContentRegistry: where all its tags' targets agree, narrowed by its "only". A trait with a
 "default" is implicit: every unit has it at that level without listing it. Each unit
-(content/units/*.tres) is listed with its traits - its own, then the implicit ones it
+(content/units/*.json) is listed with its traits - its own, then the implicit ones it
 doesn't list, labelled implicit - so the page shows what is present on a unit (spec 30).
 """
 
@@ -21,8 +22,7 @@ _DICT = re.compile(r"^(traits|grants) = \{(.*?)^\}", re.M | re.S)
 _KEY = re.compile(r'"([a-z_]+)"\s*:')
 _TAGS = re.compile(r"^tags = Array\[String\]\(\[(.*?)\]\)", re.M)
 _WORD = re.compile(r'"([a-z_]+)"')
-_LEVEL = re.compile(r'"([a-z_]+)"\s*:\s*(-?\d+)')
-_OWN_TRAITS = re.compile(r"^traits = \{(.*?)^\}", re.M | re.S)
+DEFINITIONS = ("units", "weapons", "armour")
 
 
 def read_registry(root: Path) -> dict:
@@ -48,11 +48,8 @@ def read_units(root: Path, implicit: dict) -> list:
     "implicit"}]} - the traits it lists, then each implicit one it doesn't (at its default
     level, "implicit" true), each part by id."""
     out = []
-    for path in sorted((root / "content" / "units").glob("*.tres")):
-        text = path.read_text(encoding="utf-8", errors="replace")
-        own = {}
-        for block in _OWN_TRAITS.finditer(text):
-            own.update({key: int(level) for key, level in _LEVEL.findall(block.group(1))})
+    for path in sorted((root / "content" / "units").glob("*.json")):
+        own = json.loads(path.read_text(encoding="utf-8")).get("traits", {})
         traits = [{"id": key, "level": own[key], "implicit": False} for key in sorted(own)]
         unlisted = sorted(key for key in implicit if key not in own)
         traits += [{"id": key, "level": implicit[key], "implicit": True} for key in unlisted]
@@ -85,11 +82,31 @@ def usage(root: Path) -> dict:
             ids.update(_WORD.findall(block.group(1)))
         for used in ids:
             found.setdefault(used, []).append(path.relative_to(root).as_posix())
+    for kind in DEFINITIONS:
+        for path in sorted((content / kind).glob("*.json")):
+            ids = set(_definition_ids(json.loads(path.read_text(encoding="utf-8"))))
+            for used in ids:
+                found.setdefault(used, []).append(path.relative_to(root).as_posix())
     for path in sorted((content / "designer").glob("*.json")):
         text = path.read_text(encoding="utf-8")
         for used in set(_designer_traits(json.loads(text))):
             found.setdefault(used, []).append(path.relative_to(root).as_posix())
     return found
+
+
+def _definition_ids(value) -> list:
+    """The trait ids (its own and those it grants) and tags a definition names, at any depth
+    (an item's are under "item")."""
+    out = []
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            if key in ("traits", "grants") and isinstance(inner, dict):
+                out.extend(inner.keys())
+            elif key == "tags" and isinstance(inner, list):
+                out.extend(inner)
+            else:
+                out.extend(_definition_ids(inner))
+    return out
 
 
 def _designer_traits(value) -> list:

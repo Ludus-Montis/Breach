@@ -1,7 +1,7 @@
 class_name FormationMorale
 extends RefCounted
 ## Morale (Decision 82, spec 27 round 3): a formation's will to fight, 0 to 100. Its
-## numbers are BattleTuning's (`morale_*`, content/tuning/battle_tuning.tres).
+## numbers are BattleTuning's (`morale_*`, content/tuning/battle_tuning.json).
 ## - **Ceiling:** its living units' mean courage, plus a step for each point of its best
 ##   living leader's leadership (Decision 81), at most 100. A fallen leader lowers it.
 ## - **Bands:** steady, shaken, wavering (strikes half again more slowly) and routing at

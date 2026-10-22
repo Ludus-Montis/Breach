@@ -8,16 +8,16 @@ const FormationBattle = preload("res://sim/skirmish/formation/formation_battle.g
 const DomainProduction = preload("res://sim/skirmish/formation/domain_production.gd")
 const WavePresets = preload("res://sim/skirmish/formation/wave_presets.gd")
 
-const GREM := preload("res://content/units/grem.tres")
-const BRUTE := preload("res://content/units/grem_brute.tres")
-const MILITIA := preload("res://content/units/kingdom_militia.tres")
+const GREM := "grem"
+const BRUTE := "grem_brute"
+const MILITIA := "kingdom_militia"
 
 
 func _battle() -> FormationBattle:
-	var battle := FormationBattle.new(8, {"c": 5, "k": 4}, 0.1, MILITIA, 3)
-	battle.add_lane("c", 9.0, WavePresets.line(GREM, 2, 5))
-	battle.add_lane("k", 9.0, WavePresets.line(GREM, 2, 4))
-	battle.player.set_builders(GREM, 1)
+	var battle := FormationBattle.new(8, {"c": 5, "k": 4}, 0.1, CrateContent.unit(MILITIA), 3)
+	battle.add_lane("c", 9.0, WavePresets.line(CrateContent.unit(GREM), 2, 5))
+	battle.add_lane("k", 9.0, WavePresets.line(CrateContent.unit(GREM), 2, 4))
+	battle.player.set_builders(CrateContent.unit(GREM), 1)
 	return battle
 
 
@@ -50,9 +50,9 @@ func test_one_builder_shares_grems_out_in_turn() -> void:
 
 func test_reshaping_banks_the_displaced_units_in_the_domain_reserve() -> void:
 	var battle := _battle()
-	battle.player.set_builders(GREM, 2)
+	battle.player.set_builders(CrateContent.unit(GREM), 2)
 	_run(battle, 40)  # both of lane c's grems
-	battle.lane("c").brush = BRUTE
+	battle.lane("c").brush = CrateContent.unit(BRUTE)
 
 	var banked := battle.paint("c", Vector2i(0, 0))
 

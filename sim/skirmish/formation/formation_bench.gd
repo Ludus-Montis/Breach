@@ -70,11 +70,11 @@ static func lanes(
 ## A grem squad at the player's end and a militia one at the other; `shape` = [units,
 ## width, archers].
 static func _spawn_pair(sim: FormationSimulation, shape: Array, route: FormationRoute) -> void:
-	var grem: Resource = load("res://content/units/grem.tres")
-	var spitter: Resource = load("res://content/units/grem_spitter.tres")
+	var grem: Resource = CrateContent.unit("grem")
+	var spitter: Resource = CrateContent.unit("grem_spitter")
 	var sides := [
 		[grem, "player", true],
-		[load("res://content/units/kingdom_militia.tres"), "the_kingdom", false],
+		[CrateContent.unit("kingdom_militia"), "the_kingdom", false],
 	]
 	var count: int = shape[0]
 	var width: int = shape[1]

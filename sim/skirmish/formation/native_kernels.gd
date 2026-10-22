@@ -4,17 +4,15 @@ extends RefCounted
 ## the hot passes - body parting (UnitBodies) and the scrum's slot search (ScrumSeek) - run
 ## in GDScript ("gdscript", the default and the reference) or in Rust ("rust": a BodyField,
 ## the bodies' state owned natively). Read from the BREACH_NATIVE environment variable,
-## else the project setting breach/native/engine; tests and the bench set it with use(). A
-## checkout without the library built (native/build.sh) quietly runs on GDScript, so it
-## plays exactly as before. BREACH_NATIVE_THREADS=1 lets the Rust core part bodies on its
-## thread pool (applied in a fixed order all the same). Both engines give bit-identical
-## outcomes (tools/formation_digest.gd).
+## else the project setting breach/native/engine; tests and the bench set it with use(). The
+## library itself is always loaded, for the content (CrateContent, Decision 153); this picks
+## only the kernels (NativeLibrary loads it). BREACH_NATIVE_THREADS=1 lets the Rust core
+## part bodies on its thread pool (applied in a fixed order all the same). Both engines give
+## bit-identical outcomes (tools/formation_digest.gd).
 
 const GDSCRIPT := "gdscript"
 const RUST := "rust"
-const EXTENSION := "res://native/breach_rust.gdextension"
 const FIELD_CLASS := "BodyField"
-const LIBRARY := "breach_rust"
 const UnitStoreGd = preload("res://sim/skirmish/formation/unit_store_gd.gd")
 const UnitStoreNative = preload("res://sim/skirmish/formation/unit_store_native.gd")
 
@@ -44,9 +42,7 @@ static func available(engine_name: String) -> bool:
 		return true
 	if engine_name != RUST:
 		return false
-	if not ClassDB.class_exists(FIELD_CLASS) and FileAccess.file_exists(_binary()):
-		GDExtensionManager.load_extension(EXTENSION)
-	return ClassDB.class_exists(FIELD_CLASS)
+	return NativeLibrary.load_for(FIELD_CLASS)
 
 
 ## A new field for a battle's bodies (BodyField) under the chosen engine, or null to run
@@ -61,13 +57,3 @@ static func body_field() -> Object:
 ## The battle's unit store (spec 35): on its native field, or in GDScript if it has none.
 static func unit_store(field: Object) -> UnitStore:
 	return UnitStoreGd.new() if field == null else UnitStoreNative.new(field)
-
-
-## Where native/build.sh puts the library for this platform.
-static func _binary() -> String:
-	match OS.get_name():
-		"Windows":
-			return "res://native/bin/%s.windows.x86_64.dll" % LIBRARY
-		"macOS":
-			return "res://native/bin/lib%s.macos.universal.dylib" % LIBRARY
-	return "res://native/bin/lib%s.linux.x86_64.so" % LIBRARY

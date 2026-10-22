@@ -8,30 +8,31 @@ const FormationLane = preload("res://sim/skirmish/formation/formation_lane.gd")
 const WaveTemplate = preload("res://sim/skirmish/formation/wave_template.gd")
 const WavePresets = preload("res://sim/skirmish/formation/wave_presets.gd")
 
-const GREM := preload("res://content/units/grem.tres")
-const BRUTE := preload("res://content/units/grem_brute.tres")
-const MILITIA := preload("res://content/units/kingdom_militia.tres")
+const GREM := "grem"
+const BRUTE := "grem_brute"
+const MILITIA := "kingdom_militia"
 
 
 func _lane() -> FormationLane:
-	var lane := FormationLane.new("c", 5, 9.0, 0.1, MILITIA, 3)
-	lane.apply(WavePresets.line(GREM, 5, 5))
+	var lane := FormationLane.new("c", 5, 9.0, 0.1, CrateContent.unit(MILITIA), 3)
+	lane.apply(WavePresets.line(CrateContent.unit(GREM), 5, 5))
 	return lane
 
 
 func _fill(lane: FormationLane, count: int) -> void:
 	for i in range(count):
-		lane.production.fill(GREM)
+		lane.production.fill(CrateContent.unit(GREM))
 
 
 func test_painting_a_brute_over_filled_grems_hands_back_the_grems_it_displaces() -> void:
 	var lane := _lane()
 	_fill(lane, 5)
-	lane.brush = BRUTE
+	lane.brush = CrateContent.unit(BRUTE)
 
 	var leftovers := lane.paint(Vector2i(0, 1), 8)
 
-	assert_array(leftovers).is_equal([GREM, GREM])  # it replaces columns 1 and 2
+	var grem := CrateContent.unit(GREM)
+	assert_array(leftovers).is_equal([grem, grem])  # it replaces columns 1 and 2
 
 
 func test_painting_off_the_lane_changes_nothing() -> void:
@@ -52,7 +53,7 @@ func test_erasing_with_no_brush_clears_the_cell() -> void:
 
 func test_painting_is_limited_by_the_allowance() -> void:
 	var lane := _lane()
-	lane.brush = GREM
+	lane.brush = CrateContent.unit(GREM)
 
 	lane.paint(Vector2i(1, 0), 5)  # 5 cells used, none spare
 	assert_int(lane.cells_used()).is_equal(5)
@@ -63,7 +64,7 @@ func test_painting_is_limited_by_the_allowance() -> void:
 func test_the_kingdom_wave_steps_only_when_asked() -> void:
 	var lane := _lane()
 	for i in range(3):
-		lane.kingdom.fill(MILITIA)
+		lane.kingdom.fill(CrateContent.unit(MILITIA))
 
 	lane.step(false)
 	var before := lane.sim.squads().size()

@@ -35,7 +35,7 @@ static func _battle(contact_seconds: float, battle_seed: int) -> Dictionary:
 	var sim := FormationSimulation.new(2.0, TICK)
 	sim.fight_seed = battle_seed
 	sim.blow_rolls = true
-	var grem: UnitDef = load("res://content/units/grem.tres").duplicate()
+	var grem: UnitDef = CrateContent.unit("grem").duplicate()
 	grem.hp = STOUT
 	var wave := sim.spawn_squad(8, _row(grem), "player", true)
 	var line := sim.spawn_squad(8, _row(grem), "the_kingdom", false)

@@ -24,7 +24,6 @@ const TickProgressIndicator = preload("res://presentation/tick_progress_indicato
 const PlayerRoster = preload("res://sim/player_roster.gd")
 
 const MAP: MapDef = preload("res://content/maps/p_f_F_c.tres")
-const GREM: UnitDef = preload("res://content/units/grem.tres")
 const HERO_PARTY_DEF: ResponseUnitDef = preload("res://content/response_units/hero_party.tres")
 
 const P := 0
@@ -57,6 +56,7 @@ var _time_controls: TimeControls
 var _auto_pause_button: Button
 var _tick_indicator: TickProgressIndicator
 var _pending_units_label: Label
+var _grem: UnitDef = CrateContent.unit("grem")
 
 
 func _ready() -> void:
@@ -66,9 +66,9 @@ func _ready() -> void:
 	_lane.spawn_wave(
 		"player",
 		[
-			{"hp": GREM.hp, "dmg": GREM.melee_damage()},
-			{"hp": GREM.hp, "dmg": GREM.melee_damage()},
-			{"hp": GREM.hp, "dmg": GREM.melee_damage()}
+			{"hp": _grem.hp, "dmg": _grem.melee_damage()},
+			{"hp": _grem.hp, "dmg": _grem.melee_damage()},
+			{"hp": _grem.hp, "dmg": _grem.melee_damage()}
 		],
 		P,
 		1
@@ -205,7 +205,7 @@ func _on_auto_pause_button_pressed() -> void:
 
 
 func _on_queue_grem_button_pressed() -> void:
-	_wave_form.on_queue_grem_pressed(GREM)
+	_wave_form.on_queue_grem_pressed(_grem)
 	_pending_units_label.text = "Pending: %d" % _wave_form.pending_count()
 
 

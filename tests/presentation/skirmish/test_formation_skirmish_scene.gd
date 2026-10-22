@@ -85,7 +85,7 @@ func test_lanes_start_departing_on_their_own_and_sharing_round_robin() -> void:
 func test_auto_merge_marks_the_waves_a_lane_sends() -> void:
 	var scene := _scene()
 	scene._hud.auto_merge_toggled.emit("c", true)
-	scene._battle.lane("c").production.fill(scene.GREM)
+	scene._battle.lane("c").production.fill(scene._grem)
 
 	assert_bool(scene._battle.lane("c").production.send(scene.simulation("c")).merges).is_true()
 
@@ -116,7 +116,7 @@ func test_the_squad_layer_constructs() -> void:
 
 func test_units_in_different_lanes_with_the_same_id_stay_apart() -> void:
 	var scene := _scene()
-	var line := [[preload("res://content/units/grem.tres"), Vector2i(0, 0)]]
+	var line := [[CrateContent.unit("grem"), Vector2i(0, 0)]]
 	var in_c = scene.simulation("c").spawn_squad(1, line, "player", true)
 	var in_k = scene.simulation("k").spawn_squad(1, line, "player", true)
 	in_k.front_distance = 4.0
@@ -155,8 +155,8 @@ func test_the_builder_buttons_add_and_remove_builders() -> void:
 	scene._set_builders(0, 1)
 	scene._set_builders(1, -5)
 
-	assert_int(scene._battle.player.builder_count(scene.GREM)).is_equal(3)
-	assert_int(scene._battle.player.builder_count(scene.BRUTE)).is_equal(0)
+	assert_int(scene._battle.player.builder_count(scene._grem)).is_equal(3)
+	assert_int(scene._battle.player.builder_count(scene._brute)).is_equal(0)
 
 
 func test_the_sharing_picker_sets_lane_priority_or_round_robin() -> void:

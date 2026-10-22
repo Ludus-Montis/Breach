@@ -14,7 +14,7 @@ const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
-const GREM := "res://content/units/grem.tres"
+const GREM := "grem"
 const SIZE := Vector2i(256, 32)
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
@@ -43,7 +43,7 @@ func _sim(kind: String) -> FormationSimulation:
 
 
 func _squad(sim: FormationSimulation, count: int, faction: String, front: float) -> SkirmishSquad:
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])

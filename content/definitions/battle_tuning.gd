@@ -2,10 +2,9 @@ class_name BattleTuning
 extends Resource
 ## The battle's tuning numbers in one place (Decision 123, spec 28 round 1): every number
 ## the fights lean on that isn't a unit's or an item's. The values live in
-## content/tuning/battle_tuning.tres - edit them there (in the inspector or as text); this
-## script only names and explains them. All are placeholders until play settles them.
-
-const PATH := "res://content/tuning/battle_tuning.tres"
+## content/tuning/battle_tuning.json, in the crate's schema (Decision 153), which names every
+## one; edit them there. This script only names and explains them, and is filled from what
+## the crate loaded (CrateContent). All are placeholders until play settles them.
 
 static var _current: BattleTuning = null
 
@@ -293,8 +292,8 @@ static var _current: BattleTuning = null
 @export var path_detour_gain := 0.0
 
 
-## The tuning in play: content/tuning/battle_tuning.tres, loaded once.
+## The tuning in play: content/tuning/battle_tuning.json, loaded once.
 static func current() -> BattleTuning:
 	if _current == null:
-		_current = load(PATH)
+		_current = CrateContent.tuning()
 	return _current

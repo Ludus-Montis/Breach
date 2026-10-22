@@ -19,7 +19,7 @@ const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const SEED := 841592
-const GREM := "res://content/units/grem.tres"
+const GREM := "grem"
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
@@ -34,7 +34,7 @@ func _at_the_ford(count: int) -> Array:
 	var terrain := FormationTerrain.new(Vector2i(64, 32))
 	terrain.paint(Rect2i(20, 0, 4, 32), {"depth": 3.0})
 	terrain.paint(Rect2i(20, 14, 4, 4), {"depth": 0.0})
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])
@@ -85,7 +85,7 @@ func test_a_unit_whose_place_it_can_walk_keeps_to_its_place() -> void:
 ## Two squads' framed units: two of one line on each other, a third half overlapping.
 func _framed_crowd() -> Array:
 	var sim := FormationSimulation.new(4.0, 0.1)
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var placements := []
 	for column in 3:
 		placements.append([grem, Vector2i(0, column)])

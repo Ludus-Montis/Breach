@@ -19,7 +19,7 @@ const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 ## `gap` cells ahead of its front. Returns [sim, line, body].
 func _setup(count: int, gap: float) -> Array:
 	var sim := FormationSimulation.new(4.0, 0.1)
-	var grem: UnitDef = load("res://content/units/grem.tres")
+	var grem: UnitDef = CrateContent.unit("grem")
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])

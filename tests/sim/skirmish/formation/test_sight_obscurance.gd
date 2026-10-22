@@ -102,7 +102,7 @@ func test_obscurance_does_not_depend_on_what_was_painted_first() -> void:
 
 
 func test_the_fields_wood_obscures_by_the_tuning() -> void:
-	var grem: UnitDef = load("res://content/units/grem.tres")
+	var grem: UnitDef = CrateContent.unit("grem")
 	var terrain: FormationTerrain = FormationField.new(0.1, grem, 0, grem).sim.terrain
 	var wood := Vector2(Rect2i(FormationField.WOOD).get_center()) + Vector2(0.5, 0.5)
 

@@ -19,7 +19,7 @@ class NeedsGodotTest(unittest.TestCase):
         for paths in [
             ["sim/skirmish/formation/unit_store.gd"],
             ["tests/sim/skirmish/formation/test_unit_store.gd"],
-            ["content/units/grem.tres"],
+            ["content/units/grem.json"],
             ["presentation/skirmish/field.tscn"],
             ["native/rust/src/field.rs"],
             ["project.godot"],

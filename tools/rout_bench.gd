@@ -47,8 +47,8 @@ func _field(side: int, count: int, width: int) -> FormationSimulation:
 	var gap := depth + 4.0
 	var length := ceilf((count * gap + 80.0) / MapLayoutDef.CELLS_PER_TILE)
 	var sim := FormationSimulation.new(length, 0.1)
-	var grem := load("res://content/units/grem.tres")
-	var militia := load("res://content/units/kingdom_militia.tres")
+	var grem := CrateContent.unit("grem")
+	var militia := CrateContent.unit("kingdom_militia")
 	for index in range(count):
 		var squad := sim.spawn_squad(width, _block(grem, per, width), "player", true)
 		squad.front_distance = (20.0 + (index + 1) * gap) / MapLayoutDef.CELLS_PER_TILE
