@@ -66,8 +66,12 @@ static func gap(squad: SkirmishSquad, at: Vector2) -> float:
 
 
 ## True if a router at `at` has got behind a friend's unit at `there`: past it, on the
-## side of its route towards home (`home`: cells along it), so the friend stands between it
-## and the enemy.
+## side of its route towards home, so the friend stands between it and the enemy.
+static func behind(squad: SkirmishSquad, at: Vector2, there: Vector2) -> bool:
+	return _behind(squad, at, there, squad.home_distance * MapLayoutDef.CELLS_PER_TILE)
+
+
+## `behind`, its squad's home (cells along its route) read once a pass (`read_once`).
 static func _behind(squad: SkirmishSquad, at: Vector2, there: Vector2, home: float) -> bool:
 	if squad.route == null:
 		return true
