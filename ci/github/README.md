@@ -22,3 +22,24 @@ Files: `sync.py` (plan and run), `step_issues.py` (the parent and step issues),
 `spec_pr.py` (a spec PR's milestone), `labels.py`, `github_client.py` (the REST calls),
 `fake_client.py` (the tests' stand-in). Tests: `python3 -m unittest discover -s ci/github
 -p "test_*.py"`.
+
+## The Project's Status
+
+`project_status.py`, run by the `project-status` workflow
+(`.github/workflows/project-status.yml`) when a PR is opened, reopened, marked ready,
+turned back into a draft, or gains or loses the `handoff` label (spec 40 step 3). It sets
+the PR's Status in the owner's Project, and the same Status on each issue the PR closes:
+
+| PR | Status |
+|---|---|
+| Draft labelled `handoff` | Next |
+| Other draft | In progress |
+| Ready for review | In review |
+
+Merged or closed is left to the Project's built-in workflows (Done). It reads the PR with
+`GITHUB_TOKEN` and writes the Project with a token minted each run from the owner's
+GitHub App: repo variables `PROJECT_APP_ID`, `PROJECT_OWNER` and `PROJECT_NUMBER`, and the
+secret `PROJECT_APP_PRIVATE_KEY` (spec 40, "The owner's setup"). Until they are set, the job
+says so and passes. An item not yet in the Project is added. Option names ignore case; one missing from
+the Project fails the job naming it. Files: `project_status.py` (the rule, the gate and
+apply), `graphql_client.py` (the GraphQL calls).

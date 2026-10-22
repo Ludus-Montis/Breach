@@ -102,7 +102,7 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
   Merged or closed is left to the Project's built-in workflows (Done).
 - **Apply** (GraphQL): read the PR's draft flag, labels and `closingIssuesReferences` with
   `GITHUB_TOKEN`; with the App's token (and for nothing else), find the Project by the repo variables
-  `PROJECT_OWNER` and `PROJECT_NUMBER`; its Status field and the option by name (a missing
+  `PROJECT_OWNER` and `PROJECT_NUMBER`; its Status field and the option by name, ignoring case (a missing
   option fails the job naming it); the PR's item, adding it if the built-in auto-add hasn't
   yet; `updateProjectV2ItemFieldValue`. Then the same for every issue in the PR's
   `closingIssuesReferences`, so a step and its PR share a column.
@@ -117,8 +117,9 @@ a Project owned by a personal account, and a classic token would need rotating. 
 setup done; agents can't read these settings, so the list is the owner's to check.
 
 **The Project and the App (for step 3):**
-1. The Project is owned by Ludus-Montis, with Status options named exactly Inbox, Next,
-   In progress, In review, Done, and its built-in workflows on (auto-add from the repo,
+1. The Project is owned by Ludus-Montis, with Status options named Inbox, Next,
+   In progress, In review, Done (case doesn't matter: GitHub's defaults are "In Progress" and
+   "In Review"), and its built-in workflows on (auto-add from the repo,
    item added → Inbox, item closed and PR merged → Done, PR linked to issue). The
    `project-status` workflow runs after "PR linked to issue" and sets the same issue's
    column.
