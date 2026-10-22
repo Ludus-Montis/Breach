@@ -121,11 +121,14 @@ static func _pairs(squads: Array, bodies: Dictionary, fight_seed: int) -> Array:
 	var free := {}  # faction -> [downed body no foe is near, ...]: found if any tends
 	if squads.any(func(squad): return _tending(squad)):
 		free = _unguarded(squads, bodies)
+	var views := {}  # store -> where its units stand, read once a pass (Decision 150)
 	for squad in squads:
 		if not _tending(squad) or not free.has(squad.faction_id):
 			continue
 		var living: Array = squad.living()
-		var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
+		var at: PackedVector2Array = (
+			UnitView.read_once(views, squad, [UnitColumns.POSITION]).position
+		)
 		var grid := BodyGrid.build(living.map(func(unit): return at[unit.slot]))
 		for body in free[squad.faction_id]:
 			for found in BodyGrid.near(grid, at[body.slot], reach + BodyGrid.MARGIN):

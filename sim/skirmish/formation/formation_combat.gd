@@ -23,7 +23,8 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 	var blows := []
 	if squads.is_empty():
 		return blows
-	var marks := _marks(squads)
+	var views := {}  # store -> its places, read once a pass (Decision 150): nothing here moves
+	var marks := _marks(squads, views)
 	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
 	for own in squads:
@@ -34,13 +35,13 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 			for fighter in own.fighters():
 				melee[fighter] = true
 		var rows := []  # [how far each rank of a hostile squad stands ahead of own's front]
-		var places: UnitView = null  # own's places, read once it has a shooter (Decision 146)
+		var places: UnitView = null  # own's places, taken once it has a shooter
 		for shooter in own.living():
 			if shooter.attack_range <= 0 or melee.has(shooter):
 				continue
 			if rows.is_empty():
 				rows = _rows(own, marks)
-				places = UnitView.read(own, UnitView.PLACES)
+				places = UnitView.read_once(views, own, UnitView.PLACES)
 			var target := _in_range(own, shooter, rows, [fight_seed, places])
 			if target == null:
 				continue
@@ -62,14 +63,14 @@ static func damage(fighter: SkirmishUnit) -> int:
 
 ## The squads a shot may strike, as [squad, {rank: [[unit, its place in the listing],
 ## ...]}], in the order they are listed: a unit's gap from a shooter goes only by its rank.
-static func _marks(squads: Array) -> Array:
+static func _marks(squads: Array, views: Dictionary) -> Array:
 	var out := []
 	var place := 0
 	for other in squads:
 		if other.state == SkirmishSquad.State.ARRIVED:
 			continue
 		var ranks := {}
-		var places := UnitView.read(other, UnitView.PLACES)  # read once a squad (Decision 146)
+		var places := UnitView.read_once(views, other, UnitView.PLACES)
 		var other_ranks: PackedInt32Array = places.rank
 		for unit in other.living():
 			var rank: int = other_ranks[unit.slot]

@@ -26,13 +26,16 @@ what is left by measured gain per tick:
 **Settled by Decisions 150** (steps 1 and 2) **and 151** (ports retire their GDScript twin,
 step 2b; a performance change may change outcomes but never behaviour). Decisions 97, 129
 (with 131 and 151), 130, 138, 139, 144 and 146 still hold. Answers issues #278 (Q23) and #277
-(Q22); carries #279 (Q24) and #281 (Q26).
+(Q22); carries #279 (Q24), #281 (Q26), #291 (Q32, rules on a beat or a cadence) and
+#292 (Q33, the whole simulation as a Rust library).
 
 ## Status
 
 Agreed in the design session of 2026-10-21. Steps 1a, 1b, 1c, 2 and 2b are settled and
 built with `/run-phase` as "spec 38 step N", one PR each, in that order. Steps 3, 4 and 5 are ordered here but each
 needs a design session before it is built; their subjects are under each step.
+On 2026-10-22, after step 1c's bench, the user put step 1d (regroup and the split measured
+on their own) before step 2.
 
 ## Evidence (bench runs on the 7c branch, `e0231cd`)
 
@@ -110,6 +113,65 @@ GDScript loops.
   `settle=100 fight=10`. The step is done when groups and regroup are each under 10 ms at
   both. If they aren't, the step records why and stops for the user.
 
+### Step 1d, regroup and the split measured on their own (agreed 2026-10-22)
+
+Steps 1a to 1c removed the per-squad copies without moving either phase (step 1c,
+"Measured"). The whole-tick bench times each phase only as a whole, so before anything
+more is changed, each phase is timed alone and in its stages.
+
+- **The column count first** (no code): `tick_phases ... copies=true` (`ColumnCopies`) on
+  the bench, at `settle=40 fight=10`. It shows each phase's whole-column copies and
+  scattered `value`/`put` calls, and it says whether regroup's cost is scattered native
+  calls per unit.
+- **The column count, read** (bench run 39699914519: `copies=true`, `settle=40 fight=10`, one
+  round, this branch against `main` at `5f661ef`):
+  - **Copies are cheap.** Step 1c cut a tick's whole-column copies from about 270
+    (2.9 million slots) to about 155 (1.27 million). The walk to places alone fell from 185
+    to 27. Its time fell about 2.6 ms (33.4 → 30.8, one round), so a copy costs about 2 ns a
+    slot, and all the copies left cost about 2.5 ms a tick. Handing copies from phase to
+    phase would save at most that.
+  - **Regroup** makes about 8,700 scattered `value` and 14,000 `put` calls a tick: about
+    23 ms at about 1 us each, of its 337 ms. The other 310 ms or so is GDScript running per
+    loose unit.
+  - **Groups** makes 5 copies and no scattered calls, and still costs 201 ms. That is
+    GDScript computing, nothing else.
+  - **Perception** copies POSITION 28 times a tick (6.7 ms all told). It was missed by the
+    check (the copy is in a helper), and it costs little.
+  - So the tick's cost is GDScript doing per-unit work, not the store. That is Q33's (#292)
+    subject.
+- **A bench per phase**, after the pattern of `steering_bench.gd`. Each one runs only the
+  phase, `reps` times on one state, restores what the phase changes between repetitions,
+  and times the phase's stages:
+  - **regroup** (`ScrumRegroup.step`): the hostile index, the bodies snapshot
+    (`ScrumSlots.bodies`, `BodyGrid.of_bodies`), the hold, each unit's steer
+    (`UnitSteer.toward`), step (`UnitMover.step`) and keys (`ScrumTrade.track`,
+    `EntryKeys.set_goal`, `UnitMotion.turn`), the trade, and the release;
+  - **the split** (`GroupSplit.step`): the read, each group's place check (`_behind`, with
+    `place_of`), and the clustering (`_clusters`).
+  - Each bench reports the units it visited in each stage, so the cost per unit can be
+    read off.
+- **Settled by the user (2026-10-22): the benches build their state directly, and the
+  building blocks are timed too.** No battle is stepped first.
+  - **Building directly:** each bench builds the formations its phase needs, from builders
+    shared with the phase's unit tests, as `rout_bench.gd` and the tests do. The knobs are
+    the loose units, the squads and how crowded they stand.
+  - **The building blocks:** a third bench times one whole-column copy out and one commit
+    in, at 8192 slots, and one `value` and one `put` across the boundary. The copy count
+    multiplied by these costs gives what each phase's store access costs, without running
+    the phase.
+  - **The test shape:** the builders live under `tests/`. A count test (a store that
+    counts its calls, as `CountedColumns` does) pins each phase's store calls per unit.
+    Being exact, it runs in a session in milliseconds, where timings stay on the bench.
+- **Per-unit GDScript costs to time in the stages** (added 2026-10-22). These are no
+  rule changes, and each is kept only if its stage's bench shows a gain:
+  - dictionary lookups per unit (`squad.loose`, `homes.get`, `foes.get`);
+  - `map` and `filter` building new arrays inside loops;
+  - `BattleTuning.current()` and `FormationDiscipline` worked out per unit or per squad
+    where the pass could take them once;
+  - lambdas made per call.
+- **Then** the stage that dominates is fixed in its own step, measured with its phase's
+  bench and then with `tick_phases`.
+
 ### Step 2, the bench covers the whole battle
 
 - **`tick_phases series=1`:** times every tick from contact until one side is gone or
@@ -161,7 +223,13 @@ regrouping and re-forming a squad stay in GDScript: per-squad rules, Decision 13
 The fell queue is drained in squad and member order (`FormationDeaths._fallen`).
 
 **Subjects for its design session:** how terrain and routes reach Rust and stay current (spec
-34 items 3 and 5, issue #268 Q12), and step 2's terrain numbers. Settled already: each port
+34 items 3 and 5, issue #268 Q12), and step 2's terrain numbers. Also (added 2026-10-22, after step 1c): regroup's walk back to places
+is nearly a case the native scrum walk already runs (`ScrumWalkField`: a unit with no slot
+walks back to its place round the bodies in its way). Once the ground is in Rust, regroup's
+walk could go through that kernel and keep its per-squad rules (the trade, the stance, the
+re-form pace) in GDScript. `GroupSplit`'s check (each unit's distance from its place, then
+clusters on a grid) is arithmetic over columns and suits a kernel too. Neither phase is on a
+port list yet, though together they are about 70% of the tick at `settle=40`. Settled already: each port
 retires its GDScript twin in its own PR (Decision 151).
 
 ### Step 4, stamina, the downed's passes and the walk to places (design first)
@@ -298,6 +366,80 @@ Decision's conditions.
     index. And the first squad's units walk back as they do alone.
   - `test_formation_list_order.gd`: two regrouping squads of one side walk back the same
     with their lists reversed.
+- **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
+
+### Step 1c, the other passes, and the check
+
+- **The check:** `check_store_reads.py` also flags `UnitView.hold(`, `UnitView.read(` and
+  `.column(` inside a loop, unless the line, the one above it or a loop it is in carries
+  `# store: per squad (<why>)`. `UnitView.of` and `UnitView.read_once` aren't flagged. A
+  `scattered` mark doesn't cover a copy, and a `per squad` mark doesn't cover a scattered
+  call. `unit_view.gd` and `columns_held.gd` join the store's own files, which copy columns by
+  name, once each.
+- **What step 1a's bench showed:** groups didn't move (208.0 → 209.4 ms; spec 34, "Measured").
+  Most of that phase is `GroupSplit.step`, not forming up.
+- **The audit.** Each pass below took a view, a column or an index once per squad (or per
+  faction), and now takes it once a pass:
+
+  | Pass | What it read per squad | Once a pass |
+  |---|---|---|
+  | `GroupSplit.step`, `_behind`, `_group` | POSITION twice, and the places, for every group at ease | one read of POSITION, RANK and COLUMN a store (`STANDING`, `read_once`) before any split; the splits use it, and no split moves a unit |
+  | `ScrumRegroup` (1b's follow-up) | `ScrumTrade.trade` read STUCK whole for every regrouping squad, its loose units or none | `trade` returns at once with nobody loose; STUCK joins the walk's one hold |
+  | `FormationMarch.sync_units` (units walk to places) | a hold of `WALKED`, the places, LOOSE_AT and the routes, and `FormationPour.targets`' POSITION and places, for each squad | one hold over every squad of `WALKED`, the places, LOOSE_AT and ROUTE (`SYNCED`), each squad's view by `UnitView.of`. Nothing in it writes the places, loose points or routes, and every helper's read of a held column indexes the hold |
+  | `FormationWithdraw.step` | an index of every hostile unit, and SPEED | the hostile index per faction, as regroup's; SPEED by `read_once` |
+  | `FormationMorale.step` (`_condition`) | CONDITION | `read_once` |
+  | `FormationCombat.ranged_blows`, `_marks` | the places, for each squad and again for each shooting squad | one `read_once` set shared by both |
+  | `RoutBlows.blows` | ROUTE for each routing squad, POSITION for each hunter | `read_once` each |
+  | `ScrumPursuit.step` | the places, for each chasing squad | RANK and COLUMN join its one hold |
+  | `FormationCarry._pairs` | POSITION for each tending squad | `read_once` |
+  | `FormationRecovery._index` | POSITION for each faction | `read_once` |
+  | `BodyFieldSync.bodies` | ALONG for each routing squad | `read_once` |
+
+- **Left as they are, with the reasons:**
+  - **The shuffle** (`FormationShuffle`, `SquadPlaces.occupancy`) reads SPEED, COLUMN and the
+    places only when a squad's swap ends or a move is planned, and each swap writes the
+    places in between, so reading once a pass would be wrong. The bench gives it 0.02 ms.
+  - **Speed** (`SkirmishSquad.speed`, `FormationWalk.share`) reads SPEED, POSITION and the
+    places once per marching squad. The whole march is 0.16 ms in the bench, and
+    `formation_simulation.gd` is at its 300-line budget.
+  - **`SkirmishSquad.fighters()`** reads the places once a call, and `RoutBlows` and
+    `FormationCombat` call it once per squad. It is left for the whole-battle bench (step 2) to
+    weigh.
+  - The check can't see these, because each copy sits in a helper and not in the loop's own
+    lines. That is the check's heuristic limit, as with scattered reads.
+- **Tests:**
+  - `test_check_store_reads.py`: a view, a hold or a column copied in a loop over squads is
+    caught, naming the line; marked `# store: per squad (<why>)` it passes, and the mark needs
+    a reason; `UnitView.of` and `read_once` in a loop pass. Red at 2 failures, then green.
+  - `test_formation_groups.gd`: looking for splits reads POSITION, RANK and COLUMN once a
+    pass. Red against the old `GroupSplit` (one read a group), then green.
+- **Breadth (waived by Decision 150):** the audit changes 13 existing files, one for each
+  pass it fixed plus its test, over the shotgun-surgery check's threshold of 11. That is
+  the audit Decision 150 orders ("the same shape is in morale, withdraw, the shuffle and
+  speed"), not one new case spread over many files, so the branch carries `Waived-by:
+  Decision 150`.
+- **Measured: not done.** Groups and regroup did not move. All runs used 5 rounds against
+  the base on an AMD EPYC 7763 (spec 34, "Measured"):
+
+  | Run | Arguments | Regroup (ms) | Groups (ms) |
+  |---|---|---|---|
+  | 1a, 39685116478 | `settle=40` | 327.3 → 326.3 | 208.0 → 209.4 |
+  | 1b, 39691303604 | `settle=40` | 340.9 → 335.4 (round 1) | 206.7 → 206.4 (round 1) |
+  | 1c, 39693763983 | `settle=40` | 326.5 → 324.5 | 208.8 → 209.9 |
+  | 1c, 39693767164 | `settle=100` | 342.0 → 340.3 (round 1) | 204.8 → 207.6 (round 1) |
+
+  Every range overlaps. **Why:** the copies Decision 150 named are gone. The read-count
+  tests show them gone, and `check_store_reads.py` finds none left in `sim/`. Their cost
+  was never the phases' cost. What is left grows with the units each phase visits:
+  - regroup walks, steers and keys every loose unit, with several scattered native
+    `value`/`put` calls each (`ScrumTrade.track`, `EntryKeys.set_goal`, `UnitMotion.turn`);
+  - `GroupSplit` looks at every unit of every group at ease (`place_of`, `_clusters`).
+
+  That is a reading of the code, not a measurement: the bench times each phase whole. **The
+  step stops here for the user** (step 1c's rule). The phases need measuring inside before
+  any more is changed. Step 2's `counts=1` (changed against living, per phase) is the
+  instrument, and a design session should settle what bounds the work once it has those
+  counts.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
 ## Open, for the implementing session to settle and record here

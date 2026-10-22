@@ -82,13 +82,16 @@ static func step(
 	events: Array
 ) -> void:
 	var withdrawing := []  # decided from where everyone stands, then moved (Decision 97)
+	var hostile := {}  # faction -> the index of its foes, built once a pass (Decision 150)
 	for squad in squads:
 		if squad.withdraw.is_empty():
 			continue
 		if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
 			squad.withdraw = {}
 			continue
-		var foes := ScrumNear.index(ScrumBlows.hostile_units(squad, squads))
+		if not hostile.has(squad.faction_id):
+			hostile[squad.faction_id] = ScrumNear.index(ScrumBlows.hostile_units(squad, squads))
+		var foes: Dictionary = hostile[squad.faction_id]
 		var reach := BattleTuning.current().reach_contact
 		var engaged := {}  # units still touching a foe: disengaging, not yet in flight
 		for unit in squad.living():
@@ -97,10 +100,11 @@ static func step(
 			if ScrumBlows.touches_any(squad, unit, close):
 				engaged[unit.id] = true
 		withdrawing.append([squad, _safe(squad, squads, foes), engaged])
+	var speeds := {}  # store -> its SPEED, read once a pass: no flight changes a pace
 	for entry in withdrawing:
 		var squad: SkirmishSquad = entry[0]
 		var order := [disorder(squad), FormationDiscipline.reform_pace(squad)]  # its units'
-		var paces: PackedFloat64Array = UnitView.read(squad, [UnitColumns.SPEED]).speed
+		var paces: PackedFloat64Array = UnitView.read_once(speeds, squad, [UnitColumns.SPEED]).speed
 		for unit in squad.living():
 			var motion := [pace * paces[unit.slot], seconds, fight_seed, entry[2].has(unit.id)]
 			_flee(squad, unit, motion + order, terrain)

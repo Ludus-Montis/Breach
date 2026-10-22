@@ -153,9 +153,12 @@ static func _index(squads: Array, rising := false, fight_seed := 0) -> Dictionar
 				entries[unit.faction_id] = []
 			entries[unit.faction_id].append([unit, squad, draw])
 	var out := {}
+	var views := {}  # store -> where its units stand, read once a pass (Decision 150)
 	for faction in entries:
 		var units: Array = entries[faction]
-		var at: PackedVector2Array = units[0][1].store.columns.column(UnitColumns.POSITION)
+		var at: PackedVector2Array = (
+			UnitView.read_once(views, units[0][1], [UnitColumns.POSITION]).position
+		)
 		var points := units.map(func(entry): return at[entry[0].slot])
 		out[faction] = BodyGrid.build(points)
 		out[faction]["units"] = units

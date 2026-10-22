@@ -21,9 +21,10 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 ## striker's target and cooldown.
 static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var routers := []  # [unit, where it stands, its faction]
+	var routes := {}  # store -> its routers' ROUTE, read once a pass (Decision 150)
 	for routing in squads:
 		if routing.state == SkirmishSquad.State.ROUTING:
-			var route := UnitView.read(routing, FormationRout.ROUTE)  # read once a squad
+			var route := UnitView.read_once(routes, routing, FormationRout.ROUTE)
 			for unit in routing.living():
 				routers.append(
 					[unit, FormationRout.where_in(route, routing, unit), routing.faction_id]
@@ -35,10 +36,13 @@ static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var reach := BattleTuning.current().rout_strike_reach + BodyGrid.MARGIN
 	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
+	var standing := {}  # store -> where its units stand, read once a pass: nobody moves here
 	for hunter in squads:
 		if not FormationContact.can_engage(hunter):
 			continue
-		var at: PackedVector2Array = hunter.store.columns.column(UnitColumns.POSITION)
+		var at: PackedVector2Array = (
+			UnitView.read_once(standing, hunter, [UnitColumns.POSITION]).position
+		)
 		for fighter in hunter.fighters():
 			var here := at[fighter.slot]
 			var close := BodyGrid.near(near, here, reach).map(func(i): return routers[i])

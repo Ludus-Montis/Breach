@@ -32,13 +32,15 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 ## The walking-back units' loose points and bearings, held for the pass (UnitView).
 ## Their places too (UnitView.PLACES): a squad's trade (ScrumTrade) writes them as the
-## walks go on, so every walk reads the last write.
+## walks go on, so every walk reads the last write. And how long each has stalled, which
+## each squad's trade reads whole (Decision 150).
 const HELD := [
 	UnitColumns.LOOSE_AT,
 	UnitColumns.NEXT,
 	UnitColumns.BEARING,
 	UnitColumns.RANK,
-	UnitColumns.COLUMN
+	UnitColumns.COLUMN,
+	UnitColumns.STUCK,
 ]
 
 

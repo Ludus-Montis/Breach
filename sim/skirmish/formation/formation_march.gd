@@ -35,6 +35,9 @@ const WALKED := [
 	UnitColumns.CLIMB_LEFT,
 ]
 
+## What sync_units holds: WALKED, and the places, loose points and routes it reads.
+const SYNCED := WALKED + UnitView.PLACES + [UnitColumns.LOOSE_AT] + FormationRout.ROUTE
+
 
 ## The squad's route length in tiles (`fallback` for a squad without a route).
 static func length(squad: SkirmishSquad, fallback: float) -> float:
@@ -136,25 +139,26 @@ static func sync_units(
 ) -> void:
 	if not timing.is_empty():
 		timing = timing + [GroundBodies.ground(squads)]
+	# Points and bearings held for the pass (Decision 146), once for every squad (Decision 150):
+	# set in place here, and the units in their places walk after through the hold, each
+	# reading only its own place, the ground and the lying; released (committed) once. Their
+	# places, loose points and routes, which nothing here writes, are held with them, so each
+	# squad's reads of them (FormationPour.targets' too) index the hold's.
+	var all_held := UnitView.hold(squads, SYNCED)
 	for entry in squads:
 		var moving := FormationShuffle.movers(entry)
-		var places := UnitView.read(entry, UnitView.PLACES)  # read once a squad (Decision 146)
-		var ranks: PackedInt32Array = places.rank
+		var held := UnitView.of(entry)  # once per squad: an index, not a copy
+		var places := held
+		var ranks: PackedInt32Array = held.rank
 		var aims := {}  # where each unit in its place makes for, worked out once a squad
 		if not timing.is_empty():
 			aims = FormationPour.targets(entry, terrain, moving, fight_seed)
-		# Points and bearings held for the squad's pass (Decision 146): set in place here, and
-		# the units in their places walk after through the hold, each reading only its own
-		# place, the ground and the lying; released (committed) once.
-		var held := UnitView.hold([entry], WALKED)
 		var points: PackedVector2Array = held.position
 		var facing: PackedFloat64Array = held.bearing
 		var distances: PackedFloat64Array = held.distance
 		var footholds: PackedVector2Array = held.foothold
-		var loose_at: PackedVector2Array = entry.store.columns.column(UnitColumns.LOOSE_AT)
-		var route: UnitView = (
-			null if entry.fleeing.is_empty() else UnitView.read(entry, FormationRout.ROUTE)
-		)
+		var loose_at: PackedVector2Array = held.at
+		var route: UnitView = null if entry.fleeing.is_empty() else held
 		var walkers := []
 		for unit in entry.units:
 			if not unit.is_alive():
@@ -181,4 +185,4 @@ static func sync_units(
 				walkers.append(unit)
 		for unit in walkers:
 			FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)
-		UnitView.release(held)  # the routers', the loose, the placed and the walked points
+	UnitView.release(all_held)  # the routers', the loose, the placed and the walked points
