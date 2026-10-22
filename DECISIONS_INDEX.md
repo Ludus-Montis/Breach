@@ -154,7 +154,8 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 145 | hp changes through one writer, and the fallen are an event queue | 6709 | amended by 147 |
 | 146 | Every pass reads the unit store through one typed view, held for the pass | 6755 |  |
 | 147 | A unit's state changes through one writer, and each squad keeps its living and its downed | 6819 |  |
-| 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 |  |
+| 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 | amended by 155 |
 | 149 | Documentation is part of done: README, changelog and docs/ in every PR | 6929 |  |
 | 150 | A pass reads each column and builds each index once, not once per squad or per pair | 6970 |  |
 | 151 | A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour | 7015 |  |
+| 155 | Spec steps become issues under a parent per spec, and the Project's Status follows each PR | 7069 |  |
