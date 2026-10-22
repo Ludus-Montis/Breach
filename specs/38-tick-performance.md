@@ -47,6 +47,11 @@ ports retire GDScript. Then:
 
 Their text below stays as the record.
 
+**Changed on 2026-10-22, after step 2b's PR:** step 5 moved to spec 39 as its step 10, since
+it builds on the tick in Rust (spec 39 step 8). The headings of the dropped and moved steps
+(1d, 2, 3, 4, 5) now start "Dropped" or "Moved", so `github-sync` closes their issues as not
+planned. With step 2b, this spec's work is done.
+
 ## Evidence (bench runs on the 7c branch, `e0231cd`)
 
 | Run | Arguments | Tick | Largest phases (ms) |
@@ -123,7 +128,7 @@ GDScript loops.
   `settle=100 fight=10`. The step is done when groups and regroup are each under 10 ms at
   both. If they aren't, the step records why and stops for the user.
 
-### Step 1d, regroup and the split measured on their own (agreed 2026-10-22)
+### Dropped: step 1d, regroup and the split measured on their own (agreed 2026-10-22)
 
 Steps 1a to 1c removed the per-squad copies without moving either phase (step 1c,
 "Measured"). The whole-tick bench times each phase only as a whole, so before anything
@@ -182,7 +187,7 @@ more is changed, each phase is timed alone and in its stages.
 - **Then** the stage that dominates is fixed in its own step, measured with its phase's
   bench and then with `tick_phases`.
 
-### Step 2, the bench covers the whole battle
+### Dropped: step 2, the bench covers the whole battle (rebuilt in spec 39 step 8)
 
 - **`tick_phases series=1`:** times every tick from contact until one side is gone or
   `limit` ticks (default 600). For the tick and each phase it reports the mean, the 95th and
@@ -217,7 +222,7 @@ more is changed, each phase is timed alone and in its stages.
   `Outcomes-changed:` trailer, the check fails. With the trailer, it passes and names the runs,
   as it does today for GDScript.
 
-### Step 3, the ground and the mover in Rust, then the rout (design first)
+### Dropped: step 3, the ground and the mover in Rust, then the rout (taken over by spec 39 steps 3 to 7)
 
 The rout costs about 72 ms a tick while it lasts, and it is the phase that stayed slower than
 before the store (+15.6%). Each router runs its flight (`RoutFlight.step`), crush
@@ -242,7 +247,7 @@ clusters on a grid) is arithmetic over columns and suits a kernel too. Neither p
 port list yet, though together they are about 70% of the tick at `settle=40`. Settled already: each port
 retires its GDScript twin in its own PR (Decision 151).
 
-### Step 4, stamina, the downed's passes and the walk to places (design first)
+### Dropped: step 4, stamina, the downed's passes and the walk to places (taken over by spec 39 steps 3 to 7)
 
 Ported to Rust in this order: stamina, about 22 ms (arithmetic over each unit, no queries);
 wounds, recovery and deaths, about 64 ms; the walk to places, about 21 ms, after step 3,
@@ -253,7 +258,7 @@ same PR (Decision 151).
 **Subject for its design session:** step 2's counts. A pass that changes few of the units it
 visits is a work list fed by events before it is a port (Q24, #279).
 
-### Step 5, threading, then slot packing (design first)
+### Moved: step 5, threading, then slot packing (now spec 39 step 10)
 
 Rust runs about 50 ms of the tick today, so threads on every kernel would save at most about
 35 ms (Amdahl's law). Slot packing speeds up only native passes. Both come after steps 3 and
@@ -281,7 +286,7 @@ Decision's conditions.
   `check_store_reads.py` runs, then it fails, naming the line; marked
   `# store: per squad (<why>)`, it passes. `UnitView.of(squad)` in a loop passes.
 
-### Step 2
+### Dropped: step 2
 - Given `series=1 limit=50`, then the tool reports the tick and each phase's mean, 95th, 99th
   and worst over 50 ticks, and `bench_compare.py` reads two such outputs.
 - Given `counts=1`, then each phase reports changed against living, and a run without it
