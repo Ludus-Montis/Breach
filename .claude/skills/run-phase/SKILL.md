@@ -42,6 +42,11 @@ regardless of size, goes on its own branch and through a PR that a human merges.
 
 ## 1. Branch — Conventional Branch, purpose-driven prefix only
 
+A cloud session is often given a branch to work on (`claude/<words>`, `ccr-<id>`). Don't
+use it: it fails `check_branch_name.sh`, and the owner's naming wins over the session's
+default. Create the branch below from `main` and push that; never skip the
+`branch-name-conforms` hook to get past it.
+
 `feature/`, `fix/` (bugfix), `hotfix/`, `release/`, or `chore/`, followed by a
 lowercase-kebab-case description — see
 [conventionalbranch.org](https://conventionalbranch.org/). Pick the prefix by what the
