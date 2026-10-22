@@ -14,7 +14,8 @@ spec join its milestone, a step's PR closes its issue, and each PR (and the issu
 closes) sits in the Status column its state implies.
 
 **Settled by Decision 155** (amends Decision 148). Read it by its line in
-`DECISIONS_INDEX.md`. It answers Q31 (#287).
+`DECISIONS_INDEX.md`. It answers Q31 (#287). Steps 4 to 6 are settled by **Decision 156**
+(amends 155), which answers Q34 (#446).
 
 ## Status
 
@@ -22,6 +23,14 @@ Agreed in the design session of 2026-10-22. Three steps, each its own PR, built 
 `/run-phase` as "spec 40 step N". Step 1 must merge first: its sync, run by its own merge,
 creates the issues step 2's skills look up. Step 3 needs the owner's token (below) before
 its workflow can run, not before it is built.
+
+Steps 1 to 3 merged. Steps 4 to 6 were added in the design session of 2026-10-22 (Q34).
+`github-sync` is **disabled** (the owner's `gh workflow disable`), because two push runs
+each made every parent and step again. Step 4 must merge before step 5 (the same files);
+step 6 touches other files and can be built alongside. After step 4 merges, the owner turns
+the workflow on (`gh workflow enable github-sync.yml`) and runs it by hand.
+Until then steps 4 to 6 have no issues: their PRs say so and **don't trigger `github-sync`**
+(`/run-phase`'s fallback), since it would make the copies again.
 
 ## What runs where
 
@@ -107,6 +116,59 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
   yet; `updateProjectV2ItemFieldValue`. Then the same for every issue in the PR's
   `closingIssuesReferences`, so a step and its PR share a column.
 - A `labeled`/`unlabeled` event for any label but `handoff` does nothing.
+
+### Step 4, one issue per marker
+
+`ci/github/step_issues.py`, `github_client.py`, `sync.py`, with tests. Two push runs (at
+15:37 and 16:17 on 2026-10-22) each made all 87 parents and steps; the second read none of
+the sync's own issues, though the same listing run by hand finds them. The logs show nothing
+of what was read, so the cause is open; read the code for one (pagination, the `_own` map,
+the repo's move to Ludus-Montis) and say what you found in the PR, but the fix below doesn't
+depend on finding it.
+
+- **Log what was read:** each run prints how many issues and PRs it listed and how many
+  sync markers it found, before it writes anything.
+- **A second read before creating:** for a spec with anything to create, list its
+  milestone's issues (`issues?milestone=N&state=all`) and count every marker found there as
+  the sync's own too. Create only what neither read found.
+- **One issue per marker:** where several issues carry one marker, the lowest-numbered is
+  the sync's own (today `_own` keeps the first in listing order, which is newest first).
+  Each later one, if open, is closed with state reason `duplicate` and one comment:
+  "A copy of #<kept>, which github-sync keeps for `<marker>`." It doesn't move sub-issues.
+- **The workflow's comment** says the sync keeps one issue per marker.
+
+### Step 5, a parent and its milestone follow their items
+
+`ci/github/step_issues.py` (or a new module beside it), `github_client.py`, `sync.py` and
+the workflow, with tests.
+
+- **The rule** (pure functions, the tested core): a parent with no step sub-issues: no
+  change. Otherwise open while any step is open; closed when all are, as `completed` if any
+  step's state reason is `completed`, else `not_planned`. A milestone named
+  `Spec NN: <title>`: open while any issue or PR in it is open, closed when none is. Each
+  close or reopen is one call; a parent or milestone already in the right state gets none,
+  and no comments are written.
+- **On every sync run** (push, by hand): after creating and closing steps, apply the rule
+  to every sync parent (by marker) and every spec milestone, from the run's own listing plus
+  what it changed.
+- **On `issues: [closed, reopened]`** (added to `github-sync`'s triggers): read the issue;
+  if it carries a sync step marker, read its parent (`GET /issues/{n}/parent`) and the
+  parent's sub-issues, and apply the rule to the parent; then apply the milestone rule to
+  the issue's milestone (and the parent's, if it differs). Nothing is created; labels aren't
+  touched. The same `concurrency` group.
+- The step's own PR closes its issue and, when it is the spec's last open step, so its
+  parent; that is the rule working, not a special case.
+
+### Step 6, the Project backfill
+
+`.github/workflows/project-backfill.yml` and `ci/github/project_backfill.py`, with tests,
+reusing `graphql_client.py`.
+
+- **`workflow_dispatch` only,** skipped like `project-status` when the App isn't set up.
+- **Apply:** list the open issues and PRs with `GITHUB_TOKEN` through REST (no search);
+  with the App's token, list the Project's items once (paged) and add each open issue or PR
+  that isn't one (`addProjectV2ItemById`). Status is left to the built-in workflow (Inbox).
+  It prints how many it added and how many were already there. A second run adds nothing.
 
 ## The owner's setup (not built by an agent)
 
@@ -249,6 +311,78 @@ No code; the skills' text. Checked by reading the PR (`/run-phase`'s own end-of-
 - When a parked hand-off is applied
 - Then the job fails naming `Next`
 
+### Step 4
+
+**Scenario: the run says what it read**
+- Given 10 issues, 4 with sync markers
+- When the sync applies
+- Then it prints the 10 and the 4 before any write
+
+**Scenario: an issue the listing missed is found in the milestone**
+- Given the listing returns no issue for spec 37, and milestone `Spec 37: …` holds its
+  parent and four steps with their markers
+- When the sync applies
+- Then it creates nothing for spec 37
+
+**Scenario: the later copy is closed as a duplicate**
+- Given two issues marked `step 37-1`, #310 closed and #400 open
+- When the sync applies
+- Then #400 is closed as `duplicate` with one comment naming #310, and #310 is unchanged
+
+**Scenario: a second run still changes nothing**
+- Given the duplicate already closed
+- When the sync applies again
+- Then it creates, closes and comments nothing
+
+### Step 5
+
+**Scenario: the last step closes its parent as completed**
+- Given parent `spec 40` with steps 1 and 2 closed completed and step 3 open
+- When step 3 closes (completed) and the issues event runs
+- Then the parent is closed as completed
+
+**Scenario: a parent whose steps were all dropped is not planned**
+- Given every step of a parent closed as not planned
+- When the rule applies
+- Then the parent is closed as not planned
+
+**Scenario: a new step reopens the parent**
+- Given spec 40's parent closed, and a new `### Step 7` heading
+- When the sync applies on push
+- Then it creates step 7 under the parent and reopens the parent
+
+**Scenario: a parent with no steps is left alone**
+- Given an open parent `spec 01` with no sub-issues
+- When the sync applies
+- Then the parent stays open
+
+**Scenario: the milestone closes with its last item, and reopens**
+- Given milestone `Spec 37: …` whose only open item is its parent, about to close
+- When the rule applies
+- Then the milestone is closed; and when a question in it is reopened, it is reopened
+
+**Scenario: another milestone is never touched**
+- Given a milestone `Gate 2` with nothing open
+- When the sync applies
+- Then it stays open
+
+**Scenario: an issue that isn't the sync's does nothing to a parent**
+- Given an issues event for a question with no milestone
+- When the workflow runs
+- Then it makes no write
+
+### Step 6
+
+**Scenario: only what's missing is added**
+- Given open issues #10, #11 and PR #12, and the Project holding #11
+- When the backfill applies
+- Then it adds #10 and #12, and prints 2 added and 1 already there
+
+**Scenario: no App, no failure**
+- Given `PROJECT_APP_ID` is unset
+- When the workflow runs
+- Then the job passes and says the App isn't set up
+
 ## Test-first order
 
 1. Step 1: `test_sync.py` red on the plan scenarios (fixtures of today's specs 35, 37, 38),
@@ -258,18 +392,29 @@ No code; the skills' text. Checked by reading the PR (`/run-phase`'s own end-of-
 2. Step 2: the skills and `CLAUDE.md`.
 3. Step 3: `test_project_status.py` red on the rule, then on apply with a fake GraphQL
    client, then the workflow file.
+4. Step 4: `test_sync.py` red on the logging, the milestone read and the duplicate
+   scenarios (the fake client grows a milestone listing and `duplicate` closes), then the
+   code; the second-run scenario last.
+5. Step 5: red on the rule as pure functions, then on apply from a run, then on the issues
+   event (the fake client grows parent and sub-issue reads and milestone state), then the
+   workflow's triggers.
+6. Step 6: `test_project_backfill.py` red on apply with a fake GraphQL client, then the
+   workflow file.
 
 ## Rubric answers
 
-- **single-noun-phrase:** the step issue sync; the project status rule.
+- **single-noun-phrase:** the step issue sync; the project status rule; the open-while-open
+  rule; the Project backfill.
 - **ocp-extension-point:** a new spec gets its parent and steps from its file; a new status
   rule is a row in one function.
 - **lsp-contract-scope:** not applicable; no subtypes.
 - **isp-fit:** the REST client gains only the calls the sync makes; the GraphQL client is
   separate and only `project_status.py` uses it.
 - **dip-direction:** planning and the rule depend on the small clients, never on HTTP.
-- **general-over-special:** general. Every step id has one issue; a PR's Status is a
-  function of its state.
+- **general-over-special:** general. Every marker has one issue; a PR's Status is a
+  function of its state; a parent is open while a step is, a spec milestone while an item
+  is. Special case: a parent with no steps is the owner's (Decision 156, the owner's reason).
 - **order-independent:** not applicable; nothing under `sim/` changes.
 - **bounded-work:** not applicable to the tick. A sync run lists each kind once and writes
-  only what differs; the status job makes a few calls per PR event.
+  only what differs, plus one milestone listing per spec it would create in; the status job
+  makes a few calls per PR event; an issues event reads one parent and one milestone.
