@@ -9,6 +9,7 @@ mod blows;
 #[cfg(test)]
 mod build;
 mod columns;
+mod content;
 mod det_math;
 mod face_store;
 mod facing;
@@ -752,4 +753,68 @@ fn v2s(points: &PackedVector2Array) -> Vec<V2> {
 
 fn packed(points: &[V2]) -> PackedVector2Array {
     points.iter().map(|p| Vector2::new(p.x, p.y)).collect()
+}
+
+/// The simulation's content as the crate loaded it (spec 39 step 2, Decision 153), handed
+/// to GDScript to fill its definitions (CrateContent) until their last reader ports.
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct ContentStore {}
+
+#[godot_api]
+impl ContentStore {
+    /// The content under `root` (an OS path to the repo's `content/`): {"units", "weapons",
+    /// "armour"} each id -> fields, and "tuning" its fields; or {"error": why it didn't load}.
+    #[func]
+    fn load(root: GString) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        match content::Content::load(std::path::Path::new(&root.to_string())) {
+            Ok(loaded) => out = variant_of(&loaded).to(),
+            Err(error) => out.set("error", &error.to_string().to_variant()),
+        }
+        out
+    }
+
+    /// Each kind's fields when its file names none ({"unit", "weapon", "armour"}), for the
+    /// test that holds them equal to GDScript's.
+    #[func]
+    fn defaults() -> VarDictionary {
+        let mut out = VarDictionary::new();
+        out.set("unit", &variant_of(&content::Unit::default()));
+        out.set("weapon", &variant_of(&content::Weapon::default()));
+        out.set("armour", &variant_of(&content::Armour::default()));
+        out
+    }
+}
+
+/// `value` as Godot data, through its JSON: ints stay ints, reals reals.
+fn variant_of(value: &impl serde::Serialize) -> Variant {
+    json_variant(&serde_json::to_value(value).expect("content serialises"))
+}
+
+fn json_variant(value: &serde_json::Value) -> Variant {
+    use serde_json::Value;
+    match value {
+        Value::Null => Variant::nil(),
+        Value::Bool(flag) => flag.to_variant(),
+        Value::Number(number) => match number.as_i64() {
+            Some(whole) => whole.to_variant(),
+            None => number.as_f64().unwrap_or(f64::NAN).to_variant(),
+        },
+        Value::String(text) => text.to_variant(),
+        Value::Array(items) => {
+            let mut array = VarArray::new();
+            for item in items {
+                array.push(&json_variant(item));
+            }
+            array.to_variant()
+        }
+        Value::Object(fields) => {
+            let mut dictionary = VarDictionary::new();
+            for (key, item) in fields {
+                dictionary.set(&key.to_variant(), &json_variant(item));
+            }
+            dictionary.to_variant()
+        }
+    }
 }
