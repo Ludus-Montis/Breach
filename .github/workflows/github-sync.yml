@@ -1,7 +1,7 @@
 name: github-sync
 
 # Specs 36 and 40, Decisions 148 and 155. Cloud agents can't create labels or milestones,
-# so this does (ci/github/sync.py). On a push to main that changes specs/: the fixed
+# so this does (ci/github/sync.py). On a push to main that changes specs/ or the sync: the fixed
 # labels, a milestone per specs/NN-*.md, a step:NN-<id> label per `### Step <id>`
 # heading, and a parent issue per spec with a sub-issue per step; a step issue whose
 # heading is gone is closed as not planned. On a PR that changes a spec: the labels, and
@@ -13,7 +13,8 @@ name: github-sync
 on:
   push:
     branches: [main]
-    paths: ["specs/**"]
+    # The sync's own files too, so a change to it (spec 40 step 1's merge) runs it.
+    paths: ["specs/**", "ci/github/**", ".github/workflows/github-sync.yml"]
   pull_request:
     types: [opened, edited, synchronize, reopened]
     paths: ["specs/**"]
