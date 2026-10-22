@@ -97,6 +97,10 @@ session records the split here.
   (`tools/designer/`, `loadFromExport`). The map importer under `content/import/` keeps only
   what the presentation still needs.
 - Outcomes unchanged.
+- **Split** (2026-10-22, the user's call): **2a** the content module, its JSON Schema and the
+  loader's errors, with units, weapons, armour and the tuning converted and GDScript's
+  definitions filled from them; **2b** terrain and the map layout, the designer's export and
+  validation, and the importer kept to what the presentation needs. 2b's PR closes the step.
 
 ### Step 3, the ground and the mover
 
@@ -295,6 +299,47 @@ Decision's conditions.
   aren't a state refused), `test_squad_store.gd` (both backends, one contract: slots and
   blanks, each field its column, members, carrying a squad to another store, the crate's
   snapshot read back). Outcomes unchanged: CI's digests compare with `main` on both engines.
+
+### Step 2a, units, weapons, armour and the tuning in the crate's schema
+
+- **The content module** (`native/rust/src/content/`): `Unit`, `Weapon`, `Armour` (their shared
+  `ItemDef` fields as `Item`, under `"item"`) and `BattleTuning`, named field for field as
+  GDScript's properties. A unit, weapon or armour file lists only what it changes, and the
+  rest take GDScript's defaults (`#[serde(default)]` over `Default` impls that copy them). The
+  tuning names every field (none defaulted, as its `.tres` did). `deny_unknown_fields` on all.
+  A list of reals may hold `"inf"` (`reals.rs`): the leash steps end in one.
+- **Loader** (`Content::load`): every `.json` under `units/`, `weapons/`, `armour/` by id (the
+  name), and `tuning/battle_tuning.json`; a mismatch names the file and the field
+  (`serde_path_to_error`, `units/grem.json: slots[1]: ...`), and a unit's item that isn't
+  there names `items[N]`. Units name items by path (`weapons/grem_bite`).
+- **JSON Schema** (`schema.rs`, schemars): one file a kind under `content/schema/`, with a
+  README. A cargo test fails while one is stale; `BLESS_SCHEMA=1 cargo test schema` rewrites
+  them.
+- **Converted once:** `tools/convert_tres_content.py` copied each `.tres` field's text into
+  JSON (numbers as written, so no float passed through a formatter), then was deleted with the
+  `.tres` in the same PR. Before they went, every field of every filled definition was checked
+  equal to its `.tres` with `==` (512 fields).
+- **The fill** (`CrateContent`, `content/definitions/crate_content.gd`): the binding's
+  `ContentStore` hands the loaded content to GDScript as dictionaries (ints as ints, reals as
+  reals), and `UnitDef`, `WeaponDef`, `ArmourDef` and `BattleTuning` are filled by name. Each is
+  made once and shared, as `load()` shared a `.tres`. `BattleTuning.current()` and every reader
+  (scenes, trials, benches, tests) take them from it. The fill is a bridge: it shrinks as steps
+  3 to 9 port the readers, and after step 9 only what presentation draws stays.
+- **The core is always loaded** (open point settled, the user's call): every Godot run (the
+  game, both engines, gdUnit) loads the content through the core, so it must be built.
+  `NativeLibrary` loads it for the content and for the kernels; `BREACH_NATIVE` picks only the
+  kernels. CI's `ci.yml` builds it once (`native` job) for the gdUnit shards and the scaling
+  stages; the `rust` job also runs on changes to the content it loads and its schema.
+- **The designer:** its content library (`tools/designer/content_library.py`) reads the units'
+  and items' traits and tags from the JSON. The designer doesn't write units yet; its export
+  and validation are 2b's.
+- **Tests:** cargo (`content/mod.rs`: a wrong type and an unknown field name the file and
+  field; a missing item names it; omitted fields take GDScript's defaults; the tuning names
+  every field; the checked-in content loads; `schema.rs`: the schemas are current), and
+  `test_crate_content.gd` (the crate's defaults equal GDScript's; a unit, its shared items and
+  an infinite real filled from the files; no `.tres` definition left or read).
+- **Files opened:** 36 pre-existing files over the OCP check's 11, under Decision 157: every
+  reader of a `.tres` definition changes how it gets it, and nothing else.
 
 ## Open, for the implementing session to settle and record here
 

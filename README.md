@@ -34,8 +34,9 @@ it and prints the `GODOT_BIN` to export:
 bash ci/godot/scripts/get_godot.sh
 ```
 
-The Rust core is optional; without it the GDScript engine runs everything. To build it you
-need Rust from rustup (platform notes in [native/README.md](native/README.md#building)):
+Build the Rust core before the first run: the game and the tests load their units, weapons and
+tuning through it (`content/*.json`, in the crate's schema). You need Rust from rustup
+(platform notes in [native/README.md](native/README.md#building)):
 
 ```sh
 bash native/build.sh

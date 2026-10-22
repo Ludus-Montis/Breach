@@ -20,8 +20,9 @@ All three reproduce the GDScript reference bit for bit. The C++ kernel from the 
 
 | | |
 |---|---|
-| Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. A checkout without the library runs on GDScript, silently. |
-| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), class `BodyField` |
+| Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. It picks only the kernels: the library is always loaded (`content/definitions/native_library.gd`), because the content is (below). |
+| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `BodyField` and `ContentStore` |
+| Content | `native/rust/src/content/` (Decision 153, spec 39 step 2): the serde structs for units, weapons, armour and the tuning are the schema of `content/{units,weapons,armour}/*.json` and `content/tuning/battle_tuning.json`. A file that doesn't match fails naming its field. The JSON Schema under `content/schema/` is generated from them (`BLESS_SCHEMA=1 cargo test schema` rewrites it; a test fails while it is stale). GDScript's definitions are filled from what the crate loaded (`CrateContent`, through `ContentStore`) until their last reader ports |
 | GDScript side | `body_field_sync.gd` (the sync), `body_parting.gd` (parting on the field), `scrum_seek_field.gd` (the slot search on the field), `scrum_face_field.gd` (the facing on the field), `scrum_walk_field.gd` (the walk on the field) |
 | Owner | `FormationSimulation._field`: one field a battle, made when the battle is (null under GDScript). Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
 | Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/facing_bench.gd` (the facing pass alone, and DetMath), `tools/steering_bench.gd` (the walk alone), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks) |
