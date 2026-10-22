@@ -37,6 +37,16 @@ needs a design session before it is built; their subjects are under each step.
 On 2026-10-22, after step 1c's bench, the user put step 1d (regroup and the split measured
 on their own) before step 2.
 
+**Changed by the design session of 2026-10-22 (Q33, Decisions 152 to 154).** The whole
+simulation moves to Rust (spec 39). Spec 38 still builds **step 2b**, next, because spec 39's
+ports retire GDScript. Then:
+- **Steps 1d and 2 are dropped.** Their benches would time GDScript that spec 39 deletes. Step
+  2's series, terrain and counts are rebuilt under cargo in spec 39 step 8.
+- **Steps 3 and 4** are taken over by spec 39's steps 3 to 7.
+- **Step 5** (threading, slot packing) waits for spec 39 step 8.
+
+Their text below stays as the record.
+
 ## Evidence (bench runs on the 7c branch, `e0231cd`)
 
 | Run | Arguments | Tick | Largest phases (ms) |
