@@ -19,10 +19,11 @@ godot="${GODOT:-/opt/godot/godot}"
 head_dir="$(pwd)"
 mkdir -p "$out"
 
-# The run's trace from `dir`'s digest (GDScript, as check_outcomes compares).
+# The run's trace from `dir`'s digest (Rust, as check_outcomes compares: Decision 151; the
+# digests job gives the base's worktree its core).
 trace() {
 	local dir="$1" run="$2" from="$3" to="$4" file="$5"
-	(cd "$dir" && BREACH_NATIVE=gdscript "$godot" --headless --path . \
+	(cd "$dir" && BREACH_NATIVE=rust "$godot" --headless --path . \
 		--script res://tools/formation_digest.gd -- "only=$run" "trace=$file" \
 		"from=$from" "to=$to" > /dev/null 2>&1)
 }

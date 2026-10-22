@@ -26,7 +26,7 @@ yet. Every script here was run against a deliberately broken case before being t
 | `no-cross-cutting-helper-violation` | `ci/godot/scripts/check_helper_promotion.py` | pre-commit and CI |
 | `ocp-shotgun-surgery` | `ci/godot/scripts/check_ocp_shotgun_surgery.py <base-ref>` | CI only — needs a diff against a real base ref, not meaningful on a bare working tree |
 | `ai-first-thresholds-respected` (context-locality half) | `ci/godot/scripts/check_context_locality.py <base-ref>` | CI only, informational (never fails) — see Decision 12 and Heuristic limits below |
-| outcomes kept (not a named rubric row: spec 35's "a speed-up must leave every line the same") | `ci/godot/scripts/check_outcomes.py <set> <base digest> <head digest> <base-ref>` | CI only, in `sim-checks`' `digests` jobs: each set's GDScript digest against the base's, tick for tick. A change fails unless one of the branch's commits says why in an `Outcomes-changed: <why>` trailer (a Decision, a fix, a digest that hashes more). When runs changed, the first 3 are traced on the base and the branch around their first difference and diffed (`trace_changed.sh`, `trace_diff.py`, spec 37): `traces/` in the set's `sim-digests-<set>` artifact, each diff's first line in the SUMMARY |
+| outcomes kept (not a named rubric row: spec 35's "a speed-up must leave every line the same") | `ci/godot/scripts/check_outcomes.py <set> <base digest> <head digest> <base-ref>` | CI only, in `sim-checks`' `digests` jobs: each set's Rust digest against the base's, tick for tick, the base's core built once by `base-build` (Decision 151); `--engine rust` names the engine in the report. A change fails unless one of the branch's commits says why in an `Outcomes-changed: <why>` trailer (a Decision, a fix, a digest that hashes more). When runs changed, the first 3 are traced on the base and the branch around their first difference and diffed (`trace_changed.sh`, `trace_diff.py`, spec 37): `traces/` in the set's `sim-digests-<set>` artifact, each diff's first line in the SUMMARY |
 | `branch-name-conforms` | `ci/godot/scripts/check_branch_name.sh` | pre-commit stage |
 | `docs-current` | `AI_First_Development_Kit/scripts/check-docs.sh all <base-ref>` (README structure, changelog format and that it changed with the source, docs index links) | CI (`docs-gate` workflow); skips the changelog check when the PR body says `Changelog: N/A`. Whether the words are still true is procedural: the PR's Documentation block |
 | `commit-message-conforms` (format half) | `ci/godot/scripts/check_commit_message.sh` | commit-msg stage |
@@ -68,9 +68,10 @@ Every check that doesn't need another's output runs in its own job, side by side
   suite on the GDScript engine, in shards) and `scaling` (the GDScript scaling check, one
   job per stage).
 - **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
-  as an artifact; then `suite` (the suite under Rust, in shards), `digests` (one job per
-  set, each comparing its own two engines, and its GDScript digest with the base's from a
-  worktree of the merge base: `check_outcomes.py`), `trials` and `scaling` (one job per
+  as an artifact, and `base-build` does the same for the merge base; then `suite` (the suite
+  under Rust, in shards), `digests` (one job per set, each comparing its own two engines,
+  and its Rust digest with the base's from a worktree of the merge base given the base's
+  core: `check_outcomes.py`, Decision 151), `trials` and `scaling` (one job per
   stage) run together; `sim-checks` waits for them all and prints the SUMMARY block.
 - **Why the digests also compare with the base:** the two engines agreeing doesn't show an
   outcome is kept: a change in shared GDScript rules moves both alike. Spec 35's steps were
