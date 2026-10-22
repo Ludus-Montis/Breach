@@ -7349,7 +7349,7 @@ for spec 35's
 changes how state is reached, not what any unit does. Step 1 put each squad's scalar state in
 the squad store behind `SkirmishSquad`'s unchanged API, and then made every loop over units
 that read its squad's fields read them once a pass (Decision 144). The user chose to do all of
-them now ("Hoist all ~40 now") rather than only those a bench names. That reaches 33
+them now ("Hoist all ~40 now") rather than only those a bench names. That reaches 34
 pre-existing files, against the OCP check's 11. The check can't tell a new case forcing many
 files open from a planned change of how state is read, and its own text says such a change is
 recorded as a Decision. The user chose a Decision of its own for the series over citing 142.

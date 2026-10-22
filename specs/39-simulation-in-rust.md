@@ -268,7 +268,7 @@ and `content/definitions/` and `content/import/` keep only what presentation rea
   snapshot holds only the crate's state, so step 1's cargo test steps the crate's own pass
   (the bodies' parting) from a state and from it read back, and requires the same moves and
   the same bytes after. Step 8's snapshot tests step whole phases.
-- **Files opened:** 33 pre-existing `.gd` files, over the OCP check's 11, under Decision 157
+- **Files opened:** 34 pre-existing `.gd` files, over the OCP check's 11, under Decision 157
   (spec 39's ports may open more, each PR stating its count).
 - **Builders** (`build.rs`, `crowd`): test-only for now; step 8's benches share them.
 - **CI's `rust` job** (`.github/workflows/rust.yml`): `cargo fmt --check`, `cargo clippy
