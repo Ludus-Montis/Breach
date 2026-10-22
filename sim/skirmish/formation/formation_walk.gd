@@ -63,13 +63,15 @@ static func walk(
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
 ## FormationShuffle.movers for the squad, or null; `places`: a view of the squad's store
 ## holding UnitView.PLACES).
-static func place_of(squad: SkirmishSquad, unit: SkirmishUnit, moving, places: UnitView) -> Vector2:
-	return FormationPour.place(squad, unit, moving, UnitPlace.in_view(places, unit))
+static func place_of(
+	squad: SkirmishSquad, basis: Array, unit: SkirmishUnit, moving, places: UnitView
+) -> Vector2:
+	return FormationPour.place(squad, basis, unit, moving, UnitPlace.in_view(places, unit))
 
 
 ## `place_of` for one unit, its place read from the store: scattered, for an event's few.
 static func place_of_one(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Vector2:
-	return FormationPour.place(squad, unit, moving, UnitPlace.of(squad, unit))
+	return FormationPour.place(squad, squad.frame(), unit, moving, UnitPlace.of(squad, unit))
 
 
 ## The share (0 to 1) of its step the squad's frame takes this tick for its units lagging
@@ -91,11 +93,12 @@ static func share(
 	var aims := FormationPour.targets(squad, terrain, moving, fight_seed)
 	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var basis := squad.frame()
 	for unit in squad.living():
 		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id):
 			continue
 		var target: Vector2 = aims[unit.id]
-		if not target.is_equal_approx(place_of(squad, unit, moving, places)):
+		if not target.is_equal_approx(place_of(squad, basis, unit, moving, places)):
 			continue  # its place is barred: it pours through the gap behind the frame
 		var lag := points[unit.slot].distance_to(target)
 		if lag <= _tuning().walk_lost or rule == "no_man_left_behind":

@@ -184,10 +184,8 @@ fn positions(bodies: &Bodies) -> Vec<V2> {
 /// (UnitBodies._pairs).
 fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
     let count = at.len();
-    let homes: Vec<(i32, i32)> = at
-        .iter()
-        .map(|p| ((p.x / BUCKET).floor() as i32, (p.y / BUCKET).floor() as i32))
-        .collect();
+    let homes: Vec<(i32, i32)> =
+        at.iter().map(|p| ((p.x / BUCKET).floor() as i32, (p.y / BUCKET).floor() as i32)).collect();
     let mut buckets = Buckets::default();
     for (index, home) in homes.iter().enumerate() {
         buckets.entry(*home).or_default().push(index as u32);
@@ -210,8 +208,7 @@ fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
                         continue; // two squads' frames keep them apart
                     }
                     let apart = at[other].sub(at[index]);
-                    if bodies.radii[index] + bodies.radii[other] - apart.length() as f64 > EPSILON
-                    {
+                    if bodies.radii[index] + bodies.radii[other] - apart.length() as f64 > EPSILON {
                         found.push((index * count + other) as u64);
                     }
                 }

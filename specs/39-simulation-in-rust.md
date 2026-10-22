@@ -209,11 +209,98 @@ Decision's conditions.
 
 ## Built
 
-Nothing yet.
+### Step 1, the squads in the crate, and the `rust` CI job
+
+- **The squad store** (`native/rust/src/squads.rs`, `Squads`; GDScript's `SquadColumns`,
+  the reference, and `SquadColumnsNative` on the BodyField). Columns by squad slot, as the
+  unit store's (Decision 146), named by index in one order on both sides (`NAMES`): 16 ints,
+  4 longs, 6 reals and the position, and each squad's members, its units' unit-store slots in
+  its list's order. A squad takes a slot as it is made and keeps it for the battle: squads are
+  few, and one that has left the lists may still be read (an event, the presentation).
+  `SkirmishSquad` extends `StoredSquad` (`stored_squad.gd`), whose fields are properties
+  over the columns, so every reader keeps its code. A squad set to another store carries its
+  state there. `UnitState` writes the members as a squad's lists are rebuilt after a join or
+  a leaving (one write a rebuild).
+- **Which fields stay per-squad objects** (open item settled): the dictionaries and lists
+  that hold units, nested entries or routes stay GDScript until the step that ports their
+  pass: `loose`, `stance`, `flank_contacts`, `taking`, `chasers`, `pursuit`, `withdraw`,
+  `staging`, `fleeing`, `painted`, `swaps`, `units`, `joined`, `kept`, `command`, `route`,
+  and `faction_id` (a string; the field already interns factions on its syncs) and `id`.
+- **Every field moved, its column and its readers** (Decision 144; files under `sim/`,
+  `presentation/` and `tools/` that read or write it on a squad):
+
+| Field | Column (kind) | Readers and writers (outside `stored_squad.gd`) |
+|---|---|---|
+| `direction` | `DIRECTION` (int) | skirmish_squad_layer, formation_contact, formation_groups, formation_march, formation_pathing, formation_pursuit, formation_rout, formation_simulation, formation_strays, formation_sweep, group_split, scrum_turn, skirmish_squad, squad_compact |
+| `width` | `WIDTH` (int) | formation_contact, formation_groups, formation_production, formation_shuffle, formation_staging, formation_sweep, scrum_seek_field, scrum_stance, scrum_walk_field, shuffle_front, skirmish_squad, squad_memo, squad_ranks, squad_turn |
+| `order` | `ORDER` (int) | formation_skirmish_readout, foe_index, formation_contact, formation_groups, formation_march, formation_pursuit, formation_rout, formation_simulation, formation_staging, formation_stamina, formation_withdraw, group_split, scrum_blows, scrum_blows_field, scrum_regroup, scrum_seek, scrum_seek_field, scrum_stance, skirmish_squad, blows_bench, digest_state, formation_replay |
+| `state` | `STATE` (int) | formation_skirmish_readout, skirmish_squad_layer, formation_field_hud, formation_field_scene, battle_trials, body_field_sync, foe_index, formation_carry, formation_combat, formation_contact, formation_deaths, formation_edges, formation_groups, formation_joins, formation_locks, formation_manoeuvre, formation_march, formation_morale, formation_pathing, formation_perception, formation_recovery, formation_rout, formation_scrum, formation_shuffle, formation_simulation, formation_staging, formation_stamina, formation_strays, formation_taking, formation_withdraw, formation_wounds, group_split, rout_catch, rout_friends, scrum_blows, scrum_blows_field, scrum_engage, scrum_regroup, scrum_seek, scrum_seek_field, scrum_slots, scrum_stance, shuffle_front, unit_bodies, digest_state, facing_bench, formation_digest, formation_replay, rout_bench, shuffle_phases, steering_bench, tick_phases |
+| `fought` | `FOUGHT` (int (bool)) | formation_groups, formation_scrum |
+| `patched_count` | `PATCHED_COUNT` (int) | formation_pathing |
+| `stall_ticks` | `STALL_TICKS` (int) | formation_scrum, digest_state |
+| `manoeuvre` | `MANOEUVRE` (int) | formation_manoeuvre |
+| `morale` | `MORALE` (int) | formation_field_scene, formation_morale, formation_rout, formation_simulation, formation_strays, group_split, digest_state, formation_replay, rout_bench |
+| `rally_ticks` | `RALLY_TICKS` (int) | formation_rout |
+| `blocked` | `BLOCKED` (int (bool)) | formation_field_hud, formation_march |
+| `painted_width` | `PAINTED_WIDTH` (int) | — |
+| `narrow_ticks` | `NARROW_TICKS` (int) | formation_manoeuvre |
+| `wait_ticks` | `WAIT_TICKS` (int) | formation_simulation |
+| `reforming` | `REFORMING` (int (bool)) | formation_deaths, formation_joins, formation_locks, formation_rout, formation_shuffle, squad_turn, shuffle_phases |
+| `combat_width` | `COMBAT_WIDTH` (int) | formation_simulation, shuffle_front |
+| `engaged_with` | `ENGAGED_WITH` (long) | foe_index, formation_fronts, formation_locks, formation_manoeuvre, formation_morale, scrum_engage, scrum_pursuit, scrum_seek, scrum_stance, digest_state |
+| `fight_since` | `FIGHT_SINCE` (long) | formation_scrum, digest_state |
+| `taking_since` | `TAKING_SINCE` (long) | formation_taking |
+| `took_until` | `TOOK_UNTIL` (long) | formation_taking |
+| `home_distance` | `HOME_DISTANCE` (real) | formation_march, formation_pathing, formation_pursuit, formation_rout, formation_staging, formation_strays, formation_withdraw, group_split, rout_catch, skirmish_squad |
+| `front_distance` | `FRONT_DISTANCE` (real) | formation_contact, formation_march, formation_pathing, formation_pursuit, formation_rehearsal, formation_rout, formation_simulation, formation_staging, formation_strays, formation_sweep, formation_withdraw, group_split, scrum_turn, skirmish_squad, squad_compact, digest_state, formation_replay, rout_bench |
+| `heading` | `HEADING` (real) | formation_march, formation_morale, formation_pour, formation_pursuit, formation_rout, formation_scrum, formation_strays, formation_sweep, formation_walk, ground_bodies, group_split, scrum_regroup, scrum_seek_field, scrum_stance, scrum_turn, scrum_walk_field, squad_edges, squad_geometry, squad_memo, digest_state, steering_bench |
+| `looked_at` | `LOOKED_AT` (real) | formation_pathing |
+| `painted_shift` | `PAINTED_SHIFT` (real) | — |
+| `centre_shift` | `CENTRE_SHIFT` (real) | formation_contact, formation_production, formation_shuffle, scrum_seek_field, scrum_stance, scrum_walk_field, shuffle_front, skirmish_squad, squad_memo, squad_turn |
+| `position` | `POSITION` (point) | formation_field_scene, fatigue_trials, formation_pathing, formation_pour, formation_pursuit, scrum_engage, scrum_seek_field, scrum_stance, scrum_walk_field, squad_edges, squad_geometry, squad_memo, digest_state, formation_replay, tick_phases |
+
+- **Read once a pass** (Decision 144, the user's call of 2026-10-22: every loop, not only
+  those a bench names). A scan of `sim/` for loops over units that read a squad's field,
+  directly or through a helper that takes the squad, found about 40 sites. Each now reads it
+  once: the frame (`StoredSquad.frame`, or `ScrumStance.frame` with `SquadFrame.place_in`)
+  before the loop for anchors (the scrum's walk, regroup, the trade, the pursuits), the
+  march's places (`FormationPour.place`, `FormationWalk.place_of`), edges and spans
+  (`SquadEdges`, `SquadGeometry`, `SquadFrame.span`) and the ranged picks
+  (`FormationCombat._rows`); the order, the home distance, the width and the state as locals;
+  and a squad's morale band (`FormationMorale.interval` now takes the band) and a rally's
+  reads (`RoutCatch.read_once`) remembered for the pass where they were read lazily, so a
+  band's first read, which may set the morale, falls where it did.
+- **The state serialises** (`snapshot.rs`, `ordered.rs`): the tick, the battle seed, the
+  field (the store's slots and columns, the bodies) and the squads, through serde in bincode.
+  **Format** (open item settled): bincode, not JSON: it keeps every f64 bit for bit, and JSON
+  can't hold the infinities the columns use (`closest`, `looked_at`). The field's hash maps
+  and free-slot heap are written in key order, so the same state always writes the same
+  bytes. **Where snapshots live** (open item settled for now): the digest writes them on
+  demand (`formation_digest.gd snapshot=<dir> at=<tick>,...`, Rust engine only) to a
+  directory it is given; none is committed in this step. Step 8 commits the ones its tests
+  read, cut from the digest's battles, and judges their size then.
+- **The scenario "one tick stepped from each"**: the tick is GDScript's until step 8, and a
+  snapshot holds only the crate's state, so step 1's cargo test steps the crate's own pass
+  (the bodies' parting) from a state and from it read back, and requires the same moves and
+  the same bytes after. Step 8's snapshot tests step whole phases.
+- **Files opened:** 34 pre-existing `.gd` files, over the OCP check's 11, under Decision 157
+  (spec 39's ports may open more, each PR stating its count).
+- **Builders** (`build.rs`, `crowd`): test-only for now; step 8's benches share them.
+- **CI's `rust` job** (`.github/workflows/rust.yml`): `cargo fmt --check`, `cargo clippy
+  --all-targets -- -D warnings` and `cargo test` on PRs that touch `native/`. The crate is
+  formatted with `use_small_heuristics = "Max"` (`rustfmt.toml`), the nearest to how it was
+  written, and clippy's four findings on `main` are fixed.
+- **Tests:** `squads.rs` (a new squad's blanks, each column by name and by index),
+  `snapshot.rs` (read back, the same bytes; a pass stepped from each, the same; bytes that
+  aren't a state refused), `test_squad_store.gd` (both backends, one contract: slots and
+  blanks, each field its column, members, carrying a squad to another store, the crate's
+  snapshot read back). Outcomes unchanged: CI's digests compare with `main` on both engines.
 
 ## Open, for the implementing session to settle and record here
 
-- The squad store's layout and which fields stay per-squad objects (step 1).
-- The snapshot's on-disk format (serde JSON or a compact binary) and where snapshots live, kept
-  small enough for the repo (step 1, used in step 8).
+- ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
+  "Built", step 1.
+- ~~The snapshot's on-disk format and where snapshots live (step 1, used in step 8).~~ The
+  format is settled in "Built", step 1. Which snapshots are committed, and their size, is
+  step 8's.
 - A chunk's boundary may move when a dependency demands it. The session records the move here.

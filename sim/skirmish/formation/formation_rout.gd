@@ -74,8 +74,10 @@ static func step(
 	for squad in routing:
 		_flee(squad, tick, [pace, fight_seed, terrain, friends], events)
 	var joins := []
+	friends["read"] = {}  # squads' fields, read once for the rallies (RoutCatch.read_once)
 	for squad in routing:
 		joins.append_array(_rallies(squad, friends, tick_seconds, fight_seed))
+	friends.erase("read")  # the joins change squads
 	joins.sort_custom(func(a, b): return a[0] < b[0])
 	for entry in joins:
 		_join(entry[1], entry[2], entry[3], tick, events)
@@ -211,7 +213,10 @@ static func _rallies(
 		var friend: SkirmishSquad = null
 		if not alone:
 			friend = RoutCatch.holder(squad, unit, at, friends, breadth, fight_seed)
-		var calm := friend != null and FormationMorale.band(friend) == FormationMorale.Band.STEADY
+		var calm: bool = (
+			friend != null
+			and RoutCatch.read_once(friends, friend, "band") == FormationMorale.Band.STEADY
+		)
 		var held: int = caught_for[unit.slot]
 		var caught := 0 if friend == null else (held + 1 if calm else maxi(held, 1))
 		view.keep(unit.slot, UnitColumns.CAUGHT, caught)

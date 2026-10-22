@@ -30,10 +30,10 @@ static func at_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishUnit) -> V
 	return view.position[unit.slot]
 
 
-## The cells the unit covers, centred where it stands, turned to its squad's heading (the
-## box round its turned footprint).
-static func area(squad: SkirmishSquad, unit: SkirmishUnit) -> Rect2:
-	var ahead := UnitMotion.vector(squad.heading).abs()
+## The cells the unit covers, centred where it stands, turned to its squad's `heading`, read
+## once a pass (the box round its turned footprint).
+static func area(squad: SkirmishSquad, unit: SkirmishUnit, heading: float) -> Rect2:
+	var ahead := UnitMotion.vector(heading).abs()
 	var right := Vector2(ahead.y, ahead.x)
 	var size := right * unit.footprint_width + ahead * unit.footprint_depth
 	return Rect2(at(squad, unit) - size / 2.0, size)

@@ -276,7 +276,9 @@ func _strike(squad, unit: SkirmishUnit, pick: Array, interval: int, out: Array) 
 	columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, cooldown)
 	if cooldown > 0:
 		return
-	var due := FormationMorale.interval(squad, ScrumBlows.ticks(interval, unit))
+	var due := FormationMorale.interval(
+		FormationMorale.band(squad), ScrumBlows.ticks(interval, unit)
+	)
 	columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, due)
 	if (
 		squad.order == SkirmishUnit.Order.RETREAT

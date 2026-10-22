@@ -165,6 +165,7 @@ static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interv
 	var columns: UnitColumns = owners[picks[0]].store.columns  # fetched once, committed once
 	var cooldowns: PackedInt32Array = columns.column(UnitColumns.ATTACK_COOLDOWN)
 	var targets: PackedInt64Array = columns.column(UnitColumns.TARGET_ID)
+	var bands := {}  # squad -> its morale band, read at its first blow (Decision 144)
 	for index in range(0, picks.size(), 3):
 		var unit: SkirmishUnit = units[picks[index]]
 		var target: SkirmishUnit = units[picks[index + 1]]
@@ -173,7 +174,10 @@ static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interv
 		if cooldowns[unit.slot] > 0:
 			continue
 		var usual := ScrumBlows.ticks(interval, unit)
-		cooldowns[unit.slot] = FormationMorale.interval(owners[picks[index]], usual)
+		var owner: SkirmishSquad = owners[picks[index]]
+		if not bands.has(owner):
+			bands[owner] = FormationMorale.band(owner)
+		cooldowns[unit.slot] = FormationMorale.interval(bands[owner], usual)
 		if picks[index + 2] & AWAY == 0:
 			var flank: bool = picks[index + 2] & FLANK != 0
 			out.append([unit, target, FormationCombat.damage(unit), flank])

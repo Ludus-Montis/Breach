@@ -11,6 +11,10 @@ crate-type = ["cdylib"]
 # api-4-7: bindings generated from Godot 4.7's extension API, bundled with the crate.
 godot = { version = "=0.5.5", features = ["api-4-7"] }
 rayon = "1.10"
+# The crate's state written and read whole (spec 39 step 1): serde, in bincode's compact
+# binary, which keeps every f64 bit for bit (infinities included, which JSON can't hold).
+serde = { version = "1", features = ["derive"] }
+bincode = "1.3"
 
 [profile.release]
 opt-level = 3

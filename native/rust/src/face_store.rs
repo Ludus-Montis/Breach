@@ -35,8 +35,7 @@ pub fn gather(field: &Field, members: &[i32], valued: i32) -> Gathered {
     for &flat in members {
         let b = field.flat[flat as usize] as usize;
         out.ats.push(c.loose_at[b]);
-        out.motion
-            .extend_from_slice(&[c.bearing[b], field.turn_rate[b], field.backward_pace[b]]);
+        out.motion.extend_from_slice(&[c.bearing[b], field.turn_rate[b], field.backward_pace[b]]);
         let mut flags = 0u8;
         if c.goal_slot[b] >= 0 {
             flags = GOAL;

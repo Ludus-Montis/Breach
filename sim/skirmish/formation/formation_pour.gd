@@ -26,14 +26,16 @@ const EPSILON := 0.000001
 const SQUEEZE_STEP := 0.5
 
 
-## Where `unit` belongs in its squad's frame now, standing at `place` (rank, column),
-## including any swap under way (`moving`: FormationShuffle.movers for the squad, or null).
-static func place(squad: SkirmishSquad, unit: SkirmishUnit, moving, place: Vector2i) -> Vector2:
+## Where `unit` belongs in its squad's frame now (`basis`: StoredSquad.frame), standing at `place`
+## (rank, column), including any swap under way (`moving`: FormationShuffle.movers for the
+## squad, or null).
+static func place(
+	squad: SkirmishSquad, basis: Array, unit: SkirmishUnit, moving, place: Vector2i
+) -> Vector2:
 	var swapping := FormationShuffle.offset(squad, unit, moving)
-	var ahead := UnitMotion.vector(squad.heading)
+	var ahead := UnitMotion.vector(basis[1])
 	var shift := ahead * swapping.x - ahead.orthogonal() * swapping.y
-	var frame := [squad.position, squad.heading, squad.width, squad.centre_shift]
-	var at := SquadFrame.place(frame[0], frame[1], frame[2], frame[3], unit, place)
+	var at := SquadFrame.place(basis[0], basis[1], basis[2], basis[3], unit, place)
 	return at + shift
 
 
@@ -55,6 +57,7 @@ static func targets(
 	var aims := []  # [unit, its place, its point, squeezed]
 	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var basis := squad.frame()
 	for unit in squad.living():
 		if squad.fleeing.has(unit.id) or (squad.loose.has(unit.id) and not with_loose):
 			continue
@@ -62,8 +65,8 @@ static func targets(
 			var body: SkirmishUnit = squad.taking[unit.id]
 			aims.append([unit, at[unit.slot], _beside(at[unit.slot], at[body.slot]), false])
 			continue
-		var own := place(squad, unit, moving, UnitPlace.in_view(places, unit))
-		var aim := _aim(squad, unit, own, terrain)
+		var own := place(squad, basis, unit, moving, UnitPlace.in_view(places, unit))
+		var aim := _aim(basis, unit, own, terrain)
 		aims.append([unit, own, aim, not aim.is_equal_approx(own)])
 	return _queue(squad, aims, terrain, fight_seed)
 
@@ -76,27 +79,29 @@ static func _beside(unit: Vector2, body: Vector2) -> Vector2:
 
 
 ## The unit's own point, before any files in: its place, or the nearest it can stand on.
+## `basis`: its squad's frame (StoredSquad.frame).
 static func _aim(
-	squad: SkirmishSquad, unit: SkirmishUnit, own: Vector2, terrain: FormationTerrain
+	basis: Array, unit: SkirmishUnit, own: Vector2, terrain: FormationTerrain
 ) -> Vector2:
 	if terrain == null or walkable(unit, own, terrain):
 		return own
-	var walk := _squeeze(squad, unit, own, terrain, true)  # ground it can walk, near by
+	var walk := _squeeze(basis, unit, own, terrain, true)  # ground it can walk, near by
 	if walk != Vector2.INF:
 		return walk
 	if terrain.factor(unit, own, own) > 0.0:
 		return own  # none to walk: it swims or climbs to its place
-	var any := _squeeze(squad, unit, own, terrain, false)
+	var any := _squeeze(basis, unit, own, terrain, false)
 	return own if any == Vector2.INF else any
 
 
 ## The nearest point across the frame from `own` (its place) towards its centre line where
-## `unit` can stand - walking it, if `walking` - or INF.
+## `unit` can stand - walking it, if `walking` - or INF. `basis`: its squad's frame
+## (StoredSquad.frame).
 static func _squeeze(
-	squad: SkirmishSquad, unit: SkirmishUnit, own: Vector2, terrain: FormationTerrain, walking: bool
+	basis: Array, unit: SkirmishUnit, own: Vector2, terrain: FormationTerrain, walking: bool
 ) -> Vector2:
-	var across := UnitMotion.vector(squad.heading).orthogonal()
-	var offset := (own - squad.position).dot(across)
+	var across := UnitMotion.vector(basis[1]).orthogonal()
+	var offset: float = (own - basis[0]).dot(across)
 	var steps := ceili(absf(offset) / SQUEEZE_STEP)
 	for step in range(1, steps + 1):
 		var point := own - across * signf(offset) * minf(step * SQUEEZE_STEP, absf(offset))

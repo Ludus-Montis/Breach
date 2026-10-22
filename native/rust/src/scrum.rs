@@ -7,6 +7,7 @@
 //! - the same keys compared item by item, a full tie going to the slot listed first;
 //! - the seeded draws by Godot's own `hash()` (`ghash`), drawn only when a tie needs them
 //!   (the order of comparisons is unchanged by drawing lazily).
+//!
 //! Who seeks and where a unit's place is are gathered on the field from GDScript's say of
 //! each squad (`seeking.rs`); the ground a slot lies on is asked of GDScript (`within`) only
 //! when there is terrain.
@@ -306,7 +307,11 @@ impl<'a> Plan<'a> {
         let arrival = gap_to(field, foes, at, radius) / speed.max(0.01);
         let die = self.params.die;
         let rolled = if die > 0 {
-            let keys = [Key::Int(self.params.seed), Key::Int(self.params.tick), Key::Int(field.unit_id[b])];
+            let keys = [
+                Key::Int(self.params.seed),
+                Key::Int(self.params.tick),
+                Key::Int(field.unit_id[b]),
+            ];
             ghash::hash(&keys) as i64 % (die + 1)
         } else {
             0
@@ -351,7 +356,11 @@ impl<'a> Plan<'a> {
             by_foe.entry(field.unit_id[f]).or_insert((slots.len() as u32, count as u32));
             for number in 0..count {
                 let way = bearing_vector(field.bearing[f] + number as f64 * 360.0 / count as f64);
-                slots.push(Slot { point: field.at[f].add(way.scale(reach)), foe, number: number as i32 });
+                slots.push(Slot {
+                    point: field.at[f].add(way.scale(reach)),
+                    foe,
+                    number: number as i32,
+                });
             }
         }
         let mut status = Vec::with_capacity(slots.len());
@@ -419,7 +428,8 @@ impl<'a> Plan<'a> {
         crowd.grid.near(point, crowd.widest + radius + MARGIN, |i| {
             let b = crowd.bodies[i as usize];
             let r = field.radius[b as usize];
-            clear = b == seeker.body || field.at[b as usize].distance_to(point) as f64 >= r + radius - EPSILON;
+            clear = b == seeker.body
+                || field.at[b as usize].distance_to(point) as f64 >= r + radius - EPSILON;
             clear
         });
         clear && !self.claims.near(point, radius)
@@ -466,7 +476,8 @@ impl<'a> Plan<'a> {
             self.refresh(seeker.ring);
         }
         let ring = &self.rings[seeker.ring];
-        let last = if crowded { ring.grid.last_ring(centre) } else { ring.free_grid.last_ring(centre) };
+        let last =
+            if crowded { ring.grid.last_ring(centre) } else { ring.free_grid.last_ring(centre) };
         let mut found = Vec::new();
         for number in 0..=last {
             let floor = floor_of(number) - MARGIN;
@@ -601,8 +612,11 @@ impl<'a> Plan<'a> {
         self.out.codes[m] = PRESS;
         self.out.goal_foes[m] = field.unit_id[s.foe as usize];
         self.out.goal_slots[m] = s.number;
-        self.out.nexts[m] =
-            if back.length() as f64 <= breadth { at } else { s.point.add(back.normalized().scale(breadth)) };
+        self.out.nexts[m] = if back.length() as f64 <= breadth {
+            at
+        } else {
+            s.point.add(back.normalized().scale(breadth))
+        };
         self.out.foe_ats[m] = field.at[s.foe as usize];
     }
 }

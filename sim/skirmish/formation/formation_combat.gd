@@ -42,7 +42,7 @@ static func ranged_blows(squads: Array, interval_ticks: int, fight_seed: int = 0
 			if rows.is_empty():
 				rows = _rows(own, marks)
 				places = UnitView.read_once(views, own, UnitView.PLACES)
-			var target := _in_range(own, shooter, rows, [fight_seed, places])
+			var target := _in_range(shooter, rows, [fight_seed, places])
 			if target == null:
 				continue
 			targets[shooter.slot] = target.id
@@ -83,33 +83,35 @@ static func _marks(squads: Array, views: Dictionary) -> Array:
 	return out
 
 
-## For each squad hostile to `own`: [squad, [[how far the rank stands ahead of own's front
-## (SquadGeometry.unit_gap), its units], ...], its places (a view of UnitView.PLACES)].
+## Own's frame (StoredSquad.frame, read once a pass: Decision 144), then for each squad hostile
+## to `own`: [squad, [[how far the rank stands ahead of own's front (SquadGeometry.unit_gap),
+## its units], ...], its places (a view of UnitView.PLACES), its frame].
 static func _rows(own: SkirmishSquad, marks: Array) -> Array:
-	var out := [null]  # never empty, so worked out once a squad
+	var mine := own.frame()
+	var out := [mine]  # never empty, so worked out once a squad
 	for mark in marks:
 		var other: SkirmishSquad = mark[0]
 		if other.faction_id == own.faction_id:
 			continue
+		var theirs := other.frame()
 		var ranks := []
 		for rank in mark[1]:
 			var row: Array = mark[1][rank]
-			ranks.append([SquadGeometry.unit_gap(own, other, row[0][0], mark[2]), row])
-		out.append([other, ranks, mark[2]])
+			ranks.append([SquadGeometry.unit_gap(mine, theirs, row[0][0], mark[2]), row])
+		out.append([other, ranks, mark[2], theirs])
 	return out
 
 
 ## The nearest enemy unit within the shooter's range (ties: one it overlaps laterally,
 ## then the targets' draws, then the order they are listed in). Only the ranks at the
 ## nearest gap are looked at unit by unit: all a rank's units share its gap. `drawn`: [the
-## fight seed, own's places (a view of UnitView.PLACES)].
-static func _in_range(
-	own: SkirmishSquad, shooter: SkirmishUnit, rows: Array, drawn: Array
-) -> SkirmishUnit:
+## fight seed, own's places (a view of UnitView.PLACES)]; `rows`: _rows', own's frame first.
+static func _in_range(shooter: SkirmishUnit, rows: Array, drawn: Array) -> SkirmishUnit:
 	var fight_seed: int = drawn[0]
 	var places: UnitView = drawn[1]
+	var mine: Array = rows[0]
 	var reach := shooter.attack_range * SkirmishSquad.RANK_DEPTH + EPSILON
-	var here := SquadGeometry.unit_gap(own, own, shooter, places)
+	var here := SquadGeometry.unit_gap(mine, mine, shooter, places)
 	var nearest := INF
 	for index in range(1, rows.size()):
 		for rank in rows[index][1]:
@@ -118,19 +120,19 @@ static func _in_range(
 				nearest = minf(nearest, snappedf(gap, EPSILON))
 	if nearest == INF:
 		return null
-	var axis := SquadFrame.lateral_axis(own.heading)
-	var span := own.lateral_span(shooter, Vector2.ZERO, UnitPlace.in_view(places, shooter))
+	var axis := SquadFrame.lateral_axis(mine[1])
+	var span := SquadFrame.span(mine, shooter, Vector2.ZERO, UnitPlace.in_view(places, shooter))
 	var best: SkirmishUnit = null
 	var best_key := []
 	for index in range(1, rows.size()):
-		var other: SkirmishSquad = rows[index][0]
+		var theirs: Array = rows[index][3]
 		for rank in rows[index][1]:
 			var gap: float = absf(rank[0] - here)
 			if gap > reach or snappedf(gap, EPSILON) != nearest:
 				continue
 			for entry in rank[1]:
-				var target_span: Vector2 = other.lateral_span(
-					entry[0], axis, UnitPlace.in_view(rows[index][2], entry[0])
+				var target_span := SquadFrame.span(
+					theirs, entry[0], axis, UnitPlace.in_view(rows[index][2], entry[0])
 				)
 				var overlap := minf(span.y, target_span.y) - maxf(span.x, target_span.x)
 				var draw := ScrumContest.draw(entry[0], fight_seed)

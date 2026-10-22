@@ -7,7 +7,7 @@
 use crate::det_math;
 
 /// Godot's `Vector2` with `real_t` = f32, its operators as Godot's C++ has them.
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct V2 {
     pub x: f32,
     pub y: f32,

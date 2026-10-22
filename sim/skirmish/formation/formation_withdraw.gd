@@ -105,9 +105,10 @@ static func step(
 		var squad: SkirmishSquad = entry[0]
 		var order := [disorder(squad), FormationDiscipline.reform_pace(squad)]  # its units'
 		var paces: PackedFloat64Array = UnitView.read_once(speeds, squad, [UnitColumns.SPEED]).speed
+		var home: float = squad.home_distance * CELLS  # read once a pass (Decision 144)
 		for unit in squad.living():
 			var motion := [pace * paces[unit.slot], seconds, fight_seed, entry[2].has(unit.id)]
-			_flee(squad, unit, motion + order, terrain)
+			_flee(squad, unit, motion + order + [home], terrain)
 		squad.withdraw["safe_ticks"] = squad.withdraw["safe_ticks"] + 1 if entry[1] else 0
 		var long_enough: bool = (
 			squad.withdraw["safe_ticks"] * seconds >= BattleTuning.current().rout_rally_seconds
@@ -117,14 +118,14 @@ static func step(
 
 
 ## `motion` is [its pace (cells a tick, its speed in), seconds, fight seed, still disengaging,
-## its squad's disorder, its re-form pace].
+## its squad's disorder, its re-form pace, its squad's home along its route in cells].
 ## Disengaging is a manoeuvre, as re-forming is: until it is clear of the foes it touches,
 ## a unit turns and steps away at its formation's re-form pace; then it is in flight.
 static func _flee(squad: SkirmishSquad, unit: SkirmishUnit, motion: Array, terrain) -> void:
 	var columns := squad.store.columns
 	var at: Vector2 = columns.value(unit.slot, UnitColumns.LOOSE_AT)
 	var along := squad.route.distance_of(at)
-	var home: float = squad.home_distance * CELLS
+	var home: float = motion[6]
 	if absf(along - home) < HOME_CELLS:
 		return  # home
 	var homeward := _homeward(squad.route, along, home)

@@ -113,6 +113,21 @@ its own under Rust. The passes still write their results back through GDScript, 
 puts them into the columns; the passes reading and writing the columns themselves is
 spec 35 step 4.
 
+**The squads' state lives here too** (spec 39 step 1). Each squad's scalar state - its
+state, order, front distance, heading, position, morale and the rest - is the crate's
+`Squads` (`squads.rs`), columns by a squad slot kept for the battle, with its members as
+unit-store slots. GDScript reads and writes them through `SquadColumnsNative`, one call a
+value; `SkirmishSquad` (a `StoredSquad`) keeps its fields as properties over them, and each
+pass reads a squad's fields once, not unit by unit (Decision 144). The squads' entries and
+lists that hold units (loose, fleeing, chasers and the rest) stay GDScript until their pass
+ports.
+
+**The state writes and reads back** (`snapshot.rs`): the tick, the battle seed, the field
+and the squads, through serde in bincode, bit for bit and in a fixed byte order.
+`BodyField.snapshot(tick, seed)` gives the bytes and `restore(bytes)` reads them back;
+`tools/formation_digest.gd snapshot=<dir> at=<ticks>` writes them during its battles (Rust
+engine only). The crate's tests build their state with `build.rs` and never start Godot.
+
 **What GDScript still decides and hands in:** the rules.
 
 - who may seek (front band, footprint, orders, chasers)
@@ -366,7 +381,10 @@ bash native/build.sh dev      # optimised without LTO: rebuilds in seconds
 
 This puts `native/bin/[lib]breach_rust.<platform>.<ext>` in place. It is git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
-`cargo test` in `native/rust` checks the hash against values printed by Godot.
+`cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
+by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it
+with `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` on every PR that
+touches `native/`.
 
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export

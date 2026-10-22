@@ -7,10 +7,14 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/formation_digest.gd -- \
 ##       [set=standard|clash160|wide] [out=<file of every tick's hash>] \
 ##       [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>]
+##       [snapshot=<dir> at=<tick>,<tick>,...]
 ##
 ## only: play that one run (its label as printed, e.g. "mirror_headon s1 rtrue"). trace:
 ## write each tick from `from` to `to` (default every tick) as a line of JSON naming every
-## field (spec 37, DigestTrace); the hashes are the same with it or without.
+## field (spec 37, DigestTrace); the hashes are the same with it or without. snapshot: after
+## each tick listed in `at`, write the crate's whole state - units, squads, the tick and the
+## seed (spec 39 step 1) - to <dir>/<run label>.t<tick>.bin, for the crate's tests to read
+## back; it needs the Rust engine (BREACH_NATIVE=rust), and the hashes are the same with it.
 ##
 ## standard: the mirrors head-on and on a flank (BattleTrials), seeds 1-3; five feel-test
 ## field logs (FormationFieldActions), two tending their downed; a 40-a-side clash of grems
@@ -50,6 +54,8 @@ var _trace: FileAccess = null
 var _only := ""
 var _from := 1
 var _to := -1
+var _snapshots := ""  # the directory snapshots go to ("": none)
+var _snapshot_at := {}  # tick -> true
 
 
 func _init() -> void:
@@ -64,6 +70,11 @@ func _init() -> void:
 	_only = args.get("only", "")
 	_from = int(args.get("from", "1"))
 	_to = int(args.get("to", "-1"))
+	_snapshots = args.get("snapshot", "")
+	for tick in str(args.get("at", "")).split(",", false):
+		_snapshot_at[int(tick)] = true
+	if _snapshots != "":
+		DirAccess.make_dir_recursive_absolute(_snapshots)
 	if args.get("set", "standard") == "clash160":
 		_clash("clash160", 160, 10, 1, true, 120)
 	elif args.get("set") == "wide":
@@ -122,6 +133,8 @@ func _run(label: String, sim: FormationSimulation, limit: int, after: int) -> vo
 		var events := sim.step()
 		ticks = tick + 1
 		_record(chain, label, ticks, events, sim)
+		if _snapshots != "" and _snapshot_at.has(ticks):
+			_snapshot(label, ticks, sim)
 		if contact < 0 and events.any(func(e): return e["type"] == "engaged"):
 			contact = ticks
 		if after >= 0 and contact >= 0 and ticks - contact >= after:
@@ -156,6 +169,21 @@ func _field(index: int, rolls: bool) -> void:
 
 
 ## Whether the run is played: every run, or with `only`, that one.
+## Writes the crate's state after `ticks` of the run (spec 39 step 1); each squad's members
+## are brought up to date first (UnitState writes them as its lists are rebuilt).
+func _snapshot(label: String, ticks: int, sim: FormationSimulation) -> void:
+	var field: Object = sim.store.field()
+	if field == null:
+		push_warning("formation_digest: snapshot= needs the Rust engine (BREACH_NATIVE=rust)")
+		return
+	for squad in sim.squads():
+		squad.living()
+	var path := "%s/%s.t%d.bin" % [_snapshots, label.replace(" ", "_"), ticks]
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_buffer(field.snapshot(ticks, sim.fight_seed))
+	file.close()
+
+
 func _plays(label: String) -> bool:
 	return _only.is_empty() or _only == label
 

@@ -117,13 +117,14 @@ static func _walk_back(squad: SkirmishSquad, foes: Dictionary, moving: Dictionar
 	var paces: PackedFloat64Array = (
 		UnitView.read_once(moving["paces"], squad, [UnitColumns.SPEED]).speed
 	)
+	var basis := ScrumStance.frame(squad)  # once a squad: no unit's walk moves its frame
+	var heading: float = squad.stance.get("heading", squad.heading)
 	for unit_id in squad.loose.keys():
 		if ScrumPursuit.away(squad, unit_id):
 			continue
 		var unit: SkirmishUnit = squad.loose[unit_id]
-		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(squad, unit, held))
+		var place: Vector2 = homes.get(unit_id, ScrumStance.anchor(basis, unit, held))
 		var step: float = paces[unit.slot] * moving["pace"] * reform
-		var heading: float = squad.stance.get("heading", squad.heading)
 		var foe_at = foes.get(unit_id)
 		var at: Vector2 = loose_at[unit.slot]
 		if foe_at == null:  # it takes its place the quicker way, arriving facing its squad's

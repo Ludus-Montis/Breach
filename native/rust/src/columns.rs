@@ -20,9 +20,11 @@
 //! `distance`, `foothold`, `on_face`, `climb_left`, step 7c). The field holds them so its passes read them where they live. A slot newly given starts blank, each
 //! column at the value a missing key reads as. Columns are found by their UnitColumns name.
 
+use serde::{Deserialize, Serialize};
+
 use crate::maths::V2;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Columns {
     pub position: Vec<V2>,
     pub loose_at: Vec<V2>,
@@ -173,12 +175,8 @@ impl Columns {
         ] {
             column.push(0);
         }
-        for column in [
-            &mut self.goal_foe,
-            &mut self.caught,
-            &mut self.held_by,
-            &mut self.target_id,
-        ] {
+        for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by, &mut self.target_id]
+        {
             column.push(0);
         }
         self.goal_slot.push(NO_GOAL);
@@ -233,12 +231,8 @@ impl Columns {
         ] {
             column[slot] = 0;
         }
-        for column in [
-            &mut self.goal_foe,
-            &mut self.caught,
-            &mut self.held_by,
-            &mut self.target_id,
-        ] {
+        for column in [&mut self.goal_foe, &mut self.caught, &mut self.held_by, &mut self.target_id]
+        {
             column[slot] = 0;
         }
         self.goal_slot[slot] = NO_GOAL;
@@ -332,9 +326,7 @@ mod tests {
     #[test]
     fn every_column_is_found_by_its_unit_columns_name_and_no_other() {
         let mut columns = Columns::default();
-        for name in [
-            "position", "at", "offset", "next", "foe_at", "toward", "foothold",
-        ] {
+        for name in ["position", "at", "offset", "next", "foe_at", "toward", "foothold"] {
             assert!(columns.points(name).is_some(), "{name}");
         }
         for name in [

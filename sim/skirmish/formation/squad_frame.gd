@@ -93,6 +93,13 @@ static func place_in(frame: Array, unit: SkirmishUnit, at: Vector2i) -> Vector2:
 	return frame[0] + frame[2] * -across - frame[1] * back
 
 
+## SkirmishSquad.lateral_span in a squad's frame (StoredSquad.frame): the unit's columns, at
+## `at` (its rank, column), as a span along `axis` (the frame's lateral axis if none).
+static func span(frame: Array, unit: SkirmishUnit, axis: Vector2, at: Vector2i) -> Vector2:
+	var along := lateral_axis(frame[1]) if axis == Vector2.ZERO else axis
+	return extent(corners(frame[0], frame[1], frame[2], frame[3], unit, at), along)
+
+
 ## The world axis a squad's columns run along at `heading`: its right hand, turned to
 ## point east of north-south (or south, facing east or west), so two squads across one axis
 ## measure their spans the same way round.

@@ -18,8 +18,11 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
+use serde::{Deserialize, Serialize};
+
 use crate::columns::Columns;
 use crate::maths::V2;
+use crate::ordered;
 
 /// A body is loose (in its squad's `loose`).
 pub const LOOSE: u8 = 1;
@@ -36,7 +39,7 @@ pub const ROUTING: u8 = 1;
 pub const DESTROYED: u8 = 2;
 
 /// A squad as last synced.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Squad {
     pub id: i64,
     pub faction: u32,
@@ -77,7 +80,9 @@ pub struct Enrol<'a> {
     pub paces: &'a [f64],
 }
 
-#[derive(Default)]
+/// Its whole state serialises (spec 39 step 1, `snapshot`): the maps are written in key
+/// order, so the same field always writes the same bytes.
+#[derive(Default, Serialize, Deserialize)]
 pub struct Field {
     seed: i64,
     stamp: u32,
@@ -116,12 +121,16 @@ pub struct Field {
     /// The enrolled bodies on the field, by draw (UnitBodies._drawn's order).
     pub drawn: Vec<u32>,
     /// The bodies on the field (named by the last sync).
+    #[serde(serialize_with = "ordered::map")]
     by_unit: HashMap<i64, u32>,
+    #[serde(serialize_with = "ordered::map")]
     by_squad: HashMap<i64, u32>,
     factions: Vec<String>,
     /// The unit store's slots: units held whether or not they are on the field.
+    #[serde(serialize_with = "ordered::map")]
     held: HashMap<i64, u32>,
     holding: Vec<bool>,
+    #[serde(serialize_with = "ordered::heap")]
     free: BinaryHeap<Reverse<u32>>,
     /// The unit store's columns, by slot.
     pub columns: Columns,
@@ -388,12 +397,8 @@ impl Field {
             return; // every body on the field was named (bodies are named once each)
         }
         let stamp = self.stamp;
-        let gone: Vec<u32> = self
-            .by_unit
-            .values()
-            .copied()
-            .filter(|&b| self.seen[b as usize] != stamp)
-            .collect();
+        let gone: Vec<u32> =
+            self.by_unit.values().copied().filter(|&b| self.seen[b as usize] != stamp).collect();
         for body in gone {
             self.by_unit.remove(&self.unit_id[body as usize]);
             self.enrolled[body as usize] = false;

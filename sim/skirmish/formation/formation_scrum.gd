@@ -176,6 +176,8 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 	var seconds: float = ctx["seconds"]
 	var columns := squad.store.columns
 	var speeds: PackedFloat64Array = columns.column(UnitColumns.SPEED)
+	var basis := ScrumStance.frame(squad)  # once a squad: no unit's step moves its frame
+	var heading: float = squad.stance.get("heading", squad.heading)
 	# store: scattered (reference: the GDScript walk and facing; the Rust engine runs native passes)
 	for unit in squad.living():
 		if squad.chasers.has(unit.id):
@@ -191,8 +193,7 @@ static func _walk(squad: SkirmishSquad, pace: float, ctx: Dictionary) -> void:
 			var slid := UnitMover.slide(unit, columns, at, to, paced, ctx["terrain"])
 			columns.put(unit.slot, UnitColumns.LOOSE_AT, slid)
 		elif columns.value(unit.slot, UnitColumns.TOUCH) == 0:
-			var place := ScrumStance.anchor_one(squad, unit)
-			var heading: float = squad.stance.get("heading", squad.heading)
+			var place := SquadFrame.place_in(basis, unit, UnitPlace.of(squad, unit))
 			var speed := full / seconds
 			var facing: float = columns.value(unit.slot, UnitColumns.BEARING)
 			toward = UnitShuffle.look(unit, at, facing, place, heading, speed)

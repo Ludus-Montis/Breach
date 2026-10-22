@@ -51,18 +51,19 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 		draws[unit] = ScrumContest.draw(unit, fight_seed)
 	stalled.sort_custom(func(a, b): return draws[a] < draws[b])
 	var places := _places(squad, stalled)
+	var basis := ScrumStance.frame(squad)  # once: a trade moves units, not the frame
 	# store: scattered (few: the stalled units trading, two at a time)
 	for unit in stalled:
 		if not squad.loose.has(unit.id):
 			continue
 		var at: Vector2 = SquadEntries.loose_at(squad, unit)
-		var friend := _nearest_place(squad, unit, at, [places, fight_seed])
+		var friend := _nearest_place(squad, unit, at, [places, fight_seed, basis])
 		if friend != null:
 			_swap(squad, unit, friend)
 			_traded(places, unit, friend)
 		elif squad.stance.is_empty():
 			SquadEntries.unloose(squad, unit.id)
-			var anchor := ScrumStance.anchor_one(squad, unit)
+			var anchor := SquadFrame.place_in(basis, unit, UnitPlace.of(squad, unit))
 			# placement: it takes its place in its frame (Decision 139)
 			squad.store.columns.put(unit.slot, UnitColumns.POSITION, anchor)
 
@@ -91,8 +92,9 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 	var of := {}
 	var order := {}
 	var table := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
+	var basis := ScrumStance.frame(squad)
 	for index in range(living.size()):
-		points.append(ScrumStance.anchor(squad, living[index], table))
+		points.append(ScrumStance.anchor(basis, living[index], table))
 		of[living[index]] = index
 		order[living[index]] = index
 	if stalled.any(func(unit): return not of.has(unit)):
@@ -108,13 +110,13 @@ static func _places(squad: SkirmishSquad, stalled: Array) -> Dictionary:
 
 ## The interchangeable friend whose place is nearest `at`, and nearer than the unit's own;
 ## null if none. Ties by the friends' draws (then the living units' order, as looking
-## through them all). `lookup`: [_places, the fight seed].
+## through them all). `lookup`: [_places, the fight seed, its squad's ScrumStance.frame].
 static func _nearest_place(
 	squad: SkirmishSquad, unit: SkirmishUnit, at: Vector2, lookup: Array
 ) -> SkirmishUnit:
 	var places: Dictionary = lookup[0]
 	var fight_seed: int = lookup[1]
-	var own := ScrumStance.anchor_one(squad, unit).distance_to(at)
+	var own := SquadFrame.place_in(lookup[2], unit, UnitPlace.of(squad, unit)).distance_to(at)
 	var best: SkirmishUnit = null
 	var best_key := []
 	if places.is_empty():

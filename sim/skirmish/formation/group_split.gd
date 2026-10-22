@@ -71,8 +71,9 @@ static func _behind(squad: SkirmishSquad, standing: UnitView) -> Array:
 	)
 	var far := {}  # unit id -> whether it stands further than walk_lost from its place
 	var at: PackedVector2Array = standing.position
+	var basis := squad.frame()
 	for unit in placed:
-		var place := FormationWalk.place_of(squad, unit, null, standing)
+		var place := FormationWalk.place_of(squad, basis, unit, null, standing)
 		far[unit.id] = at[unit.slot].distance_to(place) > lost
 	if not far.values().has(true):
 		return []  # nobody has fallen behind: nothing to cluster
