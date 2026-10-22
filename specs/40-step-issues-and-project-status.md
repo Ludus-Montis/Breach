@@ -30,8 +30,10 @@ its workflow can run, not before it is built.
   milestones or touch a Project (spec 36).
 - **`github-sync`** (`GITHUB_TOKEN`, `issues: write`, `pull-requests: write`) creates
   labels, milestones and issues, and sets milestones.
-- **`project-status`** (a new workflow, the owner's `PROJECT_TOKEN` secret) sets the
-  Project's Status field. `GITHUB_TOKEN` can't write to a user-owned Project.
+- **`project-status`** (a new workflow) reads the PR and its closing issues with
+  `GITHUB_TOKEN`, and writes the Project's Status field with a token minted each run from
+  the owner's GitHub App (`actions/create-github-app-token`, the setup below).
+  `GITHUB_TOKEN` can't write to a Project.
 
 ## Steps
 
@@ -87,8 +89,8 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
 `.github/workflows/project-status.yml` and `ci/github/project_status.py`, with tests.
 
 - **Trigger:** `pull_request` (`opened`, `reopened`, `ready_for_review`,
-  `converted_to_draft`, `labeled`, `unlabeled`), skipped when `PROJECT_TOKEN` is unset (the
-  job says so and passes).
+  `converted_to_draft`, `labeled`, `unlabeled`), skipped when `PROJECT_APP_ID` or
+  `PROJECT_APP_PRIVATE_KEY` is unset (the job says so and passes).
 - **The rule** (a pure function of the PR's draft flag and labels, the tested core):
 
   | PR | Status |
@@ -98,7 +100,8 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
   | Not a draft | In review |
 
   Merged or closed is left to the Project's built-in workflows (Done).
-- **Apply** (GraphQL, `PROJECT_TOKEN`): find the Project by the repo variables
+- **Apply** (GraphQL): read the PR's draft flag, labels and `closingIssuesReferences` with
+  `GITHUB_TOKEN`; with the App's token (and for nothing else), find the Project by the repo variables
   `PROJECT_OWNER` and `PROJECT_NUMBER`; its Status field and the option by name (a missing
   option fails the job naming it); the PR's item, adding it if the built-in auto-add hasn't
   yet; `updateProjectV2ItemFieldValue`. Then the same for every issue in the PR's
@@ -107,15 +110,46 @@ beside them, the API behind the client the tests replace (`fake_client.py`).
 
 ## The owner's setup (not built by an agent)
 
-Before step 3's workflow can run:
-1. A fine-grained personal access token: resource owner you, access to `SSidey/Breach`,
-   account permission **Projects: read and write**, repository permissions **Issues** and
-   **Pull requests: read**. Store it as the repo secret `PROJECT_TOKEN`.
-2. Repo variables `PROJECT_OWNER` (`SSidey`) and `PROJECT_NUMBER` (the number in the
+The repo moved to the organisation **Ludus-Montis** (`Ludus-Montis/Breach`) on 2026-10-22,
+so that a GitHub App can write the Project: neither a fine-grained token nor an App can reach
+a Project owned by a personal account, and a classic token would need rotating. The old
+`SSidey/Breach` URLs redirect; never create a new repo at that name. The owner reports this
+setup done; agents can't read these settings, so the list is the owner's to check.
+
+**The Project and the App (for step 3):**
+1. The Project is owned by Ludus-Montis, with Status options named exactly Inbox, Next,
+   In progress, In review, Done, and its built-in workflows on (auto-add from the repo,
+   item added → Inbox, item closed and PR merged → Done, PR linked to issue). The
+   `project-status` workflow runs after "PR linked to issue" and sets the same issue's
+   column.
+2. A GitHub App owned by Ludus-Montis, installed on Breach only, with Organization
+   permission **Projects: read and write** and Repository permissions **Issues** and
+   **Pull requests: read**. Its App ID is the repo variable `PROJECT_APP_ID`, its private
+   key the repo secret `PROJECT_APP_PRIVATE_KEY` (the downloaded `.pem` deleted).
+3. Repo variables `PROJECT_OWNER` (`Ludus-Montis`) and `PROJECT_NUMBER` (the number in the
    Project's URL).
-3. The Project's Status options stay named Inbox, Next, In progress, In review, Done.
-   The built-in "Pull request linked to issue" workflow can stay on: `project-status` runs
-   after it and sets the same issue's column.
+
+**The organisation:**
+4. Two-factor authentication required for members.
+5. Base permissions **No permission** or **Read**; members can't create repositories or
+   change visibility.
+6. Actions: allowed actions limited to GitHub-owned and verified creators (or a named list
+   holding `actions/checkout` and `actions/create-github-app-token`); the default
+   `GITHUB_TOKEN` is read-only (each workflow asks for what it writes); Actions can't create
+   or approve PRs; fork PRs from outside contributors need approval to run workflows.
+7. Third-party access: the OAuth application policy restricted (the default). GitHub Apps,
+   the Claude app included, are installed, not approved there.
+
+**The repo:**
+8. A ruleset on `main`: a pull request before merging with **no** required approvals (the
+   owner can't approve their own PRs); the required status checks by job name: `sim-checks`
+   (the Sim checks workflow's summary job), `docs` (docs-gate) and CI's `run-baseline`, all
+   of which run on every PR; no force pushes or deletion; only the owner may bypass. So an agent can't
+   push to `main` or merge, whatever it is told: it pushes a branch and opens a PR.
+9. Secret scanning with push protection, Dependabot alerts, private vulnerability reporting.
+10. The Claude GitHub App installed on Ludus-Montis for Breach only; cloud sessions start
+    on `Ludus-Montis/Breach`. Secrets, variables, webhooks and deploy keys reviewed after
+    the transfer.
 
 ## Scenarios
 
@@ -204,10 +238,10 @@ No code; the skills' text. Checked by reading the PR (`/run-phase`'s own end-of-
 - When the workflow runs
 - Then it makes no Project call
 
-**Scenario: no token, no failure**
-- Given `PROJECT_TOKEN` is unset
+**Scenario: no App, no failure**
+- Given `PROJECT_APP_ID` is unset
 - When the workflow runs
-- Then the job passes and says the token is missing
+- Then the job passes and says the App isn't set up
 
 **Scenario: an unknown Status option fails clearly**
 - Given the Project's Status has no option `Next`
