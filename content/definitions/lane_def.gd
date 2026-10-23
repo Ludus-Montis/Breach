@@ -14,24 +14,3 @@ extends Resource
 ## Which index in nodes is the player's home - needed since more than one node can
 ## share NodeType.ORIGIN (e.g. the player's home and the far-end Core both do today).
 @export var player_home_index: int = 0
-
-
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-
-	if nodes.size() < 2:
-		errors.append("nodes must contain at least 2 entries, got %d" % nodes.size())
-
-	if player_home_index < 0 or player_home_index >= nodes.size():
-		errors.append(
-			(
-				"player_home_index must be a valid index into nodes, got %d (nodes size %d)"
-				% [player_home_index, nodes.size()]
-			)
-		)
-
-	for node in nodes:
-		for node_error in node.validate():
-			errors.append(node_error)
-
-	return errors

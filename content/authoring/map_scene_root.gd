@@ -5,8 +5,8 @@ extends Node2D
 ## (in order) are MapLaneRoots. The "Export to JSON" button in the Inspector converts
 ## this scene's topology (via MapSceneConverter) plus this node's own map-global
 ## scalar fields into a MapDef and writes it to output_path, a map file in the Rust crate's
-## schema (MapJson, spec 39 step 2c) - the only place this tool writes to
-## content/maps/*.json. Engine-glue-only, same disclosed-limitation
+## schema (MapFiles, spec 39 step 2c), which checks the map's rules - the only place this
+## tool writes to content/maps/*.json. Engine-glue-only, same disclosed-limitation
 ## convention as LaneView: a construction smoke test is the only automated coverage
 ## (tests/content/authoring/test_map_scene_root.gd); the export/save path itself is
 ## manual-playtest-verified.
@@ -34,11 +34,8 @@ func _on_export_pressed() -> void:
 	map_def.suspicion_tier_thresholds = suspicion_tier_thresholds
 	map_def.suspicion_decay_per_tick = suspicion_decay_per_tick
 
-	var errors := PackedStringArray(result.errors)
-	errors.append_array(map_def.validate())
-
-	if not errors.is_empty():
-		for error in errors:
+	if not result.errors.is_empty():
+		for error in result.errors:
 			push_error("MapSceneRoot export failed: %s" % error)
 		return
 
@@ -46,6 +43,6 @@ func _on_export_pressed() -> void:
 		push_error("MapSceneRoot export failed: output_path is empty")
 		return
 
-	var write_error := MapJson.write(map_def, ProjectSettings.globalize_path(output_path))
+	var write_error := MapFiles.write(map_def, ProjectSettings.globalize_path(output_path))
 	if not write_error.is_empty():
 		push_error("MapSceneRoot export failed: %s" % write_error)

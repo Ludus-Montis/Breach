@@ -7,6 +7,9 @@
 
 mod items;
 mod map;
+mod map_check;
+#[cfg(test)]
+mod map_check_tests;
 mod reals;
 #[cfg(test)]
 mod schema;
@@ -29,6 +32,7 @@ pub use map::{
     MapEdge, MapLayout, Node, NodeType, ResourceType, RoadSegment, Route, Side, Stance,
     StructureFace, StructurePlan, Subnode, Tile,
 };
+pub use map_check::{cell, CELLS_PER_TILE};
 pub use terrain::{
     Colour, HeatTransition, LiquidBody, Material, Stratum, Terrain, TerrainFeature, TerrainLibrary,
 };
@@ -67,8 +71,8 @@ pub struct Content {
 
 impl Content {
     /// Loads the content under `root` (the repo's `content/`), every unit's items, every
-    /// material the terrain library names and every node, terrain and feature a map names
-    /// checked.
+    /// material the terrain library names, every node, terrain and feature a map names, and
+    /// each map's rules (`map_check.rs`) checked.
     pub fn load(root: &Path) -> Result<Content, LoadError> {
         let content = Content {
             units: load_dir(&root.join("units"))?,
@@ -84,9 +88,13 @@ impl Content {
             return Err(LoadError { file: root.join(TERRAIN_LIBRARY), field, message });
         }
         for (name, map) in &content.maps {
+            let file = root.join("maps").join(format!("{name}.json"));
             if let Some((field, id)) = map.missing_reference(&content.terrain) {
-                let file = root.join("maps").join(format!("{name}.json"));
                 return Err(LoadError { file, field, message: format!("no {id} here") });
+            }
+            let broken = map.validate(&content.terrain);
+            if !broken.is_empty() {
+                return Err(LoadError { file, field: ".".into(), message: broken.join("; ") });
             }
         }
         Ok(content)
@@ -313,6 +321,19 @@ mod tests {
         fs::write(root.join("maps/m.json"), map).unwrap();
         let error = Content::load(&root).unwrap_err();
         assert_eq!(error.field, "layout.tiles[1].terrain_id");
+    }
+
+    #[test]
+    fn a_map_that_breaks_a_rule_fails_to_load_naming_it() {
+        let root = scratch("map-rule");
+        copy_required(&root, &["tuning/battle_tuning.json", TERRAIN_LIBRARY]);
+        fs::create_dir_all(root.join("maps")).unwrap();
+        let map = r#"{"nodes": [{"id": "p"}, {"id": "c", "garrison": -1}],
+            "lanes": [{"id": "to_c", "nodes": ["p", "c"]}], "tick_duration_seconds": 1.5}"#;
+        fs::write(root.join("maps/m.json"), map).unwrap();
+        let error = Content::load(&root).unwrap_err();
+        assert_eq!(error.file, root.join("maps/m.json"));
+        assert!(error.message.contains("garrison must be >= 0, got -1"), "{error}");
     }
 
     #[test]

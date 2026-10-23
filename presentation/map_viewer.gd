@@ -115,11 +115,11 @@ func _select_map(index: int) -> void:
 	_map_picker.select(index)
 	# Read from its file each time, so Reload shows what the designer last saved.
 	var path := ProjectSettings.globalize_path(MAPS_DIR.path_join(_map_names[index] + ".json"))
-	var fields := MapJson.read(path)
-	if fields.has("error"):
-		_info.text = "Map didn't load: %s" % fields["error"]
+	var read := MapFiles.read(path)
+	if read.has("error"):
+		_info.text = "Map didn't load: %s" % read["error"]
 		return
-	var map := MapFill.build(fields)
+	var map: MapDef = read["map"]
 	map_view().map = map
 	map_view().selected_id = ""
 	map_view().selected_cell = MapLayoutView.NO_CELL

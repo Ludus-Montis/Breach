@@ -8,10 +8,3 @@ extends Resource
 
 @export var id: String = ""
 @export var display_name: String = ""
-
-
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if id.is_empty():
-		errors.append("id must not be empty")
-	return errors

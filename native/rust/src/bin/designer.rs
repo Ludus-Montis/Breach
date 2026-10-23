@@ -66,6 +66,10 @@ fn map(export_path: &Path, out: &Path, content: &Path) -> Result<(), Vec<String>
     if let Some((field, id)) = back.missing_reference(&library) {
         return Err(vec![format!("{field}: no {id} here")]);
     }
+    let broken = back.validate(&library);
+    if !broken.is_empty() {
+        return Err(broken);
+    }
     write(out, &text)?;
     println!("wrote {}", out.display());
     Ok(())

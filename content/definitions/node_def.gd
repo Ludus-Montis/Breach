@@ -60,14 +60,14 @@ const NO_TILE := Vector2i(-1, -1)
 
 ## Which faction controls this node - meaningful for ORIGIN-type "base" nodes, not
 ## hard-gated to that type. Cross-referenced against the map's faction roster in
-## MapDef.validate(). Per specs/13-faction-def-and-garrison-unit.md: this and
+## the crate's map rules. Per specs/13-faction-def-and-garrison-unit.md: this and
 ## LaneDef.player_home_index are now two independent ways to identify "the player's
 ## base" on the same node - a known, documented tension, not resolved here.
 @export var owning_faction_id: String = ""
 
 ## Factions that do not know this node exists at map start - secret and secondary
 ## objectives, per specs/15-node-hidden-from-factions.md (Decision 28). Empty = known to
-## every faction. Cross-referenced against the map's faction roster in MapDef.validate().
+## every faction. Cross-referenced against the map's faction roster in the crate's map rules.
 ## Authored, not yet read by sim/ or presentation/; how a hidden node gets revealed
 ## (scouting, events) is not designed yet.
 @export var hidden_from_faction_ids: Array[String] = []
@@ -89,7 +89,7 @@ const NO_TILE := Vector2i(-1, -1)
 ## structure can have a garrison" is already true. Empty = static only, no units
 ## assigned. Only meaningful with garrison > 0. Each entry's patrol_route/
 ## delivery_target_id/faction_id are cross-referenced against the map's real node
-## ids/faction roster in MapDef.validate().
+## ids/faction roster in the crate's map rules.
 @export var garrison_units: Array[GarrisonUnitDef] = []
 
 ## CaptureResolution's capture-choice figures. See
@@ -117,101 +117,3 @@ const NO_TILE := Vector2i(-1, -1)
 ## The node's objectives (Decision 72, specs/26-subnodes.md), in its local cells. One side
 ## holding all of them controls the node; otherwise it is contested.
 @export var subnodes: Array[SubnodeDef] = []
-
-
-## Every tile the node covers.
-func covered_tiles() -> Array[Vector2i]:
-	var tiles: Array[Vector2i] = []
-	if footprint.is_empty():
-		if tile != NO_TILE:
-			tiles.append(tile)
-		return tiles
-	tiles.assign(footprint)
-	return tiles
-
-
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if id.is_empty():
-		errors.append("id must not be empty")
-	if garrison < 0:
-		errors.append("garrison must be >= 0, got %d" % garrison)
-	if node_type == NodeType.RESOURCE:
-		if yield_food_per_tick <= 0:
-			errors.append("yield_food_per_tick must be > 0 for a RESOURCE node")
-		if decay_interval_ticks <= 0:
-			errors.append("decay_interval_ticks must be > 0 for a RESOURCE node")
-		if decay_floor_food < 0:
-			errors.append("decay_floor_food must be >= 0, got %d" % decay_floor_food)
-		if ravage_yield_food <= 0:
-			errors.append("ravage_yield_food must be > 0 for a RESOURCE node")
-	if garrison > 0:
-		if garrison_hp <= 0:
-			errors.append("garrison_hp must be > 0 when garrison > 0")
-		if garrison_dmg <= 0:
-			errors.append("garrison_dmg must be > 0 when garrison > 0")
-	if node_type == NodeType.FORT:
-		if dismantle_wood_yield <= 0:
-			errors.append("dismantle_wood_yield must be > 0 for a FORT node")
-		if dismantle_stone_yield <= 0:
-			errors.append("dismantle_stone_yield must be > 0 for a FORT node")
-		if fortify_wood_cost <= 0:
-			errors.append("fortify_wood_cost must be > 0 for a FORT node")
-		if fortify_stone_cost <= 0:
-			errors.append("fortify_stone_cost must be > 0 for a FORT node")
-	if total_reserves < 0:
-		errors.append("total_reserves must be >= 0, got %d" % total_reserves)
-	if not garrison_units.is_empty() and garrison <= 0:
-		errors.append("garrison_units requires garrison > 0, got %d" % garrison)
-	errors.append_array(_validate_garrison_units_and_hidden_from())
-	errors.append_array(_validate_footprint())
-	errors.append_array(_validate_subnodes())
-	return errors
-
-
-## Each subnode on its own, then together on the node's tiles (when it has a tile).
-func _validate_subnodes() -> PackedStringArray:
-	var errors := PackedStringArray()
-	for subnode in subnodes:
-		errors.append_array(subnode.validate())
-	if tile != NO_TILE:
-		errors.append_array(SubnodeDef.validate_in_node(subnodes, covered_tiles(), tile))
-	return errors
-
-
-## The footprint includes the node's own tile and is one connected area (edge to edge).
-func _validate_footprint() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if footprint.is_empty():
-		return errors
-	if not footprint.has(tile):
-		errors.append("node '%s': its footprint must include its own tile %s" % [id, tile])
-		return errors
-	var reached := {tile: true}
-	var frontier: Array[Vector2i] = [tile]
-	while not frontier.is_empty():
-		var at: Vector2i = frontier.pop_back()
-		for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			if footprint.has(at + step) and not reached.has(at + step):
-				reached[at + step] = true
-				frontier.append(at + step)
-	if reached.size() < footprint.size():
-		errors.append("node '%s': its footprint must be one connected area" % id)
-	return errors
-
-
-## Per-entry checks for the two faction-referencing lists. Local checks only; existence
-## against the map's node ids and faction roster is MapDef's job.
-func _validate_garrison_units_and_hidden_from() -> PackedStringArray:
-	var errors := PackedStringArray()
-	for unit in garrison_units:
-		for unit_error in unit.validate():
-			errors.append(unit_error)
-	var seen := {}
-	for faction_id in hidden_from_faction_ids:
-		if faction_id.is_empty():
-			errors.append("hidden_from_faction_ids must not contain an empty faction id")
-		elif seen.has(faction_id):
-			errors.append("hidden_from_faction_ids lists '%s' more than once" % faction_id)
-		seen[faction_id] = true
-	return errors

@@ -59,6 +59,20 @@ impl Default for Map {
 }
 
 impl Map {
+    /// Whether the map keeps its references and its rules against `library`: the first
+    /// missing reference (`lanes[0].nodes[1]: no f here`), else every rule it breaks.
+    pub fn check(&self, library: &TerrainLibrary) -> Result<(), String> {
+        if let Some((field, id)) = self.missing_reference(library) {
+            return Err(format!("{field}: no {id} here"));
+        }
+        let broken = self.validate(library);
+        if broken.is_empty() {
+            Ok(())
+        } else {
+            Err(broken.join("; "))
+        }
+    }
+
     /// The field (`lanes[0].nodes[1]`, `layout.tiles[2].terrain_id`) and the id of the first
     /// node a lane names that isn't on the map, or the first terrain or feature the layout
     /// names that isn't in `library`.

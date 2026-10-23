@@ -22,7 +22,6 @@ func test_the_demo_export_is_a_valid_map_with_its_lane_and_off_lane_nodes() -> v
 		. is_equal(["p", "f", "F", "c"])
 	)
 	assert_array(result.map_def.off_lane_nodes.map(func(n): return n.id)).is_equal(["s2", "w1"])
-	assert_array(result.map_def.validate()).is_empty()
 
 
 func test_a_layout_export_is_a_valid_map_on_the_shared_library() -> void:
@@ -31,7 +30,6 @@ func test_a_layout_export_is_a_valid_map_on_the_shared_library() -> void:
 	assert_array(result.errors).is_empty()
 	assert_object(result.map_def.layout.terrain_library).is_same(CrateContent.terrain_library())
 	assert_object(result.map_def.layout.tile_at(Vector2i(7, 3)).bridge).is_instanceof(BridgeDef)
-	assert_array(result.map_def.validate()).is_empty()
 
 
 func test_errors_and_warnings_reach_gdscript() -> void:
