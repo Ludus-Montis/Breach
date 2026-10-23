@@ -12,6 +12,12 @@
 //! it set out and how far its front is along its route, its heading, where it last looked
 //! ahead, its painted shift and its centre shift; and where its front stands. A slot newly
 //! given starts blank, each column at SkirmishSquad's starting value.
+//!
+//! Its records (spec 39 step 4b), which SkirmishSquad's dictionaries of the same names are
+//! views over: its loose and fleeing units (their ids, in the order each entry was given;
+//! the entries' keys are the unit store's columns, `entries`), the line it re-faced to
+//! (`stance`), the foes on its other edges (`flanks`, in the order each began) and its units
+//! out chasing (`chasers`, in the order each set out).
 
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +56,43 @@ pub struct Squads {
     pub position: Vec<V2>,
     /// Its units' unit-store slots, in its list's order.
     pub members: Vec<Vec<i32>>,
+    /// Its loose units' ids, in the order each went loose (SquadEntries).
+    pub loose: Vec<Vec<i64>>,
+    /// Its fleeing units' ids, in the order each began to flee (SquadEntries).
+    pub fleeing: Vec<Vec<i64>>,
+    /// The line it re-faced to (ScrumStance), if it holds one.
+    pub stance: Vec<Option<Stance>>,
+    /// Hostile squads fighting it on its other edges (Decision 78), in the order each began.
+    pub flanks: Vec<Vec<Flank>>,
+    /// Its units out chasing on their own (ScrumPursuit, Decision 109), in the order each set
+    /// out.
+    pub chasers: Vec<Vec<Chaser>>,
+}
+
+/// A re-formed line (ScrumStance): its frame's anchor and heading, and the squad it faces.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Stance {
+    pub anchor: V2,
+    pub heading: f64,
+    pub foe: i64,
+}
+
+/// A foe on one of a squad's edges (SquadEdges' edge): who, and the tick its contact began.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Flank {
+    pub edge: i32,
+    pub foe: i64,
+    pub since: i64,
+}
+
+/// A unit out chasing on its own: its id, the squad it chases, where it set out from and
+/// its leash.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Chaser {
+    pub unit: i64,
+    pub foe: i64,
+    pub from: V2,
+    pub leash: f64,
 }
 
 /// A squad not yet turned faces east (`heading`).
@@ -177,7 +220,42 @@ impl Squads {
         self.looked_at.push(f64::NEG_INFINITY);
         self.position.push(V2::ZERO);
         self.members.push(Vec::new());
+        self.loose.push(Vec::new());
+        self.fleeing.push(Vec::new());
+        self.stance.push(None);
+        self.flanks.push(Vec::new());
+        self.chasers.push(Vec::new());
         slot
+    }
+
+    /// Sets the foe on `edge` of the squad in `slot`: an edge it already had keeps its
+    /// place in the order, as a dictionary's key does.
+    pub fn flank(&mut self, slot: usize, edge: i32, foe: i64, since: i64) {
+        let flanks = &mut self.flanks[slot];
+        match flanks.iter_mut().find(|f| f.edge == edge) {
+            Some(held) => *held = Flank { edge, foe, since },
+            None => flanks.push(Flank { edge, foe, since }),
+        }
+    }
+
+    /// True if the squad in `slot` has `foe` on one of its edges.
+    pub fn flanked_by(&self, slot: usize, foe: i64) -> bool {
+        self.flanks[slot].iter().any(|f| f.foe == foe)
+    }
+
+    /// Sets the chase of the unit `chaser.unit` in the squad in `slot`: one already out
+    /// keeps its place in the order.
+    pub fn chase(&mut self, slot: usize, chaser: Chaser) {
+        let chasers = &mut self.chasers[slot];
+        match chasers.iter_mut().find(|c| c.unit == chaser.unit) {
+            Some(held) => *held = chaser,
+            None => chasers.push(chaser),
+        }
+    }
+
+    /// True if the unit is out chasing for the squad in `slot`.
+    pub fn chasing(&self, slot: usize, unit_id: i64) -> bool {
+        self.chasers[slot].iter().any(|c| c.unit == unit_id)
     }
 
     /// Squads with a slot.

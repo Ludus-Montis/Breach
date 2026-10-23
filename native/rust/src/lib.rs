@@ -14,14 +14,19 @@ mod contest;
 pub mod designer;
 mod det_math;
 mod det_pow;
+mod engage;
+mod entries;
 mod face_store;
 mod facing;
 mod field;
 mod field_parting;
+mod frame;
 mod ghash;
 mod grid;
 pub mod ground;
+mod locks;
 mod lying;
+mod manoeuvre;
 mod march;
 mod maths;
 mod motion;
@@ -30,13 +35,17 @@ mod ordered;
 mod parting;
 mod pathing;
 mod paths;
+mod ranks;
 mod reach;
+mod rect;
 mod route;
 mod scrum;
 mod seeking;
 mod snapshot;
 mod squads;
+mod stance;
 mod steer;
+mod trade;
 mod walk_store;
 mod walking;
 
@@ -65,6 +74,9 @@ struct BodyField {
     usec: i64,
     /// The last part()'s moved bodies (flat indices), points and nexts, for commit_part().
     parted: (Vec<i32>, Vec<V2>, Vec<V2>),
+    /// How many calls have changed the squads' records (spec 39 step 4b): SquadRecords'
+    /// views are taken afresh when it moves.
+    edits: i64,
 }
 
 #[godot_api]
@@ -481,6 +493,7 @@ impl BodyField {
             Ok(state) => {
                 self.field = state.field;
                 self.squads = state.squads;
+                self.edits += 1;
                 PackedInt64Array::from(&[state.tick, state.seed])
             }
             Err(_) => PackedInt64Array::new(),
@@ -2510,4 +2523,435 @@ fn json_variant(value: &serde_json::Value) -> Variant {
             dictionary.to_variant()
         }
     }
+}
+
+/// The squads' records and the squad-level scrum (spec 39 step 4b): SquadRecords' views of
+/// SkirmishSquad's loose, fleeing, stance, flank contacts and chasers, and the phases that
+/// read and write them - the entries (SquadEntries, EntryKeys), the locks (FormationLocks),
+/// engaging (ScrumEngage), the stance (ScrumStance), the manoeuvre (FormationManoeuvre), the
+/// stall (FormationScrum), closing ranks (SquadRanks) and the trade (ScrumTrade). Every call
+/// that may change a record moves `edits`.
+#[godot_api(secondary)]
+impl BodyField {
+    /// How many calls have changed the records: a view taken at this count still holds.
+    #[func]
+    fn records_edits(&self) -> i64 {
+        self.edits
+    }
+
+    /// The squad's loose units' ids, in the order each went loose.
+    #[func]
+    fn squad_loose(&self, squad: i64) -> PackedInt64Array {
+        PackedInt64Array::from(self.squads.loose[squad as usize].as_slice())
+    }
+
+    /// The squad's fleeing units' ids, in the order each began to flee.
+    #[func]
+    fn squad_fleeing(&self, squad: i64) -> PackedInt64Array {
+        PackedInt64Array::from(self.squads.fleeing[squad as usize].as_slice())
+    }
+
+    /// The squad's stance as [anchor x, y, heading, foe], or empty for none.
+    #[func]
+    fn squad_stance(&self, squad: i64) -> PackedFloat64Array {
+        match self.squads.stance[squad as usize] {
+            Some(s) => PackedFloat64Array::from(&[
+                s.anchor.x as f64,
+                s.anchor.y as f64,
+                s.heading,
+                s.foe as f64,
+            ]),
+            None => PackedFloat64Array::new(),
+        }
+    }
+
+    /// Sets the squad's stance from [anchor x, y, heading, foe], or none from empty.
+    #[func]
+    fn put_squad_stance(&mut self, squad: i64, stance: PackedFloat64Array) {
+        let s = stance.as_slice();
+        self.squads.stance[squad as usize] = (s.len() == 4).then(|| squads::Stance {
+            anchor: V2::new(s[0] as f32, s[1] as f32),
+            heading: s[2],
+            foe: s[3] as i64,
+        });
+        self.edits += 1;
+    }
+
+    /// The squad's flank contacts as [edge, foe, since] each, in the order each began.
+    #[func]
+    fn squad_flanks(&self, squad: i64) -> PackedInt64Array {
+        let flanks = &self.squads.flanks[squad as usize];
+        let flat: Vec<i64> = flanks.iter().flat_map(|f| [f.edge as i64, f.foe, f.since]).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// Sets the foe on one of the squad's edges, and the tick its contact began.
+    #[func]
+    fn put_squad_flank(&mut self, squad: i64, edge: i64, foe: i64, since: i64) {
+        self.squads.flank(squad as usize, edge as i32, foe, since);
+        self.edits += 1;
+    }
+
+    /// Takes every flank contact of the squad away.
+    #[func]
+    fn clear_squad_flanks(&mut self, squad: i64) {
+        self.squads.flanks[squad as usize].clear();
+        self.edits += 1;
+    }
+
+    /// The squad's chasers as [unit id, foe, from x, y, leash] each, in the order each set out.
+    #[func]
+    fn squad_chasers(&self, squad: i64) -> PackedFloat64Array {
+        let chasers = &self.squads.chasers[squad as usize];
+        let flat: Vec<f64> = chasers
+            .iter()
+            .flat_map(|c| [c.unit as f64, c.foe as f64, c.from.x as f64, c.from.y as f64, c.leash])
+            .collect();
+        PackedFloat64Array::from(flat.as_slice())
+    }
+
+    /// Sends the unit out chasing `foe` (a squad id) from `from`, on `leash` cells.
+    #[func]
+    fn put_squad_chaser(&mut self, squad: i64, unit_id: i64, foe: i64, from: Vector2, leash: f64) {
+        self.squads
+            .chase(squad as usize, squads::Chaser { unit: unit_id, foe, from: v2(from), leash });
+        self.edits += 1;
+    }
+
+    /// Calls the unit back from its chase (nothing if it isn't out).
+    #[func]
+    fn drop_squad_chaser(&mut self, squad: i64, unit_id: i64) {
+        self.squads.chasers[squad as usize].retain(|c| c.unit != unit_id);
+        self.edits += 1;
+    }
+
+    /// SquadEntries.loosen: the unit, in store slot `slot`, goes loose standing at `at`.
+    #[func]
+    fn loosen(&mut self, squad: i64, unit_id: i64, slot: i64, at: Vector2) {
+        let columns = &mut self.field.columns;
+        entries::loosen(
+            &mut self.squads,
+            columns,
+            squad as usize,
+            (unit_id, slot as usize),
+            v2(at),
+        );
+        self.edits += 1;
+    }
+
+    /// SquadEntries.unloose (nothing if the unit has no loose entry).
+    #[func]
+    fn unloose(&mut self, squad: i64, unit_id: i64, slot: i64) {
+        let columns = &mut self.field.columns;
+        entries::unloose(&mut self.squads, columns, squad as usize, (unit_id, slot as usize));
+        self.edits += 1;
+    }
+
+    /// SquadEntries.unloose_all.
+    #[func]
+    fn unloose_all(&mut self, squad: i64) {
+        let field = &mut self.field;
+        let slots: Vec<Option<usize>> = self.squads.loose[squad as usize]
+            .iter()
+            .map(|&id| field.slot_of(id).map(|s| s as usize))
+            .collect();
+        let mut at = slots.into_iter();
+        entries::unloose_all(&mut self.squads, &mut field.columns, squad as usize, |_| {
+            at.next().flatten()
+        });
+        self.edits += 1;
+    }
+
+    /// SquadEntries.flee: the unit gets a fleeing entry, `along` its route, `offset` off it.
+    #[func]
+    fn flee(&mut self, squad: i64, unit_id: i64, slot: i64, along: f64, offset: Vector2) {
+        let columns = &mut self.field.columns;
+        let unit = (unit_id, slot as usize);
+        entries::flee(&mut self.squads, columns, squad as usize, unit, along, v2(offset));
+        self.edits += 1;
+    }
+
+    /// SquadEntries.unflee (nothing if the unit has no fleeing entry).
+    #[func]
+    fn unflee(&mut self, squad: i64, unit_id: i64, slot: i64) {
+        let columns = &mut self.field.columns;
+        entries::unflee(&mut self.squads, columns, squad as usize, (unit_id, slot as usize));
+        self.edits += 1;
+    }
+
+    /// SquadEntries.unflee_all.
+    #[func]
+    fn unflee_all(&mut self, squad: i64) {
+        let field = &mut self.field;
+        let slots: Vec<Option<usize>> = self.squads.fleeing[squad as usize]
+            .iter()
+            .map(|&id| field.slot_of(id).map(|s| s as usize))
+            .collect();
+        let mut at = slots.into_iter();
+        entries::unflee_all(&mut self.squads, &mut field.columns, squad as usize, |_| {
+            at.next().flatten()
+        });
+        self.edits += 1;
+    }
+
+    /// EntryKeys.keep: sets the key (its UnitColumns name) of the entry in `slot`; null only
+    /// for `toward` and `held_by`.
+    #[func]
+    fn entry_keep(&mut self, slot: i64, key: StringName, value: Variant) {
+        let Some(key) = entries::Key::named(&key.to_string()) else {
+            return;
+        };
+        let value = match value.get_type() {
+            VariantType::NIL => entries::Value::None,
+            VariantType::INT | VariantType::BOOL => entries::Value::Int(value.to::<i64>()),
+            VariantType::FLOAT => entries::Value::Real(value.to::<f64>()),
+            _ => entries::Value::Point(v2(value.to::<Vector2>())),
+        };
+        entries::keep(&mut self.field.columns, slot as usize, key, value);
+    }
+
+    /// EntryKeys.forget: takes the keys (their UnitColumns names) out of the entry in `slot`.
+    #[func]
+    fn entry_forget(&mut self, slot: i64, keys: Array<StringName>) {
+        let keys: Vec<entries::Key> =
+            keys.iter_shared().filter_map(|k| entries::Key::named(&k.to_string())).collect();
+        entries::forget(&mut self.field.columns, slot as usize, &keys);
+    }
+
+    /// FormationLocks.lock: the squad fights the squad `foe` (its id) from this tick; its
+    /// `living` units (store slots) strike at once, and units `joined` on the march spread.
+    #[func]
+    fn squad_lock(&mut self, squad: i64, foe: i64, living: PackedInt32Array, joined: bool) {
+        let locking = locks::Locking { squad: squad as usize, living: living.as_slice(), joined };
+        locks::lock(&mut self.squads, &mut self.field.columns, &locking, foe);
+        self.edits += 1;
+    }
+
+    /// FormationLocks.release: ends the squad's fight and frees every squad of `listed`
+    /// (squad slots, in the lists' order) fighting it.
+    #[func]
+    fn squad_release(&mut self, squad: i64, listed: PackedInt32Array) {
+        locks::release(&mut self.squads, squad as usize, &usizes(&listed));
+        self.edits += 1;
+    }
+
+    /// FormationContact.can_engage.
+    #[func]
+    fn squad_can_engage(&self, squad: i64) -> bool {
+        locks::can_engage(&self.squads, squad as usize)
+    }
+
+    /// ScrumSeek.foe_ids: the ids of the squads of `listed` (squad slots) the squad fights;
+    /// `factions` each listed squad's faction (as a code), and its own `faction`.
+    #[func]
+    fn squad_foe_ids(
+        &self,
+        squad: i64,
+        listed: PackedInt32Array,
+        factions: PackedInt32Array,
+        faction: i64,
+    ) -> PackedInt64Array {
+        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
+        let foes = locks::foe_ids(
+            &self.squads,
+            squad as usize,
+            &usizes(&listed),
+            &factions,
+            faction as u32,
+        );
+        PackedInt64Array::from(foes.as_slice())
+    }
+
+    /// FormationManoeuvre.step over `cases`, flat: per squad its slot, whether it is
+    /// withdrawing and skirmishing, how many living units follow, and each one's id and store
+    /// slot (only for a squad that narrowed through a gap).
+    #[func]
+    fn manoeuvre_step(&mut self, cases: PackedInt64Array) {
+        let flat = cases.as_slice();
+        let mut out = Vec::new();
+        let mut at = 0;
+        while at < flat.len() {
+            let count = flat[at + 3] as usize;
+            let living =
+                (0..count).map(|n| (flat[at + 4 + 2 * n], flat[at + 5 + 2 * n] as usize)).collect();
+            out.push(manoeuvre::Case {
+                squad: flat[at] as usize,
+                withdrawing: flat[at + 1] != 0,
+                skirmishing: flat[at + 2] != 0,
+                living,
+            });
+            at += 4 + 2 * count;
+        }
+        manoeuvre::step(&mut self.squads, &mut self.field.columns, &out);
+        self.edits += 1;
+    }
+
+    /// FormationScrum._stall: counts each fighting squad of `listed` (squad slots, in the
+    /// lists' order; `factions` theirs as codes) quiet unless it or a foe is `active` (squad
+    /// ids), and releases those stalled `ticks`. Returns their slots.
+    #[func]
+    fn scrum_stall(
+        &mut self,
+        listed: PackedInt32Array,
+        factions: PackedInt32Array,
+        active: PackedInt64Array,
+        ticks: i64,
+    ) -> PackedInt32Array {
+        let listed = usizes(&listed);
+        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
+        let foes: Vec<Vec<i64>> = (0..listed.len())
+            .map(|n| locks::foe_ids(&self.squads, listed[n], &listed, &factions, factions[n]))
+            .collect();
+        let stall =
+            manoeuvre::Stall { listed: &listed, foes: &foes, active: active.as_slice(), ticks };
+        let stalled = manoeuvre::stall(&mut self.squads, &stall);
+        self.edits += 1;
+        PackedInt32Array::from_iter(stalled.into_iter().map(|s| s as i32))
+    }
+
+    /// ScrumEngage.step over the listed squads (`slots`, in the lists' order): each one's
+    /// faction (a code), whether units joined it on the march, and how many living units
+    /// follow in `units` (store slots), `ats` (where each stands) and `radii`. Returns each
+    /// lock as [its index in the list, the foe's id].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn engage(
+        &mut self,
+        squads: PackedInt32Array,
+        factions: PackedInt32Array,
+        joined: PackedByteArray,
+        counts: PackedInt32Array,
+        units: PackedInt32Array,
+        ats: PackedVector2Array,
+        radii: PackedFloat64Array,
+        reach_engage: f64,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let points = v2s(&ats);
+        let mut sides = Vec::new();
+        let mut from = 0;
+        for (n, &count) in counts.as_slice().iter().enumerate() {
+            let to = from + count as usize;
+            sides.push(engage::Side {
+                squad: squads.as_slice()[n] as usize,
+                faction: factions.as_slice()[n] as u32,
+                joined: joined.as_slice()[n] != 0,
+                slots: units.as_slice()[from..to].to_vec(),
+                at: points[from..to].to_vec(),
+                radii: radii.as_slice()[from..to].to_vec(),
+            });
+            from = to;
+        }
+        let picks =
+            engage::step(&mut self.squads, &mut self.field.columns, &sides, reach_engage, seed);
+        self.edits += 1;
+        let flat: Vec<i64> = picks.iter().flat_map(|&(n, foe)| [n as i64, foe]).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// ScrumStance.anticipate_all over the listed squads (`slots`): each one's faction (a
+    /// code), flags (1 it has living units, 2 it meets threats as a line), bounds (`boxes`:
+    /// position and size each) and how many of the list it detects follow in `detects` (by
+    /// their indices in the list). Lets go of stances in place; returns each new one to take
+    /// as [index in the list, heading, foe].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn anticipate(
+        &mut self,
+        squads: PackedInt32Array,
+        factions: PackedInt32Array,
+        flags: PackedByteArray,
+        boxes: PackedVector2Array,
+        counts: PackedInt32Array,
+        detects: PackedInt32Array,
+        scrum_anticipate: f64,
+        seed: i64,
+    ) -> PackedFloat64Array {
+        let boxes = v2s(&boxes);
+        let detects = usizes(&detects);
+        let mut seen = Vec::new();
+        let mut from = 0;
+        for (n, &count) in counts.as_slice().iter().enumerate() {
+            let to = from + count as usize;
+            let flag = flags.as_slice()[n];
+            seen.push(stance::Seen {
+                squad: squads.as_slice()[n] as usize,
+                faction: factions.as_slice()[n] as u32,
+                living: flag & 1 != 0,
+                bounds: rect::Rect::new(boxes[2 * n], boxes[2 * n + 1]),
+                meets_threats: flag & 2 != 0,
+                detects: detects[from..to].to_vec(),
+            });
+            from = to;
+        }
+        let turns = stance::anticipate(&mut self.squads, &seen, (scrum_anticipate, seed));
+        self.edits += 1;
+        let flat: Vec<f64> =
+            turns.iter().flat_map(|t| [t.seen as f64, t.heading, t.foe as f64]).collect();
+        PackedFloat64Array::from(flat.as_slice())
+    }
+
+    /// SquadRanks.close: the living units (store slots, in the squad's order), each one's
+    /// preferred band and footprint (`feet`: width, depth each), laid out again `width` wide.
+    #[func]
+    fn close_ranks(
+        &mut self,
+        width: i64,
+        slots: PackedInt32Array,
+        preferred: PackedInt64Array,
+        feet: PackedInt32Array,
+    ) {
+        let feet = feet.as_slice();
+        let units: Vec<ranks::Ranked> = (0..slots.len())
+            .map(|n| ranks::Ranked {
+                slot: slots.as_slice()[n] as usize,
+                preferred: preferred.as_slice()[n],
+                foot: (feet[2 * n], feet[2 * n + 1]),
+            })
+            .collect();
+        ranks::close(&mut self.field.columns, &units, width as i32);
+    }
+
+    /// ScrumTrade.track: the loose unit in `slot` stands `gap` cells off its place.
+    #[func]
+    fn trade_track(&mut self, slot: i64, gap: f64, seconds: f64) {
+        trade::track(&mut self.field.columns, slot as usize, gap, seconds);
+    }
+
+    /// ScrumTrade.trade over the squad's units: the living in its order, then any loose ones
+    /// that aren't; per unit its id, store slot, kind (a code), preferred band, footprint
+    /// (`feet`: width, depth each) and whether it is living.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn trade(
+        &mut self,
+        squad: i64,
+        ids: PackedInt64Array,
+        slots: PackedInt32Array,
+        kinds: PackedInt32Array,
+        preferred: PackedInt64Array,
+        feet: PackedInt32Array,
+        living: PackedByteArray,
+        seed: i64,
+        after: f64,
+    ) {
+        let feet = feet.as_slice();
+        let units: Vec<trade::Trader> = (0..ids.len())
+            .map(|n| trade::Trader {
+                id: ids.as_slice()[n],
+                slot: slots.as_slice()[n] as usize,
+                kind: kinds.as_slice()[n] as u32,
+                preferred: preferred.as_slice()[n],
+                foot: (feet[2 * n] as i64, feet[2 * n + 1] as i64),
+                living: living.as_slice()[n] != 0,
+            })
+            .collect();
+        let trading = trade::Trading { squad: squad as usize, units: &units, seed, after };
+        trade::trade(&mut self.squads, &mut self.field.columns, &trading);
+        self.edits += 1;
+    }
+}
+
+fn usizes(values: &PackedInt32Array) -> Vec<usize> {
+    values.as_slice().iter().map(|&v| v as usize).collect()
 }
