@@ -381,8 +381,8 @@ bash native/build.sh dev      # optimised without LTO: rebuilds in seconds
 ```
 
 This puts `native/bin/[lib]breach_rust.<platform>.<ext>` in place, and the map designer's
-tool, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, spec 39 step 2c), which
-`tools/designer/serve.py` runs to save maps and the terrain library. They are git-ignored, as
+server, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, `src/designer/`, spec 39
+step 2c). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it

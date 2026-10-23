@@ -167,7 +167,7 @@
       document.getElementById('libraryStatus').textContent = 'content/registry';
       render();
     }).catch(function () {
-      document.getElementById('libraryStatus').textContent = 'Start the designer server (python tools/designer/serve.py) to browse the library';
+      document.getElementById('libraryStatus').textContent = 'Start the designer server (native/bin/breach_designer, built by bash native/build.sh) to browse the library';
     });
   }
 

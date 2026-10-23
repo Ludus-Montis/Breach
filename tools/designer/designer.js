@@ -1,6 +1,7 @@
 // Lane Tile Designer - the map authoring tool (Decision 30, specs/17-local-designer-app.md).
-// Served by serve.py for repo mode (Open/Save into content/maps_src + automatic Godot
-// import); repo.js loads this file after syncing the repo libraries into localStorage.
+// Served by the designer server (native/bin/breach_designer) for repo mode (Open/Save into
+// content/maps_src, and the map written to content/maps); repo.js loads this file after
+// syncing the repo libraries into localStorage.
 (function () {
   'use strict';
 

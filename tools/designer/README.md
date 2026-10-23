@@ -3,21 +3,22 @@
 The map authoring tool (Decision 30, `specs/17-local-designer-app.md`).
 
 ```
-python tools/designer/serve.py
+native/bin/breach_designer
 ```
 
-This opens `http://127.0.0.1:8765/`. Python 3.10+ is required, standard library only. Saving
-needs the Rust core's designer tool, which `bash native/build.sh` builds into
-`native/bin/breach_designer`.
+This opens `http://127.0.0.1:8765/`. The server is the Rust core's
+(`native/rust/src/designer/`, spec 39 step 2c): `bash native/build.sh` builds it with the core.
+It finds the repo from where it is run, else from `native/bin/`; `--repo <path>`, `--port <n>`
+and `--no-browser` change that.
 
 ## What Save does
 
 **Save** (Ctrl+S) writes `content/maps_src/<name>.designer.json`, the designer's export,
-which is what **Open…** reopens. The server then runs the designer tool, which reads the export
-into the Rust crate's map schema (`content/schema/map.schema.json`, spec 39 step 2c) and
+which is what **Open…** reopens. The server then reads the export into the Rust crate's map
+schema (`content/schema/map.schema.json`, spec 39 step 2c) and
 writes `content/maps/<name>.json`, the map the game loads. The rules are the crate's
-(`native/rust/src/designer/`): lanes come from the links, and every terrain and feature must
-be in the terrain library. The header shows the result. If the map is refused, a dialog lists
+(`native/rust/src/designer/`): lanes come from the links, every terrain and feature must be in
+the terrain library, and the map keeps its rules (`native/rust/src/content/map_check.rs`). The header shows the result. If the map is refused, a dialog lists
 the errors; the export is still saved, but `content/maps/<name>.json` is not changed.
 
 **Open…** (Ctrl+O) lists the saved maps. Any `*.designer.json` export opens, including
@@ -39,8 +40,8 @@ Without Godot, maps still save, but the viewer can't be opened.
 The factions, emplacements, room features, room prefabs and structure prefabs libraries
 live in `content/designer/*.json`. The terrain library is the game's own file,
 `content/terrain/terrain_library.json`, in the Rust crate's schema
-(`content/schema/terrain_library.schema.json`, spec 39 step 2b): the designer tool translates
-it to and from the designer's shape, and refuses an edit that drops a terrain or feature a
+(`content/schema/terrain_library.schema.json`, spec 39 step 2b): the server translates it to and
+from the designer's shape, and refuses an edit that drops a terrain or feature a
 saved map uses. The designer writes them as you edit, so commit them along with
 your maps. Opening a map adds any library entries it uses that
 are missing locally.
@@ -63,11 +64,8 @@ it.
 - `index.html`, `designer.css`, `designer.js`: the designer itself.
 - `repo.js`: repo mode (Open/Save, import status, library sync). Opening `index.html`
   from disk skips this, and the designer then uses browser storage only.
-- `library.html`, `library.js`, `content_library.py`: the Library page and the registry
-  reader behind `GET /api/registry`.
-- `serve.py`, `designer_repo.py`: the local server, which runs the designer tool
-  (`native/rust/src/bin/designer.rs`; its rules and their tests are in
-  `native/rust/src/designer/`).
-- `test_*.py`: the server's tests
-  (`python -m unittest discover -s tools/designer -p "test_*.py"`). The tests that run the
-  real tool skip when the core isn't built.
+- `library.html`, `library.js`: the Library page; the registry behind `GET /api/registry` is
+  read by the server (`native/rust/src/designer/registry.rs`).
+- `planner*.js`, `load_paths.js`: the structure planner and its load paths.
+- `test/*.test.js`: the page's JavaScript tests (`node --test "tools/designer/test/*.test.js"`).
+  The server's tests are cargo tests (`native/rust/src/designer/server_tests.rs`).

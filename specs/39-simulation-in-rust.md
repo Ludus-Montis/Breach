@@ -114,6 +114,13 @@ session records the split here.
   schema, so a translated map is checked by serde, the round trip is a cargo test, and the
   rules are ported once into the language this round moves to. The designer's server runs a
   binary of the crate (`designer`).
+- **All of it in Rust** (2026-10-23, the user's call, "make it all Rust", building 2c): the
+  map's rules (`MapDef.validate()` and what it called) move to the crate too, and so do the
+  designer's server (`serve.py`, `designer_repo.py`, `content_library.py`) and the GDScript that
+  filled the definitions from the crate's content (`ContentFill`, `MapFill`, `MapJson`), since
+  steps 3 to 9 only shrink that fill and never retire it (what presentation draws stays). The
+  designer's page stays JavaScript; moving it to Rust (WebAssembly) is a stretch goal, Q36
+  (#566).
 
 ### Step 3, the ground and the mover
 
@@ -451,6 +458,30 @@ Decision's conditions.
   `MapJson` reads back the same; no `.tres` under `content/maps/` or read),
   `test_designer_map_importer.gd` (what reaches GDScript), and `tools/designer/`'s Python tests
   (the server runs the tool; the real tool when it is built).
+
+- **And then all of it in Rust** (the user's call above), in the same PR:
+  - **The map's rules** (`native/rust/src/content/map_check.rs`): `MapDef.validate()` and what
+    it called (lanes, nodes, footprints, subnodes, edges, faction relations, garrison units,
+    loss groups, the layout's grid, tiles, bridges, roads, routes and channels), with
+    GDScript's messages. The crate checks them when it loads a map (the load fails naming the
+    map), when the designer saves one, and when a map file is written. The GDScript
+    `validate()` methods of the map's definitions and their gdUnit tests went; their
+    scenarios are cargo tests (`map_check_tests.rs`). `FactionDef.validate()`, which nothing
+    called, went with them. The terrain library's, units' and items' `validate()` stay
+    GDScript: they are 2a's and 2b's, and the user picked the map's.
+  - **The fill in the binding** (`ContentStore`, `lib.rs`): the crate hands GDScript its
+    definitions made and filled (vectors, cell-keyed dictionaries, enums by name, typed lists,
+    a unit's shared items, a map's shared nodes), each made once and shared. `ContentFill`,
+    `MapFill` and `MapJson` went; `CrateContent` only calls the store, and `MapFiles` reads and
+    writes a map file through it (the map viewer, the map scene's export). Every unit, weapon,
+    the tuning, the terrain library and every map, filled this way, was checked equal to the
+    `.tres` it was converted from (1637 fields, a one-off script, deleted).
+  - **The designer's server** (`native/rust/src/designer/http.rs`, `repo.rs`, `registry.rs`;
+    `native/bin/breach_designer`): the same API (version 6), the same local-only and
+    whitelisted-name checks, standard library only. It saves a map and the terrain library
+    in-process. The Python server and its tests went: the server's scenarios are cargo tests
+    (`server_tests.rs`), and the page's JavaScript tests, which Python only drove, run with
+    `node --test` (`tools/designer/test/`, in pre-commit when Node is installed).
 
 ## Open, for the implementing session to settle and record here
 

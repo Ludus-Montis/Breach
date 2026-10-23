@@ -63,10 +63,11 @@ Run the test suite (gdUnit4):
 bash ci/godot/scripts/run_tests.sh
 ```
 
-Design a map in the browser (Python 3.10+, opens `http://127.0.0.1:8765/`):
+Design a map in the browser (the designer's server, built with the core; opens
+`http://127.0.0.1:8765/`):
 
 ```sh
-python tools/designer/serve.py
+native/bin/breach_designer
 ```
 
 ## Documentation

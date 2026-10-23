@@ -1,6 +1,6 @@
 // Repo mode for the Lane Tile Designer (Decision 30, specs/17-local-designer-app.md).
 //
-// Loaded first by index.html. If serve.py is answering, this:
+// Loaded first by index.html. If the designer server (native/bin/breach_designer) is answering, this:
 //   1. copies content/designer/*.json into localStorage (so designer.js loads the repo's
 //      libraries through its normal migration path), then loads designer.js;
 //   2. mirrors every later library write back to content/designer/*.json;
@@ -23,8 +23,8 @@
     structure_prefabs: 'breach_structure_prefab_library_v1'
   };
   var CURRENT_FILE_KEY = 'breach_designer_current_file';
-  // Must match serve.py's API_VERSION; an older server is missing endpoints this page uses.
-  var REQUIRED_API = 5;
+  // Must match the server's API_VERSION (native/rust/src/designer/http.rs); an older server is missing endpoints this page uses.
+  var REQUIRED_API = 6;
   var DIRTY_KEY = 'breach_designer_dirty';
 
   var health = null;
@@ -49,9 +49,9 @@
       return r.text().then(function (text) {
         var j;
         try { j = JSON.parse(text); } catch (e) {
-          // Not our JSON API: most often a serve.py started before an update (e.g. 501 for a new method).
+          // Not our JSON API: most often a server started before an update (e.g. 501 for a new method).
           throw new Error('the designer server answered HTTP ' + r.status + ' instead of JSON' +
-            (r.status === 501 || r.status === 404 ? ' — restart serve.py so it runs the current code' : ''));
+            (r.status === 501 || r.status === 404 ? ' — restart the designer server (native/bin/breach_designer) so it runs the current code' : ''));
         }
         if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
         return j;
@@ -208,12 +208,11 @@
     parts.push(health.godot_found
       ? '<span class="ok" title="' + esc(health.godot) + '">Godot ✓</span>'
       : '<span class="bad" title="Pass --godot, set GODOT_BIN, or add tools/designer/local_config.json">Godot not configured</span>');
-    if (health.tool_found === false) parts.push('<span class="bad" title="Saving needs it: run bash native/build.sh">Designer tool not built</span>');
     parts.push(currentFile
       ? '<span>File <span class="file">' + esc(currentFile) + '.designer.json</span></span>'
       : '<span>File <span class="file">(unsaved)</span></span>');
     if ((health.api_version || 1) < REQUIRED_API) {
-      parts.push('<span class="bad" title="serve.py was started before the designer was updated">Server is out of date — restart serve.py</span>');
+      parts.push('<span class="bad" title="the designer server was started before the designer was updated">Server is out of date — restart native/bin/breach_designer</span>');
     }
     if (dirty) parts.push('<span class="dirty">● unsaved changes</span>');
     if (statusText) {
@@ -301,7 +300,7 @@
   }
   // ---------- view in Godot (specs/18) ----------
   function viewInGodot() {
-    if ((health.api_version || 1) < REQUIRED_API) { showStatus('The designer server is out of date — stop serve.py and start it again, then retry', 'bad'); return; }
+    if ((health.api_version || 1) < REQUIRED_API) { showStatus('The designer server is out of date — stop native/bin/breach_designer and start it again, then retry', 'bad'); return; }
     if (!health.godot_found) { showStatus('Godot not configured, so the viewer cannot be opened', 'bad'); return; }
     if (!currentFile || dirty) {
       saveMap(false, function (imp) { if (imp.ok) launchViewer(currentFile); });

@@ -1,121 +1,90 @@
-//! What the designer's server (`tools/designer/designer_repo.py`) runs to read and write the
-//! simulation's content in the crate's schema (spec 39 step 2c). Godot isn't needed.
+//! The map designer's local server (specs/17-local-designer-app.md, Decision 30; in Rust since
+//! spec 39 step 2c), which `bash native/build.sh` builds into `native/bin/breach_designer`:
 //!
-//!   designer map <export.json> <map.json> <content dir>
-//!       reads a saved designer map into the schema, checks it against the content, writes
-//!       it; prints `warning: ...` and `error: ...` lines, then `wrote <map.json>`, and exits
-//!       1 (writing nothing) on an error.
-//!   designer terrain-read <content dir>
-//!       prints the terrain library in the designer's shape.
-//!   designer terrain-write <content dir> <maps_src dir>
-//!       reads the designer's terrain library on stdin and writes it in the schema, unless it
-//!       drops a terrain or feature a saved map uses, or doesn't fit the schema; prints
-//!       `error: ...` lines then, and exits 1.
+//!   native/bin/breach_designer [--port 8765] [--godot <path>] [--repo <path>] [--no-browser]
+//!
+//! It serves the designer from `tools/designer/` on 127.0.0.1 and saves maps and libraries
+//! into the repo (`designer::repo`). Godot (--godot, else GODOT_BIN, else
+//! tools/designer/local_config.json's "godot") is only needed to open the map viewer.
 
-use std::io::Read;
-use std::path::Path;
+use std::net::TcpListener;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 
-use breach_native::content::{file_text, load_file, LoadError, Map, TerrainLibrary};
-use breach_native::designer::{map_from_export, terrain};
-use serde_json::Value;
+use breach_native::designer::http::Server;
+use breach_native::designer::repo::{find_godot, launch_detached, Repo};
 
-const TERRAIN_LIBRARY: &str = "terrain/terrain_library.json";
+const USAGE: &str =
+    "usage: breach_designer [--port 8765] [--godot <path>] [--repo <path>] [--no-browser]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let words: Vec<&str> = args.iter().map(String::as_str).collect();
-    let done = match words.as_slice() {
-        ["map", export, out, content] => map(Path::new(export), Path::new(out), Path::new(content)),
-        ["terrain-read", content] => terrain_read(Path::new(content)),
-        ["terrain-write", content, maps_src] => {
-            terrain_write(Path::new(content), Path::new(maps_src))
-        }
-        _ => {
-            eprintln!(
-                "usage: designer map <export.json> <map.json> <content dir> | terrain-read \
-                 <content dir> | terrain-write <content dir> <maps_src dir>"
-            );
-            return ExitCode::from(2);
+    let value = |flag: &str| {
+        let at = args.iter().position(|arg| arg == flag)?;
+        args.get(at + 1).cloned()
+    };
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        println!("{USAGE}");
+        return ExitCode::SUCCESS;
+    }
+    let Some(root) = value("--repo").map(PathBuf::from).or_else(find_repo) else {
+        eprintln!("breach_designer: no repo found (a folder with project.godot); pass --repo");
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let port: u16 = value("--port").and_then(|port| port.parse().ok()).unwrap_or(8765);
+    let designer = root.join("tools/designer");
+    let env = std::env::var("GODOT_BIN").ok();
+    let config = designer.join("local_config.json");
+    let godot = find_godot(value("--godot").as_deref(), env.as_deref(), &config);
+    let listener = match TcpListener::bind(("127.0.0.1", port)) {
+        Ok(listener) => listener,
+        Err(why) => {
+            eprintln!("breach_designer: can't listen on 127.0.0.1:{port}: {why}");
+            return ExitCode::from(1);
         }
     };
-    match done {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(errors) => {
-            for error in errors {
-                eprintln!("error: {error}");
-            }
-            ExitCode::from(1)
-        }
+    let url = format!("http://127.0.0.1:{port}/");
+    println!("Lane Tile Designer: {url}  (repo {})", root.display());
+    match &godot {
+        Some(godot) => println!("Godot: {godot} - View in Godot opens the map viewer"),
+        None => println!(
+            "Godot: not configured - maps save, but View in Godot can't open the viewer.\n       \
+             Pass --godot <path>, set GODOT_BIN, or add {{\"godot\": \"<path>\"}} to\n       \
+             tools/designer/local_config.json (gitignored)."
+        ),
     }
+    println!("Ctrl+C to stop.");
+    if !args.iter().any(|arg| arg == "--no-browser") {
+        open_browser(&url);
+    }
+    let server = Server::new(Repo::new(root, godot, Box::new(launch_detached)), designer);
+    Arc::new(server).serve(listener);
+    ExitCode::SUCCESS
 }
 
-fn map(export_path: &Path, out: &Path, content: &Path) -> Result<(), Vec<String>> {
-    let export: Value = read_json(export_path)?;
-    let library: TerrainLibrary = load_file(&content.join(TERRAIN_LIBRARY)).map_err(one)?;
-    let read = map_from_export(&export, &library);
-    for warning in &read.warnings {
-        println!("warning: {warning}");
-    }
-    if !read.errors.is_empty() {
-        return Err(read.errors);
-    }
-    let text = file_text(&read.map);
-    // The file must read back as the crate loads a map: the schema, and every reference.
-    let back: Map = serde_json::from_str(&text).map_err(|error| vec![error.to_string()])?;
-    if let Some((field, id)) = back.missing_reference(&library) {
-        return Err(vec![format!("{field}: no {id} here")]);
-    }
-    let broken = back.validate(&library);
-    if !broken.is_empty() {
-        return Err(broken);
-    }
-    write(out, &text)?;
-    println!("wrote {}", out.display());
-    Ok(())
+/// The repo: the first folder holding project.godot, from here up, else from this program
+/// (native/bin/) up.
+fn find_repo() -> Option<PathBuf> {
+    let here = std::env::current_dir().ok();
+    let program = std::env::current_exe().ok();
+    let starts = [here.as_deref(), program.as_deref().and_then(Path::parent)];
+    let found = starts.into_iter().flatten().find_map(|start| {
+        start.ancestors().find(|dir| dir.join("project.godot").is_file()).map(Path::to_path_buf)
+    });
+    found
 }
 
-fn terrain_read(content: &Path) -> Result<(), Vec<String>> {
-    let library: TerrainLibrary = load_file(&content.join(TERRAIN_LIBRARY)).map_err(one)?;
-    println!("{}", file_text(&terrain::from_schema(&library)).trim_end());
-    Ok(())
-}
-
-fn terrain_write(content: &Path, maps_src: &Path) -> Result<(), Vec<String>> {
-    let mut text = String::new();
-    std::io::stdin().read_to_string(&mut text).map_err(|error| vec![error.to_string()])?;
-    let designer: Value = serde_json::from_str(&text).map_err(|error| vec![error.to_string()])?;
-    let library = terrain::to_schema(&designer).map_err(|error| vec![error])?;
-    if let Some((field, id)) = library.missing_material() {
-        return Err(vec![format!("{field}: no material {id}")]);
-    }
-    let problems = terrain::in_use_problems(&library, maps_src);
-    if !problems.is_empty() {
-        return Err(problems);
-    }
-    let out = content.join(TERRAIN_LIBRARY);
-    write(&out, &file_text(&library))?;
-    println!("wrote {}", out.display());
-    Ok(())
-}
-
-fn read_json(path: &Path) -> Result<Value, Vec<String>> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|error| vec![format!("{}: {error}", path.display())])?;
-    serde_json::from_str(&text).map_err(|error| vec![format!("{}: {error}", path.display())])
-}
-
-/// Writes `text` to `path` unless it already holds it.
-fn write(path: &Path, text: &str) -> Result<(), Vec<String>> {
-    if std::fs::read_to_string(path).is_ok_and(|held| held == text) {
-        return Ok(());
-    }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|error| vec![error.to_string()])?;
-    }
-    std::fs::write(path, text).map_err(|error| vec![format!("{}: {error}", path.display())])
-}
-
-fn one(error: LoadError) -> Vec<String> {
-    vec![error.to_string()]
+fn open_browser(url: &str) {
+    let command: &[&str] = if cfg!(windows) {
+        &["cmd", "/C", "start", ""]
+    } else if cfg!(target_os = "macos") {
+        &["open"]
+    } else {
+        &["xdg-open"]
+    };
+    let mut all: Vec<String> = command.iter().map(|part| part.to_string()).collect();
+    all.push(url.to_string());
+    let _ = launch_detached(&all);
 }

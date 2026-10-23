@@ -1,8 +1,9 @@
-//! The designer's files in the crate's schema (spec 39 step 2c, Decision 153). The designer
+//! The map designer's side of the crate (spec 39 step 2c, Decision 153). The designer's page
 //! (`tools/designer/`) saves a map as its own export (`content/maps_src/<name>.designer.json`,
 //! which it reopens) and edits the terrain library in its own shape; this module reads them
-//! into the schema's `Map` and `TerrainLibrary`, and the library back. The `designer` binary
-//! (`src/bin/designer.rs`) is what the designer's server runs.
+//! into the schema's `Map` and `TerrainLibrary`, and the library back. Its local server is
+//! here too (`http.rs`, `repo.rs`, `registry.rs`), run by the `designer` binary
+//! (`src/bin/designer.rs`, `native/bin/breach_designer`).
 //!
 //! The rules are the ones Godot's designer import had (specs 16 and 19): a map's lanes come
 //! from its links (`lanes.rs`), its nodes from the export's nodes (`nodes.rs`) and its layout
@@ -10,10 +11,13 @@
 //! as loosely as that import read it: a missing value takes its default and a number may be
 //! a string.
 
+pub mod http;
 mod lanes;
 mod layout;
 mod nodes;
 mod plan;
+pub mod registry;
+pub mod repo;
 pub mod terrain;
 
 use serde_json::Value;
@@ -211,5 +215,7 @@ fn flag_of(value: &Value, key: &str) -> bool {
     value.get(key).is_some_and(flag)
 }
 
+#[cfg(test)]
+mod server_tests;
 #[cfg(test)]
 mod tests;

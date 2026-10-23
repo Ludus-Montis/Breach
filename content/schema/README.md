@@ -32,8 +32,9 @@ generated from them, for the designer and editors to validate against.
   pairs. `layout` and a node's `plan` and a tile's `bridge` are `null` when there is none.
 - **Colours.** A terrain's or material's `color` is `"#rrggbb"` or `"#rrggbbaa"`.
 - **The terrain library and the maps** are written by the map designer (`tools/designer/`),
-  which edits them in its own shape and saves them in this one through the crate's designer
-  tool (`native/rust/src/designer/`). Lists keep the designer's order. `p_f_F_c` is written by
+  which edits them in its own shape and saves them in this one through its server, which is
+  the crate's (`native/rust/src/designer/`). A map is checked against its rules
+  (`native/rust/src/content/map_check.rs`) when it is saved and when it loads. Lists keep the designer's order. `p_f_F_c` is written by
   its map scene's export (`content/maps_src/p_f_F_c.tscn`).
 - **Errors.** A field of the wrong type, a field the kind doesn't have, an item that isn't
   there, a material the terrain library names that it doesn't hold, or a node, terrain or
