@@ -3,9 +3,9 @@ extends RefCounted
 ## The battle's unit store (specs/35-unit-store.md, Decision 142): every unit in a list the
 ## simulation or the digest reads has a dense slot, given when it enrols and freed when it
 ## is in no list. Free slots are reused lowest first. A slot is storage only: no loop runs
-## in slot order and no tie is broken by slot (Decision 97). Two backends keep one
-## contract (test_unit_store.gd): UnitStoreGd, the reference, and UnitStoreNative on the
-## battle's BodyField; NativeKernels.unit_store picks one, as it picks the engine. Columns
+## in slot order and no tie is broken by slot (Decision 97). Its backend is UnitStoreNative,
+## on the battle's BodyField under either engine (spec 39 step 4a; test_unit_store.gd),
+## made by NativeKernels.unit_store. Columns
 ## of per-tick state are in `columns` (UnitColumns), indexed by slot; a unit's slot is on
 ## its record (SkirmishUnit.slot) and reached through its squad (SkirmishSquad.store).
 ## Its squads' state is the squad store, `squads` (SquadColumns, spec 39 step 1).
@@ -18,7 +18,7 @@ const SquadColumns = preload("res://sim/skirmish/formation/squad_columns.gd")
 var columns: UnitColumns = UnitColumns.new()
 var squads: SquadColumns = SquadColumns.new()  # the squad store (spec 39 step 1)
 var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or below (UnitHealth)
-var _records := {}  # unit id -> its record, kept in GDScript on both backends
+var _records := {}  # unit id -> its record, kept in GDScript
 
 
 ## Enrols a unit's record: its slot, as `enrol`, and the record kept so a unit named by id
@@ -33,7 +33,7 @@ func record_of(unit_id: int):
 	return _records.get(unit_id)
 
 
-## The native BodyField the store and its columns live on; null for the GDScript store.
+## The native BodyField the store and its columns live on.
 func field() -> Object:
 	return null
 

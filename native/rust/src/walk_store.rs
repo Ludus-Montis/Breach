@@ -6,6 +6,7 @@
 use crate::field::Field;
 use crate::maths::V2;
 use crate::scrum::{AIM, PRESS, TOUCH};
+use crate::walking::{self, Params, WalkIn, WalkOut};
 
 /// Per unit of the walk (`members`: flat indices in the last sync, `codes`: the seek's):
 /// `motion` = [bearing, turn rate, backward pace] and, for one walking back to its place
@@ -65,4 +66,51 @@ pub fn write_back(
             c.keys[b] = (c.keys[b] | held) & !valued;
         }
     }
+}
+
+/// What the walk is told of each squad and of the ground, beyond the seek's: per squad
+/// [pace, heading, width, centre shift] and its frame's anchor, and the bodies lying.
+pub struct WalkSay<'a> {
+    pub squad_floats: &'a [f64],
+    pub squad_anchors: &'a [V2],
+    pub lying_ats: &'a [V2],
+    pub lying_radii: &'a [f64],
+    pub lying_areas: &'a [f64],
+}
+
+/// The walk, as a phase on the field (BodyField.walk), for the units the tick's seek
+/// planned (`squads` per fighting squad [id, foes, units]; `members`, `codes`, `nexts` and
+/// `speeds` per unit, as the seek gave them). Where each ends and looks is written into its
+/// loose entry (`bits` as `write_back`'s), and returned.
+#[allow(clippy::too_many_arguments)]
+pub fn walk(
+    field: &mut Field,
+    squads: &[i64],
+    say: &WalkSay,
+    members: &[i32],
+    codes: &[u8],
+    nexts: &[V2],
+    speeds: &[f64],
+    bits: [i32; 2],
+    params: &Params,
+) -> WalkOut {
+    let member_counts: Vec<i32> = squads.chunks(3).map(|c| c[2] as i32).collect();
+    let (motion, frames) = gather(field, members, codes);
+    let input = WalkIn {
+        member_counts: &member_counts,
+        squad_floats: say.squad_floats,
+        squad_anchors: say.squad_anchors,
+        members,
+        codes,
+        nexts,
+        speeds,
+        motion: &motion,
+        frames: &frames,
+        lying_ats: say.lying_ats,
+        lying_radii: say.lying_radii,
+        lying_areas: say.lying_areas,
+    };
+    let out = walking::walk(field, &input, params);
+    write_back(field, members, codes, &out.ats, &out.towards, bits);
+    out
 }

@@ -4,62 +4,17 @@ extends RefCounted
 ## fighting squad - and of any squad, at a retreating enemy - strikes one enemy it touches
 ## (ScrumReach), on a face or a corner: one in its front first, then the nearest, then by
 ## the battle's seeded draw (ScrumContest; never by id, Decision 97). A blow from outside
-## the target's front, or on a turning squad, is a flank blow. Blows land together. Units
-## turn to their foes at their turn rate as they move (FormationScrum, UnitMotion), so a
-## unit fighting one foe is flanked by a second, and one turning away is struck from behind.
-## Routing squads are left to FormationRout. Pure over the squads it is given.
+## the target's front, or on a turning squad, is a flank blow. Blows land together. Who
+## strikes whom is the crate's, on the battle's native bodies (ScrumBlowsField, `blows.rs`,
+## spec 39 step 4a); what is here is what the passes still in GDScript ask of it: whether a
+## unit touches a foe, the nearest it touches (ScrumRegroup), the hostiles, a unit's ticks
+## between blows and clearing the targets as a fight begins. Routing squads are left to
+## FormationRout. Pure over the squads it is given.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
-const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
-const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
-const FoeIndex = preload("res://sim/skirmish/formation/foe_index.gd")
-const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-
-
-## This tick's blows: [[attacker, target, damage, flank], ...]. Updates each striker's
-## target and cooldown.
-static func blows(squads: Array, interval: int, fight_seed: int) -> Array:
-	var out := []
-	if squads.is_empty():
-		return out
-	var index := FoeIndex.of(squads)  # one grid a faction, as they stand
-	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
-	var cooldowns: PackedInt32Array = squads[0].store.columns.column(UnitColumns.ATTACK_COOLDOWN)
-	var targets: PackedInt64Array = squads[0].store.columns.column(UnitColumns.TARGET_ID)
-	for squad in squads:
-		var near := FoeIndex.struck(index, squad)
-		if near.is_empty():
-			continue
-		var reach := BattleTuning.current().reach_contact
-		var retreating: bool = squad.order == SkirmishUnit.Order.RETREAT  # read once (Decision 144)
-		var banded := -1  # its morale band, read at its first blow
-		for unit in squad.living():
-			var where := ScrumReach.at(squad, unit)
-			var close := ScrumNear.around(near, where, ScrumReach.radius(unit) + reach)
-			var pick := _pick(squad, unit, bearings[unit.slot], close, fight_seed)
-			if pick.is_empty():
-				continue
-			var target: SkirmishUnit = pick[0]
-			var target_at: Vector2 = pick[2]
-			targets[unit.slot] = target.id
-			cooldowns[unit.slot] -= 1
-			if cooldowns[unit.slot] > 0:
-				continue
-			if banded < 0:
-				banded = FormationMorale.band(squad)
-			cooldowns[unit.slot] = FormationMorale.interval(banded, ticks(interval, unit))
-			var target_squad: SkirmishSquad = pick[1]
-			if retreating and not ScrumReach.in_front(bearings[unit.slot], where, target_at):
-				continue  # turned away: it no longer strikes
-			var flank := not ScrumReach.in_front(bearings[target.slot], target_at, where)
-			out.append([unit, target, FormationCombat.damage(unit), flank])
-	squads[0].store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
-	squads[0].store.columns.commit(UnitColumns.TARGET_ID, targets)
-	return out
 
 
 ## True if the unit touches a living unit of any of `foes` ([[unit, squad], ...]).

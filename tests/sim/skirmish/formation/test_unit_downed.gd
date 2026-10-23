@@ -3,11 +3,10 @@ extends GdUnitTestSuite
 ## Decision 147): the part of a point regeneration has regained, the seconds a blow stopped
 ## it for, the seconds a downed unit has yet to lie, the part of a point its condition has
 ## drained, and the wounds the last blow that struck it would add. The columns round-trip
-## and start blank on both backends and the native store holds them on its field; the
-## recovery pass reads and writes them through its view, alike on both backends; a blow
+## and start blank and the native store holds them on its field; the recovery pass reads
+## and writes them through its view; a blow
 ## that lands writes its wounds and its halt to the store, and bury reads them back; and
-## SkirmishUnit no longer declares them. The native half is skipped where the Rust core
-## isn't built (native/build.sh).
+## SkirmishUnit no longer declares them.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -34,14 +33,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_downed: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -99,7 +91,7 @@ func test_the_columns_round_trip_and_a_new_slot_starts_blank() -> void:
 
 ## A standing regenerator whose regeneration a blow stopped counts the halt down; a downed
 ## unit in poor condition drains and counts down its time downed. The pass leaves the same
-## columns on both backends.
+## columns.
 func test_the_recovery_pass_reads_and_writes_the_store_alike_on_both_backends() -> void:
 	var said := []
 	for backend in _backends():

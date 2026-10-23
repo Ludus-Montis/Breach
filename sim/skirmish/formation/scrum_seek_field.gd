@@ -5,11 +5,11 @@ extends RefCounted
 ## on the field's unit store (spec 35 step 4b). GDScript sends only what its rules say of
 ## each fighting squad - its foes, whether its units may seek, its frame, its chasers - and
 ## each unit's speed; the field reads each unit's place, goal and record where they live and
-## writes the outcome into its loose entry's columns there, exactly as ScrumSeek's own
-## seeking would: who touches a foe and stands, who keeps to its place, who makes for a
-## slot (and claims it), who presses in behind a taken one. The ground is asked back only
-## where there is terrain. Slots, keys, contest order and draws are the core's, bit for bit
-## the GDScript's (native/README.md).
+## writes the outcome into its loose entry's columns there: who touches a foe and stands,
+## who keeps to its place, who makes for a slot (and claims it), who presses in behind a
+## taken one. The ground is asked back only where there is terrain. Slots, keys, contest
+## order and draws are the crate's (`scrum.rs`, `contest.rs`), bit for bit the GDScript
+## seek's until it retired (spec 39 step 4a; native/README.md).
 
 ## What the core says each unit does (BodyField.seek).
 enum Outcome { TOUCH, STAND, AIM, PRESS, IDLE }
@@ -153,38 +153,4 @@ static func _batch(synced: Array, say: Say, out: Array) -> Batch:
 		batch.owners.append(synced[1][flat])
 		batch.speeds.append(say.speeds[flat])
 	batch.plan = [out[3], PackedInt64Array(), PackedInt32Array(), out[4], out[5]]
-	return batch
-
-
-## The units a seek on the field would plan, as GDScript reckons them, without planning:
-## each fighting squad's synced units in list order, chasers left out. For the facing's
-## and the walk's tests and benches, which run them on a field without a seek first.
-static func gathered(units: Array, owners: Array, squads: Array) -> Batch:
-	var batch := Batch.new()
-	var current: SkirmishSquad = null
-	var counted := 0  # the batch's units when the current squad opened
-	var paces := {}  # store -> a read view of SPEED (UnitView.read_once)
-	var speeds := PackedFloat64Array()  # the current squad's store's
-	var fights := {}  # squad -> whether it is fighting, read once (Decision 144)
-	for index in range(units.size()):
-		var squad: SkirmishSquad = owners[index]
-		if not fights.has(squad):
-			fights[squad] = squad.state == SkirmishSquad.State.FIGHTING
-		if not fights[squad]:
-			continue
-		if squad != current:
-			current = squad
-			var foes := ScrumSeek.foe_ids(squad, squads)
-			batch.squads.append_array([squad.id, foes.size(), 0])
-			batch.foe_ids.append_array(foes)
-			counted = batch.units.size()
-			speeds = UnitView.read_once(paces, squad, [UnitColumns.SPEED]).speed
-		var unit: SkirmishUnit = units[index]
-		if squad.chasers.has(unit.id):
-			continue
-		batch.units.append(unit)
-		batch.owners.append(squad)
-		batch.members.append(index)
-		batch.speeds.append(speeds[unit.slot])
-		batch.squads[batch.squads.size() - 1] = batch.units.size() - counted
 	return batch

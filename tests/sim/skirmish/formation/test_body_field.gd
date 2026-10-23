@@ -1,14 +1,14 @@
 extends GdUnitTestSuite
 ## The native core's BodyField (Decision 129, NativeKernels): Godot's hash() reproduced bit
 ## for bit, a roster kept across ticks (units enrolled once, the dead dropped, a unit that
-## changes squad moved with it), and the scrum's slot search on the field choosing exactly
-## what ScrumSeek's GDScript chooses - whatever the list order. Skipped where the library
-## isn't built (native/build.sh): the switch falls back to GDScript.
+## changes squad moved with it), a synced unit's record enrolled once, and the scrum's slot
+## search on the field choosing the same whatever the list order (its rules are the
+## crate's cargo tests, scrum/tests.rs). Skipped where the library isn't built
+## (native/build.sh).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
-const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
@@ -124,12 +124,9 @@ func _scrum(ticks: int, reversed: bool) -> Array:
 
 
 func _ctx(squads: Array, field: Object) -> Dictionary:
-	if field != null:
-		UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
+	UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
 	var ctx := {"squads": squads, "tick": 7, "seed": 2, "terrain": null, "active": {}}
 	ctx["field"] = field
-	ctx["bodies"] = ScrumSeek.bodies(squads)
-	ctx["crowd"] = BodyGrid.of_bodies(ctx["bodies"])
 	return ctx
 
 
@@ -149,36 +146,6 @@ func _planned(squads: Array, field: Object) -> Array:
 	var active: Array = ctx["active"].keys()
 	active.sort()
 	return [out, active]
-
-
-## The squads' loose entries and the store's columns, which hold them (spec 35).
-func _saved(squads: Array) -> Array:
-	return (
-		squads.map(func(squad): return squad.loose.duplicate())
-		+ [UnitPlaces.saved(squads[0].store)]
-	)
-
-
-func _restore(squads: Array, saved: Array) -> void:
-	for index in range(squads.size()):
-		squads[index].loose = saved[index].duplicate()
-	UnitPlaces.restore(squads[0].store, saved[-1])
-
-
-func test_the_slot_search_on_the_field_seeks_as_gdscript_does() -> void:
-	var field := _field()
-	if field == null:
-		return
-	# Moments while the scrum is under way (with DetMath it ends by tick 150, not 165)
-	for ticks in [95, 110, 130, 140]:
-		var squads := _scrum(ticks, false)
-		var saved := _saved(squads)
-		var reference := _planned(squads, null)
-		var seeking: Array = reference[0].filter(func(e): return e[1][0] != null)
-		assert_bool(seeking.is_empty()).is_false()  # the scrum is under way
-		_restore(squads, saved)
-		var planned := var_to_bytes(_planned(squads, field))
-		assert_array(Array(planned)).is_equal(Array(var_to_bytes(reference)))
 
 
 func test_a_synced_unit_s_record_is_enrolled_on_the_field_once() -> void:

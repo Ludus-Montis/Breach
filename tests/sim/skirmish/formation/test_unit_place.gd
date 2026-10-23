@@ -1,10 +1,9 @@
 extends GdUnitTestSuite
 ## Each unit's place in its squad's frame in the unit store (specs/35-unit-store.md step
-## 4a): the rank and column columns round-trip on both backends, a slot newly given starts
+## 4a): the rank and column columns round-trip, a slot newly given starts
 ## at the front left (0, 0), the native store holds them on its field, and SkirmishUnit no
 ## longer declares them. A battle's units start where its layout places them. The battle's
-## per-tick comparison of both engines (test_unit_store.gd) compares them too. The native
-## half is skipped where the Rust core isn't built (native/build.sh).
+## per-tick comparison of both engines (test_unit_store.gd) compares them too.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -18,14 +17,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_place: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -72,7 +64,7 @@ func test_the_place_is_the_store_s_alone() -> void:
 
 
 ## A pass over many units reads the places once (a view of UnitView.PLACES) and each unit's
-## from it (UnitPlace.in_view), on both backends: the same places as reading the store.
+## from it (UnitPlace.in_view): the same places as reading the store.
 func test_a_view_of_places_reads_each_unit_s_place_as_the_store_holds_it() -> void:
 	for backend in _backends():
 		var store: UnitStore = backend[1]

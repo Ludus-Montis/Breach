@@ -1,13 +1,13 @@
 class_name ScrumBlowsField
 extends RefCounted
-## The fight's melee search on the native core (NativeKernels, Decision 129): who strikes
-## whom in the scrum (ScrumBlows.blows: each unit of a squad that strikes picks the foe it
-## touches, ScrumBlows._pick) worked out on the battle's field, synced to the scrum as it
+## The fight's melee search on the native core (NativeKernels, Decision 129; the crate's
+## `blows.rs`, spec 39 step 4a): who strikes whom in the scrum (ScrumBlows: each unit of a
+## squad that strikes picks the foe it touches - one in its front first, then the nearest,
+## then by the seeded draw) worked out on the battle's field, synced to the scrum as it
 ## stands when the fight begins; and, for rolled blows, BlowLanding's counts of the foes
-## pressing each target (BlowLanding._pressed) on that same sync. Only the search crosses:
-## cooldowns, the morale's interval, the blows themselves and how they land stay
-## GDScript's, taken unit by unit in ScrumBlows' order, so the results are the reference's
-## bit for bit (native/README.md).
+## pressing each target on that same sync. Only the search crosses: cooldowns, the
+## morale's interval, the blows themselves and how they land stay GDScript's, taken unit
+## by unit in the sync's order (native/README.md).
 
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
@@ -33,7 +33,7 @@ static var spent := PackedInt64Array([0, 0, 0, 0])
 static var _synced := 0
 
 
-## ScrumBlows.blows on the field: [[attacker, target, damage, flank], ...]; updates each
+## The scrum's blows on the field: [[attacker, target, damage, flank], ...]; updates each
 ## striker's target and cooldown. Clears every living unit's target first, as the fight
 ## begins (FormationMelee).
 static func blows(field: Object, squads: Array, interval: int, fight_seed: int) -> Array:
@@ -67,6 +67,12 @@ static func synced(field: Object) -> bool:
 	return _synced == field.get_instance_id()
 
 
+## Syncs `field` as blows() does, for pressed() to count on when blows() had no need to.
+static func sync(field: Object, squads: Array, fight_seed: int) -> void:
+	_sync(field, squads, fight_seed)
+	_synced = field.get_instance_id()
+
+
 ## BlowLanding's [squad_of, pressed] for these blows ([striker, target, ...]), on the sync
 ## blows() made: each striker's [unit, squad], and how many touching foes fight each
 ## target this tick (by the units' targets now).
@@ -94,7 +100,7 @@ static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 	return [squad_of, pressing]
 
 
-## True if some squad may strike in the scrum (FoeIndex.struck would give it foes),
+## True if some squad may strike in the scrum (the crate's search would give it foes),
 ## by the squads' states, orders and factions alone: a squad standing (not routing nor
 ## destroyed) and fighting or retreating strikes any other faction's standing squad,
 ## another only one retreating.
@@ -156,7 +162,7 @@ static func _trimmed(batch: BodyFieldSync.Batch, size: int) -> BodyFieldSync.Bat
 	return batch
 
 
-## Each pick taken as ScrumBlows.blows takes it, in its order: the unit's target, its
+## Each pick taken in the sync's order: the unit's target, its
 ## cooldown, and its blow when the cooldown runs out (unless it has turned away).
 static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interval: int) -> Array:
 	var out := []

@@ -10,12 +10,12 @@
 //! GDScript until the tick ports (step 8): a squad's route and its command's patches are
 //! not in the crate's store yet.
 
+use crate::contest;
 use crate::ground::Walker;
 use crate::maths::V2;
 use crate::paths::sight::Sight;
 use crate::paths::{self, Eyes, Over, PathWalker};
 use crate::route::Route;
-use crate::steer;
 
 /// A living unit of the group, as a look reads it: how it crosses the ground, its wits,
 /// its id (for the battle's seeded draw), where it stands and, with a definition, its sight
@@ -66,7 +66,7 @@ pub fn group_walker(members: &[Member]) -> PathWalker {
 pub fn pathfinder(members: &[Member], seed: i64) -> Option<usize> {
     let mut best: Option<(usize, (i64, i64))> = None;
     for (index, member) in members.iter().enumerate() {
-        let key = (member.wits, steer::draw(seed, member.id));
+        let key = (member.wits, contest::draw(seed, member.id));
         if best.is_none_or(|(_, best_key)| best_key < key) {
             best = Some((index, key));
         }

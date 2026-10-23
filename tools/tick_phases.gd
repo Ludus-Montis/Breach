@@ -31,8 +31,6 @@ const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoe
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
-const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const ColumnCopies = preload("res://tools/column_copies.gd")
@@ -200,12 +198,10 @@ func _scrum(sim: Sim, events: Array) -> void:
 		"pace": pace * sim.tick_seconds,
 		"seed": sim.fight_seed,
 		"terrain": sim.terrain,
-		"bodies": ScrumSeek.bodies(squads),
 		"lying": GroundBodies.ground(squads),
 		"active": {},
 		"field": sim._field,
 	}
-	ctx["crowd"] = BodyGrid.of_bodies(ctx["bodies"])
 	_lap("scrum: bodies snapshot")
 	_seek(ctx)
 	_lap("scrum: seek (slot search)")
@@ -225,8 +221,8 @@ func _scrum(sim: Sim, events: Array) -> void:
 	_lap("scrum: pursuit, stall")
 
 
-## ScrumSeek.plan. On the native core, ScrumSeekField's own timings are booked to their
-## parts, so the seek's line keeps only the rest (the GDScript path has none).
+## ScrumSeek.plan. ScrumSeekField's own timings are booked to their parts, so the seek's
+## line keeps only the rest.
 func _seek(ctx: Dictionary) -> void:
 	var before := ScrumSeekField.spent.duplicate()
 	ScrumSeek.plan(ctx)
@@ -257,10 +253,7 @@ func _scrum_events(sim: Sim) -> Array:
 
 
 func _walk_and_face(ctx: Dictionary) -> void:
-	var fighting: Array = ctx["squads"].filter(
-		func(s): return s.state == SkirmishSquad.State.FIGHTING
-	)
-	Scrum.walk(fighting, ctx)
+	ScrumWalkField.walk(ctx)
 	_lap("scrum: walk (steering)")
-	Scrum.face(fighting, ctx)
+	ScrumFaceField.face(ctx)
 	_lap("scrum: face foes")

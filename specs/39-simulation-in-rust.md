@@ -147,6 +147,19 @@ blows, the contest, the trade, entries and ranks, the locks, then regroup (`Scru
 walk back through the scrum walk's kernel), the pursuits, withdraw, fronts, edges, contact and
 perception. The largest step. It is expected to split (4a the scrum core, 4b regroup onwards).
 
+- **Split** (2026-10-23, the user's call, building 4a: about 3,500 lines of GDScript in some
+  27 classes): **4a** the per-unit scrum: the seek (`ScrumSeek`'s plan with `SlotSearch`,
+  `ScrumSlots`, `ScrumNear`, `FoeIndex` and `BodyGrid` where only it reads them), the walk,
+  the facing, the blows' picks and the landing's counts, `ScrumContest` and `ScrumReach`;
+  **4b** the squad-level scrum: engage, the stance, the manoeuvre, the locks, ranks, entries,
+  the trade and the stall; **4c** regroup onwards (regroup, the pursuits, withdraw, fronts,
+  edges, contact and perception). 4c's PR closes the step.
+- **The field in both engines** (2026-10-23, the user's call, building 4a): the seek, walk,
+  facing and blows already ran in Rust on the battle's `BodyField` (Decision 129), which the
+  `gdscript` engine didn't make. To retire their twins, every battle now has a field and the
+  native unit store under both engines, and `UnitStoreGd` retires. `BREACH_NATIVE` then picks
+  only the twins still left (body parting, `UnitBodies`, until step 6).
+
 ### Step 5, groups and the split
 
 `FormationGroups`, `GroupSplit`, strays (`FormationStrays`), compaction (`SquadCompact`) and
@@ -682,6 +695,58 @@ Decision's conditions.
   front place, passing through, spreading within the combat width in a fight, DetPow's
   powers, and the targets, the pace and the moves planned the same whatever the order of
   the units.
+
+### Step 4a, the per-unit scrum in the crate
+
+- **The field in both engines** (the user's call, Steps, "Step 4"): `NativeKernels.body_field`
+  makes a `BodyField` under either engine, and `unit_store` always the native store (on a
+  new field if none is given). `UnitStoreGd` is gone. `BREACH_NATIVE` picks only body
+  parting's engine (`NativeKernels.parts_natively`, read by `UnitBodies.step`), the last
+  pass with a GDScript twin; CI's two-engine digests compare that one.
+- **The seek, the walk, the facing and the blows** already ran in Rust on the field
+  (Decision 129: `scrum.rs`, `seeking.rs`, `walking.rs`, `facing.rs`, `blows.rs`). Their
+  GDScript twins are gone: ScrumSeek's own plan and `SlotSearch`, ScrumSlots' slots,
+  `FoeIndex`, ScrumNear's gaps and its `only`, FormationScrum's `_walk`, `_footing`,
+  `_faces` and `_seeking_look`, ScrumBlows' search and BlowLanding's `_pressed`. Each is a
+  phase in the crate that `BodyField` calls (`seeking::seek`, `walk_store::walk`,
+  `face_store::face`, `blows::picks`). A rolled tick with no melee search (shots only)
+  now syncs the field for the landing's count (`ScrumBlowsField.sync`), where GDScript
+  counted it before: the same count, from the same points.
+- **The contest and the reach** (`contest.rs`, `reach.rs`): ScrumContest's draws, squad
+  draws and rolls, and ScrumReach's radius, gap, front and area, bound by `ScrumRules`
+  (stateless, one shared: `CrateScrum`). ScrumContest and ScrumReach are views over it,
+  their APIs unchanged; `ScrumContest.before` (a key compare other passes use) and
+  `ScrumReach.at`/`at_in` (where a unit stands, from its squad's entries) stay GDScript.
+  The seek's contest order, the steering's and the march's draws (`steer::draw`, moved),
+  and the facing's, blows' and seek's touch and front tests use them, one rule in one
+  place.
+- **Kept GDScript for 4b and 4c**: ScrumNear (engage, regroup, the rout), BodyGrid,
+  ScrumSlots' bodies (regroup, pursuit), ScrumBlows' touches, hostiles, nearest touching
+  (regroup), ticks and clearing of targets, and ScrumSeek's foe ids.
+- **Identical:** before the GDScript was deleted, a one-off script (deleted) ran the old
+  ScrumContest and ScrumReach and the views on 280,000 random queries (draws, squad draws
+  and keys with seeds and ids across their range, radii, gaps with bodies apart, touching
+  and on one point, fronts at any bearing and on the quarter ones, and areas turned every
+  way), all equal bit for bit. The seek, walk, facing and blows were the Rust engine's
+  already, identical to GDScript on CI's digests since Decision 129. Outcomes unchanged:
+  CI's digests compare with `main`.
+- **Retired:** `slot_search.gd`, `foe_index.gd`, `unit_store_gd.gd`; the GDScript bodies
+  above; `tools/facing_bench.gd`, `steering_bench.gd` and `blows_bench.gd` (each timed a
+  twin against the core); `test_scrum_slots.gd`, `test_formation_mirror.gd`,
+  `test_walk_field.gd`, `test_face_field.gd`, `test_blows_field.gd` and
+  `test_foe_index.gd` (its draw case is `test_nearest_touching.gd`, for regroup's
+  GDScript); the twin halves of `test_scrum_search.gd` and `test_body_field.gd`; the
+  GDScript backend of the store's contract tests. `test_face_field.gd`'s DetMath check is
+  in `test_det_math.gd`.
+- **Tests:** cargo, on a scrum built by `build::scrum` (and `build::reversed`):
+  `scrum/tests.rs` (slots round a grem and a brute, the nearest open from the foe's front,
+  a slot under a body, claimed or past the leash, waiting a breadth short, touching and
+  standing, mirror slots about as often, the list order), `facing/tests.rs` (the foe in
+  front before a nearer one at its side at its turn rate, nothing to face, the walk's
+  look, the list order), `walking/tests.rs` (a step to a slot, none touching, back to its
+  place, round a body, slowed underfoot, the list order), `blows.rs` (the list order),
+  `contest.rs` (draws pinned to Godot's, the die, the order, the list order) and
+  `reach.rs`. gdUnit: a battle has a field under either engine (`test_body_parting.gd`).
 
 ## Open, for the implementing session to settle and record here
 

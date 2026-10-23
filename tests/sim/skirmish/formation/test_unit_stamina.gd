@@ -2,11 +2,9 @@ extends GdUnitTestSuite
 ## Each unit's stamina, pace and exertion in the unit store (specs/35-unit-store.md step 6c,
 ## Decisions 142 and 146): its stamina, its speed this tick, whether it exerted itself, its
 ## breather, how far into a run it is, whether it ran last tick and its condition. The
-## columns round-trip and start blank on both backends and the native store holds them on
-## its field; a unit entering a squad starts at its full stamina and its fresh pace; the
-## stamina pass reads and writes them through its view, alike on both backends; and
-## SkirmishUnit no longer declares them. The native half is skipped where the Rust core
-## isn't built (native/build.sh).
+## columns round-trip and start blank and the native store holds them on its field; a unit
+## entering a squad starts at its full stamina and its fresh pace; the stamina pass reads
+## and writes them through its view; and SkirmishUnit no longer declares them.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -35,14 +33,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_stamina: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -116,7 +107,7 @@ func test_a_unit_entering_its_squad_starts_at_its_full_stamina_and_fresh_pace() 
 
 
 ## A routing squad's units run: they build up their run, spend stamina and so don't recover
-## this tick; the pass leaves the same columns on both backends.
+## this tick; the pass leaves the same columns.
 func test_the_stamina_pass_reads_and_writes_the_store_alike_on_both_backends() -> void:
 	var said := []
 	for backend in _backends():

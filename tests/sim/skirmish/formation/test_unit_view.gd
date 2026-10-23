@@ -1,7 +1,7 @@
 extends GdUnitTestSuite
 ## UnitView (spec 35 step 6a, Decision 146): one typed view onto the unit store, a typed
 ## property for every column; a pass holds the columns it names and writes them in place,
-## or reads them with no hold. The same contract on both backends.
+## or reads them with no hold.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
@@ -25,14 +25,7 @@ func after_test() -> void:
 
 
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_view: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	for backend in out:
 		for unit_id in [1, 2, 3]:
 			backend[1].enrol(unit_id)
@@ -159,7 +152,7 @@ func test_read_once_reads_a_store_once_into_its_views() -> void:
 
 
 ## Spec 35 step 6b: where a unit stands, and a router's point, read from a view as the
-## scattered forms read them from the store, on both backends.
+## scattered forms read them from the store.
 func test_the_view_forms_of_where_a_unit_stands_match_the_scattered_ones() -> void:
 	for backend in _backends():
 		var store: UnitStore = backend[1]

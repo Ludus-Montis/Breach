@@ -8,7 +8,7 @@
 
 use crate::field::Field;
 use crate::maths::{bearing_vector, V2};
-use crate::scrum::{PlanIn, PlanOut, AIM, PRESS, STAND, TOUCH};
+use crate::scrum::{self, Params, PlanIn, PlanOut, AIM, PRESS, STAND, TOUCH};
 
 /// What GDScript's rules say of each fighting squad, in the sync's order.
 pub struct SquadSay<'a> {
@@ -167,4 +167,24 @@ pub fn write_back(
         active.push(any);
     }
     active
+}
+
+/// The seek, as a phase on the field (BodyField.seek): the fighting squads' units gathered,
+/// planned in contest order (`scrum::plan`) and written back into the store's columns.
+/// `within` answers whether a unit (by its flat index in the last sync) may stand on a
+/// point of the ground; `bits` as `write_back`'s. Returns what was gathered, the plan and, per
+/// fighting squad, whether it was active.
+pub fn seek(
+    field: &mut Field,
+    say: &SquadSay,
+    params: &Params,
+    within: &mut dyn FnMut(i32, V2) -> bool,
+    bits: [i32; 2],
+) -> (Gathered, PlanOut, Vec<u8>) {
+    let gathered = gather(field, say);
+    let members = &gathered.members;
+    let mut ask = |member: usize, point: V2| within(members[member], point);
+    let out = scrum::plan(field, &gathered.input(), params, &mut ask);
+    let active = write_back(field, &gathered, &out, bits);
+    (gathered, out, active)
 }

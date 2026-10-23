@@ -1,12 +1,10 @@
 extends GdUnitTestSuite
 ## The scrum's searches through grids (spec 30 round 3) choose exactly as looking through
-## every body, foe and slot does: on a crowded, jittered field, SlotSearch picks the slot
-## ScrumSlots.pick picks, ScrumNear gives ScrumSlots.gap_to's gap, and UnitSteer steers the
-## same with its crowd as without, for seeker after seeker.
+## every body does: on a crowded, jittered field, UnitSteer steers the same with its crowd
+## as without, for seeker after seeker, and a grid's rings hold every point once. The slot
+## search's own grids are the crate's (scrum.rs, spec 39 step 4a; its cargo tests).
 
 const ScrumSlots = preload("res://sim/skirmish/formation/scrum_slots.gd")
-const SlotSearch = preload("res://sim/skirmish/formation/slot_search.gd")
-const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
 const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -49,57 +47,6 @@ func _field(count: int) -> Array:
 
 func _jitter(rng: RandomNumberGenerator) -> Vector2:
 	return Vector2(rng.randf_range(-0.4, 0.4), rng.randf_range(-0.4, 0.4))
-
-
-func _foes(squad: SkirmishSquad) -> Array:
-	return squad.living().map(func(unit): return [unit, squad])
-
-
-func _named(slot: Array) -> Array:
-	return [] if slot.is_empty() else [slot[1].id, slot[3]]
-
-
-func test_slot_search_picks_the_slot_scrum_slots_picks() -> void:
-	var sides := _field(48)
-	var bodies := ScrumSlots.bodies(sides)
-	var crowd := BodyGrid.of_bodies(bodies)
-	var slots := ScrumSlots.round_foes(_foes(sides[1]), 0.5)
-	var slot_ring := SlotSearch.ring(_foes(sides[1]), 0.5, bodies, crowd)
-	var claimed := []
-	var claims := {}
-	var picked := 0
-	for seeker in sides[0].living().filter(func(u): return u.footprint_width == 1):
-		var place: Vector2 = _places.at(seeker) + Vector2(-0.3, 0.2)
-		var ground := [place, bodies, claimed, null, SEED]
-		var indexed := ground + [crowd, claims]
-		for crowded in [false, true]:
-			var whole := ScrumSlots.pick(
-				seeker, _places.at(seeker), _places.facing(seeker), slots, ground, crowded
-			)
-			var found := SlotSearch.pick(
-				seeker, _places.at(seeker), _places.facing(seeker), slot_ring, indexed, crowded
-			)
-			assert_array(_named(found)).is_equal(_named(whole))
-		var taken := ScrumSlots.pick(
-			seeker, _places.at(seeker), _places.facing(seeker), slots, ground
-		)
-		if not taken.is_empty():  # it claims the slot, as a seeker does
-			picked += 1
-			claimed.append(taken[0])
-			SlotSearch.claim(claims, taken[0])
-	assert_int(picked).is_greater(3)
-
-
-func test_scrum_near_gives_the_gap_to_the_nearest_foe() -> void:
-	var sides := _field(48)
-	var foes := _foes(sides[1])
-	var near := ScrumNear.index(foes)
-	for unit in sides[0].living():
-		var radius: float = 0.5 * unit.footprint_width
-		var gap := ScrumNear.gap_to(near, _places.at(unit), radius)
-		assert_float(gap).is_equal(ScrumSlots.gap_to(_places.at(unit), radius, foes))
-	var far := Vector2(-40, 3)
-	assert_float(ScrumNear.gap_to(near, far, 0.5)).is_equal(ScrumSlots.gap_to(far, 0.5, foes))
 
 
 func test_steering_through_its_crowd_steers_as_through_every_body() -> void:

@@ -10,6 +10,7 @@ mod blows;
 mod build;
 mod columns;
 pub mod content;
+mod contest;
 pub mod designer;
 mod det_math;
 mod det_pow;
@@ -29,6 +30,7 @@ mod ordered;
 mod parting;
 mod pathing;
 mod paths;
+mod reach;
 mod route;
 mod scrum;
 mod seeking;
@@ -231,17 +233,12 @@ impl BodyField {
             chaser_ids: chaser_ids.as_slice(),
             speeds: speeds.as_slice(),
         };
-        let gathered = seeking::gather(&self.field, &say);
-        let input = gathered.input();
         let ground = within.is_valid();
-        let members = &gathered.members;
-        let mut ask = |member: usize, p: V2| -> bool {
-            let flat = members[member] as i64;
-            !ground || within.callv(&varray![flat, Vector2::new(p.x, p.y)]).to::<bool>()
+        let mut ask = |flat: i32, p: V2| -> bool {
+            !ground || within.callv(&varray![flat as i64, Vector2::new(p.x, p.y)]).to::<bool>()
         };
-        let out = scrum::plan(&self.field, &input, &params, &mut ask);
-        let active =
-            seeking::write_back(&mut self.field, &gathered, &out, [i[3] as i32, i[4] as i32]);
+        let bits = [i[3] as i32, i[4] as i32];
+        let (gathered, out, active) = seeking::seek(&mut self.field, &say, &params, &mut ask, bits);
         self.usec = began.elapsed().as_micros() as i64;
         varray![
             &PackedInt64Array::from(gathered.fighters.as_slice()),
@@ -278,26 +275,15 @@ impl BodyField {
         let f = floats.as_slice();
         let params =
             facing::Params { reach: f[0], front: f[1], seconds: f[2], pace: f[3], crowding: f[4] };
-        let triples = squads.as_slice();
-        let foe_counts: Vec<i32> = triples.chunks(3).map(|c| c[1] as i32).collect();
-        let member_counts: Vec<i32> = triples.chunks(3).map(|c| c[2] as i32).collect();
-        let members = members.as_slice();
-        let gathered = face_store::gather(&self.field, members, valued as i32);
-        let input = facing::FaceIn {
-            foe_counts: &foe_counts,
-            foe_ids: foe_ids.as_slice(),
-            member_counts: &member_counts,
-            members,
-            ats: &gathered.ats,
-            motion: &gathered.motion,
-            speeds: speeds.as_slice(),
-            flags: &gathered.flags,
-            nexts: &gathered.nexts,
-            foe_ats: &gathered.foe_ats,
-            towards: &gathered.towards,
-        };
-        let out = facing::face(&mut self.field, &input, &params);
-        face_store::write_back(&mut self.field, members, &out);
+        let out = face_store::face(
+            &mut self.field,
+            squads.as_slice(),
+            foe_ids.as_slice(),
+            members.as_slice(),
+            speeds.as_slice(),
+            valued as i32,
+            &params,
+        );
         self.usec = began.elapsed().as_micros() as i64;
         PackedFloat64Array::from(out.as_slice())
     }
@@ -377,36 +363,28 @@ impl BodyField {
             drag: f[3],
             block: f[4],
         };
-        let member_counts: Vec<i32> = squads.as_slice().chunks(3).map(|c| c[2] as i32).collect();
         let sizes = lying_sizes.as_slice();
         let lying_radii: Vec<f64> = sizes.chunks(2).map(|c| c[0]).collect();
         let lying_areas: Vec<f64> = sizes.chunks(2).map(|c| c[1]).collect();
         let (anchors, nexts, lying) = (v2s(&squad_anchors), v2s(&nexts), v2s(&lying_ats));
-        let (members, codes) = (members.as_slice(), codes.as_slice());
-        let (motion, frames) = walk_store::gather(&self.field, members, codes);
-        let input = walking::WalkIn {
-            member_counts: &member_counts,
+        let say = walk_store::WalkSay {
             squad_floats: squad_floats.as_slice(),
             squad_anchors: &anchors,
-            members,
-            codes,
-            nexts: &nexts,
-            speeds: speeds.as_slice(),
-            motion: &motion,
-            frames: &frames,
             lying_ats: &lying,
             lying_radii: &lying_radii,
             lying_areas: &lying_areas,
         };
-        let out = walking::walk(&self.field, &input, &params);
         let b = bits.as_slice();
-        walk_store::write_back(
+        let out = walk_store::walk(
             &mut self.field,
-            members,
-            codes,
-            &out.ats,
-            &out.towards,
+            squads.as_slice(),
+            &say,
+            members.as_slice(),
+            codes.as_slice(),
+            &nexts,
+            speeds.as_slice(),
             [b[0], b[1]],
+            &params,
         );
         self.usec = began.elapsed().as_micros() as i64;
         varray![&packed(&out.ats), &packed(&out.towards)]
@@ -1487,6 +1465,52 @@ impl TerrainGround {
     }
 }
 
+/// The scrum's contest and reach (spec 39 step 4a; `contest`, `reach`): ScrumContest and
+/// ScrumReach are views over it. Stateless: one is shared.
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct ScrumRules {}
+
+#[godot_api]
+impl ScrumRules {
+    #[func]
+    fn draw(&self, seed: i64, id: i64) -> i64 {
+        contest::draw(seed, id)
+    }
+
+    #[func]
+    fn squad_draw(&self, seed: i64, id: i64) -> i64 {
+        contest::squad_draw(seed, id)
+    }
+
+    #[func]
+    fn roll(&self, seed: i64, tick: i64, id: i64, die: i64) -> i64 {
+        contest::roll(seed, tick, id, die)
+    }
+
+    #[func]
+    fn radius(&self, width: i64, depth: i64) -> f64 {
+        reach::radius(width, depth)
+    }
+
+    #[func]
+    fn gap(&self, here: Vector2, radius: f64, there: Vector2, other: f64) -> f64 {
+        reach::gap(v2(here), radius, v2(there), other)
+    }
+
+    /// `point` in the front of a unit at `from` on `bearing`, its front `arc` degrees.
+    #[func]
+    fn in_front(&self, bearing: f64, from: Vector2, point: Vector2, arc: f64) -> bool {
+        reach::in_front(maths::bearing_vector(bearing), v2(from), v2(point), reach::front(arc))
+    }
+
+    #[func]
+    fn area(&self, at: Vector2, width: i64, depth: i64, heading: f64) -> Rect2 {
+        let (corner, size) = reach::area(v2(at), width, depth, heading);
+        Rect2::new(vector2(corner), vector2(size))
+    }
+}
+
 /// Routes, motion, the one mover and steering (spec 39 step 3b; `route`, `motion`,
 /// `mover`, `steer`): FormationRoute, RoutePatch, UnitMotion, UnitMover, TerrainStep and
 /// UnitSteer are views over it. Stateless: one is shared. A unit's motion is passed as
@@ -1703,9 +1727,9 @@ impl UnitMoves {
             .map(|i| steer::Body { at: v2(points[i]), radius: radii[i], squad: squads[i] })
             .collect();
         let ids = ids.as_slice();
-        let draw = |i: usize| steer::draw(seed, ids[i]);
+        let draw = |i: usize| contest::draw(seed, ids[i]);
         let (look, clear) = (tuning[0], tuning[1]);
-        let own_draw = || steer::draw(seed, id);
+        let own_draw = || contest::draw(seed, id);
         let to =
             steer::toward(v2(at), v2(goal), own, squad, &near, look, clear, seed, &own_draw, &draw);
         vector2(to)

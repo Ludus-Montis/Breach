@@ -1,13 +1,12 @@
 extends GdUnitTestSuite
 ## The rest of a unit's per-tick fields in the unit store (specs/35-unit-store.md step 7c,
 ## Decision 147): the unit it fights, how far along its route it stands, the last place it
-## could stand, whether it is on a climb face or in deep water, and the climb still above it.
-## The columns round-trip and start blank on both backends and the native store holds them
-## on its field; the melee clears every target in the store as a fight begins, on both
-## backends; the march writes where along the route each unit stands; the walk keeps its
-## climb in the store, and stamina reads it there; and SkirmishUnit no longer declares them,
-## nor its unread copies of its squad's order, home and wait. The native half is skipped
-## where the Rust core isn't built (native/build.sh).
+## could stand, whether it is on a climb face or in deep water, and the climb still above
+## it. The columns round-trip and start blank and the native store holds them on its field;
+## the melee clears every target in the store as a fight begins; the march writes where
+## along the route each unit stands; the walk keeps its climb in the store, and stamina
+## reads it there; and SkirmishUnit no longer declares them, nor its unread copies of its
+## squad's order, home and wait.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -39,14 +38,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_walk_columns: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -112,7 +104,7 @@ func _assert_on_field(field: Object, slot: int) -> void:
 
 
 ## A fight begins with every living unit's target cleared, in the store, before any strikes:
-## with no foe to strike, every target is 0 after the melee, on both backends.
+## with no foe to strike, every target is 0 after the melee.
 func test_the_melee_clears_each_target_in_the_store_on_both_backends() -> void:
 	for backend in _backends():
 		var store: UnitStore = backend[1]

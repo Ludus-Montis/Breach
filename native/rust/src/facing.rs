@@ -11,6 +11,7 @@ use crate::field::Field;
 use crate::grid::MARGIN;
 use crate::maths::{bearing_vector, V2};
 use crate::motion::{self, Mover};
+use crate::reach;
 use crate::scrum::{foes_of, Foes};
 
 /// The unit makes for a slot: it has a next point and a foe there.
@@ -117,11 +118,10 @@ pub fn touching(
         let f = foes.bodies[i as usize] as usize;
         let there = field.at[f];
         let apart = at.distance_to(there) as f64;
-        let gap = apart - radius - field.radius[f];
-        if (if gap > 0.0 { gap } else { 0.0 }) > reach {
+        if reach::apart(apart, radius, field.radius[f]) > reach {
             return true; // not touching (distances are never NaN)
         }
-        let front = if in_front(ahead, at, there, front_dot) { 0 } else { 1 };
+        let front = if reach::in_front(ahead, at, there, front_dot) { 0 } else { 1 };
         let key = (front, apart, field.draw[f], f as u32);
         if best.as_ref().is_none_or(|b| before(&key, b)) {
             best = Some(key);
@@ -146,12 +146,5 @@ fn before(a: &(u8, f64, i64, u32), b: &(u8, f64, i64, u32)) -> bool {
     a.2 < b.2
 }
 
-/// ScrumReach.in_front: `point` lies in the front of a unit at `from` facing `ahead`.
-#[inline]
-pub fn in_front(ahead: V2, from: V2, point: V2, front: f64) -> bool {
-    let direction = point.sub(from);
-    if (direction.length() as f64) < 0.000001 {
-        return true;
-    }
-    direction.normalized().dot(ahead) as f64 >= front
-}
+#[cfg(test)]
+mod tests;

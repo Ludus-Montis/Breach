@@ -9,10 +9,11 @@
 
 use std::collections::HashMap;
 
-use crate::facing::{in_front, touching};
+use crate::facing::touching;
 use crate::field::{Field, DESTROYED, ROUTING};
 use crate::grid::Grid;
 use crate::maths::bearing_vector;
+use crate::reach::{self, in_front};
 use crate::scrum::Foes;
 
 /// A squad's rules, as GDScript hands them over: it is fighting.
@@ -108,9 +109,7 @@ pub fn pressed(field: &Field, targets: &[i64], asked: &[i64], reach: f64) -> Vec
         let Some(foe) = field.body_of(target) else { continue };
         let unit = field.flat[flat] as usize;
         let f = foe as usize;
-        let gap =
-            field.at[unit].distance_to(field.at[f]) as f64 - field.radius[unit] - field.radius[f];
-        if (if gap > 0.0 { gap } else { 0.0 }) <= reach {
+        if reach::gap(field.at[unit], field.radius[unit], field.at[f], field.radius[f]) <= reach {
             *count.entry(foe).or_insert(0) += 1;
         }
     }
@@ -130,7 +129,10 @@ pub fn pressed(field: &Field, targets: &[i64], asked: &[i64], reach: f64) -> Vec
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
+    use crate::build::{reversed, scrum, Fighter, Side};
     use crate::field::{Enrol, SyncIn, LOOSE, SCRUM};
     use crate::maths::V2;
 
@@ -193,5 +195,27 @@ mod tests {
         // 20 retreats, turned away from 10; 10 strikes it all the same, as it retreats.
         assert_eq!(got, vec![(0, 1, FLANK), (1, 0, AWAY), (2, 0, FLANK)]);
         assert!(super::picks(&field, &[0, 0], &params()).is_empty()); // none fights, none retreats
+    }
+
+    /// Unit id -> [the foe's id it strikes, its flags], the squads all fighting.
+    fn struck(sides: &[Side]) -> BTreeMap<i64, (i64, u8)> {
+        let field = scrum(sides, 5);
+        let id = |flat: i32| field.unit_id[field.flat[flat as usize] as usize];
+        let picks = picks(&field, &vec![FIGHTING; sides.len()], &params());
+        picks.iter().map(|p| (id(p.flat), (id(p.foe), p.flags))).collect()
+    }
+
+    #[test]
+    fn the_blows_are_the_same_whatever_the_list_order() {
+        let line = |id: i64, x: f32, bearing: f64| -> Vec<Fighter> {
+            (0..6).map(|n| Fighter::grem(id + n, V2::new(x, n as f32 * 0.9), bearing)).collect()
+        };
+        let sides = vec![
+            Side { id: 1, faction: "a", flags: 0, fighters: line(100, 0.0, 90.0) },
+            Side { id: 2, faction: "b", flags: 0, fighters: line(200, 1.1, 250.0) },
+        ];
+        let forward = struck(&sides);
+        assert_eq!(forward, struck(&reversed(&sides)));
+        assert!(forward.len() >= 10); // the lines are in contact
     }
 }

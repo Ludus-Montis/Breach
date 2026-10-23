@@ -89,7 +89,7 @@ var _next_squad_id := 1
 var _next_unit_id := 1
 var _pending_orders := {}  # squad id -> SkirmishUnit.Order
 var _tick := 0
-var _field: Object = NativeKernels.body_field()  # the bodies, native or null (Decision 129)
+var _field: Object = NativeKernels.body_field()  # the bodies, native (Decision 129)
 
 
 func _init(length: float, seconds_per_tick: float) -> void:

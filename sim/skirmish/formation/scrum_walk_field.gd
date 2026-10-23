@@ -9,9 +9,9 @@ extends RefCounted
 ## each squad's frame and pace, and the bodies lying. The field reads where each unit
 ## stands, faces and keeps its place (rank and column) from the unit store's columns, and
 ## what it turns and walks back by from its record, and writes where each ends and looks
-## into its loose entry there (spec 35 step 4c), exactly as FormationScrum._walk writes it
-## in GDScript: the same bodies stepped round, the same maths in the same precision,
-## DetMath's asin, sin and cos (native/README.md).
+## into its loose entry there (spec 35 step 4c): the GDScript walk's steps, bit for bit,
+## until it retired (spec 39 step 4a), with the same maths in the same precision, DetMath's
+## asin, sin and cos (native/README.md).
 
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
@@ -87,7 +87,7 @@ static func walk(ctx: Dictionary) -> void:
 
 
 ## The native walk's steps (from where each unit stood, `from`) paid for the ground they
-## cross, as FormationScrum._walk pays its own: where each now stands, in its entry. Each
+## cross (UnitMover.pay): where each now stands, in its entry. Each
 ## column fetched once and committed once (Decision 144).
 static func pay(seek, from: PackedVector2Array, ctx: Dictionary) -> void:
 	if ctx["terrain"] == null or from.is_empty():
@@ -126,7 +126,7 @@ static func _gather(ctx: Dictionary) -> Batch:
 	return batch
 
 
-## A squad's pace and its frame, as ScrumStance.anchor and FormationScrum._walk read it.
+## A squad's pace and its frame, as ScrumStance.anchor reads it.
 static func _frame(batch: Batch, squad: SkirmishSquad, pace: float) -> void:
 	if squad.stance.is_empty():
 		batch.squad_floats.append_array([pace, squad.heading, squad.width, squad.centre_shift])

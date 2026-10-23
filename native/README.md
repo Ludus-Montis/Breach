@@ -6,7 +6,7 @@ reference behind one switch. The first production piece is in place:
 
 - **`BodyField`**: the bodies' state, owned natively and kept across ticks.
 - **Body parting** (UnitBodies) runs on the field.
-- **The scrum's slot search** (ScrumSeek with SlotSearch, ScrumSlots and ScrumNear) runs
+- **The scrum's slot search** (ScrumSeek; once SlotSearch, ScrumSlots and ScrumNear) runs
   on the field.
 - **The scrum's facing** (FormationScrum._faces and the turns: ScrumBlows.nearest_touching,
   UnitShuffle.look, UnitMotion's bearing_to, pace and turn) runs on the field, after the
@@ -15,22 +15,25 @@ reference behind one switch. The first production piece is in place:
   UnitShuffle.look, UnitMotion.move, GroundBodies.underfoot) runs on the field, between
   the slot search and the facing, for the same units.
 
-All three reproduce the GDScript reference bit for bit. The C++ kernel from the spike
-(#174) is retired.
+All three reproduced the GDScript reference bit for bit, and since spec 39 step 4a they run
+under either engine: every battle has a field, and the scrum's twins (and `UnitStoreGd`)
+are gone. Body parting is the last pass with a GDScript twin. The C++ kernel from the
+spike (#174) is retired.
 
 | | |
 |---|---|
-| Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. It picks only the kernels: the library is always loaded (`content/definitions/native_library.gd`), because the content is (below). |
-| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `BodyField`, `ContentStore`, `TerrainGround`, `UnitMoves`, `GroundPaths` and `GroundMarch` |
+| Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. It picks only body parting's engine (spec 39 step 4a): the library is always loaded (`content/definitions/native_library.gd`), because the content is (below), and every battle has its field. |
+| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `BodyField`, `ContentStore`, `TerrainGround`, `UnitMoves`, `GroundPaths`, `GroundMarch` and `ScrumRules` |
 | Ground | `native/rust/src/ground/` (spec 39 step 3a): the ground a battle is on, its cells and rules (how fast a walker crosses them, its mode, the high ground) and its obscurance (`sight.rs`), and a map's surface with its relief and channels (`surface.rs`). `TerrainGround` holds it; `FormationTerrain` and `TerrainObscurance` are views over it, under both engines, and their GDScript is gone. Its scenarios are cargo tests (`ground/tests.rs`) |
 | Moves | `native/rust/src/route.rs`, `motion.rs`, `mover.rs`, `steer.rs` (spec 39 step 3b): routes and their learned detours, a unit's turning and pace by facing, the one mover and the ground's toll on a step (Decision 139), and steering round bodies (shared with the scrum's walk). `UnitMoves` binds them, stateless and shared (`CrateMoves`); `FormationRoute`, `RoutePatch`, `UnitMotion`, `UnitMover`, `TerrainStep` and `UnitSteer` are views over it, under both engines. Their scenarios are cargo tests (`route/`, `mover/`, `steer/`, `motion.rs`) |
 | Content | `native/rust/src/content/` (Decision 153, spec 39 step 2): the serde structs for units, weapons, armour and the tuning are the schema of `content/{units,weapons,armour}/*.json` and `content/tuning/battle_tuning.json`. A file that doesn't match fails naming its field. The JSON Schema under `content/schema/` is generated from them (`BLESS_SCHEMA=1 cargo test schema` rewrites it; a test fails while it is stale). GDScript's definitions are filled from what the crate loaded (`CrateContent`, through `ContentStore`) until their last reader ports |
 | GDScript side | `body_field_sync.gd` (the sync), `body_parting.gd` (parting on the field), `scrum_seek_field.gd` (the slot search on the field), `scrum_face_field.gd` (the facing on the field), `scrum_walk_field.gd` (the walk on the field) |
-| Owner | `FormationSimulation._field`: one field a battle, made when the battle is (null under GDScript). Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
+| Owner | `FormationSimulation._field`: one field a battle, made when the battle is, under either engine. Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
 | Paths | `native/rust/src/paths/`, `pathing.rs` (spec 39 step 3c): the A* search over the ground (`search.rs`, its ties to geometry in `frontier.rs`), each kind of walker's speed shares (`shares.rs`, held by `TerrainGround` and dropped when it is painted), a pathfinder's sight and memory, climbing on stamina (`climb.rs`), plans, rejoining a route and a way's cost (`mod.rs`), and a marching group's look ahead, its walker and its pathfinder (`pathing.rs`). `GroundPaths` binds them, stateless and shared (`CratePaths`); `TerrainPaths`, `PathSearch`, `PathSight`, `SquadPathfinder`, `ClimbStamina.standable` and `ModeStamina.step_cost` are views over it, and `FormationPathing` keeps only which groups look and their commands' patches. Their scenarios are cargo tests (`paths/tests.rs`, `pathing.rs`) |
 | March | `native/rust/src/march/`, `lying.rs`, `det_pow.rs` (spec 39 step 3d): a squad's march along its route (where its front gets, which way its order takes it, the pace of the ground under its front rank; `mod.rs`), sweeping round bends (`sweep.rs`), its units walking to their places (`walk.rs`) with their climbing, swimming and falls (`modes.rs`), pouring through a gap (`pour.rs`), the frame's slack and wait, and the moves a re-form starts (`shuffle.rs`, `front.rs`), over the bodies lying underfoot (`lying.rs`, shared with the scrum's walk) and DetPow's `pow` (`det_pow.rs`). `GroundMarch` binds them, stateless and shared (`CrateMarch`); `FormationMarch`, `FormationSweep`, `FormationWalk`, `FormationPour`, `FormationShuffle` and `PlaceOrder` are views over it, `WalkModes`, `ShuffleFront` and `SquadPlaces` are gone, and the swaps under way, arrivals and the routers' and the loose's placing stay GDScript. Its scenarios are cargo tests (`march/tests.rs`) |
-| Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/facing_bench.gd` (the facing pass alone, and DetMath), `tools/steering_bench.gd` (the walk alone), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks) |
-| Identity | `tools/formation_digest.gd` (every set, both engines); `tests/sim/skirmish/formation/test_unit_store.gd`, `test_body_field.gd`, `test_body_parting.gd`, `test_face_field.gd` and `test_walk_field.gd`; the whole suite under `BREACH_NATIVE=rust` |
+| Scrum | `native/rust/src/scrum.rs`, `seeking.rs`, `walking.rs`, `facing.rs`, `blows.rs`, `contest.rs`, `reach.rs` (spec 39 step 4a): the seek, walk, facing and blows' search on the field, each a phase (`seeking::seek`, `walk_store::walk`, `face_store::face`) that `BodyField` calls, under either engine; ScrumContest's draws and rolls and ScrumReach's bodies, gaps and fronts, which `ScrumRules` binds, stateless and shared (`CrateScrum`), and ScrumContest and ScrumReach are views over. The builders `build::scrum` and `build::reversed` make a scrum for the scenarios, which are cargo tests (`scrum/tests.rs`, `walking/tests.rs`, `facing/tests.rs`, `blows.rs`, `contest.rs`, `reach.rs`) |
+| Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks). The facing, walk and blows benches retired with their twins (spec 39 step 4a); their results below are history |
+| Identity | `tools/formation_digest.gd` (every set, both engines: body parting's twin); `tests/sim/skirmish/formation/test_unit_store.gd`, `test_body_field.gd` and `test_body_parting.gd`; the whole suite under `BREACH_NATIVE=rust` |
 
 ## The native state and its boundary
 
@@ -163,7 +166,7 @@ The rules for matching Godot bit for bit (`native/rust/src/maths.rs`):
   `bearing_to`, `pace` and UnitShuffle's turning go through `DetMath.atan2` and
   `DetMath.acos` (`det_math.rs` has sin, cos, asin, acos and atan2, the same operations
   in the same order; `cargo test` checks them against bits printed by Godot, and
-  `test_face_field.gd` against the GDScript on 20,000 inputs each). `motion.rs` has
+  `test_det_math.gd` against the GDScript on 20,000 inputs each). `motion.rs` has
   Godot's `fposmod`, `clampf`, `maxf` and `rad_to_deg` as the engine computes them. sim/ calls no platform transcendental function: the C
   library's differ between glibc, the Windows CRT and Apple's libm, so a battle wouldn't
   replay across machines. DetMath and DetPow use only IEEE 754's exact operations;
@@ -209,14 +212,9 @@ The suite proves the same:
 - `test_body_parting.gd`: a crowd parted the same as GDScript, reversed, on a field kept
   across ticks while units die and change squad, and a 40-a-side battle.
 - `test_body_field.gd`: the hash, the roster, and the slot search planning a mid-fight
-  scrum the same as GDScript at four moments and whatever the list order.
-- `test_face_field.gd`: DetMath's bits in Rust, and a mid-fight scrum planned, walked and
-  turned to the same bearings as GDScript at four moments, with every unit given a
-  bearing of its own and its looks moved, and whatever the list order.
-- `test_walk_field.gd`: a mid-fight scrum planned and walked to the same points, looks and
-  next points as GDScript at four moments; with ways pushed through the crowd, bodies laid
-  underfoot (some heavy enough to stop a grem) and units held back to walk to their
-  places; and whatever the list order.
+  scrum the same whatever the list order. Until spec 39 step 4a it and `test_face_field.gd`
+  and `test_walk_field.gd` also held the seek, the facing and the walk to the GDScript's at
+  four moments of a scrum; those twins are gone, and their scenarios are cargo tests.
 - `test_formation_pour.gd`, `test_terrain_toll.gd` and `test_field_test_record.gd`: bodies
   of one frame parted, a fight in a wood walked (each step paid for the ground in GDScript
   after the core's walk), and the user's field-test record replayed, the same as GDScript.
@@ -228,7 +226,8 @@ The suite proves the same:
 Linux x86_64, Godot 4.7.2 official, release build, 4 cores shared with another job, so
 whole ticks carry a few % of noise. FormationBench's clash (grems v militia, seed 1),
 mid-fight: 10 ticks after 10 ticks of contact. Figures are ms a tick, the median of 3
-runs.
+runs. They predate spec 39 step 4a, which retired the facing, walk and blows benches with
+the GDScript twins they compared against.
 
 ### The two ported passes (`tools/native_bench.gd`)
 
@@ -315,8 +314,10 @@ uses - with whether its blow falls on the foe's flank and whether a retreating u
 turned away. Cooldowns, the morale's interval, the blows, rolls, damage, hit points,
 events, surrender and stamina stay GDScript's, taken in ScrumBlows' order. For rolled
 blows, `BodyField.pressed` counts the foes pressing each target (BlowLanding._pressed) on
-the same sync. RoutBlows and the ranged shots stay GDScript. A tick no squad can strike
-in (marching, or only a rout left) makes no sync. `test_blows_field.gd` checks the blows,
+the same sync (since spec 39 step 4a, a tick no squad strikes in syncs for the count when
+blows are rolled). RoutBlows and the ranged shots stay GDScript. A tick no squad can strike
+in (marching, or only a rout left) makes no sync for the search. `test_blows_field.gd`
+checked the blows (until spec 39 step 4a retired the twin),
 their landing and every target and cooldown against GDScript at four moments, with
 bearings and cooldowns stirred, a squad retreating, wavering or striking only a retreat,
 and whatever the list order.

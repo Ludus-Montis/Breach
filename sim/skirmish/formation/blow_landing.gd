@@ -15,7 +15,6 @@ const BlowDamage = preload("res://sim/skirmish/formation/blow_damage.gd")
 const FormationRegeneration = preload("res://sim/skirmish/formation/formation_regeneration.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
 const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
-const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
@@ -28,9 +27,10 @@ const MARKED := [UnitColumns.REGENERATION_HALT, UnitColumns.LAST_WOUNDING]
 
 ## Lands the melee blows ([striker, target, damage, flank]) and ranged shots ([shooter,
 ## target, damage, its squad]): sets each one's damage to what landed and appends how it
-## landed (BlowRoll's outcomes). `rolls` = [battle seed, tick], or [] for no rolls. Given
-## the battle's native bodies (`field`) and synced by FormationMelee.blows this tick, the
-## foes pressing each target are counted on them (ScrumBlowsField).
+## landed (BlowRoll's outcomes). `rolls` = [battle seed, tick], or [] for no rolls. The foes
+## pressing each target are counted on the battle's native bodies (`field`; without one,
+## its squads' store's), as FormationMelee.blows synced them this tick, or synced now if
+## it had no need to (ScrumBlowsField).
 static func land(
 	melee: Array,
 	shots: Array,
@@ -57,17 +57,13 @@ static func land(
 			shot.append(BlowRoll.HIT)
 		UnitView.release(marks)
 		return
-	var squad_of := {}  # unit id -> [unit, its squad]
-	var pressed := {}  # unit id -> foes pressing it
-	if field != null and ScrumBlowsField.synced(field):
-		var whose := ScrumBlowsField.pressed(field, squads, melee + shots)
-		squad_of = whose[0]
-		pressed = whose[1]
-	else:
-		for squad in squads:
-			for unit in squad.living():
-				squad_of[unit.id] = [unit, squad]
-		pressed = _pressed(squad_of, squads[0].store.columns.column(UnitColumns.TARGET_ID))
+	if field == null:
+		field = squads[0].store.field()
+	if not ScrumBlowsField.synced(field):
+		ScrumBlowsField.sync(field, squads, rolls[0])  # no melee search ran on it this tick
+	var whose := ScrumBlowsField.pressed(field, squads, melee + shots)
+	var squad_of: Dictionary = whose[0]  # unit id -> [unit, its squad]
+	var pressed: Dictionary = whose[1]  # unit id -> foes pressing it
 	var at: PackedVector2Array = squads[0].store.columns.column(UnitColumns.POSITION)
 	var bearings: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.BEARING)
 	var stamina: PackedFloat64Array = squads[0].store.columns.column(UnitColumns.STAMINA)
@@ -118,18 +114,3 @@ static func _land(
 	if blow[2] > 0:
 		woundings[target.slot] = striker.wounding
 	blow.append(landed)
-
-
-## Target id -> how many foes touching it are fighting it this tick (`targets`: TARGET_ID,
-## by slot).
-static func _pressed(squad_of: Dictionary, targets: PackedInt64Array) -> Dictionary:
-	var out := {}
-	for unit_id in squad_of:
-		var unit: SkirmishUnit = squad_of[unit_id][0]
-		var target_id: int = targets[unit.slot]
-		if not squad_of.has(target_id):
-			continue
-		var foe: Array = squad_of[target_id]
-		if ScrumReach.touching(squad_of[unit_id][1], unit, foe[1], foe[0]):
-			out[target_id] = out.get(target_id, 0) + 1
-	return out
