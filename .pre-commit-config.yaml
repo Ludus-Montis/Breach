@@ -125,8 +125,8 @@ repos:
         exclude: ^addons/
 
       - id: tools-tests
-        name: tools-tests (the designer's JS with node --test, if Node is installed; tools/, tools/trace_view, ci/godot/scripts and ci/github with stdlib unittest)
-        entry: bash -c '{ ! command -v node >/dev/null || node --test "tools/designer/test/*.test.js"; } && python3 -m unittest discover -s tools/trace_view -p "test_*.py" && python3 -m unittest discover -s tools -p "test_*.py" && python3 -m unittest discover -s ci/godot/scripts -p "test_*.py" && python3 -m unittest discover -s ci/github -p "test_*.py"'
+        name: tools-tests (the designer's and the trace view's JS with node --test, if Node is installed; tools/, ci/godot/scripts and ci/github with stdlib unittest)
+        entry: bash -c '{ ! command -v node >/dev/null || node --test "tools/designer/test/*.test.js" "tools/trace_view/test/*.test.js"; } && python3 -m unittest discover -s tools -p "test_*.py" && python3 -m unittest discover -s ci/godot/scripts -p "test_*.py" && python3 -m unittest discover -s ci/github -p "test_*.py"'
         language: system
         pass_filenames: false
         files: ^(tools/.*\.(py|js)|assets/placeholder/.*|ci/godot/scripts/.*\.py|ci/github/.*)$
