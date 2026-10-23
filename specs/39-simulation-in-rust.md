@@ -101,6 +101,14 @@ session records the split here.
   loader's errors, with units, weapons, armour and the tuning converted and GDScript's
   definitions filled from them; **2b** terrain and the map layout, the designer's export and
   validation, and the importer kept to what the presentation needs. 2b's PR closes the step.
+- **Split again** (2026-10-23, the user's call, so each PR's schema change carries its
+  designer change, as `CLAUDE.md` requires): **2b** the terrain library in the crate's schema,
+  converted once, `TerrainLibraryDef` filled from it, the designer's library page on the
+  schema and the Godot library import retired; **2c** the whole map in one file in the
+  crate's schema (`content/maps/<name>.json`: the layout and the nodes, lanes, factions and
+  loss groups, the user's call), converted once, `MapDef` filled from it, the designer's map
+  export and validation against the JSON Schema, the round trip, and the importer kept to what
+  the presentation needs. 2c's PR closes the step.
 
 ### Step 3, the ground and the mover
 
@@ -340,6 +348,48 @@ Decision's conditions.
   an infinite real filled from the files; no `.tres` definition left or read).
 - **Files opened:** 36 pre-existing files over the OCP check's 11, under Decision 157: every
   reader of a `.tres` definition changes how it gets it, and nothing else.
+
+### Step 2b, the terrain library in the crate's schema
+
+- **The schema** (`native/rust/src/content/terrain.rs`): `TerrainLibrary` (terrains, features,
+  materials, `road_move_multiplier`), `Terrain`, `LiquidBody`, `Stratum`, `TerrainFeature`,
+  `Material` and `HeatTransition`, named field for field as GDScript's properties, each entry
+  defaulting to GDScript's (`#[serde(default)]`), `deny_unknown_fields` on all. Lists keep the
+  designer's order. A colour is `#rrggbb` or `#rrggbbaa` (`Colour`), and anything else names
+  its field. `TerrainLibraryDef.source_hash` went: nothing is imported, so nothing goes stale.
+- **Loader:** `content/terrain/terrain_library.json`, required beside the tuning. A material a
+  stratum, a liquid body or a heat transition names that isn't in the library names its field
+  (`terrains[0].strata[1].material_id`). The GDScript `validate()` still runs on the filled
+  library.
+- **JSON Schema:** `content/schema/terrain_library.schema.json`.
+- **Converted once,** from the designer's `content/designer/terrain.json` by the designer's own
+  translation (`tools/designer/terrain_schema.py`, `to_schema`), which holds the rules the Godot
+  library import had (saves from before Decisions 62 to 66 included). Numbers are copied as the
+  designer wrote them. Before `terrain_library.tres` was deleted, every field of the filled
+  library was checked equal to it with `==` (a one-off script, deleted). The designer's file
+  read back (`from_schema`) equals the old `terrain.json`, so nothing the designer had is lost.
+- **The fill:** `CrateContent.terrain_library()` fills `TerrainLibraryDef` and what it holds.
+  The fill by name moved to `ContentFill` (`content_fill.gd`; `CrateContent` was over the ISP
+  check's method count), and it now fills a typed list of definitions one by one and reads a colour from its hex. It is
+  made once and shared. `MapLayoutDef.terrain_library` is no longer saved with a map: it starts
+  as that shared library (a test may set its own), and the map `.tres` files lost their
+  reference to the library's `.tres`. The map importer takes the same library.
+- **The designer:** the server (`designer_repo.py`) reads the library file into the designer's
+  shape and writes it back in the schema's, so the designer's pages keep their shape
+  (`repo.js` only reports the refusal below). A
+  save that drops a terrain or feature a saved map uses is refused and writes nothing (the
+  check the Godot import made, now in Python). Saving a map no longer imports the library
+  first. Validating the designer's output against the JSON Schema is 2c's, with the map export.
+- **Retired:** `content/import/designer_library_import.gd`, `designer_library_importer.gd`,
+  `tools/import_designer_library.gd`, their gdUnit tests (their scenarios are the Python tests
+  now), `content/designer/terrain.json` and `content/terrain/terrain_library.tres`.
+- **Tests:** cargo (`content/mod.rs`: a terrain field of the wrong type, a colour that isn't
+  hex and a material that isn't there each name the field; omitted fields take GDScript's
+  defaults; the checked-in library loads; `schema.rs`: current), `test_crate_content.gd` (the
+  crate's defaults equal GDScript's for every terrain kind; the library filled from its file
+  and valid; every layout shares it; no terrain `.tres` left or read), and
+  `tools/designer/test_terrain_schema.py` and `test_designer_repo.py` (the translation both
+  ways, the old saves, the round trip of the checked-in file, the in-use refusal).
 
 ## Open, for the implementing session to settle and record here
 

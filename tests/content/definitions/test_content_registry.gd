@@ -64,7 +64,7 @@ func test_every_unit_and_item_in_play_keeps_to_it() -> void:
 
 
 func test_the_materials_keep_to_it() -> void:
-	var library = load("res://content/terrain/terrain_library.tres")
+	var library := CrateContent.terrain_library()
 	var checked := 0
 	for material in library.materials:
 		(

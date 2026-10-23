@@ -1,8 +1,8 @@
 class_name TerrainDef
 extends Resource
 ## One terrain type in the shared terrain library, per
-## specs/19-map-layout-and-objectives.md (Decision 32). Imported from the designer's
-## content/designer/terrain.json; maps reference terrains by id.
+## specs/19-map-layout-and-objectives.md (Decision 32). Filled from
+## content/terrain/terrain_library.json (CrateContent); maps reference terrains by id.
 
 const StratumDef = preload("res://content/definitions/stratum_def.gd")
 const LiquidBodyDef = preload("res://content/definitions/liquid_body_def.gd")

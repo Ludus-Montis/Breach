@@ -1,9 +1,10 @@
 class_name TerrainLibraryDef
 extends Resource
 ## The one shared terrain library (Decision 32, specs/19-map-layout-and-objectives.md):
-## content/terrain/terrain_library.tres, generated from the designer's
-## content/designer/terrain.json. Every map's MapLayoutDef references this resource
-## rather than copying it, so a terrain edit reaches every map without re-saving them.
+## content/terrain/terrain_library.json in the crate's schema, which the designer edits and
+## CrateContent.terrain_library() fills this from (spec 39 step 2b). Every map's MapLayoutDef
+## references that one library rather than copying it, so a terrain edit reaches every map
+## without re-saving them.
 
 const TerrainDef = preload("res://content/definitions/terrain_def.gd")
 const TerrainFeatureDef = preload("res://content/definitions/terrain_feature_def.gd")
@@ -15,9 +16,6 @@ const MaterialDef = preload("res://content/definitions/material_def.gd")
 @export var materials: Array[MaterialDef] = []
 ## Multiplies a terrain's move_cost on a cell with a road.
 @export var road_move_multiplier: float = 0.5
-## sha256 of the terrain.json this was imported from; the designer's server compares it
-## with the current file to know whether the library needs re-importing.
-@export var source_hash: String = ""
 
 
 func terrain(terrain_id: String) -> TerrainDef:

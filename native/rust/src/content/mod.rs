@@ -1,6 +1,7 @@
 //! The simulation's content (Decision 153, spec 39 step 2): the crate's serde structs are its
 //! schema, and the files under `content/` are JSON in it. `units/`, `weapons/`, `armour/`
-//! and `tuning/battle_tuning.json`, each file's id its name without `.json`. A file that
+//! and `tuning/battle_tuning.json`, each file's id its name without `.json`, and the
+//! terrain library, `terrain/terrain_library.json`. A file that
 //! doesn't match fails to load, naming the file and the field. `schema.rs` writes the JSON
 //! Schema the designer validates against (`content/schema/`).
 
@@ -8,6 +9,7 @@ mod items;
 mod reals;
 #[cfg(test)]
 mod schema;
+mod terrain;
 mod tuning;
 mod unit;
 
@@ -20,8 +22,14 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 pub use items::{Armour, Weapon};
+pub use terrain::{
+    HeatTransition, LiquidBody, Material, Stratum, Terrain, TerrainFeature, TerrainLibrary,
+};
 pub use tuning::BattleTuning;
 pub use unit::Unit;
+
+/// The terrain library's file under `content/`.
+const TERRAIN_LIBRARY: &str = "terrain/terrain_library.json";
 
 /// Why content didn't load: the file, the field (`items[1]`, `item.slots`; `.` for the
 /// whole file) and what was wrong.
@@ -45,18 +53,25 @@ pub struct Content {
     pub weapons: BTreeMap<String, Weapon>,
     pub armour: BTreeMap<String, Armour>,
     pub tuning: BattleTuning,
+    pub terrain: TerrainLibrary,
 }
 
 impl Content {
-    /// Loads the content under `root` (the repo's `content/`), every unit's items checked.
+    /// Loads the content under `root` (the repo's `content/`), every unit's items and every
+    /// material the terrain library names checked.
     pub fn load(root: &Path) -> Result<Content, LoadError> {
         let content = Content {
             units: load_dir(&root.join("units"))?,
             weapons: load_dir(&root.join("weapons"))?,
             armour: load_dir(&root.join("armour"))?,
             tuning: load_file(&root.join("tuning").join("battle_tuning.json"))?,
+            terrain: load_file(&root.join(TERRAIN_LIBRARY))?,
         };
         content.check_items(root)?;
+        if let Some((field, id)) = content.terrain.missing_material() {
+            let message = format!("no material {id}");
+            return Err(LoadError { file: root.join(TERRAIN_LIBRARY), field, message });
+        }
         Ok(content)
     }
 
@@ -152,12 +167,10 @@ mod tests {
         let root = scratch("missing-item");
         fs::create_dir_all(root.join("units")).unwrap();
         fs::create_dir_all(root.join("weapons")).unwrap();
-        fs::create_dir_all(root.join("tuning")).unwrap();
+        copy_required(&root, &["tuning/battle_tuning.json", TERRAIN_LIBRARY]);
         fs::write(root.join("weapons/claw.json"), r#"{"damage": 3}"#).unwrap();
         fs::write(root.join("units/grem.json"), r#"{"items": ["weapons/claw", "weapons/bite"]}"#)
             .unwrap();
-        let tuning = repo_content().join("tuning/battle_tuning.json");
-        fs::copy(tuning, root.join("tuning/battle_tuning.json")).unwrap();
         let error = Content::load(&root).unwrap_err();
         assert_eq!(error.file, root.join("units/grem.json"));
         assert_eq!(error.field, "items[1]");
@@ -184,10 +197,70 @@ mod tests {
     }
 
     #[test]
+    fn a_terrain_field_of_the_wrong_type_fails_naming_it() {
+        let dir = scratch("terrain-wrong-type");
+        let path = dir.join("terrain_library.json");
+        fs::write(&path, r#"{"terrains": [{"id": "FIELDS"}, {"id": "BOG", "move_cost": "slow"}]}"#)
+            .unwrap();
+        let error = load_file::<TerrainLibrary>(&path).unwrap_err();
+        assert_eq!(error.field, "terrains[1].move_cost");
+    }
+
+    #[test]
+    fn a_colour_that_isnt_hex_fails_naming_it() {
+        let dir = scratch("terrain-colour");
+        let path = dir.join("terrain_library.json");
+        fs::write(&path, r#"{"materials": [{"id": "ROCK", "color": "grey"}]}"#).unwrap();
+        let error = load_file::<TerrainLibrary>(&path).unwrap_err();
+        assert_eq!(error.field, "materials[0].color");
+    }
+
+    #[test]
+    fn a_stratum_of_a_material_that_isnt_there_fails_naming_it() {
+        let root = scratch("terrain-missing-material");
+        copy_required(&root, &["tuning/battle_tuning.json"]);
+        fs::create_dir_all(root.join("terrain")).unwrap();
+        let library = r#"{"materials": [{"id": "SOIL"}], "terrains": [{"id": "FIELDS",
+            "strata": [{"material_id": "SOIL"}, {"material_id": "CLAY"}]}]}"#;
+        fs::write(root.join("terrain/terrain_library.json"), library).unwrap();
+        let error = Content::load(&root).unwrap_err();
+        assert_eq!(error.file, root.join("terrain/terrain_library.json"));
+        assert_eq!(error.field, "terrains[0].strata[1].material_id");
+    }
+
+    #[test]
+    fn a_terrain_that_omits_a_field_takes_gdscripts_default() {
+        let dir = scratch("terrain-defaults");
+        let path = dir.join("terrain_library.json");
+        let text = r#"{"terrains": [{"id": "FIELDS", "strata": [{"material_id": "SOIL"}]}],
+            "materials": [{"id": "SOIL"}]}"#;
+        fs::write(&path, text).unwrap();
+        let library = load_file::<TerrainLibrary>(&path).unwrap();
+        let fields = &library.terrains[0];
+        assert!(fields.can_be_base);
+        assert_eq!(fields.move_cost, 1.0);
+        assert_eq!(fields.color.as_str(), "#ffffff");
+        assert_eq!((fields.strata[0].min_cells, fields.strata[0].max_cells), (1, 1));
+        assert_eq!((library.materials[0].weight, library.materials[0].heat), (1, 1));
+        assert_eq!(library.road_move_multiplier, 0.5);
+    }
+
+    #[test]
     fn the_checked_in_content_loads() {
         let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
         assert!(content.units.contains_key("grem"));
         assert_eq!(content.tuning.discipline_leash_steps.last(), Some(&f64::INFINITY));
+        let fields = content.terrain.terrains.iter().find(|terrain| terrain.id == "FIELDS");
+        assert!(fields.is_some_and(|fields| fields.can_be_base));
+    }
+
+    /// Copies each of `files` from the repo's `content/` to the same place under `root`.
+    fn copy_required(root: &Path, files: &[&str]) {
+        for file in files {
+            let to = root.join(file);
+            fs::create_dir_all(to.parent().unwrap()).unwrap();
+            fs::copy(repo_content().join(file), to).unwrap();
+        }
     }
 
     /// The repo's `content/`.

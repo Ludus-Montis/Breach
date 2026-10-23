@@ -1,11 +1,12 @@
 class_name CrateContent
 extends RefCounted
 ## The simulation's content as the Rust crate loaded it (Decision 153, spec 39 step 2): units,
-## weapons, armour and the battle's tuning, JSON under content/ in the crate's schema
-## (content/schema/). GDScript's definitions (UnitDef, WeaponDef, ArmourDef, BattleTuning)
-## are filled from it, field for field, until their last reader ports to Rust; nothing reads
-## them from .tres. Each is made once and shared, as load() shared a .tres: duplicate() one
-## before changing it. The core must be built (bash native/build.sh).
+## weapons, armour, the battle's tuning and the terrain library, JSON under content/ in the
+## crate's schema (content/schema/). GDScript's definitions (UnitDef, WeaponDef, ArmourDef,
+## BattleTuning, TerrainLibraryDef and what it holds) are filled from it, field for field,
+## until their last reader ports to Rust; nothing reads them from .tres. Each is made once and
+## shared, as load() shared a .tres: duplicate() one before changing it. The core must be
+## built (bash native/build.sh).
 
 const STORE_CLASS := "ContentStore"
 const ROOT := "res://content"
@@ -22,7 +23,7 @@ static func unit(id: String) -> UnitDef:
 		var made := UnitDef.new()
 		var items: Array = fields.get("items", [])
 		fields.erase("items")
-		fill(made, fields)
+		ContentFill.fill(made, fields)
 		made.items.assign(items.map(item))
 		_made[key] = made
 	return _made[key]
@@ -33,7 +34,7 @@ static func item(path: String) -> ItemDef:
 	if not _made.has(path):
 		var kind := path.get_slice("/", 0)
 		var made: ItemDef = WeaponDef.new() if kind == "weapons" else ArmourDef.new()
-		_made[path] = fill(made, _fields(kind, path.get_slice("/", 1)))
+		_made[path] = ContentFill.fill(made, _fields(kind, path.get_slice("/", 1)))
 	return _made[path]
 
 
@@ -50,8 +51,16 @@ static func armour(id: String) -> ArmourDef:
 ## The battle's tuning (content/tuning/battle_tuning.json).
 static func tuning() -> BattleTuning:
 	if not _made.has("tuning"):
-		_made["tuning"] = fill(BattleTuning.new(), _content().get("tuning", {}))
+		_made["tuning"] = ContentFill.fill(BattleTuning.new(), _content().get("tuning", {}))
 	return _made["tuning"]
+
+
+## The one shared terrain library (content/terrain/terrain_library.json, Decision 32), which
+## every map's layout references.
+static func terrain_library() -> TerrainLibraryDef:
+	if not _made.has("terrain"):
+		_made["terrain"] = ContentFill.fill(TerrainLibraryDef.new(), _content().get("terrain", {}))
+	return _made["terrain"]
 
 
 ## The crate's fields for each kind when a file names none ({"unit", "weapon", "armour"}).
@@ -59,25 +68,6 @@ static func defaults() -> Dictionary:
 	if not NativeLibrary.load_for(STORE_CLASS):
 		return {}
 	return ClassDB.instantiate(STORE_CLASS).defaults()
-
-
-## Sets each of `fields` on `made` by name and returns it. An item's shared fields ("item")
-## are its own; a typed list keeps its type ("inf" in a list of reals is an infinity); a
-## name where an enum is kept is the enum's value.
-static func fill(made: Object, fields: Dictionary) -> Object:
-	for key: String in fields:
-		var value: Variant = fields[key]
-		var current: Variant = made.get(key)
-		if key == "item" and value is Dictionary:
-			fill(made, value)
-		elif current is Array:
-			var reals: bool = (current as Array).get_typed_builtin() == TYPE_FLOAT
-			(current as Array).assign((value as Array).map(_real) if reals else value)
-		elif current is int and value is String:
-			made.set(key, _enum_value(made, key, value))
-		else:
-			made.set(key, value)
-	return made
 
 
 ## One kind's fields for `id`, or none (with an error) if it isn't there.
@@ -100,22 +90,3 @@ static func _content() -> Dictionary:
 		if _loaded.has("error"):
 			push_error("CrateContent: %s" % _loaded["error"])
 	return _loaded
-
-
-static func _real(value: Variant) -> float:
-	if value is String:
-		return -INF if value == "-inf" else INF
-	return value
-
-
-## The value of `made`'s enum `key` named `named` (case aside), from its export's hint.
-static func _enum_value(made: Object, key: String, named: String) -> int:
-	for property in made.get_property_list():
-		if property["name"] == key:
-			var names: PackedStringArray = property["hint_string"].split(",")
-			for index in names.size():
-				var entry := names[index]
-				if entry.get_slice(":", 0).to_lower() == named.to_lower():
-					return int(entry.get_slice(":", 1)) if ":" in entry else index
-	push_error("CrateContent: %s isn't one of %s's values" % [named, key])
-	return 0

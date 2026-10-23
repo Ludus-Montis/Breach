@@ -48,9 +48,9 @@ class ReadRegistryTest(unittest.TestCase):
             (registry / "traits.json").write_text(json.dumps({"traits": traits}))
             (root / "content" / "units").mkdir()
             (root / "content" / "units" / "grem.json").write_text(UNIT_JSON)
-            (root / "content" / "designer").mkdir()
-            terrain = {"water": {"traits": {"flows": 1}}}
-            (root / "content" / "designer" / "terrain.json").write_text(json.dumps(terrain))
+            (root / "content" / "terrain").mkdir()
+            terrain = {"materials": [{"id": "WATER", "traits": {"flows": 1}}]}
+            (root / "content" / "terrain" / "terrain_library.json").write_text(json.dumps(terrain))
 
             got = read_registry(root)
 
@@ -59,7 +59,7 @@ class ReadRegistryTest(unittest.TestCase):
         self.assertEqual(got["usage"]["cunning"], ["content/units/grem.json"])
         self.assertEqual(got["usage"]["hardened"], ["content/units/grem.json"])
         self.assertEqual(got["usage"]["small"], ["content/units/grem.json"])
-        self.assertEqual(got["usage"]["flows"], ["content/designer/terrain.json"])
+        self.assertEqual(got["usage"]["flows"], ["content/terrain/terrain_library.json"])
         self.assertEqual(got["implicit"], {"climber": 0})
 
     def test_the_repo_registry_reads_with_known_targets_and_usage(self):

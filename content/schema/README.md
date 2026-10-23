@@ -10,6 +10,7 @@ generated from them, for the designer and editors to validate against.
 | `content/weapons/<id>.json` | `weapon.schema.json` | a weapon (`WeaponDef`) |
 | `content/armour/<id>.json` | `armour.schema.json` | armour (`ArmourDef`) |
 | `content/tuning/battle_tuning.json` | `battle_tuning.schema.json` | the battle's tuning (`BattleTuning`) |
+| `content/terrain/terrain_library.json` | `terrain_library.schema.json` | the one terrain library (`TerrainLibraryDef`): terrains, features, materials |
 
 - **Ids.** A file's id is its name without `.json`. A unit names its items by their path under
   `content/` without the extension (`"items": ["weapons/grem_bite"]`).
@@ -17,11 +18,18 @@ generated from them, for the designer and editors to validate against.
   (`ItemDef`: `item_name`, `slots`, `weight`, `tags`, `traits`...) sit under `"item"`.
 - **Defaults.** A unit, weapon or armour file lists only the fields it changes. The others take
   the defaults in the schema, which equal GDScript's (`test_crate_content.gd` holds them
-  equal). The tuning file names every field.
+  equal). The tuning file names every field. Each terrain, feature, material, stratum,
+  liquid body and heat transition in the terrain library lists only what it changes too.
 - **Infinity.** A list of reals may hold `"inf"` or `"-inf"`, which JSON numbers can't.
 - **Enums by name.** `preferred_position` is `"front"`, `"mid"` or `"back"`.
-- **Errors.** A field of the wrong type, a field the kind doesn't have, or an item that isn't
-  there fails the load, naming the file and the field (`units/grem.json: slots[1]: ...`).
+- **Colours.** A terrain's or material's `color` is `"#rrggbb"` or `"#rrggbbaa"`.
+- **The terrain library** is written by the designer's library page (`tools/designer/`), which
+  edits it in its own shape and saves it in this one (`terrain_schema.py`). Its lists keep
+  the designer's order.
+- **Errors.** A field of the wrong type, a field the kind doesn't have, an item that isn't
+  there, or a material the terrain library names that it doesn't hold fails the load, naming
+  the file and the field (`units/grem.json: slots[1]: ...`,
+  `terrain/terrain_library.json: terrains[0].strata[1].material_id: ...`).
 
 A change to the structs regenerates the schema: `BLESS_SCHEMA=1 cargo test schema` in
 `native/rust/`. A test fails while a checked-in schema is stale. It also updates the designer

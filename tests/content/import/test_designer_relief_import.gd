@@ -1,24 +1,14 @@
 extends GdUnitTestSuite
-## Relief and channel import, per Decision 59: a terrain's relief, the map's seed, and
-## channels along tile paths.
+## Relief and channel import, per Decision 59: the map's seed and channels along tile
+## paths (a terrain's relief is the designer's terrain_schema.py, tested there).
 
 const DesignerMapImporter = preload("res://content/import/designer_map_importer.gd")
-const DesignerLibraryImporter = preload("res://content/import/designer_library_importer.gd")
 
 const LAYOUT_PATH := "res://tests/fixtures/designer/layout_map.designer.json"
 
 
 func _export() -> Dictionary:
 	return JSON.parse_string(FileAccess.get_file_as_string(LAYOUT_PATH))
-
-
-func test_a_terrains_relief_imports() -> void:
-	var library_data := {"terrains": [{"id": "HILLY", "relief": {"amplitude": 4, "scale": 6}}]}
-
-	var hills = DesignerLibraryImporter.import_library(library_data).library.terrain("HILLY")
-
-	assert_int(hills.relief_amplitude).is_equal(4)
-	assert_int(hills.relief_scale).is_equal(6)
 
 
 func test_the_seed_and_channels_import() -> void:

@@ -2,8 +2,9 @@ class_name MapLayoutDef
 extends Resource
 ## A map's spatial layer, per specs/19-map-layout-and-objectives.md: the designer grid,
 ## its explicitly authored tiles, roads and each link's route geometry. Terrain and
-## feature ids resolve against terrain_library - an external reference to the one
-## shared content/terrain/terrain_library.tres (Decision 32), never a per-map copy.
+## feature ids resolve against terrain_library - the one shared library the crate loaded
+## (content/terrain/terrain_library.json, Decision 32), never a per-map copy. Not saved
+## with the map; a test may set a library of its own.
 
 const TerrainLibraryDef = preload("res://content/definitions/terrain_library_def.gd")
 const TileDef = preload("res://content/definitions/tile_def.gd")
@@ -19,7 +20,6 @@ const CELLS_PER_TILE := 64
 ## Pixels per cell; node positions are cell centres at this size.
 @export var cell_size: int = 64
 @export var default_terrain_id: String = ""
-@export var terrain_library: TerrainLibraryDef
 @export var tiles: Array[TileDef] = []
 @export var roads: Array[RoadSegmentDef] = []
 @export var routes: Array[RouteDef] = []
@@ -31,6 +31,8 @@ const CELLS_PER_TILE := 64
 @export var seed: int = 0
 ## Rivers, ditches, moats and banks carved along tiles (Decision 59).
 @export var channels: Array[ChannelDef] = []
+## The one shared library (Decision 32); not saved with the map.
+var terrain_library: TerrainLibraryDef = CrateContent.terrain_library()
 
 
 func tile_at(cell: Vector2i) -> TileDef:

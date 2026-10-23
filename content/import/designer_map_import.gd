@@ -68,7 +68,7 @@ static func _assign_stable_ids(map_def: MapDef) -> void:
 		_assign_layout_ids(map_def.layout)
 
 
-## The terrain library is an external resource, so only the layout's own parts get ids.
+## The terrain library isn't saved with the map, so only the layout's own parts get ids.
 static func _assign_layout_ids(layout) -> void:
 	layout.resource_scene_unique_id = "Layout"
 	for tile in layout.tiles:

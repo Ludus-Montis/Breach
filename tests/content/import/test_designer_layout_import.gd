@@ -42,9 +42,7 @@ func test_the_layout_carries_the_grid_and_references_the_shared_library() -> voi
 	assert_int(layout.rows).is_equal(5)
 	assert_int(layout.cell_size).is_equal(64)
 	assert_str(layout.default_terrain_id).is_equal("FIELDS")
-	assert_str(layout.terrain_library.resource_path).is_equal(
-		"res://content/terrain/terrain_library.tres"
-	)
+	assert_object(layout.terrain_library).is_same(CrateContent.terrain_library())
 
 
 func test_tiles_import_terrain_feature_bridge_and_upgrades() -> void:

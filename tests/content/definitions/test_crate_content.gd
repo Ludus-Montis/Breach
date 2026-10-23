@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## CrateContent (spec 39 step 2, Decision 153): GDScript's definitions filled from the
 ## content the Rust crate loaded, the JSON under content/ - never from a .tres.
 
-const KINDS := ["units", "weapons", "armour", "tuning"]
+const KINDS := ["units", "weapons", "armour", "tuning", "terrain"]
 
 
 func test_a_fresh_definition_holds_the_crates_defaults() -> void:
@@ -11,9 +11,48 @@ func test_a_fresh_definition_holds_the_crates_defaults() -> void:
 	var unit_fields: Dictionary = defaults["unit"].duplicate()
 	unit_fields.erase("items")
 
-	_assert_same_fields(CrateContent.fill(UnitDef.new(), unit_fields), UnitDef.new())
-	_assert_same_fields(CrateContent.fill(WeaponDef.new(), defaults["weapon"]), WeaponDef.new())
-	_assert_same_fields(CrateContent.fill(ArmourDef.new(), defaults["armour"]), ArmourDef.new())
+	_assert_same_fields(ContentFill.fill(UnitDef.new(), unit_fields), UnitDef.new())
+	_assert_same_fields(ContentFill.fill(WeaponDef.new(), defaults["weapon"]), WeaponDef.new())
+	_assert_same_fields(ContentFill.fill(ArmourDef.new(), defaults["armour"]), ArmourDef.new())
+
+
+func test_a_fresh_terrain_definition_holds_the_crates_defaults() -> void:
+	var defaults := CrateContent.defaults()
+	var kinds := {
+		"terrain_library": TerrainLibraryDef,
+		"terrain": TerrainDef,
+		"liquid_body": LiquidBodyDef,
+		"stratum": StratumDef,
+		"feature": TerrainFeatureDef,
+		"material": MaterialDef,
+		"heat_transition": HeatTransitionDef,
+	}
+	for kind: String in kinds:
+		var made: Object = kinds[kind].new()
+		_assert_same_fields(ContentFill.fill(kinds[kind].new(), defaults[kind]), made)
+
+
+func test_the_terrain_library_is_filled_from_its_file() -> void:
+	var library := CrateContent.terrain_library()
+	var fields := library.terrain("FIELDS")
+
+	assert_str(fields.display_name).is_equal("Fields")
+	assert_that(fields.color).is_equal(Color("#8f9a4f"))
+	assert_float(fields.move_cost).is_equal(1.0)
+	assert_int(fields.relief_scale).is_equal(12)
+	assert_object(fields.strata[2]).is_instanceof(StratumDef)
+	assert_str(fields.strata[2].material_id).is_equal("ROCK")
+	assert_float(fields.liquids[0].surface_chance).is_equal(0.02)
+	assert_int(library.material("TIMBER").heat_transitions[0].threshold).is_equal(3)
+	assert_bool(library.material("WATER").is_liquid()).is_true()
+	assert_array(library.validate()).is_empty()
+
+
+func test_every_layout_shares_the_one_terrain_library() -> void:
+	var library := CrateContent.terrain_library()
+
+	assert_object(MapLayoutDef.new().terrain_library).is_same(library)
+	assert_object(load("res://content/maps/demo_map.tres").layout.terrain_library).is_same(library)
 
 
 func test_a_unit_is_filled_from_its_file() -> void:
