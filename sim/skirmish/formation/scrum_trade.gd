@@ -20,8 +20,8 @@ const TRACKED := [UnitColumns.CLOSEST, UnitColumns.STUCK, UnitColumns.KEYS]
 
 ## Notes how near the loose unit in `slot` stands to its place, `gap` cells off.
 static func track(columns: UnitColumns, slot: int, gap: float, seconds: float) -> void:
-	var field: Object = columns.field()
-	columns.lent(slot, TRACKED, func(): field.trade_track(slot, gap, seconds))
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.slot(columns, slot, TRACKED, func(): field.trade_track(slot, gap, seconds))
 
 
 ## Each stalled unit of the squad trades places, if a friend's place is nearer it; one that
@@ -60,8 +60,9 @@ static func trade(squad: SkirmishSquad, fight_seed: int) -> void:
 		feet.append_array([unit.footprint_width, unit.footprint_depth])
 		alive.append(int(index < living))
 	var columns: UnitColumns = squad.store.columns
-	var field: Object = columns.field()
-	columns.lent_all(
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.all(
+		columns,
 		func():
 			field.trade(squad.slot, ids, slots, codes, preferred, feet, alive, fight_seed, after)
 	)

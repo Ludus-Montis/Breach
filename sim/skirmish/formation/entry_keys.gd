@@ -50,8 +50,10 @@ const FLED := (
 
 ## Sets the key (`data` null only for `toward` and `held_by`).
 static func keep(columns: UnitColumns, slot: int, name: StringName, data: Variant) -> void:
-	var field: Object = columns.field()
-	columns.lent(slot, [name, UnitColumns.KEYS], func(): field.entry_keep(slot, name, data))
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.slot(
+		columns, slot, [name, UnitColumns.KEYS], func(): field.entry_keep(slot, name, data)
+	)
 
 
 ## The value of `toward` or `held_by`: null if the entry doesn't hold one.
@@ -63,9 +65,11 @@ static func held(columns: UnitColumns, slot: int, name: StringName) -> Variant:
 
 ## Takes the keys out of the entry: each reads blank again.
 static func forget(columns: UnitColumns, slot: int, names: Array) -> void:
-	var field: Object = columns.field()
+	var field: Object = ColumnsLent.field(columns)
 	var lend := names + [UnitColumns.KEYS]
-	columns.lent(slot, lend, func(): field.entry_forget(slot, PackedStringArray(names)))
+	ColumnsLent.slot(
+		columns, slot, lend, func(): field.entry_forget(slot, PackedStringArray(names))
+	)
 
 
 ## The foe and slot the unit seeks, [foe id, slot index], or null.

@@ -18,6 +18,6 @@ static func close(squad: SkirmishSquad) -> void:
 		preferred.append(unit.preferred_position)
 		feet.append_array([unit.footprint_width, unit.footprint_depth])
 	var columns: UnitColumns = squad.store.columns
-	var field: Object = columns.field()
-	columns.lent_all(func(): field.close_ranks(squad.width, slots, preferred, feet))
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.all(columns, func(): field.close_ranks(squad.width, slots, preferred, feet))
 	squad.swaps.clear()

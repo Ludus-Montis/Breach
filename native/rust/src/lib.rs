@@ -2888,7 +2888,9 @@ impl BodyField {
                 joined: joined.as_slice()[n] != 0,
                 slots: units.as_slice()[from..to].to_vec(),
                 at: points[from..to].to_vec(),
-                radii: (from..to).map(|u| reach::radius(feet[2 * u] as i64, feet[2 * u + 1] as i64)).collect(),
+                radii: (from..to)
+                    .map(|u| reach::radius(feet[2 * u] as i64, feet[2 * u + 1] as i64))
+                    .collect(),
             });
             from = to;
         }

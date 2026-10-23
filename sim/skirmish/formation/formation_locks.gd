@@ -12,8 +12,8 @@ static func lock(squad: SkirmishSquad, foe: SkirmishSquad) -> void:
 	var living := PackedInt32Array(squad.living().map(func(unit): return unit.slot))
 	var joined: bool = not squad.joined.is_empty()
 	var columns: UnitColumns = squad.store.columns
-	var field: Object = columns.field()
-	columns.lent_all(func(): field.squad_lock(squad.slot, foe.id, living, joined))
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.all(columns, func(): field.squad_lock(squad.slot, foe.id, living, joined))
 
 
 ## Ends a squad's fight and frees every squad that was fighting it, front or flank.

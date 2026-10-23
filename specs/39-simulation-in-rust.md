@@ -154,6 +154,10 @@ perception. The largest step. It is expected to split (4a the scrum core, 4b reg
   **4b** the squad-level scrum: engage, the stance, the manoeuvre, the locks, ranks, entries,
   the trade and the stall; **4c** regroup onwards (regroup, the pursuits, withdraw, fronts,
   edges, contact and perception). 4c's PR closes the step.
+- **The squads' records in the store** (2026-10-23, the user's call, building 4b): the locks,
+  entries, manoeuvre and stall are rules over SkirmishSquad's dictionaries, so `loose`,
+  `fleeing`, `stance`, `flank_contacts` and `chasers` move into the crate's squad store in
+  4b, and the four port with the rest, not with the tick (step 8).
 - **The field in both engines** (2026-10-23, the user's call, building 4a): the seek, walk,
   facing and blows already ran in Rust on the battle's `BodyField` (Decision 129), which the
   `gdscript` engine didn't make. To retire their twins, every battle now has a field and the
@@ -747,6 +751,55 @@ Decision's conditions.
   place, round a body, slowed underfoot, the list order), `blows.rs` (the list order),
   `contest.rs` (draws pinned to Godot's, the die, the order, the list order) and
   `reach.rs`. gdUnit: a battle has a field under either engine (`test_body_parting.gd`).
+
+### Step 4b, the squad-level scrum in the crate
+
+- **Stacked on 4a** (the user's call, 2026-10-23): built on `feature/scrum-units-in-the-crate`
+  (PR #581) before it merged; its PR is based on that branch.
+- **The squads' records** (`squads.rs`; Steps, "Step 4"): each squad's loose and fleeing units
+  (their ids, in the order each entry was given), its stance (anchor, heading, foe), the foes
+  on its edges (edge, foe, since, in the order each began; an edge set again keeps its place,
+  as a dictionary's key does) and its chasers (unit, foe, from, leash, and whether it has
+  turned back), all in the snapshot. SkirmishSquad's dictionaries of the same names are views
+  (`SquadRecords`), taken once and kept until a call changes a record (the field's
+  `records_edits`), so none is changed in place: `flank`, `unflank_all`, `chase`,
+  `chase_back` and `unchase` on the squad, the entries and the locks do it. A squad carried
+  to another store carries its records (`SquadRecords.carry`). A chase's turning back was a
+  key set in its dictionary (`returning`); it is the record's flag now, read back the same.
+- **The entries and the locks** (`entries.rs`, `locks.rs`): SquadEntries' giving and taking
+  away, EntryKeys' `keep` and `forget` (the reads stay GDScript, for the digest and the
+  seek's batch), FormationLocks' lock and release, FormationContact.can_engage and
+  ScrumSeek.foe_ids.
+- **The phases** (`engage.rs`, `stance.rs`, `manoeuvre.rs`, `ranks.rs`, `trade.rs`, with
+  Godot's `Rect2` in `rect.rs` and SquadFrame's `basis` and `place_in` in `frame.rs`):
+  ScrumEngage's search and locks; ScrumStance's threat, commitment and letting go, the turn's
+  anchor staying GDScript (SquadEdges.reach, step 4c's edges) and landing after the crate's
+  call, as a stance moves no frame; FormationManoeuvre's step; FormationScrum's stall;
+  SquadRanks' closing; ScrumTrade's track and trade. What the crate doesn't hold is handed in:
+  where units stand (ScrumReach.at), each squad's bounds, discipline and the hostiles it
+  detects (FormationSight, perception being 4c's), withdrawing and skirmishing (4c's), and
+  footprints and kinds. A free squad's sight is now looked at for a squad committed to its
+  stance too (it used to stop first); sight decides nothing there.
+- **Holds** (Decision 144): a pass holding columns the crate now writes (the rout's `KEYS`,
+  `ALONG` and `FLEE_OFFSET`, the regroup's places and loose points) lends them to each call
+  (`ColumnsLent`): one slot's touched columns for an entry or a key, every held column for a
+  trade or a lock. The regroup no longer holds `STUCK`, which the crate notes.
+- **Identical:** each phase reproduces the GDScript's order and precision (`Vector2` and
+  `Rect2` in f32, Godot's `snappedf`, `fposmod`, `roundi` and `posmod`, the draws' ties).
+  Unlike 3d and 4a there was no one-off comparison script; the proof is CI's digests,
+  which compare with the base on both engines. Outcomes unchanged.
+- **Retired:** the GDScript bodies of the classes above; `test_scrum_trade.gd` and
+  `test_scrum_trade_turns.gd` (their scenarios are `trade/tests.rs`). The scenarios through a
+  battle stay gdUnit (`test_formation_manoeuvre.gd`, `test_formation_engage_rule.gd`,
+  `test_stance_heading.gd`, `test_entry_keys.gd`).
+- **Tests:** cargo: `entries.rs` (a loose entry's start, its place in the order, fleeing, keys
+  held with no value), `locks.rs` (a lock's first blows, releases front and flank, foes in
+  the lists' order), `engage.rs` (reach whatever the faces, friends and the unfree, the
+  nearest and the draw whatever the lists), `stance.rs` (turning to a flank, no reason to,
+  letting go unless holding, the draw), `manoeuvre.rs` (priorities, a narrowing's re-form, a
+  stall), `ranks.rs` (closing up, a wide and a deep unit, the lists' order), `trade/tests.rs`
+  (the three GDScript scenarios, a chaser and a stance, trades in turn whatever the lists),
+  `frame.rs` and `rect.rs`.
 
 ## Open, for the implementing session to settle and record here
 
