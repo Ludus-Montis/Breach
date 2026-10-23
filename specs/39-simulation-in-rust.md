@@ -526,6 +526,44 @@ Decision's conditions.
   levels, shapes, slopes, digging, cliffs, ceiling, relief, channels, liquids and banks; the
   relief noise's bits as Godot gave them).
 
+### Step 3b, routes and the mover in the crate
+
+- **Stacked on 3a** (the user's call, 2026-10-23): built on `feature/ground-in-the-crate`
+  (PR #570) before it merged; its PR is based on that branch.
+- **Routes** (`native/rust/src/route.rs`): FormationRoute's length, point, heading and the
+  distance of a point along it, and RoutePatch's detour and patching, waypoints in f32 and
+  distances in f64 as the GDScript had them.
+- **Motion** (`motion.rs`): UnitMotion's turn (and whether it then faces), move and walk
+  join its bearing, pace and look. `UnitMotion.vector` is `maths::bearing_vector`, which
+  gives the quarter bearings exactly, so the GDScript's lookup and memo of vectors went
+  with it (and the benches' clearing of the memo).
+- **The mover** (`mover.rs`): TerrainStep's way and pay and UnitMover's step, slide, pay and
+  share on the crate's ground (`None`: open ground). `TerrainStep.returns` stays GDScript
+  until FormationPour ports (3d).
+- **Steering** (`steer.rs`): UnitSteer's rule as a `Way` that weighs each body and steps
+  past the nearest; the scrum's native walk (`walking.rs`) uses the same kernel. A unit's
+  draw (ScrumContest.draw) is made in the crate from its id. The bodies near the way are
+  still found in GDScript (BodyGrid, the scrum's, step 4).
+- **The binding** (`UnitMoves`, `lib.rs`): stateless, one shared (`CrateMoves`). A unit's
+  motion is passed as [bearing, turn rate, backward pace], a walker as its five fields
+  (`TerrainWalker.fields`), a placed step back as [x, y, bearing], the ground as its
+  `TerrainGround` (`FormationTerrain.core`). The six classes are views, their APIs
+  unchanged, so their readers keep their code.
+- **Identical:** before the GDScript was deleted, a one-off script (deleted) ran the old
+  GDScript and the views on 273,792 random queries over 40 painted grounds (vector,
+  bearing_to, pace, turn, move, walk with and without a look, step, slide, pay, share,
+  way, steering with and without a crowd, a route's length, point, heading and distance,
+  detours and patching with duplicates and overlaps), all equal bit for bit. Outcomes
+  unchanged: CI's digests compare with `main`.
+- **Retired:** the GDScript bodies of the six classes; `test_formation_route.gd`,
+  `test_unit_motion.gd` and `test_unit_steer.gd`; the pure scenarios of
+  `test_route_patch.gd` and `test_one_mover.gd`; `test_det_math.gd`'s check of the
+  vector lookup. The scenarios through a battle or a path memory stay gdUnit.
+- **Tests:** cargo (`route/tests.rs`, `mover/tests.rs`, `steer/tests.rs`, `motion.rs`):
+  the gdUnit scenarios above, plus patches at one place whatever the list, bodies level
+  along the way whatever the list, sliding along a bank, staying where nothing is open,
+  and the quarter bearings exact.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

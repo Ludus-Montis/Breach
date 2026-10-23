@@ -24,6 +24,11 @@ var walker_shares := {}
 var fastest: float:
 	get:
 		return _ground.fastest()
+## The crate's ground under this view, for the views over the rules that read it
+## (UnitMover, TerrainStep).
+var core: Object:
+	get:
+		return _ground
 ## How much each cell hides what lies beyond it, and the fog (spec 30).
 var obscurance: TerrainObscurance
 

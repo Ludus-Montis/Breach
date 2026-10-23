@@ -76,7 +76,6 @@ func _engine(engine: String, sim: Sim, fighting: Array, ctx: Dictionary, saved: 
 	var times := []
 	for _rep in range(int(_args.get("reps", 20))):
 		_put(fighting, saved)
-		UnitMotion._vectors.clear()
 		var began := Time.get_ticks_usec()
 		_pass(fighting, engine_ctx)
 		times.append((Time.get_ticks_usec() - began) / 1000.0)
@@ -208,7 +207,6 @@ func _put(fighting: Array, saved: Array) -> void:
 ## entries.
 func _stages(fighting: Array, ctx: Dictionary, saved: Array) -> void:
 	_put(fighting, saved)
-	UnitMotion._vectors.clear()
 	var walks := _walks(fighting, ctx)
 	var spent := []
 	var lap := Time.get_ticks_usec()

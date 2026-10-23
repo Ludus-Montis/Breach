@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## Learned detours (spec 30): a detour that worked is kept on the command as a patch to its
 ## route - between two distances along it, follow these waypoints - and every group of the
 ## command follows the patched route. A pathfinder forgets what it saw once its group is
-## back on the route.
+## back on the route. The patches' own rules are cargo tests (native/rust/src/route/).
 
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const RoutePatch = preload("res://sim/skirmish/formation/route_patch.gd")
@@ -12,74 +12,6 @@ const RouteDetour = preload("res://sim/skirmish/formation/route_detour.gd")
 
 func _straight() -> FormationRoute:
 	return FormationRoute.new(PackedVector2Array([Vector2(0, 10), Vector2(40, 10)]), 3.0)
-
-
-func test_a_detour_becomes_a_patch_between_where_it_left_and_rejoined() -> void:
-	var detour := PackedVector2Array(
-		[Vector2(10, 10.4), Vector2(15, 20), Vector2(25, 20), Vector2(30, 9.6)]
-	)
-	var patch := RoutePatch.of_detour(_straight(), detour)
-
-	assert_float(patch.from_along).is_equal_approx(10.0, 0.0001)
-	assert_float(patch.to_along).is_equal_approx(30.0, 0.0001)
-	assert_array(patch.waypoints).is_equal(PackedVector2Array([Vector2(15, 20), Vector2(25, 20)]))
-
-
-func test_the_patched_route_replaces_the_stretch_with_the_detour() -> void:
-	var patch := RoutePatch.new(10.0, 30.0, PackedVector2Array([Vector2(15, 20), Vector2(25, 20)]))
-	var patched := RoutePatch.patched(_straight(), [patch])
-
-	assert_array(patched.points()).is_equal(
-		PackedVector2Array(
-			[
-				Vector2(0, 10),
-				Vector2(10, 10),
-				Vector2(15, 20),
-				Vector2(25, 20),
-				Vector2(30, 10),
-				Vector2(40, 10)
-			]
-		)
-	)
-	assert_float(patched.corridor_half_width).is_equal(3.0)
-
-
-func test_a_patch_over_a_bend_keeps_the_route_either_side() -> void:
-	var bent := FormationRoute.new(
-		PackedVector2Array([Vector2(0, 0), Vector2(20, 0), Vector2(20, 20)])
-	)
-	var patch := RoutePatch.new(15.0, 25.0, PackedVector2Array([Vector2(25, 2)]))
-
-	assert_array(RoutePatch.patched(bent, [patch]).points()).is_equal(
-		PackedVector2Array(
-			[Vector2(0, 0), Vector2(15, 0), Vector2(25, 2), Vector2(20, 5), Vector2(20, 20)]
-		)
-	)
-
-
-func test_patches_apply_in_order_along_the_route_and_overlaps_give_way() -> void:
-	var later := RoutePatch.new(30.0, 35.0, PackedVector2Array([Vector2(32, 5)]))
-	var first := RoutePatch.new(5.0, 15.0, PackedVector2Array([Vector2(10, 15)]))
-	var overlapping := RoutePatch.new(12.0, 20.0, PackedVector2Array([Vector2(16, 0)]))
-	var expected := PackedVector2Array(
-		[
-			Vector2(0, 10),
-			Vector2(5, 10),
-			Vector2(10, 15),
-			Vector2(15, 10),
-			Vector2(30, 10),
-			Vector2(32, 5),
-			Vector2(35, 10),
-			Vector2(40, 10)
-		]
-	)
-
-	assert_array(RoutePatch.patched(_straight(), [later, overlapping, first]).points()).is_equal(
-		expected
-	)
-	assert_array(RoutePatch.patched(_straight(), [first, later, overlapping]).points()).is_equal(
-		expected
-	)
 
 
 func test_a_pathfinder_forgets_what_it_saw_once_back_on_the_route() -> void:

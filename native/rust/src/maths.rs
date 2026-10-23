@@ -69,6 +69,28 @@ impl V2 {
             self
         }
     }
+
+    /// `Vector2::lerp`: the weight narrowed to real_t, `from + (to - from) * weight` per axis.
+    #[inline]
+    pub fn lerp(self, to: V2, weight: f64) -> V2 {
+        let w = weight as f32;
+        V2 { x: self.x + (to.x - self.x) * w, y: self.y + (to.y - self.y) * w }
+    }
+
+    /// `Vector2::move_toward`: `to` if within `delta` (or nearer than CMP_EPSILON), else
+    /// `delta` along the way, the GDScript float narrowed to real_t.
+    #[inline]
+    pub fn move_toward(self, to: V2, delta: f64) -> V2 {
+        const CMP_EPSILON: f32 = 0.00001;
+        let delta = delta as f32;
+        let way = to.sub(self);
+        let length = way.length();
+        if length <= delta || length < CMP_EPSILON {
+            to
+        } else {
+            self.add(V2::new(way.x / length * delta, way.y / length * delta))
+        }
+    }
 }
 
 /// GDScript's `snappedf(value, step)`: `Math::floor(value / step + 0.5) * step`.

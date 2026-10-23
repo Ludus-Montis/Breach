@@ -21,12 +21,15 @@ mod grid;
 pub mod ground;
 mod maths;
 mod motion;
+mod mover;
 mod ordered;
 mod parting;
+mod route;
 mod scrum;
 mod seeking;
 mod snapshot;
 mod squads;
+mod steer;
 mod walk_store;
 mod walking;
 
@@ -1474,6 +1477,273 @@ impl TerrainGround {
     fn ground_mut(&mut self) -> &mut ground::Ground {
         self.ground.as_mut().expect("TerrainGround.setup first")
     }
+}
+
+/// Routes, motion, the one mover and steering (spec 39 step 3b; `route`, `motion`,
+/// `mover`, `steer`): FormationRoute, RoutePatch, UnitMotion, UnitMover, TerrainStep and
+/// UnitSteer are views over it. Stateless: one is shared. A unit's motion is passed as
+/// [bearing, turn rate, backward pace], a walker as [height, swimmer, climber, swims,
+/// climbs], a point and a bearing as [x, y, bearing], and the ground as its
+/// `TerrainGround` (null: open).
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct UnitMoves {}
+
+#[godot_api]
+impl UnitMoves {
+    #[func]
+    fn vector(&self, bearing: f64) -> Vector2 {
+        vector2(maths::bearing_vector(bearing))
+    }
+
+    #[func]
+    fn bearing_to(&self, from: Vector2, to: Vector2, current: f64) -> f64 {
+        motion::bearing_to(v2(from), v2(to), current)
+    }
+
+    /// [the bearing turned to, 1 if it then faces `wanted`].
+    #[func]
+    fn turn(&self, unit: PackedFloat64Array, wanted: f64, seconds: f64) -> PackedFloat64Array {
+        let (bearing, faces) = motion::turning_to(&mover_of(&unit), wanted, seconds);
+        PackedFloat64Array::from(&[bearing, faces as i64 as f64][..])
+    }
+
+    #[func]
+    fn pace(&self, unit: PackedFloat64Array, heading: Vector2, bearing: f64) -> f64 {
+        motion::pace(&mover_of(&unit), v2(heading), bearing)
+    }
+
+    #[func]
+    fn advance(&self, unit: PackedFloat64Array, at: Vector2, to: Vector2, full: f64) -> Vector2 {
+        vector2(motion::advance(&mover_of(&unit), v2(at), v2(to), full))
+    }
+
+    /// UnitMotion.walk, looking at `look` if `looks`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn walk(
+        &self,
+        unit: PackedFloat64Array,
+        at: Vector2,
+        to: Vector2,
+        full: f64,
+        seconds: f64,
+        look: Vector2,
+        looks: bool,
+    ) -> PackedFloat64Array {
+        let look = looks.then(|| v2(look));
+        let walked = motion::walk(&mover_of(&unit), v2(at), v2(to), full, seconds, look);
+        placed(walked)
+    }
+
+    /// UnitMover.step, looking at `look` if `looks`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn step(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        walker: PackedFloat64Array,
+        unit: PackedFloat64Array,
+        at: Vector2,
+        to: Vector2,
+        full: f64,
+        seconds: f64,
+        look: Vector2,
+        looks: bool,
+    ) -> PackedFloat64Array {
+        let look = looks.then(|| v2(look));
+        let (walker, unit) = (walker_of(&walker), mover_of(&unit));
+        on_ground(ground, |g| {
+            placed(mover::step(g, &walker, &unit, v2(at), v2(to), full, seconds, look))
+        })
+    }
+
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn slide(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        walker: PackedFloat64Array,
+        unit: PackedFloat64Array,
+        at: Vector2,
+        to: Vector2,
+        full: f64,
+    ) -> Vector2 {
+        let (walker, unit) = (walker_of(&walker), mover_of(&unit));
+        on_ground(ground, |g| vector2(mover::slide(g, &walker, &unit, v2(at), v2(to), full)))
+    }
+
+    #[func]
+    fn pay(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        walker: PackedFloat64Array,
+        at: Vector2,
+        to: Vector2,
+    ) -> Vector2 {
+        let walker = walker_of(&walker);
+        on_ground(ground, |g| vector2(mover::pay(g, &walker, v2(at), v2(to))))
+    }
+
+    #[func]
+    fn share(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        walker: PackedFloat64Array,
+        at: Vector2,
+        stepped: Vector2,
+    ) -> f64 {
+        let walker = walker_of(&walker);
+        on_ground(ground, |g| mover::share(g, &walker, v2(at), v2(stepped)))
+    }
+
+    /// TerrainStep.way: [x, y, the share of its pace].
+    #[func]
+    fn way(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        walker: PackedFloat64Array,
+        at: Vector2,
+        goal: Vector2,
+        reach: f64,
+    ) -> PackedFloat64Array {
+        let walker = walker_of(&walker);
+        on_ground(ground, |g| placed(mover::way(g, &walker, v2(at), v2(goal), reach)))
+    }
+
+    #[func]
+    fn route_length(&self, points: PackedVector2Array) -> f64 {
+        route_of(&points).length()
+    }
+
+    #[func]
+    fn point_at(&self, points: PackedVector2Array, distance: f64) -> Vector2 {
+        vector2(route_of(&points).point_at(distance))
+    }
+
+    #[func]
+    fn heading_at(&self, points: PackedVector2Array, distance: f64) -> Vector2 {
+        vector2(route_of(&points).heading_at(distance))
+    }
+
+    #[func]
+    fn distance_of(&self, points: PackedVector2Array, point: Vector2) -> f64 {
+        route_of(&points).distance_of(v2(point))
+    }
+
+    /// RoutePatch.of_detour: [where the detour leaves the route, where it rejoins] (its
+    /// waypoints are the detour's between).
+    #[func]
+    fn of_detour(
+        &self,
+        points: PackedVector2Array,
+        detour: PackedVector2Array,
+    ) -> PackedFloat64Array {
+        let patch = route::Patch::of_detour(&route_of(&points), &v2s(&detour));
+        PackedFloat64Array::from(&[patch.from_along, patch.to_along][..])
+    }
+
+    /// RoutePatch.patched: the route's points with each patch's stretch replaced by its
+    /// detour; patch `i` leaves at `froms[i]`, rejoins at `tos[i]` and has the next
+    /// `counts[i]` of `waypoints`.
+    #[func]
+    fn patched(
+        &self,
+        points: PackedVector2Array,
+        froms: PackedFloat64Array,
+        tos: PackedFloat64Array,
+        counts: PackedInt32Array,
+        waypoints: PackedVector2Array,
+    ) -> PackedVector2Array {
+        let all = v2s(&waypoints);
+        let mut first = 0usize;
+        let mut patches = Vec::with_capacity(counts.len());
+        for (i, &count) in counts.as_slice().iter().enumerate() {
+            let next = first + count as usize;
+            patches.push(route::Patch {
+                from_along: froms[i],
+                to_along: tos[i],
+                waypoints: all[first..next].to_vec(),
+            });
+            first = next;
+        }
+        let out = route::Patch::patched(&route_of(&points), &patches);
+        packed(&out.points)
+    }
+
+    /// UnitSteer.toward over the bodies near the way: body `i` stands at `points[i]`, of
+    /// `radii[i]`, unit `ids[i]` of squad `squads[i]`; the walker is unit `id` of `squad`,
+    /// of radius `own`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn steer(
+        &self,
+        at: Vector2,
+        goal: Vector2,
+        own: f64,
+        squad: i64,
+        id: i64,
+        tuning: PackedFloat64Array,
+        seed: i64,
+        bodies: PackedVector2Array,
+        radii: PackedFloat64Array,
+        squads: PackedInt64Array,
+        ids: PackedInt64Array,
+    ) -> Vector2 {
+        let (points, radii, squads) = (bodies.as_slice(), radii.as_slice(), squads.as_slice());
+        let near: Vec<steer::Body> = (0..points.len())
+            .map(|i| steer::Body { at: v2(points[i]), radius: radii[i], squad: squads[i] })
+            .collect();
+        let ids = ids.as_slice();
+        let draw = |i: usize| steer::draw(seed, ids[i]);
+        let (look, clear) = (tuning[0], tuning[1]);
+        let own_draw = || steer::draw(seed, id);
+        let to =
+            steer::toward(v2(at), v2(goal), own, squad, &near, look, clear, seed, &own_draw, &draw);
+        vector2(to)
+    }
+}
+
+/// [bearing, turn rate, backward pace] as a mover.
+fn mover_of(unit: &PackedFloat64Array) -> motion::Mover {
+    let u = unit.as_slice();
+    motion::Mover { bearing: u[0], turn_rate: u[1], backward_pace: u[2] }
+}
+
+/// [height, swimmer, climber, swims, climbs] as a walker.
+fn walker_of(walker: &PackedFloat64Array) -> ground::Walker {
+    let w = walker.as_slice();
+    ground::Walker {
+        height: w[0],
+        swimmer: w[1] as i64,
+        climber: w[2] as i64,
+        swims: w[3] != 0.0,
+        climbs: w[4] != 0.0,
+    }
+}
+
+fn route_of(points: &PackedVector2Array) -> route::Route {
+    route::Route::new(v2s(points), 0.0)
+}
+
+/// A point and a number as [x, y, number]: the f32 coordinates are exact in f64.
+fn placed((at, value): (V2, f64)) -> PackedFloat64Array {
+    PackedFloat64Array::from(&[at.x as f64, at.y as f64, value][..])
+}
+
+/// `run` on the ground's own state, or on open ground.
+fn on_ground<R>(
+    ground: Option<Gd<TerrainGround>>,
+    run: impl FnOnce(Option<&ground::Ground>) -> R,
+) -> R {
+    match ground {
+        Some(g) => run(Some(g.bind().ground())),
+        None => run(None),
+    }
+}
+
+fn vector2(at: V2) -> Vector2 {
+    Vector2::new(at.x, at.y)
 }
 
 fn v2(at: Vector2) -> V2 {

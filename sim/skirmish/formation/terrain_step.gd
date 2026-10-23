@@ -6,14 +6,13 @@ extends RefCounted
 ## pace the ground it crosses allows (terrain.factor: a wood at half pace, a ford at its
 ## wading pace); where its way is barred (deep water, a wall) it slides along the barrier on
 ## whichever axis is open and brings it nearer (a stream's bank, a wall's face), and where
-## neither is, it stays. Pure; cells.
+## neither is, it stays. A view over the crate's (native/rust/src/mover.rs, spec 39 step
+## 3b), but for `returns`, which is FormationPour's until the march ports (3d). Cells.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
-
-const EPSILON := 0.000001
 
 
 ## [the point the unit at `at` steps towards on its way to `goal`, the share of its pace
@@ -23,23 +22,10 @@ const EPSILON := 0.000001
 static func way(
 	unit: SkirmishUnit, at: Vector2, goal: Vector2, terrain: FormationTerrain, reach := 1.0
 ) -> Array:
-	var to_goal := goal - at
-	if terrain == null or to_goal.length() < EPSILON:
-		return [goal, 1.0]
-	var straight := terrain.factor(unit, at, at + to_goal.normalized() * reach)
-	if straight > 0.0:
-		return [goal, straight]
-	var best := [at, 0.0]
-	var nearest := to_goal.length()
-	for along: Vector2 in [Vector2(to_goal.x, 0.0), Vector2(0.0, to_goal.y)]:
-		if along.length() < EPSILON:
-			continue
-		var share := terrain.factor(unit, at, at + along.normalized() * reach)
-		var left := (at + along).distance_to(goal)
-		if share > 0.0 and left < nearest - EPSILON:
-			best = [at + along, share]
-			nearest = left
-	return best
+	var going: PackedFloat64Array = CrateMoves.core().way(
+		UnitMover.ground(terrain), UnitMover.walker(unit, terrain), at, goal, reach
+	)
+	return [Vector2(going[0], going[1]), going[2]]
 
 
 ## Where the unit stepping from `at` to `to` - its step on open ground - gets on `terrain`
@@ -47,9 +33,7 @@ static func way(
 static func pay(unit: SkirmishUnit, at: Vector2, to: Vector2, terrain: FormationTerrain) -> Vector2:
 	if terrain == null:
 		return to
-	var step := at.distance_to(to)
-	var going := way(unit, at, to, terrain, maxf(step, 1.0))
-	return at.move_toward(going[0], step * going[1])
+	return CrateMoves.core().pay(terrain.core, UnitMover.walker(unit, terrain), at, to)
 
 
 ## unit id -> where the squad's loose units walk back to on `terrain`: where each makes for

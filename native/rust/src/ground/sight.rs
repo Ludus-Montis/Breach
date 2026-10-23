@@ -146,7 +146,7 @@ impl Obscurance {
             let y_cut = share(fy, ty, y_edge);
             let cut = x_cut.min(y_cut).min(1.0);
             if cut > done {
-                total += self.at(lerp(from, to, (cut + done) * 0.5)) * (cut - done) * length;
+                total += self.at(from.lerp(to, (cut + done) * 0.5)) * (cut - done) * length;
                 if total > limit {
                     return total;
                 }
@@ -185,12 +185,6 @@ impl Obscurance {
         }
         self.cells[(y * self.cols as i64 + x) as usize] as f64
     }
-}
-
-/// `Vector2::lerp`: the weight narrowed to real_t, `from + (to - from) * weight` per axis.
-fn lerp(from: V2, to: V2, weight: f64) -> V2 {
-    let w = weight as f32;
-    V2::new(from.x + (to.x - from.x) * w, from.y + (to.y - from.y) * w)
 }
 
 /// The cells (along one axis) a coordinate lies in: both where it is on an edge.

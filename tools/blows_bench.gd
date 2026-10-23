@@ -119,7 +119,6 @@ func _engine(engine: String, sim: Sim, saved: Array) -> Array:
 	var before := ScrumBlowsField.spent.duplicate()
 	for _rep in range(int(_args.get("reps", 10))):
 		_put(sim.squads(), saved)
-		UnitMotion._vectors.clear()
 		var began := Time.get_ticks_usec()
 		struck = _pass(sim, field)
 		times.append((Time.get_ticks_usec() - began) / 1000.0)
@@ -195,7 +194,6 @@ func _put(squads: Array, saved: Array) -> void:
 ## The GDScript fight stage by stage, added into `spent` (usec), from the saved state.
 func _stages(sim: Sim, saved: Array, spent: Dictionary) -> void:
 	_put(sim.squads(), saved)
-	UnitMotion._vectors.clear()
 	_staged(sim, spent)
 	_put(sim.squads(), saved)
 
