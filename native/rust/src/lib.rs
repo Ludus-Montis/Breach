@@ -12,6 +12,7 @@ mod columns;
 pub mod content;
 pub mod designer;
 mod det_math;
+mod det_pow;
 mod face_store;
 mod facing;
 mod field;
@@ -19,6 +20,8 @@ mod field_parting;
 mod ghash;
 mod grid;
 pub mod ground;
+mod lying;
+mod march;
 mod maths;
 mod motion;
 mod mover;
@@ -1914,6 +1917,406 @@ impl GroundPaths {
             pathing::look_ahead(over, &route, (front, direction), &members, seed, &look)
         });
         packed(&way.unwrap_or_default())
+    }
+}
+
+/// The march (`march`, spec 39 step 3d) for FormationMarch, FormationSweep, FormationWalk,
+/// FormationPour, FormationShuffle and PlaceOrder, their views. Stateless, so one is shared
+/// (`CrateMarch`).
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct GroundMarch {}
+
+#[godot_api]
+impl GroundMarch {
+    /// FormationMarch.toward, the squad `along` as [front, home, order, direction].
+    #[func]
+    fn toward(&self, along: PackedFloat64Array, delta: f64, route_end: f64) -> f64 {
+        march::toward(&along_of(&along), delta, route_end)
+    }
+
+    /// FormationMarch.travel_sign.
+    #[func]
+    fn travel_sign(&self, along: PackedFloat64Array, route_end: f64) -> i64 {
+        march::travel_sign(&along_of(&along), route_end) as i64
+    }
+
+    /// FormationMarch.pace's share, its front rank's walkers five numbers each.
+    #[func]
+    fn pace(
+        &self,
+        ground: Gd<TerrainGround>,
+        walkers: PackedFloat64Array,
+        points: PackedVector2Array,
+        heading: f64,
+    ) -> f64 {
+        let (rows, _) = walkers.as_slice().as_chunks::<5>();
+        let walkers: Vec<ground::Walker> = rows.iter().map(|r| walker_from(r)).collect();
+        march::pace(ground.bind().ground(), &walkers, &v2s(&points), heading)
+    }
+
+    /// FormationMarch.face: the bearing of `route` at `cells` along it, travelled in
+    /// `direction`.
+    #[func]
+    fn face(&self, route: PackedVector2Array, cells: f64, direction: i64, heading: f64) -> f64 {
+        march::sweep::wanted(&route_of(&route), cells, direction as i32, heading)
+    }
+
+    /// FormationSweep.step: the heading turned towards `route`'s at `cells`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn sweep(
+        &self,
+        route: PackedVector2Array,
+        cells: f64,
+        direction: i64,
+        heading: f64,
+        width: i64,
+        cells_per_second: f64,
+        seconds: f64,
+    ) -> f64 {
+        let wanted = march::sweep::wanted(&route_of(&route), cells, direction as i32, heading);
+        march::sweep::step(heading, wanted, width as i32, cells_per_second, seconds)
+    }
+
+    /// FormationSweep.rate.
+    #[func]
+    fn sweep_rate(&self, width: i64, cells_per_second: f64) -> f64 {
+        march::sweep::rate(width as i32, cells_per_second)
+    }
+
+    /// FormationWalk.walk for `units` (eleven numbers each: walker's five, most stamina,
+    /// footprint area, turn rate, backward pace, radius, 0) standing as `states` (nine each:
+    /// at, foothold, stamina, on face, climb left, bearing, speed) towards `places`, in a
+    /// tick of `squad` = [seconds, cells a second at speed 1, heading], over the bodies
+    /// `lying` (if `bodies`), with `tuning` (walk_tuning_of): each unit's nine after, then
+    /// the hurt a fall did it.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn walk(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        bodies: bool,
+        lying_ats: PackedVector2Array,
+        lying_sizes: PackedFloat64Array,
+        squad: PackedFloat64Array,
+        units: PackedFloat64Array,
+        states: PackedFloat64Array,
+        places: PackedVector2Array,
+        tuning: PackedFloat64Array,
+    ) -> PackedFloat64Array {
+        let ats = v2s(&lying_ats);
+        let (sizes, _) = lying_sizes.as_slice().as_chunks::<2>();
+        let radii: Vec<f64> = sizes.iter().map(|s| s[0]).collect();
+        let areas: Vec<f64> = sizes.iter().map(|s| s[1]).collect();
+        let lying = lying::Lying::new(&ats, &radii, &areas);
+        let s = squad.as_slice();
+        let (units, _) = units.as_slice().as_chunks::<11>();
+        let (states, _) = states.as_slice().as_chunks::<9>();
+        let places = v2s(&places);
+        let tuning = walk_tuning_of(&tuning);
+        let mut out = Vec::with_capacity(states.len() * 10);
+        on_ground(ground, |ground| {
+            let on = march::walk::Walking {
+                ground,
+                lying: bodies.then_some(&lying),
+                seconds: s[0],
+                pace: s[1],
+                heading: s[2],
+                tuning,
+            };
+            for ((unit, state), &place) in units.iter().zip(states).zip(&places) {
+                let marcher = marcher_of(unit);
+                let mut standing = standing_of(state);
+                let hurt = march::walk::walk(&on, &marcher, &mut standing, place);
+                let f = &standing.footing;
+                out.extend_from_slice(&[
+                    f.at.x as f64,
+                    f.at.y as f64,
+                    f.foothold.x as f64,
+                    f.foothold.y as f64,
+                    f.stamina,
+                    f.on_face as i64 as f64,
+                    f.climb_left,
+                    standing.bearing,
+                    standing.speed,
+                    hurt as f64,
+                ]);
+            }
+        });
+        PackedFloat64Array::from(out.as_slice())
+    }
+
+    /// FormationPour.place: where `unit` (rank, column, footprint width and depth, swap
+    /// offset ranks and columns) belongs in `frame` (anchor, heading, width, centre shift).
+    #[func]
+    fn place(&self, frame: PackedFloat64Array, unit: PackedFloat64Array) -> Vector2 {
+        let u = unit.as_slice();
+        let pourer = march::pour::Pourer {
+            id: 0,
+            at: V2::ZERO,
+            rank: u[0] as i32,
+            column: u[1] as i32,
+            footprint_width: u[2] as i32,
+            footprint_depth: u[3] as i32,
+            offset: V2::new(u[4] as f32, u[5] as f32),
+            walker: ground::Walker {
+                height: 0.0,
+                swimmer: 0,
+                climber: 0,
+                swims: false,
+                climbs: false,
+            },
+            taking: None,
+        };
+        vector2(march::pour::place(&frame_of(&frame), &pourer))
+    }
+
+    /// FormationPour.targets for `units` (pourer_of's seventeen numbers each), in order.
+    #[func]
+    fn targets(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        frame: PackedFloat64Array,
+        units: PackedFloat64Array,
+        seed: i64,
+        wounds_reach: f64,
+    ) -> PackedVector2Array {
+        let units = pourers_of(&units);
+        let frame = frame_of(&frame);
+        let aims = on_ground(ground, |ground| {
+            march::pour::targets(ground, &frame, &units, seed, wounds_reach)
+        });
+        packed(&aims)
+    }
+
+    /// FormationWalk.share for the squad's units in its frame (pourer_of's), by its
+    /// `rule` (FormationWalk.rule_of's code), slack and walk_lost.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn share(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        frame: PackedFloat64Array,
+        units: PackedFloat64Array,
+        seed: i64,
+        wounds_reach: f64,
+        rule: i64,
+        slack: f64,
+        lost: f64,
+    ) -> f64 {
+        let rule = rule_from(rule);
+        if rule == march::walk::Rule::LeftBehind {
+            return 1.0;
+        }
+        let units = pourers_of(&units);
+        let frame = frame_of(&frame);
+        let aims = on_ground(ground, |ground| {
+            march::pour::targets(ground, &frame, &units, seed, wounds_reach)
+        });
+        let lags: Vec<march::walk::Lag> = units
+            .iter()
+            .zip(&aims)
+            .map(|(unit, &target)| march::walk::Lag {
+                target,
+                place: march::pour::place(&frame, unit),
+                at: unit.at,
+            })
+            .collect();
+        march::walk::share(rule, slack, lost, &lags)
+    }
+
+    /// FormationWalk.rule_of over the living units' [leads, left behind, no man left]: 0
+    /// none, 1 fall behind left behind, 2 no man left behind.
+    #[func]
+    fn rule_of(&self, living: PackedInt32Array) -> i64 {
+        let (rows, _) = living.as_slice().as_chunks::<3>();
+        let traits: Vec<march::walk::Traits> = rows
+            .iter()
+            .map(|r| march::walk::Traits {
+                leads: r[0] != 0,
+                left_behind: r[1] != 0,
+                no_man_left: r[2] != 0,
+            })
+            .collect();
+        match march::walk::rule_of(&traits) {
+            march::walk::Rule::Lagging => 0,
+            march::walk::Rule::LeftBehind => 1,
+            march::walk::Rule::NoManLeft => 2,
+        }
+    }
+
+    /// FormationWalk.slack_of.
+    #[func]
+    fn slack_of(&self, discipline: f64, loose: f64, drilled: f64) -> f64 {
+        march::walk::slack_of(discipline, loose, drilled)
+    }
+
+    /// PlaceOrder.front_first: the indices of the units at `ranks` and `files`, front first.
+    #[func]
+    fn front_first(&self, ranks: PackedInt32Array, files: PackedInt32Array) -> PackedInt32Array {
+        let places: Vec<(i32, i32)> =
+            ranks.as_slice().iter().copied().zip(files.as_slice().iter().copied()).collect();
+        march::shuffle::front_first(&places).iter().map(|&index| index as i32).collect()
+    }
+
+    /// FormationShuffle._start_moves: the moves `squad` [width, combat width, centre shift,
+    /// fighting] can start, its living units seven numbers each (rank, column, footprint
+    /// width and depth, band, priority, joined) at `speeds`, the moves under way claiming
+    /// `swaps` (rank, column, footprint width and depth each) and their living units
+    /// `busy`, at `pace` = [tick seconds, cells a second at speed 1, scrum_crowding]. Each
+    /// move: its ticks, distance, its units' count, then each unit's index and place
+    /// (rank, column), the mover first; then its passed units' count and indices.
+    #[func]
+    fn start_moves(
+        &self,
+        squad: PackedFloat64Array,
+        units: PackedInt32Array,
+        speeds: PackedFloat64Array,
+        swaps: PackedInt32Array,
+        busy: PackedInt32Array,
+        pace: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let s = squad.as_slice();
+        let squad = march::shuffle::Squad {
+            width: s[0] as i32,
+            combat_width: s[1] as i32,
+            centre_shift: s[2],
+            fighting: s[3] != 0.0,
+        };
+        let (rows, _) = units.as_slice().as_chunks::<7>();
+        let ranked: Vec<march::shuffle::Ranked> = rows
+            .iter()
+            .zip(speeds.as_slice())
+            .map(|(r, &speed)| march::shuffle::Ranked {
+                place: (r[0], r[1]),
+                footprint_width: r[2],
+                footprint_depth: r[3],
+                preferred_position: r[4],
+                position_priority: r[5],
+                speed,
+                joined: r[6] != 0,
+            })
+            .collect();
+        let (claims, _) = swaps.as_slice().as_chunks::<4>();
+        let claims: Vec<((i32, i32), i32, i32)> =
+            claims.iter().map(|c| ((c[0], c[1]), c[2], c[3])).collect();
+        let busy: Vec<usize> = busy.as_slice().iter().map(|&index| index as usize).collect();
+        let p = pace.as_slice();
+        let started =
+            march::shuffle::start_moves(&squad, &ranked, &claims, &busy, [p[0], p[1], p[2]]);
+        let mut out: Vec<i64> = Vec::new();
+        for move_ in started {
+            let plan = &move_.plan;
+            out.extend_from_slice(&[move_.ticks, plan.distance as i64, plan.to.len() as i64]);
+            for &(unit, (rank, column)) in &plan.to {
+                out.extend_from_slice(&[unit as i64, rank as i64, column as i64]);
+            }
+            out.push(plan.passed.len() as i64);
+            out.extend(plan.passed.iter().map(|&unit| unit as i64));
+        }
+        PackedInt64Array::from(out.as_slice())
+    }
+}
+
+/// [front, home, order, direction] as where a squad stands along its route.
+fn along_of(along: &PackedFloat64Array) -> march::Along {
+    let a = along.as_slice();
+    march::Along { front: a[0], home: a[1], order: a[2] as i32, direction: a[3] as i32 }
+}
+
+/// [height, swimmer, climber, swims, climbs] as a walker.
+fn walker_from(w: &[f64]) -> ground::Walker {
+    ground::Walker {
+        height: w[0],
+        swimmer: w[1] as i64,
+        climber: w[2] as i64,
+        swims: w[3] != 0.0,
+        climbs: w[4] != 0.0,
+    }
+}
+
+/// [walk_face_travel, bodies_ground_drag, bodies_ground_block, stamina_climb, stamina_swim,
+/// stamina_spent, ground_cliff_quarters, fall_damage_per_cell, fall_mass_power].
+fn walk_tuning_of(tuning: &PackedFloat64Array) -> march::walk::WalkTuning {
+    let t = tuning.as_slice();
+    march::walk::WalkTuning {
+        face_travel: t[0],
+        drag: t[1],
+        block: t[2],
+        modes: march::modes::ModeTuning {
+            climb_rate: t[3],
+            swim_rate: t[4],
+            spent: t[5],
+            cliff_quarters: t[6] as i64,
+            fall_per_cell: t[7],
+            fall_mass_power: t[8],
+        },
+    }
+}
+
+fn marcher_of(u: &[f64; 11]) -> march::walk::Marcher {
+    march::walk::Marcher {
+        climber: march::modes::Climber {
+            walker: walker_from(&u[..5]),
+            most_stamina: u[5],
+            area: u[6],
+        },
+        turn_rate: u[7],
+        backward_pace: u[8],
+        radius: u[9],
+    }
+}
+
+fn standing_of(s: &[f64; 9]) -> march::walk::Standing {
+    march::walk::Standing {
+        footing: march::modes::Footing {
+            at: V2::new(s[0] as f32, s[1] as f32),
+            foothold: V2::new(s[2] as f32, s[3] as f32),
+            stamina: s[4],
+            on_face: s[5] != 0.0,
+            climb_left: s[6],
+        },
+        bearing: s[7],
+        speed: s[8],
+    }
+}
+
+/// [anchor x, y, heading, width, centre shift] as a squad's frame.
+fn frame_of(frame: &PackedFloat64Array) -> march::pour::Frame {
+    let f = frame.as_slice();
+    march::pour::Frame {
+        anchor: V2::new(f[0] as f32, f[1] as f32),
+        heading: f[2],
+        width: f[3] as i32,
+        centre_shift: f[4],
+    }
+}
+
+/// Seventeen numbers each: id, at, rank, column, footprint width and depth, swap offset,
+/// the walker's five, and 1 and the body it is out taking, or three 0s.
+fn pourers_of(rows: &PackedFloat64Array) -> Vec<march::pour::Pourer> {
+    let (rows, _) = rows.as_slice().as_chunks::<17>();
+    rows.iter()
+        .map(|r| march::pour::Pourer {
+            id: r[0] as i64,
+            at: V2::new(r[1] as f32, r[2] as f32),
+            rank: r[3] as i32,
+            column: r[4] as i32,
+            footprint_width: r[5] as i32,
+            footprint_depth: r[6] as i32,
+            offset: V2::new(r[7] as f32, r[8] as f32),
+            walker: walker_from(&r[9..14]),
+            taking: (r[14] != 0.0).then(|| V2::new(r[15] as f32, r[16] as f32)),
+        })
+        .collect()
+}
+
+fn rule_from(code: i64) -> march::walk::Rule {
+    match code {
+        1 => march::walk::Rule::LeftBehind,
+        2 => march::walk::Rule::NoManLeft,
+        _ => march::walk::Rule::Lagging,
     }
 }
 

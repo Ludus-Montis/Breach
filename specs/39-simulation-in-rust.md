@@ -138,6 +138,7 @@ Spec 34 items 3 and 5 and Q12 (#268) are carried as they are: terrain does today
   `FormationPour`, `WalkModes`, `FormationSweep`, `FormationShuffle`, `ShuffleFront`,
   `FormationStaging`). 3d's PR closes the step. `TerrainWalker` (a unit's walker, built from
   its definition) stays GDScript until the units' rules port; the crate takes its fields.
+  `FormationStaging` moved to step 5 in 3d (Built, "Step 3d").
 
 ### Step 4, the scrum, regroup and the pursuits
 
@@ -149,7 +150,8 @@ perception. The largest step. It is expected to split (4a the scrum core, 4b reg
 ### Step 5, groups and the split
 
 `FormationGroups`, `GroupSplit`, strays (`FormationStrays`), compaction (`SquadCompact`) and
-rendezvous.
+rendezvous, with the staging that times its departure by it (`FormationStaging`, moved here
+from step 3d: Built, "Step 3d").
 
 ### Step 6, the downed and stamina
 
@@ -612,6 +614,74 @@ Decision's conditions.
   shares looked up twice, heights an ulp apart kept apart, a group walking its route
   backwards, and the pathfinder and the way round the same whatever the order of the
   units.
+
+### Step 3d, the march in the crate
+
+- **Stacked on 3c** (the user's call, 2026-10-23): built on `feature/pathing-in-the-crate`
+  (PR #576) before it merged; its PR is based on that branch.
+- **The march** (`native/rust/src/march/mod.rs`, `sweep.rs`): FormationMarch's toward, travel
+  sign, its front rank's pace and its facing, and FormationSweep's rate and turn. Godot's
+  `is_equal_approx`, `is_zero_approx`, `signf`, `clampf`, `minf`, `maxf` and `lerpf` are in
+  `maths.rs` (motion's `clampf` and `maxf` moved there).
+- **The walk** (`walk.rs`, `modes.rs`): FormationWalk's walk, for a squad's units in one call
+  (each reads only its own columns, the ground and the bodies lying), with WalkModes'
+  climbing, swimming, the spent's start and the fall (DetPow's `pow`, now `det_pow.rs`); its
+  share, slack and rule. A fall's hurt is handed back, and GDScript applies it (UnitHealth,
+  step 6) after the walk, in the units' order. The bodies underfoot (`lying.rs`,
+  GroundBodies.underfoot) are the scrum walk's, now shared. The GDScript skipped the walker
+  among the lying; a walker is alive and the lying aren't (`sync_units` walks only units
+  that are), so the crate has no skip.
+- **Pouring** (`pour.rs`): FormationPour's place and targets: the squeeze, the queue (front
+  first, then nearest the centre line, then by draw), the filing in, and one out taking a
+  downed foe making for beside it.
+- **Re-forming** (`shuffle.rs`, `front.rs`): the moves a re-forming squad starts
+  (FormationShuffle's planning, ShuffleFront, SquadPlaces' occupancy), and
+  PlaceOrder.front_first. Two units on one place, which a frame never holds, keep their
+  order: the crate's sort is stable, where GDScript's `sort_custom` left such ties to its
+  sort past 16 units.
+- **Boundary moves** (Open's rule): `FormationStaging` moved to step 5. It is a state
+  machine over a squad's staging dictionary and its events, and its rules are sight
+  (FormationSight, step 4) and the rendezvous' timing (`FormationRendezvous.ticks_to`, step
+  5), with no arithmetic of its own worth a native call. The swaps under way (their
+  countdown, ends and widening: FormationShuffle's `step`, `offset` and `movers`), the
+  arrivals (`check_ends`, which calls FormationWithdraw, step 4) and the placing of routers
+  and loose units in `sync_units` (FormationRout, step 7) stay GDScript until those port or
+  the tick does (step 8): the swaps and the staging are not in the crate's store. ModeStamina's
+  `rate` and `can_start` went into the walk modes, their only reader. PlaceOrder became a
+  view now, not in step 5, since the re-form calls it (SquadCompact reads it too).
+  `TerrainStep.returns` stays a call of the pour's targets.
+- **The binding** (`GroundMarch`, `lib.rs`): stateless, one shared (`CrateMarch`). A squad's
+  frame is passed as five numbers, a unit making for a point as seventeen, a walker of the
+  march as eleven with its columns as nine, a re-forming unit as seven, and the bodies lying
+  as where each lies with its radius and area, worked out once a tick. The views' APIs are
+  unchanged, and `FormationWalk.walk_all` is new: a squad's walk in one call, over the
+  march's hold.
+- **Identical:** before the GDScript was deleted, a one-off script (deleted) ran the old
+  GDScript and the views on 76,720 random queries over 400 grounds (streams with fords,
+  cliffs, climbs, woods and water, or open ground):
+  - toward, travel sign, the pace (with its blocked event), facing, sweeps and rates;
+  - targets with and without swaps and loose units (84 sets with units squeezed), returns,
+    places, shares, slack and rules;
+  - 28,221 walks with and without bodies lying (10,421 on a climb or a swim, 24 falls),
+    1,200 whole syncs and 400 placings;
+  - 3,200 re-form plannings (2,369 started moves, 1,434 through) and 2,400 front-first
+    orders.
+
+  All were equal bit for bit. Outcomes unchanged: CI's digests compare with `main`.
+- **Retired:** WalkModes, ShuffleFront, SquadPlaces and `tools/shuffle_phases.gd`
+  (`tick_phases` times the shuffle as one phase now); the bodies of FormationMarch's pace,
+  toward, travel sign and face, FormationSweep, FormationWalk's walk, share, slack and rule,
+  FormationPour, FormationShuffle's planning, PlaceOrder, and ModeStamina's `rate` and
+  `can_start`; `test_walk_modes.gd` and `test_place_order.gd`; the pure scenarios of
+  `test_formation_walk.gd`, `test_formation_pour.gd` and `test_mode_stamina.gd`. The
+  scenarios through a battle stay gdUnit (`test_formation_sweep.gd`,
+  `test_formation_shuffle.gd`, `test_formation_staging.gd`, the walk's and the pour's).
+- **Tests:** cargo (`march/tests.rs`, `det_pow.rs`): the gdUnit scenarios above, plus a walk
+  over a climb face climbing before it moves on, a unit part way through a swap, the front
+  stopping at its target, travel signs, the pace's worst ground, a sweep's turn, a free
+  front place, passing through, spreading within the combat width in a fight, DetPow's
+  powers, and the targets, the pace and the moves planned the same whatever the order of
+  the units.
 
 ## Open, for the implementing session to settle and record here
 

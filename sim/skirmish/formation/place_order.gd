@@ -1,42 +1,22 @@
 class_name PlaceOrder
 extends RefCounted
 ## Units front first by their places in a squad's frame (rank, then column), as compact and
-## a re-form (FormationShuffle) look through them: sorted on whole-number keys rather than
-## by a comparison called for every pair. Two units on one place (which a frame never
-## holds) are sorted as a comparison of ranks and columns would sort them, so the order is
-## always the same as that sort's. Pure.
-
-## Ranks and columns this far either side of 0 fit a key; any beyond are sorted as pairs.
-const LIMIT := 1 << 20
+## a re-form (FormationShuffle) look through them. Two units on one place (which a frame
+## never holds) keep their order. Pure. A view over the crate's
+## (native/rust/src/march/shuffle.rs, spec 39 step 3d).
 
 
 ## `units`, front rank first, each rank left to right, by their places in `ranks` and
 ## `files` (the unit store's RANK and COLUMN, by slot: a view's, UnitView.PLACES).
 static func front_first(units: Array, ranks: PackedInt32Array, files: PackedInt32Array) -> Array:
-	var count := units.size()
-	var keys := PackedInt64Array()
-	keys.resize(count)
-	for index in range(count):
-		var slot: int = units[index].slot
-		if absi(ranks[slot]) >= LIMIT or absi(files[slot]) >= LIMIT:
-			return _by_pairs(units, ranks, files)
-		var place: int = (ranks[slot] + LIMIT) * (2 * LIMIT) + files[slot] + LIMIT
-		keys[index] = place * count + index
-	keys.sort()
+	var unit_ranks := PackedInt32Array()
+	var unit_files := PackedInt32Array()
+	for unit in units:
+		unit_ranks.append(ranks[unit.slot])
+		unit_files.append(files[unit.slot])
+	var order: PackedInt32Array = CrateMarch.core().front_first(unit_ranks, unit_files)
 	var out := []
-	out.resize(count)
-	for index in range(count):
-		out[index] = units[keys[index] % count]
-		if index > 0 and keys[index] / count == keys[index - 1] / count:
-			return _by_pairs(units, ranks, files)  # one place held twice: as the comparison sorts them
-	return out
-
-
-static func _by_pairs(units: Array, ranks: PackedInt32Array, files: PackedInt32Array) -> Array:
-	var out := units.duplicate()
-	out.sort_custom(
-		func(a, b):
-			var ahead := ranks[a.slot] < ranks[b.slot]
-			return ahead or (ranks[a.slot] == ranks[b.slot] and files[a.slot] < files[b.slot])
-	)
+	out.resize(units.size())
+	for index in order.size():
+		out[index] = units[order[index]]
 	return out

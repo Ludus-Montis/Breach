@@ -3,14 +3,17 @@ extends RefCounted
 ## A squad's march along its route (Decisions 74 and 75, spec 27 round 1): how long its
 ## route is, which way it faces there, reaching either end, and where its units stand for
 ## views - along the route (`distance`, for the one-lane scene) and in cells (`position`).
-## Pure over the squads it is given; FormationSimulation calls it each tick.
+## Pure over the squads it is given; FormationSimulation calls it each tick. Where its front
+## gets, which way it goes, its pace and its facing, and its units' walk, are the crate's
+## (native/rust/src/march/, spec 39 step 3d); its arrival, the units' placing and the routers'
+## and the loose stay here until the rout (step 7) and the tick (step 8) port.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
+const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
@@ -22,8 +25,8 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns the walk to places sets and steps, held for each squad's pass (UnitView):
 ## where each stands and faces, its pace, the stamina a climb or a swim spends, how far along
-## the route it stands, and its climb (WalkModes: where it last stood, whether it is on a
-## face, the climb left; spec 35 step 7c).
+## the route it stands, and its climb (the crate's walk modes: where it last stood, whether
+## it is on a face, the climb left; spec 35 step 7c).
 const WALKED := [
 	UnitColumns.POSITION,
 	UnitColumns.BEARING,
@@ -55,15 +58,13 @@ static func pace(
 ) -> float:
 	if terrain == null:
 		return step
-	var ahead := UnitMotion.vector(squad.heading)
 	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	var worst := INF
+	var walkers := PackedFloat64Array()
+	var at := PackedVector2Array()
 	for unit in squad.fighters():
-		var at := points[unit.slot]
-		var factor := terrain.factor(unit, at, at + ahead)
-		if factor > 0.0:  # one stepping onto ground it can't cross pours (FormationWalk)
-			worst = minf(worst, factor)
-	worst = 0.0 if worst == INF else worst
+		walkers.append_array(TerrainWalker.of_unit(unit).fields())
+		at.append(points[unit.slot])
+	var worst: float = CrateMarch.core().pace(terrain.core, walkers, at, squad.heading)
 	if worst <= 0.0 and not squad.blocked:
 		events.append(FormationEvents.squad_event("blocked", tick, squad))
 	squad.blocked = worst <= 0.0
@@ -73,24 +74,13 @@ static func pace(
 ## Where the squad's front gets moving `delta` tiles along its route of `route_end` tiles:
 ## never past either end, nor past the point its order takes it to.
 static func toward(squad: SkirmishSquad, delta: float, route_end: float) -> float:
-	var next := clampf(squad.front_distance + delta, 0.0, route_end)
-	var enemy_end := route_end if is_zero_approx(squad.home_distance) else 0.0
-	var target := squad.home_distance if squad.order == SkirmishUnit.Order.RETREAT else enemy_end
-	var before := signf(target - squad.front_distance)
-	if before != 0.0 and signf(target - next) != before:
-		return target  # it would pass its target: it stops there
-	return next
+	return CrateMarch.core().toward(_along(squad), delta, route_end)
 
 
 ## Which way the squad's order takes it along its route: +1 up it, -1 down it. Advancing
 ## heads for the end away from home, retreating for home.
 static func travel_sign(squad: SkirmishSquad, route_end: float) -> int:
-	var enemy_end := route_end if is_zero_approx(squad.home_distance) else 0.0
-	var advancing := squad.order == SkirmishUnit.Order.ADVANCE
-	var target := enemy_end if advancing else squad.home_distance
-	if is_equal_approx(target, squad.front_distance):
-		return squad.direction
-	return 1 if target > squad.front_distance else -1
+	return CrateMarch.core().travel_sign(_along(squad), route_end)
 
 
 ## Turns the squad's frame at once to its route's heading at its front: where it is placed
@@ -99,8 +89,9 @@ static func face(squad: SkirmishSquad) -> void:
 	if squad.route == null:
 		return
 	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	var way := squad.route.heading_at(cells) * squad.direction
-	squad.heading = UnitMotion.bearing_to(Vector2.ZERO, way, squad.heading)
+	squad.heading = CrateMarch.core().face(
+		squad.route.points(), cells, squad.direction, squad.heading
+	)
 
 
 ## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home: its
@@ -188,6 +179,12 @@ static func sync_units(
 				facing[unit.slot] = heading
 			else:
 				walkers.append(unit)
-		for unit in walkers:
-			FormationWalk.walk(entry, unit, aims[unit.id], timing, terrain)
+		FormationWalk.walk_all(entry, held, walkers, aims, timing, terrain)
 	UnitView.release(all_held)  # the routers', the loose, the placed and the walked points
+
+
+## Where `squad` stands along its route: [front, home, order, direction].
+static func _along(squad) -> PackedFloat64Array:
+	return PackedFloat64Array(
+		[squad.front_distance, squad.home_distance, squad.order, squad.direction]
+	)
