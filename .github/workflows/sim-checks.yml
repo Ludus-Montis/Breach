@@ -124,8 +124,12 @@ jobs:
             $(python3 ci/godot/scripts/shard_tests.py "$SHARDS" ${{ matrix.shard }}) \
             -c --ignoreHeadlessMode \
             2>&1 | sed 's/\x1b\[[0-9;]*m//g' > suite.${{ matrix.shard }}.log
+          # The pipeline's status is sed's: keep gdUnit's, so a failing test fails the job
+          # once the log's failures and summary are shown.
+          status=${PIPESTATUS[0]}
           grep -E "FAILED|SCRIPT ERROR|Parse Error" suite.${{ matrix.shard }}.log | head -40 || true
           grep -E "^Overall Summary|Statistics" suite.${{ matrix.shard }}.log | tail -1
+          exit "$status"
 
       - uses: actions/upload-artifact@v7
         if: always()
