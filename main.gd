@@ -22,8 +22,6 @@ const CaptureChoicePanel = preload("res://presentation/capture_choice_panel.gd")
 const NarrativeLog = preload("res://presentation/narrative_log.gd")
 const TickProgressIndicator = preload("res://presentation/tick_progress_indicator.gd")
 const PlayerRoster = preload("res://sim/player_roster.gd")
-
-const MAP: MapDef = preload("res://content/maps/p_f_F_c.tres")
 const HERO_PARTY_DEF: ResponseUnitDef = preload("res://content/response_units/hero_party.tres")
 
 const P := 0
@@ -34,6 +32,7 @@ const CORE := 4
 const FORT_ENGAGE_SPIKE := 50.0
 const FORT_CAPTURE_SPIKE := 25.0
 
+var _map: MapDef = CrateContent.map("p_f_F_c")
 var _lane: LaneSimulation
 var _economy: EconomySystem
 var _capture: CaptureResolution
@@ -81,10 +80,10 @@ func _process(delta: float) -> void:
 
 
 func _build_simulation() -> void:
-	_lane = LaneSimulation.new(MAP.lanes[0].nodes)
+	_lane = LaneSimulation.new(_map.lanes[0].nodes)
 	_economy = EconomySystem.new()
 	_capture = CaptureResolution.new(_economy)
-	_suspicion = SuspicionSystem.new(MAP.suspicion_tier_thresholds, MAP.suspicion_decay_per_tick)
+	_suspicion = SuspicionSystem.new(_map.suspicion_tier_thresholds, _map.suspicion_decay_per_tick)
 	_dispatch = TaskForceDispatch.new(
 		_lane,
 		CORE,
@@ -93,7 +92,7 @@ func _build_simulation() -> void:
 	)
 	_watcher = ScriptedBeatWatcher.new(CORE)
 	_clock = SimulationClock.new()
-	_clock.tick_duration_seconds = MAP.tick_duration_seconds
+	_clock.tick_duration_seconds = _map.tick_duration_seconds
 	_clock.auto_pause_each_tick = true
 	_queue = CommandQueue.new()
 	_roster = PlayerRoster.new()
@@ -114,7 +113,7 @@ func _build_presentation() -> void:
 
 func _build_tick_indicator() -> void:
 	_tick_indicator = TickProgressIndicator.new()
-	_tick_indicator.tick_duration_seconds = MAP.tick_duration_seconds
+	_tick_indicator.tick_duration_seconds = _map.tick_duration_seconds
 	_tick_indicator.position = Vector2(20, 100)
 	add_child(_tick_indicator)
 
@@ -122,7 +121,7 @@ func _build_tick_indicator() -> void:
 func _build_lane_view() -> void:
 	var lane_view := LaneView.new()
 	lane_view.lane = _lane
-	lane_view.tick_duration_seconds = MAP.tick_duration_seconds
+	lane_view.tick_duration_seconds = _map.tick_duration_seconds
 	lane_view.position = Vector2(400, 100)
 	add_child(lane_view)
 	_time_controls_lane_view = lane_view
@@ -254,7 +253,7 @@ func _update_choice_button_visibility() -> void:
 
 
 func _on_node_captured(node_index: int) -> void:
-	_capture.on_node_captured(node_index, MAP.lanes[0].nodes[node_index])
+	_capture.on_node_captured(node_index, _map.lanes[0].nodes[node_index])
 	if node_index == FARM:
 		_despawn_player_wave_at(FARM)
 	if node_index == FORT:

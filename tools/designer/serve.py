@@ -3,16 +3,17 @@
     python tools/designer/serve.py [--port 8765] [--godot <path>] [--no-browser]
 
 Serves the designer from tools/designer/ on 127.0.0.1 only and gives it a small JSON API.
-Saving a map writes content/maps_src/<name>.designer.json, then runs
-tools/import_designer_map.gd so content/maps/<name>.tres is always current. Python
-standard library only.
+Saving a map writes content/maps_src/<name>.designer.json, then runs the Rust crate's
+designer tool (native/bin/breach_designer, built by bash native/build.sh), which writes
+content/maps/<name>.json in the crate's schema, so the map the game loads is always current.
+Godot is only needed to open the map viewer. Python standard library only.
 
 API:
-    GET  /api/health                  repo path, and whether Godot is configured
+    GET  /api/health                  repo path, whether Godot is configured and the tool built
     GET  /api/maps                    [{name, modified, imported}]
     GET  /api/maps/<name>             the saved export JSON
     PUT  /api/maps/<name>             save + import -> {saved, import:{ran, ok, warnings, errors, output_path}}
-    POST /api/maps/<name>/view        open content/maps/<name>.tres in the Godot map viewer
+    POST /api/maps/<name>/view        open content/maps/<name>.json in the Godot map viewer
     GET  /api/libraries/<library>     content/designer/<library>.json (null if absent); "terrain"
                                       is content/terrain/terrain_library.json, in the designer's shape
     PUT  /api/libraries/<library>     write it -> {changed, import}; "terrain" is written in the
@@ -59,7 +60,7 @@ STATIC_FILES = {
 MAX_BODY_BYTES = 16 * 1024 * 1024
 ## Bumped whenever the API gains or changes an endpoint; repo.js compares it with its own
 ## REQUIRED_API so a server started before an update says "restart serve.py".
-API_VERSION = 4
+API_VERSION = 5
 
 
 def make_handler(repo: DesignerRepo, static_dir: Path = DESIGNER_DIR, log_requests: bool = True):
@@ -100,6 +101,7 @@ def make_handler(repo: DesignerRepo, static_dir: Path = DESIGNER_DIR, log_reques
                             "repo": str(repo.root),
                             "godot": repo.godot,
                             "godot_found": bool(repo.godot),
+                            "tool_found": repo.tool.is_file(),
                             "api_version": API_VERSION,
                         }
                     )
@@ -192,11 +194,13 @@ def main(argv=None) -> int:
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(repo))
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     print(f"Lane Tile Designer: {url}  (repo {REPO_ROOT})")
+    if not repo.tool.is_file():
+        print(f"Designer tool: not built ({repo.tool}) - run bash native/build.sh, or saves fail.")
     if godot:
-        print(f"Godot: {godot} - saving a map also imports it to content/maps/<name>.tres")
+        print(f"Godot: {godot} - View in Godot opens the map viewer")
     else:
         print(
-            "Godot: not configured - maps still save, but the .tres import is skipped.\n"
+            "Godot: not configured - maps save, but View in Godot can't open the viewer.\n"
             '       Pass --godot <path>, set GODOT_BIN, or add {"godot": "<path>"} to\n'
             "       tools/designer/local_config.json (gitignored)."
         )

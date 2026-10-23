@@ -4,13 +4,14 @@
 
 use schemars::{schema_for, Schema};
 
-use super::{Armour, BattleTuning, TerrainLibrary, Unit, Weapon};
+use super::{Armour, BattleTuning, Map, TerrainLibrary, Unit, Weapon};
 
 /// Each kind's schema file name and its schema, in name order.
 pub fn schemas() -> Vec<(&'static str, Schema)> {
     vec![
         ("armour.schema.json", schema_for!(Armour)),
         ("battle_tuning.schema.json", schema_for!(BattleTuning)),
+        ("map.schema.json", schema_for!(Map)),
         ("terrain_library.schema.json", schema_for!(TerrainLibrary)),
         ("unit.schema.json", schema_for!(Unit)),
         ("weapon.schema.json", schema_for!(Weapon)),

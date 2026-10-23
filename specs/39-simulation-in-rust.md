@@ -109,6 +109,11 @@ session records the split here.
   loss groups, the user's call), converted once, `MapDef` filled from it, the designer's map
   export and validation against the JSON Schema, the round trip, and the importer kept to what
   the presentation needs. 2c's PR closes the step.
+- **Where the designer's translation lives** (2026-10-23, the user's call, building 2c): in the
+  crate, not Python, for the map and for 2b's terrain library alike. The structs are the
+  schema, so a translated map is checked by serde, the round trip is a cargo test, and the
+  rules are ported once into the language this round moves to. The designer's server runs a
+  binary of the crate (`designer`).
 
 ### Step 3, the ground and the mover
 
@@ -390,6 +395,62 @@ Decision's conditions.
   and valid; every layout shares it; no terrain `.tres` left or read), and
   `tools/designer/test_terrain_schema.py` and `test_designer_repo.py` (the translation both
   ways, the old saves, the round trip of the checked-in file, the in-use refusal).
+
+### Step 2c, the whole map in one file, and the designer's translation in the crate
+
+- **The schema** (`native/rust/src/content/map.rs`): `Map` and what it holds (`Node`,
+  `GarrisonUnit`, `Subnode`, `StructurePlan`, `StructureFace`, `Lane`, `MapEdge`, `Faction`,
+  `FactionRelation`, `LossGroup`, `MapLayout`, `Tile`, `Bridge`, `RoadSegment`, `Route`,
+  `Channel`), named field for field as GDScript's, defaulting to GDScript's,
+  `deny_unknown_fields`. Every node is listed once under `nodes` and a lane names its nodes by
+  id, so the home shared by two lanes is one node, as the `.tres` shared one sub-resource; a
+  node on no lane is off-lane, in `nodes`' order. Enums by name (`"FORT"`, `"north"`), cells as
+  `[col, row]`, structure cells `[x, y, level]`, a plan's keyed cells as `[cell, value]` pairs
+  in the designer's order, `null` for no layout, plan or bridge. Files are written with lists
+  of plain values on one line (`content/write.rs`).
+- **Loader:** every `content/maps/<name>.json` by name. A lane naming a node that isn't there,
+  or a default terrain, tile terrain or feature not in the library, names its field
+  (`lanes[0].nodes[1]`, `layout.tiles[1].terrain_id`). `MapDef.validate()` still runs in
+  GDScript; a test holds every checked-in map valid.
+- **JSON Schema:** `content/schema/map.schema.json`.
+- **The designer's translation in the crate** (`native/rust/src/designer/`): the designer
+  export into `Map` (the rules of Godot's import: nodes and their designer fields, lanes from
+  links, edges, off-lane nodes, the layout, plans, loss groups, the format check and the
+  warnings), and 2b's terrain library both ways with the in-use refusal (`terrain_schema.py`'s
+  rules). A plan face on a side that isn't one is now an error; Godot's import stored side -1.
+  The binary (`src/bin/designer.rs`, `native/bin/breach_designer` from `native/build.sh`) has
+  `map`, `terrain-read` and `terrain-write`, and prints the lines the server already read.
+- **Converted once:** demo_map, skirmish_p_c and skirmish_two_lanes by the crate's
+  translation of their saved designer exports (the designer's own path), p_f_F_c from its
+  `.tres` through `MapJson`. Before the `.tres` files were deleted, every field of each filled
+  map was checked equal to its `.tres` (592 fields, a one-off script, deleted), except each
+  designer map's node `tile`: the `.tres` were imported before Decision 68 gave nodes a tile,
+  and nothing in `sim/` or `presentation/` reads it. The terrain library was rewritten once by
+  the crate's writer; its values are unchanged.
+- **The fill:** `MapFill` builds a `MapDef` from the crate's fields (nodes by id, lanes, the
+  off-lane rest), `ContentFill` now fills vectors, cell-keyed dictionaries and a definition
+  held alone, and `CrateContent.map(name)` makes each once and shares it. `main.gd`, the
+  formation skirmish and the map viewer (`--map=<name>`, read from its file on each Reload)
+  take maps from it. `MapJson` writes a `MapDef` in the schema through the crate
+  (`ContentStore.write_map`): the map scene's export (`MapSceneRoot`, "Export to JSON") uses it.
+- **The importer, kept to what the presentation needs:** `DesignerMapImporter.import_map` and
+  `.plan` hand a designer export or plan to the crate (`ContentStore.map_from_export`,
+  `plan_from_export`) and fill the result, for the presentation's and the load cases' tests,
+  which build maps and plans as the designer draws them. The GDScript builders, the import
+  resource, `tools/import_designer_map.gd` and their gdUnit tests are gone; their scenarios are
+  cargo tests.
+- **The designer:** saving a map writes the export, then the tool writes
+  `content/maps/<name>.json`, without Godot; the terrain library is read and written by the
+  tool. Godot is needed only for View in Godot. `serve.py`'s API is 5 (`tool_found` in health).
+- **Tests:** cargo (`content/mod.rs`: a map field of the wrong type, a node type that isn't one,
+  a lane naming a missing node and a tile of a missing terrain each name the field; omitted
+  fields take GDScript's defaults; the checked-in maps load; `designer/tests.rs`: the import's
+  scenarios, the terrain translation's, and each saved designer map read equals the checked-in
+  map), `test_crate_content.gd` (the crate's map defaults equal GDScript's; a map filled from
+  its file; a node on two lanes is one node; every map there and valid; a map written by
+  `MapJson` reads back the same; no `.tres` under `content/maps/` or read),
+  `test_designer_map_importer.gd` (what reaches GDScript), and `tools/designer/`'s Python tests
+  (the server runs the tool; the real tool when it is built).
 
 ## Open, for the implementing session to settle and record here
 

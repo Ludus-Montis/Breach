@@ -2,7 +2,8 @@ name: Rust
 
 # The Rust crate's own checks (spec 39 step 1, Decision 154): formatting, clippy with
 # warnings as errors, and its cargo tests. None starts Godot. Runs on every PR that touches
-# native/, or the content the crate loads and the schema it checks in (spec 39 step 2).
+# native/, the content the crate loads and the schema it checks in (spec 39 step 2), or the
+# designer's saved maps and exports its tests read (step 2c).
 
 on:
   pull_request:
@@ -13,7 +14,10 @@ on:
       - "content/armour/**"
       - "content/tuning/**"
       - "content/terrain/**"
+      - "content/maps/**"
+      - "content/maps_src/**"
       - "content/schema/**"
+      - "tests/fixtures/designer/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
 

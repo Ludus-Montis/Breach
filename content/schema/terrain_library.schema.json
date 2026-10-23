@@ -4,59 +4,153 @@
   "description": "The shared library (`TerrainLibraryDef`), each list in the designer's order.",
   "type": "object",
   "properties": {
+    "terrains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Terrain"
+      },
+      "default": []
+    },
     "features": {
       "type": "array",
-      "default": [],
       "items": {
         "$ref": "#/$defs/TerrainFeature"
-      }
+      },
+      "default": []
     },
     "materials": {
       "description": "What strata (and later walls) are made of (Decisions 54, 57).",
       "type": "array",
-      "default": [],
       "items": {
         "$ref": "#/$defs/Material"
-      }
+      },
+      "default": []
     },
     "road_move_multiplier": {
       "description": "Multiplies a terrain's move_cost on a cell with a road.",
       "type": "number",
       "format": "double",
       "default": 0.5
-    },
-    "terrains": {
-      "type": "array",
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/Terrain"
-      }
     }
   },
   "additionalProperties": false,
   "$defs": {
-    "Colour": {
-      "type": "string",
-      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-    },
-    "HeatTransition": {
-      "description": "What a material does past a heat level (`HeatTransitionDef`, Decisions 63, 66): becomes\nanother material, or gains a trait.",
+    "Terrain": {
+      "description": "One terrain type (`TerrainDef`).",
       "type": "object",
       "properties": {
-        "becomes": {
+        "id": {
           "type": "string",
           "default": ""
         },
-        "gains_trait": {
+        "display_name": {
           "type": "string",
           "default": ""
         },
-        "rising": {
-          "description": "Above the threshold (true) or below it.",
+        "glyph": {
+          "description": "Short symbol the designer draws on the cell.",
+          "type": "string",
+          "default": ""
+        },
+        "color": {
+          "$ref": "#/$defs/Colour",
+          "default": "#ffffff"
+        },
+        "can_be_base": {
+          "description": "Can be a map's base (default) terrain.",
           "type": "boolean",
           "default": true
         },
-        "threshold": {
+        "needs_bridge": {
+          "description": "Impassable without a bridge (water, ravine).",
+          "type": "boolean",
+          "default": false
+        },
+        "move_cost": {
+          "description": "Movement cost to enter a cell of this terrain (a road multiplies it).",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "blocks_unit_classes": {
+          "description": "Unit classes that cannot enter this terrain (ids only).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "bearing": {
+          "description": "The ground (Decisions 53, 54): the load a cell column bears, the most foundations can\nraise it to, and how deep the strata go, in cells.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "default_elevation": {
+          "description": "Ground height in cells for a tile of this terrain that sets none (Decision 56).",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "relief_amplitude": {
+          "description": "Seeded unevenness within a tile (Decision 59): up to this many cells above or below\nthe tile's height, varying over about relief_scale cells; 0 = smooth.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "relief_scale": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "foundation_max": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "dig_depth": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "liquids": {
+          "description": "Bodies of water or lava (materials that flow) it may hold (Decisions 62, 64).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LiquidBody"
+          },
+          "default": []
+        },
+        "strata": {
+          "description": "Bands from the surface down; the last continues to dig_depth.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Stratum"
+          },
+          "default": []
+        },
+        "default_stability": {
+          "description": "The side-on structure editor's capacity (Decision 27); a tile can override them.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "default_max_height": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "default_max_width": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "default_max_length": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "default_max_depth": {
           "type": "integer",
           "format": "int64",
           "default": 0
@@ -64,28 +158,32 @@
       },
       "additionalProperties": false
     },
+    "Colour": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
     "LiquidBody": {
       "description": "A body of a material that flows a terrain may hold (`LiquidBodyDef`, Decision 62).",
       "type": "object",
       "properties": {
-        "chance": {
-          "type": "number",
-          "format": "double",
-          "default": 1.0
-        },
         "material_id": {
           "type": "string",
           "default": ""
+        },
+        "min_cells": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
         },
         "max_cells": {
           "type": "integer",
           "format": "int64",
           "default": 0
         },
-        "min_cells": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
+        "chance": {
+          "type": "number",
+          "format": "double",
+          "default": 1.0
         },
         "surface_chance": {
           "type": "number",
@@ -95,35 +193,71 @@
       },
       "additionalProperties": false
     },
-    "Material": {
-      "description": "What strata, walls and liquids are made of (`MaterialDef`, Decisions 54, 57, 63, 64).",
+    "Stratum": {
+      "description": "One band of a terrain's strata (`StratumDef`, Decision 54), its thickness in cells.",
       "type": "object",
       "properties": {
-        "color": {
-          "$ref": "#/$defs/Colour",
-          "default": "#ffffff"
+        "material_id": {
+          "type": "string",
+          "default": ""
+        },
+        "min_cells": {
+          "type": "integer",
+          "format": "int64",
+          "default": 1
+        },
+        "max_cells": {
+          "type": "integer",
+          "format": "int64",
+          "default": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "TerrainFeature": {
+      "description": "A natural feature a tile can carry (`TerrainFeatureDef`): its effect isn't designed yet.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": ""
         },
         "display_name": {
           "type": "string",
           "default": ""
         },
-        "heat": {
-          "description": "The heat it gives off, a level 0-10 (Decision 66).",
-          "type": "integer",
-          "format": "int64",
-          "default": 1
+        "glyph": {
+          "type": "string",
+          "default": ""
         },
-        "heat_transitions": {
-          "description": "How it reacts to heat.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/HeatTransition"
-          }
-        },
+        "effect_notes": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "Material": {
+      "description": "What strata, walls and liquids are made of (`MaterialDef`, Decisions 54, 57, 63, 64).",
+      "type": "object",
+      "properties": {
         "id": {
           "type": "string",
           "default": ""
+        },
+        "display_name": {
+          "type": "string",
+          "default": ""
+        },
+        "color": {
+          "$ref": "#/$defs/Colour",
+          "default": "#ffffff"
+        },
+        "weight": {
+          "description": "Load one cell of it puts on what is beneath (Decision 53).",
+          "type": "integer",
+          "format": "int64",
+          "default": 1
         },
         "span": {
           "description": "Cells it can bridge unsupported before it falls (Decision 57).",
@@ -137,6 +271,12 @@
           "format": "int64",
           "default": 0
         },
+        "heat": {
+          "description": "The heat it gives off, a level 0-10 (Decision 66).",
+          "type": "integer",
+          "format": "int64",
+          "default": 1
+        },
         "traits": {
           "description": "Trait id -> level (Decision 64): dig_difficulty, climb_difficulty, flows, loose, glows.",
           "type": "object",
@@ -146,176 +286,36 @@
           },
           "default": {}
         },
-        "weight": {
-          "description": "Load one cell of it puts on what is beneath (Decision 53).",
-          "type": "integer",
-          "format": "int64",
-          "default": 1
+        "heat_transitions": {
+          "description": "How it reacts to heat.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HeatTransition"
+          },
+          "default": []
         }
       },
       "additionalProperties": false
     },
-    "Stratum": {
-      "description": "One band of a terrain's strata (`StratumDef`, Decision 54), its thickness in cells.",
+    "HeatTransition": {
+      "description": "What a material does past a heat level (`HeatTransitionDef`, Decisions 63, 66): becomes\nanother material, or gains a trait.",
       "type": "object",
       "properties": {
-        "material_id": {
-          "type": "string",
-          "default": ""
-        },
-        "max_cells": {
-          "type": "integer",
-          "format": "int64",
-          "default": 1
-        },
-        "min_cells": {
-          "type": "integer",
-          "format": "int64",
-          "default": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "Terrain": {
-      "description": "One terrain type (`TerrainDef`).",
-      "type": "object",
-      "properties": {
-        "bearing": {
-          "description": "The ground (Decisions 53, 54): the load a cell column bears, the most foundations can\nraise it to, and how deep the strata go, in cells.",
+        "threshold": {
           "type": "integer",
           "format": "int64",
           "default": 0
         },
-        "blocks_unit_classes": {
-          "description": "Unit classes that cannot enter this terrain (ids only).",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "can_be_base": {
-          "description": "Can be a map's base (default) terrain.",
+        "rising": {
+          "description": "Above the threshold (true) or below it.",
           "type": "boolean",
           "default": true
         },
-        "color": {
-          "$ref": "#/$defs/Colour",
-          "default": "#ffffff"
-        },
-        "default_elevation": {
-          "description": "Ground height in cells for a tile of this terrain that sets none (Decision 56).",
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "default_max_depth": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "default_max_height": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "default_max_length": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "default_max_width": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "default_stability": {
-          "description": "The side-on structure editor's capacity (Decision 27); a tile can override them.",
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "dig_depth": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "display_name": {
+        "becomes": {
           "type": "string",
           "default": ""
         },
-        "foundation_max": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "glyph": {
-          "description": "Short symbol the designer draws on the cell.",
-          "type": "string",
-          "default": ""
-        },
-        "id": {
-          "type": "string",
-          "default": ""
-        },
-        "liquids": {
-          "description": "Bodies of water or lava (materials that flow) it may hold (Decisions 62, 64).",
-          "type": "array",
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/LiquidBody"
-          }
-        },
-        "move_cost": {
-          "description": "Movement cost to enter a cell of this terrain (a road multiplies it).",
-          "type": "number",
-          "format": "double",
-          "default": 1.0
-        },
-        "needs_bridge": {
-          "description": "Impassable without a bridge (water, ravine).",
-          "type": "boolean",
-          "default": false
-        },
-        "relief_amplitude": {
-          "description": "Seeded unevenness within a tile (Decision 59): up to this many cells above or below\nthe tile's height, varying over about relief_scale cells; 0 = smooth.",
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "relief_scale": {
-          "type": "integer",
-          "format": "int64",
-          "default": 0
-        },
-        "strata": {
-          "description": "Bands from the surface down; the last continues to dig_depth.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/Stratum"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "TerrainFeature": {
-      "description": "A natural feature a tile can carry (`TerrainFeatureDef`): its effect isn't designed yet.",
-      "type": "object",
-      "properties": {
-        "display_name": {
-          "type": "string",
-          "default": ""
-        },
-        "effect_notes": {
-          "type": "string",
-          "default": ""
-        },
-        "glyph": {
-          "type": "string",
-          "default": ""
-        },
-        "id": {
+        "gains_trait": {
           "type": "string",
           "default": ""
         }

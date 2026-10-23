@@ -5,8 +5,8 @@
 //      libraries through its normal migration path), then loads designer.js;
 //   2. mirrors every later library write back to content/designer/*.json;
 //   3. adds Open / Save (Ctrl+S) / Save as / Import libraries. Saving writes
-//      content/maps_src/<name>.designer.json and the server runs the Godot import, whose
-//      warnings and errors are shown here.
+//      content/maps_src/<name>.designer.json and the server has the Rust crate write
+//      content/maps/<name>.json in its schema; its warnings and errors are shown here.
 // Without the server (e.g. index.html opened from disk) it just loads designer.js, which
 // then behaves like the old standalone prototype (browser storage, Export -> Copy JSON).
 (function () {
@@ -24,7 +24,7 @@
   };
   var CURRENT_FILE_KEY = 'breach_designer_current_file';
   // Must match serve.py's API_VERSION; an older server is missing endpoints this page uses.
-  var REQUIRED_API = 3;
+  var REQUIRED_API = 5;
   var DIRTY_KEY = 'breach_designer_dirty';
 
   var health = null;
@@ -208,6 +208,7 @@
     parts.push(health.godot_found
       ? '<span class="ok" title="' + esc(health.godot) + '">Godot ✓</span>'
       : '<span class="bad" title="Pass --godot, set GODOT_BIN, or add tools/designer/local_config.json">Godot not configured</span>');
+    if (health.tool_found === false) parts.push('<span class="bad" title="Saving needs it: run bash native/build.sh">Designer tool not built</span>');
     parts.push(currentFile
       ? '<span>File <span class="file">' + esc(currentFile) + '.designer.json</span></span>'
       : '<span>File <span class="file">(unsaved)</span></span>');
@@ -261,7 +262,7 @@
     var m = modal('Save map as',
       '<div class="field"><label for="repoName">File name</label>' +
       '<input type="text" id="repoName" value="' + esc(suggested) + '" style="width:260px;" /></div>' +
-      '<p class="hint">Saved as <code>content/maps_src/&lt;name&gt;.designer.json</code>, imported to <code>content/maps/&lt;name&gt;.tres</code>. Letters, digits, _ and - only.</p>' +
+      '<p class="hint">Saved as <code>content/maps_src/&lt;name&gt;.designer.json</code>, written to <code>content/maps/&lt;name&gt;.json</code>. Letters, digits, _ and - only.</p>' +
       '<p class="warn-inline" id="repoNameErr" hidden></p>',
       [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: submit }]);
     var input = m.querySelector('#repoName');
@@ -286,10 +287,10 @@
       lastImport = { name: name, result: res.import, at: new Date() };
       var imp = res.import;
       if (imp.ok) {
-        showStatus('Saved ' + new Date().toLocaleTimeString() + ' · imported to content/maps/' + name + '.tres' +
+        showStatus('Saved ' + new Date().toLocaleTimeString() + ' · written to content/maps/' + name + '.json' +
           (imp.warnings.length ? ' (' + imp.warnings.length + ' warning' + (imp.warnings.length === 1 ? '' : 's') + ')' : ''), 'ok');
       } else {
-        showStatus('Saved source JSON, but the import ' + (imp.ran ? 'failed' : 'did not run') + ' — .tres not updated', 'bad');
+        showStatus('Saved source JSON, but the map ' + (imp.ran ? 'was refused' : 'was not written') + ' — content/maps/' + name + '.json not updated', 'bad');
         showImportDetails();
       }
       if (after) after(imp);
@@ -325,8 +326,8 @@
     }
     var html = '<p>Saved <code>content/maps_src/' + esc(lastImport.name) + '.designer.json</code> at ' + esc(lastImport.at.toLocaleTimeString()) + '.</p>';
     html += imp.ok
-      ? '<p>Godot import OK: <code>content/maps/' + esc(lastImport.name) + '.tres</code></p>'
-      : '<p><strong>Godot import ' + (imp.ran ? 'failed' : 'did not run') + '</strong> — the .tres was not written.</p>';
+      ? '<p>Map written: <code>content/maps/' + esc(lastImport.name) + '.json</code></p>'
+      : '<p><strong>Map ' + (imp.ran ? 'refused' : 'not written') + '</strong> — <code>content/maps/' + esc(lastImport.name) + '.json</code> was not changed.</p>';
     if (imp.errors.length) html += '<h3>Errors</h3><ul class="import-list bad">' + imp.errors.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if (imp.warnings.length) html += '<h3>Warnings</h3><ul class="import-list">' + imp.warnings.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     modal('Save & import', html);

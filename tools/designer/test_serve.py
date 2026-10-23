@@ -1,5 +1,5 @@
 """HTTP-level tests for serve.py (specs/17-local-designer-app.md): a real server on an
-ephemeral port over a temp repo, with a fake Godot runner."""
+ephemeral port over a temp repo, with a fake runner for the crate's tool."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class ServeTest(unittest.TestCase):
         self.static = self.root / "static"
         self.static.mkdir()
         (self.static / "index.html").write_text("<p>designer</p>", encoding="utf-8")
-        self.runner = FakeRunner(stdout="wrote res://content/maps/m.tres\n")
+        self.runner = FakeRunner(stdout="wrote content/maps/m.json\n")
         self.launched = []
         repo = DesignerRepo(self.root, "godot", self.runner, launcher=self.launched.append)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(repo, self.static, log_requests=False))
@@ -107,13 +107,13 @@ class ServeTest(unittest.TestCase):
 
     def test_view_opens_the_viewer_for_an_imported_map(self):
         (self.root / "content/maps").mkdir(parents=True)
-        (self.root / "content/maps/m.tres").write_text("x", encoding="utf-8")
+        (self.root / "content/maps/m.json").write_text("{}", encoding="utf-8")
 
         status, body = self.request("POST", "/api/maps/m/view", {})
 
         self.assertEqual(status, 200)
         self.assertTrue(json.loads(body)["launched"])
-        self.assertEqual(self.launched[0][-1], "--map=res://content/maps/m.tres")
+        self.assertEqual(self.launched[0][-1], "--map=m")
 
     def test_view_of_a_map_that_was_never_imported_is_400(self):
         status, body = self.request("POST", "/api/maps/absent/view", {})

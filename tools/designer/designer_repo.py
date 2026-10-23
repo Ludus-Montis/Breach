@@ -4,10 +4,14 @@ Everything here touches only three fixed folders under the repo root, by whiteli
 name, so a request can never reach an arbitrary path:
 
 - content/maps_src/<name>.designer.json  - the designer's saved map (its export JSON)
-- content/maps/<name>.tres               - the Godot MapDef the import writes
+- content/maps/<name>.json               - the map in the Rust crate's schema, which the game
+                                           loads (spec 39 step 2c)
 - content/designer/<library>.json        - the designer's shared libraries
 - content/terrain/terrain_library.json   - the terrain library, in the crate's schema
-                                           (spec 39 step 2b; terrain_schema.py)
+
+The crate's tool (native/bin/breach_designer, from bash native/build.sh) reads the designer's
+map and terrain library into the schema and back (native/rust/src/designer/); Godot is only
+needed to open the map viewer.
 """
 
 from __future__ import annotations
@@ -17,8 +21,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-
-import terrain_schema
 
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 LIBRARIES = (
@@ -31,9 +33,8 @@ LIBRARIES = (
     "structure_prefabs",
 )
 MAP_SUFFIX = ".designer.json"
-IMPORT_SCRIPT = "res://tools/import_designer_map.gd"
 VIEWER_SCENE = "res://presentation/map_viewer.tscn"
-IMPORT_TIMEOUT_SECONDS = 180
+TOOL_TIMEOUT_SECONDS = 60
 
 
 def is_valid_name(name: str) -> bool:
@@ -74,8 +75,13 @@ def find_godot(cli_value: str | None, env: dict, config_path: Path) -> str | Non
     return None
 
 
+def default_tool(root: Path) -> Path:
+    """The crate's designer tool that bash native/build.sh puts in native/bin/."""
+    return root / "native" / "bin" / ("breach_designer.exe" if os.name == "nt" else "breach_designer")
+
+
 def parse_import_output(stdout: str, stderr: str, returncode: int) -> dict:
-    """Reads tools/import_designer_map.gd's `warning:` / `error:` / `wrote` lines."""
+    """Reads the crate tool's `warning:` / `error:` / `wrote` lines."""
     warnings, errors, wrote = [], [], None
     for line in (stdout + "\n" + stderr).splitlines():
         line = line.strip()
@@ -87,7 +93,7 @@ def parse_import_output(stdout: str, stderr: str, returncode: int) -> dict:
             wrote = line[len("wrote "):]
     if returncode != 0 and not errors:
         tail = [x for x in (stderr or stdout).strip().splitlines() if x.strip()][-8:]
-        errors.append(f"Godot exited with code {returncode}: " + (" | ".join(tail) or "no output"))
+        errors.append(f"the designer tool exited with code {returncode}: " + (" | ".join(tail) or "no output"))
     return {
         "ran": True,
         "ok": returncode == 0 and not errors,
@@ -100,15 +106,17 @@ def parse_import_output(stdout: str, stderr: str, returncode: int) -> dict:
 class DesignerRepo:
     """The designer's view of one repo checkout."""
 
-    def __init__(self, root: Path, godot: str | None, runner=subprocess.run, launcher=None):
+    def __init__(self, root: Path, godot: str | None, runner=subprocess.run, launcher=None, tool=None):
         self.root = root
         self.godot = godot
+        self.tool = Path(tool) if tool else default_tool(root)
         self._runner = runner
         self._launcher = launcher or _launch_detached
-        self.maps_src = root / "content" / "maps_src"
-        self.maps_out = root / "content" / "maps"
-        self.libraries = root / "content" / "designer"
-        self.terrain_library = root / "content" / "terrain" / "terrain_library.json"
+        self.content = root / "content"
+        self.maps_src = self.content / "maps_src"
+        self.maps_out = self.content / "maps"
+        self.libraries = self.content / "designer"
+        self.terrain_library = self.content / "terrain" / "terrain_library.json"
 
     def list_maps(self) -> list:
         if not self.maps_src.is_dir():
@@ -117,12 +125,11 @@ class DesignerRepo:
         for path in sorted(self.maps_src.glob("*" + MAP_SUFFIX)):
             name = path.name[: -len(MAP_SUFFIX)]
             if is_valid_name(name):
-                tres = self.maps_out / f"{name}.tres"
                 out.append(
                     {
                         "name": name,
                         "modified": path.stat().st_mtime,
-                        "imported": tres.is_file(),
+                        "imported": (self.maps_out / f"{name}.json").is_file(),
                     }
                 )
         return out
@@ -132,7 +139,7 @@ class DesignerRepo:
         return read_json(self.maps_src / f"{name}{MAP_SUFFIX}")
 
     def save_map(self, name: str, export_data: dict) -> dict:
-        """Writes the source JSON, then runs the Godot import on it."""
+        """Writes the source JSON, then has the crate write content/maps/<name>.json from it."""
         self._require_name(name)
         if not isinstance(export_data, dict) or export_data.get("format") != "breach-designer-map":
             raise ValueError('body is not a designer map (format must be "breach-designer-map")')
@@ -145,75 +152,74 @@ class DesignerRepo:
 
     def run_import(self, name: str) -> dict:
         self._require_name(name)
-        return self._run_godot_script(
-            IMPORT_SCRIPT,
-            ["--", f"res://content/maps_src/{name}{MAP_SUFFIX}", f"res://content/maps/{name}.tres"],
-        )
+        source = self.maps_src / f"{name}{MAP_SUFFIX}"
+        out = self.maps_out / f"{name}.json"
+        imported = self._run_tool(["map", str(source), str(out), str(self.content)])
+        imported.pop("stdout", None)
+        return imported
 
-    def _run_godot_script(self, script: str, script_args: list) -> dict:
-        if not self.godot:
-            return self._failed(
-                "Godot binary not configured: pass --godot, set GODOT_BIN, or add "
-                '{"godot": "<path>"} to tools/designer/local_config.json'
-            )
-        command = [self.godot, "--headless", "--path", str(self.root), "--script", script]
-        command += script_args
+    def _run_tool(self, args: list, stdin: str | None = None) -> dict:
         try:
             done = self._runner(
-                command, capture_output=True, text=True, timeout=IMPORT_TIMEOUT_SECONDS
+                [str(self.tool)] + args,
+                capture_output=True,
+                text=True,
+                input=stdin,
+                timeout=TOOL_TIMEOUT_SECONDS,
             )
         except FileNotFoundError:
-            return self._failed(f"Godot binary not found at {self.godot}")
+            return self._failed(f"the designer tool isn't built ({self.tool}): run bash native/build.sh")
         except subprocess.TimeoutExpired:
-            return self._failed(f"Godot import timed out after {IMPORT_TIMEOUT_SECONDS}s")
-        return parse_import_output(done.stdout or "", done.stderr or "", done.returncode)
+            return self._failed(f"the designer tool timed out after {TOOL_TIMEOUT_SECONDS}s")
+        parsed = parse_import_output(done.stdout or "", done.stderr or "", done.returncode)
+        parsed["stdout"] = done.stdout or ""
+        return parsed
 
     def view_map(self, name: str) -> dict:
-        """Opens the Godot map viewer (specs/18) on content/maps/<name>.tres."""
+        """Opens the Godot map viewer (specs/18) on content/maps/<name>.json."""
         self._require_name(name)
         if not self.godot:
             raise ValueError("Godot binary not configured, so the viewer can't be opened")
-        if not (self.maps_out / f"{name}.tres").is_file():
-            raise ValueError(f"content/maps/{name}.tres doesn't exist yet - save the map first")
-        command = [
-            self.godot,
-            "--path",
-            str(self.root),
-            VIEWER_SCENE,
-            "--",
-            f"--map=res://content/maps/{name}.tres",
-        ]
+        if not (self.maps_out / f"{name}.json").is_file():
+            raise ValueError(f"content/maps/{name}.json doesn't exist yet - save the map first")
+        command = [self.godot, "--path", str(self.root), VIEWER_SCENE, "--", f"--map={name}"]
         try:
             self._launcher(command)
         except OSError as error:
             raise ValueError(f"could not start Godot ({self.godot}): {error}") from error
-        return {"launched": True, "map": f"content/maps/{name}.tres"}
+        return {"launched": True, "map": f"content/maps/{name}.json"}
 
     def read_library(self, library: str):
+        """A library, or None if it has no file yet. The terrain library is read by the crate
+        into the designer's shape."""
         self._require_library(library)
-        if library == "terrain":
-            stored = read_json(self.terrain_library)
-            return None if stored is None else terrain_schema.from_schema(stored)
-        return read_json(self.libraries / f"{library}.json")
+        if library != "terrain":
+            return read_json(self.libraries / f"{library}.json")
+        if not self.terrain_library.is_file():
+            return None
+        read = self._run_tool(["terrain-read", str(self.content)])
+        if not read["ok"]:
+            raise ValueError("; ".join(read["errors"]))
+        return json.loads(read["stdout"])
 
     def write_library(self, library: str, value) -> bool:
         self._require_library(library)
         if library == "terrain":
-            return write_json(self.terrain_library, terrain_schema.to_schema(value))
+            return self.save_library(library, value)["changed"]
         return write_json(self.libraries / f"{library}.json", value)
 
     def save_library(self, library: str, value) -> dict:
-        """write_library; the terrain library is refused (and not written) if it drops a
-        terrain or feature a saved map uses, or has an entry with no id."""
+        """write_library; the crate writes the terrain library in its schema, and refuses it
+        (writing nothing) if it drops a terrain or feature a saved map uses, or doesn't fit."""
         if library != "terrain":
             return {"changed": self.write_library(library, value), "import": None}
-        try:
-            problems = terrain_schema.in_use_problems(terrain_schema.to_schema(value), self.maps_src)
-        except ValueError as error:
-            problems = [str(error)]
-        changed = not problems and self.write_library(library, value)
-        checked = {"ran": True, "ok": not problems, "warnings": [], "errors": problems}
-        return {"changed": changed, "import": dict(checked, output_path=None)}
+        before = self.terrain_library.read_bytes() if self.terrain_library.is_file() else None
+        written = self._run_tool(
+            ["terrain-write", str(self.content), str(self.maps_src)], json.dumps(value)
+        )
+        after = self.terrain_library.read_bytes() if self.terrain_library.is_file() else None
+        written.pop("stdout", None)
+        return {"changed": written["ok"] and after != before, "import": written}
 
     @staticmethod
     def _failed(message: str) -> dict:

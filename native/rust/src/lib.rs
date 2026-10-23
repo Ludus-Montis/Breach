@@ -9,7 +9,8 @@ mod blows;
 #[cfg(test)]
 mod build;
 mod columns;
-mod content;
+pub mod content;
+pub mod designer;
 mod det_math;
 mod face_store;
 mod facing;
@@ -791,7 +792,112 @@ impl ContentStore {
         out.set("feature", &variant_of(&content::TerrainFeature::default()));
         out.set("material", &variant_of(&content::Material::default()));
         out.set("heat_transition", &variant_of(&content::HeatTransition::default()));
+        out.set("map", &variant_of(&content::Map::default()));
+        out.set("node", &variant_of(&content::Node::default()));
+        out.set("garrison_unit", &variant_of(&content::GarrisonUnit::default()));
+        out.set("subnode", &variant_of(&content::Subnode::default()));
+        out.set("structure_plan", &variant_of(&content::StructurePlan::default()));
+        out.set("structure_face", &variant_of(&content::StructureFace::default()));
+        out.set("lane", &variant_of(&content::Lane::default()));
+        out.set("map_edge", &variant_of(&content::MapEdge::default()));
+        out.set("faction", &variant_of(&content::Faction::default()));
+        out.set("faction_relation", &variant_of(&content::FactionRelation::default()));
+        out.set("loss_group", &variant_of(&content::LossGroup::default()));
+        out.set("map_layout", &variant_of(&content::MapLayout::default()));
+        out.set("tile", &variant_of(&content::Tile::default()));
+        out.set("bridge", &variant_of(&content::Bridge::default()));
+        out.set("road_segment", &variant_of(&content::RoadSegment::default()));
+        out.set("route", &variant_of(&content::Route::default()));
+        out.set("channel", &variant_of(&content::Channel::default()));
         out
+    }
+
+    /// The designer's `export` (a saved designer map) read into the map schema, its terrain
+    /// and features checked against the library under `root`: {"map": its fields, "errors",
+    /// "warnings"}. What the presentation's tests build maps from (DesignerMapImporter).
+    #[func]
+    fn map_from_export(export: VarDictionary, root: GString) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let path = std::path::Path::new(&root.to_string()).join("terrain/terrain_library.json");
+        let read = match content::load_file::<content::TerrainLibrary>(&path) {
+            Ok(library) => designer::map_from_export(&json_of(&export.to_variant()), &library),
+            Err(error) => {
+                designer::Translated { errors: vec![error.to_string()], ..Default::default() }
+            }
+        };
+        out.set("map", &variant_of(&read.map));
+        out.set("errors", &variant_of(&read.errors));
+        out.set("warnings", &variant_of(&read.warnings));
+        out
+    }
+
+    /// A designer structure plan (spec 24) read into the schema: {"plan": its fields,
+    /// "errors"}. For the tests that build plans as the designer draws them.
+    #[func]
+    fn plan_from_export(drawn: VarDictionary) -> VarDictionary {
+        let (plan, errors) = designer::plan_from_export(&json_of(&drawn.to_variant()));
+        let mut out = VarDictionary::new();
+        out.set("plan", &variant_of(&plan));
+        out.set("errors", &variant_of(&errors));
+        out
+    }
+
+    /// The fields of the map file at `path` (an OS path), or {"error": why it didn't load}.
+    #[func]
+    fn read_map(path: GString) -> VarDictionary {
+        match content::load_file::<content::Map>(std::path::Path::new(&path.to_string())) {
+            Ok(map) => variant_of(&map).to(),
+            Err(error) => {
+                let mut out = VarDictionary::new();
+                out.set("error", &error.to_string().to_variant());
+                out
+            }
+        }
+    }
+
+    /// Writes a map's `fields` (the schema's, as MapJson gives them) to `path` as a content
+    /// file; "" when written, else why not, naming the field.
+    #[func]
+    fn write_map(fields: VarDictionary, path: GString) -> GString {
+        let value = json_of(&fields.to_variant());
+        let map: content::Map = match serde_path_to_error::deserialize(value) {
+            Ok(map) => map,
+            Err(error) => return GString::from(&format!("{}: {}", error.path(), error.inner())),
+        };
+        match std::fs::write(path.to_string(), content::file_text(&map)) {
+            Ok(()) => GString::new(),
+            Err(error) => GString::from(&format!("{path}: {error}")),
+        }
+    }
+}
+
+/// Godot data as JSON: a whole number stays one, a real stays one.
+fn json_of(value: &Variant) -> serde_json::Value {
+    use serde_json::Value;
+    match value.get_type() {
+        VariantType::BOOL => Value::Bool(value.to::<bool>()),
+        VariantType::INT => Value::from(value.to::<i64>()),
+        VariantType::FLOAT => Value::from(value.to::<f64>()),
+        VariantType::STRING | VariantType::STRING_NAME => Value::String(value.to_string()),
+        VariantType::ARRAY => {
+            Value::Array(value.to::<VarArray>().iter_shared().map(|item| json_of(&item)).collect())
+        }
+        VariantType::PACKED_STRING_ARRAY => Value::Array(
+            value
+                .to::<PackedStringArray>()
+                .as_slice()
+                .iter()
+                .map(|s| Value::String(s.to_string()))
+                .collect(),
+        ),
+        VariantType::DICTIONARY => Value::Object(
+            value
+                .to::<VarDictionary>()
+                .iter_shared()
+                .map(|(key, item)| (key.to_string(), json_of(&item)))
+                .collect(),
+        ),
+        _ => Value::Null,
     }
 }
 

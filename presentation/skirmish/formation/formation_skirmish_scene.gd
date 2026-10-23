@@ -25,8 +25,6 @@ const FormationSkirmishReadout = preload(
 	"res://presentation/skirmish/formation/formation_skirmish_readout.gd"
 )
 
-const MAP := preload("res://content/maps/skirmish_two_lanes.tres")
-
 const POOL_TOTAL := 8
 ## Each lane's maximum frontline width (feel-test config; maps author this later).
 const LANE_WIDTHS := {"c": 8, "k": 8}
@@ -41,6 +39,7 @@ var pause_on_wave_full := true
 ## Where the player's presets are kept; empty keeps them in memory only.
 var presets_path := "user://formation_presets.json"
 
+var _map: MapDef = CrateContent.map("skirmish_two_lanes")
 ## The units it fields (CrateContent); brushes in HUD order (hotkeys 1, 2, 3, E; null
 ## erases), the builder types in HUD order, and unit kinds by name, for saved presets.
 var _grem := CrateContent.unit("grem")
@@ -77,14 +76,14 @@ func clock() -> SkirmishClock:
 
 func _ready() -> void:
 	var view: MapView = $MapView
-	view.map = MAP
+	view.map = _map
 	_battle = FormationBattle.new(
 		POOL_TOTAL, LANE_WIDTHS, _clock.tick_seconds, _militia, KINGDOM_LINE
 	)
 	for index in range(_builder_types.size()):
 		_battle.player.set_builders(_builder_types[index], START_BUILDERS[index])
 	_battle.player.prefer("")  # round robin by default (Decision 51)
-	for route in MAP.layout.routes:
+	for route in _map.layout.routes:
 		var points := view.model.layout_view.route_points(route.node_a_id, route.node_b_id)
 		_add_lane(route.node_b_id, points)
 	_presets = WavePresetStore.load_presets(presets_path)
@@ -99,14 +98,14 @@ func _ready() -> void:
 
 
 func _add_lane(lane_key: String, points: PackedVector2Array) -> void:
-	var length := SkirmishRoute.length_cells(points, MAP.layout.cell_size)
+	var length := SkirmishRoute.length_cells(points, _map.layout.cell_size)
 	var start := WavePresets.line(_grem, START_SLOTS[lane_key], LANE_WIDTHS[lane_key])
 	_battle.add_lane(lane_key, length, start)
 	var lane := _battle.lane(lane_key)
 	lane.brush = _grem
 	lane.set_auto_departure(true)  # the defaults of Decision 51
 	lane.sim.combat_width = LANE_WIDTHS[lane_key]
-	$Squads.cell_size = MAP.layout.cell_size
+	$Squads.cell_size = _map.layout.cell_size
 	$Squads.add_lane(lane_key, lane.sim, points)
 
 

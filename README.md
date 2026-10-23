@@ -35,7 +35,8 @@ bash ci/godot/scripts/get_godot.sh
 ```
 
 Build the Rust core before the first run: the game and the tests load their units, weapons,
-tuning and terrain through it (`content/*.json`, in the crate's schema). You need Rust from rustup
+tuning, terrain and maps through it (`content/*.json`, in the crate's schema), and the map
+designer saves maps with its tool. You need Rust from rustup
 (platform notes in [native/README.md](native/README.md#building)):
 
 ```sh

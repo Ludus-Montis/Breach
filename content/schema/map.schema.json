@@ -1,0 +1,906 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Map",
+  "description": "A map (`MapDef`).",
+  "type": "object",
+  "properties": {
+    "nodes": {
+      "description": "Every node on the map, each once: those on lanes, then the off-lane ones.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Node"
+      },
+      "default": []
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Lane"
+      },
+      "default": []
+    },
+    "edges": {
+      "description": "Connections beyond each lane's own path (spec 11).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MapEdge"
+      },
+      "default": []
+    },
+    "faction_relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FactionRelation"
+      },
+      "default": []
+    },
+    "factions": {
+      "description": "The map's faction roster, the player's own entry included (spec 13).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Faction"
+      },
+      "default": []
+    },
+    "layout": {
+      "description": "Grid, tiles, roads and routes (spec 19); none for a map authored without the designer.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MapLayout"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "loss_groups": {
+      "description": "Each faction's loss conditions (spec 19).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LossGroup"
+      },
+      "default": []
+    },
+    "tick_duration_seconds": {
+      "type": "number",
+      "format": "double",
+      "default": 0.0
+    },
+    "suspicion_tier_thresholds": {
+      "description": "Ascending thresholds for Wary, Alarmed, Mobilized and Full Alert (Decision 5).",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "default": []
+    },
+    "suspicion_decay_per_tick": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Node": {
+      "description": "A node (`NodeDef`). Its `node_type` and `resource_type` are named.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": ""
+        },
+        "position": {
+          "description": "Where it is drawn (Decision 19): the simulation never reads it.",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            0.0,
+            0.0
+          ]
+        },
+        "node_type": {
+          "$ref": "#/$defs/NodeType",
+          "default": "ORIGIN"
+        },
+        "garrison": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "yield_food_per_tick": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "decay_interval_ticks": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "decay_floor_food": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "resource_type": {
+          "$ref": "#/$defs/ResourceType",
+          "default": "FOOD"
+        },
+        "is_inexhaustible": {
+          "type": "boolean",
+          "default": true
+        },
+        "total_reserves": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "owning_faction_id": {
+          "type": "string",
+          "default": ""
+        },
+        "hidden_from_faction_ids": {
+          "description": "Factions that don't know it exists at the start (Decision 28).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "is_critical_asset": {
+          "type": "boolean",
+          "default": false
+        },
+        "garrison_hp": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "garrison_dmg": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "garrison_units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GarrisonUnit"
+          },
+          "default": []
+        },
+        "ravage_yield_food": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "dismantle_wood_yield": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "dismantle_stone_yield": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "fortify_wood_cost": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "fortify_stone_cost": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "capture_reward": {
+          "type": "string",
+          "default": ""
+        },
+        "plan": {
+          "description": "Its structure's plan (spec 24), from its own tile; none drawn yet when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StructurePlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tile": {
+          "description": "The tile it stands on; (-1, -1) for none (Decision 68).",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            -1,
+            -1
+          ]
+        },
+        "footprint": {
+          "description": "The tiles it covers, its own included; empty for just its own tile.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "subnodes": {
+          "description": "Its objectives (Decision 72), in its local cells.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Subnode"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "NodeType": {
+      "description": "`NodeDef.NodeType`.",
+      "type": "string",
+      "enum": [
+        "ORIGIN",
+        "RESOURCE",
+        "FORT",
+        "NEUTRAL",
+        "WAYPOINT"
+      ]
+    },
+    "ResourceType": {
+      "description": "`NodeDef.ResourceType`.",
+      "type": "string",
+      "enum": [
+        "FOOD",
+        "WOOD",
+        "STONE",
+        "METAL",
+        "CRYSTAL"
+      ]
+    },
+    "GarrisonUnit": {
+      "description": "One unit stationed at a node (`GarrisonUnitDef`, spec 13).",
+      "type": "object",
+      "properties": {
+        "faction_id": {
+          "type": "string",
+          "default": ""
+        },
+        "can_sortie": {
+          "type": "boolean",
+          "default": false
+        },
+        "patrol_route": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "delivery_target_id": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "StructurePlan": {
+      "description": "A structure's plan (`StructurePlanDef`, spec 24). Each keyed field is a list of\n`[cell, value]` pairs in the order the designer drew them.",
+      "type": "object",
+      "properties": {
+        "solid_cells": {
+          "description": "Solid cells and their material.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "faces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StructureFace"
+          },
+          "default": []
+        },
+        "dug": {
+          "description": "Ground cells removed (level < 0).",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "default": []
+        },
+        "fills": {
+          "description": "Dug cells filled again and their material (Decision 67).",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "loads": {
+          "description": "Load units resting in a cell (Decision 65).",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "integer",
+                "format": "int64"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "StructureFace": {
+      "description": "A wall or floor (`StructureFaceDef`).",
+      "type": "object",
+      "properties": {
+        "cell": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "default": [
+            0,
+            0,
+            0
+          ]
+        },
+        "side": {
+          "$ref": "#/$defs/Side",
+          "default": "north"
+        },
+        "material_id": {
+          "type": "string",
+          "default": ""
+        },
+        "thickness": {
+          "description": "Eighths of a cell, 1 to 8.",
+          "type": "integer",
+          "format": "int64",
+          "default": 1
+        },
+        "into_neighbour": {
+          "description": "The thickness grows into the neighbour across the edge.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Side": {
+      "description": "The side a face is stored on: a south or east face is its neighbour's north or west.",
+      "type": "string",
+      "enum": [
+        "north",
+        "west",
+        "floor"
+      ]
+    },
+    "Subnode": {
+      "description": "One of a node's objectives (`SubnodeDef`, Decision 72).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": ""
+        },
+        "subnode_type": {
+          "description": "WELL, ORE_VEIN, KEEP or OBJECTIVE.",
+          "type": "string",
+          "default": "OBJECTIVE"
+        },
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            0,
+            0
+          ]
+        },
+        "capture_cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "zone_cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "Lane": {
+      "description": "A lane (`LaneDef`): its nodes by id, in path order.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": ""
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "player_home_index": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "MapEdge": {
+      "description": "An extra connection between two nodes (`MapEdgeDef`).",
+      "type": "object",
+      "properties": {
+        "node_a_id": {
+          "type": "string",
+          "default": ""
+        },
+        "node_b_id": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "FactionRelation": {
+      "description": "How two factions stand (`FactionRelationDef`).",
+      "type": "object",
+      "properties": {
+        "faction_a_id": {
+          "type": "string",
+          "default": ""
+        },
+        "faction_b_id": {
+          "type": "string",
+          "default": ""
+        },
+        "stance": {
+          "$ref": "#/$defs/Stance",
+          "default": "HOSTILE"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Stance": {
+      "description": "`FactionRelationDef.Stance`.",
+      "type": "string",
+      "enum": [
+        "HOSTILE",
+        "NEUTRAL",
+        "ALLIED"
+      ]
+    },
+    "Faction": {
+      "description": "A faction on the map (`FactionDef`).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": ""
+        },
+        "display_name": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "MapLayout": {
+      "description": "The map's spatial layer (`MapLayoutDef`). Its terrain and feature ids are the shared\nterrain library's (Decision 32).",
+      "type": "object",
+      "properties": {
+        "cols": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "rows": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "cell_size": {
+          "description": "Pixels per cell.",
+          "type": "integer",
+          "format": "int64",
+          "default": 64
+        },
+        "default_terrain_id": {
+          "type": "string",
+          "default": ""
+        },
+        "tiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Tile"
+          },
+          "default": []
+        },
+        "roads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoadSegment"
+          },
+          "default": []
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Route"
+          },
+          "default": []
+        },
+        "ceiling": {
+          "description": "Ground above this height (cells) is taken to continue (Decision 56).",
+          "type": "integer",
+          "format": "int64",
+          "default": 64
+        },
+        "seed": {
+          "description": "Seeds relief, strata and liquid bodies (Decision 59).",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Channel"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "Tile": {
+      "description": "An explicitly authored tile (`TileDef`). A capacity or elevation of -1 is the terrain's.",
+      "type": "object",
+      "properties": {
+        "cell": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            0,
+            0
+          ]
+        },
+        "terrain_id": {
+          "description": "Empty for the layout's default terrain.",
+          "type": "string",
+          "default": ""
+        },
+        "feature_id": {
+          "type": "string",
+          "default": ""
+        },
+        "bridge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bridge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stability": {
+          "type": "integer",
+          "format": "int64",
+          "default": -1
+        },
+        "max_height": {
+          "type": "integer",
+          "format": "int64",
+          "default": -1
+        },
+        "max_width": {
+          "type": "integer",
+          "format": "int64",
+          "default": -1
+        },
+        "max_depth": {
+          "type": "integer",
+          "format": "int64",
+          "default": -1
+        },
+        "elevation": {
+          "type": "integer",
+          "format": "int64",
+          "default": -1
+        },
+        "upgrade_slots": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "upgrade_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "Bridge": {
+      "description": "A bridge over a tile that needs one (`BridgeDef`).",
+      "type": "object",
+      "properties": {
+        "owning_faction_id": {
+          "type": "string",
+          "default": ""
+        },
+        "hp": {
+          "type": "integer",
+          "format": "int64",
+          "default": 40
+        },
+        "demolishable_by_owner": {
+          "type": "boolean",
+          "default": false
+        },
+        "drawbridge_node_id": {
+          "description": "The node that raises it; empty for a fixed bridge.",
+          "type": "string",
+          "default": ""
+        },
+        "raised": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "RoadSegment": {
+      "description": "A road between two neighbouring tiles (`RoadSegmentDef`).",
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            0,
+            0
+          ]
+        },
+        "b": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            0,
+            0
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Route": {
+      "description": "A link's route over the tiles (`RouteDef`, Decision 26).",
+      "type": "object",
+      "properties": {
+        "node_a_id": {
+          "type": "string",
+          "default": ""
+        },
+        "node_b_id": {
+          "type": "string",
+          "default": ""
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "cost": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Channel": {
+      "description": "A river, ditch, moat or bank carved along tiles (`ChannelDef`, Decision 59).",
+      "type": "object",
+      "properties": {
+        "tiles": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "default": []
+        },
+        "width": {
+          "type": "integer",
+          "format": "int64",
+          "default": 4
+        },
+        "depth": {
+          "type": "integer",
+          "format": "int64",
+          "default": 2
+        },
+        "liquid_id": {
+          "type": "string",
+          "default": ""
+        },
+        "liquid_depth": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "LossGroup": {
+      "description": "A group of critical assets a faction loses with (`LossGroupDef`).",
+      "type": "object",
+      "properties": {
+        "faction_id": {
+          "type": "string",
+          "default": ""
+        },
+        "display_name": {
+          "type": "string",
+          "default": ""
+        },
+        "rule": {
+          "$ref": "#/$defs/LossRule",
+          "default": "ANY"
+        },
+        "node_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "LossRule": {
+      "description": "`LossGroupDef.Rule`: lost when any, or all, of its nodes are.",
+      "type": "string",
+      "enum": [
+        "ANY",
+        "ALL"
+      ]
+    }
+  }
+}

@@ -25,4 +25,7 @@ case "$profile" in
 	*) echo "build.sh: unknown profile $profile (release or dev)"; exit 1 ;;
 esac
 cp "$here/rust/target/$dir/${prefix}breach_native.$ext" "$here/bin/${prefix}breach_rust.$platform.$ext"
+# The designer's tool (src/bin/designer.rs), which tools/designer/serve.py runs.
+exe=; [ "$ext" = dll ] && exe=.exe
+cp "$here/rust/target/$dir/designer$exe" "$here/bin/breach_designer$exe"
 ls -l "$here/bin"

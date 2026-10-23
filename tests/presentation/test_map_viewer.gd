@@ -8,31 +8,30 @@ const VIEWER_SCENE := "res://presentation/map_viewer.tscn"
 
 
 func test_map_argument_is_read_from_user_args() -> void:
-	var args := PackedStringArray(["--other", "--map=res://content/maps/demo_map.tres"])
+	var args := PackedStringArray(["--other", "--map=demo_map"])
 
-	assert_str(MapViewer.map_path_from_args(args)).is_equal("res://content/maps/demo_map.tres")
-	assert_str(MapViewer.map_path_from_args(PackedStringArray())).is_equal("")
+	assert_str(MapViewer.map_name_from_args(args)).is_equal("demo_map")
+	assert_str(MapViewer.map_name_from_args(PackedStringArray())).is_equal("")
 
 
-func test_lists_only_map_resources_in_name_order() -> void:
-	var paths := MapViewer.list_map_paths("res://content/maps")
+func test_lists_the_map_files_in_name_order() -> void:
+	var names := MapViewer.list_map_names("res://content/maps")
 
-	assert_array(Array(paths)).contains(["res://content/maps/demo_map.tres"])
-	assert_array(Array(paths)).contains(["res://content/maps/p_f_F_c.tres"])
-	var sorted := Array(paths)
+	assert_array(Array(names)).contains(["demo_map", "p_f_F_c"])
+	var sorted := Array(names)
 	sorted.sort()
-	assert_array(Array(paths)).is_equal(sorted)
+	assert_array(Array(names)).is_equal(sorted)
 
 
-func test_non_map_resources_are_skipped() -> void:
-	var paths := MapViewer.list_map_paths("res://assets/placeholder/map")
+func test_files_that_arent_maps_are_skipped() -> void:
+	var names := MapViewer.list_map_names("res://assets/placeholder/map")
 
-	assert_array(Array(paths)).is_empty()
+	assert_array(Array(names)).is_empty()
 
 
 func test_scene_instantiates_and_shows_the_requested_map() -> void:
 	var viewer: MapViewer = auto_free(load(VIEWER_SCENE).instantiate())
-	viewer.initial_map_path = "res://content/maps/demo_map.tres"
+	viewer.initial_map_name = "demo_map"
 
 	add_child(viewer)
 

@@ -1,12 +1,12 @@
 class_name CrateContent
 extends RefCounted
 ## The simulation's content as the Rust crate loaded it (Decision 153, spec 39 step 2): units,
-## weapons, armour, the battle's tuning and the terrain library, JSON under content/ in the
-## crate's schema (content/schema/). GDScript's definitions (UnitDef, WeaponDef, ArmourDef,
-## BattleTuning, TerrainLibraryDef and what it holds) are filled from it, field for field,
-## until their last reader ports to Rust; nothing reads them from .tres. Each is made once and
-## shared, as load() shared a .tres: duplicate() one before changing it. The core must be
-## built (bash native/build.sh).
+## weapons, armour, the battle's tuning, the terrain library and the maps, JSON under content/
+## in the crate's schema (content/schema/). GDScript's definitions (UnitDef, WeaponDef,
+## ArmourDef, BattleTuning, TerrainLibraryDef, MapDef and what they hold) are filled from it,
+## field for field, until their last reader ports to Rust; nothing reads them from .tres. Each
+## is made once and shared, as load() shared a .tres: duplicate() one before changing it. The
+## core must be built (bash native/build.sh).
 
 const STORE_CLASS := "ContentStore"
 const ROOT := "res://content"
@@ -24,13 +24,13 @@ static func unit(id: String) -> UnitDef:
 		var items: Array = fields.get("items", [])
 		fields.erase("items")
 		ContentFill.fill(made, fields)
-		made.items.assign(items.map(item))
+		made.items.assign(items.map(_item))
 		_made[key] = made
 	return _made[key]
 
 
 ## The item at `path`, under content/ without .json: weapons/<id> or armour/<id>.
-static func item(path: String) -> ItemDef:
+static func _item(path: String) -> ItemDef:
 	if not _made.has(path):
 		var kind := path.get_slice("/", 0)
 		var made: ItemDef = WeaponDef.new() if kind == "weapons" else ArmourDef.new()
@@ -40,12 +40,12 @@ static func item(path: String) -> ItemDef:
 
 ## The weapon `id` (content/weapons/<id>.json).
 static func weapon(id: String) -> WeaponDef:
-	return item("weapons/" + id)
+	return _item("weapons/" + id)
 
 
 ## The armour `id` (content/armour/<id>.json).
 static func armour(id: String) -> ArmourDef:
-	return item("armour/" + id)
+	return _item("armour/" + id)
 
 
 ## The battle's tuning (content/tuning/battle_tuning.json).
@@ -61,6 +61,14 @@ static func terrain_library() -> TerrainLibraryDef:
 	if not _made.has("terrain"):
 		_made["terrain"] = ContentFill.fill(TerrainLibraryDef.new(), _content().get("terrain", {}))
 	return _made["terrain"]
+
+
+## The map `name` (content/maps/<name>.json).
+static func map(name: String) -> MapDef:
+	var key := "maps/" + name
+	if not _made.has(key):
+		_made[key] = MapFill.build(_fields("maps", name))
+	return _made[key]
 
 
 ## The crate's fields for each kind when a file names none ({"unit", "weapon", "armour"}).

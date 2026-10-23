@@ -22,5 +22,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - The terrain library is one file, `content/terrain/terrain_library.json`, in the same schema.
   The map designer's library page saves it directly, without Godot, and refuses an edit that
   removes a terrain or feature a saved map still uses.
+- Maps are JSON files, `content/maps/<name>.json`, in the same schema: the nodes, lanes,
+  factions, loss groups and the layout in one file. The map designer's Save writes it
+  directly, without Godot (Godot is needed only for View in Godot), and refuses a map whose
+  terrain isn't in the library. The map viewer takes a map by name (`--map=demo_map`), and the
+  map scene's export button writes JSON.
 
 [Unreleased]: https://github.com/SSidey/Breach/commits/main

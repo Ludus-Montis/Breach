@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 ## tools/designer/load_paths.js, so the two implementations stay one rule.
 
 const LoadPaths = preload("res://sim/structure/load_paths.gd")
-const DesignerPlanBuilder = preload("res://content/import/designer_plan_builder.gd")
+const DesignerMapImporter = preload("res://content/import/designer_map_importer.gd")
 const MaterialDef = preload("res://content/definitions/material_def.gd")
 const TerrainLibraryDef = preload("res://content/definitions/terrain_library_def.gd")
 
@@ -33,7 +33,7 @@ func test_every_shared_case_holds() -> void:
 	var fixture := _fixture()
 	var library := _library(fixture["materials"])
 	for case in fixture["cases"]:
-		var plan := DesignerPlanBuilder.build(case["plan"])
+		var plan := DesignerMapImporter.plan(case["plan"])
 		var result := LoadPaths.solve(plan, library, _bearing(case["bearing"]))
 		assert_array(result["failed"]).override_failure_message(case["name"]).is_equal(
 			case["failed"]

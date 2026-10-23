@@ -5,7 +5,8 @@ edition = "2021"
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+# rlib too, for the designer's binary (src/bin/designer.rs).
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # api-4-7: bindings generated from Godot 4.7's extension API, bundled with the crate.
@@ -15,7 +16,8 @@ rayon = "1.10"
 # binary, which keeps every f64 bit for bit (infinities included, which JSON can't hold).
 serde = { version = "1", features = ["derive"] }
 bincode = "1.3"
-serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+# preserve_order: the designer's export is read in its own order (a plan's keyed cells).
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "preserve_order"] }
 serde_path_to_error = "0.1.20"
 schemars = "1.2.3"
 
