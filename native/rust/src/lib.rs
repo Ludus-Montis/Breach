@@ -18,6 +18,7 @@ mod field;
 mod field_parting;
 mod ghash;
 mod grid;
+pub mod ground;
 mod maths;
 mod motion;
 mod ordered;
@@ -1337,6 +1338,157 @@ fn json_of(value: &Variant) -> serde_json::Value {
 }
 
 /// `value` as Godot data, through its JSON: ints stay ints, reals reals.
+/// The ground a battle is on (spec 39 step 3a; `ground`): FormationTerrain is a view over
+/// it. A walker is passed as its fields (TerrainWalker: height, swimmer, climber, swims,
+/// climbs).
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct TerrainGround {
+    ground: Option<ground::Ground>,
+}
+
+#[godot_api]
+impl TerrainGround {
+    /// Open, level ground of `size` cells, with the tuning's [ground_cliff_quarters,
+    /// ground_slope_cost, ground_wading, ground_slow_wading, ground_swim_pace,
+    /// ground_climb_pace, ground_climb_demand].
+    #[func]
+    fn setup(&mut self, size: Vector2i, tuning: PackedFloat64Array) {
+        let t = tuning.as_slice();
+        let tuning = ground::GroundTuning {
+            cliff_quarters: t[0] as i64,
+            slope_cost: t[1],
+            wading: t[2],
+            slow_wading: t[3],
+            swim_pace: t[4],
+            climb_pace: t[5],
+            climb_demand: t[6] as i64,
+        };
+        self.ground = Some(ground::Ground::new(size.x, size.y, tuning));
+    }
+
+    /// Sets the cells of `area`: any of "cost", "height" (quarters), "depth" (cells),
+    /// "flows", "climb", "obscurance" and "blocks_sight", as GDScript's packed arrays took
+    /// them (a float into an int column truncated).
+    #[func]
+    fn paint(&mut self, area: Rect2i, props: VarDictionary) {
+        let real = |key: &str| props.get(key).map(|value| number(&value));
+        let int = |key: &str| real(key).map(|value| value as i64 as i32);
+        let paint = ground::Paint {
+            cost: real("cost"),
+            height: int("height"),
+            depth: real("depth"),
+            climb: int("climb"),
+            flows: int("flows"),
+            obscurance: real("obscurance"),
+            blocks_sight: props.get("blocks_sight").map(|value| value.booleanize()),
+        };
+        let (at, size) = (area.position, area.size);
+        self.ground_mut().paint((at.x, at.y, size.x, size.y), &paint);
+    }
+
+    #[func]
+    fn fastest(&self) -> f64 {
+        self.ground().fastest()
+    }
+
+    #[func]
+    fn height_at(&self, at: Vector2) -> i64 {
+        self.ground().height_at(v2(at)) as i64
+    }
+
+    #[func]
+    fn blocks_sight(&self, at: Vector2) -> bool {
+        self.ground().blocks_sight(v2(at))
+    }
+
+    #[func]
+    fn high_ground(&self, from: Vector2, to: Vector2) -> bool {
+        self.ground().high_ground(v2(from), v2(to))
+    }
+
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn crossing(
+        &self,
+        height: f64,
+        swimmer: i64,
+        climber: i64,
+        swims: bool,
+        climbs: bool,
+        from: Vector2,
+        to: Vector2,
+    ) -> f64 {
+        let walker = ground::Walker { height, swimmer, climber, swims, climbs };
+        self.ground().crossing(&walker, v2(from), v2(to))
+    }
+
+    /// TerrainWalker.Mode.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn mode(
+        &self,
+        height: f64,
+        swimmer: i64,
+        climber: i64,
+        swims: bool,
+        climbs: bool,
+        from: Vector2,
+        to: Vector2,
+    ) -> i64 {
+        let walker = ground::Walker { height, swimmer, climber, swims, climbs };
+        self.ground().mode(&walker, v2(from), v2(to)) as i64
+    }
+
+    #[func]
+    fn obscurance_at(&self, point: Vector2) -> f64 {
+        self.ground().obscurance_at(v2(point))
+    }
+
+    #[func]
+    fn sight_along(&self, from: Vector2, to: Vector2, limit: f64) -> f64 {
+        self.ground().sight_along(v2(from), v2(to), limit)
+    }
+
+    #[func]
+    fn sight_clear(&self, from: Vector2, to: Vector2, budget: f64) -> bool {
+        self.ground().sight_clear(v2(from), v2(to), budget)
+    }
+
+    #[func]
+    fn fog(&self) -> f64 {
+        self.ground().fog()
+    }
+
+    #[func]
+    fn set_fog(&mut self, fog: f64) {
+        self.ground_mut().set_fog(fog);
+    }
+}
+
+impl TerrainGround {
+    fn ground(&self) -> &ground::Ground {
+        self.ground.as_ref().expect("TerrainGround.setup first")
+    }
+
+    fn ground_mut(&mut self) -> &mut ground::Ground {
+        self.ground.as_mut().expect("TerrainGround.setup first")
+    }
+}
+
+fn v2(at: Vector2) -> V2 {
+    V2::new(at.x, at.y)
+}
+
+/// A GDScript number (an int, a float or a bool) as a float.
+fn number(value: &Variant) -> f64 {
+    match value.get_type() {
+        VariantType::INT => value.to::<i64>() as f64,
+        VariantType::BOOL => value.to::<bool>() as i64 as f64,
+        _ => value.to::<f64>(),
+    }
+}
+
 fn variant_of(value: &impl serde::Serialize) -> Variant {
     json_variant(&serde_json::to_value(value).expect("content serialises"))
 }

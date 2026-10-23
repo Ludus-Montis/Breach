@@ -4,7 +4,8 @@ extends GdUnitTestSuite
 ## sight ends where the sum passes the unit's sight budget. Woods obscure heavily - a few
 ## cells in, then nothing - and fog (painted, or field-wide weather) lightly, shortening
 ## sight rather than blocking it. A pathfinder plans on what it sees by this rule and
-## remembers what it has seen, so ground it walked through stays known.
+## remembers what it has seen, so ground it walked through stays known. The sums along a
+## line are cargo tests (native/rust/src/ground/tests.rs, spec 39 step 3a).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
@@ -21,18 +22,6 @@ const WOOD := {"cost": 0.5, "obscurance": 1.0}
 
 func _eyes(terrain: FormationTerrain, at: Vector2, way: Vector2) -> PathSight:
 	return PathSight.new(at, way, 30.0, 30.0, 30.0, terrain, BUDGET)
-
-
-func test_a_sight_line_sums_obscurance_by_the_distance_through_each_cell() -> void:
-	var ground := FormationTerrain.new(Vector2i(40, 20))
-	ground.paint(Rect2i(10, 0, 10, 20), {"obscurance": 1.0})
-	var seen := ground.obscurance
-
-	assert_float(seen.along(Vector2(2.5, 5.5), Vector2(8.5, 5.5))).is_equal_approx(0.0, 0.0001)
-	assert_float(seen.along(Vector2(2.5, 5.5), Vector2(12.5, 5.5))).is_equal_approx(2.5, 0.0001)
-	assert_float(seen.along(Vector2(2.5, 5.5), Vector2(30.5, 5.5))).is_equal_approx(10.0, 0.0001)
-	var slant := seen.along(Vector2(5.0, 0.0), Vector2(25.0, 20.0))  # 10 cells across at 45
-	assert_float(slant).is_equal_approx(10.0 * sqrt(2.0), 0.0001)
 
 
 func test_a_unit_sees_a_few_cells_into_a_wood_then_nothing() -> void:
@@ -64,41 +53,6 @@ func test_fog_shortens_sight_rather_than_blocking_it() -> void:
 		assert_bool(sight.sees(Vector2(29.5, 5.5))).is_true()
 		assert_bool(sight.sees(Vector2(32.5, 5.5))).is_false()
 	assert_float(weather.obscurance.at(Vector2(-4.0, 5.0))).is_equal_approx(0.1, 0.0001)
-
-
-func test_a_sight_line_is_the_same_either_way_and_mirrored() -> void:
-	var ground := FormationTerrain.new(Vector2i(30, 30))
-	var mirrored := FormationTerrain.new(Vector2i(30, 30))
-	for area in [Rect2i(8, 3, 5, 9), Rect2i(17, 14, 6, 4), Rect2i(4, 20, 3, 3)]:
-		ground.paint(area, {"obscurance": 0.7})
-		var flipped := Rect2i(30 - area.end.x, area.position.y, area.size.x, area.size.y)
-		mirrored.paint(flipped, {"obscurance": 0.7})
-	var flip := func(at: Vector2) -> Vector2: return Vector2(30.0 - at.x, at.y)
-	var lines := [
-		[Vector2(1.5, 1.5), Vector2(28.5, 25.5)],
-		[Vector2(10.0, 0.0), Vector2(10.0, 29.0)],  # along a grid line
-		[Vector2(2.0, 22.0), Vector2(26.0, 2.0)],  # through corners
-		[Vector2(15.5, 15.5), Vector2(5.25, 7.75)],
-	]
-	for line in lines:
-		var there: float = ground.obscurance.along(line[0], line[1])
-		assert_float(ground.obscurance.along(line[1], line[0])).is_equal_approx(there, 0.0001)
-		var back: float = mirrored.obscurance.along(flip.call(line[0]), flip.call(line[1]))
-		assert_float(back).is_equal_approx(there, 0.0001)
-
-
-func test_obscurance_does_not_depend_on_what_was_painted_first() -> void:
-	var first := FormationTerrain.new(Vector2i(20, 20))
-	first.paint(Rect2i(2, 2, 8, 8), {"cost": 0.5, "obscurance": 1.0})
-	first.paint(Rect2i(5, 5, 8, 8), {"height": 4})
-	var second := FormationTerrain.new(Vector2i(20, 20))
-	second.paint(Rect2i(5, 5, 8, 8), {"height": 4})
-	second.paint(Rect2i(2, 2, 8, 8), {"cost": 0.5, "obscurance": 1.0})
-	var line := [Vector2(0.5, 0.5), Vector2(19.5, 17.5)]
-
-	assert_float(second.obscurance.along(line[0], line[1])).is_equal(
-		first.obscurance.along(line[0], line[1])
-	)
 
 
 func test_the_fields_wood_obscures_by_the_tuning() -> void:

@@ -1,7 +1,8 @@
 extends GdUnitTestSuite
-## FormationTerrain and pace, per Decision 85 and spec 27 round 4: ground cost, uphill
-## slope, liquid in bands of a unit's height, cliffs and deep water impassable, and a squad
-## keeping the pace of the worst cell its front rank steps into.
+## Pace on FormationTerrain, per Decision 85 and spec 27 round 4: a squad keeps the pace
+## of the worst cell its front rank steps into, and deep water halts a squad that can't
+## swim. The ground's own rules (cost, slope, liquid by height, cliffs) are cargo tests
+## (native/rust/src/ground/tests.rs, spec 39 step 3a).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -30,52 +31,6 @@ func _line(count: int) -> Array:
 	for column in range(count):
 		placements.append([_def(), Vector2i(0, column)])
 	return placements
-
-
-func test_open_ground_is_full_pace_and_a_wood_is_half() -> void:
-	var ground := _terrain()
-	ground.paint(Rect2i(10, 0, 5, 5), {"cost": 0.5})
-
-	assert_float(ground.factor(1.0, Vector2(2.5, 2.5), Vector2(3.5, 2.5))).is_equal(1.0)
-	assert_float(ground.factor(1.0, Vector2(9.5, 2.5), Vector2(10.5, 2.5))).is_equal(0.5)
-	assert_float(ground.factor(1.0, Vector2(-5, -5), Vector2(-4, -5))).is_equal(1.0)
-
-
-func test_uphill_is_slower_and_downhill_no_faster() -> void:
-	var ground := _terrain()
-	ground.paint(Rect2i(10, 0, 1, 5), {"height": 2})
-
-	assert_float(ground.factor(1.0, Vector2(9.5, 1), Vector2(10.5, 1))).is_equal_approx(0.8, 0.0001)
-	assert_float(ground.factor(1.0, Vector2(10.5, 1), Vector2(11.5, 1))).is_equal(1.0)
-
-
-func test_a_rise_of_more_than_a_cell_is_a_cliff() -> void:
-	var ground := _terrain()
-	ground.paint(Rect2i(10, 0, 1, 5), {"height": 5})
-
-	assert_float(ground.factor(1.0, Vector2(9.5, 1), Vector2(10.5, 1))).is_equal(0.0)
-
-
-func test_water_slows_by_depth_against_height() -> void:
-	var ground := _terrain()
-	ground.paint(Rect2i(10, 0, 1, 1), {"depth": 0.1})
-	ground.paint(Rect2i(11, 0, 1, 1), {"depth": 0.3})
-	ground.paint(Rect2i(12, 0, 1, 1), {"depth": 0.7})
-	ground.paint(Rect2i(13, 0, 1, 1), {"depth": 1.2})
-	var at := func(x: int, height: float):
-		return ground.factor(height, Vector2(x - 0.5, 0.5), Vector2(x + 0.5, 0.5))
-		return ground.factor(height, Vector2(x - 0.5, 0.5), Vector2(x + 0.5, 0.5))
-
-	assert_float(at.call(10, 1.0)).is_equal(1.0)
-	assert_float(at.call(11, 1.0)).is_equal_approx(BattleTuning.current().ground_wading, 0.0001)
-	assert_float(at.call(12, 1.0)).is_equal_approx(
-		BattleTuning.current().ground_slow_wading, 0.0001
-	)
-	assert_float(at.call(13, 1.0)).is_equal(0.0)
-	# A brute, twice as tall, wades it.
-	assert_float(at.call(13, 2.0)).is_equal_approx(
-		BattleTuning.current().ground_slow_wading, 0.0001
-	)
 
 
 func test_a_squad_half_in_a_wood_slows_as_a_whole() -> void:
