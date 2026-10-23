@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
 ## Elevation import, per Decision 56 and specs/23-ground-model.md (round 2): a tile's
-## elevation override, the map's ceiling, and a terrain's default elevation.
+## elevation override and the map's ceiling (a terrain's default elevation is the
+## designer's terrain_schema.py, tested there).
 
 const DesignerMapImporter = preload("res://content/import/designer_map_importer.gd")
-const DesignerLibraryImporter = preload("res://content/import/designer_library_importer.gd")
 
 const LAYOUT_PATH := "res://tests/fixtures/designer/layout_map.designer.json"
 
@@ -30,11 +30,3 @@ func test_an_export_without_elevation_keeps_the_defaults() -> void:
 
 	assert_int(layout.ceiling).is_equal(64)
 	assert_int(layout.tiles[0].elevation).is_equal(-1)
-
-
-func test_a_terrains_default_elevation_imports() -> void:
-	var library_data := {"terrains": [{"id": "HILLY", "default_elevation": 8}]}
-
-	var hills = DesignerLibraryImporter.import_library(library_data).library.terrain("HILLY")
-
-	assert_int(hills.default_elevation).is_equal(8)

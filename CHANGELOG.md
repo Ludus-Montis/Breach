@@ -19,5 +19,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
   `weapons/`, `armour/`, `tuning/battle_tuning.json`), checked against the JSON Schema in
   `content/schema/`. A file with a wrong or unknown field fails to load and names the file and
   the field. The Rust core must be built (`bash native/build.sh`) to run the game.
+- The terrain library is one file, `content/terrain/terrain_library.json`, in the same schema.
+  The map designer's library page saves it directly, without Godot, and refuses an edit that
+  removes a terrain or feature a saved map still uses.
 
 [Unreleased]: https://github.com/SSidey/Breach/commits/main

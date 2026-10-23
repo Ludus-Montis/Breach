@@ -87,7 +87,8 @@ def usage(root: Path) -> dict:
             ids = set(_definition_ids(json.loads(path.read_text(encoding="utf-8"))))
             for used in ids:
                 found.setdefault(used, []).append(path.relative_to(root).as_posix())
-    for path in sorted((content / "designer").glob("*.json")):
+    libraries = sorted((content / "designer").glob("*.json"))
+    for path in libraries + sorted((content / "terrain").glob("*.json")):
         text = path.read_text(encoding="utf-8")
         for used in set(_designer_traits(json.loads(text))):
             found.setdefault(used, []).append(path.relative_to(root).as_posix())

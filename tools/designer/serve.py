@@ -13,9 +13,11 @@ API:
     GET  /api/maps/<name>             the saved export JSON
     PUT  /api/maps/<name>             save + import -> {saved, import:{ran, ok, warnings, errors, output_path}}
     POST /api/maps/<name>/view        open content/maps/<name>.tres in the Godot map viewer
-    GET  /api/libraries/<library>     content/designer/<library>.json (null if absent)
-    PUT  /api/libraries/<library>     write it -> {changed, import}; saving "terrain" also
-                                      regenerates content/terrain/terrain_library.tres
+    GET  /api/libraries/<library>     content/designer/<library>.json (null if absent); "terrain"
+                                      is content/terrain/terrain_library.json, in the designer's shape
+    PUT  /api/libraries/<library>     write it -> {changed, import}; "terrain" is written in the
+                                      crate's schema, and refused (import.ok false) if it drops a
+                                      terrain or feature a saved map uses
     GET  /api/registry                the tags, traits and statuses (content/registry), each
                                       trait's targets, and where each is used (Decision 128)
 """

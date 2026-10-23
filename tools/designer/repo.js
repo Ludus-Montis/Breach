@@ -109,12 +109,13 @@
       var parsed;
       try { parsed = JSON.parse(batch[lib]); } catch (e) { return; }
       api('PUT', '/api/libraries/' + lib, parsed).then(function (res) {
-        // specs/19: saving the terrain library regenerates content/terrain/terrain_library.tres.
+        // Spec 39 step 2b: the terrain library is content/terrain/terrain_library.json, which
+        // the server refuses to write if the edit drops a terrain or feature a saved map uses.
         if (res && res.import && !res.import.ok) {
           lastImport = { name: 'terrain library', result: res.import, at: new Date(), library: true };
-          showStatus('Terrain library saved, but Godot kept the previous version: ' + (res.import.errors[0] || 'import failed'), 'bad');
-        } else if (res && res.import) {
-          showStatus('Terrain library updated for every map in Godot', 'ok');
+          showStatus('Terrain library not saved: ' + (res.import.errors[0] || 'refused'), 'bad');
+        } else if (res && res.import && res.changed) {
+          showStatus('Terrain library saved for every map', 'ok');
         }
       }).catch(function (e) {
         showStatus('Library "' + lib + '" not saved to the repo: ' + e.message, 'bad');
@@ -282,7 +283,7 @@
     api('PUT', '/api/maps/' + encodeURIComponent(name), data).then(function (res) {
       setCurrentFile(name);
       setDirty(false);
-      lastImport = { name: name, result: res.import, at: new Date(), libraryImport: res.library_import };
+      lastImport = { name: name, result: res.import, at: new Date() };
       var imp = res.import;
       if (imp.ok) {
         showStatus('Saved ' + new Date().toLocaleTimeString() + ' · imported to content/maps/' + name + '.tres' +
@@ -318,7 +319,7 @@
     var imp = lastImport.result;
     if (lastImport.library) {
       modal('Terrain library import',
-        '<p><code>content/designer/terrain.json</code> was saved, but Godot kept the previous <code>content/terrain/terrain_library.tres</code>, so maps are unaffected.</p>' +
+        '<p><code>content/terrain/terrain_library.json</code> was not saved, so maps are unaffected.</p>' +
         '<h3>Errors</h3><ul class="import-list bad">' + imp.errors.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>');
       return;
     }
@@ -328,8 +329,6 @@
       : '<p><strong>Godot import ' + (imp.ran ? 'failed' : 'did not run') + '</strong> — the .tres was not written.</p>';
     if (imp.errors.length) html += '<h3>Errors</h3><ul class="import-list bad">' + imp.errors.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if (imp.warnings.length) html += '<h3>Warnings</h3><ul class="import-list">' + imp.warnings.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
-    var lib = lastImport.libraryImport;
-    if (lib && !lib.ok) html += '<h3>Terrain library (not updated)</h3><ul class="import-list bad">' + lib.errors.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     modal('Save & import', html);
   }
 

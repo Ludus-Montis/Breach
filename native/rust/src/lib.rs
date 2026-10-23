@@ -764,7 +764,8 @@ struct ContentStore {}
 #[godot_api]
 impl ContentStore {
     /// The content under `root` (an OS path to the repo's `content/`): {"units", "weapons",
-    /// "armour"} each id -> fields, and "tuning" its fields; or {"error": why it didn't load}.
+    /// "armour"} each id -> fields, "tuning" and "terrain" (the terrain library) their fields;
+    /// or {"error": why it didn't load}.
     #[func]
     fn load(root: GString) -> VarDictionary {
         let mut out = VarDictionary::new();
@@ -775,14 +776,21 @@ impl ContentStore {
         out
     }
 
-    /// Each kind's fields when its file names none ({"unit", "weapon", "armour"}), for the
-    /// test that holds them equal to GDScript's.
+    /// Each kind's fields when its file names none ({"unit", "weapon", "armour", and the
+    /// terrain library's kinds}), for the test that holds them equal to GDScript's.
     #[func]
     fn defaults() -> VarDictionary {
         let mut out = VarDictionary::new();
         out.set("unit", &variant_of(&content::Unit::default()));
         out.set("weapon", &variant_of(&content::Weapon::default()));
         out.set("armour", &variant_of(&content::Armour::default()));
+        out.set("terrain_library", &variant_of(&content::TerrainLibrary::default()));
+        out.set("terrain", &variant_of(&content::Terrain::default()));
+        out.set("liquid_body", &variant_of(&content::LiquidBody::default()));
+        out.set("stratum", &variant_of(&content::Stratum::default()));
+        out.set("feature", &variant_of(&content::TerrainFeature::default()));
+        out.set("material", &variant_of(&content::Material::default()));
+        out.set("heat_transition", &variant_of(&content::HeatTransition::default()));
         out
     }
 }

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 import sys
@@ -193,84 +192,58 @@ class LibraryTest(RepoTestCase):
                 repo.write_library(library, [])
 
 
-class TerrainLibraryImportTest(RepoTestCase):
-    """specs/19: saving the terrain library regenerates content/terrain/terrain_library.tres."""
+class TerrainLibraryTest(RepoTestCase):
+    """Spec 39 step 2b: the terrain library is content/terrain/terrain_library.json, in the
+    crate's schema; the designer reads and writes it in its own shape, and Godot isn't run."""
 
-    def _library_tres(self):
-        return self.root / "content/terrain/terrain_library.tres"
+    def _schema_file(self):
+        return self.root / "content/terrain/terrain_library.json"
 
-    def test_saving_the_terrain_library_runs_the_library_import(self):
-        runner = FakeRunner(stdout="wrote res://content/terrain/terrain_library.tres\n")
+    def test_saving_the_terrain_library_writes_the_crates_schema(self):
+        runner = FakeRunner()
         repo = DesignerRepo(self.root, "godot", runner)
 
-        result = repo.save_library("terrain", {"terrains": []})
+        result = repo.save_library("terrain", {"terrains": [{"id": "FIELDS", "label": "Fields"}]})
 
         self.assertTrue(result["changed"])
         self.assertTrue(result["import"]["ok"])
-        self.assertIn("res://tools/import_designer_library.gd", runner.commands[0])
+        written = json.loads(self._schema_file().read_text(encoding="utf-8"))
+        self.assertEqual(written["terrains"][0]["display_name"], "Fields")
+        self.assertEqual(runner.commands, [])
+        self.assertFalse((self.root / "content/designer/terrain.json").exists())
 
-    def test_other_libraries_and_unchanged_terrain_do_not_run_it(self):
-        runner = FakeRunner()
-        repo = DesignerRepo(self.root, "godot", runner)
-        repo.save_library("factions", [])
-        repo.write_library("terrain", {"terrains": []})
-        source = (self.root / "content/designer/terrain.json").read_bytes()
-        self._write_library_tres(hashlib.sha256(source).hexdigest())
-        runner.commands.clear()
+    def test_the_designer_reads_its_own_shape_back(self):
+        repo = DesignerRepo(self.root, None)
+        repo.save_library("terrain", {"terrains": [{"id": "FIELDS", "label": "Fields"}]})
+        self.assertEqual(repo.read_library("terrain")["terrains"][0]["label"], "Fields")
 
-        result = repo.save_library("terrain", {"terrains": []})
+    def test_an_unchanged_library_reports_no_change(self):
+        repo = DesignerRepo(self.root, None)
+        repo.save_library("terrain", {"terrains": [{"id": "FIELDS"}]})
+        self.assertFalse(repo.save_library("terrain", {"terrains": [{"id": "FIELDS"}]})["changed"])
+
+    def test_dropping_a_terrain_a_saved_map_uses_is_refused_and_nothing_is_written(self):
+        repo = DesignerRepo(self.root, None)
+        repo.save_library("terrain", {"terrains": [{"id": "FIELDS"}]})
+        repo.save_map("demo_map", dict(MAP, default_terrain="FIELDS"))
+        before = self._schema_file().read_text(encoding="utf-8")
+
+        result = repo.save_library("terrain", {"terrains": [{"id": "FOREST"}]})
 
         self.assertFalse(result["changed"])
-        self.assertIsNone(result["import"])
-        self.assertEqual(runner.commands, [])
-
-    def test_a_refused_library_import_is_reported(self):
-        runner = FakeRunner(stderr="error: terrain 'FOREST' is still used by demo_map\n", returncode=1)
-
-        result = DesignerRepo(self.root, "godot", runner).save_library("terrain", {"terrains": []})
-
         self.assertFalse(result["import"]["ok"])
-        self.assertIn("still used by demo_map", result["import"]["errors"][0])
+        self.assertIn("terrain 'FIELDS' is still used by demo_map", result["import"]["errors"][0])
+        self.assertEqual(self._schema_file().read_text(encoding="utf-8"), before)
 
-    def test_saving_a_map_imports_a_stale_library_first(self):
+    def test_saving_a_map_runs_only_the_map_import(self):
         runner = FakeRunner(stdout="wrote x\n")
         repo = DesignerRepo(self.root, "godot", runner)
-        repo.write_library("terrain", {"terrains": []})  # no .tres yet, so it's stale
+        repo.save_library("terrain", {"terrains": [{"id": "FIELDS"}]})
 
-        result = repo.save_map("m", MAP)
-
-        self.assertIn("res://tools/import_designer_library.gd", runner.commands[0])
-        self.assertIn("res://tools/import_designer_map.gd", runner.commands[1])
-        self.assertTrue(result["library_import"]["ok"])
-
-    def _write_library_tres(self, source_hash):
-        self._library_tres().parent.mkdir(parents=True, exist_ok=True)
-        self._library_tres().write_text(
-            f'[resource]\nsource_hash = "{source_hash}"\n', encoding="utf-8"
-        )
-
-    def test_saving_a_map_with_a_current_library_skips_the_library_import(self):
-        runner = FakeRunner(stdout="wrote x\n")
-        repo = DesignerRepo(self.root, "godot", runner)
-        repo.write_library("terrain", {"terrains": []})
-        source = (self.root / "content/designer/terrain.json").read_bytes()
-        self._write_library_tres(hashlib.sha256(source).hexdigest())
-
-        result = repo.save_map("m", MAP)
+        repo.save_map("m", MAP)
 
         self.assertEqual(len(runner.commands), 1)
-        self.assertIsNone(result["library_import"])
-
-    def test_a_library_built_from_different_json_is_stale_even_if_newer(self):
-        runner = FakeRunner(stdout="wrote x\n")
-        repo = DesignerRepo(self.root, "godot", runner)
-        repo.write_library("terrain", {"terrains": []})
-        self._write_library_tres("0" * 64)  # written after terrain.json, from other content
-
-        result = repo.save_map("m", MAP)
-
-        self.assertIn("res://tools/import_designer_library.gd", runner.commands[0])
-        self.assertIsNotNone(result["library_import"])
+        self.assertIn("res://tools/import_designer_map.gd", runner.commands[0])
 
 
 class ImportOutputTest(unittest.TestCase):

@@ -6,16 +6,19 @@ name, so a request can never reach an arbitrary path:
 - content/maps_src/<name>.designer.json  - the designer's saved map (its export JSON)
 - content/maps/<name>.tres               - the Godot MapDef the import writes
 - content/designer/<library>.json        - the designer's shared libraries
+- content/terrain/terrain_library.json   - the terrain library, in the crate's schema
+                                           (spec 39 step 2b; terrain_schema.py)
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import subprocess
 from pathlib import Path
+
+import terrain_schema
 
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 LIBRARIES = (
@@ -29,7 +32,6 @@ LIBRARIES = (
 )
 MAP_SUFFIX = ".designer.json"
 IMPORT_SCRIPT = "res://tools/import_designer_map.gd"
-LIBRARY_IMPORT_SCRIPT = "res://tools/import_designer_library.gd"
 VIEWER_SCENE = "res://presentation/map_viewer.tscn"
 IMPORT_TIMEOUT_SECONDS = 180
 
@@ -106,7 +108,7 @@ class DesignerRepo:
         self.maps_src = root / "content" / "maps_src"
         self.maps_out = root / "content" / "maps"
         self.libraries = root / "content" / "designer"
-        self.terrain_library_tres = root / "content" / "terrain" / "terrain_library.tres"
+        self.terrain_library = root / "content" / "terrain" / "terrain_library.json"
 
     def list_maps(self) -> list:
         if not self.maps_src.is_dir():
@@ -136,12 +138,8 @@ class DesignerRepo:
             raise ValueError('body is not a designer map (format must be "breach-designer-map")')
         source = self.maps_src / f"{name}{MAP_SUFFIX}"
         write_json(source, export_data)
-        # specs/19: the map's layout references the shared terrain library, so bring it up
-        # to date first if the designer changed terrain.json since it was last imported.
-        library_import = self.run_library_import() if self._library_is_stale() else None
         return {
             "saved": source.relative_to(self.root).as_posix(),
-            "library_import": library_import,
             "import": self.run_import(name),
         }
 
@@ -151,24 +149,6 @@ class DesignerRepo:
             IMPORT_SCRIPT,
             ["--", f"res://content/maps_src/{name}{MAP_SUFFIX}", f"res://content/maps/{name}.tres"],
         )
-
-    def run_library_import(self) -> dict:
-        """Regenerates content/terrain/terrain_library.tres from content/designer/terrain.json.
-        Godot refuses (and reports) a library that drops a terrain a saved map still uses."""
-        return self._run_godot_script(LIBRARY_IMPORT_SCRIPT, [])
-
-    def _library_is_stale(self) -> bool:
-        """True when terrain_library.tres wasn't built from the current terrain.json. The
-        import records sha256 of its source JSON (TerrainLibraryDef.source_hash); comparing
-        content, not file times, also catches a .tres checked out newer than a local edit."""
-        source = self.libraries / "terrain.json"
-        if not source.is_file():
-            return False
-        target = self.terrain_library_tres
-        if not target.is_file():
-            return True
-        match = re.search(r'^source_hash = "([0-9a-f]*)"', target.read_text(encoding="utf-8"), re.M)
-        return match is None or match.group(1) != hashlib.sha256(source.read_bytes()).hexdigest()
 
     def _run_godot_script(self, script: str, script_args: list) -> dict:
         if not self.godot:
@@ -211,17 +191,29 @@ class DesignerRepo:
 
     def read_library(self, library: str):
         self._require_library(library)
+        if library == "terrain":
+            stored = read_json(self.terrain_library)
+            return None if stored is None else terrain_schema.from_schema(stored)
         return read_json(self.libraries / f"{library}.json")
 
     def write_library(self, library: str, value) -> bool:
         self._require_library(library)
+        if library == "terrain":
+            return write_json(self.terrain_library, terrain_schema.to_schema(value))
         return write_json(self.libraries / f"{library}.json", value)
 
     def save_library(self, library: str, value) -> dict:
-        """write_library, plus (for the terrain library) the shared .tres import, per specs/19."""
-        changed = self.write_library(library, value)
-        needs_import = library == "terrain" and (changed or self._library_is_stale())
-        return {"changed": changed, "import": self.run_library_import() if needs_import else None}
+        """write_library; the terrain library is refused (and not written) if it drops a
+        terrain or feature a saved map uses, or has an entry with no id."""
+        if library != "terrain":
+            return {"changed": self.write_library(library, value), "import": None}
+        try:
+            problems = terrain_schema.in_use_problems(terrain_schema.to_schema(value), self.maps_src)
+        except ValueError as error:
+            problems = [str(error)]
+        changed = not problems and self.write_library(library, value)
+        checked = {"ran": True, "ok": not problems, "warnings": [], "errors": problems}
+        return {"changed": changed, "import": dict(checked, output_path=None)}
 
     @staticmethod
     def _failed(message: str) -> dict:

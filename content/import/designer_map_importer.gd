@@ -19,9 +19,6 @@ const DesignerLayoutBuilder = preload("res://content/import/designer_layout_buil
 const DesignerObjectivesBuilder = preload("res://content/import/designer_objectives_builder.gd")
 const TerrainLibraryDef = preload("res://content/definitions/terrain_library_def.gd")
 
-## The one shared terrain library every imported layout references (Decision 32).
-const TERRAIN_LIBRARY := "res://content/terrain/terrain_library.tres"
-
 const FORMAT := "breach-designer-map"
 const FORMAT_VERSION := 1
 ## The designer has no sim tuning; p_f_F_c's values are the defaults unless the JSON
@@ -54,7 +51,7 @@ static func import_file(json_path: String) -> DesignerMapImportResult:
 	return import_map(parsed)
 
 
-## library defaults to the shared content/terrain/terrain_library.tres.
+## library defaults to the shared one the crate loaded (CrateContent.terrain_library()).
 static func import_map(
 	export_data: Dictionary, library: TerrainLibraryDef = null
 ) -> DesignerMapImportResult:
@@ -84,9 +81,8 @@ static func import_map(
 	DesignerLaneDeriver.derive(export_data, nodes, result.map_def, result.errors)
 	if not export_data.get("grid", {}).is_empty():
 		if library == null:
-			library = _load_library(result.errors)
-		if library != null:
-			result.map_def.layout = DesignerLayoutBuilder.build(export_data, library, result.errors)
+			library = CrateContent.terrain_library()
+		result.map_def.layout = DesignerLayoutBuilder.build(export_data, library, result.errors)
 	result.map_def.loss_groups = DesignerObjectivesBuilder.build_loss_groups(
 		export_data, result.errors
 	)
@@ -137,18 +133,6 @@ static func _build_relations(
 			)
 		relations.append(relation)
 	return relations
-
-
-static func _load_library(errors: PackedStringArray) -> TerrainLibraryDef:
-	if not ResourceLoader.exists(TERRAIN_LIBRARY):
-		errors.append(
-			(
-				"shared terrain library missing (%s): run tools/import_designer_library.gd"
-				% TERRAIN_LIBRARY
-			)
-		)
-		return null
-	return load(TERRAIN_LIBRARY)
 
 
 static func _warn_not_imported(export_data: Dictionary, warnings: PackedStringArray) -> void:

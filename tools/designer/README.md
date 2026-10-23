@@ -30,9 +30,13 @@ Without Godot, maps still save and the designer says the import didn't run.
 
 ## Libraries
 
-The factions, terrain, emplacements, room features, room prefabs and structure prefabs
-libraries live in `content/designer/*.json`. The designer writes them as you edit, so
-commit them along with your maps. Opening a map adds any library entries it uses that
+The factions, emplacements, room features, room prefabs and structure prefabs libraries
+live in `content/designer/*.json`. The terrain library is the game's own file,
+`content/terrain/terrain_library.json`, in the Rust crate's schema
+(`content/schema/terrain_library.schema.json`, spec 39 step 2b): the server translates it to
+and from the designer's shape (`terrain_schema.py`), and refuses an edit that drops a terrain
+or feature a saved map uses. The designer writes them as you edit, so commit them along with
+your maps. Opening a map adds any library entries it uses that
 are missing locally.
 
 To bring libraries across from the old claude.ai designer:

@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TERRAIN = HERE.parent.parent / "content" / "designer" / "terrain.json"
+TERRAIN = HERE.parent.parent / "content" / "terrain" / "terrain_library.json"
 
 RUNNER = """
 require(process.argv[1]);
