@@ -17,15 +17,13 @@ const TerrainObscurance = preload("res://sim/skirmish/formation/terrain_obscuran
 const GROUND_CLASS := "TerrainGround"
 
 var size: Vector2i
-## Each kind of walker's cached speed shares (WalkerShares), dropped when it is painted.
-var walker_shares := {}
 ## The fastest ground painted (a road's cost above 1): searches divide their estimates by
 ## it, so a quicker way along a road is never overlooked (PathSearch).
 var fastest: float:
 	get:
 		return _ground.fastest()
 ## The crate's ground under this view, for the views over the rules that read it
-## (UnitMover, TerrainStep).
+## (UnitMover, TerrainStep, TerrainPaths).
 var core: Object:
 	get:
 		return _ground
@@ -55,8 +53,7 @@ func _init(grid_size: Vector2i) -> void:
 ## (its liquid's flow), "climb" (the climb difficulty of a cliff rising into them),
 ## "obscurance" (what a cell of sight through them costs) and "blocks_sight".
 func paint(area: Rect2i, props: Dictionary) -> void:
-	walker_shares.clear()
-	_ground.paint(area, props)
+	_ground.paint(area, props)  # it drops each kind of walker's cached shares (paths)
 
 
 ## The height (quarters) of the cell holding a point.

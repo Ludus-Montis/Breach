@@ -8,20 +8,17 @@ extends RefCounted
 ## (path_detour_gain), it plans the way round (TerrainPaths.plan) and keeps it on its
 ## command as a patch to the route (RoutePatch): every group of the command follows the
 ## patched route from then on. It looks again only once its front has moved on
-## (path_relook cells). Pure over the squads it is given.
+## (path_relook cells). Pure over the squads it is given. The look, the group's walker and
+## its pathfinder are the crate's (native/rust/src/pathing.rs, spec 39 step 3c); which
+## groups look and their commands' patches stay here until the tick ports (step 8).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
-const TerrainPaths = preload("res://sim/skirmish/formation/terrain_paths.gd")
-const PathSight = preload("res://sim/skirmish/formation/path_sight.gd")
 const RoutePatch = preload("res://sim/skirmish/formation/route_patch.gd")
-const SquadPathfinder = preload("res://sim/skirmish/formation/squad_pathfinder.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick: groups follow their commands' patched routes, then marching groups look
@@ -42,19 +39,13 @@ static func step(
 ## The group as one walker: its tallest height, swimming or climbing only if every unit
 ## can, at the least of their abilities, stamina and speed.
 static func group_walker(squad: SkirmishSquad) -> TerrainWalker:
-	var living := squad.living()
-	var walkers := living.map(func(u): return TerrainWalker.of_unit(u))
-	if walkers.is_empty():
-		return TerrainWalker.grounded(1.0)
+	var members := CratePaths.members(squad, squad.living())
+	var fields: PackedFloat64Array = CratePaths.core().group_walker(members)
 	var walker := TerrainWalker.new(
-		walkers.map(func(w): return w.height).max(),
-		walkers.map(func(w): return w.swimmer).min(),
-		walkers.map(func(w): return w.climber).min(),
-		walkers.all(func(w): return w.swims),
-		walkers.all(func(w): return w.climbs)
+		fields[0], int(fields[1]), int(fields[2]), fields[3] != 0.0, fields[4] != 0.0
 	)
-	walker.stamina = walkers.map(func(w): return w.stamina).min()
-	walker.speed = walkers.map(func(w): return w.speed).min()
+	walker.stamina = fields[5]
+	walker.speed = fields[6]
 	return walker
 
 
@@ -86,29 +77,24 @@ static func _look_ahead(
 	var tuning := BattleTuning.current()
 	var front := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
 	squad.looked_at = front
-	var length := squad.route.length_cells()
-	var ahead := clampf(front + squad.direction * tuning.path_look, 0.0, length)
-	var from := squad.route.point_at(front)
-	var to := squad.route.point_at(ahead)
-	if from.distance_to(to) < 1.0:
+	var looks := PackedFloat64Array(
+		[tuning.path_look, tuning.path_detour_gain, tuning.sight_budget]
+	)
+	looks.append_array(
+		PackedFloat64Array(
+			[tuning.ground_cliff_quarters, tuning.stamina_climb, tuning.stamina_swim]
+		)
+	)
+	var way: PackedVector2Array = CratePaths.core().look_ahead(
+		terrain.core,
+		squad.route.points(),
+		front,
+		squad.direction,
+		CratePaths.members(squad, squad.living()),
+		fight_seed,
+		looks
+	)
+	if way.is_empty():
 		return
-	var walker := group_walker(squad)
-	var straight := TerrainPaths.cost(terrain, walker, PackedVector2Array([from, to]))
-	if straight <= from.distance_to(to) * (1.0 + tuning.path_detour_gain):
-		return  # open enough: it keeps to its route
-	var finder := SquadPathfinder.pick(squad, fight_seed)
-	var sight: PathSight = null
-	if finder != null and finder.definition != null:
-		var at: Vector2 = squad.store.columns.value(finder.slot, UnitColumns.POSITION)
-		sight = PathSight.of(finder.definition, at, to - from, terrain)
-	var plan := TerrainPaths.plan(terrain, walker, from, to, sight)
-	var way: PackedVector2Array = plan["waypoints"]
-	if not plan["reaches"] or way.size() < 3:
-		return
-	var round_cost := TerrainPaths.cost(terrain, walker, way)
-	if round_cost >= straight * (1.0 - tuning.path_detour_gain):
-		return  # no better than going straight on
-	if squad.direction < 0:
-		way.reverse()
 	squad.command.patches.append(RoutePatch.of_detour(squad.command.route, way))
 	events.append(FormationEvents.squad_event("detoured", tick, squad, {"cells": way.size()}))

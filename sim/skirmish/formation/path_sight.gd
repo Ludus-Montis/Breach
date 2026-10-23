@@ -7,12 +7,12 @@ extends RefCounted
 ## (UnitDef.sight_ahead, sight_side, sight_behind). Within that shape, on terrain, it
 ## sees a point while the obscurance along its sight line stays within its budget
 ## (TerrainObscurance, BattleTuning.sight_budget): a few cells into a wood, less far in
-## fog. Symmetric left and right, so ground mirrored is seen mirrored. Pure.
+## fog. Symmetric left and right, so ground mirrored is seen mirrored. A view over the
+## crate's sight (native/rust/src/paths/sight.rs, spec 39 step 3c). Pure.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 
 ## Where it looks from (cells) and which way (a unit vector).
 var origin: Vector2
@@ -45,19 +45,20 @@ static func of(
 
 ## How far it sees in the direction `way` (a unit vector).
 func reach(way: Vector2) -> float:
-	var turned := DetMath.acos(clampf(way.dot(facing), -1.0, 1.0)) / (PI / 2.0)  # 0 ahead to 2 behind
-	if turned <= 1.0:
-		return lerpf(ahead, side, turned)
-	return lerpf(side, behind, turned - 1.0)
+	return CratePaths.core().reach(fields(), way)
 
 
 ## Whether it sees `point`.
 func sees(point: Vector2) -> bool:
-	var offset := point - origin
-	var length := offset.length()
-	if length > 0.000001 and length > reach(offset / length):
-		return false
-	return terrain == null or terrain.obscurance.clear(origin, point, budget)
+	return CratePaths.core().sees(terrain.core if terrain != null else null, fields(), point)
+
+
+## What of it the crate reads: [origin x, y, facing x, y, ahead, side, behind, whether its
+## ground hides anything, budget].
+func fields() -> PackedFloat64Array:
+	var out := PackedFloat64Array([origin.x, origin.y, facing.x, facing.y, ahead, side, behind])
+	out.append_array(PackedFloat64Array([float(terrain != null), budget]))
+	return out
 
 
 func _init(

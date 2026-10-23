@@ -564,6 +564,55 @@ Decision's conditions.
   along the way whatever the list, sliding along a bank, staying where nothing is open,
   and the quarter bearings exact.
 
+### Step 3c, pathing in the crate
+
+- **The search** (`native/rust/src/paths/search.rs`, `frontier.rs`): PathSearch's A* and
+  PathFrontier's heap, with its precision: costs in f64, each cell's estimate and distance
+  aside in f32 as its packed arrays kept them, `Geometry2D.get_closest_point_to_segment` in
+  f32 as Godot computes it.
+- **The shares** (`shares.rs`): WalkerShares, one per kind of walker (its height by its
+  bits, its levels and modes), held beside the ground in `TerrainGround` and dropped when
+  it is painted, as `FormationTerrain.walker_shares` was. A share worked out just now is
+  given back unrounded and a cached one rounded to f32, as the GDScript did; ported as it
+  is (spec 39's rule) and raised as #575. Removing it changed no answer on 25,920
+  queries.
+- **Sight, memory and climbing** (`sight.rs`, `memory.rs`, `climb.rs`): PathSight's shape
+  and test, PathMemory's cells (the GDScript keeps it between plans and hands its bytes
+  over), ClimbBudget, and the two rules it calls, ClimbStamina's `standable` and
+  ModeStamina's `step_cost`.
+- **Plans** (`paths/mod.rs`): TerrainPaths' plan, rejoin, cells, cost, straightening and
+  legs.
+- **The look** (`pathing.rs`): FormationPathing's look ahead, its group walker and
+  SquadPathfinder's pick, as one call over the group's living units.
+- **Boundary moves** (Open's rule): ClimbStamina's `standable` and ModeStamina's
+  `step_cost` became views now, not in step 6, since the climb budget calls them and one
+  rule should not have two homes. Which groups look, `_follow` and the commands' patches
+  stay in FormationPathing until the tick ports (step 8): a squad's route and its
+  command's patches are not in the crate's store yet. `TerrainWalker.kind` went with
+  WalkerShares, its only reader; its test is a cargo test of the shares.
+- **The binding** (`GroundPaths`, `lib.rs`): stateless, one shared (`CratePaths`). A
+  walker for a path is passed as its seven fields and the climb's tuning as it stands at
+  the call, a sight as its nine fields, a memory as its bytes (null: none), a group's
+  living units as sixteen numbers each. The seven classes are views, their APIs unchanged.
+- **Identical:** before the GDScript was deleted, a one-off script (deleted) ran the old
+  GDScript and the views on 77,745 random queries over 60 painted grounds (cells, plans
+  with and without sight and memory, replans from the edge of sight, rejoins, the search's
+  cells, expanded and reaches, costs, sight and reach, standing, a step's stamina, the
+  pathfinder and the look ahead, 303 of which found a way round), all equal bit for bit,
+  the shares' caches warming in the same order. Outcomes unchanged: CI's digests compare
+  with `main`.
+- **Retired:** the GDScript of WalkerShares, ClimbBudget and PathFrontier, and the bodies
+  of TerrainPaths, PathSearch, PathSight, SquadPathfinder, `ClimbStamina.standable`,
+  `ModeStamina.step_cost` and FormationPathing's look and group walker;
+  `test_terrain_paths.gd`, `test_walker_shares.gd`, `test_route_rejoin.gd` and
+  `test_squad_pathfinder.gd`; the pure scenarios of `test_path_sight.gd`,
+  `test_sight_obscurance.gd`, `test_climb_stamina.gd`, `test_formation_pathing.gd` and
+  `test_terrain_walker.gd`. The scenarios through a battle stay gdUnit.
+- **Tests:** cargo (`paths/tests.rs`, `pathing.rs`): the gdUnit scenarios above, plus the
+  shares looked up twice, heights an ulp apart kept apart, a group walking its route
+  backwards, and the pathfinder and the way round the same whatever the order of the
+  units.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
