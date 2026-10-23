@@ -122,7 +122,6 @@ func _timed(fighting: Array, ctx: Dictionary, saved: PackedFloat64Array) -> Arra
 	var out := []
 	for _rep in range(int(_args.get("reps", 20))):
 		_put(ctx["squads"], saved)
-		UnitMotion._vectors.clear()
 		var began := Time.get_ticks_usec()
 		_pass(fighting, ctx)
 		out.append((Time.get_ticks_usec() - began) / 1000.0)
@@ -164,7 +163,6 @@ func _put(squads: Array, saved: PackedFloat64Array) -> void:
 ## (UnitShuffle.look, UnitMotion.bearing_to), the turns; and DetMath's calls in it.
 func _stages(fighting: Array, ctx: Dictionary, saved: PackedFloat64Array) -> void:
 	_put(ctx["squads"], saved)
-	UnitMotion._vectors.clear()
 	var lap := Time.get_ticks_usec()
 	var nears := fighting.map(
 		func(s): return ScrumNear.index(ScrumSeek.foe_units(s, ctx["squads"]))
@@ -181,16 +179,14 @@ func _stages(fighting: Array, ctx: Dictionary, saved: PackedFloat64Array) -> voi
 	for turn in turns:
 		UnitMotion.turn(turn[0], columns, turn[1], ctx["seconds"])
 	spent.append(Time.get_ticks_usec() - lap)
-	var misses: int = UnitMotion._vectors.size()
 	var counts := _counted(fighting, touched, ctx)
 	_put(ctx["squads"], saved)
 	print("GDScript stages (one pass, ms):")
 	var names := ["foe grids", "touching foe", "looks, bearings", "turns"]
 	for index in range(names.size()):
 		print("  %-16s %7.2f" % [names[index], spent[index] / 1000.0])
-	var line := "DetMath calls a pass: atan2 %d, acos %d, sin+cos %d (vector memo misses)"
-	print(line % [counts[0], counts[1], misses])
-	_args["counts"] = [counts[0], counts[1], misses]
+	print("DetMath calls a pass: atan2 %d, acos %d" % [counts[0], counts[1]])
+	_args["counts"] = [counts[0], counts[1]]
 
 
 func _touched(fighting: Array, nears: Array, ctx: Dictionary) -> Array:
@@ -281,10 +277,8 @@ func _det_math(rust: bool) -> void:
 	for op in ns:
 		var rust_ns: String = "%.1f" % ns[op][1] if ns[op].size() > 1 else "-"
 		print("  %-6s %7.1f  %7s" % [op, ns[op][0], rust_ns])
-	var counts: Array = _args.get("counts", [0, 0, 0])
-	var gd: float = (
-		counts[0] * ns["atan2"][0] + counts[1] * ns["acos"][0] + counts[2] * 2.0 * ns["sin"][0]
-	)
+	var counts: Array = _args.get("counts", [0, 0])
+	var gd: float = counts[0] * ns["atan2"][0] + counts[1] * ns["acos"][0]
 	print("  so DetMath is about %.2f ms of the GDScript pass" % [gd / 1e6])
 
 

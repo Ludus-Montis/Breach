@@ -3,7 +3,8 @@ extends RefCounted
 ## A route as a path of cells across the map (Decision 75, specs/27-formations-in-2d.md):
 ## waypoints in cells, walked by distance along them. A squad keeps its distance along its
 ## route and takes its 2D place and heading from it (Decision 74). The corridor is how far
-## either side of the centre line squads may spread. Pure; distances are in cells.
+## either side of the centre line squads may spread. A view over the crate's route
+## (native/rust/src/route.rs, spec 39 step 3b); distances are in cells.
 
 ## Cells either side of the centre line squads may use (the lane's combat width, halved).
 var corridor_half_width := 0.0
@@ -27,50 +28,19 @@ func points() -> PackedVector2Array:
 
 
 func length_cells() -> float:
-	var total := 0.0
-	for i in range(1, _points.size()):
-		total += _points[i - 1].distance_to(_points[i])
-	return total
+	return CrateMoves.core().route_length(_points)
 
 
 ## The point at a distance along the route, clamped to its ends.
 func point_at(distance: float) -> Vector2:
-	if _points.is_empty():
-		return Vector2.ZERO
-	var remaining := maxf(distance, 0.0)
-	for i in range(1, _points.size()):
-		var leg := _points[i - 1].distance_to(_points[i])
-		if remaining < leg:
-			return _points[i - 1].lerp(_points[i], remaining / leg)
-		remaining -= leg
-	return _points[-1]
+	return CrateMoves.core().point_at(_points, distance)
 
 
 ## The unit direction of travel at a distance; at a bend, the leg leaving it.
 func heading_at(distance: float) -> Vector2:
-	if _points.size() < 2:
-		return Vector2.RIGHT
-	var remaining := maxf(distance, 0.0)
-	for i in range(1, _points.size()):
-		var leg := _points[i - 1].distance_to(_points[i])
-		if remaining < leg:
-			return (_points[i] - _points[i - 1]).normalized()
-		remaining -= leg
-	return (_points[-1] - _points[-2]).normalized()
+	return CrateMoves.core().heading_at(_points, distance)
 
 
 ## The distance along the route of the point on it nearest `point`.
 func distance_of(point: Vector2) -> float:
-	var best := 0.0
-	var best_gap := INF
-	var walked := 0.0
-	for i in range(1, _points.size()):
-		var from := _points[i - 1]
-		var leg := from.distance_to(_points[i])
-		var along := clampf((point - from).dot((_points[i] - from) / maxf(leg, 0.000001)), 0.0, leg)
-		var gap := point.distance_to(from.lerp(_points[i], along / maxf(leg, 0.000001)))
-		if gap < best_gap:
-			best_gap = gap
-			best = walked + along
-		walked += leg
-	return best
+	return CrateMoves.core().distance_of(_points, point)

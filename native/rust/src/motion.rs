@@ -116,13 +116,15 @@ fn apart(from: f64, to: f64) -> f64 {
 /// UnitMotion.turn: the unit's bearing after turning towards `wanted` by what its turn
 /// rate allows in `seconds`.
 pub fn turn(unit: &Mover, wanted: f64, seconds: f64) -> f64 {
+    turning_to(unit, wanted, seconds).0
+}
+
+/// As turn, and whether it then faces `wanted`.
+pub fn turning_to(unit: &Mover, wanted: f64, seconds: f64) -> (f64, bool) {
     let left = apart(unit.bearing, wanted);
-    if left.abs() < EPSILON {
-        return fposmod(wanted, 360.0);
-    }
     let reach = unit.turn_rate * seconds;
-    if reach >= left.abs() - EPSILON {
-        return fposmod(wanted, 360.0);
+    if left.abs() < EPSILON || reach >= left.abs() - EPSILON {
+        return (fposmod(wanted, 360.0), true);
     }
     let sign = if left > 0.0 {
         1.0
@@ -131,7 +133,30 @@ pub fn turn(unit: &Mover, wanted: f64, seconds: f64) -> f64 {
     } else {
         0.0
     };
-    fposmod(unit.bearing + sign * reach, 360.0)
+    (fposmod(unit.bearing + sign * reach, 360.0), false)
+}
+
+/// UnitMotion.move: the unit's next point moving from `at` to `to` with `full_step` cells
+/// at full pace, at the pace its present bearing allows (it turns separately).
+pub fn advance(unit: &Mover, at: V2, to: V2, full_step: f64) -> V2 {
+    at.move_toward(to, full_step * pace(unit, to.sub(at), unit.bearing))
+}
+
+/// UnitMotion.walk: the unit's next point walking from `at` to `to` with `full_step` cells
+/// at full pace, and its bearing, turning as it goes - towards its heading, or to keep
+/// facing `look` if given.
+pub fn walk(
+    unit: &Mover,
+    at: V2,
+    to: V2,
+    full_step: f64,
+    seconds: f64,
+    look: Option<V2>,
+) -> (V2, f64) {
+    let heading = to.sub(at);
+    let wanted = bearing_to(at, look.unwrap_or(to), unit.bearing);
+    let turned = turn(unit, wanted, seconds);
+    (at.move_toward(to, full_step * pace(unit, heading, turned)), turned)
 }
 
 #[cfg(test)]
@@ -155,5 +180,93 @@ mod tests {
         assert_eq!(turn(&unit, 20.0, 0.1), 0.0); // 10 of the 30 degrees, clockwise
         assert_eq!(turn(&unit, 355.0, 0.1), 355.0);
         assert_eq!(turn(&unit, 170.0, 0.1), 0.0); // an about-turn goes clockwise
+    }
+
+    const TICK: f64 = 0.1;
+
+    /// A unit facing north at a grem's turn rate and backward pace (test_unit_motion).
+    fn unit(bearing: f64) -> Mover {
+        Mover { bearing, turn_rate: 450.0, backward_pace: 0.4 }
+    }
+
+    fn ticks_to_face(mut unit: Mover, wanted: f64) -> i32 {
+        for tick in 1..100 {
+            let (bearing, faces) = turning_to(&unit, wanted, TICK);
+            unit.bearing = bearing;
+            if faces {
+                return tick;
+            }
+        }
+        100
+    }
+
+    #[test]
+    fn a_quarter_turn_takes_two_ticks_and_about_turn_four() {
+        assert_eq!(ticks_to_face(unit(0.0), 90.0), 2);
+        assert_eq!(ticks_to_face(unit(0.0), 180.0), 4);
+        assert_eq!(ticks_to_face(unit(0.0), 270.0), 2); // the short way round
+    }
+
+    #[test]
+    fn a_unit_turns_to_any_angle_not_a_step() {
+        assert_eq!(turning_to(&unit(0.0), 30.0, TICK), (30.0, true)); // within 45 degrees
+        assert_eq!(turning_to(&unit(30.0), 330.0, TICK), (345.0, false)); // 60 the other way
+        assert!((bearing_to(V2::ZERO, V2::new(1.0, -1.0), 0.0) - 45.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn pace_falls_from_ahead_to_its_backward_pace() {
+        let north = unit(0.0);
+        assert!((pace(&north, V2::new(0.0, -1.0), 0.0) - 1.0).abs() < 0.001);
+        assert!((pace(&north, V2::new(1.0, 0.0), 0.0) - 0.7).abs() < 0.001);
+        assert!((pace(&north, V2::new(0.0, 1.0), 0.0) - 0.4).abs() < 0.001);
+        assert_eq!(pace(&north, V2::ZERO, 0.0), 1.0);
+    }
+
+    #[test]
+    fn backing_away_keeps_facing_the_foe() {
+        let foe = Some(V2::new(5.0, 0.0));
+        let (at, bearing) = walk(&unit(0.0), V2::new(5.0, 5.0), V2::new(5.0, 10.0), 1.0, TICK, foe);
+        assert_eq!(bearing, 0.0); // still facing north, at the foe
+        assert!((at.y - 5.4).abs() < 0.001); // at its backward pace
+    }
+
+    #[test]
+    fn walking_turns_towards_its_heading_and_moving_does_not() {
+        let to = V2::new(10.0, 0.0);
+        let (at, bearing) = walk(&unit(0.0), V2::ZERO, to, 1.0, TICK, None);
+        assert_eq!(bearing, 45.0); // a quarter turn takes two ticks
+        let turned = Mover { bearing, ..unit(0.0) };
+        assert_eq!(at, V2::ZERO.move_toward(to, pace(&turned, to, 45.0)));
+        assert_eq!(advance(&unit(0.0), V2::ZERO, to, 1.0), V2::new(0.7, 0.0));
+    }
+
+    #[test]
+    fn a_grem_is_nimbler_than_a_brute() {
+        use crate::content::{tests::repo_content, Content};
+        let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
+        let of = |name: &str| {
+            let unit = &content.units[name];
+            Mover { bearing: 0.0, turn_rate: unit.turn_rate, backward_pace: unit.backward_pace }
+        };
+        let (grem, brute) = (of("grem"), of("grem_brute"));
+        assert!(ticks_to_face(grem, 180.0) < ticks_to_face(brute, 180.0));
+        assert!(pace(&grem, V2::new(0.0, 1.0), 0.0) > pace(&brute, V2::new(0.0, 1.0), 0.0));
+    }
+
+    #[test]
+    fn the_quarter_bearings_are_exact() {
+        let quarters =
+            [(0.0, (0.0, -1.0)), (90.0, (1.0, 0.0)), (180.0, (0.0, 1.0)), (270.0, (-1.0, 0.0))];
+        for (bearing, (x, y)) in quarters {
+            for turns in [-3.0, -1.0, 0.0, 1.0, 5.0] {
+                let vector = bearing_vector(bearing + 360.0 * turns);
+                assert_eq!(
+                    (vector.x.to_bits(), vector.y.to_bits()),
+                    (V2::new(x, y).x.to_bits(), V2::new(x, y).y.to_bits()),
+                    "{bearing} {turns}"
+                );
+            }
+        }
     }
 }

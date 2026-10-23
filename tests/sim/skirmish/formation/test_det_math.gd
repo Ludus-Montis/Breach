@@ -6,7 +6,6 @@ extends GdUnitTestSuite
 
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const DetPow = preload("res://sim/skirmish/formation/det_pow.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 
 const COUNT := 2048
 const BOUND := 1e-12
@@ -89,19 +88,6 @@ func test_rotated_is_within_a_float32_step_of_the_engine() -> void:
 		var ours := DetMath.rotated(v, angle)
 		assert_float(ours.distance_to(v.rotated(angle))).is_less_equal(v.length() * 1e-6)
 		assert_float(ours.length()).is_equal_approx(v.length(), v.length() * 1e-6)
-
-
-func test_unit_motion_looks_up_the_vectors_detmath_gives_the_quarter_bearings() -> void:
-	var limit := int(UnitMotion.QUARTER_RANGE / 90.0) + 1
-	assert_int(limit).is_greater(10000)
-	for quarter in range(-limit, limit + 1):
-		var bearing := quarter * 90.0
-		var x := DetMath.sin(deg_to_rad(bearing))
-		var y := -DetMath.cos(deg_to_rad(bearing))
-		var full := Vector2(x if absf(x) > 0.000001 else 0.0, y if absf(y) > 0.000001 else 0.0)
-		if UnitMotion.vector(bearing) != full or not (full.x == 0.0 or full.y == 0.0):
-			assert_vector(UnitMotion.vector(bearing)).is_equal(full)
-			return
 
 
 func test_the_edge_cases_are_c_s() -> void:

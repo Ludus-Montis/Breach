@@ -53,6 +53,11 @@ static func of_unit(unit) -> TerrainWalker:
 	return grounded(unit.height)
 
 
+## What of it the crate's crossing reads: [height, swimmer, climber, swims, climbs].
+func fields() -> PackedFloat64Array:
+	return PackedFloat64Array([height, swimmer, climber, float(swims), float(climbs)])
+
+
 ## A unit `unit_height` cells tall that neither swims nor climbs.
 static func grounded(unit_height: float) -> TerrainWalker:
 	return TerrainWalker.new(unit_height, 0, 0, false, false)

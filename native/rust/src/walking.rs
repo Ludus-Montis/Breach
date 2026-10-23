@@ -11,18 +11,15 @@
 //! bodies as they stood before any stepped (the scrum's snapshot), so the walk's own
 //! order can't either.
 
-use crate::det_math;
 use crate::field::{Field, DESTROYED, ROUTING};
-use crate::ghash::{self, Key};
 use crate::grid::{Grid, MARGIN};
-use crate::maths::{bearing_vector, snapped, V2};
+use crate::maths::{bearing_vector, V2};
 use crate::motion::{self, Mover};
 use crate::scrum::{AIM, IDLE, PRESS, STAND, TOUCH};
+use crate::steer::{Body, Way};
 
-/// UnitSteer.EPSILON, UnitMotion.EPSILON.
+/// UnitMotion.EPSILON.
 const EPSILON: f64 = 0.000001;
-/// Godot's CMP_EPSILON (Vector2.move_toward).
-const CMP_EPSILON: f32 = 0.00001;
 
 /// BattleTuning's and the tick's numbers.
 pub struct Params {
@@ -140,8 +137,7 @@ fn step(
     let to = toward(field, crowd, body, at, goal, params);
     let footing = footing(lying, field, body, at, to, params);
     let full_step = full * footing;
-    out.ats[m] =
-        move_toward(at, to, (full_step * motion::pace(&unit, to.sub(at), unit.bearing)) as f32);
+    out.ats[m] = at.move_toward(to, full_step * motion::pace(&unit, to.sub(at), unit.bearing));
 }
 
 /// ScrumSlots.bodies: the bodies standing (not a routing or destroyed squad's), indexed.
@@ -172,95 +168,24 @@ fn place(input: &WalkIn, s: usize, m: usize, heading: f64) -> V2 {
 /// UnitSteer.toward: the point the unit at `at` heads for this step on its way to `goal`:
 /// the goal, or a point beside the nearest body in its way that won't part for it.
 fn toward(field: &Field, crowd: &Index, me: usize, at: V2, goal: V2, p: &Params) -> V2 {
-    let way = goal.sub(at);
-    let length = way.length();
-    if (length as f64) < EPSILON {
-        return goal;
-    }
-    let ahead = V2::new(way.x / length, way.y / length);
-    let across = V2::new(ahead.y, -ahead.x);
-    let own = field.radius[me];
-    let span = if (length as f64) < p.look { length as f64 } else { p.look };
-    let end = at.add(ahead.scale(span));
-    // Every body that could stand within a breadth of the way (a box round it).
-    let half = ((end.x - at.x).abs().max((end.y - at.y).abs()) as f64) / 2.0;
-    let centre = V2::new((at.x + end.x) / 2.0, (at.y + end.y) / 2.0);
-    let reach = half + own + crowd.widest + 2.0 * MARGIN;
-    let mut best: Option<(f64, i64, usize, f64, f64)> = None;
-    crowd.grid.near(centre, reach, |i| {
-        let b = crowd.bodies[i as usize] as usize;
-        if field.squad[b] == field.squad[me] {
-            return true; // itself, or its own squad's: they part for it
-        }
-        let point = field.at[b];
-        let clearance = own + field.radius[b];
-        if (point.distance_to(goal) as f64) < clearance - EPSILON {
-            return true; // it stands on the goal: bodies part
-        }
-        let along = point.sub(at).dot(ahead) as f64;
-        let aside = point.sub(at).dot(across) as f64;
-        if along <= EPSILON || along >= span || aside.abs() >= clearance - EPSILON {
-            return true;
-        }
-        let key = (snapped(along, EPSILON), field.draw[b]);
-        let better = match best {
-            None => true,
-            // as GDScript compares [along, draw]: item by item
-            Some(o) if key.0 != o.0 => key.0 < o.0,
-            Some(o) => key.1 < o.1,
-        };
-        if better {
-            best = Some((key.0, key.1, b, aside, clearance));
-        }
-        true
-    });
-    let Some((_, draw, b, aside, clearance)) = best else {
+    let squad = |b: usize| field.squad[b] as i64;
+    let Some(way) = Way::new(at, goal, field.radius[me], squad(me), p.look) else {
         return goal;
     };
-    let mut side = -sign(aside);
-    if aside.abs() < EPSILON {
-        let keys = [Key::Int(field.draw[me]), Key::Int(draw), Key::Str("steer")];
-        side = if ghash::uniform(p.seed, &keys) < 0.5 { 1.0 } else { -1.0 };
-    }
-    round(at, field.at[b], clearance + p.clear, across.scale(side))
-}
-
-/// Godot's `signf`.
-#[inline]
-fn sign(x: f64) -> f64 {
-    if x > 0.0 {
-        1.0
-    } else if x < 0.0 {
-        -1.0
-    } else {
-        0.0
-    }
-}
-
-/// UnitSteer._round: where the way from `at` grazes a circle of `reach` about `centre` on
-/// the `side` given, or the point beside the centre that way if already that near.
-fn round(at: V2, centre: V2, reach: f64, side: V2) -> V2 {
-    let to_centre = centre.sub(at);
-    let gap = to_centre.length() as f64;
-    if gap <= reach + EPSILON {
-        return centre.add(side.scale(reach));
-    }
-    let angle = det_math::asin(reach / gap);
-    let unit = to_centre.normalized();
-    let mut turned = rotated(unit, angle);
-    let other = rotated(unit, -angle);
-    if other.dot(side) > turned.dot(side) {
-        turned = other;
-    }
-    at.add(turned.scale((gap * gap - reach * reach).sqrt()))
-}
-
-/// DetMath.rotated: `v` turned by `angle` radians, worked in f64, then made a Vector2.
-#[inline]
-fn rotated(v: V2, angle: f64) -> V2 {
-    let (s, c) = (det_math::sin(angle), det_math::cos(angle));
-    let (x, y) = (v.x as f64, v.y as f64);
-    V2::new((x * c - y * s) as f32, (x * s + y * c) as f32)
+    // Every body that could stand within a breadth of the way (a box round it).
+    let end = way.end();
+    let half = ((end.x - at.x).abs().max((end.y - at.y).abs()) as f64) / 2.0;
+    let centre = V2::new((at.x + end.x) / 2.0, (at.y + end.y) / 2.0);
+    let reach = half + way.own() + crowd.widest + 2.0 * MARGIN;
+    let draw = |b: usize| field.draw[b];
+    let mut nearest = None;
+    crowd.grid.near(centre, reach, |i| {
+        let b = crowd.bodies[i as usize] as usize;
+        let body = Body { at: field.at[b], radius: field.radius[b], squad: squad(b) };
+        way.weigh(&mut nearest, b, body, &draw);
+        true
+    });
+    way.past(nearest, p.clear, p.seed, &|| field.draw[me], &draw)
 }
 
 /// FormationScrum._footing: the share of its pace the unit keeps stepping from `at`
@@ -303,41 +228,5 @@ fn underfoot(lying: &Lying, field: &Field, me: usize, step: V2, p: &Params) -> f
         0.0
     } else {
         worst
-    }
-}
-
-/// Godot's `Vector2.move_toward`.
-#[inline]
-fn move_toward(from: V2, to: V2, delta: f32) -> V2 {
-    let way = to.sub(from);
-    let length = way.length();
-    if length <= delta || length < CMP_EPSILON {
-        to
-    } else {
-        from.add(V2::new(way.x / length * delta, way.y / length * delta))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn move_toward_is_godot_s() {
-        let to = V2::new(3.0, 4.0);
-        assert_eq!(move_toward(V2::ZERO, to, 10.0), to);
-        assert_eq!(move_toward(V2::ZERO, to, 1.0), V2::new(0.6, 0.8));
-    }
-
-    #[test]
-    fn rounding_a_body_grazes_it_on_the_side_given() {
-        let at = V2::ZERO;
-        let centre = V2::new(0.0, -4.0);
-        let left = round(at, centre, 1.0, V2::new(-1.0, 0.0));
-        let right = round(at, centre, 1.0, V2::new(1.0, 0.0));
-        assert!(left.x < 0.0 && right.x > 0.0);
-        assert!((left.x + right.x).abs() < 1e-6);
-        // already within reach: beside the centre
-        assert_eq!(round(at, V2::new(0.0, -0.5), 1.0, V2::new(1.0, 0.0)), V2::new(1.0, -0.5));
     }
 }
