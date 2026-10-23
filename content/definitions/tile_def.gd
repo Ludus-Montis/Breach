@@ -43,28 +43,3 @@ func effective_capacity(library: TerrainLibraryDef, default_terrain_id: String) 
 		if get(field) != DEFAULT:
 			capacity[field] = get(field)
 	return capacity
-
-
-## Checks that don't need the rest of the layout (MapLayoutDef checks the grid and library).
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	for field in CAPACITY_FIELDS:
-		if get(field) < DEFAULT:
-			errors.append(
-				(
-					"tile %s: %s must be -1 (terrain default) or >= 0, got %d"
-					% [cell, field, get(field)]
-				)
-			)
-	if elevation < DEFAULT:
-		errors.append(
-			"tile %s: elevation must be -1 (terrain default) or >= 0, got %d" % [cell, elevation]
-		)
-	if upgrade_ids.size() > upgrade_slots:
-		errors.append(
-			(
-				"tile %s: %d upgrades exceed %d slot%s"
-				% [cell, upgrade_ids.size(), upgrade_slots, "" if upgrade_slots == 1 else "s"]
-			)
-		)
-	return errors

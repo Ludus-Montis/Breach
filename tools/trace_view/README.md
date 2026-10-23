@@ -24,6 +24,6 @@ To trace a run yourself:
 
 ## Files
 
-- `trace_view.js`: loading, indexing by tick and which units to ring; tested through Node
-  by `test_trace_view_js.py` (skipped where Node isn't installed).
+- `trace_view.js`: loading, indexing by tick and which units to ring; tested with Node by
+  `test/trace_view.test.js` (`node --test "tools/trace_view/test/*.test.js"`).
 - `trace_page.js`: the canvases and controls.

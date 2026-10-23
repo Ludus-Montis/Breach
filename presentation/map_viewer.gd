@@ -5,7 +5,7 @@ extends Node2D
 ## details. Engine glue around MapView; argument parsing and map discovery are tested,
 ## interaction is checked by hand.
 ##
-##   godot --path . res://presentation/map_viewer.tscn -- --map=res://content/maps/<name>.tres
+##   godot --path . res://presentation/map_viewer.tscn -- --map=<name>
 ##
 ## (or open the scene and press F6; the designer's "View in Godot" runs the line above).
 
@@ -20,10 +20,10 @@ const CLICK_SLOP := 4.0
 ## The info panel's width plus margins; Fit frames the map in the space right of it.
 const PANEL_SPACE := 290.0
 
-## Preselected map (defaults to --map=..., else the first map found).
-var initial_map_path: String = ""
+## Preselected map, by name (defaults to --map=..., else the first map found).
+var initial_map_name: String = ""
 
-var _map_paths: PackedStringArray = []
+var _map_names: PackedStringArray = []
 var _map_picker: OptionButton
 var _view_as_picker: OptionButton
 var _info: RichTextLabel
@@ -31,26 +31,20 @@ var _dragging := false
 var _press_position := Vector2.ZERO
 
 
-static func map_path_from_args(args: PackedStringArray) -> String:
+static func map_name_from_args(args: PackedStringArray) -> String:
 	for arg in args:
 		if arg.begins_with(MAP_ARG):
 			return arg.substr(MAP_ARG.length())
 	return ""
 
 
-## Every .tres in dir_path that loads as a MapDef, in name order.
-static func list_map_paths(dir_path: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var dir := DirAccess.open(dir_path)
-	if dir == null:
-		return out
-	var names := Array(dir.get_files()).filter(func(n): return n.ends_with(".tres"))
+## The name of every map file (<name>.json) in dir_path, in name order.
+static func list_map_names(dir_path: String) -> PackedStringArray:
+	var names := Array(DirAccess.get_files_at(dir_path)).filter(
+		func(n): return n.ends_with(".json")
+	)
 	names.sort()
-	for file_name in names:
-		var path := dir_path.path_join(file_name)
-		if ResourceLoader.load(path) is MapDef:
-			out.append(path)
-	return out
+	return PackedStringArray(names.map(func(n: String) -> String: return n.get_basename()))
 
 
 func map_view() -> MapView:
@@ -61,16 +55,16 @@ func _ready() -> void:
 	if map_view().art_set != null:
 		RenderingServer.set_default_clear_color(map_view().art_set.background_color.darkened(0.12))
 	_build_ui()
-	_map_paths = list_map_paths(MAPS_DIR)
-	for path in _map_paths:
-		_map_picker.add_item(path.get_file().get_basename())
-	var wanted := initial_map_path
+	_map_names = list_map_names(MAPS_DIR)
+	for map_name in _map_names:
+		_map_picker.add_item(map_name)
+	var wanted := initial_map_name
 	if wanted == "":
-		wanted = map_path_from_args(OS.get_cmdline_user_args())
-	var index := _map_paths.find(wanted)
+		wanted = map_name_from_args(OS.get_cmdline_user_args())
+	var index := _map_names.find(wanted)
 	if index == -1 and wanted != "":
 		_info.text = "Map not found: %s" % wanted
-	if not _map_paths.is_empty():
+	if not _map_names.is_empty():
 		_select_map(maxi(index, 0))
 
 
@@ -116,10 +110,16 @@ func _add_button(parent: Container, text: String, action: Callable) -> void:
 
 
 func _select_map(index: int) -> void:
-	if index < 0 or index >= _map_paths.size():
+	if index < 0 or index >= _map_names.size():
 		return
 	_map_picker.select(index)
-	var map := ResourceLoader.load(_map_paths[index], "", ResourceLoader.CACHE_MODE_REPLACE)
+	# Read from its file each time, so Reload shows what the designer last saved.
+	var path := ProjectSettings.globalize_path(MAPS_DIR.path_join(_map_names[index] + ".json"))
+	var read := MapFiles.read(path)
+	if read.has("error"):
+		_info.text = "Map didn't load: %s" % read["error"]
+		return
+	var map: MapDef = read["map"]
 	map_view().map = map
 	map_view().selected_id = ""
 	map_view().selected_cell = MapLayoutView.NO_CELL

@@ -13,12 +13,3 @@ extends Resource
 
 func label() -> String:
 	return "%s-%s" % [node_a_id, node_b_id]
-
-
-## Consecutive cells must be 8-neighbours.
-func gap() -> Array[Vector2i]:
-	for i in range(1, cells.size()):
-		var delta := (cells[i] - cells[i - 1]).abs()
-		if delta == Vector2i.ZERO or delta.x > 1 or delta.y > 1:
-			return [cells[i - 1], cells[i]]
-	return []

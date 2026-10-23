@@ -1,6 +1,7 @@
 // Lane Tile Designer - the map authoring tool (Decision 30, specs/17-local-designer-app.md).
-// Served by serve.py for repo mode (Open/Save into content/maps_src + automatic Godot
-// import); repo.js loads this file after syncing the repo libraries into localStorage.
+// Served by the designer server (native/bin/breach_designer) for repo mode (Open/Save into
+// content/maps_src, and the map written to content/maps); repo.js loads this file after
+// syncing the repo libraries into localStorage.
 (function () {
   'use strict';
 
@@ -3658,7 +3659,7 @@
     var routes = computeRoutes();
     warnings = warnings.concat(roadWarnings(), routeWarnings(routes), lossWarnings());
     return {
-      // Envelope read by Godot's DesignerMapImporter (specs/16); bump format_version on breaking changes.
+      // Envelope the crate reads into its map schema (native/rust/src/designer/, specs/16); bump format_version on breaking changes.
       format: 'breach-designer-map',
       format_version: 1,
       cell_size: 64,
@@ -3687,14 +3688,14 @@
       structure_feature_library: featureLib.features.filter(function (x) { return featureUsageCount(x.id) > 0; }),
       feature_points_per_segment: featurePointsPerSegment(),
       validation_warnings: warnings,
-      note: 'Imported into Godot by DesignerMapImporter (specs/16, specs/19): nodes (incl. hidden_from_faction_ids, Decision 28, and is_critical_asset), factions, relations, links (lanes, edges, off-lane nodes; the route of each link is its initial geometry, Decision 26), the layout (grid, default_terrain, tiles: terrain/feature/bridge/capacity overrides/upgrades; roads) and loss_criteria (groups are ORed; each is ANY/ALL of its critical assets). Terrain and feature definitions live in ONE shared library (content/terrain/terrain_library.json, Decision 32), which the designer terrain library writes; terrain_library/feature_library here are informational copies of the entries this map uses. NOT YET IMPORTED (spec 20): node structure (Decision 27: a 2D side-on plane; segments, boundaries, roofs, approaches), static_defense_library, structure_feature_library. tiles lists only cells with at least one explicit layer; any other cell is plain default_terrain. effective_capacity, garrison_count and requirements are derived. _display_label is prototype-only. factions is the roster of this map only; library default relations are not exported.'
+      note: 'Read into the crate\'s map schema, content/maps/<name>.json, by native/rust/src/designer/ (specs/16, specs/19, spec 39): nodes (incl. hidden_from_faction_ids, Decision 28, and is_critical_asset), factions, relations, links (lanes, edges, off-lane nodes; the route of each link is its initial geometry, Decision 26), the layout (grid, default_terrain, tiles: terrain/feature/bridge/capacity overrides/upgrades; roads) and loss_criteria (groups are ORed; each is ANY/ALL of its critical assets). Terrain and feature definitions live in ONE shared library (content/terrain/terrain_library.json, Decision 32), which the designer terrain library writes; terrain_library/feature_library here are informational copies of the entries this map uses. NOT YET IMPORTED (spec 20): node structure (Decision 27: a 2D side-on plane; segments, boundaries, roofs, approaches), static_defense_library, structure_feature_library. tiles lists only cells with at least one explicit layer; any other cell is plain default_terrain. effective_capacity, garrison_count and requirements are derived. _display_label is prototype-only. factions is the roster of this map only; library default relations are not exported.'
     };
   }
 
   // ---------- load from export (Decision 30) ----------
   // A saved content/maps_src/<name>.designer.json IS the export, so reopening a map
   // rebuilds the designer state from the export's own fields. There is no second, private
-  // copy that could drift from what Godot imports. Derived fields (routes, capacity,
+  // copy that could drift from what the crate reads. Derived fields (routes, capacity,
   // requirements, manning, ...) are recomputed. Library entries the map uses but this
   // library lacks are merged in, so a map from another machine still renders.
   function gridKey(p) { return key(p.row, p.col); }

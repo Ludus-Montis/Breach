@@ -14,7 +14,7 @@ extends Resource
 ## assurance) is expected to let these change at runtime; this schema only authors
 ## the starting state.
 
-## Cross-referenced against the map's faction roster in MapDef.validate().
+## Cross-referenced against the map's faction roster in the crate's map rules.
 @export var faction_id: String = ""
 
 ## Matches the combat addendum's already-drafted sortie concept (temporary
@@ -22,18 +22,11 @@ extends Resource
 @export var can_sortie: bool = false
 
 ## Ordered node ids this unit patrols between, starting out. Empty = static.
-## Cross-referenced against the map's real node ids in MapDef.validate(). Baseline
+## Cross-referenced against the map's real node ids in the crate's map rules. Baseline
 ## order - see class doc.
 @export var patrol_route: Array[String] = []
 
 ## Which node this unit's future worker-delivery route targets, per the combat
 ## addendum's Worker-as-Combatant section. Cross-referenced against the map's real
-## node ids in MapDef.validate(). Baseline order - see class doc.
+## node ids in the crate's map rules. Baseline order - see class doc.
 @export var delivery_target_id: String = ""
-
-
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if faction_id.is_empty():
-		errors.append("faction_id must not be empty")
-	return errors

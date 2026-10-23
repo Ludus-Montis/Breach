@@ -1,17 +1,22 @@
 //! The simulation's content (Decision 153, spec 39 step 2): the crate's serde structs are its
 //! schema, and the files under `content/` are JSON in it. `units/`, `weapons/`, `armour/`
-//! and `tuning/battle_tuning.json`, each file's id its name without `.json`, and the
-//! terrain library, `terrain/terrain_library.json`. A file that
+//! and `tuning/battle_tuning.json`, each file's id its name without `.json`, the terrain
+//! library, `terrain/terrain_library.json`, and the maps, `maps/<name>.json`. A file that
 //! doesn't match fails to load, naming the file and the field. `schema.rs` writes the JSON
 //! Schema the designer validates against (`content/schema/`).
 
 mod items;
+mod map;
+mod map_check;
+#[cfg(test)]
+mod map_check_tests;
 mod reals;
 #[cfg(test)]
 mod schema;
 mod terrain;
 mod tuning;
 mod unit;
+mod write;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -22,11 +27,18 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 pub use items::{Armour, Weapon};
+pub use map::{
+    Bridge, Channel, Faction, FactionRelation, GarrisonUnit, Lane, LossGroup, LossRule, Map,
+    MapEdge, MapLayout, Node, NodeType, ResourceType, RoadSegment, Route, Side, Stance,
+    StructureFace, StructurePlan, Subnode, Tile,
+};
+pub use map_check::{cell, CELLS_PER_TILE};
 pub use terrain::{
-    HeatTransition, LiquidBody, Material, Stratum, Terrain, TerrainFeature, TerrainLibrary,
+    Colour, HeatTransition, LiquidBody, Material, Stratum, Terrain, TerrainFeature, TerrainLibrary,
 };
 pub use tuning::BattleTuning;
 pub use unit::Unit;
+pub use write::file_text;
 
 /// The terrain library's file under `content/`.
 const TERRAIN_LIBRARY: &str = "terrain/terrain_library.json";
@@ -54,11 +66,13 @@ pub struct Content {
     pub armour: BTreeMap<String, Armour>,
     pub tuning: BattleTuning,
     pub terrain: TerrainLibrary,
+    pub maps: BTreeMap<String, Map>,
 }
 
 impl Content {
-    /// Loads the content under `root` (the repo's `content/`), every unit's items and every
-    /// material the terrain library names checked.
+    /// Loads the content under `root` (the repo's `content/`), every unit's items, every
+    /// material the terrain library names, every node, terrain and feature a map names, and
+    /// each map's rules (`map_check.rs`) checked.
     pub fn load(root: &Path) -> Result<Content, LoadError> {
         let content = Content {
             units: load_dir(&root.join("units"))?,
@@ -66,11 +80,22 @@ impl Content {
             armour: load_dir(&root.join("armour"))?,
             tuning: load_file(&root.join("tuning").join("battle_tuning.json"))?,
             terrain: load_file(&root.join(TERRAIN_LIBRARY))?,
+            maps: load_dir(&root.join("maps"))?,
         };
         content.check_items(root)?;
         if let Some((field, id)) = content.terrain.missing_material() {
             let message = format!("no material {id}");
             return Err(LoadError { file: root.join(TERRAIN_LIBRARY), field, message });
+        }
+        for (name, map) in &content.maps {
+            let file = root.join("maps").join(format!("{name}.json"));
+            if let Some((field, id)) = map.missing_reference(&content.terrain) {
+                return Err(LoadError { file, field, message: format!("no {id} here") });
+            }
+            let broken = map.validate(&content.terrain);
+            if !broken.is_empty() {
+                return Err(LoadError { file, field: ".".into(), message: broken.join("; ") });
+            }
         }
         Ok(content)
     }
@@ -252,6 +277,90 @@ mod tests {
         assert_eq!(content.tuning.discipline_leash_steps.last(), Some(&f64::INFINITY));
         let fields = content.terrain.terrains.iter().find(|terrain| terrain.id == "FIELDS");
         assert!(fields.is_some_and(|fields| fields.can_be_base));
+    }
+
+    #[test]
+    fn a_map_field_of_the_wrong_type_fails_naming_it() {
+        let dir = scratch("map-wrong-type");
+        let path = dir.join("m.json");
+        fs::write(&path, r#"{"nodes": [{"id": "p"}, {"id": "f", "tile": [1, "2"]}]}"#).unwrap();
+        let error = load_file::<Map>(&path).unwrap_err();
+        assert_eq!(error.field, "nodes[1].tile[1]");
+    }
+
+    #[test]
+    fn a_node_type_that_isnt_one_fails_naming_it() {
+        let dir = scratch("map-node-type");
+        let path = dir.join("m.json");
+        fs::write(&path, r#"{"nodes": [{"id": "p", "node_type": "CASTLE"}]}"#).unwrap();
+        let error = load_file::<Map>(&path).unwrap_err();
+        assert_eq!(error.field, "nodes[0].node_type");
+    }
+
+    #[test]
+    fn a_lane_naming_a_node_that_isnt_there_fails_naming_it() {
+        let root = scratch("map-missing-node");
+        copy_required(&root, &["tuning/battle_tuning.json", TERRAIN_LIBRARY]);
+        fs::create_dir_all(root.join("maps")).unwrap();
+        let map = r#"{"nodes": [{"id": "p"}, {"id": "c"}],
+            "lanes": [{"id": "to_c", "nodes": ["p", "f", "c"]}]}"#;
+        fs::write(root.join("maps/m.json"), map).unwrap();
+        let error = Content::load(&root).unwrap_err();
+        assert_eq!(error.file, root.join("maps/m.json"));
+        assert_eq!(error.field, "lanes[0].nodes[1]");
+    }
+
+    #[test]
+    fn a_tile_of_a_terrain_that_isnt_there_fails_naming_it() {
+        let root = scratch("map-missing-terrain");
+        copy_required(&root, &["tuning/battle_tuning.json", TERRAIN_LIBRARY]);
+        fs::create_dir_all(root.join("maps")).unwrap();
+        let map = r#"{"layout": {"cols": 2, "rows": 1, "default_terrain_id": "FIELDS",
+            "tiles": [{"cell": [0, 0], "terrain_id": "FOREST"}, {"cell": [1, 0],
+            "terrain_id": "LAVA_SEA"}]}}"#;
+        fs::write(root.join("maps/m.json"), map).unwrap();
+        let error = Content::load(&root).unwrap_err();
+        assert_eq!(error.field, "layout.tiles[1].terrain_id");
+    }
+
+    #[test]
+    fn a_map_that_breaks_a_rule_fails_to_load_naming_it() {
+        let root = scratch("map-rule");
+        copy_required(&root, &["tuning/battle_tuning.json", TERRAIN_LIBRARY]);
+        fs::create_dir_all(root.join("maps")).unwrap();
+        let map = r#"{"nodes": [{"id": "p"}, {"id": "c", "garrison": -1}],
+            "lanes": [{"id": "to_c", "nodes": ["p", "c"]}], "tick_duration_seconds": 1.5}"#;
+        fs::write(root.join("maps/m.json"), map).unwrap();
+        let error = Content::load(&root).unwrap_err();
+        assert_eq!(error.file, root.join("maps/m.json"));
+        assert!(error.message.contains("garrison must be >= 0, got -1"), "{error}");
+    }
+
+    #[test]
+    fn a_map_that_omits_a_field_takes_gdscripts_default() {
+        let dir = scratch("map-defaults");
+        let path = dir.join("m.json");
+        let text = r#"{"nodes": [{"id": "p", "plan": {"faces": [{}]}}],
+            "layout": {"tiles": [{"bridge": {}}], "channels": [{}]}}"#;
+        fs::write(&path, text).unwrap();
+        let map = load_file::<Map>(&path).unwrap();
+        let node = &map.nodes[0];
+        assert!(node.is_inexhaustible);
+        assert_eq!(node.tile, [-1, -1]);
+        assert_eq!(node.plan.as_ref().unwrap().faces[0].thickness, 1);
+        let layout = map.layout.unwrap();
+        assert_eq!((layout.cell_size, layout.ceiling), (64, 64));
+        assert_eq!(layout.tiles[0].elevation, -1);
+        assert_eq!(layout.tiles[0].bridge.as_ref().unwrap().hp, 40);
+        assert_eq!((layout.channels[0].width, layout.channels[0].depth), (4, 2));
+    }
+
+    #[test]
+    fn the_checked_in_maps_load() {
+        let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
+        for name in ["demo_map", "p_f_F_c", "skirmish_p_c", "skirmish_two_lanes"] {
+            assert!(content.maps.get(name).is_some_and(|map| !map.lanes.is_empty()), "{name}");
+        }
     }
 
     /// Copies each of `files` from the repo's `content/` to the same place under `root`.

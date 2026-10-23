@@ -3,39 +3,46 @@
 The map authoring tool (Decision 30, `specs/17-local-designer-app.md`).
 
 ```
-python tools/designer/serve.py
+native/bin/breach_designer
 ```
 
-This opens `http://127.0.0.1:8765/`. Python 3.10+ is required, standard library only.
+This opens `http://127.0.0.1:8765/`. The server is the Rust core's
+(`native/rust/src/designer/`, spec 39 step 2c): `bash native/build.sh` builds it with the core.
+It finds the repo from where it is run, else from `native/bin/`; `--repo <path>`, `--port <n>`
+and `--no-browser` change that.
 
 ## What Save does
 
-**Save** (Ctrl+S) writes `content/maps_src/<name>.designer.json`, the designer's export.
-It then runs the Godot import (`tools/import_designer_map.gd`), which writes
-`content/maps/<name>.tres`. The header shows the result. If the import fails, a dialog
-lists its errors; the JSON is still saved, but the `.tres` is not updated.
+**Save** (Ctrl+S) writes `content/maps_src/<name>.designer.json`, the designer's export,
+which is what **Open…** reopens. The server then reads the export into the Rust crate's map
+schema (`content/schema/map.schema.json`, spec 39 step 2c) and
+writes `content/maps/<name>.json`, the map the game loads. The rules are the crate's
+(`native/rust/src/designer/`): lanes come from the links, every terrain and feature must be in
+the terrain library, and the map keeps its rules (`native/rust/src/content/map_check.rs`). The header shows the result. If the map is refused, a dialog lists
+the errors; the export is still saved, but `content/maps/<name>.json` is not changed.
 
 **Open…** (Ctrl+O) lists the saved maps. Any `*.designer.json` export opens, including
 older copy-pasted ones.
 
 ## Godot
 
-The import needs a Godot 4.7 binary. The server looks for it in this order:
+Saving doesn't need Godot. **View in Godot** opens the map viewer, which needs a Godot 4.7
+binary. The server looks for it in this order:
 1. `--godot <path>`
 2. the `GODOT_BIN` environment variable (the same one `ci/godot/scripts/run_tests.sh` uses)
 3. `tools/designer/local_config.json` (gitignored), for example:
    `{"godot": "F:/Code/Godot_v4.7.2-stable_win64.exe"}`
 
-Without Godot, maps still save and the designer says the import didn't run.
+Without Godot, maps still save, but the viewer can't be opened.
 
 ## Libraries
 
 The factions, emplacements, room features, room prefabs and structure prefabs libraries
 live in `content/designer/*.json`. The terrain library is the game's own file,
 `content/terrain/terrain_library.json`, in the Rust crate's schema
-(`content/schema/terrain_library.schema.json`, spec 39 step 2b): the server translates it to
-and from the designer's shape (`terrain_schema.py`), and refuses an edit that drops a terrain
-or feature a saved map uses. The designer writes them as you edit, so commit them along with
+(`content/schema/terrain_library.schema.json`, spec 39 step 2b): the server translates it to and
+from the designer's shape, and refuses an edit that drops a terrain or feature a
+saved map uses. The designer writes them as you edit, so commit them along with
 your maps. Opening a map adds any library entries it uses that
 are missing locally.
 
@@ -57,8 +64,8 @@ it.
 - `index.html`, `designer.css`, `designer.js`: the designer itself.
 - `repo.js`: repo mode (Open/Save, import status, library sync). Opening `index.html`
   from disk skips this, and the designer then uses browser storage only.
-- `library.html`, `library.js`, `content_library.py`: the Library page and the registry
-  reader behind `GET /api/registry`.
-- `serve.py`, `designer_repo.py`: the local server.
-- `test_*.py`: the server's tests
-  (`python -m unittest discover -s tools/designer -p "test_*.py"`).
+- `library.html`, `library.js`: the Library page; the registry behind `GET /api/registry` is
+  read by the server (`native/rust/src/designer/registry.rs`).
+- `planner*.js`, `load_paths.js`: the structure planner and its load paths.
+- `test/*.test.js`: the page's JavaScript tests (`node --test "tools/designer/test/*.test.js"`).
+  The server's tests are cargo tests (`native/rust/src/designer/server_tests.rs`).

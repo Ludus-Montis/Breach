@@ -25,4 +25,7 @@ case "$profile" in
 	*) echo "build.sh: unknown profile $profile (release or dev)"; exit 1 ;;
 esac
 cp "$here/rust/target/$dir/${prefix}breach_native.$ext" "$here/bin/${prefix}breach_rust.$platform.$ext"
+# The map designer's server (src/bin/designer.rs): native/bin/breach_designer.
+exe=; [ "$ext" = dll ] && exe=.exe
+cp "$here/rust/target/$dir/designer$exe" "$here/bin/breach_designer$exe"
 ls -l "$here/bin"

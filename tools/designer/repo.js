@@ -1,12 +1,12 @@
 // Repo mode for the Lane Tile Designer (Decision 30, specs/17-local-designer-app.md).
 //
-// Loaded first by index.html. If serve.py is answering, this:
+// Loaded first by index.html. If the designer server (native/bin/breach_designer) is answering, this:
 //   1. copies content/designer/*.json into localStorage (so designer.js loads the repo's
 //      libraries through its normal migration path), then loads designer.js;
 //   2. mirrors every later library write back to content/designer/*.json;
 //   3. adds Open / Save (Ctrl+S) / Save as / Import libraries. Saving writes
-//      content/maps_src/<name>.designer.json and the server runs the Godot import, whose
-//      warnings and errors are shown here.
+//      content/maps_src/<name>.designer.json and the server has the Rust crate write
+//      content/maps/<name>.json in its schema; its warnings and errors are shown here.
 // Without the server (e.g. index.html opened from disk) it just loads designer.js, which
 // then behaves like the old standalone prototype (browser storage, Export -> Copy JSON).
 (function () {
@@ -23,8 +23,8 @@
     structure_prefabs: 'breach_structure_prefab_library_v1'
   };
   var CURRENT_FILE_KEY = 'breach_designer_current_file';
-  // Must match serve.py's API_VERSION; an older server is missing endpoints this page uses.
-  var REQUIRED_API = 3;
+  // Must match the server's API_VERSION (native/rust/src/designer/http.rs); an older server is missing endpoints this page uses.
+  var REQUIRED_API = 6;
   var DIRTY_KEY = 'breach_designer_dirty';
 
   var health = null;
@@ -49,9 +49,9 @@
       return r.text().then(function (text) {
         var j;
         try { j = JSON.parse(text); } catch (e) {
-          // Not our JSON API: most often a serve.py started before an update (e.g. 501 for a new method).
+          // Not our JSON API: most often a server started before an update (e.g. 501 for a new method).
           throw new Error('the designer server answered HTTP ' + r.status + ' instead of JSON' +
-            (r.status === 501 || r.status === 404 ? ' — restart serve.py so it runs the current code' : ''));
+            (r.status === 501 || r.status === 404 ? ' — restart the designer server (native/bin/breach_designer) so it runs the current code' : ''));
         }
         if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
         return j;
@@ -212,7 +212,7 @@
       ? '<span>File <span class="file">' + esc(currentFile) + '.designer.json</span></span>'
       : '<span>File <span class="file">(unsaved)</span></span>');
     if ((health.api_version || 1) < REQUIRED_API) {
-      parts.push('<span class="bad" title="serve.py was started before the designer was updated">Server is out of date — restart serve.py</span>');
+      parts.push('<span class="bad" title="the designer server was started before the designer was updated">Server is out of date — restart native/bin/breach_designer</span>');
     }
     if (dirty) parts.push('<span class="dirty">● unsaved changes</span>');
     if (statusText) {
@@ -261,7 +261,7 @@
     var m = modal('Save map as',
       '<div class="field"><label for="repoName">File name</label>' +
       '<input type="text" id="repoName" value="' + esc(suggested) + '" style="width:260px;" /></div>' +
-      '<p class="hint">Saved as <code>content/maps_src/&lt;name&gt;.designer.json</code>, imported to <code>content/maps/&lt;name&gt;.tres</code>. Letters, digits, _ and - only.</p>' +
+      '<p class="hint">Saved as <code>content/maps_src/&lt;name&gt;.designer.json</code>, written to <code>content/maps/&lt;name&gt;.json</code>. Letters, digits, _ and - only.</p>' +
       '<p class="warn-inline" id="repoNameErr" hidden></p>',
       [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: submit }]);
     var input = m.querySelector('#repoName');
@@ -286,10 +286,10 @@
       lastImport = { name: name, result: res.import, at: new Date() };
       var imp = res.import;
       if (imp.ok) {
-        showStatus('Saved ' + new Date().toLocaleTimeString() + ' · imported to content/maps/' + name + '.tres' +
+        showStatus('Saved ' + new Date().toLocaleTimeString() + ' · written to content/maps/' + name + '.json' +
           (imp.warnings.length ? ' (' + imp.warnings.length + ' warning' + (imp.warnings.length === 1 ? '' : 's') + ')' : ''), 'ok');
       } else {
-        showStatus('Saved source JSON, but the import ' + (imp.ran ? 'failed' : 'did not run') + ' — .tres not updated', 'bad');
+        showStatus('Saved source JSON, but the map ' + (imp.ran ? 'was refused' : 'was not written') + ' — content/maps/' + name + '.json not updated', 'bad');
         showImportDetails();
       }
       if (after) after(imp);
@@ -300,7 +300,7 @@
   }
   // ---------- view in Godot (specs/18) ----------
   function viewInGodot() {
-    if ((health.api_version || 1) < REQUIRED_API) { showStatus('The designer server is out of date — stop serve.py and start it again, then retry', 'bad'); return; }
+    if ((health.api_version || 1) < REQUIRED_API) { showStatus('The designer server is out of date — stop native/bin/breach_designer and start it again, then retry', 'bad'); return; }
     if (!health.godot_found) { showStatus('Godot not configured, so the viewer cannot be opened', 'bad'); return; }
     if (!currentFile || dirty) {
       saveMap(false, function (imp) { if (imp.ok) launchViewer(currentFile); });
@@ -325,8 +325,8 @@
     }
     var html = '<p>Saved <code>content/maps_src/' + esc(lastImport.name) + '.designer.json</code> at ' + esc(lastImport.at.toLocaleTimeString()) + '.</p>';
     html += imp.ok
-      ? '<p>Godot import OK: <code>content/maps/' + esc(lastImport.name) + '.tres</code></p>'
-      : '<p><strong>Godot import ' + (imp.ran ? 'failed' : 'did not run') + '</strong> — the .tres was not written.</p>';
+      ? '<p>Map written: <code>content/maps/' + esc(lastImport.name) + '.json</code></p>'
+      : '<p><strong>Map ' + (imp.ran ? 'refused' : 'not written') + '</strong> — <code>content/maps/' + esc(lastImport.name) + '.json</code> was not changed.</p>';
     if (imp.errors.length) html += '<h3>Errors</h3><ul class="import-list bad">' + imp.errors.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if (imp.warnings.length) html += '<h3>Warnings</h3><ul class="import-list">' + imp.warnings.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     modal('Save & import', html);

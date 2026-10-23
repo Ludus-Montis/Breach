@@ -22,5 +22,13 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - The terrain library is one file, `content/terrain/terrain_library.json`, in the same schema.
   The map designer's library page saves it directly, without Godot, and refuses an edit that
   removes a terrain or feature a saved map still uses.
+- Maps are JSON files, `content/maps/<name>.json`, in the same schema: the nodes, lanes,
+  factions, loss groups and the layout in one file. The map designer's Save writes it
+  directly, without Godot (Godot is needed only for View in Godot), and refuses a map whose
+  terrain isn't in the library or that breaks a map rule, listing why. The map viewer takes a
+  map by name (`--map=demo_map`), and the map scene's export button writes JSON.
+- The map designer's server is part of the Rust core: start it with
+  `native/bin/breach_designer` (built by `bash native/build.sh`) instead of
+  `python tools/designer/serve.py`. Python is no longer needed for the designer.
 
 [Unreleased]: https://github.com/SSidey/Breach/commits/main

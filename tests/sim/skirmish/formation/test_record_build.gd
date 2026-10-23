@@ -39,9 +39,9 @@ func test_a_replay_is_warned_about_only_when_its_build_is_not_this_one() -> void
 
 func test_a_map_in_progress_leaves_the_build_alone() -> void:
 	var build := SimBuild.id()
-	var path := "res://content/maps/_build_probe.tres"
+	var path := "res://content/maps/_build_probe.json"
 	var file := FileAccess.open(path, FileAccess.WRITE)
-	file.store_string("[gd_resource format=3]\n")
+	file.store_string("{}\n")
 	file.close()
 	SimBuild._known = false
 	var after := SimBuild.id()
