@@ -6,8 +6,8 @@ extends RefCounted
 ## for the units the tick's slot search sent (ScrumSeekField, ctx["seek_batch"]). The
 ## field reads where each stands, faces and makes for from the unit store's columns, and
 ## what it turns by from its record, and writes each bearing into the column there (spec 35
-## step 4d), exactly as UnitMotion.turn writes it in GDScript: the same foes, the same
-## maths in the same precision, DetMath's atan2 and acos (native/README.md).
+## step 4d), as UnitMotion.turn writes it: the GDScript facing's bearings, bit for bit,
+## until it retired (spec 39 step 4a), with DetMath's atan2 and acos (native/README.md).
 
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")

@@ -2,6 +2,7 @@
 //! (test_unit_steer).
 
 use super::*;
+use crate::contest::draw;
 
 const SEED: i64 = 4242;
 /// BattleTuning's bodies_steer_look and bodies_steer_clear in the scenarios.
@@ -86,10 +87,4 @@ fn rounding_a_body_grazes_it_on_the_side_given() {
     assert!((left.x + right.x).abs() < 1e-6);
     // already within reach: beside the centre
     assert_eq!(round(at, v(0.0, -0.5), 1.0, v(1.0, 0.0)), v(1.0, -0.5));
-}
-
-#[test]
-fn a_draw_is_the_engines() {
-    // ScrumContest.draw(unit 7, 4242), printed by Godot 4.7.2.
-    assert_eq!(draw(4242, 7), 2733695541191639934);
 }

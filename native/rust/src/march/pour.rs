@@ -10,9 +10,9 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
+use crate::contest;
 use crate::ground::{Ground, Mode, Walker};
 use crate::maths::{bearing_vector, minf, signf, snapped, V2};
-use crate::steer;
 
 /// FormationPour.EPSILON.
 const EPSILON: f64 = 0.000001;
@@ -228,7 +228,7 @@ fn queue(
         let off = aim.place.sub(frame.anchor);
         let front = -snapped(off.dot(ahead) as f64, EPSILON);
         let centre = snapped((off.dot(ahead.orthogonal()) as f64).abs(), EPSILON);
-        turns.push(((front, centre, steer::draw(seed, units[index].id)), index));
+        turns.push(((front, centre, contest::draw(seed, units[index].id)), index));
     }
     if turns.is_empty() {
         return out; // nobody squeezed: every unit makes for its own place

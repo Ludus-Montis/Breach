@@ -157,7 +157,16 @@ func test_the_gdscript_path_is_the_default_and_an_unknown_engine_is_not_availabl
 	assert_bool(NativeKernels.available(NativeKernels.GDSCRIPT)).is_true()
 	assert_bool(NativeKernels.available("fortran")).is_false()
 	NativeKernels.use(NativeKernels.GDSCRIPT)
-	assert_object(NativeKernels.body_field()).is_null()
+	assert_bool(NativeKernels.parts_natively()).is_false()
+	NativeKernels.use(NativeKernels.RUST)
+	assert_bool(NativeKernels.parts_natively()).is_true()
+
+
+func test_a_battle_has_a_field_under_either_engine() -> void:
+	for engine in [NativeKernels.GDSCRIPT, NativeKernels.RUST]:
+		NativeKernels.use(engine)
+		var sim := FormationSimulation.new(9.0, 0.1)
+		assert_object(sim.store.field()).override_failure_message(engine).is_not_null()
 
 
 func test_a_native_kernel_parts_a_crowd_bit_for_bit_as_gdscript_does() -> void:

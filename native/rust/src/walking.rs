@@ -188,3 +188,6 @@ fn footing(lying: &Lying, field: &Field, me: usize, at: V2, to: V2, p: &Params) 
     let step = at.add(way.normalized().scale(0.5));
     lying.underfoot(field.radius[me], field.area[me], step, p.drag, p.block)
 }
+
+#[cfg(test)]
+mod tests;

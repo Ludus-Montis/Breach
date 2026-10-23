@@ -1,7 +1,6 @@
 extends GdUnitTestSuite
-## The battle's unit store (specs/35-unit-store.md, Decision 142), step 0: slots. Both
-## backends - UnitStoreGd, the reference, and UnitStoreNative on a BodyField - are held to
-## one contract here, unmodified: dense slots, free slots reused lowest first, a slot freed
+## The battle's unit store (specs/35-unit-store.md, Decision 142), step 0: slots, on the
+## battle's BodyField (UnitStoreNative): dense slots, free slots reused lowest first, a slot freed
 ## only when its unit is in no list. A battle with deaths and a later wave gives every
 ## listed unit its own slot, the same on both engines, tick by tick, as units flee home and
 ## leave the lists; and slots given in
@@ -9,8 +8,7 @@ extends GdUnitTestSuite
 ## fleeing places (`at`, `offset`) with a flag bit for each entry - is in the store's
 ## columns alone (steps 1a and 1b), and so is every other key of the entries, which hold
 ## only the unit (step 2); the battle compares each unit's bearing too (step 3,
-## test_unit_bearing.gd). The native half is skipped where the Rust core isn't built
-## (native/build.sh).
+## test_unit_bearing.gd).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -34,14 +32,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_store: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 

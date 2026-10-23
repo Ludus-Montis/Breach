@@ -1,9 +1,8 @@
 extends GdUnitTestSuite
 ## The way each unit faces in the unit store (specs/35-unit-store.md step 3): the bearing
-## column round-trips on both backends, a slot newly given faces east as a new unit did,
+## column round-trips, a slot newly given faces east as a new unit did,
 ## the native store holds it on its field, and SkirmishUnit no longer declares it. The
-## battle's per-tick comparison of both engines (test_unit_store.gd) compares it too. The
-## native half is skipped where the Rust core isn't built (native/build.sh).
+## battle's per-tick comparison of both engines (test_unit_store.gd) compares it too.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -18,14 +17,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_bearing: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 

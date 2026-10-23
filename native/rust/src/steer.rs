@@ -149,13 +149,6 @@ pub fn toward(
     way.past(nearest, clear, seed, own_draw, draw)
 }
 
-/// ScrumContest.draw: a unit's draw in the battle's `seed`, for ties (Decision 97).
-pub fn draw(seed: i64, id: i64) -> i64 {
-    let high = ghash::hash(&[Key::Int(seed), Key::Int(id), Key::Int(0)]) as i64 % (1 << 31);
-    let low = ghash::hash(&[Key::Int(seed), Key::Int(id), Key::Int(1)]) as i64 % (1 << 31);
-    high * (1 << 31) + low
-}
-
 /// Godot's `signf`.
 #[inline]
 fn sign(x: f64) -> f64 {

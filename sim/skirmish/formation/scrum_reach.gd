@@ -3,13 +3,13 @@ extends RefCounted
 ## Who touches whom in the scrum (Decisions 88 and 106, spec 30): a unit's body is the circle in its
 ## footprint, and it reaches an enemy whose body comes within a touch of its own. A unit's front is
 ## the arc within some degrees of its bearing; a blow from anywhere else is a flank blow. Both are
-## BattleTuning's (`reach_contact`, `reach_front_arc_degrees`). Pure; cells.
+## BattleTuning's (`reach_contact`, `reach_front_arc_degrees`). The rules are a view over the
+## crate's (native/rust/src/reach.rs, spec 39 step 4a; CrateScrum); where a unit stands is
+## read from its squad's store. Pure; cells.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
-const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns where a unit stands is read from (at_in): its point, and its loose point.
@@ -33,15 +33,14 @@ static func at_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishUnit) -> V
 ## The cells the unit covers, centred where it stands, turned to its squad's `heading`, read
 ## once a pass (the box round its turned footprint).
 static func area(squad: SkirmishSquad, unit: SkirmishUnit, heading: float) -> Rect2:
-	var ahead := UnitMotion.vector(heading).abs()
-	var right := Vector2(ahead.y, ahead.x)
-	var size := right * unit.footprint_width + ahead * unit.footprint_depth
-	return Rect2(at(squad, unit) - size / 2.0, size)
+	return CrateScrum.core().area(
+		at(squad, unit), unit.footprint_width, unit.footprint_depth, heading
+	)
 
 
 ## The radius of the unit's body: the circle in its footprint (a grem 0.5, a brute 1).
 static func radius(unit: SkirmishUnit) -> float:
-	return minf(unit.footprint_width, unit.footprint_depth) / 2.0
+	return CrateScrum.core().radius(unit.footprint_width, unit.footprint_depth)
 
 
 ## Cells between two units' bodies (0 where they touch or overlap).
@@ -51,7 +50,7 @@ static func gap(squad: SkirmishSquad, unit: SkirmishUnit, other: SkirmishSquad, 
 
 ## `gap` for two units standing at `here` and `there`.
 static func gap_at(here: Vector2, unit: SkirmishUnit, there: Vector2, foe) -> float:
-	return maxf(here.distance_to(there) - radius(unit) - radius(foe), 0.0)
+	return CrateScrum.core().gap(here, radius(unit), there, radius(foe))
 
 
 ## True if the two units' bodies touch: within reach_contact.
@@ -63,10 +62,5 @@ static func touching(
 
 ## True if `point` lies in the front of a unit at `from` on `bearing` (UnitMotion).
 static func in_front(bearing: float, from: Vector2, point: Vector2) -> bool:
-	var direction := point - from
-	if direction.length() < 0.000001:
-		return true
-	return (
-		direction.normalized().dot(UnitMotion.vector(bearing))
-		>= DetMath.cos(deg_to_rad(BattleTuning.current().reach_front_arc_degrees)) - 0.000001
-	)
+	var arc := BattleTuning.current().reach_front_arc_degrees
+	return CrateScrum.core().in_front(bearing, from, point, arc)

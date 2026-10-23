@@ -15,10 +15,12 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use crate::contest::{self, Contest};
 use crate::field::{Field, DESTROYED, ROUTING};
 use crate::ghash::{self, Key};
 use crate::grid::{cell_of, floor_of, Grid, MARGIN};
 use crate::maths::{bearing_vector, snapped, V2};
+use crate::reach;
 
 /// Tolerance for bodies just touching (ScrumSlots.EPSILON).
 const EPSILON: f64 = 0.001;
@@ -110,11 +112,8 @@ struct Seeker {
     member: usize,
     body: u32,
     ring: usize,
-    arrival: f64,
-    rolled: i64,
-    initiative: i64,
-    speed: f64,
-    draw: i64,
+    /// Its key in the contest for slots (ScrumContest.key).
+    key: Contest,
 }
 
 /// The bodies standing (ScrumSlots.bodies: not a routing or destroyed squad's), indexed.
@@ -190,7 +189,7 @@ pub fn plan(
         },
     };
     let mut seekers = plan.seekers();
-    seekers.sort_by(contest);
+    seekers.sort_by(|a, b| contest::order(&a.key, &b.key));
     let mut picking = Vec::new();
     for seeker in &seekers {
         match plan.kept(seeker) {
@@ -221,17 +220,6 @@ fn crowd(field: &Field) -> Crowd {
     let points: Vec<V2> = bodies.iter().map(|&b| field.at[b as usize]).collect();
     let widest = bodies.iter().map(|&b| field.radius[b as usize]).fold(0.0, f64::max);
     Crowd { grid: Grid::build(&points), bodies, widest }
-}
-
-/// ScrumContest.before over the seekers' keys: arrival, roll + initiative, initiative,
-/// speed, draw (the draw never ties, so the order is total).
-fn contest(a: &Seeker, b: &Seeker) -> Ordering {
-    let floats = |x: f64, y: f64| x.partial_cmp(&y).unwrap_or(Ordering::Equal);
-    floats(a.arrival, b.arrival)
-        .then((-a.rolled).cmp(&-b.rolled))
-        .then((-a.initiative).cmp(&-b.initiative))
-        .then(floats(-a.speed, -b.speed))
-        .then(a.draw.cmp(&b.draw))
 }
 
 /// Compares two f64 keys item by item, as GDScript compares Arrays.
@@ -305,28 +293,10 @@ impl<'a> Plan<'a> {
         }
         let speed = self.input.speeds[member];
         let arrival = gap_to(field, foes, at, radius) / speed.max(0.01);
-        let die = self.params.die;
-        let rolled = if die > 0 {
-            let keys = [
-                Key::Int(self.params.seed),
-                Key::Int(self.params.tick),
-                Key::Int(field.unit_id[b]),
-            ];
-            ghash::hash(&keys) as i64 % (die + 1)
-        } else {
-            0
-        };
-        let initiative = field.initiative[b];
-        Some(Seeker {
-            member,
-            body,
-            ring: 0,
-            arrival,
-            rolled: rolled + initiative,
-            initiative,
-            speed,
-            draw: field.draw[b],
-        })
+        let p = self.params;
+        let rolled = contest::roll(p.seed, p.tick, field.unit_id[b], p.die);
+        let key = Contest::of(arrival, speed, field.initiative[b], rolled, field.draw[b]);
+        Some(Seeker { member, body, ring: 0, key })
     }
 
     /// ScrumBlows.touches_any: a foe's body within reach_contact of the unit's.
@@ -337,7 +307,7 @@ impl<'a> Plan<'a> {
         foes.grid.near(at, radius + reach + foes.widest + MARGIN, |i| {
             let f = foes.bodies[i as usize] as usize;
             let apart = at.distance_to(field.at[f]) as f64;
-            touching = (apart - radius - field.radius[f]).max(0.0) <= reach;
+            touching = reach::apart(apart, radius, field.radius[f]) <= reach;
             !touching
         });
         touching
@@ -352,7 +322,7 @@ impl<'a> Plan<'a> {
         for &foe in &foes.bodies {
             let f = foe as usize;
             let reach = field.radius[f] + radius;
-            let count = ((std::f64::consts::PI * reach / radius + 0.000001).floor() as i64).max(3);
+            let count = slot_count(reach, radius);
             by_foe.entry(field.unit_id[f]).or_insert((slots.len() as u32, count as u32));
             for number in 0..count {
                 let way = bearing_vector(field.bearing[f] + number as f64 * 360.0 / count as f64);
@@ -621,6 +591,13 @@ impl<'a> Plan<'a> {
     }
 }
 
+/// How many slots fit round a foe for a seeker of `radius`, their centres `reach` from the
+/// foe's (the two radii): as many as fit, at least 3 (6 for a grem round a grem, 9 round a
+/// brute).
+fn slot_count(reach: f64, radius: f64) -> i64 {
+    ((std::f64::consts::PI * reach / radius + 0.000001).floor() as i64).max(3)
+}
+
 /// ScrumSeek.foe_units: the living units of the squads with these ids, not routing, in
 /// the list's order, indexed where they stand.
 pub fn foes_of(field: &Field, ids: &[i64]) -> Foes {
@@ -653,3 +630,6 @@ fn gap_to(field: &Field, foes: &Foes, at: V2, radius: f64) -> f64 {
     }
     least.max(0.0)
 }
+
+#[cfg(test)]
+mod tests;

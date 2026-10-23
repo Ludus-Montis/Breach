@@ -1,12 +1,10 @@
 extends GdUnitTestSuite
 ## The squad store (specs/39-simulation-in-rust.md step 1): a squad's state lives in its
-## store's squad columns (SquadColumns), and SkirmishSquad reads and writes it there. Both
-## backends - SquadColumns, the reference, and SquadColumnsNative on a BodyField - are held
-## to one contract here, unmodified: a new squad takes the next slot and starts as before,
+## store's squad columns (SquadColumns), and SkirmishSquad reads and writes it there, on the
+## battle's BodyField (SquadColumnsNative): a new squad takes the next slot and starts as before,
 ## each field is its column, its members are its units' slots in its order, and a squad
-## carried to another store keeps its state. On Rust, the crate's snapshot reads back the
-## squads it wrote. The native half is skipped where the Rust core isn't built
-## (native/build.sh).
+## carried to another store keeps its state. The crate's snapshot reads back the squads it
+## wrote.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -50,14 +48,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new unit store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_squad_store: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 

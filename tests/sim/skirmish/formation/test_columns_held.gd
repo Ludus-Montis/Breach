@@ -1,8 +1,8 @@
 extends GdUnitTestSuite
 ## ColumnsHeld and StoreHolds (fix/rout-store-reads): a pass holds the columns it reads unit
 ## by unit, so each scattered read and write is a local one, and every reader in the pass
-## sees the same values; releasing commits them. The same contract on both backends. The
-## typed view a pass takes of a hold is UnitView's (test_unit_view.gd).
+## sees the same values; releasing commits them. The typed view a pass takes of a hold is
+## UnitView's (test_unit_view.gd).
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
@@ -14,14 +14,7 @@ func after_test() -> void:
 
 
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_columns_held: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	for backend in out:
 		for unit_id in [1, 2, 3]:
 			backend[1].enrol(unit_id)

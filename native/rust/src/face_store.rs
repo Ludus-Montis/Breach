@@ -3,7 +3,7 @@
 //! ScrumFaceField did in GDScript. Where it stands, faces and makes for are the store's;
 //! its turn rate and backward pace are its record.
 
-use crate::facing::{GOAL, TOWARD};
+use crate::facing::{self, FaceIn, Params, GOAL, TOWARD};
 use crate::field::Field;
 use crate::maths::V2;
 
@@ -62,4 +62,38 @@ pub fn write_back(field: &mut Field, members: &[i32], bearings: &[f64]) {
         let b = field.flat[flat as usize] as usize;
         field.columns.bearing[b] = bearings[m];
     }
+}
+
+/// The facing, as a phase on the field (BodyField.face), for the units the tick's seek
+/// planned: `squads` per fighting squad [id, foes, units], `foe_ids`, `members` and
+/// `speeds` as the seek's; `valued` as `gather`'s. Each unit's bearing after its turn is
+/// written into the store's column, and returned.
+pub fn face(
+    field: &mut Field,
+    squads: &[i64],
+    foe_ids: &[i64],
+    members: &[i32],
+    speeds: &[f64],
+    valued: i32,
+    params: &Params,
+) -> Vec<f64> {
+    let foe_counts: Vec<i32> = squads.chunks(3).map(|c| c[1] as i32).collect();
+    let member_counts: Vec<i32> = squads.chunks(3).map(|c| c[2] as i32).collect();
+    let gathered = gather(field, members, valued);
+    let input = FaceIn {
+        foe_counts: &foe_counts,
+        foe_ids,
+        member_counts: &member_counts,
+        members,
+        ats: &gathered.ats,
+        motion: &gathered.motion,
+        speeds,
+        flags: &gathered.flags,
+        nexts: &gathered.nexts,
+        foe_ats: &gathered.foe_ats,
+        towards: &gathered.towards,
+    };
+    let out = facing::face(field, &input, params);
+    write_back(field, members, &out);
+    out
 }

@@ -1,10 +1,11 @@
 extends SceneTree
 ## The native core's benchmark (Decision 129, native/README.md): a mid-fight tick of
-## FormationBench's clash under each engine (NativeKernels), and the two passes the core
-## runs - body parting (UnitBodies) and the scrum's slot search (ScrumSeek.plan). For Rust,
-## each pass is split into syncing the field (BodyFieldSync), gathering what the rules say
-## (the slot search only), the call (the boundary both ways plus the core), the core's own
-## work and writing back. Each run times `fight` ticks after `settle` ticks of contact; a
+## FormationBench's clash under each engine (NativeKernels), and two passes the core runs -
+## body parting (UnitBodies, GDScript under "gdscript") and the scrum's slot search
+## (ScrumSeek.plan, Rust under either since spec 39 step 4a). On the core, each pass is
+## split into syncing the field (BodyFieldSync), gathering what the rules say (the slot
+## search only), the call (the boundary both ways plus the core), the core's own work and
+## writing back. Each run times `fight` ticks after `settle` ticks of contact; a
 ## line per run, then min / median over the runs. An engine not built is skipped. ms a
 ## tick throughout. For where the rest of the tick goes, tools/tick_phases.gd.
 ##

@@ -2,13 +2,16 @@ extends GdUnitTestSuite
 ## DetMath and DetPow (Decision 93: a battle replays bit for bit on every machine): their
 ## results on a fixed set of inputs are pinned by hash, so this suite fails on any platform
 ## where one of them gives other bits; they stay within 1e-12 of the engine's own
-## functions over a dense sweep; and their edge cases are C's.
+## functions over a dense sweep; their edge cases are C's; and the crate's (det_math.rs)
+## gives the GDScript's bits.
 
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const DetPow = preload("res://sim/skirmish/formation/det_pow.gd")
 
 const COUNT := 2048
 const BOUND := 1e-12
+## Random inputs the crate is held to the GDScript on, each function.
+const RUST_COUNT := 20000
 
 ## The first 16 hex digits of each function's sha256 over _pinned's inputs, from Linux
 ## x86_64 (Godot 4.7.2 official). A mismatch elsewhere means the platform differs.
@@ -130,6 +133,37 @@ func test_the_edge_cases_are_c_s() -> void:
 
 
 ## Each function's sha256 (16 hex digits) over fixed inputs, from a fixed LCG.
+func test_det_math_in_rust_gives_the_gdscript_s_bits() -> void:
+	NativeLibrary.load_for("BodyField")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 130
+	var xs := PackedFloat64Array([0.0, 1.0, -1.0, 0.5, -0.5, 1e-9, 1.5, -2.0, 1e30, 0.4375])
+	var ys := PackedFloat64Array([1.0, 0.0, -1.0, 0.0, 2.0, -1e-9, 1.5, 3.0, -1.0, 1.1875])
+	for i in range(RUST_COUNT):
+		var scale := pow(10.0, rng.randi_range(-8, 4))  # near the axes, and far out
+		xs.append(rng.randf_range(-1.0, 1.0) * (scale if i % 2 else 1.0))
+		ys.append(rng.randf_range(-1.0, 1.0) * scale)
+	var ours := {
+		"sin": func(x, _y): return DetMath.sin(x * 400.0),
+		"cos": func(x, _y): return DetMath.cos(x * 400.0),
+		"asin": func(x, _y): return DetMath.asin(x),
+		"acos": func(x, _y): return DetMath.acos(x),
+		"atan2": func(x, y): return DetMath.atan2(x, y),
+	}
+	for op in ours:
+		var a := xs.duplicate()
+		if op in ["sin", "cos"]:
+			for i in range(a.size()):
+				a[i] = a[i] * 400.0
+		var got: PackedFloat64Array = ClassDB.class_call_static("BodyField", "det_math", op, a, ys)
+		var want := PackedFloat64Array()
+		for i in range(xs.size()):
+			want.append(ours[op].call(xs[i], ys[i]))
+		assert_array(Array(got.to_byte_array())).override_failure_message(op).is_equal(
+			Array(want.to_byte_array())
+		)
+
+
 func _pinned() -> Dictionary:
 	_state = 2024
 	var xs := _inputs(-60.0, 60.0)

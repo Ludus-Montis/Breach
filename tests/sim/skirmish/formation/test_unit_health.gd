@@ -1,12 +1,11 @@
 extends GdUnitTestSuite
 ## Each unit's hp, the ticks till its next blow and the hp it may still regenerate in the
 ## unit store (specs/35-unit-store.md step 5b, Decision 145): the columns round-trip and
-## start blank on both backends and the native store holds them on its field; every hp
+## start blank and the native store holds them on its field; every hp
 ## write goes through UnitHealth, which puts a unit an hp write takes from above 0 to 0 or
 ## below on the store's fell queue; and FormationDeaths.bury drains that queue, taking the
 ## fallen in their squads' order then their own, each with the squad it is in now.
-## SkirmishUnit no longer declares the three. The native half is skipped where the Rust
-## core isn't built (native/build.sh).
+## SkirmishUnit no longer declares the three.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -22,14 +21,7 @@ func after_test() -> void:
 
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.GDSCRIPT, NativeKernels.unit_store(null)]]
-	NativeKernels.use(NativeKernels.RUST)
-	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-	if field == null:
-		print("test_unit_health: the Rust core isn't built - its half skipped")
-	else:
-		out.append([NativeKernels.RUST, NativeKernels.unit_store(field)])
+	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
 	return out
 
 
