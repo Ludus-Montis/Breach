@@ -1977,8 +1977,8 @@ fn planned_of(plan: &paths::Plan, memory: Option<paths::memory::Memory>) -> VarD
 
 /// A group's living units, sixteen numbers each.
 fn members_of(rows: &PackedFloat64Array) -> Vec<pathing::Member> {
-    rows.as_slice()
-        .chunks_exact(16)
+    let (rows, _) = rows.as_slice().as_chunks::<16>();
+    rows.iter()
         .map(|r| pathing::Member {
             walker: paths::PathWalker {
                 walker: ground::Walker {
