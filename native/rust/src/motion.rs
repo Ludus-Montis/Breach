@@ -5,7 +5,7 @@
 //! north.
 
 use crate::det_math;
-use crate::maths::{bearing_vector, V2};
+use crate::maths::{bearing_vector, clampf, maxf, V2};
 
 /// UnitMotion.EPSILON and UnitShuffle.EPSILON.
 const EPSILON: f64 = 0.000001;
@@ -32,28 +32,6 @@ pub fn fposmod(x: f64, y: f64) -> f64 {
 #[inline]
 pub fn rad_to_deg(x: f64) -> f64 {
     x * (180.0 / std::f64::consts::PI)
-}
-
-/// Godot's `clampf`.
-#[inline]
-fn clampf(v: f64, low: f64, high: f64) -> f64 {
-    if v < low {
-        low
-    } else if v > high {
-        high
-    } else {
-        v
-    }
-}
-
-/// Godot's `maxf`.
-#[inline]
-fn maxf(a: f64, b: f64) -> f64 {
-    if a > b {
-        a
-    } else {
-        b
-    }
 }
 
 /// UnitMotion.bearing_to: the bearing of the way from `from` to `to` (`current` if they

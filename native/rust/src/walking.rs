@@ -13,6 +13,7 @@
 
 use crate::field::{Field, DESTROYED, ROUTING};
 use crate::grid::{Grid, MARGIN};
+use crate::lying::Lying;
 use crate::maths::{bearing_vector, V2};
 use crate::motion::{self, Mover};
 use crate::scrum::{AIM, IDLE, PRESS, STAND, TOUCH};
@@ -73,21 +74,10 @@ struct Index {
     widest: f64,
 }
 
-/// The bodies lying on the ground, indexed.
-struct Lying<'a> {
-    input: &'a WalkIn<'a>,
-    grid: Grid,
-    widest: f64,
-}
-
 /// Every unit's step this tick.
 pub fn walk(field: &Field, input: &WalkIn, params: &Params) -> WalkOut {
     let crowd = crowd(field);
-    let lying = Lying {
-        input,
-        grid: Grid::build(input.lying_ats),
-        widest: input.lying_radii.iter().copied().fold(0.0, f64::max),
-    };
+    let lying = Lying::new(input.lying_ats, input.lying_radii, input.lying_areas);
     let count = input.members.len();
     let ats = input.members.iter().map(|&flat| field.at[field.flat[flat as usize] as usize]);
     let mut out = WalkOut { ats: ats.collect(), towards: vec![V2::ZERO; count] };
@@ -195,38 +185,6 @@ fn footing(lying: &Lying, field: &Field, me: usize, at: V2, to: V2, p: &Params) 
     if (way.length() as f64) < EPSILON {
         return 1.0;
     }
-    underfoot(lying, field, me, at.add(way.normalized().scale(0.5)), p)
-}
-
-/// GroundBodies.underfoot: the share (0 to 1) of its pace the unit keeps stepping onto
-/// `step` - slowed by the weight of what it crosses against its own, blocked by one
-/// bodies_ground_block times its mass - the least over the bodies lying there.
-fn underfoot(lying: &Lying, field: &Field, me: usize, step: V2, p: &Params) -> f64 {
-    let own = field.radius[me];
-    let area = field.area[me];
-    let input = lying.input;
-    let mut worst = 1.0f64;
-    let mut blocked = false;
-    lying.grid.near(step, own + lying.widest + MARGIN, |i| {
-        let i = i as usize;
-        let reach = own + input.lying_radii[i];
-        if (input.lying_ats[i].distance_to(step) as f64) >= reach {
-            return true;
-        }
-        let weight = input.lying_areas[i] / area;
-        if weight >= p.block {
-            blocked = true;
-            return false;
-        }
-        let share = 1.0 / (1.0 + weight * p.drag);
-        if share < worst {
-            worst = share;
-        }
-        true
-    });
-    if blocked {
-        0.0
-    } else {
-        worst
-    }
+    let step = at.add(way.normalized().scale(0.5));
+    lying.underfoot(field.radius[me], field.area[me], step, p.drag, p.block)
 }

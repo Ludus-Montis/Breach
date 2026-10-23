@@ -70,6 +70,26 @@ impl V2 {
         }
     }
 
+    /// `Vector2::orthogonal`: `(y, -x)`.
+    #[inline]
+    pub fn orthogonal(self) -> V2 {
+        V2 { x: self.y, y: -self.x }
+    }
+
+    /// `Vector2::is_equal_approx`: each axis within CMP_EPSILON (scaled by its own value)
+    /// in real_t.
+    #[inline]
+    pub fn is_equal_approx(self, o: V2) -> bool {
+        fn near(a: f32, b: f32) -> bool {
+            if a == b {
+                return true;
+            }
+            let tolerance = (CMP_EPSILON as f32 * a.abs()).max(CMP_EPSILON as f32);
+            (a - b).abs() < tolerance
+        }
+        near(self.x, o.x) && near(self.y, o.y)
+    }
+
     /// `Vector2::lerp`: the weight narrowed to real_t, `from + (to - from) * weight` per axis.
     #[inline]
     pub fn lerp(self, to: V2, weight: f64) -> V2 {
@@ -91,6 +111,76 @@ impl V2 {
             self.add(V2::new(way.x / length * delta, way.y / length * delta))
         }
     }
+}
+
+/// Godot's `CMP_EPSILON`, the tolerance of `is_equal_approx` and `is_zero_approx`.
+const CMP_EPSILON: f64 = 0.00001;
+
+/// Godot's `clampf`.
+#[inline]
+pub fn clampf(v: f64, low: f64, high: f64) -> f64 {
+    if v < low {
+        low
+    } else if v > high {
+        high
+    } else {
+        v
+    }
+}
+
+/// Godot's `maxf`.
+#[inline]
+pub fn maxf(a: f64, b: f64) -> f64 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+/// Godot's `minf`.
+#[inline]
+pub fn minf(a: f64, b: f64) -> f64 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+/// Godot's `signf`: 1, -1 or 0 (and 0 for NaN).
+#[inline]
+pub fn signf(v: f64) -> f64 {
+    if v > 0.0 {
+        1.0
+    } else if v < 0.0 {
+        -1.0
+    } else {
+        0.0
+    }
+}
+
+/// Godot's `lerpf`: `from + (to - from) * weight`.
+#[inline]
+pub fn lerpf(from: f64, to: f64, weight: f64) -> f64 {
+    from + (to - from) * weight
+}
+
+/// Godot's `is_equal_approx` for floats: equal, or within CMP_EPSILON scaled by `a` (at
+/// least CMP_EPSILON).
+#[inline]
+pub fn is_equal_approx(a: f64, b: f64) -> bool {
+    if a == b {
+        return true;
+    }
+    let tolerance = (CMP_EPSILON * a.abs()).max(CMP_EPSILON);
+    (a - b).abs() < tolerance
+}
+
+/// Godot's `is_zero_approx` for floats.
+#[inline]
+pub fn is_zero_approx(v: f64) -> bool {
+    v.abs() < CMP_EPSILON
 }
 
 /// GDScript's `snappedf(value, step)`: `Math::floor(value / step + 0.5) * step`.

@@ -7,7 +7,7 @@ extends RefCounted
 ## wading pace); where its way is barred (deep water, a wall) it slides along the barrier on
 ## whichever axis is open and brings it nearer (a stream's bank, a wall's face), and where
 ## neither is, it stays. A view over the crate's (native/rust/src/mover.rs, spec 39 step
-## 3b), but for `returns`, which is FormationPour's until the march ports (3d). Cells.
+## 3b), and `returns` one over its march's (march/pour.rs, 3d). Cells.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")

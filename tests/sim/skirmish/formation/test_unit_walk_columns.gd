@@ -20,7 +20,7 @@ const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd"
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
-const WalkModes = preload("res://sim/skirmish/formation/walk_modes.gd")
+const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 
 ## The new columns, each with a value unlike its blank.
 const SET := {
@@ -160,7 +160,7 @@ func test_the_walk_keeps_its_climb_in_the_store_and_stamina_reads_it() -> void:
 	columns.put(climber.slot, UnitColumns.FOOTHOLD, Vector2(9.5, 5.5))
 	columns.put(climber.slot, UnitColumns.POSITION, Vector2(10.1, 5.5))
 
-	WalkModes.after_step(climber, columns, Vector2(9.5, 5.5), ground, 0.1)
+	FormationWalk.walk(squad, climber, Vector2(10.1, 5.5), [0.1, 8.0], ground)  # it stands
 
 	assert_float(columns.value(climber.slot, UnitColumns.CLIMB_LEFT)).is_equal_approx(4.0, 0.0001)
 	assert_int(columns.value(climber.slot, UnitColumns.ON_FACE)).is_equal(1)

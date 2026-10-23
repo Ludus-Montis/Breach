@@ -3,14 +3,14 @@ extends GdUnitTestSuite
 ## swimming water at least the unit's height deep - and the stamina it costs, per second
 ## in the mode, not per cell: at half pace a step takes twice as long and costs twice as
 ## much ("climb 1 speed 2 could move 2 up a difficulty 1 surface in 1 movement so
-## 1 x stam-cost, climb 0 speed 2 would take 2 movements so 2 stam-cost"). A spent unit
-## can't start a climb or a swim.
+## 1 x stam-cost, climb 0 speed 2 would take 2 movements so 2 stam-cost"). That a spent
+## unit can't start a climb or a swim is the crate's march's (march/tests.rs, spec 39 step
+## 3d).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const ModeStamina = preload("res://sim/skirmish/formation/mode_stamina.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
 const BELOW := Vector2(7.5, 2.5)
 const INTO := Vector2(8.5, 2.5)
@@ -59,14 +59,3 @@ func test_stamina_is_paid_per_second_so_half_pace_costs_twice() -> void:
 	)
 	var swum := ModeStamina.step_cost(ground, able, Vector2(7.5, 4.5), Vector2(8.5, 4.5), 1.0)
 	assert_float(swum).is_equal_approx(tuning.stamina_swim / tuning.ground_swim_pace, 0.0001)
-
-
-func test_a_spent_unit_cannot_start_a_climb_or_a_swim() -> void:
-	var unit := SkirmishUnit.new()
-	unit.max_stamina = 100.0
-
-	assert_bool(ModeStamina.can_start(unit, 100.0, TerrainWalker.Mode.CLIMBING)).is_true()
-	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.CLIMBING)).is_false()
-	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.SWIMMING)).is_false()
-	assert_bool(ModeStamina.can_start(unit, 1.0, TerrainWalker.Mode.WALKING)).is_true()
-	assert_float(ModeStamina.rate(TerrainWalker.Mode.WALKING)).is_equal(0.0)

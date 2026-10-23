@@ -9,23 +9,34 @@ extends RefCounted
 ## towards what its formation's discipline allows (walk_slack_drilled to walk_slack_loose)
 ## and waits beyond it, unless that unit has fallen behind (walk_lost) - then only "no man
 ## left behind" waits for it; under "fall behind, left behind" it never waits. Placing a
-## squad sets its units on their places (FormationMarch.sync_units). Pure.
+## squad sets its units on their places (FormationMarch.sync_units). Pure. A view over the
+## crate's (native/rust/src/march/walk.rs and modes.rs, spec 39 step 3d): the walk, its
+## climbing and swimming (modes.rs, once WalkModes), the share, the slack and the rule.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const WalkModes = preload("res://sim/skirmish/formation/walk_modes.gd")
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
-const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
-const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 const EPSILON := 0.000001
+## The columns a walk reads and writes, held for it (UnitView): where each stands and last
+## stood, its stamina, whether it is on a climb face or in deep water, the climb left, its
+## bearing and its pace.
+const WALKS := [
+	UnitColumns.POSITION,
+	UnitColumns.FOOTHOLD,
+	UnitColumns.STAMINA,
+	UnitColumns.ON_FACE,
+	UnitColumns.CLIMB_LEFT,
+	UnitColumns.BEARING,
+	UnitColumns.SPEED,
+]
+## rule_of's traits by the crate's codes.
+const RULE_CODES := {"": 0, "fall_behind_left_behind": 1, "no_man_left_behind": 2}
 
 
 ## Walks `unit` of `squad` a tick towards `place`; `timing` is [seconds, cells a second
@@ -38,26 +49,73 @@ static func walk(
 	timing: Array,
 	terrain: FormationTerrain = null
 ) -> void:
-	var seconds: float = timing[0]
-	var columns := squad.store.columns  # the march's hold (FormationMarch.WALKED)
-	var speed: float = columns.value(unit.slot, UnitColumns.SPEED)
-	if WalkModes.climb(unit, squad, terrain, seconds, speed * timing[1]):
-		return  # on a climb face: it climbs before it moves on
-	var from: Vector2 = columns.value(unit.slot, UnitColumns.POSITION)
-	var going := TerrainStep.way(unit, from, place, terrain)  # its way round a barrier
-	var toward: Vector2 = going[0]
-	var way := toward - from
-	var full: float = speed * timing[1] * seconds
-	if not WalkModes.may_step(unit, columns, from, toward, terrain):
-		full = 0.0  # spent: it won't start a climb or a swim
-	if timing.size() > 2 and way.length() > EPSILON:  # bodies on the ground (GroundBodies)
-		full *= GroundBodies.underfoot(unit, from + way.normalized() * 0.5, timing[2])
-	var facing := UnitMotion.vector(squad.heading)
-	var far := place.distance_to(from) > _tuning().walk_face_travel
-	var look := toward if far else place + facing
-	var stepped := UnitMover.step(unit, columns, from, toward, full, seconds, terrain, look)
-	columns.put(unit.slot, UnitColumns.POSITION, stepped)
-	WalkModes.after_step(unit, columns, from, terrain, seconds)
+	var held := UnitView.hold([squad], WALKS)
+	walk_all(squad, held, [unit], {unit.id: place}, timing, terrain)
+	UnitView.release(held)
+
+
+## `walk` for each of `units` of `squad`, towards its point in `aims` (unit id -> point):
+## one call for the squad. `held` is the squad's view of a hold of WALKS (the march's,
+## FormationMarch.WALKED): each unit reads its own columns there, the ground and the bodies
+## lying, so the order they walk in can't matter; a fall hurts it (UnitHealth) after, in
+## their order.
+static func walk_all(
+	squad: SkirmishSquad,
+	held: UnitView,
+	units: Array,
+	aims: Dictionary,
+	timing: Array,
+	terrain: FormationTerrain = null
+) -> void:
+	if units.is_empty():
+		return
+	var points: PackedVector2Array = held.position
+	var footholds: PackedVector2Array = held.foothold
+	var stamina: PackedFloat64Array = held.stamina
+	var on_face: PackedInt32Array = held.on_face
+	var climb_left: PackedFloat64Array = held.climb_left
+	var bearings: PackedFloat64Array = held.bearing
+	var speeds: PackedFloat64Array = held.speed
+	var marchers := PackedFloat64Array()
+	var states := PackedFloat64Array()
+	var places := PackedVector2Array()
+	for unit in units:
+		var slot: int = unit.slot
+		marchers.append_array(CrateMarch.marcher(unit))
+		var at := [points[slot].x, points[slot].y, footholds[slot].x, footholds[slot].y]
+		var rest := [stamina[slot], on_face[slot], climb_left[slot], bearings[slot], speeds[slot]]
+		states.append_array(PackedFloat64Array(at + rest))
+		places.append(aims[unit.id])
+	var bodies := timing.size() > 2
+	var lying: Array = [PackedVector2Array(), PackedFloat64Array()]
+	if bodies:
+		lying = CrateMarch.lying(timing[2])
+	var walked: PackedFloat64Array = CrateMarch.core().walk(
+		UnitMover.ground(terrain),
+		bodies,
+		lying[0],
+		lying[1],
+		PackedFloat64Array([timing[0], timing[1], squad.heading]),
+		marchers,
+		states,
+		places,
+		CrateMarch.walk_tuning()
+	)
+	var fell := []
+	for index in units.size():
+		var slot: int = units[index].slot
+		var w := index * 10
+		points[slot] = Vector2(walked[w], walked[w + 1])  # stepped by the crate's one mover
+		footholds[slot] = Vector2(walked[w + 2], walked[w + 3])
+		stamina[slot] = walked[w + 4]
+		on_face[slot] = int(walked[w + 5])
+		climb_left[slot] = walked[w + 6]
+		bearings[slot] = walked[w + 7]
+		if walked[w + 9] != 0.0:  # it fell from a climb face (march/modes.rs)
+			fell.append([units[index], int(walked[w + 9])])
+	# store: scattered (few: the units that fell from a climb face this tick)
+	for falling in fell:
+		UnitHealth.hurt_one(squad, falling[0], falling[1])
 
 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
@@ -84,26 +142,23 @@ static func share(
 ) -> float:
 	if not squad.taking.is_empty():
 		return 0.0  # it holds while its units are out taking the downed (FormationTaking)
-	var rule := rule_of(squad)
-	if rule == "fall_behind_left_behind":
+	var rule: int = RULE_CODES[rule_of(squad)]
+	if rule == 1:
 		return 1.0
-	var slack := slack_of(squad)
-	var furthest := 0.0
+	var framed := squad.living().filter(
+		func(u): return not squad.loose.has(u.id) and not squad.fleeing.has(u.id)
+	)
 	var moving := FormationShuffle.movers(squad)
-	var aims := FormationPour.targets(squad, terrain, moving, fight_seed)
-	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
-	var basis := squad.frame()
-	for unit in squad.living():
-		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id):
-			continue
-		var target: Vector2 = aims[unit.id]
-		if not target.is_equal_approx(place_of(squad, basis, unit, moving, places)):
-			continue  # its place is barred: it pours through the gap behind the frame
-		var lag := points[unit.slot].distance_to(target)
-		if lag <= _tuning().walk_lost or rule == "no_man_left_behind":
-			furthest = maxf(furthest, lag)
-	return clampf((slack - furthest) / (slack / 2.0), 0.0, 1.0)
+	return CrateMarch.core().share(
+		UnitMover.ground(terrain),
+		CrateMarch.frame(squad),
+		CrateMarch.pourers(squad, framed, moving),
+		fight_seed,
+		_tuning().wounds_reach,
+		rule,
+		slack_of(squad),
+		_tuning().walk_lost
+	)
 
 
 ## Where `unit` makes for (FormationPour.targets): its place, or where its place is barred,
@@ -127,21 +182,26 @@ static func waits(squad: SkirmishSquad, terrain: FormationTerrain = null) -> boo
 ## How far (cells) a unit of the squad may lag behind its place before the frame waits.
 static func slack_of(squad: SkirmishSquad) -> float:
 	var tuning := _tuning()
-	var drilled := clampf(FormationDiscipline.of(squad) / 100.0, 0.0, 1.0)
-	return lerpf(tuning.walk_slack_loose, tuning.walk_slack_drilled, drilled)
+	return CrateMarch.core().slack_of(
+		FormationDiscipline.of(squad), tuning.walk_slack_loose, tuning.walk_slack_drilled
+	)
 
 
 ## "fall_behind_left_behind", "no_man_left_behind" or "": a leader's trait, or one every
 ## unit has (the never-wait wins if both are found).
 static func rule_of(squad: SkirmishSquad) -> String:
-	var living := squad.living()
-	for trait_id in ["fall_behind_left_behind", "no_man_left_behind"]:
-		var led := living.any(func(u): return u.leadership > 0 and u.traits.has(trait_id))
-		var all := not living.is_empty() and living.all(func(u): return u.traits.has(trait_id))
-		if led or all:
-			return trait_id
-	return ""
+	return CrateMarch.RULES[CrateMarch.core().rule_of(_traits(squad.living()))]
 
 
 static func _tuning() -> BattleTuning:
 	return BattleTuning.current()
+
+
+## The living units' [leads, has fall_behind_left_behind, has no_man_left_behind].
+static func _traits(living: Array) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for unit in living:
+		out.append(int(unit.leadership > 0))
+		out.append(int(unit.traits.has(CrateMarch.RULES[1])))
+		out.append(int(unit.traits.has(CrateMarch.RULES[2])))
+	return out

@@ -91,7 +91,7 @@ static func _step_squad(squad: SkirmishSquad, view: UnitView, read: Array, secon
 		elif marching and _march_cost(unit) > 0.0:
 			_spend(stamina, exerted, breather, slot, _march_cost(unit) * seconds)
 		ran[slot] = 1 if runner else 0
-		if exerted[slot] == 0 and on_face[slot] == 0:  # no breather on a face (WalkModes)
+		if exerted[slot] == 0 and on_face[slot] == 0:  # no breather on a face (the walk modes)
 			_breathe(stamina, breather, unit, condition[slot], seconds)
 		exerted[slot] = 0
 		speeds[slot] = (
