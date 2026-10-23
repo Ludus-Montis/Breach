@@ -28,15 +28,13 @@ static func rate(mode: TerrainWalker.Mode) -> float:
 
 ## The stamina `walker`, at `speed` cells a second on open ground, spends stepping from
 ## `from` into `to`: the seconds the step takes at its pace there times its mode's rate.
-## INF where it can't go.
+## INF where it can't go. The crate's (native/rust/src/paths/climb.rs, spec 39 step 3c).
 static func step_cost(
 	terrain: FormationTerrain, walker: TerrainWalker, from: Vector2, to: Vector2, speed: float
 ) -> float:
-	var spend := rate(terrain.mode(walker, from, to))
-	if spend <= 0.0:
-		return 0.0
-	var pace := terrain.crossing(walker, from, to) * speed
-	return INF if pace <= 0.0 else from.distance_to(to) / pace * spend
+	var tuning := BattleTuning.current()
+	var rates := PackedFloat64Array([tuning.stamina_climb, tuning.stamina_swim])
+	return CratePaths.core().step_cost(terrain.core, walker.fields(), from, to, speed, rates)
 
 
 ## Whether `unit`, with `stamina` left, may start moving in `mode`: walking always;

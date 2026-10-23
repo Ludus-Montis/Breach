@@ -24,6 +24,8 @@ mod motion;
 mod mover;
 mod ordered;
 mod parting;
+mod pathing;
+mod paths;
 mod route;
 mod scrum;
 mod seeking;
@@ -1343,11 +1345,13 @@ fn json_of(value: &Variant) -> serde_json::Value {
 /// `value` as Godot data, through its JSON: ints stay ints, reals reals.
 /// The ground a battle is on (spec 39 step 3a; `ground`): FormationTerrain is a view over
 /// it. A walker is passed as its fields (TerrainWalker: height, swimmer, climber, swims,
-/// climbs).
+/// climbs). It keeps each kind of walker's speed shares for paths (`paths::shares`, step
+/// 3c), dropped when it is painted.
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct TerrainGround {
     ground: Option<ground::Ground>,
+    shares: paths::shares::Cache,
 }
 
 #[godot_api]
@@ -1387,6 +1391,7 @@ impl TerrainGround {
             blocks_sight: props.get("blocks_sight").map(|value| value.booleanize()),
         };
         let (at, size) = (area.position, area.size);
+        self.shares.clear();
         self.ground_mut().paint((at.x, at.y, size.x, size.y), &paint);
     }
 
@@ -1702,6 +1707,296 @@ impl UnitMoves {
             steer::toward(v2(at), v2(goal), own, squad, &near, look, clear, seed, &own_draw, &draw);
         vector2(to)
     }
+}
+
+/// Paths over the ground (spec 39 step 3c; `paths`, `pathing`): TerrainPaths, PathSearch,
+/// PathSight, SquadPathfinder, ClimbStamina's standing, ModeStamina's step cost and
+/// FormationPathing's look ahead are views over it. Stateless: one is shared. The ground is
+/// its `TerrainGround`, whose cache of shares a search uses. A walker for a path is passed
+/// as [height, swimmer, climber, swims, climbs, stamina, speed] and the tuning a climb
+/// reads after it ([ground_cliff_quarters, stamina_climb, stamina_swim]); a sight as
+/// [origin x, y, facing x, y, ahead, side, behind, hides, budget] (empty: it sees
+/// everything); what a pathfinder has seen as its PathMemory's bytes (null: it keeps
+/// none), handed back as "known"; a group's living units as [the walker's seven, wits, id,
+/// x, y, has a definition, detection range, sight_ahead, sight_side, sight_behind] each.
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct GroundPaths {}
+
+#[godot_api]
+impl GroundPaths {
+    /// PathSearch: to the cell `goal`, or (`routed`) onto the route `route` at or ahead of
+    /// `progress`: {"cells", "reaches", "expanded", "known"}.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn search(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        start: Vector2i,
+        goal: Vector2i,
+        route: PackedVector2Array,
+        progress: f64,
+        routed: bool,
+        sight: PackedFloat64Array,
+        known: Variant,
+    ) -> VarDictionary {
+        let (walker, tuning) = path_walker_of(&walker);
+        let (sight, mut memory) = (sight_of(&sight), memory_of(&known));
+        let route = route_of(&route);
+        let mut out = VarDictionary::new();
+        on_paths(ground, tuning, |over| {
+            let eyes = paths::Eyes { sight: sight.as_ref(), memory: memory.as_mut() };
+            let mut search = paths::search(over, &walker, (start.x, start.y), eyes);
+            let cells = if routed {
+                search.onto_route(&route, progress)
+            } else {
+                search.toward_cell((goal.x, goal.y))
+            };
+            out.set("cells", &cells_of(&cells));
+            out.set("reaches", search.reaches);
+            out.set("expanded", search.expanded);
+        });
+        out.set("known", &known_of(memory));
+        out
+    }
+
+    /// TerrainPaths.plan: {"waypoints", "reaches", "cells", "known"}.
+    #[func]
+    fn plan(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        from: Vector2,
+        goal: Vector2,
+        sight: PackedFloat64Array,
+        known: Variant,
+    ) -> VarDictionary {
+        let (walker, tuning) = path_walker_of(&walker);
+        let (sight, mut memory) = (sight_of(&sight), memory_of(&known));
+        let plan = on_paths(ground, tuning, |over| {
+            let eyes = paths::Eyes { sight: sight.as_ref(), memory: memory.as_mut() };
+            paths::plan(over, &walker, v2(from), v2(goal), eyes)
+        });
+        planned_of(&plan, memory)
+    }
+
+    /// TerrainPaths.rejoin: {"waypoints", "reaches", "cells", "along", "known"}.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn rejoin(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        from: Vector2,
+        route: PackedVector2Array,
+        progress: f64,
+        sight: PackedFloat64Array,
+        known: Variant,
+    ) -> VarDictionary {
+        let (walker, tuning) = path_walker_of(&walker);
+        let (sight, mut memory) = (sight_of(&sight), memory_of(&known));
+        let route = route_of(&route);
+        let plan = on_paths(ground, tuning, |over| {
+            let eyes = paths::Eyes { sight: sight.as_ref(), memory: memory.as_mut() };
+            paths::rejoin(over, &walker, v2(from), &route, progress, eyes)
+        });
+        let mut out = planned_of(&plan, memory);
+        out.set("along", plan.along);
+        out
+    }
+
+    /// TerrainPaths.cost, for a walker as [height, swimmer, climber, swims, climbs].
+    #[func]
+    fn cost(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        waypoints: PackedVector2Array,
+    ) -> f64 {
+        paths::cost(ground.bind().ground(), &walker_of(&walker), &v2s(&waypoints))
+    }
+
+    #[func]
+    fn reach(&self, sight: PackedFloat64Array, way: Vector2) -> f64 {
+        sight_of(&sight).map_or(0.0, |sight| sight.reach(v2(way)))
+    }
+
+    /// PathSight.sees, over `ground` (null: nothing hides anything).
+    #[func]
+    fn sees(
+        &self,
+        ground: Option<Gd<TerrainGround>>,
+        sight: PackedFloat64Array,
+        point: Vector2,
+    ) -> bool {
+        let sight = sight_of(&sight).expect("a sight");
+        match ground {
+            Some(g) => sight.sees(Some(g.bind().ground()), v2(point)),
+            None => sight.sees(None, v2(point)),
+        }
+    }
+
+    /// ClimbStamina.standable, for a walker as [height, swimmer, climber, swims, climbs].
+    #[func]
+    fn standable(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        at: Vector2,
+        cliff_quarters: i64,
+    ) -> bool {
+        paths::climb::standable(ground.bind().ground(), &walker_of(&walker), v2(at), cliff_quarters)
+    }
+
+    /// ModeStamina.step_cost, with [stamina_climb, stamina_swim].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn step_cost(
+        &self,
+        ground: Gd<TerrainGround>,
+        walker: PackedFloat64Array,
+        from: Vector2,
+        to: Vector2,
+        speed: f64,
+        rates: PackedFloat64Array,
+    ) -> f64 {
+        let tuning = paths::PathTuning {
+            cliff_quarters: 0,
+            stamina_climb: rates[0],
+            stamina_swim: rates[1],
+        };
+        let g = ground.bind();
+        paths::climb::step_cost(g.ground(), &walker_of(&walker), v2(from), v2(to), speed, &tuning)
+    }
+
+    /// FormationPathing.group_walker: the walker's seven.
+    #[func]
+    fn group_walker(&self, members: PackedFloat64Array) -> PackedFloat64Array {
+        let w = pathing::group_walker(&members_of(&members));
+        let (g, flag) = (&w.walker, |on: bool| on as i64 as f64);
+        let fields = [g.height, g.swimmer as f64, g.climber as f64, flag(g.swims), flag(g.climbs)];
+        let mut out = PackedFloat64Array::from(&fields[..]);
+        out.extend_array(&PackedFloat64Array::from(&[w.stamina, w.speed][..]));
+        out
+    }
+
+    /// SquadPathfinder.pick: the index of the group's pathfinder, -1 with none.
+    #[func]
+    fn pathfinder(&self, members: PackedFloat64Array, seed: i64) -> i64 {
+        pathing::pathfinder(&members_of(&members), seed).map_or(-1, |index| index as i64)
+    }
+
+    /// FormationPathing's look ahead, with [path_look, path_detour_gain, sight_budget,
+    /// ground_cliff_quarters, stamina_climb, stamina_swim]: the way round to keep, empty
+    /// for none.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn look_ahead(
+        &self,
+        ground: Gd<TerrainGround>,
+        route: PackedVector2Array,
+        front: f64,
+        direction: f64,
+        members: PackedFloat64Array,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedVector2Array {
+        let t = tuning.as_slice();
+        let climb = paths::PathTuning {
+            cliff_quarters: t[3] as i64,
+            stamina_climb: t[4],
+            stamina_swim: t[5],
+        };
+        let look = pathing::LookTuning { look: t[0], detour_gain: t[1], sight_budget: t[2] };
+        let (route, members) = (route_of(&route), members_of(&members));
+        let way = on_paths(ground, climb, |over| {
+            pathing::look_ahead(over, &route, (front, direction), &members, seed, &look)
+        });
+        packed(&way.unwrap_or_default())
+    }
+}
+
+/// `run` over the ground and its cache of shares.
+fn on_paths<R>(
+    mut ground: Gd<TerrainGround>,
+    tuning: paths::PathTuning,
+    run: impl FnOnce(&mut paths::Over) -> R,
+) -> R {
+    let mut bound = ground.bind_mut();
+    let TerrainGround { ground, shares } = &mut *bound;
+    let ground = ground.as_ref().expect("TerrainGround.setup first");
+    run(&mut paths::Over { ground, cache: shares, tuning })
+}
+
+/// [the walker's seven, ground_cliff_quarters, stamina_climb, stamina_swim] as a path's
+/// walker and its tuning.
+fn path_walker_of(fields: &PackedFloat64Array) -> (paths::PathWalker, paths::PathTuning) {
+    let f = fields.as_slice();
+    let walker = walker_of(fields);
+    let tuning =
+        paths::PathTuning { cliff_quarters: f[7] as i64, stamina_climb: f[8], stamina_swim: f[9] };
+    (paths::PathWalker { walker, stamina: f[5], speed: f[6] }, tuning)
+}
+
+fn sight_of(fields: &PackedFloat64Array) -> Option<paths::sight::Sight> {
+    let f = fields.as_slice();
+    (!f.is_empty()).then(|| paths::sight::Sight {
+        origin: V2::new(f[0] as f32, f[1] as f32),
+        facing: V2::new(f[2] as f32, f[3] as f32),
+        ahead: f[4],
+        side: f[5],
+        behind: f[6],
+        hides: f[7] != 0.0,
+        budget: f[8],
+    })
+}
+
+/// A PathMemory's bytes (null: none kept).
+fn memory_of(known: &Variant) -> Option<paths::memory::Memory> {
+    (!known.is_nil())
+        .then(|| paths::memory::Memory { known: known.to::<PackedByteArray>().to_vec() })
+}
+
+fn known_of(memory: Option<paths::memory::Memory>) -> PackedByteArray {
+    PackedByteArray::from(memory.map(|memory| memory.known).unwrap_or_default().as_slice())
+}
+
+fn cells_of(cells: &[paths::Cell]) -> Array<Vector2i> {
+    cells.iter().map(|&(x, y)| Vector2i::new(x, y)).collect()
+}
+
+fn planned_of(plan: &paths::Plan, memory: Option<paths::memory::Memory>) -> VarDictionary {
+    let mut out = VarDictionary::new();
+    out.set("waypoints", &packed(&plan.waypoints));
+    out.set("reaches", plan.reaches);
+    out.set("cells", &cells_of(&plan.cells));
+    out.set("known", &known_of(memory));
+    out
+}
+
+/// A group's living units, sixteen numbers each.
+fn members_of(rows: &PackedFloat64Array) -> Vec<pathing::Member> {
+    rows.as_slice()
+        .chunks_exact(16)
+        .map(|r| pathing::Member {
+            walker: paths::PathWalker {
+                walker: ground::Walker {
+                    height: r[0],
+                    swimmer: r[1] as i64,
+                    climber: r[2] as i64,
+                    swims: r[3] != 0.0,
+                    climbs: r[4] != 0.0,
+                },
+                stamina: r[5],
+                speed: r[6],
+            },
+            wits: r[7] as i64,
+            id: r[8] as i64,
+            at: V2::new(r[9] as f32, r[10] as f32),
+            eyes: (r[11] != 0.0).then_some([r[12], r[13], r[14], r[15]]),
+        })
+        .collect()
 }
 
 /// [bearing, turn rate, backward pace] as a mover.

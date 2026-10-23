@@ -125,6 +125,11 @@ impl Ground {
         self.fastest
     }
 
+    /// Its columns and rows.
+    pub fn size(&self) -> (i32, i32) {
+        (self.cols, self.rows)
+    }
+
     /// Sets the cells of `area` (x, y, width, height) on the grid to what `paint` gives.
     pub fn paint(&mut self, area: (i32, i32, i32, i32), paint: &Paint) {
         let (x, y, w, h) = area;

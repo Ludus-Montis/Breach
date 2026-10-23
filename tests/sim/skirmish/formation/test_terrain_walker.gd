@@ -103,9 +103,3 @@ func test_a_unit_loaded_past_the_threshold_neither_swims_nor_climbs() -> void:
 	assert_float(_pace(_water(0), heavy)).is_equal(0.0)
 	assert_float(_pace(_cliff(1), heavy)).is_equal(0.0)
 	assert_int(heavy.climber).is_equal(1)
-
-
-func test_a_walkers_kind_tells_heights_apart_by_their_bits_not_their_text() -> void:
-	var tall := 1.0000000000000002  # one ulp above 1: the same as 1 written to a few places
-	assert_str(TerrainWalker.new(1.0).kind()).is_equal(TerrainWalker.new(1.0).kind())
-	assert_str(TerrainWalker.new(tall).kind()).is_not_equal(TerrainWalker.new(1.0).kind())

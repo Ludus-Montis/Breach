@@ -2,8 +2,9 @@ extends GdUnitTestSuite
 ## FormationPathing (spec 30 round 3, part 6b): a group plans as one walker - its tallest,
 ## swimming or climbing only if all can; where its route ahead is barred it goes round,
 ## keeping the way round on its command so every group of the command follows it; an open
-## route makes no detour. A unit whose place is in water stands on the ford instead, and
-## roads faster than open ground are still found by the path search.
+## route makes no detour. A unit whose place is in water stands on the ford instead. The
+## look's rules, and the path search's, are cargo tests (native/rust/src/pathing.rs and
+## paths/, spec 39 step 3c).
 
 const FormationPathing = preload("res://sim/skirmish/formation/formation_pathing.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -13,7 +14,6 @@ const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd"
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
-const TerrainPaths = preload("res://sim/skirmish/formation/terrain_paths.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
@@ -149,15 +149,3 @@ func test_a_unit_whose_place_is_in_deep_water_stands_on_the_ford() -> void:
 		var target := FormationWalk.target_of(squad, unit, ground)
 		var mode := ground.mode(unit.walker, target, target)
 		assert_int(mode).is_equal(TerrainWalker.Mode.WALKING)
-
-
-func test_the_path_search_still_finds_a_road_faster_than_open_ground() -> void:
-	var ground := FormationTerrain.new(Vector2i(40, 16))
-	ground.paint(Rect2i(0, 2, 40, 1), {"cost": 3.0})  # a road along the north
-	var start := Vector2(1.5, 8.5)
-	var goal := Vector2(38.5, 8.5)
-
-	var cells := TerrainPaths.cells(ground, TerrainWalker.new(1.0), start, goal)
-
-	assert_bool(cells.any(func(cell): return cell.y == 2)).is_true()
-	assert_float(ground.fastest).is_equal(3.0)
