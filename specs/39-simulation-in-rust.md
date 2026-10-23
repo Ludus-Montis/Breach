@@ -574,7 +574,7 @@ Decision's conditions.
   bits, its levels and modes), held beside the ground in `TerrainGround` and dropped when
   it is painted, as `FormationTerrain.walker_shares` was. A share worked out just now is
   given back unrounded and a cached one rounded to f32, as the GDScript did; ported as it
-  is (spec 39's rule) and raised as an issue. Removing it changed no answer on 25,920
+  is (spec 39's rule) and raised as #575. Removing it changed no answer on 25,920
   queries.
 - **Sight, memory and climbing** (`sight.rs`, `memory.rs`, `climb.rs`): PathSight's shape
   and test, PathMemory's cells (the GDScript keeps it between plans and hands its bytes
