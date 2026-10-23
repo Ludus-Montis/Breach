@@ -125,7 +125,11 @@ func _crowd_parted(engine: String, reversed: bool, kept := false) -> PackedByteA
 	return _bytes(squads)
 
 
-## Unit 3 dies; unit 5 leaves its squad for the line (squad 1).
+## Unit 3 dies; unit 5 leaves its squad for the line (squad 1), its entries in its old
+## squad taken away first, as every move between squads does (FormationRecovery, GroupSplit,
+## FormationStrays): left behind, the store's flags would still call it loose while the
+## line's `loose` holds no entry for it, and GDScript (reading `loose`) and the field
+## (reading the flags) would part a unit in a state the battle never makes.
 func _churn(squads: Array) -> void:
 	var by_id := {}
 	for squad in squads:
@@ -134,6 +138,8 @@ func _churn(squads: Array) -> void:
 			if unit.id == 3:
 				UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
 	var mover: SkirmishUnit = by_id[2].units[0]
+	SquadEntries.unloose(by_id[2], mover.id)
+	SquadEntries.unflee(by_id[2], mover.id)
 	by_id[2].units.erase(mover)
 	UnitState.regather(by_id[2])
 	by_id[1].units.append(mover)
