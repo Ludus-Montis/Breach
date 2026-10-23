@@ -9,8 +9,8 @@ const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.g
 const FormationStaging = preload("res://sim/skirmish/formation/formation_staging.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
-const CHIEFTAIN := preload("res://content/units/grem_chieftain.tres")
-const GREM := preload("res://content/units/grem.tres")
+const CHIEFTAIN := "grem_chieftain"
+const GREM := "grem"
 
 const TICK := 0.1
 
@@ -31,14 +31,18 @@ func _def(detection: float = 40.0, tactics: Array[String] = []) -> UnitDef:
 
 
 func test_the_chieftain_leads_and_is_coordinated() -> void:
-	assert_int(CHIEFTAIN.leadership).is_equal(3)
-	assert_bool(CHIEFTAIN.tactics.has("coordinated")).is_true()
-	assert_int(CHIEFTAIN.preferred_position).is_equal(UnitDef.Position.MID)
+	assert_int(CrateContent.unit(CHIEFTAIN).leadership).is_equal(3)
+	assert_bool(CrateContent.unit(CHIEFTAIN).tactics.has("coordinated")).is_true()
+	assert_int(CrateContent.unit(CHIEFTAIN).preferred_position).is_equal(UnitDef.Position.MID)
 
 
 func test_a_formation_takes_its_best_living_leaders_leadership() -> void:
 	var sim := FormationSimulation.new(2.0, TICK)
-	var placements := [[GREM, Vector2i(0, 0)], [GREM, Vector2i(0, 1)], [CHIEFTAIN, Vector2i(1, 0)]]
+	var placements := [
+		[CrateContent.unit(GREM), Vector2i(0, 0)],
+		[CrateContent.unit(GREM), Vector2i(0, 1)],
+		[CrateContent.unit(CHIEFTAIN), Vector2i(1, 0)]
+	]
 	var squad := sim.spawn_squad(2, placements, "player", true)
 
 	assert_int(FormationMorale.leadership(squad)).is_equal(3)
@@ -48,7 +52,9 @@ func test_a_formation_takes_its_best_living_leaders_leadership() -> void:
 
 func test_a_fallen_chieftain_shakes_the_formation() -> void:
 	var sim := FormationSimulation.new(2.0, TICK)
-	var placements := [[GREM, Vector2i(0, 0)], [CHIEFTAIN, Vector2i(1, 0)]]
+	var placements := [
+		[CrateContent.unit(GREM), Vector2i(0, 0)], [CrateContent.unit(CHIEFTAIN), Vector2i(1, 0)]
+	]
 	var squad := sim.spawn_squad(1, placements, "player", true)
 	var before := squad.morale
 	UnitHealth.put_one(squad, squad.units[1], 0)

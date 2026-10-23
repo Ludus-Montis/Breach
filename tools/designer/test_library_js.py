@@ -24,7 +24,7 @@ REGISTRY = {
     ],
     "statuses": [],
 }
-USAGE = {"siege": ["content/weapons/brute_fists.tres"]}
+USAGE = {"siege": ["content/weapons/brute_fists.json"]}
 UNITS = [
     {
         "id": "goat",

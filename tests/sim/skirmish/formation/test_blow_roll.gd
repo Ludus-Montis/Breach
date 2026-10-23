@@ -80,7 +80,7 @@ func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:
 	shield.tags = ["shield"]
 	var shielded := UnitDef.new()
 	shielded.items = [WeaponDef.innate_weapon(3, "claw"), shield]
-	var militia: UnitDef = load("res://content/units/kingdom_militia.tres")
+	var militia: UnitDef = CrateContent.unit("kingdom_militia")
 
 	assert_bool(claws.can_parry()).is_false()
 	assert_bool(shielded.can_parry()).is_true()
@@ -88,7 +88,7 @@ func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:
 
 
 func test_a_unit_in_the_field_carries_its_skills() -> void:
-	var captain: UnitDef = load("res://content/units/kingdom_captain.tres")
+	var captain: UnitDef = CrateContent.unit("kingdom_captain")
 	var unit := FormationUnits.make(captain, "the_kingdom", -1, 1)
 
 	assert_int(unit.melee_skill).is_equal(
@@ -97,7 +97,4 @@ func test_a_unit_in_the_field_carries_its_skills() -> void:
 	assert_int(unit.defence).is_equal(captain.defence)
 	assert_float(unit.critical).is_equal(captain.critical)
 	assert_bool(unit.parries).is_true()
-	(
-		assert_bool(FormationUnits.make(load("res://content/units/grem.tres"), "p", 1, 2).parries)
-		. is_false()
-	)
+	assert_bool(FormationUnits.make(CrateContent.unit("grem"), "p", 1, 2).parries).is_false()

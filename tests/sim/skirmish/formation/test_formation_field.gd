@@ -150,10 +150,10 @@ func test_waves_depart_on_their_own_when_set_to() -> void:
 func _content_field() -> FormationField:
 	return FormationField.new(
 		TICK,
-		load("res://content/units/grem.tres"),
+		CrateContent.unit("grem"),
 		8,
-		load("res://content/units/kingdom_militia.tres"),
-		load("res://content/units/grem_chieftain.tres")
+		CrateContent.unit("kingdom_militia"),
+		CrateContent.unit("grem_chieftain")
 	)
 
 

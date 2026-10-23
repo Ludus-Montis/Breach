@@ -18,13 +18,13 @@ const TICK_SECONDS := 0.1
 
 ## The feel test's field under `battle_seed`, its line led by a captain or not.
 static func field(battle_seed: int, captained: bool) -> FormationField:
-	var captain: UnitDef = load("res://content/units/kingdom_captain.tres") if captained else null
+	var captain: UnitDef = CrateContent.unit("kingdom_captain") if captained else null
 	return FormationField.new(
 		TICK_SECONDS,
-		load("res://content/units/grem.tres"),
+		CrateContent.unit("grem"),
 		BUILDERS,
-		load("res://content/units/kingdom_militia.tres"),
-		load("res://content/units/grem_chieftain.tres"),
+		CrateContent.unit("kingdom_militia"),
+		CrateContent.unit("grem_chieftain"),
 		captain,
 		battle_seed
 	)

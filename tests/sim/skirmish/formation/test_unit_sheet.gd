@@ -54,11 +54,11 @@ func test_a_battle_unit_carries_its_own_copy_of_the_sheet() -> void:
 
 func test_the_units_in_play_carry_archetype_tags() -> void:
 	for name in ["grem", "grem_brute", "grem_chieftain", "grem_spitter"]:
-		var unit_def: UnitDef = load("res://content/units/%s.tres" % name)
+		var unit_def: UnitDef = CrateContent.unit(name)
 		assert_array(unit_def.tags).contains(["grem"])
 		assert_array(unit_def.validate()).is_empty()
 	for name in ["kingdom_militia", "kingdom_captain"]:
-		var unit_def: UnitDef = load("res://content/units/%s.tres" % name)
+		var unit_def: UnitDef = CrateContent.unit(name)
 		assert_array(unit_def.tags).contains(["human", "martial"])
 
 

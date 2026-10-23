@@ -18,16 +18,7 @@ TAGS = {
     "combat": {"id": "combat", "targets": ["unit", "weapon"]},
     "physical": {"id": "physical", "targets": ["unit", "material"]},
 }
-UNIT_TRES = """[gd_resource type="Resource" format=3]
-
-[resource]
-id = "grem"
-tags = Array[String](["grem", "small"])
-traits = {
-"cunning": 1,
-"hardened": 2
-}
-"""
+UNIT_JSON = json.dumps({"tags": ["grem", "small"], "traits": {"cunning": 1, "hardened": 2}})
 
 
 class TargetsTest(unittest.TestCase):
@@ -56,7 +47,7 @@ class ReadRegistryTest(unittest.TestCase):
             ]
             (registry / "traits.json").write_text(json.dumps({"traits": traits}))
             (root / "content" / "units").mkdir()
-            (root / "content" / "units" / "grem.tres").write_text(UNIT_TRES)
+            (root / "content" / "units" / "grem.json").write_text(UNIT_JSON)
             (root / "content" / "designer").mkdir()
             terrain = {"water": {"traits": {"flows": 1}}}
             (root / "content" / "designer" / "terrain.json").write_text(json.dumps(terrain))
@@ -65,9 +56,9 @@ class ReadRegistryTest(unittest.TestCase):
 
         self.assertEqual(got["statuses"], [])
         self.assertEqual(got["traits"][0]["targets"], ["unit", "leader"])
-        self.assertEqual(got["usage"]["cunning"], ["content/units/grem.tres"])
-        self.assertEqual(got["usage"]["hardened"], ["content/units/grem.tres"])
-        self.assertEqual(got["usage"]["small"], ["content/units/grem.tres"])
+        self.assertEqual(got["usage"]["cunning"], ["content/units/grem.json"])
+        self.assertEqual(got["usage"]["hardened"], ["content/units/grem.json"])
+        self.assertEqual(got["usage"]["small"], ["content/units/grem.json"])
         self.assertEqual(got["usage"]["flows"], ["content/designer/terrain.json"])
         self.assertEqual(got["implicit"], {"climber": 0})
 
@@ -76,7 +67,7 @@ class ReadRegistryTest(unittest.TestCase):
         by_id = {t["id"]: t for t in got["traits"]}
         self.assertEqual(by_id["cunning"]["targets"], ["unit", "leader"])
         self.assertEqual(by_id["siege"]["targets"], ["weapon"])
-        self.assertIn("content/weapons/brute_fists.tres", got["usage"]["siege"])
+        self.assertIn("content/weapons/brute_fists.json", got["usage"]["siege"])
         self.assertEqual(got["implicit"]["climber"], 0)
         self.assertEqual(got["implicit"]["swimmer"], 0)
 
@@ -86,9 +77,9 @@ class ReadUnitsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "content" / "units").mkdir(parents=True)
-            (root / "content" / "units" / "grem.tres").write_text(UNIT_TRES)
-            climbing = UNIT_TRES.replace('"hardened": 2', '"climber": 2')
-            (root / "content" / "units" / "goat.tres").write_text(climbing)
+            (root / "content" / "units" / "grem.json").write_text(UNIT_JSON)
+            climbing = UNIT_JSON.replace('"hardened": 2', '"climber": 2')
+            (root / "content" / "units" / "goat.json").write_text(climbing)
             got = read_units(root, {"climber": 0, "swimmer": 0})
         self.assertEqual([unit["id"] for unit in got], ["goat", "grem"])
         self.assertEqual(
@@ -99,7 +90,7 @@ class ReadUnitsTest(unittest.TestCase):
                 {"id": "swimmer", "level": 0, "implicit": True},
             ],
         )
-        self.assertEqual(got[1]["path"], "content/units/grem.tres")
+        self.assertEqual(got[1]["path"], "content/units/grem.json")
         self.assertIn({"id": "climber", "level": 0, "implicit": True}, got[1]["traits"])
 
     def test_the_registry_lists_the_repo_units_with_implicit_traits(self):

@@ -2,12 +2,17 @@ name: Rust
 
 # The Rust crate's own checks (spec 39 step 1, Decision 154): formatting, clippy with
 # warnings as errors, and its cargo tests. None starts Godot. Runs on every PR that touches
-# native/.
+# native/, or the content the crate loads and the schema it checks in (spec 39 step 2).
 
 on:
   pull_request:
     paths:
       - "native/**"
+      - "content/units/**"
+      - "content/weapons/**"
+      - "content/armour/**"
+      - "content/tuning/**"
+      - "content/schema/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
 

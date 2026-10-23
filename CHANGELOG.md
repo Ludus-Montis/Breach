@@ -13,4 +13,11 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - A project README, this changelog and a documentation index (`docs/index.md`), kept
   current by the documentation phases every change now goes through.
 
+### Changed
+
+- Units, weapons, armour and the battle's tuning are JSON files under `content/` (`units/`,
+  `weapons/`, `armour/`, `tuning/battle_tuning.json`), checked against the JSON Schema in
+  `content/schema/`. A file with a wrong or unknown field fails to load and names the file and
+  the field. The Rust core must be built (`bash native/build.sh`) to run the game.
+
 [Unreleased]: https://github.com/SSidey/Breach/commits/main

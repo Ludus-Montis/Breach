@@ -22,6 +22,7 @@ Task-oriented. Steps to achieve a specific goal.
 Information-oriented. Precise descriptions of APIs, config, formats.
 - [CI checks: each rubric row and the tool that checks it](../ci/godot/README.md)
 - [Rust core: what it owns and how it is loaded](../native/README.md)
+- [The content schema: units, weapons, armour and tuning as JSON](../content/schema/README.md)
 - [The GitHub sync: labels, milestones and step issues](../ci/github/README.md),
   [the Project's Status per PR](../ci/github/README.md#the-projects-status),
   and [the Project backfill](../ci/github/README.md#the-project-backfill)

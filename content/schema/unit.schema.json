@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unit",
+  "description": "A unit's sheet (`UnitDef`).",
+  "type": "object",
+  "properties": {
+    "agility": {
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "armour": {
+      "description": "Its own armour (a hide) and ward (a charm), taken off each mundane or magical blow\nbefore what it wears adds (Decision 119, ArmourDef).",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "attack_speed": {
+      "description": "How quickly it strikes (Decision 120): its weapons' intervals are divided by this, so\n1.25 makes a 1-second weapon strike every 0.8 s.",
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "backward_pace": {
+      "type": "number",
+      "format": "double",
+      "default": 0.4
+    },
+    "build_seconds": {
+      "description": "Seconds one of the domain's builders takes to build this unit (Decision 45).",
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "constitution": {
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "cost_food": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "courage": {
+      "description": "Its will to fight (Decision 82): a formation's morale ceiling is its units' mean courage.",
+      "type": "integer",
+      "format": "int64",
+      "default": 60
+    },
+    "critical": {
+      "description": "A critical blow's damage, times a hit's (Decision 118).",
+      "type": "number",
+      "format": "double",
+      "default": 1.5
+    },
+    "defence": {
+      "description": "What a blow must get past, after its parry and dodge, to land fully: short of it, it\ngrazes (Decision 118).",
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "detection_range": {
+      "description": "How far it detects others, in cells (Decision 87; placeholder). Line of sight and light\ncome with terrain.",
+      "type": "number",
+      "format": "double",
+      "default": 40.0
+    },
+    "discipline": {
+      "description": "How drilled it is (Decision 92; placeholder: rank and file 30, drilled 60): a\nformation's mean, bolstered by its leader, decides whether it re-forms as a whole to meet\na flank and how fast it re-forms.",
+      "type": "integer",
+      "format": "int64",
+      "default": 30
+    },
+    "footprint_depth": {
+      "description": "Formation slots the unit occupies, depth (ranks) x width (columns), per Decision 40:\n1x1 a grem, 2x1 cavalry, 2x2 a brute, up to 8x8 (a dragon, the widest lane).",
+      "type": "integer",
+      "format": "int64",
+      "default": 1
+    },
+    "footprint_width": {
+      "type": "integer",
+      "format": "int64",
+      "default": 1
+    },
+    "height": {
+      "description": "How tall it stands, in cells (Decision 85): water a quarter of this deep slows it.",
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "hp": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "immunities": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "initiative": {
+      "description": "How quickly it acts (Decision 88; placeholder, equal for all until spec 28): it wins a\ncontested cell in the scrum over a slower-witted unit arriving at the same time.",
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "items": {
+      "description": "What it carries (Decisions 47 and 120): weapons, armour and tools (ItemDef), and its\ninnate weapons (fists, a bite) - its every blow comes from a weapon.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "leadership": {
+      "description": "How much it steadies a formation it leads (Decision 81); 0 for rank and file.",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "melee_skill": {
+      "description": "How well it fights hand to hand and at range (Decision 118), 0 to 100: a blow's roll\nis centred on it. Its parry comes from its melee skill, its dodge from its agility.",
+      "type": "integer",
+      "format": "int64",
+      "default": 40
+    },
+    "position_priority": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "preferred_position": {
+      "description": "The formation band the unit prefers, and its claim within that band (higher claims a\nforward place first). Reinforcements re-form by these (Decision 46).",
+      "$ref": "#/$defs/Position",
+      "default": "front"
+    },
+    "proficiencies": {
+      "description": "How well it handles items by tag (axe, polearm...), tag -> level: 0 untrained (none\nlisted), 1 trained, 2 mastered.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "default": {}
+    },
+    "ranged_skill": {
+      "type": "integer",
+      "format": "int64",
+      "default": 40
+    },
+    "regeneration": {
+      "description": "HP it regenerates a second (Decision 121), whether struck or not, up to its limit per\nrest - that many times its max HP - and stopped for a while by a blow of a type listed\nin regeneration_stops (a troll's by fire or acid). Downed, it stops unless it has the\n\"regenerates_downed\" trait.",
+      "type": "number",
+      "format": "double",
+      "default": 0.0
+    },
+    "regeneration_limit": {
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "regeneration_stops": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "resistances": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "run_pace": {
+      "description": "How much faster than its march it runs (Decision 125): a formation hurrying, pursuing or\nfleeing runs at its slowest unit's run, spending stamina.",
+      "type": "number",
+      "format": "double",
+      "default": 1.5
+    },
+    "sight_ahead": {
+      "description": "The shape of its sight when it plans a way (spec 30, PathSight): how far it sees ahead,\nsquare to either side and behind, as shares of its detection range, eased between by\nthe angle off its facing. Placeholders.",
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "sight_behind": {
+      "type": "number",
+      "format": "double",
+      "default": 0.25
+    },
+    "sight_side": {
+      "type": "number",
+      "format": "double",
+      "default": 0.5
+    },
+    "slots": {
+      "description": "The slots its body has for items (hand, hand, back...): an item fits if its slots are\nfree. A creature with no hands has no hand slot.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "speed": {
+      "type": "number",
+      "format": "double",
+      "default": 0.0
+    },
+    "strength": {
+      "description": "Attributes (Decision 117): strength (load, wield and damage scaling, shoving), agility\n(dodge, attack speed, turning, initiative), constitution (HP, stamina, physical maladies,\ndeath's door), willpower (magical maladies, fear, courage, ward) and wits (casting,\nmana, initiative, perception). AVERAGE is ordinary.",
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "tactics": {
+      "description": "How it leads (Decision 81), e.g. \"coordinated\": times a waiting wave's departure from\nwhat it sees (Decision 87).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "description": "Archetype tags tech can target as a group, beside the type itself (human, martial,\ncavalry, archer...).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "traits": {
+      "description": "Rated traits (Decision 64), id -> level: climber 2, darksight 1, mob 16...",
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "default": {}
+    },
+    "turn_rate": {
+      "description": "How it turns and backs away (Decision 95; placeholders until spec 28): degrees a second\nit turns, and the share of its speed it makes moving straight back (sideways is between).",
+      "type": "number",
+      "format": "double",
+      "default": 450.0
+    },
+    "ward": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "weaknesses": {
+      "description": "Damage types it takes more of, less of, or none of (Decision 119): weak x1.5,\nresistant x0.5, immune x0 (BattleTuning).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "willpower": {
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    },
+    "wits": {
+      "type": "integer",
+      "format": "int64",
+      "default": 10
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Position": {
+      "description": "Where a unit prefers to stand in its squad (`UnitDef.Position`).",
+      "type": "string",
+      "enum": [
+        "front",
+        "mid",
+        "back"
+      ]
+    }
+  }
+}

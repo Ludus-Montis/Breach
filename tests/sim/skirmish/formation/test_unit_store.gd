@@ -210,7 +210,7 @@ func _battle(engine: String) -> Array:
 	var sim := FormationBench.clash(24, 8, 3)
 	sim.blow_rolls = true
 	NativeKernels.use(NativeKernels.GDSCRIPT)
-	var grem: Resource = load("res://content/units/grem.tres")
+	var grem: Resource = CrateContent.unit("grem")
 	var wave := []
 	for column in range(8):
 		wave.append([grem, Vector2i(0, column)])

@@ -11,13 +11,13 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
-const GREM := "res://content/units/grem.tres"
+const GREM := "grem"
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
 ## A holding squad of `count` grems of `faction`, its front `front` cells along.
 func _squad(sim: FormationSimulation, count: int, faction: String, front: float) -> SkirmishSquad:
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])

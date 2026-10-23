@@ -26,30 +26,30 @@ const FormationSkirmishReadout = preload(
 )
 
 const MAP := preload("res://content/maps/skirmish_two_lanes.tres")
-const GREM := preload("res://content/units/grem.tres")
-const BRUTE := preload("res://content/units/grem_brute.tres")
-const SPITTER := preload("res://content/units/grem_spitter.tres")
-const MILITIA := preload("res://content/units/kingdom_militia.tres")
 
 const POOL_TOTAL := 8
 ## Each lane's maximum frontline width (feel-test config; maps author this later).
 const LANE_WIDTHS := {"c": 8, "k": 8}
 const START_SLOTS := {"c": 5, "k": 3}
 const KINGDOM_LINE := 3
-## Brushes in HUD order (hotkeys 1, 2, 3, E); null erases.
-const BRUSHES := [GREM, BRUTE, SPITTER, null]
-## The builder types in HUD order, their names and starting counts (Decision 45).
-const BUILDER_TYPES := [GREM, BRUTE, SPITTER]
+## The builder types' names and starting counts, in HUD order (Decision 45).
 const BUILDER_NAMES := ["Grem", "Brute", "Spitter"]
 const START_BUILDERS := [2, 1, 1]
-## Unit kinds by name, for saved presets.
-const KINDS := {"grem": GREM, "brute": BRUTE, "spitter": SPITTER}
 
 ## Decision 39: a full wave pauses the game (true) or only notifies (false).
 var pause_on_wave_full := true
 ## Where the player's presets are kept; empty keeps them in memory only.
 var presets_path := "user://formation_presets.json"
 
+## The units it fields (CrateContent); brushes in HUD order (hotkeys 1, 2, 3, E; null
+## erases), the builder types in HUD order, and unit kinds by name, for saved presets.
+var _grem := CrateContent.unit("grem")
+var _brute := CrateContent.unit("grem_brute")
+var _spitter := CrateContent.unit("grem_spitter")
+var _militia := CrateContent.unit("kingdom_militia")
+var _brushes: Array = [_grem, _brute, _spitter, null]
+var _builder_types: Array = [_grem, _brute, _spitter]
+var _kinds := {"grem": _grem, "brute": _brute, "spitter": _spitter}
 var _clock := SkirmishClock.new()
 var _battle: FormationBattle
 var _kingdom_auto := false
@@ -79,10 +79,10 @@ func _ready() -> void:
 	var view: MapView = $MapView
 	view.map = MAP
 	_battle = FormationBattle.new(
-		POOL_TOTAL, LANE_WIDTHS, _clock.tick_seconds, MILITIA, KINGDOM_LINE
+		POOL_TOTAL, LANE_WIDTHS, _clock.tick_seconds, _militia, KINGDOM_LINE
 	)
-	for index in range(BUILDER_TYPES.size()):
-		_battle.player.set_builders(BUILDER_TYPES[index], START_BUILDERS[index])
+	for index in range(_builder_types.size()):
+		_battle.player.set_builders(_builder_types[index], START_BUILDERS[index])
 	_battle.player.prefer("")  # round robin by default (Decision 51)
 	for route in MAP.layout.routes:
 		var points := view.model.layout_view.route_points(route.node_a_id, route.node_b_id)
@@ -100,10 +100,10 @@ func _ready() -> void:
 
 func _add_lane(lane_key: String, points: PackedVector2Array) -> void:
 	var length := SkirmishRoute.length_cells(points, MAP.layout.cell_size)
-	var start := WavePresets.line(GREM, START_SLOTS[lane_key], LANE_WIDTHS[lane_key])
+	var start := WavePresets.line(_grem, START_SLOTS[lane_key], LANE_WIDTHS[lane_key])
 	_battle.add_lane(lane_key, length, start)
 	var lane := _battle.lane(lane_key)
-	lane.brush = GREM
+	lane.brush = _grem
 	lane.set_auto_departure(true)  # the defaults of Decision 51
 	lane.sim.combat_width = LANE_WIDTHS[lane_key]
 	$Squads.cell_size = MAP.layout.cell_size
@@ -156,7 +156,7 @@ func _paint_cell(lane_key: String, cell: Vector2i, erase: bool = false) -> void:
 
 func _save_preset(lane_key: String) -> void:
 	var preset_name := "Preset %d" % (_presets.size() + 1)
-	_presets.append(WavePresets.to_dict(_battle.lane(lane_key).template, preset_name, KINDS))
+	_presets.append(WavePresets.to_dict(_battle.lane(lane_key).template, preset_name, _kinds))
 	WavePresetStore.save_presets(presets_path, _presets)
 	if _hud != null:
 		_hud.set_tools(_brush, WavePresetStore.names(_presets))
@@ -166,7 +166,7 @@ func _save_preset(lane_key: String) -> void:
 ## Applies a saved preset, fitted to the lane's width and the slots it can reach.
 func _apply_preset(lane_key: String, index: int) -> void:
 	var allowance := _battle.allowance(lane_key)
-	var fitted := WavePresets.from_dict(_presets[index], KINDS, LANE_WIDTHS[lane_key], allowance)
+	var fitted := WavePresets.from_dict(_presets[index], _kinds, LANE_WIDTHS[lane_key], allowance)
 	_log_banked(lane_key, _battle.apply(lane_key, fitted))
 
 
@@ -178,8 +178,8 @@ func _log_banked(lane_key: String, banked: int) -> void:
 
 ## Adds or removes one of the domain's builders of a type (feel-test stand-in, Decision 45).
 func _set_builders(type_index: int, delta: int) -> void:
-	var count := _battle.player.builder_count(BUILDER_TYPES[type_index])
-	_battle.player.set_builders(BUILDER_TYPES[type_index], maxi(count + delta, 0))
+	var count := _battle.player.builder_count(_builder_types[type_index])
+	_battle.player.set_builders(_builder_types[type_index], maxi(count + delta, 0))
 
 
 ## Index < lane count: that lane first; the last option: round robin.
@@ -239,14 +239,14 @@ func _connect_hud() -> void:
 	_hud.auto_departure_toggled.connect(func(key, on): _battle.lane(key).set_auto_departure(on))
 	_hud.auto_merge_toggled.connect(func(key, on): _battle.lane(key).production.auto_merge = on)
 	_hud.spawn_kingdom_pressed.connect(
-		func(key): _battle.lane(key).spawn_kingdom_line(MILITIA, KINGDOM_LINE)
+		func(key): _battle.lane(key).spawn_kingdom_line(_militia, KINGDOM_LINE)
 	)
 
 
 func _choose_brush(brush: int) -> void:
 	_brush = brush
 	for key in lane_keys():
-		_battle.lane(key).brush = BRUSHES[brush]
+		_battle.lane(key).brush = _brushes[brush]
 	if _hud != null:
 		_hud.set_tools(_brush, WavePresetStore.names(_presets))
 
@@ -280,7 +280,7 @@ func _refresh_hud() -> void:
 	)
 	var builds := _battle.player.builds()
 	_hud.set_builders(
-		FormationSkirmishReadout.builders(_battle.player, BUILDER_TYPES, BUILDER_NAMES)
+		FormationSkirmishReadout.builders(_battle.player, _builder_types, BUILDER_NAMES)
 	)
 	for key in lane_keys():
 		var production = _battle.lane(key).production

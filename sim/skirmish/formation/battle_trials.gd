@@ -65,7 +65,7 @@ static func _spread(values: Array) -> Array:
 
 
 static func _grem() -> UnitDef:
-	return load("res://content/units/grem.tres")
+	return CrateContent.unit("grem")
 
 
 static func _row(unit_def: UnitDef, columns: int) -> Array:
@@ -127,14 +127,14 @@ static func _stands(squads: Array, faction: String) -> bool:
 
 static func _field(scenario: String, battle_seed: int, options: Dictionary) -> Dictionary:
 	var captain: UnitDef = (
-		load("res://content/units/kingdom_captain.tres") if options.get("captain", false) else null
+		CrateContent.unit("kingdom_captain") if options.get("captain", false) else null
 	)
 	var field := FormationField.new(
 		TICK,
 		_grem(),
 		8,
-		load("res://content/units/kingdom_militia.tres"),
-		load("res://content/units/grem_chieftain.tres"),
+		CrateContent.unit("kingdom_militia"),
+		CrateContent.unit("grem_chieftain"),
 		captain,
 		battle_seed
 	)

@@ -20,7 +20,7 @@ const CountedColumns = preload("res://tests/sim/skirmish/formation/counted_colum
 
 ## A player line `count` wide with its front `front` cells along the lane, placed there.
 func _line(sim: FormationSimulation, count: int, front: float) -> SkirmishSquad:
-	var grem: UnitDef = load("res://content/units/grem.tres")
+	var grem: UnitDef = CrateContent.unit("grem")
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])

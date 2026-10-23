@@ -80,8 +80,38 @@ jobs:
             bash ci/godot/scripts/check_commit_message.sh /tmp/commit-msg.txt
           done
 
-  tests:
+  # The Rust core, built once for the jobs that start Godot: every run loads the content
+  # through it (CrateContent, Decision 153), whichever engine runs the kernels.
+  native:
     needs: scope
+    if: needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Build the Rust core
+        run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-bin-ci
+          path: native/bin/
+          if-no-files-found: error
+          retention-days: 1
+
+  tests:
+    needs: [scope, native]
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -90,6 +120,11 @@ jobs:
         shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin-ci
+          path: native/bin/
 
       - uses: ./.github/actions/godot
         with:
@@ -112,7 +147,7 @@ jobs:
   # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
   # timed on one machine, so the growth it reports holds; sizes never split across jobs.
   scaling:
-    needs: scope
+    needs: [scope, native]
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -121,6 +156,11 @@ jobs:
         stage: [march, fight, stacks]
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-bin-ci
+          path: native/bin/
 
       - uses: ./.github/actions/godot
         with:

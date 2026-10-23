@@ -115,10 +115,10 @@ func test_a_wave_re_forming_at_its_corner_as_a_fights_does_not_stick() -> void:
 	# the round 6 feel test: B re-formed facing the line fighting A, and stayed there
 	var field := FormationField.new(
 		TICK,
-		load("res://content/units/grem.tres"),
+		CrateContent.unit("grem"),
 		4,
-		load("res://content/units/kingdom_militia.tres"),
-		load("res://content/units/grem_chieftain.tres"),
+		CrateContent.unit("kingdom_militia"),
+		CrateContent.unit("grem_chieftain"),
 		null,
 		727784
 	)

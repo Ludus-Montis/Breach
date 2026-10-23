@@ -1,0 +1,739 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BattleTuning",
+  "description": "The battle's tuning (`BattleTuning`).",
+  "type": "object",
+  "properties": {
+    "blow_die": {
+      "description": "A blow's roll spans this much, centred on the striker's skill: its margin is the skill\nplus a roll from minus half this to plus half.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_dodge_per_agility": {
+      "description": "The dodge a unit puts up per point of agility.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_graze_share": {
+      "description": "A graze's share of the blow's damage.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_high_ground": {
+      "description": "Added to the margin of a striker on higher ground than its target.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_hit_band": {
+      "description": "How wide the hit band is above the target's defence; a margin past it is a critical.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_morale_shift": {
+      "description": "Added to a formation's units' margins by its morale band: steady, shaken, wavering,\nrouting.",
+      "$ref": "#/$defs/Reals"
+    },
+    "blow_parry_share": {
+      "description": "The parry a unit holding a weapon or shield puts up: this share of its melee skill.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_rear_arc_degrees": {
+      "description": "A blow from within this many degrees of straight behind the target is from its rear,\ndenying its dodge as well as its parry.",
+      "type": "number",
+      "format": "double"
+    },
+    "blow_surrounded": {
+      "description": "Added to the margin for each foe beyond the first striking the target this tick.",
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_brush": {
+      "description": "A loose friend of its own squad overlapping a unit in its frame by less than this\n(cells) only brushes it: it keeps its place.",
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_ground_block": {
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_ground_drag": {
+      "description": "Bodies on the ground (Decision 121): a marching front stepping over one slows to\n1 / (1 + its mass over the walker's times bodies_ground_drag); one at least\nbodies_ground_block times the walker's mass blocks it.",
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_passes": {
+      "description": "How many times a tick overlapping bodies are pushed apart.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "bodies_resist": {
+      "description": "How many times over a unit in its formation's frame weighs, against being pushed.",
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_steer_clear": {
+      "type": "number",
+      "format": "double"
+    },
+    "bodies_steer_look": {
+      "description": "How far ahead (cells) a unit looks for a body in its way, and how far clear (cells) of\nit it aims to pass.",
+      "type": "number",
+      "format": "double"
+    },
+    "combat_contest_die": {
+      "description": "The contest die: a roll from 0 to this, added to initiative, decides who takes a\ncontested slot (0: stats alone).",
+      "type": "integer",
+      "format": "int64"
+    },
+    "condition_cap": {
+      "description": "The most a unit's condition (Decision 125) may lift what it multiplies.",
+      "type": "number",
+      "format": "double"
+    },
+    "condition_drain": {
+      "type": "number",
+      "format": "double"
+    },
+    "condition_drain_below": {
+      "description": "Below this condition a unit loses HP, standing or downed, the faster the further below:\ncondition_drain a second at condition 0, scaling with the distance below the threshold -\nso one left in a bad enough state dies of it rather than lie there, the faster the worse.",
+      "type": "number",
+      "format": "double"
+    },
+    "damage_floor_skill": {
+      "description": "The skill at which a blow's damage floor has risen to its full; each point of skill\npast it adds damage_spill to the blow's margin (crits) instead.",
+      "type": "number",
+      "format": "double"
+    },
+    "damage_immune": {
+      "type": "number",
+      "format": "double"
+    },
+    "damage_resist": {
+      "type": "number",
+      "format": "double"
+    },
+    "damage_spill": {
+      "type": "number",
+      "format": "double"
+    },
+    "damage_weak": {
+      "description": "A blow's worth against a target weak to, resistant to or immune to its damage type.",
+      "type": "number",
+      "format": "double"
+    },
+    "discipline_expected_max": {
+      "description": "The discipline a formation is expected to have at most; more buys no more.",
+      "type": "number",
+      "format": "double"
+    },
+    "discipline_fastest": {
+      "type": "number",
+      "format": "double"
+    },
+    "discipline_leash_shares": {
+      "description": "The share of the expected most at or above which a pursuer takes the second, third and\nfourth leash steps; under the last, the fifth. A leader's \"pursues\" tactic steps it one\nout, \"cautious\" one in.",
+      "$ref": "#/$defs/Reals"
+    },
+    "discipline_leash_steps": {
+      "description": "How far (cells) a pursuer may go from where it set out, step by step: the steadier, the\nshorter its leash; the last is no leash (inf), while it can see its enemy.",
+      "$ref": "#/$defs/Reals"
+    },
+    "discipline_march_pace_at": {
+      "description": "The discipline at which it re-forms at the march pace; the pace scales with it, within\nthe slowest and fastest shares of the march pace.",
+      "type": "number",
+      "format": "double"
+    },
+    "discipline_meets_threats": {
+      "description": "At or above this a formation re-forms as a whole to meet a flank; below it, unit by\nunit. A unit under it may break ranks to chase, the more likely the further under.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "discipline_per_leadership": {
+      "description": "What each point of a formation's best leader's leadership adds to its discipline.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "discipline_slowest": {
+      "type": "number",
+      "format": "double"
+    },
+    "fall_damage_per_cell": {
+      "description": "A unit spent on a climb face falls: this hurt a cell dropped, × its area^fall_mass_power.",
+      "type": "number",
+      "format": "double"
+    },
+    "fall_mass_power": {
+      "type": "number",
+      "format": "double"
+    },
+    "ground_cliff_quarters": {
+      "description": "A rise of more than this many quarter-cells is a cliff: climbed, a movement mode.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "ground_climb_demand": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "ground_climb_pace": {
+      "type": "number",
+      "format": "double"
+    },
+    "ground_mode_load_share": {
+      "type": "number",
+      "format": "double"
+    },
+    "ground_slope_cost": {
+      "description": "The pace each quarter-cell risen costs; downhill is no faster.",
+      "type": "number",
+      "format": "double"
+    },
+    "ground_slow_wading": {
+      "type": "number",
+      "format": "double"
+    },
+    "ground_swim_pace": {
+      "description": "Movement modes (spec 30): deep water is swum and a cliff climbed at a base pace times\nthe pair rule (Decision 64: swimmer/climber against flows/climb difficulty, default\nground_climb_demand); past ground_mode_load_share of its first load band, neither.",
+      "type": "number",
+      "format": "double"
+    },
+    "ground_wading": {
+      "description": "The pace in water a quarter to a half of a unit's height deep (wading), and from a half\nto its height (slow wading); deeper, it swims.",
+      "type": "number",
+      "format": "double"
+    },
+    "group_join": {
+      "description": "Cells to form up or split off together; the reach and hold (seconds) of taking the downed.",
+      "type": "number",
+      "format": "double"
+    },
+    "item_mastered_skill": {
+      "type": "number",
+      "format": "double"
+    },
+    "item_untrained_skill": {
+      "description": "Skill shifted wielding a weapon untrained or mastered in its tags.",
+      "type": "number",
+      "format": "double"
+    },
+    "item_weak_skill": {
+      "description": "Skill lost per point of strength short of a weapon's requirement.",
+      "type": "number",
+      "format": "double"
+    },
+    "load_dodge": {
+      "$ref": "#/$defs/Reals"
+    },
+    "load_easy": {
+      "description": "Encumbrance by stage - none (to load_easy of its limit), mild (to its limit), steep (to\nload_most times its limit, a hauler's level adding load_hauler each) and immobile\nbeyond: its pace, how fast it tires and its dodge, times these.",
+      "type": "number",
+      "format": "double"
+    },
+    "load_hauler": {
+      "type": "number",
+      "format": "double"
+    },
+    "load_march_tiring": {
+      "description": "Stamina a second marching under each stage of load (marching light costs nothing).",
+      "$ref": "#/$defs/Reals"
+    },
+    "load_most": {
+      "type": "number",
+      "format": "double"
+    },
+    "load_pace": {
+      "$ref": "#/$defs/Reals"
+    },
+    "load_per_strength": {
+      "description": "Load a unit carries without trouble, per point of strength: its carry limit.",
+      "type": "number",
+      "format": "double"
+    },
+    "load_tiring": {
+      "$ref": "#/$defs/Reals"
+    },
+    "morale_leader_loss": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_loss": {
+      "description": "Morale lost for each unit of its own that falls, and per point of a fallen leader's\nleadership.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_per_leadership": {
+      "description": "The ceiling's rise per point of its best leader's leadership (Decision 81).",
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_pressure": {
+      "description": "Morale lost each second by how many sides it fights on (0, 1, 2, 3, 4 or more).",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "int64"
+      }
+    },
+    "morale_rear_impact": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_recovery": {
+      "description": "Morale regained each second out of contact, before its leadership is added.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_shaken_at": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_side_impact": {
+      "description": "Morale lost when struck on a side or on the rear.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_steady_at": {
+      "description": "The bands' floors: steady at or above the first, shaken at or above the second.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "morale_support_cells": {
+      "description": "Cells within which a friendly squad supports a side.",
+      "type": "number",
+      "format": "double"
+    },
+    "path_detour_gain": {
+      "type": "number",
+      "format": "double"
+    },
+    "path_look": {
+      "description": "Groups look path_look cells ahead every path_relook, going round if path_detour_gain quicker.",
+      "type": "number",
+      "format": "double"
+    },
+    "path_relook": {
+      "type": "number",
+      "format": "double"
+    },
+    "pursuit_ragged_shock": {
+      "description": "The rout a ragged retreat costs: up to this much shock, for a formation with no\ndiscipline at all.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "pursuit_tempted_within": {
+      "description": "How near (cells) a unit must stand to a retreating enemy to be tempted to chase.",
+      "type": "number",
+      "format": "double"
+    },
+    "reach_contact": {
+      "description": "How far apart (cells) two units' bodies may be and still touch: a unit stepping back\nstill reaches the one it is leaving.",
+      "type": "number",
+      "format": "double"
+    },
+    "reach_engage": {
+      "description": "How far apart (cells, between their cells) two units may be for their squads to engage.",
+      "type": "number",
+      "format": "double"
+    },
+    "reach_front_arc_degrees": {
+      "description": "A point lies in a unit's front when its direction is within this many degrees of its\nbearing; a blow from anywhere else is a flank blow.",
+      "type": "number",
+      "format": "double"
+    },
+    "reach_pursuit_lag": {
+      "description": "How far (cells) a pursuing formation's foremost unit may lag behind its place before the\nframe waits for it.",
+      "type": "number",
+      "format": "double"
+    },
+    "rout_crush": {
+      "description": "Crush damage per cell of a router's footprint, to friends it shoves past.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "rout_enemy_near": {
+      "type": "number",
+      "format": "double"
+    },
+    "rout_fan_cells": {
+      "type": "number",
+      "format": "double"
+    },
+    "rout_fan_degrees": {
+      "description": "How far a wholly disorderly flight fans out: degrees off its route's line, and cells out.",
+      "type": "number",
+      "format": "double"
+    },
+    "rout_panic": {
+      "description": "Morale lost by a friend a router crushes, and by a friend that sees a formation rout.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "rout_rally_reach": {
+      "description": "How near (cells, a router's centre to a friend's body) a router must come to a led\nformation to rally to it.",
+      "type": "number",
+      "format": "double"
+    },
+    "rout_rally_seconds": {
+      "description": "Seconds with no enemy within rout_enemy_near cells before a led rout re-forms (and a\nwithdrawal is safe).",
+      "type": "number",
+      "format": "double"
+    },
+    "rout_reformed_morale": {
+      "description": "The morale a re-formed rout starts at.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "rout_seen": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "rout_steady_rally_seconds": {
+      "description": "Seconds a caught router waits with its friend steady before it joins it.",
+      "type": "number",
+      "format": "double"
+    },
+    "rout_strike_reach": {
+      "description": "How near (cells, centre to centre) a pursuer must be to strike a router.",
+      "type": "number",
+      "format": "double"
+    },
+    "run_build_seconds": {
+      "description": "Seconds a unit takes to build up from a march to its full run, and the seconds a\npursuer of average wits takes to react before it starts to (Decision 126): a retreat's\nhead start.",
+      "type": "number",
+      "format": "double"
+    },
+    "run_reaction": {
+      "type": "number",
+      "format": "double"
+    },
+    "scrum_anticipate": {
+      "description": "How far off (cells) a disciplined squad re-forms to meet a threat closing in.",
+      "type": "number",
+      "format": "double"
+    },
+    "scrum_crowding": {
+      "description": "The share of its pace a unit makes walking within a fight: the crush.",
+      "type": "number",
+      "format": "double"
+    },
+    "scrum_leash": {
+      "description": "Cells a unit in a fight may go from its place to reach a foe.",
+      "type": "number",
+      "format": "double"
+    },
+    "scrum_stall_seconds": {
+      "description": "Seconds a fight may stand with nobody able to strike before it is released.",
+      "type": "number",
+      "format": "double"
+    },
+    "scrum_trade_seconds": {
+      "description": "Seconds a unit walking back to its place may come no nearer before it trades places.",
+      "type": "number",
+      "format": "double"
+    },
+    "sight_budget": {
+      "description": "Sight by obscurance (spec 30): a sight line sums each cell's obscurance by the distance\nrun through it, seeing no further past sight_budget; woods and fog paint theirs.",
+      "type": "number",
+      "format": "double"
+    },
+    "sight_fog_obscurance": {
+      "type": "number",
+      "format": "double"
+    },
+    "sight_wood_obscurance": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_blow": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_climb": {
+      "description": "Stamina a second spent climbing and swimming (spec 30): at half the mode's pace a step\ntakes twice as long, so costs twice as much (ModeStamina).",
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_delay": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_give_up": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_pace": {
+      "$ref": "#/$defs/Reals"
+    },
+    "stamina_per_constitution": {
+      "description": "Stamina per point of constitution; spent a second running and per blow struck (Decision\n125). Each cost restarts a breather: once stamina_delay seconds have passed with none,\nit is regained at stamina_recovery a second - both for a unit of average constitution,\nthe delay shorter and the rate faster the hardier it is, the rate times its condition.",
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_recovery": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_run": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_skill": {
+      "$ref": "#/$defs/Reals"
+    },
+    "stamina_spent": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_swim": {
+      "type": "number",
+      "format": "double"
+    },
+    "stamina_tired": {
+      "description": "Below these shares of its stamina a unit is tired, then spent: its pace times\nstamina_pace and its skill shifted by stamina_skill, by stage (fresh, tired, spent). A\npursuer (or chaser) whose stamina falls below stamina_give_up gives up the chase.",
+      "type": "number",
+      "format": "double"
+    },
+    "take_hold": {
+      "type": "number",
+      "format": "double"
+    },
+    "take_reach": {
+      "type": "number",
+      "format": "double"
+    },
+    "walk_face_travel": {
+      "type": "number",
+      "format": "double"
+    },
+    "walk_lost": {
+      "type": "number",
+      "format": "double"
+    },
+    "walk_slack_drilled": {
+      "description": "Cells a unit may lag its place before its formation waits (at discipline 100, 0); past\nwalk_lost it has fallen behind; past walk_face_travel it faces where it walks.",
+      "type": "number",
+      "format": "double"
+    },
+    "walk_slack_loose": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_believe_die": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_body_weight": {
+      "description": "The weight of a body borne by a friend, per cell of its footprint (Decision 126).",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_condition": {
+      "description": "Each wound - a time downed (Decision 126) - takes this off a unit's condition; a unit\n\"hardened N\" shrugs off its first N.",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_cunning": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_danger_reach": {
+      "description": "Playing dead (Decision 127): a downed unit due to come to with a standing foe within\nwounds_danger_reach cells lies still instead by a seeded chance - wounds_play_dead at\naverage wits, more with wits, plus wounds_cunning a level of \"cunning\" (its own or its\nleader's) - and looks again every wounds_play_dead_check seconds. A foe about to take\nit is fooled when the body's wits beat its own, each with wounds_trait_wits a level of\n\"cunning\" or \"thorough\", in a roll of wounds_believe_die.",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_guard_reach": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_messenger_shock": {
+      "description": "Morale lost by each standing formation of a side one of its own is sent home to.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "wounds_play_dead": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_play_dead_check": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_reach": {
+      "description": "Cells within which a standing unit finishes or takes a downed foe; a friend standing\nwithin wounds_guard_reach of the downed guards it, and a unit with a standing foe that\nnear is still fighting, not finishing.",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_regeneration_halt": {
+      "description": "Seconds a blow of a type that stops a unit's regeneration stops it for.",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_surrender": {
+      "description": "The chance a routing unit struck surrenders, times its want of courage (1 - courage\n/ 100).",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_trait_wits": {
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_wake_seconds": {
+      "description": "Seconds a downed unit of average constitution lies before it comes to at 1 HP, times a\nseeded share between wounds_wake_spread's two ends; the hardier, the sooner.",
+      "type": "number",
+      "format": "double"
+    },
+    "wounds_wake_spread": {
+      "$ref": "#/$defs/Reals"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "morale_side_impact",
+    "morale_rear_impact",
+    "morale_loss",
+    "morale_leader_loss",
+    "morale_recovery",
+    "morale_pressure",
+    "morale_support_cells",
+    "morale_per_leadership",
+    "morale_steady_at",
+    "morale_shaken_at",
+    "discipline_per_leadership",
+    "discipline_meets_threats",
+    "discipline_march_pace_at",
+    "discipline_slowest",
+    "discipline_fastest",
+    "discipline_expected_max",
+    "discipline_leash_steps",
+    "discipline_leash_shares",
+    "combat_contest_die",
+    "blow_die",
+    "blow_parry_share",
+    "blow_dodge_per_agility",
+    "blow_hit_band",
+    "blow_graze_share",
+    "blow_high_ground",
+    "blow_surrounded",
+    "blow_rear_arc_degrees",
+    "blow_morale_shift",
+    "damage_weak",
+    "damage_resist",
+    "damage_immune",
+    "damage_floor_skill",
+    "damage_spill",
+    "item_untrained_skill",
+    "item_mastered_skill",
+    "item_weak_skill",
+    "load_per_strength",
+    "load_easy",
+    "load_most",
+    "load_hauler",
+    "load_pace",
+    "load_tiring",
+    "load_dodge",
+    "load_march_tiring",
+    "stamina_per_constitution",
+    "stamina_run",
+    "stamina_climb",
+    "stamina_swim",
+    "stamina_blow",
+    "stamina_delay",
+    "stamina_recovery",
+    "run_build_seconds",
+    "run_reaction",
+    "condition_cap",
+    "stamina_tired",
+    "stamina_spent",
+    "stamina_pace",
+    "stamina_skill",
+    "stamina_give_up",
+    "wounds_reach",
+    "wounds_guard_reach",
+    "wounds_messenger_shock",
+    "wounds_regeneration_halt",
+    "wounds_condition",
+    "wounds_danger_reach",
+    "wounds_play_dead",
+    "wounds_cunning",
+    "wounds_play_dead_check",
+    "wounds_trait_wits",
+    "wounds_believe_die",
+    "wounds_body_weight",
+    "wounds_wake_seconds",
+    "wounds_wake_spread",
+    "condition_drain_below",
+    "condition_drain",
+    "wounds_surrender",
+    "rout_crush",
+    "rout_panic",
+    "rout_seen",
+    "rout_rally_reach",
+    "rout_steady_rally_seconds",
+    "rout_rally_seconds",
+    "rout_enemy_near",
+    "rout_reformed_morale",
+    "rout_strike_reach",
+    "rout_fan_degrees",
+    "rout_fan_cells",
+    "pursuit_ragged_shock",
+    "pursuit_tempted_within",
+    "ground_cliff_quarters",
+    "ground_slope_cost",
+    "ground_wading",
+    "ground_slow_wading",
+    "ground_swim_pace",
+    "ground_climb_pace",
+    "ground_climb_demand",
+    "ground_mode_load_share",
+    "sight_budget",
+    "sight_wood_obscurance",
+    "sight_fog_obscurance",
+    "fall_damage_per_cell",
+    "fall_mass_power",
+    "bodies_resist",
+    "bodies_passes",
+    "bodies_brush",
+    "bodies_steer_look",
+    "bodies_steer_clear",
+    "bodies_ground_drag",
+    "bodies_ground_block",
+    "scrum_leash",
+    "scrum_anticipate",
+    "scrum_stall_seconds",
+    "scrum_crowding",
+    "scrum_trade_seconds",
+    "reach_contact",
+    "reach_front_arc_degrees",
+    "reach_engage",
+    "reach_pursuit_lag",
+    "walk_slack_drilled",
+    "walk_slack_loose",
+    "walk_lost",
+    "walk_face_travel",
+    "group_join",
+    "take_reach",
+    "take_hold",
+    "path_look",
+    "path_relook",
+    "path_detour_gain"
+  ],
+  "$defs": {
+    "Reals": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "enum": [
+              "inf",
+              "-inf"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

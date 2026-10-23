@@ -20,7 +20,7 @@ const PathSight = preload("res://sim/skirmish/formation/path_sight.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const ItemDef = preload("res://content/definitions/item_def.gd")
 
-const GREM := "res://content/units/grem.tres"
+const GREM := "grem"
 const CRAG := Rect2i(70, 26, 4, 31)
 const CRAG_QUARTERS := 8
 const CRAG_CLIMB := 2
@@ -60,7 +60,7 @@ static func run(repeats: int) -> Array:
 
 ## The field's ground with the crag.
 static func ground() -> FormationTerrain:
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var terrain: FormationTerrain = FormationField.new(0.1, grem, 0, grem).sim.terrain
 	terrain.paint(CRAG, {"height": CRAG_QUARTERS, "climb": CRAG_CLIMB})
 	return terrain
@@ -131,7 +131,7 @@ static func _timed(
 ) -> Dictionary:
 	var from: Vector2 = trip["from"]
 	var start := Vector2i(floori(from.x), floori(from.y))
-	var grem: UnitDef = load(GREM)
+	var grem: UnitDef = CrateContent.unit(GREM)
 	var sight: PathSight = (
 		PathSight.of(grem, from, Vector2.RIGHT, terrain) if trip["sight"] else null
 	)
@@ -155,9 +155,9 @@ static func _timed(
 
 
 static func _unit(name: String) -> UnitDef:
-	var unit_def: UnitDef = load(GREM).duplicate()
+	var unit_def: UnitDef = CrateContent.unit(GREM).duplicate()
 	if name == "loaded militiaman":
-		unit_def = load("res://content/units/kingdom_militia.tres").duplicate()
+		unit_def = CrateContent.unit("kingdom_militia").duplicate()
 		var pack := ItemDef.new()
 		pack.item_name = "pack"
 		pack.weight = PACK_WEIGHT

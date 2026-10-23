@@ -18,7 +18,7 @@ const RECORD := (
 
 
 func _line(sim: FormationSimulation, count: int, at_player_end: bool) -> SkirmishSquad:
-	var grem: UnitDef = load("res://content/units/grem.tres")
+	var grem: UnitDef = CrateContent.unit("grem")
 	var placements := []
 	for column in count:
 		placements.append([grem, Vector2i(0, column)])

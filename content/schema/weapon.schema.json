@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weapon",
+  "description": "What a unit fights with (Decision 47, `WeaponDef`): an item with an attack profile.",
+  "type": "object",
+  "properties": {
+    "attack_range": {
+      "description": "Reach in ranks (a rank is one cell - Decisions 48 and 68); 0 is melee.",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "attack_seconds": {
+      "description": "Seconds between its blows (Decision 120): an unwieldy weapon strikes more slowly.\nThe wielder's attack speed scales it.",
+      "type": "number",
+      "format": "double",
+      "default": 1.0
+    },
+    "damage": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+    },
+    "damage_floor": {
+      "description": "The least share of its damage a blow deals before its wielder's skill lifts it\ntoward the full (Decision 119): a club varies more than a spear.",
+      "type": "number",
+      "format": "double",
+      "default": 0.5
+    },
+    "damage_type": {
+      "description": "acid, piercing, slashing, bludgeoning... no effect yet; resistances come later.",
+      "type": "string",
+      "default": ""
+    },
+    "item": {
+      "$ref": "#/$defs/Item",
+      "default": {
+        "grants": {},
+        "innate": false,
+        "item_name": "",
+        "slots": [],
+        "strength_requirement": 0,
+        "tags": [],
+        "traits": {},
+        "weight": 0.0
+      }
+    },
+    "magical": {
+      "description": "Whether its blows are magic (Decision 119): ward, not armour, stands against them.",
+      "type": "boolean",
+      "default": false
+    },
+    "strength_scaling": {
+      "description": "Damage per point of its wielder's strength over its strength requirement\n(Decision 119): a maul much, a dagger little.",
+      "type": "number",
+      "format": "double",
+      "default": 0.0
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Item": {
+      "description": "What every item has (`ItemDef`): its slots, weight, strength needed, tags and traits.",
+      "type": "object",
+      "properties": {
+        "grants": {
+          "description": "Rated traits it grants whoever carries it, e.g. {\"burrower\": 1} for a shovel\n(Decision 128).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "default": {}
+        },
+        "innate": {
+          "description": "Part of the creature (fists, a bite, a claw, its spit): it can't be dropped or\ntaken, weighs nothing, and its slots are the body parts it belongs to.",
+          "type": "boolean",
+          "default": false
+        },
+        "item_name": {
+          "type": "string",
+          "default": ""
+        },
+        "slots": {
+          "description": "The slots it takes (hand, hand for a two-handed spear). An innate item takes none:\nthese are the body parts it is part of (fists the hands, a bite or spit the mouth),\nand it can't be used while a carried item holds one of them.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "strength_requirement": {
+          "description": "The strength needed to wield it well.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "tags": {
+          "description": "What kind of item it is, for proficiency (axe, polearm, heavy armour...).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "traits": {
+          "description": "Its own rated traits, marking what it does, e.g. {\"siege\": 1} for a weapon that\ndamages structures; each must be one an item of its kind may have (ContentRegistry).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "default": {}
+        },
+        "weight": {
+          "description": "Its weight, in load.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

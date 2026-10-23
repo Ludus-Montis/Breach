@@ -46,10 +46,10 @@ func _reverse(squads: Array) -> void:
 func _field(battle_seed: int) -> FormationField:
 	var field := FormationField.new(
 		TICK,
-		load("res://content/units/grem.tres"),
+		CrateContent.unit("grem"),
 		8,
-		load("res://content/units/kingdom_militia.tres"),
-		load("res://content/units/grem_chieftain.tres"),
+		CrateContent.unit("kingdom_militia"),
+		CrateContent.unit("grem_chieftain"),
 		null,
 		battle_seed
 	)
