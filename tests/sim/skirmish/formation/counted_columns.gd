@@ -32,3 +32,7 @@ func open(slot: int) -> void:
 
 func reach(slot: int) -> void:
 	inner.reach(slot)
+
+
+func field() -> Object:
+	return inner.field()

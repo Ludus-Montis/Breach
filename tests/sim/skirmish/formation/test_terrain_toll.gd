@@ -89,7 +89,7 @@ func _chase_step(kind: String) -> float:
 	var unit: SkirmishUnit = mine.units[0]
 	var at := UnitPlaces.where(sim.store, unit)
 	SquadEntries.loosen(mine, unit, at)
-	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
+	mine.chase(unit, foe.id, at, 100.0)
 	sim.step()
 	assert_bool(mine.chasers.has(unit.id)).is_true()
 	return at.distance_to(SquadEntries.loose_at(mine, unit))
@@ -111,7 +111,7 @@ func test_a_chaser_never_steps_into_water_it_cant_cross() -> void:
 	unit.walker = TerrainWalker.grounded(unit.height)  # it can't swim
 	var at := UnitPlaces.where(sim.store, unit)
 	SquadEntries.loosen(mine, unit, at)
-	mine.chasers[unit.id] = {"unit": unit, "foe": foe.id, "from": at, "leash": 100.0}
+	mine.chase(unit, foe.id, at, 100.0)
 	for _tick in 30:
 		sim.step()
 		if mine.loose.has(unit.id):

@@ -20,44 +20,32 @@ enum Kind { COMBAT, WITHDRAW, ROUTE, RE_FORM, ORDER }
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 const NAMES := ["combat", "withdraw", "route", "re-form", "order"]
 
 
-## Settles each squad's manoeuvre this tick. A gap's narrowing becomes a re-form: its
-## units walk to their new places rather than the squad waiting a fixed time.
+## Settles each squad's manoeuvre this tick, in the crate (`manoeuvre.rs`, spec 39 step
+## 4b). A gap's narrowing becomes a re-form: its units walk to their new places rather than
+## the squad waiting a fixed time. This hands the crate what it doesn't hold: whether each
+## squad is withdrawing and skirmishing (asked only where no higher priority applies), and
+## the living units of one that narrowed.
 static func step(squads: Array) -> void:
-	var memo := SquadMemo.new()  # loosening a squad moves no frame or unit
+	if squads.is_empty():
+		return
+	var memo := SquadMemo.new()
+	var cases := PackedInt64Array()
 	for squad in squads:
-		if squad.narrow_ticks > 0:
-			squad.narrow_ticks = 0
-			_loosen(squad)
-		squad.manoeuvre = current(squad, squads, memo)
-
-
-## The highest-priority manoeuvre that applies to the squad now. `memo`: the phase's
-## (SquadMemo).
-static func current(squad: SkirmishSquad, squads: Array, memo: SquadMemo = null) -> Kind:
-	if not squad.withdraw.is_empty():
-		return Kind.WITHDRAW
-	var fighting := (
-		squad.state == SkirmishSquad.State.FIGHTING
-		or squad.engaged_with != 0
-		or not squad.flank_contacts.is_empty()
-	)
-	if fighting or FormationContact.skirmishing(squad, squads, memo):
-		return Kind.COMBAT
-	if not squad.loose.is_empty() or not squad.stance.is_empty():
-		return Kind.RE_FORM
-	return Kind.ORDER
-
-
-## Its units walk from where they stand to their new places.
-static func _loosen(squad: SkirmishSquad) -> void:
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	for unit in squad.living():
-		if not squad.loose.has(unit.id):
-			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, stood)
+		var withdrawing: bool = not squad.withdraw.is_empty()
+		var fighting: bool = (
+			squad.state == SkirmishSquad.State.FIGHTING
+			or squad.engaged_with != 0
+			or not squad.flank_contacts.is_empty()
+		)
+		var skirmishing := (
+			not withdrawing and not fighting and FormationContact.skirmishing(squad, squads, memo)
+		)
+		var living: Array = squad.living() if squad.narrow_ticks > 0 else []
+		cases.append_array([squad.slot, int(withdrawing), int(skirmishing), living.size()])
+		for unit in living:
+			cases.append_array([unit.id, unit.slot])
+	squads[0].store.field().manoeuvre_step(cases)

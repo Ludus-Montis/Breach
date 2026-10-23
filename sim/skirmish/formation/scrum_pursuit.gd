@@ -102,17 +102,19 @@ static func step(
 			var foe: SkirmishSquad = by_id.get(chase["foe"])
 			var unit: SkirmishUnit = chase["unit"]
 			if not unit.is_alive() or not squad.loose.has(unit_id):
-				squad.chasers.erase(unit_id)
+				squad.unchase(unit_id)
 				continue
 			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(basis, unit, places))  # back
-			if not chase.get("returning", false):
+			var returning: bool = chase.get("returning", false)
+			if not returning:
 				var at: Vector2 = loose_at[unit.slot]
 				var quarry = _quarry(at, [unit, paced], foe, quarries, fight_seed)
 				if _done(chase, at, unit, quarry):
-					chase["returning"] = true
+					squad.chase_back(unit_id)
+					returning = true
 				else:
 					heads = quarry
-			walks.append([squad, unit, heads, chase.get("returning", false)])
+			walks.append([squad, unit, heads, returning])
 	var bodies := ScrumSlots.bodies(squads) if not walks.is_empty() else []
 	var crowd := BodyGrid.of_bodies(bodies) if not walks.is_empty() else {}
 	for walk in walks:
@@ -128,7 +130,7 @@ static func step(
 		loose_at[unit.slot] = stepped  # placement: its step, by UnitMover (Decision 139)
 		next[unit.slot] = stepped
 		if walk[3] and stepped.distance_to(walk[2]) < 0.000001:
-			walk[0].chasers.erase(unit.id)  # back in its place: it rejoins its formation
+			walk[0].unchase(unit.id)  # back in its place: it rejoins its formation
 			SquadEntries.unloose(walk[0], unit.id)
 	UnitView.release(held)
 
@@ -186,7 +188,7 @@ static func _tempt(enemy: SkirmishSquad, squad: SkirmishSquad, tick: int, battle
 		if not enemy.loose.has(unit.id):
 			SquadEntries.loosen(enemy, unit, at)
 		var leash := FormationDiscipline.unit_leash(enemy, unit)
-		enemy.chasers[unit.id] = {"unit": unit, "foe": squad.id, "from": at, "leash": leash}
+		enemy.chase(unit, squad.id, at, leash)
 
 
 ## Where the squad's unit nearest `at` stands (ties by the units' draws); `at` if none.

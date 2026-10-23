@@ -10,6 +10,7 @@ extends RefCounted
 ## and `seeking.rs`, spec 39 step 4a). Pure over the squads.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 
 ## Microseconds spent in plan() since it was last zeroed (the bench reads it; no outcome does).
 static var clock_usec := 0
@@ -23,14 +24,11 @@ static func plan(ctx: Dictionary) -> void:
 	clock_usec += Time.get_ticks_usec() - began
 
 
-## Ids of the squads it fights: on its front, its edges, or that fight it.
+## Ids of the squads it fights: on its front, its edges, or that fight it (the crate's
+## `locks::foe_ids`, spec 39 step 4b).
 static func foe_ids(squad: SkirmishSquad, squads: Array) -> Array:
-	var out := []
-	for other in squads:
-		if other.faction_id == squad.faction_id:
-			continue
-		var theirs: bool = other.flank_contacts.values().any(func(c): return c["foe"] == squad.id)
-		var mine: bool = squad.flank_contacts.values().any(func(c): return c["foe"] == other.id)
-		if other.id == squad.engaged_with or other.engaged_with == squad.id or theirs or mine:
-			out.append(other.id)
-	return out
+	var codes := FormationLocks.factions([squad] + squads)
+	var ids: PackedInt64Array = squad.store.field().squad_foe_ids(
+		squad.slot, FormationLocks.slots(squads), codes.slice(1), codes[0]
+	)
+	return Array(ids)

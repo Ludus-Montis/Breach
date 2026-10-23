@@ -4,7 +4,8 @@ extends UnitStore
 ## store's slots. A unit the store holds keeps its slot off the field (dead, downed), and
 ## the field enrols it again when a sync names it. Its columns live on the field too
 ## (UnitColumnsNative), where the field's syncs read them, and so does its fell queue
-## (FellQueueNative), and its squad store (SquadColumnsNative).
+## (FellQueueNative), and its squad store (SquadColumnsNative) and the squads' records
+## (SquadRecords).
 
 const UnitColumnsNative = preload("res://sim/skirmish/formation/unit_columns_native.gd")
 const SquadColumnsNative = preload("res://sim/skirmish/formation/squad_columns_native.gd")
@@ -16,6 +17,7 @@ func _init(native_field: Object) -> void:
 	_field = native_field
 	columns = UnitColumnsNative.new(native_field)
 	squads = SquadColumnsNative.new(native_field)
+	records = SquadRecords.new(native_field, self)
 	fallen = FellQueueNative.new(native_field)
 
 

@@ -121,7 +121,7 @@ static func _break(
 	squad: SkirmishSquad, squads: Array, tick: int, events: Array, terrain: FormationTerrain
 ) -> void:
 	FormationLocks.release(squad, squads)
-	squad.flank_contacts.clear()
+	squad.unflank_all()
 	squad.staging = {}
 	squad.swaps.clear()
 	squad.state = SkirmishSquad.State.ROUTING

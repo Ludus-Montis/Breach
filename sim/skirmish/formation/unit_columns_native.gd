@@ -49,6 +49,10 @@ func _init(field: Object) -> void:
 	_columns.clear()  # every column is the field's
 
 
+func field() -> Object:
+	return _field
+
+
 func column(name: StringName) -> Variant:
 	if INTS.has(name):
 		return _field.column_ints(name)

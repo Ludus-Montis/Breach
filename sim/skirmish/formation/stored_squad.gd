@@ -23,10 +23,13 @@ var store: UnitStore:
 		var row := []
 		for column in SquadColumns.BLANKS.size():
 			row.append(store.squads.value(slot, column))
+		var records: SquadRecords = store.records
+		var was := slot
 		store = value
 		slot = value.squads.open(id)
 		for column in row.size():
 			value.squads.put(slot, column, row[column])
+		value.records.carry(records, was, slot)
 		UnitState.regather(self)
 ## Which way the squad's front points along its route: +1 up it, -1 down it. An
 ## about-face flips it.
@@ -196,6 +199,63 @@ var centre_shift: float:
 		return store.squads.value(slot, SquadColumns.CENTRE_SHIFT)
 	set(value):
 		store.squads.put(slot, SquadColumns.CENTRE_SHIFT, value)
+
+## Hostile squads fighting it on its other edges (Decision 78): SquadEdges edge ->
+## {"foe": squad id, "since": tick the contact began}. A view of its records (SquadRecords):
+## set one with `flank`, clear them with `unflank_all`.
+var flank_contacts: Dictionary:
+	get:
+		return store.records.flanks(slot)
+## The scrum (FormationScrum, Decision 88): its loose units (unit id -> the unit, in the
+## order each went loose; each one's entry - where it stands loose, its next step, its goal
+## and the rest - is the store's columns, and its LOOSE bit says it has one: SquadEntries,
+## EntryKeys). A view of its records, given and taken away by SquadEntries.
+var loose: Dictionary:
+	get:
+		return store.records.loose(slot)
+## The line it re-faced to (ScrumStance), {"anchor", "heading", "foe"}; {} if none.
+var stance: Dictionary:
+	get:
+		return store.records.stance(slot)
+	set(value):
+		store.records.put_stance(slot, value)
+## Its units out chasing an enemy on their own (ScrumPursuit, Decision 109): unit id ->
+## {"unit", "foe", "from", "leash"}, and "returning" once it turns back. A view of its
+## records: set one with `chase`, turn it back with `chase_back`, end it with `unchase`.
+var chasers: Dictionary:
+	get:
+		return store.records.chasers(slot)
+## Routing (FormationRout): its fleeing units (unit id -> the unit; how far along its route
+## each is, its place off the route and the rest are the store's columns, and its FLEEING
+## bit says it has an entry: SquadEntries, EntryKeys). A view of its records.
+var fleeing: Dictionary:
+	get:
+		return store.records.fleeing(slot)
+
+
+## Sets the foe (a squad id) on its `edge` (SquadEdges), its contact begun at `since`.
+func flank(edge: int, foe: int, since: int) -> void:
+	store.field().put_squad_flank(slot, edge, foe, since)
+
+
+## Takes every flank contact away.
+func unflank_all() -> void:
+	store.field().clear_squad_flanks(slot)
+
+
+## Sends `unit` out chasing the squad `foe` (its id) from `from`, on a `leash` of cells.
+func chase(unit, foe: int, from: Vector2, leash: float) -> void:
+	store.field().put_squad_chaser(slot, unit.id, foe, from, leash)
+
+
+## The unit out chasing gives up and makes its way back ("returning").
+func chase_back(unit_id: int) -> void:
+	store.field().return_squad_chaser(slot, unit_id)
+
+
+## Calls the unit back from its chase (nothing if it isn't out).
+func unchase(unit_id: int) -> void:
+	store.field().drop_squad_chaser(slot, unit_id)
 
 
 ## Its frame read once a pass (Decision 144): [its position, heading, width, centre shift],

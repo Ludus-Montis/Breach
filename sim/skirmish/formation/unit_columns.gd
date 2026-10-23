@@ -168,6 +168,11 @@ var _columns := {
 }
 
 
+## The native BodyField the columns live on (UnitColumnsNative); none for these.
+func field() -> Object:
+	return null
+
+
 ## The column, by slot.
 func column(name: StringName) -> Variant:
 	return _columns[name]

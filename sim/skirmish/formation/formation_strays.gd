@@ -22,7 +22,7 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	UnitState.regather(squad)
 	SquadEntries.unloose(squad, unit.id)
 	SquadEntries.unflee(squad, unit.id)
-	squad.chasers.erase(unit.id)
+	squad.unchase(unit.id)
 	var members: Array[SkirmishUnit] = [unit]
 	var stray := SkirmishSquad.new(
 		0,

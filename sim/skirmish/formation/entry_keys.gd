@@ -1,14 +1,15 @@
 class_name EntryKeys
 extends RefCounted
 ## The keys of a unit's loose and fleeing entries, held in the unit store's columns (spec 35
-## step 2). A key the entry doesn't hold reads as its column's blank, the value its readers
-## took for a missing key. The KEYS column says which keys the entry holds, and for `toward`
-## and `held_by`, which may be null, whether each holds a value: the digest hashes the
-## entries with exactly the keys they hold (EntryKeys.loose_entry).
+## step 2), and set and taken out in the crate (`entries.rs`, spec 39 step 4b). A key the
+## entry doesn't hold reads as its column's blank, the value its readers took for a missing
+## key. The KEYS column says which keys the entry holds, and for `toward` and `held_by`,
+## which may be null, whether each holds a value: the digest hashes the entries with exactly
+## the keys they hold (EntryKeys.loose_entry).
 
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
-## KEYS' bits: the entry holds the key.
+## KEYS' bits (the crate's `Key::bit` and `valued`, which set them): the entry holds the key.
 const BITS := {
 	UnitColumns.FOE_AT: 1,
 	UnitColumns.TOUCH: 2,
@@ -21,7 +22,7 @@ const BITS := {
 }
 ## KEYS' bits: the key holds a value, not null.
 const VALUED := {UnitColumns.TOWARD: 8, UnitColumns.HELD_BY: 256}
-## The keys a new entry doesn't hold yet.
+## The keys a new entry doesn't hold yet (the crate's LOOSE_KEYS and FLEEING_KEYS).
 const LOOSE_KEYS := [
 	UnitColumns.FOE_AT,
 	UnitColumns.TOUCH,
@@ -30,18 +31,29 @@ const LOOSE_KEYS := [
 	UnitColumns.CLOSEST,
 ]
 const FLEEING_KEYS := [UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.FANNED]
+## The columns giving a loose entry writes, and a fleeing one; taking either away writes FLAGS.
+const LOOSENED := (
+	LOOSE_KEYS
+	+ [
+		UnitColumns.LOOSE_AT,
+		UnitColumns.NEXT,
+		UnitColumns.GOAL_FOE,
+		UnitColumns.GOAL_SLOT,
+		UnitColumns.KEYS,
+		UnitColumns.FLAGS
+	]
+)
+const FLED := (
+	FLEEING_KEYS + [UnitColumns.FLEE_OFFSET, UnitColumns.ALONG, UnitColumns.KEYS, UnitColumns.FLAGS]
+)
 
 
 ## Sets the key (`data` null only for `toward` and `held_by`).
 static func keep(columns: UnitColumns, slot: int, name: StringName, data: Variant) -> void:
-	var keys: int = columns.value(slot, UnitColumns.KEYS) | BITS[name]
-	if data == null:
-		keys &= ~VALUED[name]
-		columns.put(slot, name, UnitColumns.BLANKS[name])
-	else:
-		keys |= VALUED.get(name, 0)
-		columns.put(slot, name, data)
-	columns.put(slot, UnitColumns.KEYS, keys)
+	var field: Object = ColumnsLent.field(columns)
+	ColumnsLent.slot(
+		columns, slot, [name, UnitColumns.KEYS], func(): field.entry_keep(slot, name, data)
+	)
 
 
 ## The value of `toward` or `held_by`: null if the entry doesn't hold one.
@@ -53,11 +65,11 @@ static func held(columns: UnitColumns, slot: int, name: StringName) -> Variant:
 
 ## Takes the keys out of the entry: each reads blank again.
 static func forget(columns: UnitColumns, slot: int, names: Array) -> void:
-	var keys: int = columns.value(slot, UnitColumns.KEYS)
-	for name in names:
-		keys &= ~(BITS[name] | VALUED.get(name, 0))
-		columns.put(slot, name, UnitColumns.BLANKS[name])
-	columns.put(slot, UnitColumns.KEYS, keys)
+	var field: Object = ColumnsLent.field(columns)
+	var lend := names + [UnitColumns.KEYS]
+	ColumnsLent.slot(
+		columns, slot, lend, func(): field.entry_forget(slot, PackedStringArray(names))
+	)
 
 
 ## The foe and slot the unit seeks, [foe id, slot index], or null.

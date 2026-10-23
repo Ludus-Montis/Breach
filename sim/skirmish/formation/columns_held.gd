@@ -9,41 +9,42 @@ extends UnitColumns
 ## it (UnitView) is read and written in place, about 0.04 us an index, and every other
 ## reader sees those writes. Releasing commits every held column and gives the store its
 ## own columns back (StoreHolds). A slot opened in the pass grows the copies in place and
-## starts blank there. Nothing native may read a held column while it is held.
+## starts blank there. Nothing native may read a held column while it is held, unless the
+## pass lends them for the call (ColumnsLent).
 
 var inner: UnitColumns  # the store's own columns
 var view: RefCounted  # the UnitView the store is held under (UnitView.hold)
-var _held := {}  # name -> its copy, for the pass
+var copies := {}  # name -> its copy, for the pass (ColumnsLent lends them)
 
 
 func _init(own: UnitColumns, names: Array) -> void:
 	inner = own
 	_columns.clear()  # every column is the store's
 	for name in names:
-		_held[name] = own.column(name)
+		copies[name] = own.column(name)
 
 
 func column(name: StringName) -> Variant:
-	return _held[name] if _held.has(name) else inner.column(name)
+	return copies[name] if copies.has(name) else inner.column(name)
 
 
 func commit(name: StringName, values: Variant) -> void:
-	if not _held.has(name):
+	if not copies.has(name):
 		inner.commit(name, values)
 		return
-	assert(values.size() == _held[name].size(), "a column keeps its length")
-	var copy: Variant = _held[name]
+	assert(values.size() == copies[name].size(), "a column keeps its length")
+	var copy: Variant = copies[name]
 	for slot in range(values.size()):  # in place: arrays handed out stay the pass's
 		copy[slot] = values[slot]
 
 
 func value(slot: int, name: StringName) -> Variant:
-	return _held[name][slot] if _held.has(name) else inner.value(slot, name)
+	return copies[name][slot] if copies.has(name) else inner.value(slot, name)
 
 
 func put(slot: int, name: StringName, data: Variant) -> void:
-	if _held.has(name):
-		_held[name][slot] = data
+	if copies.has(name):
+		copies[name][slot] = data
 	else:
 		inner.put(slot, name, data)
 
@@ -51,8 +52,8 @@ func put(slot: int, name: StringName, data: Variant) -> void:
 func open(slot: int) -> void:
 	inner.open(slot)
 	_grow(slot)
-	for name in _held:
-		_held[name][slot] = BLANKS[name]
+	for name in copies:
+		copies[name][slot] = BLANKS[name]
 
 
 func reach(slot: int) -> void:
@@ -60,15 +61,15 @@ func reach(slot: int) -> void:
 	_grow(slot)
 
 
-## Commits every held column (StoreHolds.release).
+## Commits every held column (StoreHolds.release, ColumnsLent).
 func commit_held() -> void:
-	for name in _held:
-		inner.commit(name, _held[name])
+	for name in copies:
+		inner.commit(name, copies[name])
 
 
 func _grow(slot: int) -> void:
-	for name in _held:
-		var copy: Variant = _held[name]
+	for name in copies:
+		var copy: Variant = copies[name]
 		var size: int = copy.size()
 		if size <= slot:
 			copy.resize(slot + 1)
