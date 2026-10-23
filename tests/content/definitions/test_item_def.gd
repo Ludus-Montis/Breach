@@ -105,7 +105,7 @@ func test_weight_and_strength_must_not_be_negative() -> void:
 
 func test_the_units_in_play_carry_items_that_fit() -> void:
 	for name in ["grem", "grem_brute", "grem_chieftain", "grem_spitter", "kingdom_militia"]:
-		var unit: UnitDef = load("res://content/units/%s.tres" % name)
+		var unit: UnitDef = CrateContent.unit(name)
 		assert_array(unit.validate()).is_empty()
 		assert_bool(unit.items.is_empty()).is_false()
 		assert_int(unit.melee_damage()).is_greater(0)  # it fights with its innate weapons

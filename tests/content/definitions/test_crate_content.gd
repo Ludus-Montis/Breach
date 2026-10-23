@@ -48,7 +48,7 @@ func test_no_tres_definition_is_left_or_read() -> void:
 			continue
 		for file in DirAccess.get_files_at("res://content/" + kind):
 			assert_str(file.get_extension()).is_not_equal("tres")
-	var pattern := RegEx.create_from_string("content/(%s)/\\w+\\.tres" % "|".join(KINDS))
+	var pattern := RegEx.create_from_string('content/(%s)/[^"\\n]*\\.tres' % "|".join(KINDS))
 	for path in _sources("res://", []):
 		var found := pattern.search(FileAccess.get_file_as_string(path))
 		(
