@@ -69,7 +69,8 @@ Every check that doesn't need another's output runs in its own job, side by side
   job per stage).
 - **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
   as an artifact, and `base-build` does the same for the merge base; then `suite` (the suite
-  under Rust, in shards), `digests` (one job per set, each comparing its own two engines,
+  under Rust, in shards, each failing when a test does: it keeps gdUnit's exit status
+  past the `sed` that writes its log), `digests` (one job per set, each comparing its own two engines,
   and its Rust digest with the base's from a worktree of the merge base given the base's
   core: `check_outcomes.py`, Decision 151), `trials` and `scaling` (one job per
   stage) run together; `sim-checks` waits for them all and prints the SUMMARY block.
