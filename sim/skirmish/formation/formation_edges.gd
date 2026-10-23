@@ -62,7 +62,7 @@ static func _lock_on(
 	FormationLocks.lock(attacker, victim)
 	if not held.has([victim, edge]):  # a nearer attacker already holds it this tick
 		held[[victim, edge]] = true
-		victim.flank_contacts[edge] = {"foe": attacker.id, "since": tick}
+		victim.flank(edge, attacker.id, tick)
 	victim.state = SkirmishSquad.State.FIGHTING
 	var cooldowns: PackedInt32Array = victim.store.columns.column(UnitColumns.ATTACK_COOLDOWN)
 	for unit in SquadEdges.edge_units(victim, edge):

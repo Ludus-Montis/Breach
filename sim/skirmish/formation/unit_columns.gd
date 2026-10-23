@@ -168,6 +168,24 @@ var _columns := {
 }
 
 
+## The native BodyField the columns live on (UnitColumnsNative); none for these.
+func field() -> Object:
+	return null
+
+
+## Runs `call`, a native call on the field that reads or writes `slot`'s columns `names`
+## (an entry given or taken away, a key kept), and returns what it returns. A pass's hold
+## (ColumnsHeld) lends it that slot's values of those it holds around it.
+func lent(_slot: int, _names: Array, call: Callable) -> Variant:
+	return call.call()
+
+
+## Runs `call`, a native call on the field that reads or writes many slots' columns (a
+## squad's trade, a lock), and returns what it returns. A hold lends it every held column.
+func lent_all(call: Callable) -> Variant:
+	return call.call()
+
+
 ## The column, by slot.
 func column(name: StringName) -> Variant:
 	return _columns[name]

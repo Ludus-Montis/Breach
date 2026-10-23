@@ -72,7 +72,10 @@ fn a_unit_not_yet_held_long_enough_does_not_trade() {
 #[test]
 fn a_chaser_holds_its_place_and_a_line_holding_a_stance_keeps_its_units_loose() {
     let (mut squads, mut columns, units) = held_in_front([1, 1], 2.0);
-    squads.chase(0, crate::squads::Chaser { unit: 1, foe: 9, from: V2::ZERO, leash: 4.0 });
+    squads.chase(
+        0,
+        crate::squads::Chaser { unit: 1, foe: 9, from: V2::ZERO, leash: 4.0, returning: false },
+    );
     squads.stance[0] = Some(crate::squads::Stance { anchor: V2::ZERO, heading: 90.0, foe: 9 });
     trade(&mut squads, &mut columns, &trading(&units));
     assert_eq!(columns.rank[1], 1);

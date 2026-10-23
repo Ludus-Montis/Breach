@@ -2551,6 +2551,20 @@ impl BodyField {
         PackedInt64Array::from(self.squads.fleeing[squad as usize].as_slice())
     }
 
+    /// Sets who of the squad has a loose and a fleeing entry, as they stand in another
+    /// store (a squad carried there, SquadRecords.carry): the entries' columns are the units'.
+    #[func]
+    fn put_squad_entries(
+        &mut self,
+        squad: i64,
+        loose: PackedInt64Array,
+        fleeing: PackedInt64Array,
+    ) {
+        self.squads.loose[squad as usize] = loose.as_slice().to_vec();
+        self.squads.fleeing[squad as usize] = fleeing.as_slice().to_vec();
+        self.edits += 1;
+    }
+
     /// The squad's stance as [anchor x, y, heading, foe], or empty for none.
     #[func]
     fn squad_stance(&self, squad: i64) -> PackedFloat64Array {
@@ -2599,13 +2613,17 @@ impl BodyField {
         self.edits += 1;
     }
 
-    /// The squad's chasers as [unit id, foe, from x, y, leash] each, in the order each set out.
+    /// The squad's chasers as [unit id, foe, from x, y, leash, 1 if returning else 0] each, in
+    /// the order each set out.
     #[func]
     fn squad_chasers(&self, squad: i64) -> PackedFloat64Array {
         let chasers = &self.squads.chasers[squad as usize];
         let flat: Vec<f64> = chasers
             .iter()
-            .flat_map(|c| [c.unit as f64, c.foe as f64, c.from.x as f64, c.from.y as f64, c.leash])
+            .flat_map(|c| {
+                let back = if c.returning { 1.0 } else { 0.0 };
+                [c.unit as f64, c.foe as f64, c.from.x as f64, c.from.y as f64, c.leash, back]
+            })
             .collect();
         PackedFloat64Array::from(flat.as_slice())
     }
@@ -2613,8 +2631,18 @@ impl BodyField {
     /// Sends the unit out chasing `foe` (a squad id) from `from`, on `leash` cells.
     #[func]
     fn put_squad_chaser(&mut self, squad: i64, unit_id: i64, foe: i64, from: Vector2, leash: f64) {
-        self.squads
-            .chase(squad as usize, squads::Chaser { unit: unit_id, foe, from: v2(from), leash });
+        let chaser = squads::Chaser { unit: unit_id, foe, from: v2(from), leash, returning: false };
+        self.squads.chase(squad as usize, chaser);
+        self.edits += 1;
+    }
+
+    /// The unit out chasing gives up and makes its way back.
+    #[func]
+    fn return_squad_chaser(&mut self, squad: i64, unit_id: i64) {
+        let chasers = &mut self.squads.chasers[squad as usize];
+        if let Some(chaser) = chasers.iter_mut().find(|c| c.unit == unit_id) {
+            chaser.returning = true;
+        }
         self.edits += 1;
     }
 
@@ -2641,9 +2669,19 @@ impl BodyField {
 
     /// SquadEntries.unloose (nothing if the unit has no loose entry).
     #[func]
-    fn unloose(&mut self, squad: i64, unit_id: i64, slot: i64) {
-        let columns = &mut self.field.columns;
-        entries::unloose(&mut self.squads, columns, squad as usize, (unit_id, slot as usize));
+    fn unloose(&mut self, squad: i64, unit_id: i64) {
+        match self.field.slot_of(unit_id) {
+            Some(slot) => {
+                let columns = &mut self.field.columns;
+                entries::unloose(
+                    &mut self.squads,
+                    columns,
+                    squad as usize,
+                    (unit_id, slot as usize),
+                );
+            }
+            None => self.squads.loose[squad as usize].retain(|&id| id != unit_id),
+        }
         self.edits += 1;
     }
 
@@ -2673,9 +2711,19 @@ impl BodyField {
 
     /// SquadEntries.unflee (nothing if the unit has no fleeing entry).
     #[func]
-    fn unflee(&mut self, squad: i64, unit_id: i64, slot: i64) {
-        let columns = &mut self.field.columns;
-        entries::unflee(&mut self.squads, columns, squad as usize, (unit_id, slot as usize));
+    fn unflee(&mut self, squad: i64, unit_id: i64) {
+        match self.field.slot_of(unit_id) {
+            Some(slot) => {
+                let columns = &mut self.field.columns;
+                entries::unflee(
+                    &mut self.squads,
+                    columns,
+                    squad as usize,
+                    (unit_id, slot as usize),
+                );
+            }
+            None => self.squads.fleeing[squad as usize].retain(|&id| id != unit_id),
+        }
         self.edits += 1;
     }
 
@@ -2712,9 +2760,9 @@ impl BodyField {
 
     /// EntryKeys.forget: takes the keys (their UnitColumns names) out of the entry in `slot`.
     #[func]
-    fn entry_forget(&mut self, slot: i64, keys: Array<StringName>) {
+    fn entry_forget(&mut self, slot: i64, keys: PackedStringArray) {
         let keys: Vec<entries::Key> =
-            keys.iter_shared().filter_map(|k| entries::Key::named(&k.to_string())).collect();
+            keys.as_slice().iter().filter_map(|k| entries::Key::named(&k.to_string())).collect();
         entries::forget(&mut self.field.columns, slot as usize, &keys);
     }
 
@@ -2811,8 +2859,9 @@ impl BodyField {
 
     /// ScrumEngage.step over the listed squads (`slots`, in the lists' order): each one's
     /// faction (a code), whether units joined it on the march, and how many living units
-    /// follow in `units` (store slots), `ats` (where each stands) and `radii`. Returns each
-    /// lock as [its index in the list, the foe's id].
+    /// follow in `units` (store slots), `ats` (where each stands) and `feet` (each one's
+    /// footprint, width and depth). Returns each lock as [its index in the list, the foe's
+    /// id].
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn engage(
@@ -2823,11 +2872,12 @@ impl BodyField {
         counts: PackedInt32Array,
         units: PackedInt32Array,
         ats: PackedVector2Array,
-        radii: PackedFloat64Array,
+        feet: PackedInt32Array,
         reach_engage: f64,
         seed: i64,
     ) -> PackedInt64Array {
         let points = v2s(&ats);
+        let feet = feet.as_slice();
         let mut sides = Vec::new();
         let mut from = 0;
         for (n, &count) in counts.as_slice().iter().enumerate() {
@@ -2838,7 +2888,7 @@ impl BodyField {
                 joined: joined.as_slice()[n] != 0,
                 slots: units.as_slice()[from..to].to_vec(),
                 at: points[from..to].to_vec(),
-                radii: radii.as_slice()[from..to].to_vec(),
+                radii: (from..to).map(|u| reach::radius(feet[2 * u] as i64, feet[2 * u + 1] as i64)).collect(),
             });
             from = to;
         }

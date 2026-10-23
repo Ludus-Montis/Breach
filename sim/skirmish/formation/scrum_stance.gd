@@ -8,19 +8,19 @@ extends RefCounted
 ## commits to it: it faces that enemy while it is still a threat, not swinging to another. Its
 ## units walk there at its re-form pace and keep to those places until the threat has
 ## gone; it doesn't march meanwhile. A less disciplined squad meets it unit by unit. Two
-## threats equally near: the squads' seeded draw picks, not the list (Decision 97). Pure.
+## threats equally near: the squads' seeded draw picks, not the list (Decision 97). The
+## rules are the crate's (`stance.rs`, spec 39 step 4b). Pure.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
-const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
 const FormationSight = preload("res://sim/skirmish/formation/formation_sight.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 
 
@@ -53,132 +53,80 @@ static func frame(squad: SkirmishSquad) -> Array:
 	return SquadFrame.basis(squad.stance["anchor"], squad.stance["heading"], squad.width, 0.0)
 
 
-## Every squad, in turn, meets the threats it sees (anticipate), sharing one SquadMemo: a
-## stance moves no squad's frame or units.
+## Every squad, in turn, meets the threats it sees, sharing one SquadMemo: a stance moves no
+## squad's frame or units. The rules are the crate's (`stance.rs`, spec 39 step 4b): this
+## hands it each squad's bounds, whether it meets threats as a line (FormationDiscipline),
+## and the hostiles each that may look sees (FormationSight); it lets go of stances in place
+## and returns the new ones, whose anchors are worked out here (SquadEdges.reach).
 static func anticipate_all(
 	squads: Array, tick: int, events: Array, terrain: FormationTerrain, fight_seed: int = 0
 ) -> void:
+	if squads.is_empty():
+		return
 	var memo := SquadMemo.new()
+	var factions := FormationLocks.factions(squads)
+	var flags := PackedByteArray()
+	var boxes := PackedVector2Array()
 	for squad in squads:
-		anticipate(squad, squads, tick, events, terrain, fight_seed, memo)
+		var area := memo.bounds(squad)
+		boxes.append_array([area.position, area.size])
+		var meets := _looks(squad) and FormationDiscipline.meets_threats(squad)
+		flags.append(int(not memo.living(squad).is_empty()) | (2 if meets else 0))
+	var counts := PackedInt32Array()
+	var seen := PackedInt32Array()
+	for index in squads.size():
+		var before := seen.size()
+		if flags[index] & 2:
+			_sees(index, [squads, factions, flags], [terrain, memo], seen)
+		counts.append(seen.size() - before)
+	var field: Object = squads[0].store.field()
+	var turns: PackedFloat64Array = field.anticipate(
+		FormationLocks.slots(squads),
+		factions,
+		flags,
+		boxes,
+		counts,
+		seen,
+		BattleTuning.current().scrum_anticipate,
+		fight_seed
+	)
+	for at in range(0, turns.size(), 3):
+		_turn(squads[int(turns[at])], [turns[at + 1], int(turns[at + 2])], [tick, memo], events)
 
 
-## A disciplined squad with a free front turns its line to meet a threat it sees closing
-## in at another face; it lets the stance go once none is and it isn't fighting. `memo`:
-## the phase's (SquadMemo).
-static func anticipate(
-	squad: SkirmishSquad,
-	squads: Array,
-	tick: int,
-	events: Array,
-	terrain: FormationTerrain,
-	fight_seed: int = 0,
-	memo: SquadMemo = null
-) -> void:
-	if memo == null:
-		memo = SquadMemo.new()
+## True if the squad may meet a threat: marching, holding or fighting, its front free.
+static func _looks(squad: SkirmishSquad) -> bool:
 	var able := (
 		squad.state
 		in [SkirmishSquad.State.HOLDING, SkirmishSquad.State.MOVING, SkirmishSquad.State.FIGHTING]
 	)
-	if not able or squad.engaged_with != 0:
-		return
-	if not FormationDiscipline.meets_threats(squad):
-		if squad.state != SkirmishSquad.State.FIGHTING:
-			squad.stance = {}  # it can't hold a re-formed line: back to its places
-		return
-	if _committed(squad, squads, memo):
-		return  # it made its call: it faces that enemy while it is still a threat
-	var seeing := [terrain, fight_seed, memo]
-	var found := _threat(squad, squads, seeing, true)
-	var threat: int = found[0]
-	if threat < 0 or threat == SquadEdges.FRONT:
-		var gone: bool = _threat(squad, squads, seeing, false)[0] < 0
-		var holds := squad.order == SkirmishUnit.Order.HOLD and not gone
-		if (
-			squad.state != SkirmishSquad.State.FIGHTING
-			and (not holds or threat == SquadEdges.FRONT)
-		):
-			squad.stance = {}  # a holding line keeps it while that enemy is near (Decision 94)
-		return
-	var heading := fposmod(squad.heading + threat * 90.0, 360.0)
-	if not squad.stance.is_empty() and is_equal_approx(squad.stance["heading"], heading):
-		return
-	var centre := memo.bounds(squad).get_center()
-	var outward := UnitMotion.vector(heading)
-	var face := centre + outward * (memo.reach(squad, outward).y - centre.dot(outward))
-	squad.stance = {"anchor": face, "heading": heading, "foe": found[1]}
-	var faced := {"heading": heading, "facing": posmod(roundi(heading / 90.0), 4)}
-	events.append(FormationEvents.squad_event("faced", tick, squad, faced))
+	return able and squad.engaged_with == 0
 
 
-## True if the squad holds a re-formed line towards an enemy that is still a threat - alive,
-## not routing, within scrum_anticipate cells, and closing in (or near a line ordered to hold): it
-## doesn't swing to another.
-static func _committed(squad: SkirmishSquad, squads: Array, memo: SquadMemo) -> bool:
-	if squad.stance.is_empty() or not squad.stance.has("foe"):
-		return false
-	for other in squads:
-		if other.id != squad.stance["foe"]:
-			continue
-		if other.is_destroyed() or other.state == SkirmishSquad.State.ROUTING:
-			return false
-		var holding := squad.order == SkirmishUnit.Order.HOLD
-		var pressing := holding or _closing(other, squad, memo)
-		return pressing and _gap(squad, other, memo) <= BattleTuning.current().scrum_anticipate
-	return false
-
-
-## [edge, squad id]: the edge of the squad's frame (SquadEdges) facing the nearest seen
-## hostile within scrum_anticipate cells - closing in, if `closing` - or [-1, 0]. `seeing` = [the
-## terrain, the battle seed, the phase's SquadMemo].
-static func _threat(squad: SkirmishSquad, squads: Array, seeing: Array, closing: bool) -> Array:
-	var terrain: FormationTerrain = seeing[0]
-	var memo: SquadMemo = seeing[2]
-	var area := memo.bounds(squad)
-	var best := [BattleTuning.current().scrum_anticipate + 0.000001, 0]
-	var edge := -1
-	var foe := 0
-	for other in squads:
-		if other.faction_id == squad.faction_id or memo.living(other).is_empty():
+## Appends to `seen` the indices of the listed hostiles, living and not routing, that the
+## squad at `index` detects. `listed` = [the squads, their faction codes, their flags];
+## `seeing` = [the terrain, the phase's SquadMemo].
+static func _sees(index: int, listed: Array, seeing: Array, seen: PackedInt32Array) -> void:
+	var squads: Array = listed[0]
+	var squad: SkirmishSquad = squads[index]
+	for other_index in squads.size():
+		var other: SkirmishSquad = squads[other_index]
+		if listed[1][other_index] == listed[1][index] or not listed[2][other_index] & 1:
 			continue
 		if other.state == SkirmishSquad.State.ROUTING:
 			continue
-		if not FormationSight.detects(squad, other, terrain, memo):
-			continue
-		if closing and not _closing(other, squad, memo):
-			continue
-		var gap := [
-			snappedf(_gap(squad, other, memo), 0.000001), ScrumContest.squad_draw(other, seeing[1])
-		]
-		if gap < best:
-			best = gap
-			var theirs := memo.bounds(other)
-			var point := area.get_center().clamp(theirs.position, theirs.end)
-			var bearing := UnitMotion.bearing_to(area.get_center(), point, squad.heading)
-			edge = posmod(roundi(fposmod(bearing - squad.heading, 360.0) / 90.0), 4)
-			foe = other.id
-	return [edge, foe]
+		if FormationSight.detects(squad, other, seeing[0], seeing[1]):
+			seen.append(other_index)
 
 
-static func _gap(squad: SkirmishSquad, other: SkirmishSquad, memo: SquadMemo) -> float:
-	var area := memo.bounds(squad)
-	var theirs := memo.bounds(other)
-	var nearest := theirs.get_center().clamp(area.position, area.end)
-	return nearest.distance_to(nearest.clamp(theirs.position, theirs.end))
-
-
-## True if `other` is closing in on `squad`: marching with its front towards it, or
-## fighting it. A line holding its ground, or fighting someone else, is no reason to
-## re-form.
-static func _closing(other: SkirmishSquad, squad: SkirmishSquad, memo: SquadMemo) -> bool:
-	var fights_it: bool = (
-		other.engaged_with == squad.id
-		or other.flank_contacts.values().any(func(c): return c["foe"] == squad.id)
-	)
-	if fights_it:
-		return true
-	if other.state != SkirmishSquad.State.MOVING:
-		return false
-	var towards := memo.bounds(squad).get_center() - memo.bounds(other).get_center()
-	return towards.dot(UnitMotion.vector(other.heading)) > 0.0
+## The squad takes up a line facing `facing` = [heading, the foe's id]: its frame's anchor
+## at the face of its footprints that way. `when` = [the tick, the phase's SquadMemo].
+static func _turn(squad: SkirmishSquad, facing: Array, when: Array, events: Array) -> void:
+	var memo: SquadMemo = when[1]
+	var heading: float = facing[0]
+	var centre := memo.bounds(squad).get_center()
+	var outward := UnitMotion.vector(heading)
+	var face := centre + outward * (memo.reach(squad, outward).y - centre.dot(outward))
+	squad.stance = {"anchor": face, "heading": heading, "foe": facing[1]}
+	var faced := {"heading": heading, "facing": posmod(roundi(heading / 90.0), 4)}
+	events.append(FormationEvents.squad_event("faced", when[0], squad, faced))

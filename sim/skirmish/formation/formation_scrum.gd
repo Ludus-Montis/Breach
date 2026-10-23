@@ -134,21 +134,22 @@ static func _seek(ctx: Dictionary) -> void:
 	ScrumFaceField.face(ctx)
 
 
-## Releases fights where nobody on either side has touched or sought a foe for a while.
+## Releases fights where nobody on either side has touched or sought a foe for a while, in
+## the crate (`manoeuvre::stall`, spec 39 step 4b).
 static func _stall(
 	squads: Array, active: Dictionary, tick: int, tick_seconds: float, events: Array
 ) -> void:
-	var stalled := []
+	if squads.is_empty():
+		return
+	var ticks := roundi(BattleTuning.current().scrum_stall_seconds / tick_seconds)
+	var stalled: PackedInt32Array = squads[0].store.field().scrum_stall(
+		FormationLocks.slots(squads),
+		FormationLocks.factions(squads),
+		PackedInt64Array(active.keys()),
+		ticks
+	)
+	var by_slot := {}
 	for squad in squads:
-		if squad.state != SkirmishSquad.State.FIGHTING:
-			continue
-		var quiet := not active.has(squad.id)
-		for foe_id in ScrumSeek.foe_ids(squad, squads):
-			quiet = quiet and not active.has(foe_id)
-		squad.stall_ticks = squad.stall_ticks + 1 if quiet else 0
-		if squad.stall_ticks >= roundi(BattleTuning.current().scrum_stall_seconds / tick_seconds):
-			stalled.append(squad)
-	for squad in stalled:
-		squad.stall_ticks = 0
-		FormationLocks.release(squad, squads)
-		events.append(FormationEvents.squad_event("disengaged", tick, squad))
+		by_slot[squad.slot] = squad
+	for slot in stalled:
+		events.append(FormationEvents.squad_event("disengaged", tick, by_slot[slot]))

@@ -111,12 +111,12 @@ func test_a_rear_hit_is_a_bigger_shock() -> void:
 func test_pressure_grows_with_the_sides_fought_on() -> void:
 	var squad := _squad(1, [_unit(1, 0)])
 	squad.engaged_with = 99
-	squad.flank_contacts[SquadEdges.RIGHT] = {"foe": 98, "since": 0}
+	squad.flank(SquadEdges.RIGHT, 98, 0)
 	var events := []
 
 	FormationMorale.step([squad], 10, 10, events)
 	assert_int(squad.morale).is_equal(60 - 3)
-	squad.flank_contacts[SquadEdges.REAR] = {"foe": 97, "since": 0}
+	squad.flank(SquadEdges.REAR, 97, 0)
 	FormationMorale.step([squad], 20, 10, events)
 	assert_int(squad.morale).is_equal(60 - 3 - 9)
 
@@ -124,7 +124,7 @@ func test_pressure_grows_with_the_sides_fought_on() -> void:
 func test_a_friend_beside_a_fought_side_takes_its_pressure() -> void:
 	var squad := _squad(1, [_unit(1, 0)])
 	squad.engaged_with = 99
-	squad.flank_contacts[SquadEdges.RIGHT] = {"foe": 98, "since": 0}
+	squad.flank(SquadEdges.RIGHT, 98, 0)
 	var friend := _squad(2, [_unit(2, 0)])
 	friend.front_distance = 0.0
 	friend.centre_shift = 1.5  # one cell along: beside the squad's right (south) face

@@ -9,7 +9,8 @@ extends UnitColumns
 ## it (UnitView) is read and written in place, about 0.04 us an index, and every other
 ## reader sees those writes. Releasing commits every held column and gives the store its
 ## own columns back (StoreHolds). A slot opened in the pass grows the copies in place and
-## starts blank there. Nothing native may read a held column while it is held.
+## starts blank there. Nothing native may read a held column while it is held, unless the
+## pass lends them for the call (`lent`, `lent_all`).
 
 var inner: UnitColumns  # the store's own columns
 var view: RefCounted  # the UnitView the store is held under (UnitView.hold)
@@ -21,6 +22,30 @@ func _init(own: UnitColumns, names: Array) -> void:
 	_columns.clear()  # every column is the store's
 	for name in names:
 		_held[name] = own.column(name)
+
+
+func field() -> Object:
+	return inner.field()
+
+
+## The held values of `slot` among `names` go to the store before `call` and are read back
+## after it.
+func lent(slot: int, names: Array, call: Callable) -> Variant:
+	var lending := names.filter(func(name): return _held.has(name) and slot < _held[name].size())
+	for name in lending:
+		inner.put(slot, name, _held[name][slot])
+	var out: Variant = call.call()
+	for name in lending:
+		_held[name][slot] = inner.value(slot, name)
+	return out
+
+
+## Every held column goes to the store before `call` and is read back after it.
+func lent_all(call: Callable) -> Variant:
+	commit_held()
+	var out: Variant = call.call()
+	take_back()
+	return out
 
 
 func column(name: StringName) -> Variant:
@@ -60,10 +85,21 @@ func reach(slot: int) -> void:
 	_grow(slot)
 
 
-## Commits every held column (StoreHolds.release).
+## Commits every held column (StoreHolds.release, and `lend`).
 func commit_held() -> void:
 	for name in _held:
 		inner.commit(name, _held[name])
+
+
+## Reads every held column back from the store into its copy, in place, so the arrays
+## handed out stay the pass's: after a native call the pass lent them to (`lent_all`) wrote
+## the store.
+func take_back() -> void:
+	for name in _held:
+		var fresh: Variant = inner.column(name)
+		var copy: Variant = _held[name]
+		for slot in range(fresh.size()):
+			copy[slot] = fresh[slot]
 
 
 func _grow(slot: int) -> void:

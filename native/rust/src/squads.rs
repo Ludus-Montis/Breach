@@ -85,14 +85,15 @@ pub struct Flank {
     pub since: i64,
 }
 
-/// A unit out chasing on its own: its id, the squad it chases, where it set out from and
-/// its leash.
+/// A unit out chasing on its own: its id, the squad it chases, where it set out from, its
+/// leash, and whether it has given up and is on its way back.
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Chaser {
     pub unit: i64,
     pub foe: i64,
     pub from: V2,
     pub leash: f64,
+    pub returning: bool,
 }
 
 /// A squad not yet turned faces east (`heading`).

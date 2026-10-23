@@ -28,38 +28,22 @@ var facing: int:
 		return posmod(roundi(heading / 90.0), 4)
 	set(value):
 		heading = posmod(value, 4) * 90.0
-## Hostile squads fighting it on its other edges (Decision 78): SquadEdges edge ->
-## {"foe": squad id, "since": tick the contact began}.
-var flank_contacts := {}
-## The scrum (FormationScrum, Decision 88): its loose units (unit id -> the unit, in the
-## order each went loose; each one's entry - where it stands loose, its next step, its goal
-## and the rest - is the store's columns, and its LOOSE bit says it has one: SquadEntries,
-## EntryKeys), the line it re-faced to {"anchor", "heading"},
-## the tick its fight began (-1: none) and ticks with nobody able to strike.
-var loose := {}
-var stance := {}
 ## Its units out taking the downed (FormationTaking): unit id -> the body; the tick they
 ## set out (-1: none), and the tick it gave up on them (-1: none) - it then marches on.
 var taking := {}
 ## Pursuit (ScrumPursuit, Decision 109): whether it may pursue a retreating enemy (false:
-## ordered not to), and its units out chasing one on their own (unit id -> {"unit", "foe",
-## "from", "leash"}).
+## ordered not to); its units out chasing one on their own are `chasers` (StoredSquad).
 var pursues: bool:
 	get:
 		return command.pursues
 	set(value):
 		command.pursues = value
-var chasers := {}
 ## A pursuit under way (FormationPursuit): the enemy, the post it left, and how it held it.
 var pursuit := {}
 ## A withdrawal under way (FormationWithdraw): ticks it has felt safe; empty when none.
 var withdraw := {}
 ## A hold-until order (FormationStaging, Decision 87); empty when it has none.
 var staging := {}
-## Routing (FormationRout): its fleeing units (unit id -> the unit; how far along its route
-## each is, its place off the route and the rest are the store's columns, and its FLEEING
-## bit says it has an entry: SquadEntries, EntryKeys), and ticks with no enemy near.
-var fleeing := {}
 ## Its command's orders (FormationCommand): hurrying and tending its own downed.
 var hurry: bool:
 	get:

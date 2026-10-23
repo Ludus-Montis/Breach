@@ -49,14 +49,9 @@ static func framed(target: SkirmishSquad) -> bool:
 
 ## True if the squad seeks combat: not one retreating or routing (it is getting away), nor
 ## one that has arrived or is waiting (Decision 111).
+## The crate's rule (`locks::can_engage`, spec 39 step 4b).
 static func can_engage(candidate: SkirmishSquad) -> bool:
-	return (
-		candidate.state != SkirmishSquad.State.DESTROYED
-		and candidate.state != SkirmishSquad.State.ARRIVED
-		and candidate.state != SkirmishSquad.State.ROUTING
-		and candidate.order != SkirmishUnit.Order.RETREAT
-		and candidate.wait_ticks == 0
-	)
+	return candidate.store.field().squad_can_engage(candidate.slot)
 
 
 ## The hostile front within melee reach of `from`'s, facing it: the nearest, a tie going

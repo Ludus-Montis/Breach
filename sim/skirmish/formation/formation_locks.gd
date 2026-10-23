@@ -2,38 +2,34 @@ class_name FormationLocks
 extends RefCounted
 ## Which squads are locked in a fight (Decisions 40 and 47): a lock makes a squad fight its
 ## foe from this tick; a release frees it and everyone fighting it. A turning squad keeps
-## turning through either and takes up the fight when the turn ends (Decision 74).
-## Pure over the squads it is given.
+## turning through either and takes up the fight when the turn ends (Decision 74). The
+## rules are the crate's (`locks.rs`, spec 39 step 4b), on the squads' own store.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 
 
 static func lock(squad: SkirmishSquad, foe: SkirmishSquad) -> void:
-	squad.engaged_with = foe.id
-	squad.state = SkirmishSquad.State.FIGHTING
-	if not squad.joined.is_empty():
-		squad.reforming = true  # units merged on the march may now spread
-	var cooldowns: PackedInt32Array = squad.store.columns.column(UnitColumns.ATTACK_COOLDOWN)
-	for unit in squad.living():
-		cooldowns[unit.slot] = 1  # the first blows land this tick
-	squad.store.columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
+	var living := PackedInt32Array(squad.living().map(func(unit): return unit.slot))
+	var joined: bool = not squad.joined.is_empty()
+	var columns: UnitColumns = squad.store.columns
+	var field: Object = columns.field()
+	columns.lent_all(func(): field.squad_lock(squad.slot, foe.id, living, joined))
 
 
 ## Ends a squad's fight and frees every squad that was fighting it, front or flank.
 static func release(released: SkirmishSquad, squads: Array) -> void:
-	_free(released)
-	for other in squads:
-		if other.engaged_with == released.id:
-			_free(other)
-		for edge in other.flank_contacts.keys():
-			if other.flank_contacts[edge]["foe"] == released.id:
-				other.flank_contacts.erase(edge)
-		if other.flank_contacts.is_empty() and other.engaged_with == 0:
-			if other.state == SkirmishSquad.State.FIGHTING:
-				other.state = SkirmishSquad.State.MOVING
+	released.store.field().squad_release(released.slot, slots(squads))
 
 
-static func _free(squad: SkirmishSquad) -> void:
-	squad.engaged_with = 0
-	if squad.state == SkirmishSquad.State.FIGHTING and squad.flank_contacts.is_empty():
-		squad.state = SkirmishSquad.State.MOVING
+## The squads' slots in their store, in the lists' order.
+static func slots(squads: Array) -> PackedInt32Array:
+	return PackedInt32Array(squads.map(func(squad): return squad.slot))
+
+
+## The squads' factions as codes, the same for one faction (by its first in the list).
+static func factions(squads: Array) -> PackedInt32Array:
+	var codes := {}
+	var out := PackedInt32Array()
+	for squad in squads:
+		out.append(codes.get_or_add(squad.faction_id, codes.size()))
+	return out

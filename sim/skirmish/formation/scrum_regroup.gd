@@ -31,16 +31,15 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 ## The walking-back units' loose points and bearings, held for the pass (UnitView).
-## Their places too (UnitView.PLACES): a squad's trade (ScrumTrade) writes them as the
-## walks go on, so every walk reads the last write. And how long each has stalled, which
-## each squad's trade reads whole (Decision 150).
+## Their places too (UnitView.PLACES): a squad's trade (ScrumTrade, in the crate) writes
+## them as the walks go on, lent the hold (UnitColumns.lent_all), so every walk reads the last
+## write. How long each has stalled is the crate's to note (ScrumTrade.track): not held.
 const HELD := [
 	UnitColumns.LOOSE_AT,
 	UnitColumns.NEXT,
 	UnitColumns.BEARING,
 	UnitColumns.RANK,
 	UnitColumns.COLUMN,
-	UnitColumns.STUCK,
 ]
 
 
@@ -71,7 +70,7 @@ static func step(
 		moving["bodies"] = ScrumSlots.bodies(squads)
 		moving["crowd"] = BodyGrid.of_bodies(moving["bodies"])
 	# each unit read and stepped: held once for every squad walking (nothing native runs
-	# in the walks or trades)
+	# in the walks; a trade is lent the hold)
 	var held := UnitView.hold(walking, HELD)
 	moving["paces"] = {}  # store -> a read view of SPEED, which nothing here writes
 	for entry in regrouping:
