@@ -155,7 +155,7 @@ pub fn load_file<T: DeserializeOwned>(path: &Path) -> Result<T, LoadError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// A fresh directory under the system's temp dir, for files a test writes.

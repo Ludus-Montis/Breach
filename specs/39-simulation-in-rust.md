@@ -129,6 +129,16 @@ The ground (`FormationTerrain`, `sim/ground/`), routes (`FormationRoute`), the o
 (`FormationMarch`, `FormationWalk`, `FormationSweep`, `FormationShuffle`, `FormationStaging`).
 Spec 34 items 3 and 5 and Q12 (#268) are carried as they are: terrain does today what it does.
 
+- **Split** (2026-10-23, the implementing session, as Status allows: about 3,300 lines of
+  GDScript in some 29 classes): **3a** the ground (`FormationTerrain`, `TerrainObscurance`,
+  `sim/ground/`); **3b** routes and the mover (`FormationRoute`, `RoutePatch`, `UnitMotion`,
+  `UnitMover`, `TerrainStep`, `UnitSteer`); **3c** pathing (`FormationPathing`, `PathSearch`,
+  `PathFrontier`, `PathMemory`, `PathSight`, `TerrainPaths`, `SquadPathfinder`,
+  `WalkerShares`, `ClimbBudget`); **3d** the march (`FormationMarch`, `FormationWalk`,
+  `FormationPour`, `WalkModes`, `FormationSweep`, `FormationShuffle`, `ShuffleFront`,
+  `FormationStaging`). 3d's PR closes the step. `TerrainWalker` (a unit's walker, built from
+  its definition) stays GDScript until the units' rules port; the crate takes its fields.
+
 ### Step 4, the scrum, regroup and the pursuits
 
 `FormationScrum` and everything it calls: the stance, the manoeuvre, seek, the walk, facing,
@@ -482,6 +492,39 @@ Decision's conditions.
     in-process. The Python server and its tests went: the server's scenarios are cargo tests
     (`server_tests.rs`), and the page's JavaScript tests, which Python only drove, run with
     `node --test` (`tools/designer/test/`, in pre-commit when Node is installed).
+
+### Step 3a, the ground in the crate
+
+- **The ground** (`native/rust/src/ground/mod.rs`, `Ground`): the cells (cost, height,
+  depth, climb, flows and blocking sight), painting them, a walker's crossing (cost, slope,
+  liquid by its height, climbing and swimming by the pair rule), its mode, the high ground
+  and the fastest ground painted, with the tuning's `ground_*` read when it is made. The
+  cells keep the GDScript's precision (cost, depth and obscurance in f32, as its packed
+  arrays did); points are f32 (`Vector2`), shares f64.
+- **Sight** (`ground/sight.rs`): TerrainObscurance's cells, fog, sums along a line and the
+  budget's test, its box in f32 as `Rect2` computes it.
+- **The surface** (`ground/surface.rs`): GroundSurface, GroundRelief and GroundChannels on
+  the crate's `MapLayout` and terrain library. Nothing in Godot read them (only their
+  tests), so they have no binding.
+- **The binding** (`TerrainGround`, `lib.rs`): `FormationTerrain` is a view over it under
+  both engines, its API unchanged, so its 33 readers keep their code. A walker is passed as
+  its fields. `TerrainObscurance` is a view over the same ground (`terrain.obscurance`).
+  `walker_shares` stays on the view for `WalkerShares` until 3c.
+- **Identical:** before the GDScript was deleted, a one-off script (deleted) painted 60
+  random grounds and compared old and new on 180,060 queries (crossing, mode, factor,
+  height, sight blocking, the high ground, the fastest, obscurance at a point and along a
+  line, with and without a limit, and the budget's test), all equal bit for bit; and the
+  old surface's values on 25 random layouts (relief, channels, liquids; 3,750 columns) were
+  equal to the crate's. Outcomes unchanged: CI's digests compare with `main`.
+- **Retired:** `sim/ground/` and `tests/sim/ground/`; the GDScript bodies of
+  `FormationTerrain` and `TerrainObscurance`; the pure scenarios of
+  `test_formation_terrain.gd` and `test_sight_obscurance.gd` (now cargo tests). Their
+  scenarios through a battle or a path plan stay gdUnit until those port.
+- **Tests:** cargo (`ground/tests.rs`: cost, slope and cliffs, water by height, the pair rule
+  for swimming and climbing, modes a walker may not use, the fastest ground, blocking sight,
+  obscurance's sums, fog, either way and mirrored, paint order and cell edges; the surface's
+  levels, shapes, slopes, digging, cliffs, ceiling, relief, channels, liquids and banks; the
+  relief noise's bits as Godot gave them).
 
 ## Open, for the implementing session to settle and record here
 
