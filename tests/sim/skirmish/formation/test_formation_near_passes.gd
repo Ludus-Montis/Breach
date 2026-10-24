@@ -1,14 +1,12 @@
 extends GdUnitTestSuite
 ## The passes that look only near (BodyGrid) give what a look at everything gives (spec 30
-## round 3, Decision 97): the bodies underfoot, the bearers for the downed, the nearest
-## formation one coming to joins, and the gap between two groups meeting - each checked
-## against a plain search of every unit over a scattered field.
+## round 3, Decision 97): the bodies underfoot, the bearers for the downed and the nearest
+## formation one coming to joins - each checked against a plain search of every unit over a
+## scattered field. The gap between two groups meeting is the crate's (`groups/tests.rs`).
 
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
-const FormationGroups = preload("res://sim/skirmish/formation/formation_groups.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
@@ -147,33 +145,3 @@ func test_one_coming_to_joins_the_formation_a_look_at_all_finds() -> void:
 			joined[best != null] += 1
 	assert_int(joined[true]).is_greater(0)
 	assert_int(joined[false]).is_greater(0)
-
-
-func test_the_gap_between_groups_is_exact_within_group_join() -> void:
-	var join := BattleTuning.current().group_join
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 9
-	var within := 0
-	for trial in 20:
-		var one := _squad(1, "player", _scatter(rng, 30 if trial % 2 == 0 else 8, "player", 1))
-		var other := _squad(2, "player", _scatter(rng, 30, "player", 100))
-		for unit in other.units:
-			_places.move(unit, _places.at(unit) + Vector2(trial * 2.0, 0))
-		one.position = Vector2(20, 20)
-		other.position = Vector2(20 + trial * 2.0, 20)
-		one.width = 40
-		other.width = 40
-		var least := INF
-		for unit in one.living():
-			for friend in other.living():
-				var apart: float = _places.at(unit).distance_to(_places.at(friend))
-				least = minf(least, apart - ScrumReach.radius(unit) - ScrumReach.radius(friend))
-		least = maxf(least, 0.0)
-		var at: PackedVector2Array = one.store.columns.column(UnitColumns.POSITION)
-		var gap := FormationGroups._gap(one, other, {}, at)
-		if least <= join:
-			assert_float(gap).is_equal(least)
-			within += 1
-		else:
-			assert_float(gap).is_greater(join)
-	assert_int(within).is_between(1, 19)

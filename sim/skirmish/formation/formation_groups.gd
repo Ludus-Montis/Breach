@@ -22,6 +22,10 @@ extends RefCounted
 ##   command from then on (FormationCommand.enlist).
 ## Every meeting is decided from one snapshot, nearest first; ties in size go to the
 ## groups' seeded draws, never to ids or the order they are listed in (Decision 97). Pure.
+## Which groups meet and what each meeting does are the crate's (`groups.rs`, spec 39 step
+## 5a): this hands it the groups at ease (CrateRoster), their commands and routes, and each
+## unit's leading, its traits and the command it started under, and lands each meeting in
+## the order given: a group taken in, or units going back where they started.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -29,17 +33,10 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
-const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
-const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-const GroupPairs = preload("res://sim/skirmish/formation/group_pairs.gd")
 
-const EPSILON := 0.000001
-## Pairs of units two groups meeting may have and still be looked at pair by pair (_gap).
-const ALL_PAIRS := 256
 const AT_EASE := [
 	SkirmishSquad.State.MOVING, SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED
 ]
@@ -54,69 +51,42 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 
 
 static func _form_up(squads: Array, tick: int, fight_seed: int, events: Array) -> void:
-	var meetings := []  # [key, one, other]
 	var groups := squads.filter(func(s): return s.state in AT_EASE and not s.living().is_empty())
-	var join := BattleTuning.current().group_join
-	var views := {}  # store -> its RANK and POSITION, read once a pass (Decision 150)
-	var reaches := []  # how far each group's bodies may lie from its position
+	if groups.size() < 2:
+		return
+	var commands := {}  # command -> its code
+	var routes := {}  # route (or null) -> its code
+	var described := PackedInt32Array()
+	var followers := PackedInt32Array()
+	var livings := []  # each group's living units as the crate is given them
 	for group: SkirmishSquad in groups:
-		var view := UnitView.read_once(views, group, [UnitColumns.RANK, UnitColumns.POSITION])
-		reaches.append(group.width + _back_row_in(group, view.rank))
-	var grids := {}  # squad -> a grid of its units (_gap), each made once
-	for pair in GroupPairs.near(groups, reaches, join):
-		var one: SkirmishSquad = groups[pair[0]]
-		var other: SkirmishSquad = groups[pair[1]]
-		if one.faction_id != other.faction_id or not _together(one, other):
-			continue
-		var gap := _gap(one, other, grids, views[one.store].position)
-		if gap <= join + EPSILON:
-			var draws := [ScrumContest.squad_draw(one, fight_seed)]
-			draws.append(ScrumContest.squad_draw(other, fight_seed))
-			draws.sort()
-			meetings.append([[snappedf(gap, 0.000001)] + draws, one, other])
-	meetings.sort_custom(func(a, b): return a[0] < b[0])
-	var gone := {}
-	for meeting in meetings:
-		if gone.has(meeting[1]) or gone.has(meeting[2]):
-			continue
-		var taken = _meet(meeting[1], meeting[2], fight_seed, tick, events)
-		if taken != null:
-			gone[taken] = true
+		var command: int = commands.get_or_add(group.command, commands.size())
+		described.append_array([command, routes.get_or_add(group.route, routes.size())])
+		var living := group.living()
+		livings.append(living)
+		for unit in living:
+			var traits := int(unit.leadership > 0)
+			traits |= (
+				(2 if unit.traits.has("joins") else 0) | (4 if unit.traits.has("gathers") else 0)
+			)
+			var origin: int = (
+				-1 if unit.origin == null else commands.get_or_add(unit.origin, commands.size())
+			)
+			followers.append_array([traits, origin])
+	var out: PackedInt64Array = squads[0].store.field().group_form_up(
+		CrateRoster.of(groups), described, followers, BattleTuning.current().group_join, fight_seed
+	)
+	var i := 0
+	while i < out.size():
+		if out[i] == 0:
+			var taken: SkirmishSquad = groups[out[i + 2]]
+			_take_in(groups[out[i + 1]], taken, tick, events)
 			squads.erase(taken)
-
-
-## Decides one meeting by the rule; returns the group taken in, or null.
-static func _meet(
-	one: SkirmishSquad, other: SkirmishSquad, fight_seed: int, tick: int, events: Array
-):
-	var taker := _taker(one, other, fight_seed)
-	if taker == null:
-		if _led(one) and _led(other):
-			_return_origins(one, other, tick, events)
-			_return_origins(other, one, tick, events)
-		return null
-	var taken: SkirmishSquad = other if taker == one else one
-	_take_in(taker, taken, tick, events)
-	return taken
-
-
-## Which of two meeting groups takes in the other, or null if each keeps its own orders.
-static func _taker(one: SkirmishSquad, other: SkirmishSquad, fight_seed: int) -> SkirmishSquad:
-	if one.command == other.command:
-		return _larger(one, other, fight_seed)
-	var one_joins := _leader_has(one, "joins")
-	var other_joins := _leader_has(other, "joins")
-	if one_joins != other_joins:
-		return other if one_joins else one  # its leader brings it into the other's command
-	if one_joins:
-		return _larger(one, other, fight_seed)
-	var one_gathers := _leader_has(one, "gathers") and not _led(other)
-	var other_gathers := _leader_has(other, "gathers") and not _led(one)
-	if one_gathers != other_gathers:
-		return one if one_gathers else other
-	if not _led(one) and not _led(other) and _merging(one, other):
-		return _larger(one, other, fight_seed)
-	return null
+			i += 3
+			continue
+		var ids := Array(out.slice(i + 4, i + 4 + out[i + 3]))
+		_return_origins(groups[out[i + 1]], groups[out[i + 2]], ids, tick, events)
+		i += 4 + ids.size()
 
 
 ## The taker takes in the other group's units behind its back rank; they follow its
@@ -129,13 +99,11 @@ static func _take_in(taker: SkirmishSquad, taken: SkirmishSquad, tick: int, even
 	taker.reforming = true
 
 
-## Units of `group` that started under `home`'s command go back to it (both led).
+## The units of `group` with these ids, started under `home`'s command, go back to it.
 static func _return_origins(
-	group: SkirmishSquad, home: SkirmishSquad, tick: int, events: Array
+	group: SkirmishSquad, home: SkirmishSquad, ids: Array, tick: int, events: Array
 ) -> void:
-	var back := group.living().filter(func(u): return u.origin == home.command)
-	if back.is_empty() or back.size() == group.living().size():
-		return
+	var back := group.living().filter(func(u): return ids.has(u.id))
 	# store: scattered (few: rejoining, once as a group comes home)
 	for unit in back:
 		group.units.erase(unit)
@@ -147,91 +115,9 @@ static func _return_origins(
 	home.reforming = true
 
 
-## The larger of two groups by cells' worth of units; a tie by their seeded draws.
-static func _larger(one: SkirmishSquad, other: SkirmishSquad, fight_seed: int) -> SkirmishSquad:
-	var mine := [_worth(one), ScrumContest.squad_draw(one, fight_seed)]
-	var theirs := [_worth(other), ScrumContest.squad_draw(other, fight_seed)]
-	return one if mine > theirs else other
-
-
-static func _worth(squad: SkirmishSquad) -> int:
-	var cells := 0
-	for unit in squad.living():
-		cells += unit.footprint_width * unit.footprint_depth
-	return cells
-
-
-## True if the two groups may form up: one command's; or, of different commands, both
-## having fought (coming back together after a fight, not two forces merely posted near
-## each other) and either both standing or both marching the same way along the same
-## route - not passing each other on ways of their own.
-static func _together(one: SkirmishSquad, other: SkirmishSquad) -> bool:
-	if one.command == other.command:
-		return true
-	if not (one.fought and other.fought):
-		return false
-	var standing := [SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED]
-	if one.state in standing and other.state in standing:
-		return true
-	return (
-		one.route == other.route
-		and one.direction == other.direction
-		and one.order == other.order
-		and one.order != SkirmishUnit.Order.HOLD
-	)
-
-
-## True if a leader of the squad (leadership > 0) has the trait.
-static func _leader_has(squad: SkirmishSquad, trait_id: String) -> bool:
-	return squad.living().any(func(u): return u.leadership > 0 and u.traits.has(trait_id))
-
-
-static func _led(squad: SkirmishSquad) -> bool:
-	return squad.living().any(func(u): return u.leadership > 0)
-
-
-static func _merging(one: SkirmishSquad, other: SkirmishSquad) -> bool:
-	return one.merges or other.merges
-
-
 static func _back_row(squad: SkirmishSquad) -> int:
-	return _back_row_in(squad, UnitView.read(squad, [UnitColumns.RANK]).rank)  # read once
-
-
-## The squad's back row, from its store's RANK column as read for the pass.
-static func _back_row_in(squad: SkirmishSquad, ranks: PackedInt32Array) -> int:
+	var ranks: PackedInt32Array = UnitView.read(squad, [UnitColumns.RANK]).rank  # read once
 	var rows := 0
 	for unit in squad.living():
 		rows = maxi(rows, ranks[unit.slot] + unit.footprint_depth)
 	return rows
-
-
-## Cells between the two groups' nearest bodies, exact up to group_join; beyond it, more
-## than group_join. Only pairs of groups near enough are asked (GroupPairs). Small groups
-## look at every pair of units; otherwise only the other's units that could come within
-## group_join of each unit are looked at, through a grid of them (kept in `grids`). `at` is
-## the store's POSITION column, read for the pass.
-static func _gap(
-	one: SkirmishSquad, other: SkirmishSquad, grids: Dictionary, at: PackedVector2Array
-) -> float:
-	var join := BattleTuning.current().group_join
-	var ours: Array = one.living()
-	var theirs: Array = other.living()
-	var grid := {}
-	if ours.size() * theirs.size() > ALL_PAIRS:
-		if not grids.has(other):
-			grids[other] = BodyGrid.of_bodies(
-				theirs.map(func(u): return [at[u.slot], ScrumReach.radius(u)])
-			)
-		grid = grids[other]
-	var least := INF
-	for unit in ours:
-		var near := range(theirs.size())
-		if not grid.is_empty():
-			var within: float = join + ScrumReach.radius(unit) + grid["widest"] + BodyGrid.MARGIN
-			near = BodyGrid.near(grid, at[unit.slot], within)
-		for found in near:
-			var friend: SkirmishUnit = theirs[found]
-			var apart: float = at[unit.slot].distance_to(at[friend.slot])
-			least = minf(least, apart - ScrumReach.radius(unit) - ScrumReach.radius(friend))
-	return maxf(least, 0.0)
