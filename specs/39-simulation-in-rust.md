@@ -170,6 +170,13 @@ perception. The largest step. It is expected to split (4a the scrum core, 4b reg
 rendezvous, with the staging that times its departure by it (`FormationStaging`, moved here
 from step 3d: Built, "Step 3d").
 
+- **Split** (2026-10-24, the implementing session, as Status allows: about 860 lines of
+  GDScript in seven classes, with `FormationContact.reinforce` carried from 4c): **5a** groups
+  forming up and the split (`FormationGroups`, `GroupPairs`, `GroupSplit`), the costly part;
+  **5b** compaction (`SquadCompact`) and reinforcing (`FormationContact.reinforce`), strays
+  (`FormationStrays`), rendezvous (`FormationRendezvous`) and the staging
+  (`FormationStaging`). 5b's PR closes the step.
+
 ### Step 6, the downed and stamina
 
 Deaths, wounds, recovery, carrying, taking, stamina and the bodies' parting (`UnitBodies`).
@@ -860,6 +867,49 @@ Decision's conditions.
   `perception/tests.rs` (in range, screened by a wood, the tick's picture, none living),
   `near.rs` and `rect.rs`.
 - **Step 4 is done** with this PR.
+
+### Step 5a, groups and the split in the crate
+
+- **The split** (`split.rs`): which of a group's placed units (not loose, fleeing or out
+  taking) are fallen behind their places and cut off in clusters, the clusters' order by
+  their units' least draws, each new group's units lined up across its heading and its
+  front along the route. Nobody moves until every split is found, so the crate decides them
+  all at once. `GroupSplit` hands it the squads at ease on a route (`CrateRoster`), whether
+  each waits for every unit (FormationWalk.rule_of), its route's points, who is out taking
+  and each unit's swap offset (FormationShuffle.offset, the swaps staying GDScript), and
+  makes the new groups from its answer: the SkirmishSquad, the places in rank 0, the
+  entries let go and the "split" events.
+- **Forming up** (`groups.rs`): the pairs of groups near enough (GroupPairs' grid), whether
+  two may form up, the gap between their nearest bodies (exact up to `group_join`, through a
+  grid for large groups), the meetings nearest first with the squads' draws for ties, and
+  each meeting's rule - taken in by the larger, a leader that gathers or joins, merging, and
+  led groups sending units back to the command they started under. Meetings are decided in
+  turn on the groups as the ones before left them: the crate moves the units of a group
+  taken in or sent back between its own lists, as `reinforce` and `enlist` move them.
+  `FormationGroups` hands it each group's command and route (codes) and each unit's
+  leading, its "joins" and "gathers" traits and the command it started under, and lands the
+  meetings in order: `_take_in` (the event, `reinforce`, re-forming) and the units' return
+  (their rank behind the home group's back row, `enlist`, the "rejoined" events).
+- **Kept GDScript for 5b**: `FormationContact.reinforce` and the compaction it ends with,
+  and `_back_row`, which a returning unit's rank reads after earlier meetings' reinforces
+  have moved ranks.
+- **Identical:** each port follows the GDScript's order and precision (`Vector2` in f32,
+  `snappedf`, the draws). The proof is CI's digests, which compare with the base on both
+  engines. Outcomes unchanged.
+- **Retired:** `group_pairs.gd`; FormationGroups' `_meet`, `_taker`, `_larger`, `_worth`,
+  `_together`, `_leader_has`, `_led`, `_merging`, `_back_row_in` and `_gap`; GroupSplit's
+  `_behind` and `_clusters`. `test_group_pairs.gd` (its scenarios are `groups/tests.rs`), the
+  gap case of `test_formation_near_passes.gd` (now `groups/tests.rs`), and
+  `test_formation_groups.gd`'s two read counts (Decision 150's reads once a pass: the
+  GDScript reads no columns there now). The scenarios through a battle stay gdUnit
+  (`test_formation_groups.gd`, `test_formation_list_order.gd`).
+- **Tests:** cargo: `split/tests.rs` (fallen far behind and lined up across, no man left
+  behind, every cluster behind, one near its place keeping its cluster, the loose and those
+  out taking left out, clusters in their draws' order, the lists' order) and
+  `groups/tests.rs` (one command's groups, a leader and the leaderless, gathering, joining,
+  not having fought, merging, too far apart, led groups sending units back, a group taken in
+  met no more and the taker meeting with what it took, the lists' order, the pairs in list
+  order and as every pair finds them, the gap exact within `group_join`).
 
 ## Open, for the implementing session to settle and record here
 

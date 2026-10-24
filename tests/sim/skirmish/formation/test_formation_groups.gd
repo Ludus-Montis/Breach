@@ -14,8 +14,6 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const CountedColumns = preload("res://tests/sim/skirmish/formation/counted_columns.gd")
 
 
 ## A player line `count` wide with its front `front` cells along the lane, placed there.
@@ -199,37 +197,3 @@ func test_the_same_meetings_decide_the_same_whatever_the_list_order() -> void:
 		kept.sort()
 		outcomes.append([left, kept])
 	assert_array(outcomes[0]).is_equal(outcomes[1])
-
-
-## Three groups that may form up, near enough to be looked at but too far apart to meet
-## (spec 38 step 1a, Decision 150): forming up reads RANK and POSITION once a pass, not once
-## a pair.
-func test_forming_up_reads_rank_and_position_once_a_pass() -> void:
-	var sim := FormationSimulation.new(4.0, 0.1)
-	var lines := [_line(sim, 4, 40.0), _line(sim, 4, 45.0), _line(sim, 4, 50.0)]
-	assert_object(lines[1].store).is_same(lines[0].store)
-	var counted := CountedColumns.new(lines[0].store.columns)
-	lines[0].store.columns = counted
-
-	FormationGroups._form_up(sim.squads(), 1, 7, [])
-
-	lines[0].store.columns = counted.inner
-	assert_int(sim.squads().size()).is_equal(3)
-	assert_int(counted.reads.get(UnitColumns.RANK, 0)).is_equal(1)
-	assert_int(counted.reads.get(UnitColumns.POSITION, 0)).is_equal(1)
-
-
-## Three groups at ease, nobody fallen behind (spec 38 step 1c, Decision 150): looking for
-## splits reads where units stand and their places once a pass, not once a group.
-func test_splitting_reads_position_and_places_once_a_pass() -> void:
-	var sim := FormationSimulation.new(4.0, 0.1)
-	var lines := [_line(sim, 4, 40.0), _line(sim, 4, 45.0), _line(sim, 4, 50.0)]
-	var counted := CountedColumns.new(lines[0].store.columns)
-	lines[0].store.columns = counted
-
-	GroupSplit.step(sim.squads(), 1, 7, [], 100)
-
-	lines[0].store.columns = counted.inner
-	assert_int(sim.squads().size()).is_equal(3)
-	for name in [UnitColumns.POSITION, UnitColumns.RANK, UnitColumns.COLUMN]:
-		assert_int(counted.reads.get(name, 0)).override_failure_message(String(name)).is_equal(1)
