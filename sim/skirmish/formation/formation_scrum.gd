@@ -78,9 +78,9 @@ static func step(
 	_seek(ctx)
 	var roster := CrateRoster.of(squads, terrain)  # who is living: nobody falls from here on
 	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
-	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain)
+	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
 	FormationWithdraw.step(squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events)
-	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events)
+	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events, roster)
 	_stall(squads, ctx["active"], tick, tick_seconds, events)
 	return events
 

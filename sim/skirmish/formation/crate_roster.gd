@@ -3,8 +3,8 @@ extends RefCounted
 ## The squads a phase in the crate is given (`SquadRoster`, native/rust/src/roster.rs, spec
 ## 39 step 4c): each squad of the lists, in their order, with its living units (UnitState
 ## keeps who is living, Decision 147) and what of each the crate doesn't hold - its id, store
-## slot, footprint, preferred band, kind, turn rate, backward pace, detection range, and on
-## terrain the walker it crosses the ground as. Made once a tick and handed to each phase.
+## slot, footprint, preferred band, kind, turn rate, backward pace, detection range, most
+## stamina, and on terrain the walker it crosses the ground as. Made once a tick and handed to each phase.
 
 const ROSTER_CLASS := "SquadRoster"
 
@@ -35,7 +35,9 @@ static func of(squads: Array, terrain: FormationTerrain = null) -> Object:
 					kind
 				]
 			)
-			reals.append_array([unit.turn_rate, unit.backward_pace, unit.detection])
+			reals.append_array(
+				[unit.turn_rate, unit.backward_pace, unit.detection, unit.max_stamina]
+			)
 			if terrain != null:
 				reals.append_array(TerrainWalker.of_unit(unit).fields())
 	roster.fill(

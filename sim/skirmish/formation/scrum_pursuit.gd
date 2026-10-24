@@ -14,38 +14,22 @@ extends RefCounted
 ## Chasers all pick their quarry before any moves: the nearest unit, ties by its seeded
 ## draw (Decision 97).
 ## Squads keep `pursues` and `chasers` (unit id -> {"unit", "foe", "from", "leash"}). Pure
-## over the squads it is given.
+## over the squads it is given. The chase and the breaking of ranks are the crate's
+## (`pursuit.rs`, spec 39 step 4c): this hands it the squads' roster (CrateRoster), where
+## chasers walk back to on the ground (TerrainStep.returns), and each unit's chance and leash
+## (FormationDiscipline).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
-const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
 const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
-const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
-const ScrumSlots = preload("res://sim/skirmish/formation/scrum_slots.gd")
-const UnitSteer = preload("res://sim/skirmish/formation/unit_steer.gd")
-const ScrumNear = preload("res://sim/skirmish/formation/scrum_near.gd")
-const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const TerrainStep = preload("res://sim/skirmish/formation/terrain_step.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-
-## A unit breaks ranks to chase with a chance of (discipline_meets_threats - its
-## discipline) / 100.
-## The chasers' loose points, held for the pass (UnitView).
-## Their places too, once for every chasing squad (Decision 150).
-const HELD := [UnitColumns.LOOSE_AT, UnitColumns.NEXT, UnitColumns.RANK, UnitColumns.COLUMN]
-## A chaser's pace, and the stamina that tells when it gives up: read for the pass.
-const PACED := [UnitColumns.SPEED, UnitColumns.STAMINA]
 
 
 ## Applies a retreat order to `squad`: ends its fight, costs a ragged one its scaled rout,
@@ -74,87 +58,47 @@ static func retreat(
 ## (UnitMover), after the nearest unit of the enemy it chases; once at its leash, out of
 ## sight of that enemy, or that enemy gone, it straggles back on its own to its place (or
 ## the nearest it can walk to it: TerrainStep.returns), wherever its formation now is, and
-## rejoins it there - the formation doesn't wait for it (Decision 112).
+## rejoins it there - the formation doesn't wait for it (Decision 112). `roster`: the
+## tick's (CrateRoster), made here if none is given.
 static func step(
 	squads: Array,
 	_tick: int,
 	cells_per_second: float,
 	seconds: float,
 	fight_seed: int = 0,
-	terrain: FormationTerrain = null
+	terrain: FormationTerrain = null,
+	roster: Object = null
 ) -> void:
-	var by_id := {}
-	for entry in squads:
-		by_id[entry.id] = entry
-	var walks := []  # [unit, its place in the scrum, where it heads]
-	var quarries := {}  # foe squad -> its units' index (ScrumNear), where they stand now
-	var chasing := squads.filter(func(s): return not s.chasers.is_empty())
-	var held := UnitView.hold(chasing, HELD)  # each chaser read and stepped: held for the pass
-	var paces := {}  # store -> a read view of PACED (UnitView.read_once)
-	for squad in chasing:
-		var paced := UnitView.read_once(paces, squad, PACED)
-		var homes := TerrainStep.returns(squad, terrain, fight_seed)
-		var places := UnitView.of(squad)  # its places, held: an index, not a copy
-		var loose_at: PackedVector2Array = places.at
-		var basis := ScrumStance.frame(squad)  # once a squad: no chase moves its frame
-		for unit_id in squad.chasers.keys():
-			var chase: Dictionary = squad.chasers[unit_id]
-			var foe: SkirmishSquad = by_id.get(chase["foe"])
-			var unit: SkirmishUnit = chase["unit"]
-			if not unit.is_alive() or not squad.loose.has(unit_id):
-				squad.unchase(unit_id)
-				continue
-			var heads: Vector2 = homes.get(unit_id, ScrumStance.anchor(basis, unit, places))  # back
-			var returning: bool = chase.get("returning", false)
-			if not returning:
-				var at: Vector2 = loose_at[unit.slot]
-				var quarry = _quarry(at, [unit, paced], foe, quarries, fight_seed)
-				if _done(chase, at, unit, quarry):
-					squad.chase_back(unit_id)
-					returning = true
-				else:
-					heads = quarry
-			walks.append([squad, unit, heads, returning])
-	var bodies := ScrumSlots.bodies(squads) if not walks.is_empty() else []
-	var crowd := BodyGrid.of_bodies(bodies) if not walks.is_empty() else {}
-	for walk in walks:
-		var unit: SkirmishUnit = walk[1]
-		var view := UnitView.of(walk[0])
-		var loose_at: PackedVector2Array = view.at
-		var next: PackedVector2Array = view.next
-		var full: float = paces[walk[0].store].speed[unit.slot] * cells_per_second * seconds
-		var at: Vector2 = loose_at[unit.slot]
-		var to := UnitSteer.toward(unit, at, walk[2], bodies, fight_seed, crowd)
-		var columns: UnitColumns = walk[0].store.columns
-		var stepped := UnitMover.step(unit, columns, at, to, full, seconds, terrain)
-		loose_at[unit.slot] = stepped  # placement: its step, by UnitMover (Decision 139)
-		next[unit.slot] = stepped
-		if walk[3] and stepped.distance_to(walk[2]) < 0.000001:
-			walk[0].unchase(unit.id)  # back in its place: it rejoins its formation
-			SquadEntries.unloose(walk[0], unit.id)
-	UnitView.release(held)
-
-
-## Where the nearest unit of the chaser's foe stands (_nearest_in), or null if the chase
-## is over before it looks: its foe gone, or it too tired. `chaser` is [the unit, a view of
-## its store holding STAMINA]; `quarries` keeps each foe's index.
-static func _quarry(
-	at: Vector2, chaser: Array, foe: SkirmishSquad, quarries: Dictionary, fight_seed: int
-):
-	if foe == null or foe.is_destroyed() or FormationStamina.gives_up(chaser[1], chaser[0]):
-		return null
-	if not quarries.has(foe):
-		quarries[foe] = _index(foe)
-	return _nearest_in(quarries[foe], at, fight_seed)
-
-
-## True if a chase is over: its quarry (null) gone, the chaser at its leash or too tired,
-## or the quarry out of its sight.
-static func _done(chase: Dictionary, at: Vector2, unit: SkirmishUnit, quarry) -> bool:
-	if quarry == null:
-		return true
-	return (
-		at.distance_to(chase["from"]) >= chase["leash"] or quarry.distance_to(at) > unit.detection
+	var listed := PackedInt32Array()
+	var counts := PackedInt32Array()
+	var homes := PackedInt64Array()
+	var home_at := PackedVector2Array()
+	for index in squads.size():
+		var squad: SkirmishSquad = squads[index]
+		if squad.chasers.is_empty():
+			continue
+		listed.append(index)
+		var returns := TerrainStep.returns(squad, terrain, fight_seed)
+		counts.append(returns.size())
+		for unit_id in returns:
+			homes.append(unit_id)
+			home_at.append(returns[unit_id])
+	if listed.is_empty():
+		return
+	if roster == null:
+		roster = CrateRoster.of(squads, terrain)
+	var tuning := BattleTuning.current()
+	var rules := PackedFloat64Array(
+		[
+			cells_per_second,
+			seconds,
+			tuning.stamina_give_up,
+			tuning.bodies_steer_look,
+			tuning.bodies_steer_clear,
+		]
+	)
+	squads[0].store.field().pursue_chasers(
+		roster, listed, counts, homes, home_at, UnitMover.ground(terrain), rules, fight_seed
 	)
 
 
@@ -171,33 +115,24 @@ static func _fights(other: SkirmishSquad, squad: SkirmishSquad) -> bool:
 	return other.engaged_with == squad.id or squad.engaged_with == other.id or flanking
 
 
-## Each of the enemy's units near the retreating squad may break ranks to chase it.
+## Each of the enemy's units near the retreating squad may break ranks to chase it: by a
+## chance of (discipline_meets_threats - its discipline, its leader's too) / 100, on its own
+## leash (FormationDiscipline).
 static func _tempt(enemy: SkirmishSquad, squad: SkirmishSquad, tick: int, battle_seed: int) -> void:
-	var near := _index(squad)
+	var tuning := BattleTuning.current()
+	var chances := PackedFloat64Array()
+	var leashes := PackedFloat64Array()
 	for unit in enemy.living():
-		var at := ScrumReach.at(enemy, unit)
-		if (
-			_nearest_in(near, at, battle_seed).distance_to(at)
-			> BattleTuning.current().pursuit_tempted_within
-		):
-			continue
 		var steadied := FormationDiscipline.unit_discipline(enemy, unit)  # its leader's too
-		var chance := float(BattleTuning.current().discipline_meets_threats - steadied) / 100.0
-		if BattleRolls.uniform(battle_seed, [tick, unit.id, "chase"]) >= chance:
-			continue
-		if not enemy.loose.has(unit.id):
-			SquadEntries.loosen(enemy, unit, at)
-		var leash := FormationDiscipline.unit_leash(enemy, unit)
-		enemy.chase(unit, squad.id, at, leash)
-
-
-## Where the squad's unit nearest `at` stands (ties by the units' draws); `at` if none.
-## `near` is the squad's index (_index).
-static func _nearest_in(near: Dictionary, at: Vector2, fight_seed: int) -> Vector2:
-	var found := ScrumNear.nearest(near, at, fight_seed)
-	return at if found < 0 else near["points"][found]
-
-
-## The squad's living units, indexed where they stand (ScrumNear).
-static func _index(squad: SkirmishSquad) -> Dictionary:
-	return ScrumNear.index(squad.living().map(func(unit): return [unit, squad]))
+		chances.append(float(tuning.discipline_meets_threats - steadied) / 100.0)
+		leashes.append(FormationDiscipline.unit_leash(enemy, unit))
+	enemy.store.field().pursuit_tempt(
+		CrateRoster.of([enemy, squad]),
+		0,
+		1,
+		chances,
+		leashes,
+		tuning.pursuit_tempted_within,
+		tick,
+		battle_seed
+	)

@@ -53,6 +53,17 @@ impl Rect {
         Rect { position: begin, size: end.sub(begin) }
     }
 
+    /// `Rect2.merge(other)`: the box round both, `other`'s corner first in each `min`.
+    pub fn merge(self, other: Rect) -> Rect {
+        let min = |a: f32, b: f32| if a < b { a } else { b };
+        let max = |a: f32, b: f32| if a > b { a } else { b };
+        let (theirs, mine) = (other.end(), self.end());
+        let position =
+            V2::new(min(other.position.x, self.position.x), min(other.position.y, self.position.y));
+        let end = V2::new(max(theirs.x, mine.x), max(theirs.y, mine.y));
+        Rect { position, size: end.sub(position) }
+    }
+
     /// `Rect2.get_center()`: `position + size * 0.5`.
     pub fn center(self) -> V2 {
         self.position.add(self.size.scale(0.5))
@@ -69,5 +80,12 @@ mod tests {
         assert_eq!(one, Rect::new(V2::new(1.0, -1.0), V2::new(2.0, 2.0)));
         assert_eq!(one.center(), V2::new(2.0, 0.0));
         assert_eq!(clamp(V2::new(5.0, -3.0), one.position, one.end()), V2::new(3.0, -1.0));
+    }
+
+    #[test]
+    fn two_boxes_merge_into_the_box_round_both() {
+        let one = Rect::new(V2::new(0.0, 0.0), V2::new(1.0, 1.0));
+        let two = Rect::new(V2::new(2.0, -1.0), V2::new(1.0, 1.0));
+        assert_eq!(one.merge(two), Rect::new(V2::new(0.0, -1.0), V2::new(3.0, 2.0)));
     }
 }

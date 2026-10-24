@@ -31,10 +31,12 @@ mod march;
 mod maths;
 mod motion;
 mod mover;
+mod near;
 mod ordered;
 mod parting;
 mod pathing;
 mod paths;
+mod pursuit;
 mod ranks;
 mod reach;
 mod rect;
@@ -3023,7 +3025,8 @@ impl SquadRoster {
     /// Fills it, flat over the squads in the lists' order: per squad its store slot, id,
     /// faction (a code) and how many living units follow; per unit its id, `ints` [store
     /// slot, footprint width, depth, preferred band, kind (a code)] and `reals` [turn rate,
-    /// backward pace, detection, then its walker's five, or none on open ground].
+    /// backward pace, detection, most stamina, then its walker's five, or none on open
+    /// ground].
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn fill(
@@ -3037,8 +3040,8 @@ impl SquadRoster {
         reals: PackedFloat64Array,
     ) {
         let (ints, reals, unit_ids) = (ints.as_slice(), reals.as_slice(), unit_ids.as_slice());
-        let walked = unit_ids.is_empty() || reals.len() == 8 * unit_ids.len();
-        let per = if walked { 8 } else { 3 };
+        let walked = unit_ids.is_empty() || reals.len() == 9 * unit_ids.len();
+        let per = if walked { 9 } else { 4 };
         let open =
             ground::Walker { height: 0.0, swimmer: 0, climber: 0, swims: false, climbs: false };
         let mut listed = Vec::with_capacity(squads.len());
@@ -3050,11 +3053,11 @@ impl SquadRoster {
                     let (i, r) = (&ints[5 * u..5 * u + 5], &reals[per * u..per * u + per]);
                     let walker = if walked {
                         ground::Walker {
-                            height: r[3],
-                            swimmer: r[4] as i64,
-                            climber: r[5] as i64,
-                            swims: r[6] != 0.0,
-                            climbs: r[7] != 0.0,
+                            height: r[4],
+                            swimmer: r[5] as i64,
+                            climber: r[6] as i64,
+                            swims: r[7] != 0.0,
+                            climbs: r[8] != 0.0,
                         }
                     } else {
                         open
@@ -3068,6 +3071,7 @@ impl SquadRoster {
                         turn_rate: r[0],
                         backward_pace: r[1],
                         detection: r[2],
+                        max_stamina: r[3],
                         walker,
                     }
                 })
@@ -3138,5 +3142,100 @@ impl BodyField {
             regroup::step(squads, columns, &roster.roster, &regroupers, g, &rules)
         });
         self.edits += 1;
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// ScrumPursuit.step over `roster`'s squads with units out chasing, flat in the lists'
+    /// order: per squad its index in the roster and how many homes follow (`homes`: unit id,
+    /// and where it walks back to, in `home_at`). `rules`: [cells a second at speed 1,
+    /// seconds, stamina_give_up, bodies_steer_look, bodies_steer_clear].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn pursue_chasers(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        counts: PackedInt32Array,
+        homes: PackedInt64Array,
+        home_at: PackedVector2Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        seed: i64,
+    ) {
+        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
+        let mut chasing = Vec::with_capacity(listed.len());
+        let mut from = 0;
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            chasing.push(pursuit::Chasing {
+                listed: listed.as_slice()[n] as usize,
+                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
+            });
+            from = to;
+        }
+        let r = rules.as_slice();
+        let rules = pursuit::Rules {
+            cells_per_second: r[0],
+            seconds: r[1],
+            give_up: r[2],
+            steering: near::Steering { look: r[3], clear: r[4], seed },
+        };
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        on_ground(ground, |g| pursuit::chase(squads, columns, &roster.roster, &chasing, g, &rules));
+        self.edits += 1;
+    }
+
+    /// ScrumPursuit._tempt: the units of `roster`'s squad `enemy` (its index) near its squad
+    /// `fleeing` may break ranks to chase it, each by its chance and on its leash (in its
+    /// order), if within `within` cells of it.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn pursuit_tempt(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        enemy: i64,
+        fleeing: i64,
+        chances: PackedFloat64Array,
+        leashes: PackedFloat64Array,
+        within: f64,
+        tick: i64,
+        seed: i64,
+    ) {
+        let pairs: Vec<(f64, f64)> =
+            chances.as_slice().iter().copied().zip(leashes.as_slice().iter().copied()).collect();
+        let temptation = pursuit::Temptation { chances: &pairs, within, tick, seed };
+        let roster = roster.bind();
+        let pair = (enemy as usize, fleeing as usize);
+        pursuit::tempt(
+            &mut self.squads,
+            &mut self.field.columns,
+            &roster.roster,
+            pair,
+            &temptation,
+        );
+        self.edits += 1;
+    }
+
+    /// FormationPursuit._lagging for `roster`'s squad `listed` (its index).
+    #[func]
+    fn pursuit_lagging(&self, roster: Gd<SquadRoster>, listed: i64, lag: f64) -> bool {
+        let roster = roster.bind();
+        pursuit::lagging(&self.squads, &self.field.columns, &roster.roster, listed as usize, lag)
+    }
+
+    /// FormationPursuit._spread for `roster`'s squad `listed`, as [x, y, width, height]; empty
+    /// for a squad with none living.
+    #[func]
+    fn pursuit_spread(&self, roster: Gd<SquadRoster>, listed: i64) -> PackedFloat64Array {
+        let roster = roster.bind();
+        match pursuit::spread(&self.squads, &self.field.columns, &roster.roster, listed as usize) {
+            Some(r) => PackedFloat64Array::from(
+                &[r.position.x as f64, r.position.y as f64, r.size.x as f64, r.size.y as f64][..],
+            ),
+            None => PackedFloat64Array::new(),
+        }
     }
 }

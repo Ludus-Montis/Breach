@@ -17,8 +17,6 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
-const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
-const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
 const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
@@ -68,23 +66,33 @@ static func _take(squad: SkirmishSquad, route, towards: Vector2) -> void:
 
 
 ## One tick of pursuit: pursuers advance after their enemy or give up and go back.
+## `roster`: the tick's (CrateRoster), made here if a pursuer advances and none is given.
 static func step(
-	squads: Array, tick: int, cells_per_second: float, seconds: float, events: Array
+	squads: Array,
+	tick: int,
+	cells_per_second: float,
+	seconds: float,
+	events: Array,
+	roster: Object = null
 ) -> void:
-	var by_id := {}
-	for entry in squads:
-		by_id[entry.id] = entry
-	for squad in squads:
+	var by_id := {}  # squad id -> its index in the lists
+	for index in squads.size():
+		by_id[squads[index].id] = index
+	for index in squads.size():
+		var squad: SkirmishSquad = squads[index]
 		if squad.pursuit.is_empty() or squad.is_destroyed():
 			continue
 		if squad.pursuit["returning"]:
 			_arrive(squad, tick, events)
 			continue
-		var foe: SkirmishSquad = by_id.get(squad.pursuit["foe"])
+		var foe_index: int = by_id.get(squad.pursuit["foe"], -1)
+		var foe: SkirmishSquad = squads[foe_index] if foe_index >= 0 else null
 		if _given_up(squad, foe):
 			_go_back(squad, squads, tick, events)
-		else:
-			_advance(squad, foe, cells_per_second, seconds)
+			continue
+		if roster == null:
+			roster = CrateRoster.of(squads)
+		_advance(squad, foe, cells_per_second, seconds, [roster, index, foe_index])
 
 
 ## [cells its frame has gone from its post, as the crow flies, cells its leash allows (INF:
@@ -103,12 +111,13 @@ static func _given_up(squad: SkirmishSquad, foe: SkirmishSquad) -> bool:
 	return reached[0] >= reached[1]
 
 
-## Its frame moves along its route towards the enemy while the enemy is ahead.
+## Its frame moves along its route towards the enemy while the enemy is ahead. `listed`:
+## [the roster, the squad's index in it, its foe's].
 static func _advance(
-	squad: SkirmishSquad, foe: SkirmishSquad, cells_per_second: float, seconds: float
+	squad: SkirmishSquad, foe: SkirmishSquad, cells_per_second: float, seconds: float, listed: Array
 ) -> void:
-	var ahead := _ahead(squad, _spread(foe).get_center())
-	if ahead <= CLOSE_ENOUGH or _lagging(squad):
+	var ahead := _ahead(squad, _spread(foe, listed[0], listed[2]).get_center())
+	if ahead <= CLOSE_ENOUGH or _lagging(squad, listed[0], listed[1]):
 		return
 	FormationSweep.step(squad, squad.speed() * cells_per_second, seconds)  # round bends
 	var tiles := minf(squad.speed() * cells_per_second * seconds, ahead - CLOSE_ENOUGH)
@@ -129,19 +138,11 @@ static func _ahead(squad: SkirmishSquad, at: Vector2) -> float:
 
 
 ## True if any of its units lags more than reach_pursuit_lag behind its place: a formation
-## pursues as a body, its frame waiting for its rearmost (Decision 103).
-static func _lagging(squad: SkirmishSquad) -> bool:
-	var forward := UnitMotion.vector(squad.heading)
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once (Decision 146)
-	var basis := ScrumStance.frame(squad)
-	for unit in squad.living():
-		if squad.chasers.has(unit.id):
-			continue  # one out on its own makes its own way (Decision 112)
-		var anchor := ScrumStance.anchor(basis, unit, places)
-		var behind := (anchor - ScrumReach.at(squad, unit)).dot(forward)
-		if behind > BattleTuning.current().reach_pursuit_lag:
-			return true
-	return false
+## pursues as a body, its frame waiting for its rearmost (Decision 103). The crate's
+## (`pursuit::lagging`), the squad `listed` in `roster`.
+static func _lagging(squad: SkirmishSquad, roster: Object, listed: int) -> bool:
+	var lag := BattleTuning.current().reach_pursuit_lag
+	return squad.store.field().pursuit_lagging(roster, listed, lag)
 
 
 ## It ends its fight and marches back to its post (a march home, with home its post).
@@ -169,13 +170,10 @@ static func _arrive(squad: SkirmishSquad, tick: int, events: Array) -> void:
 
 
 ## The cells a squad's units cover where they actually stand - in its frame, loose in a
-## fight or fleeing a withdrawal - not where its frame is.
-static func _spread(squad: SkirmishSquad) -> Rect2:
-	var living := squad.living()
-	if living.is_empty():
+## fight or fleeing a withdrawal - not where its frame is. The crate's (`pursuit::spread`),
+## the squad `listed` in `roster`.
+static func _spread(squad: SkirmishSquad, roster: Object, listed: int) -> Rect2:
+	var box: PackedFloat64Array = squad.store.field().pursuit_spread(roster, listed)
+	if box.is_empty():
 		return SquadEdges.bounds(squad)
-	var heading := squad.heading  # read once a pass (Decision 144)
-	var out := ScrumReach.area(squad, living[0], heading)
-	for unit in living:
-		out = out.merge(ScrumReach.area(squad, unit, heading))
-	return out
+	return Rect2(box[0], box[1], box[2], box[3])

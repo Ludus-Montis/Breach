@@ -11,19 +11,16 @@
 use std::collections::HashSet;
 
 use crate::columns::Columns;
-use crate::contest;
 use crate::entries;
 use crate::frame::Frame;
-use crate::grid::{self, Grid};
 use crate::ground::Ground;
 use crate::locks;
-use crate::maths::{bearing_vector, minf, V2};
+use crate::maths::V2;
 use crate::motion;
 use crate::mover;
-use crate::reach;
-use crate::roster::{self, Body, Member, Roster};
+use crate::near::{Crowd, Foes, Steering};
+use crate::roster::{self, Roster};
 use crate::squads::Squads;
-use crate::steer;
 use crate::trade;
 
 const EPSILON: f64 = 0.000001;
@@ -55,154 +52,10 @@ pub struct Rules {
     pub trade_seconds: f64,
 }
 
-/// The bodies as they stood before anyone walked, and a grid over them.
-pub struct Crowd {
-    pub bodies: Vec<Body>,
-    grid: Grid,
-    widest: f64,
-}
-
-impl Crowd {
-    pub fn of(bodies: Vec<Body>) -> Crowd {
-        let points: Vec<V2> = bodies.iter().map(|b| b.at).collect();
-        let widest = bodies.iter().fold(0.0, |w: f64, b| if b.radius > w { b.radius } else { w });
-        Crowd { grid: Grid::build(&points), bodies, widest }
+impl Rules {
+    fn steering(&self) -> Steering {
+        Steering { look: self.look, clear: self.clear, seed: self.seed }
     }
-
-    /// UnitSteer.toward: the point the unit at `at` heads for on its way to `goal`, round
-    /// the nearest body in its way. Looks only at the bodies near its way, in the lists'
-    /// order, which picks as a look at every body would.
-    pub fn steer(&self, unit: &Member, squad: i64, at: V2, goal: V2, rules: &Rules) -> V2 {
-        let own = unit.radius();
-        let way = goal.sub(at);
-        let length = way.length();
-        let mut near = Vec::new();
-        if length as f64 >= EPSILON {
-            let unit_way = V2::new(way.x / length, way.y / length);
-            let end = at.add(unit_way.scale(minf(length as f64, rules.look)));
-            let middle = V2::new((at.x + end.x) / 2.0, (at.y + end.y) / 2.0);
-            let half = at.distance_to(end) as f64 / 2.0;
-            let mut found = Vec::new();
-            let reach = half + own + self.widest + grid::MARGIN + grid::MARGIN;
-            self.grid.near(middle, reach, |i| {
-                found.push(i as usize);
-                true
-            });
-            found.sort_unstable();
-            near = found;
-        }
-        let bodies: Vec<steer::Body> = near
-            .iter()
-            .map(|&i| {
-                let b = self.bodies[i];
-                steer::Body { at: b.at, radius: b.radius, squad: b.squad }
-            })
-            .collect();
-        let seed = rules.seed;
-        let draw = |i: usize| contest::draw(seed, self.bodies[near[i]].id);
-        let own_draw = || contest::draw(seed, unit.id);
-        steer::toward(
-            at,
-            goal,
-            own,
-            squad,
-            &bodies,
-            rules.look,
-            rules.clear,
-            seed,
-            &own_draw,
-            &draw,
-        )
-    }
-}
-
-/// The foes of one faction, indexed where they stand (ScrumNear.index).
-pub struct Foes {
-    /// (listed index, member index) of each.
-    pub units: Vec<(usize, usize)>,
-    pub points: Vec<V2>,
-    grid: Grid,
-    widest: f64,
-}
-
-impl Foes {
-    pub fn of(roster: &Roster, squads: &Squads, columns: &Columns, faction: u32) -> Foes {
-        let loose = roster.loose(squads);
-        let units = roster.hostiles(squads, faction);
-        let points: Vec<V2> = units
-            .iter()
-            .map(|&(n, u)| roster::at(columns, &loose[n], &roster.listed[n].living[u]))
-            .collect();
-        let widest = units.iter().fold(0.0, |w: f64, &(n, u)| {
-            let r = roster.listed[n].living[u].radius();
-            if w > r {
-                w
-            } else {
-                r
-            }
-        });
-        Foes { grid: Grid::build(&points), units, points, widest }
-    }
-
-    /// The foes whose bodies' edges may come within `reach` of `point`, in the list's order
-    /// (ScrumNear.around).
-    pub fn around(&self, point: V2, reach: f64) -> Vec<usize> {
-        let mut out = Vec::new();
-        self.grid.near(point, reach + self.widest + grid::MARGIN, |i| {
-            out.push(i as usize);
-            true
-        });
-        out.sort_unstable();
-        out
-    }
-
-    /// The foe of `close` (indices, in the list's order) the unit at `at` facing `bearing`
-    /// would strike (ScrumBlows._pick): one it touches, in its front first, then the
-    /// nearest, then by the seeded draw. Where it stands, or none if it touches none.
-    pub fn nearest_touching(
-        &self,
-        roster: &Roster,
-        unit: &Member,
-        at: V2,
-        bearing: f64,
-        close: &[usize],
-        rules: &Rules,
-    ) -> Option<V2> {
-        let ahead = bearing_vector(bearing);
-        let front = reach::front(rules.arc);
-        let mut best: Option<(usize, (i32, f64))> = None;
-        for &f in close {
-            let (n, u) = self.units[f];
-            let other = &roster.listed[n].living[u];
-            let there = self.points[f];
-            if reach::gap(at, unit.radius(), there, other.radius()) > rules.reach {
-                continue;
-            }
-            let key = (if reach::in_front(ahead, at, there, front) { 0 } else { 1 }, {
-                at.distance_to(there) as f64
-            });
-            let better = match best {
-                None => true,
-                Some((b, best_key)) => {
-                    let (bn, bu) = self.units[b];
-                    let best_id = roster.listed[bn].living[bu].id;
-                    less(key, best_key)
-                        || (!less(best_key, key)
-                            && contest::draw(rules.seed, other.id)
-                                < contest::draw(rules.seed, best_id))
-                }
-            };
-            if better {
-                best = Some((f, key));
-            }
-        }
-        best.map(|(f, _)| self.points[f])
-    }
-}
-
-/// GDScript's `[front, distance] < [front, distance]`.
-fn less(a: (i32, f64), b: (i32, f64)) -> bool {
-    a.0 < b.0 || (a.0 == b.0 && a.1 < b.1)
 }
 
 /// ScrumRegroup.step: units of the squads out of the fight walk back to their places and
@@ -263,7 +116,10 @@ fn foes_faced(
         let where_ = roster::at(columns, &loose, unit);
         let close = near.around(where_, unit.radius() + rules.reach);
         let bearing = columns.bearing[unit.slot];
-        if let Some(at) = near.nearest_touching(roster, unit, where_, bearing, &close, rules) {
+        let touch = (rules.reach, rules.arc);
+        if let Some(at) =
+            near.nearest_touching(roster, unit, where_, bearing, &close, touch, rules.seed)
+        {
             out.push((id, at));
         }
     }
@@ -317,7 +173,7 @@ fn walk_back(
         let arrived = gap < EPSILON;
         if !arrived {
             // a drilled retreat backs away facing the foe it touches
-            let to = crowd.steer(unit, listed.id, at, place, rules);
+            let to = crowd.steer(unit, listed.id, at, place, &rules.steering());
             let mover = unit.mover(columns);
             let walker = &unit.walker;
             let (stepped, bearing) =

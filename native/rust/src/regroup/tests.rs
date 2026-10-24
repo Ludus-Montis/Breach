@@ -3,9 +3,11 @@
 //! further east.
 
 use super::*;
+use crate::contest;
 use crate::ground::Walker;
-use crate::roster::Listed;
+use crate::roster::{Listed, Member};
 use crate::squads::{Chaser, Stance};
+use crate::steer;
 
 const GREM: Walker = Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false };
 
@@ -32,6 +34,7 @@ fn grem(id: i64, slot: usize) -> Member {
         turn_rate: 90.0,
         backward_pace: 0.5,
         detection: 8.0,
+        max_stamina: 100.0,
         walker: GREM,
     }
 }
@@ -198,7 +201,7 @@ fn the_steering_looks_at_the_near_bodies_as_at_all_of_them() {
     let crowd = Crowd::of(bodies.clone());
     let unit = &b.roster.listed[0].living[0];
     let at = b.columns.loose_at[0];
-    let near = crowd.steer(unit, 1, at, home, &rules());
+    let near = crowd.steer(unit, 1, at, home, &rules().steering());
     let all: Vec<steer::Body> =
         bodies.iter().map(|b| steer::Body { at: b.at, radius: b.radius, squad: b.squad }).collect();
     let r = rules();
