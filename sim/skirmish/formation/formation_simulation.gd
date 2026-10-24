@@ -206,9 +206,10 @@ func _apply_orders(events: Array) -> void:
 
 
 func _engage(events: Array) -> void:
-	perception = FormationPerception.see(_squads, terrain)  # all decide on one picture
-	FormationFronts.engage(_squads, _tick, fight_seed, events)
-	FormationEdges.engage(_squads, _tick, events, fight_seed)
+	var roster := CrateRoster.of(_squads)  # who is living: a lock fells nobody
+	perception = FormationPerception.see(_squads, terrain, roster)  # all decide on one picture
+	FormationFronts.engage(_squads, _tick, fight_seed, events, roster)
+	FormationEdges.engage(_squads, _tick, events, fight_seed, roster)
 
 
 ## Each squad decides its move from the tick's start; all moves land together (Decision 97).
@@ -216,6 +217,7 @@ func _move(events: Array) -> void:
 	var ground := {"squads": _squads}  # the bodies lying on the field, found once (drag)
 	var marching := {}  # squad id -> [mover, where it wants to get, its route's end]
 	var waiting := []
+	var roster := CrateRoster.of(_squads)  # who is living: nobody falls on the march
 	for mover in _squads:
 		if mover.state in STANDING or FormationScrum.regrouping(mover):
 			continue
@@ -228,7 +230,8 @@ func _move(events: Array) -> void:
 		var end := FormationMarch.length(mover, route_length)
 		if mover.order == SkirmishUnit.Order.RETREAT:  # home already: it holds, no about-face
 			FormationMarch.check_ends(mover, end, _tick, events)
-		if mover.order == SkirmishUnit.Order.HOLD or FormationContact.skirmishing(mover, _squads):
+		var holds: bool = mover.order == SkirmishUnit.Order.HOLD
+		if holds or FormationContact.skirmishing(mover, _squads, roster):
 			mover.state = SkirmishSquad.State.HOLDING
 			continue
 		mover.state = SkirmishSquad.State.MOVING
@@ -257,11 +260,12 @@ func _march(marching: Dictionary, events: Array) -> void:
 		if marching[squad_id][0].order == SkirmishUnit.Order.ADVANCE:
 			advancing[squad_id] = true
 	var landing := {}
+	var roster := CrateRoster.of(_squads)  # every limit judged before any move lands
 	for squad_id in marching:
 		var plan: Array = marching[squad_id]
 		var next: float = plan[1]
 		if advancing.has(squad_id):
-			next = FormationContact.limit(plan[0], _squads, next, advancing)
+			next = FormationContact.limit(plan[0], _squads, next, advancing, roster)
 		landing[plan[0]] = next
 	for mover in landing:
 		mover.front_distance = landing[mover]
@@ -280,12 +284,8 @@ func _fight(events: Array) -> void:
 	var health := UnitView.hold([self], [UnitColumns.HP])  # a write per blow landed: held
 	for shot in shots:
 		UnitHealth.hurt(health, shot[1], shot[2])
-		var spat := {
-			"target": shot[1].id,
-			"dmg": shot[2],
-			"damage_type": shot[0].damage_type,
-			"blow": shot[4]
-		}
+		var spat := {"target": shot[1].id, "dmg": shot[2], "damage_type": shot[0].damage_type}
+		spat["blow"] = shot[4]  # in the event after its damage type, as always
 		events.append(FormationEvents.unit_event("spat", _tick, shot[3], shot[0], spat))
 	for blow in blows:
 		UnitHealth.hurt(health, blow[1], blow[2])

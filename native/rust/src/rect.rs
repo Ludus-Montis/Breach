@@ -64,6 +64,22 @@ impl Rect {
         Rect { position, size: end.sub(position) }
     }
 
+    /// `Rect2.grow(by)`: `by` (narrowed to real_t) further out on every side.
+    pub fn grow(self, by: f64) -> Rect {
+        let by = by as f32;
+        let position = V2::new(self.position.x - by, self.position.y - by);
+        Rect { position, size: V2::new(self.size.x + by * 2.0, self.size.y + by * 2.0) }
+    }
+
+    /// `Rect2.intersects(other)`: true if the two overlap, borders not counted.
+    pub fn intersects(self, other: Rect) -> bool {
+        let (end, theirs) = (self.end(), other.end());
+        !(self.position.x >= theirs.x
+            || end.x <= other.position.x
+            || self.position.y >= theirs.y
+            || end.y <= other.position.y)
+    }
+
     /// `Rect2.get_center()`: `position + size * 0.5`.
     pub fn center(self) -> V2 {
         self.position.add(self.size.scale(0.5))
@@ -80,6 +96,15 @@ mod tests {
         assert_eq!(one, Rect::new(V2::new(1.0, -1.0), V2::new(2.0, 2.0)));
         assert_eq!(one.center(), V2::new(2.0, 0.0));
         assert_eq!(clamp(V2::new(5.0, -3.0), one.position, one.end()), V2::new(3.0, -1.0));
+    }
+
+    #[test]
+    fn a_grown_box_meets_one_it_only_touched() {
+        let one = Rect::new(V2::new(0.0, 0.0), V2::new(1.0, 1.0));
+        let two = Rect::new(V2::new(1.0, 0.0), V2::new(1.0, 1.0));
+        assert!(!one.intersects(two), "touching borders don't count");
+        assert!(one.grow(0.5).intersects(two));
+        assert_eq!(one.grow(0.5), Rect::new(V2::new(-0.5, -0.5), V2::new(2.0, 2.0)));
     }
 
     #[test]

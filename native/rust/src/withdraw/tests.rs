@@ -17,6 +17,7 @@ fn grem(id: i64, slot: usize) -> Member {
         slot,
         foot: (1, 1),
         preferred: 0,
+        attack_range: 0,
         kind: 0,
         turn_rate: 3600.0,
         backward_pace: 0.5,
@@ -40,7 +41,13 @@ fn built(ours: &[V2], foes: &[V2]) -> Built {
     let mut roster = Roster::default();
     for (slot, (id, faction)) in [(1i64, 0u32), (2, 1)].iter().enumerate() {
         squads.open(*id);
-        roster.listed.push(Listed { squad: slot, id: *id, faction: *faction, living: vec![] });
+        roster.listed.push(Listed {
+            squad: slot,
+            id: *id,
+            faction: *faction,
+            living: vec![],
+            ..Listed::default()
+        });
     }
     for (n, &at) in ours.iter().enumerate() {
         columns.grow();

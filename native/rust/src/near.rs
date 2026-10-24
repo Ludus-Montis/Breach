@@ -240,6 +240,7 @@ mod tests {
             slot,
             foot: (1, 1),
             preferred: 0,
+            attack_range: 0,
             kind: 0,
             turn_rate: 90.0,
             backward_pace: 0.5,
@@ -260,7 +261,9 @@ mod tests {
             columns.position[n] = p;
             living.push(member(id, n));
         }
-        let roster = Roster { listed: vec![Listed { squad: 0, id: 1, faction: 0, living }] };
+        let roster = Roster {
+            listed: vec![Listed { squad: 0, id: 1, faction: 0, living, ..Listed::default() }],
+        };
         (roster, squads, columns)
     }
 

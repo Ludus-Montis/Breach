@@ -1,6 +1,6 @@
 //! The squads as a pass is given them (spec 39 step 4c): each listed squad, in the lists'
 //! order, with its living units in its own order and what of each the crate doesn't hold
-//! (its id, store slot, footprint, preferred band, kind, turn rate, backward pace, detection
+//! (its id, store slot, footprint, preferred band, ranged reach, kind, turn rate, backward pace, detection
 //! range, most stamina and the walker it crosses the ground as). GDScript keeps who is living (UnitState,
 //! Decision 147), so it hands them in; where each stands, how it faces and its place are
 //! the store's columns, read where they live.
@@ -23,6 +23,8 @@ pub struct Member {
     /// Its footprint: width and depth in cells.
     pub foot: (i64, i64),
     pub preferred: i64,
+    /// Its ranged reach in ranks (0: none).
+    pub attack_range: i64,
     /// Its definition, as a code (one per definition in the roster).
     pub kind: u32,
     pub turn_rate: f64,
@@ -48,13 +50,24 @@ impl Member {
     }
 }
 
-/// A listed squad: its squad-store slot, its id, its faction (a code) and its living units.
-#[derive(Clone, Debug)]
+/// A listed squad: its squad-store slot, its id, its faction (a code), whether units joined
+/// it on the march, whether it merges into a friend it catches up with (its command's), and
+/// its living units.
+#[derive(Clone, Debug, Default)]
 pub struct Listed {
     pub squad: usize,
     pub id: i64,
     pub faction: u32,
+    pub joined: bool,
+    pub merges: bool,
     pub living: Vec<Member>,
+}
+
+impl Listed {
+    /// Its living units' store slots, in its order.
+    pub fn slots(&self) -> Vec<i32> {
+        self.living.iter().map(|m| m.slot as i32).collect()
+    }
 }
 
 /// The squads a pass is given, in the lists' order.

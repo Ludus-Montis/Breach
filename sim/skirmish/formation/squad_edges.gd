@@ -5,111 +5,28 @@ extends RefCounted
 ## units stand on an edge (the outermost on that side, so when one falls the next inward
 ## is the edge: step-up inward is implicit), and how far an attacker's front is from a
 ## squad's near face. On a turned frame each edge is a quarter of the way round, its
-## footprints turned with it. Pure; cells unless stated.
+## footprints turned with it. Pure; cells unless stated. The geometry is the crate's
+## (`geometry.rs`, spec 39 step 4c), on a roster (CrateRoster) of the squad.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 const FRONT := 0
 const RIGHT := 1
 const REAR := 2
 const LEFT := 3
-const EPSILON := 0.000001
 
 
-## The cells the squad's living units cover.
-static func bounds(squad: SkirmishSquad) -> Rect2:
-	var area := Rect2()
-	var first := true
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
-	var frame := squad.frame()
-	for unit in squad.living():
-		var rect := _rect(frame, unit, places)
-		area = rect if first else area.merge(rect)
-		first = false
-	return area
+## The cells the squad's living units cover. `listed`: [a roster (CrateRoster) holding it,
+## its index there], made here if empty.
+static func bounds(squad: SkirmishSquad, listed := []) -> Rect2:
+	if listed.is_empty():
+		listed = [CrateRoster.of([squad]), 0]
+	return squad.store.field().squad_bounds(listed[0], listed[1])
 
 
-## The edge of `victim` an attacker heading `attacker_heading` (degrees) meets with its
-## front: the quarter of the victim's frame it comes from (on the line between two, the one
-## clockwise of it).
-static func edge_hit(victim: SkirmishSquad, attacker_heading: float) -> int:
-	var from := fposmod(attacker_heading + 180.0 - victim.heading, 360.0)
-	return posmod(roundi(from / 90.0), 4)
-
-
-## The units on an edge: those with no living unit of their squad beyond them that way.
-static func edge_units(squad: SkirmishSquad, edge: int) -> Array[SkirmishUnit]:
-	var outward := UnitMotion.vector(squad.heading + edge * 90.0)
-	var across := SquadFrame.lateral_axis(squad.heading + edge * 90.0)
-	var living := squad.living()
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
-	var out: Array[SkirmishUnit] = []
-	var frame := squad.frame()
-	for unit in living:
-		var points := _corners(frame, unit, places)
-		var span := SquadFrame.extent(points, across)
-		var reach := SquadFrame.extent(points, outward).y
-		var covered := false
-		for other in living:
-			if other == unit:
-				continue
-			var other_points := _corners(frame, other, places)
-			var other_span := SquadFrame.extent(other_points, across)
-			var overlap := minf(span.y, other_span.y) - maxf(span.x, other_span.x)
-			if overlap > EPSILON and SquadFrame.extent(other_points, outward).y > reach + EPSILON:
-				covered = true
-				break
-		if not covered:
-			out.append(unit)
-	return out
-
-
-## How far the squad's living footprints reach along `way`: (least, most).
-static func reach(squad: SkirmishSquad, way: Vector2) -> Vector2:
-	return SquadFrame.extent(_all_corners(squad), way)
-
-
-## How far `to`'s near face lies ahead of `from`'s front along `from`'s heading, in tiles.
-static func face_gap(from: SkirmishSquad, to: SkirmishSquad) -> float:
-	var ahead := UnitMotion.vector(from.heading)
-	var near := reach(to, ahead).x
-	return (near - from.position.dot(ahead)) / MapLayoutDef.CELLS_PER_TILE
-
-
-## True if `from`'s line overlaps `to`'s footprints across `from`'s heading.
-static func overlap_across(from: SkirmishSquad, to: SkirmishSquad) -> bool:
-	var axis := SquadFrame.lateral_axis(from.heading)
-	var mine := Vector2(INF, -INF)
-	var places := UnitView.read(from, UnitView.PLACES)  # read once a pass (Decision 146)
-	var frame := from.frame()
-	for unit in from.living():
-		var span := SquadFrame.span(frame, unit, axis, UnitPlace.in_view(places, unit))
-		mine = Vector2(minf(mine.x, span.x), maxf(mine.y, span.y))
-	var theirs := reach(to, axis)
-	return minf(mine.y, theirs.y) - maxf(mine.x, theirs.x) > EPSILON
-
-
-## A unit's cells in its squad's frame (`frame`: StoredSquad.frame, read once a pass).
-static func _rect(frame: Array, unit: SkirmishUnit, places: UnitView) -> Rect2:
-	var at := UnitPlace.in_view(places, unit)
-	return SquadFrame.unit_rect(frame[0], frame[1], frame[2], frame[3], unit, at)
-
-
-## A unit's footprint's corners in its squad's frame (`frame`: StoredSquad.frame).
-static func _corners(frame: Array, unit: SkirmishUnit, places: UnitView) -> PackedVector2Array:
-	var at := UnitPlace.in_view(places, unit)
-	return SquadFrame.corners(frame[0], frame[1], frame[2], frame[3], unit, at)
-
-
-## The corners of all the squad's living units' footprints.
-static func _all_corners(squad: SkirmishSquad) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
-	var frame := squad.frame()
-	for unit in squad.living():
-		points.append_array(_corners(frame, unit, places))
-	return points
+## How far the squad's living footprints reach along `way`: (least, most). `listed` as for
+## bounds.
+static func reach(squad: SkirmishSquad, way: Vector2, listed := []) -> Vector2:
+	if listed.is_empty():
+		listed = [CrateRoster.of([squad]), 0]
+	return squad.store.field().squad_reach(listed[0], listed[1], way)
