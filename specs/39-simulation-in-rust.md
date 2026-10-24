@@ -1064,6 +1064,50 @@ Decision's conditions.
   regenerator, playing dead and the cunning, getting up once foes are gone, two rising
   whatever the lists' order). The Rust was drafted before them, so they had no red run.
 
+### Step 6c, carrying and taking in the crate
+
+- **The pick-up** (`carry.rs`): every free unit of a formation that tends its downed (told
+  to, and not fighting or routing), within `wounds_reach` of a friendly body lying that no
+  foe stands within `wounds_guard_reach` of, and able to move bearing it (its load stage
+  under 3: its gear and the body's cells times `wounds_body_weight`, against its strength
+  and "hauler"), may pick it up: [gap, the body's draw, the bearer's draw] first, each body
+  and bearer once. FormationCarry hands it every squad's faction, whether it tends, its
+  living and its bodies lying, and lands each pick in order: the states, `carried_by` and
+  `carrying`, the bearer's pace, tiring and dodge (`_bear`), the event and those setting off
+  home.
+- **The takers sent** (`taking.rs`): each free unit of a group that sends (not loose,
+  fleeing or out already) and each downed foe lying that it sees within `take_reach`, by
+  [gap, the unit's draw, the body's draw], each unit and body once, the bodies its takers
+  claimed already left. FormationTaking keeps which groups send (at ease, a command that
+  takes, not "fall behind, left behind", not threatened, not given up), the recall and the
+  hold, and lands each taker sent: the taking, its start and the event. All the recalls run
+  before the one call: a recall reads and writes only its own group, and none makes an
+  event, so the events keep their order.
+- **Kept GDScript**: a body following its bearer, dropped when the bearer falls, set down
+  (`_follow`, `_hold`) and coming home with it (`_bring_home`), and a bearer's pace for its
+  load (`_bear`, through `UnitArms.stage_of`, which the units' gear reads too): they are
+  the states, the lists and per-unit fields the crate doesn't hold. They port with step 7's
+  orders and step 8's tick.
+- **Identical:** both follow the GDScript's order and precision (`Vector2` distances in f32,
+  `snappedf`, the stage's sums in f64, the keys compared item by item). The pick-up's grids
+  (all the standing, each tending formation's living) give exactly what a look at all finds.
+  The native calls are lent held columns (ColumnsLent.all). The proof is CI's digests
+  against the base. Outcomes unchanged.
+- **Retired:** FormationCarry's `_pairs` and `_unguarded`, and the pick-up's sort;
+  FormationTaking's pairing. From the gdUnit tests: test_formation_carry.gd's cases of a
+  formation that leaves its downed or has a foe near and of a unit too weak, and
+  test_formation_near_passes.gd's bearers paired (each now a cargo test). The scenarios that land what the crate decides or
+  run through a battle stay gdUnit (test_formation_carry.gd, test_formation_taking.gd,
+  test_formation_wounds_order.gd's who bears whom).
+- **Tests:** cargo: `carry/tests.rs` (picked up, none by a formation leaving its downed or
+  with a foe near, a foe beyond guard reach, beyond reach or bearing already, too weak, a
+  body's weight and a hauler, the nearest pairs first and each once, who bears whom whatever
+  the lists' order, the pairs a look at all finds) and `taking/tests.rs` (sent within reach,
+  none beyond reach or sight or to a friend, a claimed body left, each unit one body nearest
+  first, two groups to one body, who takes which whatever the lists' order). The Rust was
+  drafted before them, so they had no red run.
+- **Step 6 is done** with this PR.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

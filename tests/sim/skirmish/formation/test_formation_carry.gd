@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## FormationCarry, per Decision 126: a formation told to tend its wounded picks up its
 ## downed friends - "carry" bears them on, slowed by their weight; "recover" sends the
 ## bearer home with them, both returning to the reserve; a bearer that falls drops its
-## body, and none is picked up with a foe near it or by a formation that leaves them.
+## body. Who picks up whom is the crate's, tested in `carry/tests.rs`.
 
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -77,17 +77,6 @@ func test_one_that_recovers_sends_the_bearer_home_with_it() -> void:
 	assert_bool(events.any(func(e): return e["type"] == "fled_home" and e["unit"] == 1)).is_true()
 
 
-func test_none_are_borne_by_a_formation_that_leaves_them_or_with_a_foe_near() -> void:
-	var leaving := _scene("")
-	var watched := _scene("carry")
-	watched[0].append(_squad(3, "the_kingdom", [_unit(9, "the_kingdom", Vector2(0, 3))]))
-	FormationCarry.step(leaving[0], 1, 1, [])
-	FormationCarry.step(watched[0], 1, 1, [])
-
-	assert_int(leaving[1].state).is_equal(SkirmishUnit.State.DOWNED)
-	assert_int(watched[1].state).is_equal(SkirmishUnit.State.DOWNED)
-
-
 func test_a_bearer_that_falls_drops_its_body() -> void:
 	var scene := _scene("carry")
 	FormationCarry.step(scene[0], 1, 1, [])
@@ -97,12 +86,3 @@ func test_a_bearer_that_falls_drops_its_body() -> void:
 
 	assert_int(scene[1].state).is_equal(SkirmishUnit.State.DOWNED)
 	assert_int(scene[1].carried_by).is_equal(0)
-
-
-func test_a_unit_too_weak_to_move_under_a_body_leaves_it() -> void:
-	var scene := _scene("carry")
-	scene[1].footprint_width = 2
-	scene[1].footprint_depth = 2  # a brute's body: too heavy for a grem
-	FormationCarry.step(scene[0], 1, 1, [])
-
-	assert_int(scene[1].state).is_equal(SkirmishUnit.State.DOWNED)

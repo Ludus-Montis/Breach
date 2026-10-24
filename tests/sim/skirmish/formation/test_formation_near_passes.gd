@@ -1,18 +1,16 @@
 extends GdUnitTestSuite
 ## The passes that look only near (BodyGrid) give what a look at everything gives (spec 30
-## round 3, Decision 97): the bodies underfoot and the bearers for the downed - each checked
-## against a plain search of every unit over a scattered field. The gap between two groups
-## meeting is the crate's (`groups/tests.rs`), and the nearest formation one coming to joins
-## too (`recovery/tests.rs`).
+## round 3, Decision 97): the bodies underfoot, checked against a plain search of every unit
+## over a scattered field. The gap between two groups meeting is the crate's
+## (`groups/tests.rs`), and the nearest formation one coming to joins
+## (`recovery/tests.rs`) and the bearers for the downed (`carry/tests.rs`) too.
 
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
-const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 
-const SEED := 11
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 var _places := UnitPlaces.new()
@@ -82,37 +80,3 @@ func test_the_bodies_underfoot_are_those_a_look_at_all_finds() -> void:
 					worst = 0.0
 					break
 			assert_float(GroundBodies.underfoot(walker, step, ground)).is_equal(worst)
-
-
-func test_the_bearers_paired_are_those_a_look_at_all_finds() -> void:
-	var squads := _field()
-	var units := {}
-	for squad in squads:
-		for unit in squad.units:
-			units[unit.id] = [unit, squad]
-	var tuning := BattleTuning.current()
-	var expected := []
-	for squad in squads:
-		for unit_id in units:
-			var body: SkirmishUnit = units[unit_id][0]
-			if body.state != SkirmishUnit.State.DOWNED or body.faction_id != squad.faction_id:
-				continue
-			var guarded := units.values().any(
-				func(entry):
-					return (
-						entry[0].is_alive()
-						and entry[0].faction_id != body.faction_id
-						and (
-							_places.at(entry[0]).distance_to(_places.at(body))
-							<= tuning.wounds_guard_reach
-						)
-					)
-			)
-			for unit in [] if guarded else squad.living():
-				var gap: float = _places.at(unit).distance_to(_places.at(body))
-				if gap <= tuning.wounds_reach and FormationCarry._stage(unit, body) < 3:
-					expected.append([body.id, unit.id])
-	var pairs := FormationCarry._pairs(squads, units, SEED)
-	var got := pairs.map(func(pair): return [pair[1].id, pair[2].id])
-	assert_array(expected).is_not_empty()
-	assert_array(got).is_equal(expected)

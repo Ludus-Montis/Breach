@@ -11,14 +11,14 @@ extends RefCounted
 ## dead, taken, borne away or come to, or the hold runs out. Pairs go by distance, then the
 ## units' and bodies' seeded draws, never by ids or lists (Decision 97). A group that is
 ## threatened - it sees a standing foe (FormationPerception, Decision 134) - fights first:
-## it sends no takers, calls back those out and doesn't hold for them. Pure.
+## it sends no takers, calls back those out and doesn't hold for them. Who goes out to
+## which body is the crate's (`taking.rs`, spec 39 step 6c). Pure.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
@@ -38,11 +38,15 @@ static func step(
 		for unit in UnitState.downed(squad):
 			if unit.state == SkirmishUnit.State.DOWNED:  # a borne body isn't taken
 				downed.append(unit)
+	var sending := []
 	for squad in squads:
 		var threatened := FormationPerception.threatened(perception, squad)
 		_recall(squad, tick, seconds, threatened)
-		if _takes(squad) and not threatened:
-			_send(squad, downed, tick, fight_seed, events)
+		# one that gave up on these marches on
+		if _takes(squad) and not threatened and squad.took_until < 0:
+			sending.append(squad)
+	if not sending.is_empty() and not downed.is_empty():
+		_send(sending, downed, tick, fight_seed, events)
 
 
 ## True while the squad holds for its takers.
@@ -80,39 +84,51 @@ static func _recall(squad: SkirmishSquad, tick: int, seconds: float, threatened:
 		squad.took_until = tick if out_of_time else -1
 
 
-## Pairs the squad's free units with downed foes it can see within take_reach, nearest
-## first, each once.
-static func _send(
-	squad: SkirmishSquad, downed: Array, tick: int, fight_seed: int, events: Array
-) -> void:
-	if squad.took_until >= 0:
-		return  # it gave up on these: it marches on
+## Pairs each sending squad's free units with downed foes they can see within take_reach:
+## the crate decides (`taking.rs`: nearest first, ties by the seeded draws, each once), and
+## this lands it - the takings, the hold's start and the events.
+static func _send(sending: Array, downed: Array, tick: int, fight_seed: int, events: Array) -> void:
+	var codes := {}  # faction -> its code
+	var index := {}  # body -> its index in `downed`
+	var lying := PackedInt64Array()
+	for body: SkirmishUnit in downed:
+		index[body] = index.size()
+		lying.append_array([body.id, body.slot, codes.get_or_add(body.faction_id, codes.size())])
+	var counts := PackedInt32Array()
+	var takers := PackedInt64Array()
+	var detections := PackedFloat64Array()
+	var claimed := PackedInt32Array()
+	var listed := []  # per squad, its free units as handed in
+	for squad: SkirmishSquad in sending:
+		var free := squad.living().filter(
+			func(unit):
+				return not (
+					squad.loose.has(unit.id)
+					or squad.fleeing.has(unit.id)
+					or squad.taking.has(unit.id)
+				)
+		)
+		listed.append(free)
+		var claims := squad.taking.values().filter(func(body): return index.has(body))
+		counts.append_array([free.size(), claims.size()])
+		for unit: SkirmishUnit in free:
+			var code: int = codes.get_or_add(unit.faction_id, codes.size())
+			takers.append_array([unit.id, unit.slot, code])
+			detections.append(unit.detection)
+		for body in claims:
+			claimed.append(index[body])
+	var columns: UnitColumns = sending[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
 	var reach := BattleTuning.current().take_reach
-	var claimed := {}
-	for body in squad.taking.values():
-		claimed[body] = true
-	var pairs := []
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	for unit in squad.living():
-		if squad.loose.has(unit.id) or squad.fleeing.has(unit.id) or squad.taking.has(unit.id):
-			continue
-		for body in downed:
-			if body.faction_id == unit.faction_id or claimed.has(body):
-				continue
-			var gap: float = at[unit.slot].distance_to(at[body.slot])
-			if gap <= reach and gap <= unit.detection:
-				var draws := [
-					ScrumContest.draw(unit, fight_seed), ScrumContest.draw(body, fight_seed)
-				]
-				pairs.append([[snappedf(gap, 0.000001)] + draws, unit, body])
-	pairs.sort_custom(func(a, b): return a[0] < b[0])
-	var busy := {}
-	for pair in pairs:
-		if busy.has(pair[1]) or claimed.has(pair[2]):
-			continue
-		busy[pair[1]] = true
-		claimed[pair[2]] = true
-		squad.taking[pair[1].id] = pair[2]
+	var sent: PackedInt64Array = ColumnsLent.all(
+		columns,
+		func():
+			return field.taking_send(counts, takers, detections, claimed, lying, fight_seed, reach)
+	)
+	for at in range(0, sent.size(), 3):
+		var squad: SkirmishSquad = sending[sent[at]]
+		var unit: SkirmishUnit = listed[sent[at]][sent[at + 1]]
+		squad.taking[unit.id] = downed[sent[at + 2]]
 		if squad.taking_since < 0:
 			squad.taking_since = tick
-		events.append(FormationEvents.unit_event("sent_to_take", tick, squad, pair[1]))
+		events.append(FormationEvents.unit_event("sent_to_take", tick, squad, unit))

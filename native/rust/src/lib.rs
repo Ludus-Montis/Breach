@@ -8,6 +8,7 @@
 mod blows;
 #[cfg(test)]
 mod build;
+mod carry;
 mod columns;
 mod compact;
 mod contact;
@@ -62,6 +63,7 @@ mod stamina;
 mod stance;
 mod steer;
 mod strays;
+mod taking;
 mod trade;
 mod walk_store;
 mod walking;
@@ -3908,6 +3910,134 @@ impl BodyField {
         }
         PackedInt64Array::from(out.as_slice())
     }
+
+    /// FormationCarry's pick-up: who picks up which downed friend. `squads`: four numbers a
+    /// squad in the lists' order, its faction (a code), whether it tends its downed now (1),
+    /// how many living units follow and then how many downed bodies lying; `ints`: six a unit,
+    /// its id, store slot, faction, then for one living whether it bears a body (1), its
+    /// strength and its "hauler", and for a body the cells it covers, 0, 0; `gear`: one a
+    /// unit, its gear's weight (0 for a body). `tuning`: as `carry_tuning`. Returns four
+    /// numbers a body picked up, in order: [its squad, its index in that squad's downed, the
+    /// bearer's squad, its index in that squad's living].
+    #[func]
+    fn carry_pick_up(
+        &self,
+        squads: PackedInt32Array,
+        ints: PackedInt64Array,
+        gear: PackedFloat64Array,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let squads = carrying(&squads, &ints, &gear);
+        let tuning = carry::CarryTuning::of_slice(tuning.as_slice());
+        let picked = carry::pick_up(&self.field.columns, &squads, seed, &tuning);
+        let out: Vec<i64> = picked
+            .iter()
+            .flat_map(|&(body, bearer)| [body.0, body.1, bearer.0, bearer.1].map(|n| n as i64))
+            .collect();
+        PackedInt64Array::from(out.as_slice())
+    }
+
+    /// FormationTaking's sending: which free unit of each group sending takers walks out to
+    /// which downed foe. `counts`: two numbers a squad that sends, in the lists' order, how
+    /// many free units it has and how many bodies its takers have claimed; `takers`: three a
+    /// free unit, its id, store slot and faction (a code); `detections`: one a free unit, how
+    /// far it sees; `claimed`: the claimed bodies' indices in `downed`, the squads' in turn;
+    /// `downed`: three a body lying, its id, store slot and faction. Returns three numbers a
+    /// taker sent, in order: [its squad's index in `counts`, its index in that squad's free
+    /// units, the body's index in `downed`].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn taking_send(
+        &self,
+        counts: PackedInt32Array,
+        takers: PackedInt64Array,
+        detections: PackedFloat64Array,
+        claimed: PackedInt32Array,
+        downed: PackedInt64Array,
+        seed: i64,
+        reach: f64,
+    ) -> PackedInt64Array {
+        let (squads, downed) = sending(&counts, &takers, &detections, &claimed, &downed);
+        let sent = taking::send(&self.field.columns, &squads, &downed, seed, reach);
+        let mut out = vec![];
+        for (s, pairs) in sent.iter().enumerate() {
+            for &(u, b) in pairs {
+                out.extend([s as i64, u as i64, b as i64]);
+            }
+        }
+        PackedInt64Array::from(out.as_slice())
+    }
+}
+
+/// The squads as carry_pick_up is given them.
+fn carrying(
+    squads: &PackedInt32Array,
+    ints: &PackedInt64Array,
+    gear: &PackedFloat64Array,
+) -> Vec<carry::Carrying> {
+    let (rows, _) = ints.as_slice().as_chunks::<6>();
+    let mut units = rows.iter().zip(gear.as_slice());
+    let (squad_rows, _) = squads.as_slice().as_chunks::<4>();
+    squad_rows
+        .iter()
+        .map(|s| carry::Carrying {
+            faction: s[0] as u32,
+            tending: s[1] != 0,
+            living: units
+                .by_ref()
+                .take(s[2] as usize)
+                .map(|(i, &gear_weight)| carry::Bearer {
+                    id: i[0],
+                    slot: i[1] as usize,
+                    faction: i[2] as u32,
+                    carrying: i[3] != 0,
+                    gear_weight,
+                    strength: i[4],
+                    hauler: i[5],
+                })
+                .collect(),
+            downed: units
+                .by_ref()
+                .take(s[3] as usize)
+                .map(|(i, _)| carry::Body {
+                    id: i[0],
+                    slot: i[1] as usize,
+                    faction: i[2] as u32,
+                    cells: i[3],
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// The squads and the bodies as taking_send is given them.
+fn sending(
+    counts: &PackedInt32Array,
+    takers: &PackedInt64Array,
+    detections: &PackedFloat64Array,
+    claimed: &PackedInt32Array,
+    downed: &PackedInt64Array,
+) -> (Vec<taking::Sending>, Vec<taking::Taker>) {
+    let unit = |i: &[i64; 3], detection: f64| taking::Taker {
+        id: i[0],
+        slot: i[1] as usize,
+        faction: i[2] as u32,
+        detection,
+    };
+    let (rows, _) = takers.as_slice().as_chunks::<3>();
+    let mut free = rows.iter().zip(detections.as_slice());
+    let mut claims = claimed.as_slice().iter();
+    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
+    let squads = count_rows
+        .iter()
+        .map(|c| taking::Sending {
+            free: free.by_ref().take(c[0] as usize).map(|(i, &d)| unit(i, d)).collect(),
+            claimed: claims.by_ref().take(c[1] as usize).map(|&b| b as usize).collect(),
+        })
+        .collect();
+    let (body_rows, _) = downed.as_slice().as_chunks::<3>();
+    (squads, body_rows.iter().map(|i| unit(i, 0.0)).collect())
 }
 
 /// The squads as wounds_tend is given them.
