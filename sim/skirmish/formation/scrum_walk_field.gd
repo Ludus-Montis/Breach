@@ -2,8 +2,8 @@ class_name ScrumWalkField
 extends RefCounted
 ## FormationScrum's walk on the native core (NativeKernels, Decision 129): every fighting
 ## unit steps once a tick - one making for a slot towards its next point, one with no
-## slot that touches no foe back towards its place, looking where UnitShuffle says - round
-## the bodies in its way (UnitSteer), over the bodies on the ground (GroundBodies) -
+## slot that touches no foe back towards its place, looking where `motion::look` says - round
+## the bodies in its way (`steer.rs`), over the bodies on the ground (GroundBodies) -
 ## worked out on the battle's field for the units the tick's slot search sent
 ## (ScrumSeekField, ctx["seek_batch"]): what that search made of each (its slot, if any),
 ## each squad's frame and pace, and the bodies lying. The field reads where each unit

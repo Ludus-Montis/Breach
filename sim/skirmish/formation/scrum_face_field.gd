@@ -2,7 +2,7 @@ class_name ScrumFaceField
 extends RefCounted
 ## FormationScrum's facing on the native core (NativeKernels, Decision 129): after the
 ## walk, every fighting unit turns at its turn rate towards the foe it touches, or else so
-## as to arrive facing what it will do (UnitShuffle) - worked out on the battle's field
+## as to arrive facing what it will do (`motion::look`) - worked out on the battle's field
 ## for the units the tick's slot search sent (ScrumSeekField, ctx["seek_batch"]). The
 ## field reads where each stands, faces and makes for from the unit store's columns, and
 ## what it turns by from its record, and writes each bearing into the column there (spec 35

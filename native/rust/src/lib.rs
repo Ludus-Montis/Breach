@@ -9,6 +9,7 @@ mod blows;
 #[cfg(test)]
 mod build;
 mod columns;
+mod contact;
 pub mod content;
 mod contest;
 pub mod designer;
@@ -21,6 +22,7 @@ mod facing;
 mod field;
 mod field_parting;
 mod frame;
+mod geometry;
 mod ghash;
 mod grid;
 pub mod ground;
@@ -31,13 +33,18 @@ mod march;
 mod maths;
 mod motion;
 mod mover;
+mod near;
 mod ordered;
 mod parting;
 mod pathing;
 mod paths;
+mod perception;
+mod pursuit;
 mod ranks;
 mod reach;
 mod rect;
+mod regroup;
+mod roster;
 mod route;
 mod scrum;
 mod seeking;
@@ -48,6 +55,7 @@ mod steer;
 mod trade;
 mod walk_store;
 mod walking;
+mod withdraw;
 
 use std::time::Instant;
 
@@ -1404,6 +1412,13 @@ impl TerrainGround {
         self.ground().blocks_sight(v2(at))
     }
 
+    /// FormationSight.clear: true if the sight line between two points crosses at most two
+    /// cells that block sight (spec 39 step 4c, `perception`).
+    #[func]
+    fn screens_clear(&self, from: Vector2, to: Vector2) -> bool {
+        perception::clear(self.ground(), v2(from), v2(to))
+    }
+
     #[func]
     fn high_ground(&self, from: Vector2, to: Vector2) -> bool {
         self.ground().high_ground(v2(from), v2(to))
@@ -1525,11 +1540,11 @@ impl ScrumRules {
 }
 
 /// Routes, motion, the one mover and steering (spec 39 step 3b; `route`, `motion`,
-/// `mover`, `steer`): FormationRoute, RoutePatch, UnitMotion, UnitMover, TerrainStep and
-/// UnitSteer are views over it. Stateless: one is shared. A unit's motion is passed as
-/// [bearing, turn rate, backward pace], a walker as [height, swimmer, climber, swims,
-/// climbs], a point and a bearing as [x, y, bearing], and the ground as its
-/// `TerrainGround` (null: open).
+/// `mover`): FormationRoute, RoutePatch, UnitMotion, UnitMover and TerrainStep are views
+/// over it (steering's phases call `steer` in the crate, spec 39 step 4c). Stateless: one
+/// is shared. A unit's motion is passed as [bearing, turn rate, backward pace], a walker
+/// as [height, swimmer, climber, swims, climbs], a point and a bearing as [x, y, bearing],
+/// and the ground as its `TerrainGround` (null: open).
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct UnitMoves {}
@@ -1714,38 +1729,6 @@ impl UnitMoves {
         }
         let out = route::Patch::patched(&route_of(&points), &patches);
         packed(&out.points)
-    }
-
-    /// UnitSteer.toward over the bodies near the way: body `i` stands at `points[i]`, of
-    /// `radii[i]`, unit `ids[i]` of squad `squads[i]`; the walker is unit `id` of `squad`,
-    /// of radius `own`.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn steer(
-        &self,
-        at: Vector2,
-        goal: Vector2,
-        own: f64,
-        squad: i64,
-        id: i64,
-        tuning: PackedFloat64Array,
-        seed: i64,
-        bodies: PackedVector2Array,
-        radii: PackedFloat64Array,
-        squads: PackedInt64Array,
-        ids: PackedInt64Array,
-    ) -> Vector2 {
-        let (points, radii, squads) = (bodies.as_slice(), radii.as_slice(), squads.as_slice());
-        let near: Vec<steer::Body> = (0..points.len())
-            .map(|i| steer::Body { at: v2(points[i]), radius: radii[i], squad: squads[i] })
-            .collect();
-        let ids = ids.as_slice();
-        let draw = |i: usize| contest::draw(seed, ids[i]);
-        let (look, clear) = (tuning[0], tuning[1]);
-        let own_draw = || contest::draw(seed, id);
-        let to =
-            steer::toward(v2(at), v2(goal), own, squad, &near, look, clear, seed, &own_draw, &draw);
-        vector2(to)
     }
 }
 
@@ -2529,8 +2512,8 @@ fn json_variant(value: &serde_json::Value) -> Variant {
 /// SkirmishSquad's loose, fleeing, stance, flank contacts and chasers, and the phases that
 /// read and write them - the entries (SquadEntries, EntryKeys), the locks (FormationLocks),
 /// engaging (ScrumEngage), the stance (ScrumStance), the manoeuvre (FormationManoeuvre), the
-/// stall (FormationScrum), closing ranks (SquadRanks) and the trade (ScrumTrade). Every call
-/// that may change a record moves `edits`.
+/// stall (FormationScrum) and closing ranks (SquadRanks); the trade is regroup's (step 4c).
+/// Every call that may change a record moves `edits`.
 #[godot_api(secondary)]
 impl BodyField {
     /// How many calls have changed the records: a view taken at this count still holds.
@@ -2963,47 +2946,440 @@ impl BodyField {
             .collect();
         ranks::close(&mut self.field.columns, &units, width as i32);
     }
-
-    /// ScrumTrade.track: the loose unit in `slot` stands `gap` cells off its place.
-    #[func]
-    fn trade_track(&mut self, slot: i64, gap: f64, seconds: f64) {
-        trade::track(&mut self.field.columns, slot as usize, gap, seconds);
-    }
-
-    /// ScrumTrade.trade over the squad's units: the living in its order, then any loose ones
-    /// that aren't; per unit its id, store slot, kind (a code), preferred band, footprint
-    /// (`feet`: width, depth each) and whether it is living.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn trade(
-        &mut self,
-        squad: i64,
-        ids: PackedInt64Array,
-        slots: PackedInt32Array,
-        kinds: PackedInt32Array,
-        preferred: PackedInt64Array,
-        feet: PackedInt32Array,
-        living: PackedByteArray,
-        seed: i64,
-        after: f64,
-    ) {
-        let feet = feet.as_slice();
-        let units: Vec<trade::Trader> = (0..ids.len())
-            .map(|n| trade::Trader {
-                id: ids.as_slice()[n],
-                slot: slots.as_slice()[n] as usize,
-                kind: kinds.as_slice()[n] as u32,
-                preferred: preferred.as_slice()[n],
-                foot: (feet[2 * n] as i64, feet[2 * n + 1] as i64),
-                living: living.as_slice()[n] != 0,
-            })
-            .collect();
-        let trading = trade::Trading { squad: squad as usize, units: &units, seed, after };
-        trade::trade(&mut self.squads, &mut self.field.columns, &trading);
-        self.edits += 1;
-    }
 }
 
 fn usizes(values: &PackedInt32Array) -> Vec<usize> {
     values.as_slice().iter().map(|&v| v as usize).collect()
+}
+
+/// The squads a pass is given (spec 39 step 4c, `roster`): GDScript fills one a tick from
+/// its lists (who is living is UnitState's) and hands it to each phase that reads them.
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct SquadRoster {
+    roster: roster::Roster,
+}
+
+#[godot_api]
+impl SquadRoster {
+    /// Fills it, flat over the squads in the lists' order: per squad its store slot, id,
+    /// faction (a code), `flags` (1 units joined it on the march, 2 it merges) and how many
+    /// living units follow; per unit its id, `ints` [store slot, footprint width, depth,
+    /// preferred band, ranged reach, kind (a code)] and `reals` [turn rate,
+    /// backward pace, detection, most stamina, then its walker's five, or none on open
+    /// ground].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn fill(
+        &mut self,
+        squads: PackedInt32Array,
+        ids: PackedInt64Array,
+        factions: PackedInt32Array,
+        flags: PackedByteArray,
+        counts: PackedInt32Array,
+        unit_ids: PackedInt64Array,
+        ints: PackedInt32Array,
+        reals: PackedFloat64Array,
+    ) {
+        let (ints, reals, unit_ids) = (ints.as_slice(), reals.as_slice(), unit_ids.as_slice());
+        let walked = unit_ids.is_empty() || reals.len() == 9 * unit_ids.len();
+        let per = if walked { 9 } else { 4 };
+        let open =
+            ground::Walker { height: 0.0, swimmer: 0, climber: 0, swims: false, climbs: false };
+        let mut listed = Vec::with_capacity(squads.len());
+        let mut from = 0;
+        for (n, &count) in counts.as_slice().iter().enumerate() {
+            let to = from + count as usize;
+            let living = (from..to)
+                .map(|u| {
+                    let (i, r) = (&ints[6 * u..6 * u + 6], &reals[per * u..per * u + per]);
+                    let walker = if walked {
+                        ground::Walker {
+                            height: r[4],
+                            swimmer: r[5] as i64,
+                            climber: r[6] as i64,
+                            swims: r[7] != 0.0,
+                            climbs: r[8] != 0.0,
+                        }
+                    } else {
+                        open
+                    };
+                    roster::Member {
+                        id: unit_ids[u],
+                        slot: i[0] as usize,
+                        foot: (i[1] as i64, i[2] as i64),
+                        preferred: i[3] as i64,
+                        attack_range: i[4] as i64,
+                        kind: i[5] as u32,
+                        turn_rate: r[0],
+                        backward_pace: r[1],
+                        detection: r[2],
+                        max_stamina: r[3],
+                        walker,
+                    }
+                })
+                .collect();
+            let flag = flags.as_slice()[n];
+            listed.push(roster::Listed {
+                squad: squads.as_slice()[n] as usize,
+                id: ids.as_slice()[n],
+                faction: factions.as_slice()[n] as u32,
+                joined: flag & 1 != 0,
+                merges: flag & 2 != 0,
+                living,
+            });
+            from = to;
+        }
+        self.roster = roster::Roster { listed };
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// ScrumRegroup.step over `roster`'s squads out of the fight, flat in the lists' order:
+    /// per squad its index in the roster, flags (1 a drilled retreat, 2 withdrawing), its
+    /// re-form pace and how many homes follow (`homes`: unit id, and where it walks back to,
+    /// in `home_at`). `rules`: [pace, seconds, reach_contact, reach_front_arc_degrees,
+    /// bodies_steer_look, bodies_steer_clear, scrum_trade_seconds].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn regroup(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        flags: PackedByteArray,
+        reforms: PackedFloat64Array,
+        counts: PackedInt32Array,
+        homes: PackedInt64Array,
+        home_at: PackedVector2Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        seed: i64,
+    ) {
+        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
+        let mut regroupers = Vec::with_capacity(listed.len());
+        let mut from = 0;
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            let flag = flags.as_slice()[n];
+            regroupers.push(regroup::Regrouper {
+                listed: listed.as_slice()[n] as usize,
+                drilled: flag & 1 != 0,
+                reform: reforms.as_slice()[n],
+                withdrawing: flag & 2 != 0,
+                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
+            });
+            from = to;
+        }
+        let r = rules.as_slice();
+        let rules = regroup::Rules {
+            pace: r[0],
+            seconds: r[1],
+            seed,
+            reach: r[2],
+            arc: r[3],
+            look: r[4],
+            clear: r[5],
+            trade_seconds: r[6],
+        };
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        on_ground(ground, |g| {
+            regroup::step(squads, columns, &roster.roster, &regroupers, g, &rules)
+        });
+        self.edits += 1;
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// ScrumPursuit.step over `roster`'s squads with units out chasing, flat in the lists'
+    /// order: per squad its index in the roster and how many homes follow (`homes`: unit id,
+    /// and where it walks back to, in `home_at`). `rules`: [cells a second at speed 1,
+    /// seconds, stamina_give_up, bodies_steer_look, bodies_steer_clear].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn pursue_chasers(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        counts: PackedInt32Array,
+        homes: PackedInt64Array,
+        home_at: PackedVector2Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        seed: i64,
+    ) {
+        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
+        let mut chasing = Vec::with_capacity(listed.len());
+        let mut from = 0;
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            chasing.push(pursuit::Chasing {
+                listed: listed.as_slice()[n] as usize,
+                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
+            });
+            from = to;
+        }
+        let r = rules.as_slice();
+        let rules = pursuit::Rules {
+            cells_per_second: r[0],
+            seconds: r[1],
+            give_up: r[2],
+            steering: near::Steering { look: r[3], clear: r[4], seed },
+        };
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        on_ground(ground, |g| pursuit::chase(squads, columns, &roster.roster, &chasing, g, &rules));
+        self.edits += 1;
+    }
+
+    /// ScrumPursuit._tempt: the units of `roster`'s squad `enemy` (its index) near its squad
+    /// `fleeing` may break ranks to chase it, each by its chance and on its leash (in its
+    /// order), if within `within` cells of it.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn pursuit_tempt(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        enemy: i64,
+        fleeing: i64,
+        chances: PackedFloat64Array,
+        leashes: PackedFloat64Array,
+        within: f64,
+        tick: i64,
+        seed: i64,
+    ) {
+        let pairs: Vec<(f64, f64)> =
+            chances.as_slice().iter().copied().zip(leashes.as_slice().iter().copied()).collect();
+        let temptation = pursuit::Temptation { chances: &pairs, within, tick, seed };
+        let roster = roster.bind();
+        let pair = (enemy as usize, fleeing as usize);
+        pursuit::tempt(
+            &mut self.squads,
+            &mut self.field.columns,
+            &roster.roster,
+            pair,
+            &temptation,
+        );
+        self.edits += 1;
+    }
+
+    /// FormationPursuit._lagging for `roster`'s squad `listed` (its index).
+    #[func]
+    fn pursuit_lagging(&self, roster: Gd<SquadRoster>, listed: i64, lag: f64) -> bool {
+        let roster = roster.bind();
+        pursuit::lagging(&self.squads, &self.field.columns, &roster.roster, listed as usize, lag)
+    }
+
+    /// FormationPursuit._spread for `roster`'s squad `listed`, as [x, y, width, height]; empty
+    /// for a squad with none living.
+    #[func]
+    fn pursuit_spread(&self, roster: Gd<SquadRoster>, listed: i64) -> PackedFloat64Array {
+        let roster = roster.bind();
+        match pursuit::spread(&self.squads, &self.field.columns, &roster.roster, listed as usize) {
+            Some(r) => PackedFloat64Array::from(
+                &[r.position.x as f64, r.position.y as f64, r.size.x as f64, r.size.y as f64][..],
+            ),
+            None => PackedFloat64Array::new(),
+        }
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationWithdraw.step's flight over `roster`'s withdrawing squads, flat in the lists'
+    /// order: per squad its index in the roster, whether a squad pursues it (`pursued`), its
+    /// disorder, its re-form pace, its home along its route (cells), how many of its route's
+    /// points follow in `points`, and its living units' own flight angles in `fans`, in its
+    /// order. `rules`: [pace, seconds, reach_contact, rout_enemy_near, rout_fan_cells].
+    /// Returns per squad 1 if it was safe as the tick began, plus 2 if its units are home.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn withdraw(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        pursued: PackedByteArray,
+        orders: PackedFloat64Array,
+        counts: PackedInt32Array,
+        points: PackedVector2Array,
+        fans: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+    ) -> PackedByteArray {
+        let roster = roster.bind();
+        let (points, orders, fans) = (v2s(&points), orders.as_slice(), fans.as_slice());
+        let mut withdrawing = Vec::with_capacity(listed.len());
+        let (mut from, mut fanned) = (0, 0);
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            let index = listed.as_slice()[n] as usize;
+            let living = roster.roster.listed[index].living.len();
+            withdrawing.push(withdraw::Withdrawing {
+                listed: index,
+                pursued: pursued.as_slice()[n] != 0,
+                disorder: orders[3 * n],
+                reform: orders[3 * n + 1],
+                home: orders[3 * n + 2],
+                route: route::Route::new(points[from..to].to_vec(), 0.0),
+                fans: fans[fanned..fanned + living].to_vec(),
+            });
+            from = to;
+            fanned += living;
+        }
+        let r = rules.as_slice();
+        let rules =
+            withdraw::Rules { pace: r[0], seconds: r[1], reach: r[2], near: r[3], fan_cells: r[4] };
+        let (squads, columns) = (&self.squads, &mut self.field.columns);
+        let out = on_ground(ground, |g| {
+            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &rules)
+        });
+        out.iter().map(|&(safe, home)| safe as u8 | (home as u8) << 1).collect()
+    }
+
+    /// FormationWithdraw._home: true if all `roster`'s squad `listed`'s units stand within
+    /// half a cell of `home` (cells) along the route through `points`.
+    #[func]
+    fn withdraw_home(
+        &self,
+        roster: Gd<SquadRoster>,
+        listed: i64,
+        points: PackedVector2Array,
+        home: f64,
+    ) -> bool {
+        let roster = roster.bind();
+        let route = route::Route::new(v2s(&points), 0.0);
+        let (squads, columns) = (&self.squads, &self.field.columns);
+        withdraw::home(squads, columns, &roster.roster, listed as usize, &route, home)
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationFronts.engage over `roster`'s squads: returns each pick's lock as [the
+    /// attacker's index in the roster, its foe's], in the lists' order.
+    #[func]
+    fn contact_fronts(&mut self, roster: Gd<SquadRoster>, seed: i64) -> PackedInt32Array {
+        let roster = roster.bind();
+        let picks =
+            contact::fronts(&mut self.squads, &mut self.field.columns, &roster.roster, seed);
+        self.edits += 1;
+        picks.iter().flat_map(|&(a, f)| [a as i32, f as i32]).collect()
+    }
+
+    /// FormationEdges.engage over `roster`'s squads at `tick`: returns each flank lock as
+    /// [the victim's index in the roster, the attacker's, the edge], in the order they landed.
+    #[func]
+    fn contact_edges(&mut self, roster: Gd<SquadRoster>, tick: i64, seed: i64) -> PackedInt32Array {
+        let roster = roster.bind();
+        let flanked =
+            contact::edges(&mut self.squads, &mut self.field.columns, &roster.roster, tick, seed);
+        self.edits += 1;
+        flanked.iter().flat_map(|f| [f.victim as i32, f.attacker as i32, f.edge]).collect()
+    }
+
+    /// FormationContact.limit for `roster`'s squad `mover` (its index), wanting to reach
+    /// `next` (tiles), `marching` the ids of the squads advancing this tick.
+    #[func]
+    fn contact_limit(
+        &self,
+        roster: Gd<SquadRoster>,
+        mover: i64,
+        next: f64,
+        marching: PackedInt64Array,
+    ) -> f64 {
+        let roster = roster.bind();
+        let field = contact::Field {
+            squads: &self.squads,
+            columns: &self.field.columns,
+            roster: &roster.roster,
+        };
+        field.limit(mover as usize, next, marching.as_slice())
+    }
+
+    /// FormationContact.skirmishing for `roster`'s squad `mover`.
+    #[func]
+    fn contact_skirmishing(&self, roster: Gd<SquadRoster>, mover: i64) -> bool {
+        let roster = roster.bind();
+        let field = contact::Field {
+            squads: &self.squads,
+            columns: &self.field.columns,
+            roster: &roster.roster,
+        };
+        field.skirmishing(mover as usize)
+    }
+
+    /// FormationContact.joinable for `roster`'s squad `mover`: the index of the friend it may
+    /// join, or -1.
+    #[func]
+    fn contact_joinable(&self, roster: Gd<SquadRoster>, mover: i64) -> i64 {
+        let roster = roster.bind();
+        let field = contact::Field {
+            squads: &self.squads,
+            columns: &self.field.columns,
+            roster: &roster.roster,
+        };
+        field.joinable(mover as usize).map_or(-1, |n| n as i64)
+    }
+
+    /// FormationPerception.see over `roster`'s squads: per squad, in the lists' order, how
+    /// many it detects and then their indices.
+    #[func]
+    fn perception_see(
+        &self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt32Array {
+        let roster = roster.bind();
+        let (squads, columns) = (&self.squads, &self.field.columns);
+        let seen = on_ground(ground, |g| perception::see(squads, columns, &roster.roster, g));
+        let mut flat = Vec::new();
+        for one in seen {
+            flat.push(one.len() as i32);
+            flat.extend(one.iter().map(|&n| n as i32));
+        }
+        PackedInt32Array::from(flat.as_slice())
+    }
+
+    /// FormationSight.detects: true if `roster`'s squad `squad` detects its squad `other`.
+    #[func]
+    fn sight_detects(
+        &self,
+        roster: Gd<SquadRoster>,
+        squad: i64,
+        other: i64,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> bool {
+        let roster = roster.bind();
+        let listed = &roster.roster.listed;
+        let (a, b) = (&listed[squad as usize], &listed[other as usize]);
+        on_ground(ground, |g| perception::detects(&self.field.columns, a, b, g))
+    }
+
+    /// SquadEdges.bounds for `roster`'s squad `listed`.
+    #[func]
+    fn squad_bounds(&self, roster: Gd<SquadRoster>, listed: i64) -> Rect2 {
+        let roster = roster.bind();
+        let shape = geometry::Shape::of(
+            &self.squads,
+            &self.field.columns,
+            &roster.roster.listed[listed as usize],
+        );
+        let r = shape.bounds();
+        Rect2::new(vector2(r.position), vector2(r.size))
+    }
+
+    /// SquadEdges.reach for `roster`'s squad `listed`: (least, most) along `way`.
+    #[func]
+    fn squad_reach(&self, roster: Gd<SquadRoster>, listed: i64, way: Vector2) -> Vector2 {
+        let roster = roster.bind();
+        let shape = geometry::Shape::of(
+            &self.squads,
+            &self.field.columns,
+            &roster.roster.listed[listed as usize],
+        );
+        let (least, most) = shape.reach(v2(way));
+        Vector2::new(least, most)
+    }
 }

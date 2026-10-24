@@ -55,11 +55,6 @@ func _speed(unit: SkirmishUnit) -> float:
 	return _places.store.columns.value(unit.slot, UnitColumns.SPEED)
 
 
-## A view of the shared store holding STAMINA.
-func _view() -> UnitView:
-	return UnitView.read({"store": _places.store}, [UnitColumns.STAMINA])
-
-
 func _squad(units: Array) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(units)
@@ -209,11 +204,10 @@ func test_tired_it_is_slower_and_less_skilled() -> void:
 	assert_float(shift.call(spent)).is_less(shift.call(tired))
 
 
-func test_a_tired_pursuer_gives_up() -> void:
+func test_a_mostly_tired_formation_gives_up() -> void:
 	var keen := _unit()
 	var worn := _unit(10.0)
 
-	assert_bool(FormationStamina.gives_up(_view(), keen)).is_false()
-	assert_bool(FormationStamina.gives_up(_view(), worn)).is_true()
+	# one alone giving up is the crate's (pursuit/tests.rs, spec 39 step 4c)
 	assert_bool(FormationStamina.squad_gives_up(_squad([keen, worn]))).is_false()
 	assert_bool(FormationStamina.squad_gives_up(_squad([worn, _unit(5.0), keen]))).is_true()

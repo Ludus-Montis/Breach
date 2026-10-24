@@ -19,7 +19,6 @@ enum Kind { COMBAT, WITHDRAW, ROUTE, RE_FORM, ORDER }
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
-const SquadMemo = preload("res://sim/skirmish/formation/squad_memo.gd")
 
 const NAMES := ["combat", "withdraw", "route", "re-form", "order"]
 
@@ -32,7 +31,7 @@ const NAMES := ["combat", "withdraw", "route", "re-form", "order"]
 static func step(squads: Array) -> void:
 	if squads.is_empty():
 		return
-	var memo := SquadMemo.new()
+	var roster: Object = null  # the squads' (CrateRoster), made when a squad first asks
 	var cases := PackedInt64Array()
 	for squad in squads:
 		var withdrawing: bool = not squad.withdraw.is_empty()
@@ -41,9 +40,11 @@ static func step(squads: Array) -> void:
 			or squad.engaged_with != 0
 			or not squad.flank_contacts.is_empty()
 		)
-		var skirmishing := (
-			not withdrawing and not fighting and FormationContact.skirmishing(squad, squads, memo)
-		)
+		var skirmishing := false
+		if not withdrawing and not fighting:
+			if roster == null:
+				roster = CrateRoster.of(squads)
+			skirmishing = FormationContact.skirmishing(squad, squads, roster)
 		var living: Array = squad.living() if squad.narrow_ticks > 0 else []
 		cases.append_array([squad.slot, int(withdrawing), int(skirmishing), living.size()])
 		for unit in living:

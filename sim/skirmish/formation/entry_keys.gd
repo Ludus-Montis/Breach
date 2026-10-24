@@ -78,12 +78,6 @@ static func goal(columns: UnitColumns, slot: int) -> Variant:
 	return null if sought < 0 else [columns.value(slot, UnitColumns.GOAL_FOE), sought]
 
 
-## Sets the goal ([foe id, slot index], or null for none).
-static func set_goal(columns: UnitColumns, slot: int, sought: Variant) -> void:
-	columns.put(slot, UnitColumns.GOAL_FOE, 0 if sought == null else sought[0])
-	columns.put(slot, UnitColumns.GOAL_SLOT, -1 if sought == null else sought[1])
-
-
 ## The unit's loose entry as a dictionary, as squads held it before spec 35: `unit`, `goal`,
 ## `next` and `at`, and the other keys it holds. For the digest and tests only.
 static func loose_entry(columns: UnitColumns, unit: Object, at: Vector2) -> Dictionary:

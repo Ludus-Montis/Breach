@@ -68,7 +68,8 @@ func test_an_entry_holds_exactly_the_keys_it_was_given() -> void:
 	assert_object(squad.loose[unit.id]).is_same(unit)  # the entry holds the unit alone
 	var given := {"unit": unit, "goal": null, "next": Vector2(2, 3), "at": Vector2(2, 3)}
 	assert_dict(EntryKeys.loose_entry(columns, unit, Vector2(2, 3))).is_equal(given)
-	EntryKeys.set_goal(columns, unit.slot, [7, 3])
+	columns.put(unit.slot, UnitColumns.GOAL_FOE, 7)
+	columns.put(unit.slot, UnitColumns.GOAL_SLOT, 3)
 	EntryKeys.keep(columns, unit.slot, UnitColumns.TOUCH, 1)
 	EntryKeys.keep(columns, unit.slot, UnitColumns.TOWARD, null)
 	given.merge({"goal": [7, 3], "touch": true, "toward": null}, true)

@@ -2,7 +2,7 @@ class_name CrateMoves
 extends RefCounted
 ## The crate's routes, motion, the one mover and steering (`UnitMoves`, native/rust/src/
 ## route.rs, motion.rs, mover.rs and steer.rs; spec 39 step 3b), which FormationRoute,
-## RoutePatch, UnitMotion, UnitMover, TerrainStep and UnitSteer are views over, and what of
+## RoutePatch, UnitMotion, UnitMover, and TerrainStep are views over, and what of
 ## a unit they pass it. Stateless, so one is shared.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")

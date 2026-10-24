@@ -128,11 +128,6 @@ static func skill_shift(unit: SkirmishUnit, stamina: float) -> float:
 	return BattleTuning.current().stamina_skill[stage_at(stamina, unit.max_stamina)]
 
 
-## True if the unit is too tired to keep up a chase (a view holding STAMINA).
-static func gives_up(view: UnitView, unit: SkirmishUnit) -> bool:
-	return view.stamina[unit.slot] < unit.max_stamina * BattleTuning.current().stamina_give_up
-
-
 ## True if most of the squad's units are too tired to keep up a chase.
 static func squad_gives_up(squad: SkirmishSquad) -> bool:
 	var living := squad.living()

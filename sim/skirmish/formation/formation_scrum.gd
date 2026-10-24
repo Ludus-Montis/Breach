@@ -3,7 +3,7 @@ extends RefCounted
 ## Both sides seek contact (Decision 88, spec 27 round 5). While its squad fights, each
 ## unit leaves its place for the scrum:
 ## - **Seeking:** a unit touching no foe walks to the nearest open slot beside one's body
-##   (ScrumSlots), anywhere within the route's leash of its place (Decision 75) - the far end
+##   (`scrum.rs`), anywhere within the route's leash of its place (Decision 75) - the far end
 ##   of a wide line comes too. Only front-band units
 ##   seek, at any morale short of a rout (Decision 101: a shaken squad strikes softer, not
 ##   less); the rest keep to their places. Contested slots go by ScrumContest's key, so the
@@ -76,10 +76,13 @@ static func step(
 		"field": field if field != null or squads.is_empty() else squads[0].store.field(),
 	}
 	_seek(ctx)
-	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain)
-	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain)
-	FormationWithdraw.step(squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events)
-	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events)
+	var roster := CrateRoster.of(squads, terrain)  # who is living: nobody falls from here on
+	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
+	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
+	FormationWithdraw.step(
+		squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events, roster
+	)
+	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events, roster)
 	_stall(squads, ctx["active"], tick, tick_seconds, events)
 	return events
 
@@ -121,11 +124,11 @@ static func _prepare(squad: SkirmishSquad, tick: int) -> void:
 ## battle's native bodies, ctx["field"] (Decision 129). The walk (ScrumWalkField) steps each
 ## from the bodies as they stood before any stepped: one making for a slot towards its next
 ## point, one with no slot that touches no foe back towards its place, round the bodies in
-## its way (UnitSteer), over those lying underfoot (GroundBodies), paying the ground it
+## its way (`steer.rs`), over those lying underfoot (GroundBodies), paying the ground it
 ## crosses (ScrumWalkField.pay); units out chasing on their own are left to ScrumPursuit.
 ## The facing (ScrumFaceField), after all have moved so a unit stepped up to is seen, turns
 ## each towards the nearest foe it touches, or else so as to arrive facing what it will do
-## (UnitShuffle).
+## (`motion::look`).
 static func _seek(ctx: Dictionary) -> void:
 	if ctx["field"] == null:
 		return  # no squads: no field to run on

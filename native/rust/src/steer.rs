@@ -10,7 +10,7 @@
 
 use crate::det_math;
 use crate::ghash::{self, Key};
-use crate::maths::{snapped, V2};
+use crate::maths::{rotated, snapped, V2};
 
 /// UnitSteer.EPSILON.
 const EPSILON: f64 = 0.000001;
@@ -177,14 +177,6 @@ pub fn round(at: V2, centre: V2, reach: f64, side: V2) -> V2 {
         turned = other;
     }
     at.add(turned.scale((gap * gap - reach * reach).sqrt()))
-}
-
-/// DetMath.rotated: `v` turned by `angle` radians, worked in f64, then made a Vector2.
-#[inline]
-fn rotated(v: V2, angle: f64) -> V2 {
-    let (s, c) = (det_math::sin(angle), det_math::cos(angle));
-    let (x, y) = (v.x as f64, v.y as f64);
-    V2::new((x * c - y * s) as f32, (x * s + y * c) as f32)
 }
 
 #[cfg(test)]
