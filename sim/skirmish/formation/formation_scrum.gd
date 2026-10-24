@@ -76,7 +76,8 @@ static func step(
 		"field": field if field != null or squads.is_empty() else squads[0].store.field(),
 	}
 	_seek(ctx)
-	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain)
+	var roster := CrateRoster.of(squads, terrain)  # who is living: nobody falls from here on
+	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
 	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain)
 	FormationWithdraw.step(squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events)
 	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events)

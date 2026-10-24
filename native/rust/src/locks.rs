@@ -10,6 +10,7 @@ use crate::squads::Squads;
 
 /// SkirmishSquad.State's values the locks read and write.
 pub const MOVING: i32 = 0;
+pub const HOLDING: i32 = 1;
 pub const FIGHTING: i32 = 2;
 pub const ARRIVED: i32 = 3;
 pub const DESTROYED: i32 = 4;

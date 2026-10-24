@@ -38,6 +38,8 @@ mod paths;
 mod ranks;
 mod reach;
 mod rect;
+mod regroup;
+mod roster;
 mod route;
 mod scrum;
 mod seeking;
@@ -3006,4 +3008,135 @@ impl BodyField {
 
 fn usizes(values: &PackedInt32Array) -> Vec<usize> {
     values.as_slice().iter().map(|&v| v as usize).collect()
+}
+
+/// The squads a pass is given (spec 39 step 4c, `roster`): GDScript fills one a tick from
+/// its lists (who is living is UnitState's) and hands it to each phase that reads them.
+#[derive(GodotClass)]
+#[class(base = RefCounted, init)]
+struct SquadRoster {
+    roster: roster::Roster,
+}
+
+#[godot_api]
+impl SquadRoster {
+    /// Fills it, flat over the squads in the lists' order: per squad its store slot, id,
+    /// faction (a code) and how many living units follow; per unit its id, `ints` [store
+    /// slot, footprint width, depth, preferred band, kind (a code)] and `reals` [turn rate,
+    /// backward pace, detection, then its walker's five, or none on open ground].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn fill(
+        &mut self,
+        squads: PackedInt32Array,
+        ids: PackedInt64Array,
+        factions: PackedInt32Array,
+        counts: PackedInt32Array,
+        unit_ids: PackedInt64Array,
+        ints: PackedInt32Array,
+        reals: PackedFloat64Array,
+    ) {
+        let (ints, reals, unit_ids) = (ints.as_slice(), reals.as_slice(), unit_ids.as_slice());
+        let walked = unit_ids.is_empty() || reals.len() == 8 * unit_ids.len();
+        let per = if walked { 8 } else { 3 };
+        let open =
+            ground::Walker { height: 0.0, swimmer: 0, climber: 0, swims: false, climbs: false };
+        let mut listed = Vec::with_capacity(squads.len());
+        let mut from = 0;
+        for (n, &count) in counts.as_slice().iter().enumerate() {
+            let to = from + count as usize;
+            let living = (from..to)
+                .map(|u| {
+                    let (i, r) = (&ints[5 * u..5 * u + 5], &reals[per * u..per * u + per]);
+                    let walker = if walked {
+                        ground::Walker {
+                            height: r[3],
+                            swimmer: r[4] as i64,
+                            climber: r[5] as i64,
+                            swims: r[6] != 0.0,
+                            climbs: r[7] != 0.0,
+                        }
+                    } else {
+                        open
+                    };
+                    roster::Member {
+                        id: unit_ids[u],
+                        slot: i[0] as usize,
+                        foot: (i[1] as i64, i[2] as i64),
+                        preferred: i[3] as i64,
+                        kind: i[4] as u32,
+                        turn_rate: r[0],
+                        backward_pace: r[1],
+                        detection: r[2],
+                        walker,
+                    }
+                })
+                .collect();
+            listed.push(roster::Listed {
+                squad: squads.as_slice()[n] as usize,
+                id: ids.as_slice()[n],
+                faction: factions.as_slice()[n] as u32,
+                living,
+            });
+            from = to;
+        }
+        self.roster = roster::Roster { listed };
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// ScrumRegroup.step over `roster`'s squads out of the fight, flat in the lists' order:
+    /// per squad its index in the roster, flags (1 a drilled retreat, 2 withdrawing), its
+    /// re-form pace and how many homes follow (`homes`: unit id, and where it walks back to,
+    /// in `home_at`). `rules`: [pace, seconds, reach_contact, reach_front_arc_degrees,
+    /// bodies_steer_look, bodies_steer_clear, scrum_trade_seconds].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn regroup(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        flags: PackedByteArray,
+        reforms: PackedFloat64Array,
+        counts: PackedInt32Array,
+        homes: PackedInt64Array,
+        home_at: PackedVector2Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        seed: i64,
+    ) {
+        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
+        let mut regroupers = Vec::with_capacity(listed.len());
+        let mut from = 0;
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            let flag = flags.as_slice()[n];
+            regroupers.push(regroup::Regrouper {
+                listed: listed.as_slice()[n] as usize,
+                drilled: flag & 1 != 0,
+                reform: reforms.as_slice()[n],
+                withdrawing: flag & 2 != 0,
+                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
+            });
+            from = to;
+        }
+        let r = rules.as_slice();
+        let rules = regroup::Rules {
+            pace: r[0],
+            seconds: r[1],
+            seed,
+            reach: r[2],
+            arc: r[3],
+            look: r[4],
+            clear: r[5],
+            trade_seconds: r[6],
+        };
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        on_ground(ground, |g| {
+            regroup::step(squads, columns, &roster.roster, &regroupers, g, &rules)
+        });
+        self.edits += 1;
+    }
 }
