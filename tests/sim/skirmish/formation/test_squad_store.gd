@@ -42,13 +42,9 @@ const FIELDS := [
 ]
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new unit store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -151,7 +147,6 @@ func test_the_crates_snapshot_reads_back_the_squads_it_wrote() -> void:
 	squad.state = SkirmishSquad.State.FIGHTING
 	squad.looked_at = -INF
 	var bytes: PackedByteArray = store.field().snapshot(40, 3)
-	NativeKernels.use(NativeKernels.RUST)
 	var field := NativeKernels.body_field()
 	assert_array(field.restore(bytes)).is_equal(PackedInt64Array([40, 3]))
 	var back := SquadColumnsNative.new(field)

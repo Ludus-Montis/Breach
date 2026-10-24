@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## The ground's toll on every unit's step (TerrainStep): a unit walking back to its place
 ## after a fight, one breaking ranks to chase, and one loose in a fight all go at the share
 ## of their pace the ground allows - half in a wood - as a formation's walk does, and never
-## step into ground they can't cross. The fight's walk pays alike under either engine.
+## step into ground they can't cross.
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
@@ -11,17 +11,12 @@ const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd"
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
-const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 const GREM := "grem"
 const SIZE := Vector2i(256, 32)
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-
-
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
 
 
 ## Open ground, a wood everywhere (half pace), or deep water east of x 30.
@@ -118,17 +113,14 @@ func test_a_chaser_never_steps_into_water_it_cant_cross() -> void:
 			assert_float(SquadEntries.loose_at(mine, unit).x).is_less(30.0)
 
 
-## A wide line closing on a narrow one, its flanks walking round to seek it; returns [the
-## mean step of their loose units that stepped, a fingerprint of where every unit stood
-## each tick].
-func _clash(kind: String, engine: String) -> Array:
-	NativeKernels.use(engine)
+## A wide line closing on a narrow one, its flanks walking round to seek it; returns the
+## mean step of their loose units that stepped.
+func _clash(kind: String) -> float:
 	var sim := _sim(kind)
 	var mine := _squad(sim, 8, "player", 30.0)
 	var theirs := _squad(sim, 2, "the_kingdom", 40.0)
 	sim.order(mine.id, SkirmishUnit.Order.ADVANCE)
 	var stepped := [0.0, 0]
-	var trace := []
 	for _tick in 60:
 		var before := {}
 		for squad in [mine, theirs]:
@@ -138,29 +130,17 @@ func _clash(kind: String, engine: String) -> Array:
 		sim.step()
 		for squad in [mine, theirs]:
 			for unit in squad.living():
-				trace.append(
-					[UnitPlaces.where(sim.store, unit), UnitPlaces.bearing_of(squad, unit)]
-				)
 				var step := 0.0
 				if before.has(unit) and squad.loose.has(unit.id):
 					step = before[unit].distance_to(SquadEntries.loose_at(squad, unit))
 				if step > 0.05:
 					stepped[0] += step
 					stepped[1] += 1
-	return [stepped[0] / maxi(stepped[1], 1), hash(var_to_str(trace))]
+	return stepped[0] / maxi(stepped[1], 1)
 
 
 func test_units_loose_in_a_fight_in_a_wood_go_at_half_pace() -> void:
-	var open := _clash("open", NativeKernels.GDSCRIPT)
-	var wood := _clash("wood", NativeKernels.GDSCRIPT)
-	assert_float(open[0]).is_greater(0.1)
-	assert_float(wood[0] / open[0]).is_less(0.65)
-
-
-func test_the_fight_in_a_wood_walks_alike_under_either_engine() -> void:
-	if not NativeKernels.available(NativeKernels.RUST):
-		print("test_terrain_toll: no native kernel built - native case skipped")
-		return
-	var reference := _clash("wood", NativeKernels.GDSCRIPT)
-	var native := _clash("wood", NativeKernels.RUST)
-	assert_int(native[1]).is_equal(reference[1])
+	var open := _clash("open")
+	var wood := _clash("wood")
+	assert_float(open).is_greater(0.1)
+	assert_float(wood / open).is_less(0.65)

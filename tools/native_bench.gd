@@ -1,16 +1,16 @@
 extends SceneTree
 ## The native core's benchmark (Decision 129, native/README.md): a mid-fight tick of
-## FormationBench's clash under each engine (NativeKernels), and two passes the core runs -
-## body parting (UnitBodies, GDScript under "gdscript") and the scrum's slot search
-## (ScrumSeek.plan, Rust under either since spec 39 step 4a). On the core, each pass is
+## FormationBench's clash on one thread and on the core's pool ("rust_threads",
+## NativeKernels.threaded), and two passes the core runs - body parting (UnitBodies) and the
+## scrum's slot search (ScrumSeek.plan). On the core, each pass is
 ## split into syncing the field (BodyFieldSync), gathering what the rules say (the slot
 ## search only), the call (the boundary both ways plus the core), the core's own work and
 ## writing back. Each run times `fight` ticks after `settle` ticks of contact; a
-## line per run, then min / median over the runs. An engine not built is skipped. ms a
+## line per run, then min / median over the runs. Nothing runs without the core. ms a
 ## tick throughout. For where the rest of the tick goes, tools/tick_phases.gd.
 ##
 ##   godot --headless --path . --script res://tools/native_bench.gd -- \
-##       [engines=gdscript,rust,rust_threads] [sizes=160:10,512:32,1024:32] [runs=3]
+##       [engines=rust,rust_threads] [sizes=160:10,512:32,1024:32] [runs=3]
 ##       [settle=10] [fight=10] [seed=1]
 
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
@@ -44,7 +44,7 @@ func _init() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts: PackedStringArray = arg.split("=", true, 1)
 		args[parts[0]] = parts[1] if parts.size() > 1 else "true"
-	var engines := str(args.get("engines", "gdscript,rust,rust_threads")).split(",")
+	var engines := str(args.get("engines", "rust,rust_threads")).split(",")
 	var sizes := str(args.get("sizes", "160:10,512:32,1024:32")).split(",")
 	var runs := int(args.get("runs", 3))
 	var options := {
@@ -56,10 +56,8 @@ func _init() -> void:
 	for size in sizes:
 		var parts := size.split(":")
 		for engine in engines:
-			var core := engine.trim_suffix("_threads")
-			if not NativeKernels.available(core):
+			if not NativeKernels.available():
 				continue
-			NativeKernels.use(core)
 			NativeKernels.threaded = engine.ends_with("_threads")
 			var results := []
 			for run in range(runs):

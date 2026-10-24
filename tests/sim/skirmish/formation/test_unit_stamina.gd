@@ -27,13 +27,9 @@ const SET := {
 }
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -107,8 +103,8 @@ func test_a_unit_entering_its_squad_starts_at_its_full_stamina_and_fresh_pace() 
 
 
 ## A routing squad's units run: they build up their run, spend stamina and so don't recover
-## this tick; the pass leaves the same columns.
-func test_the_stamina_pass_reads_and_writes_the_store_alike_on_both_backends() -> void:
+## this tick, in the store.
+func test_the_stamina_pass_reads_and_writes_the_store() -> void:
 	var said := []
 	for backend in _backends():
 		var store: UnitStore = backend[1]

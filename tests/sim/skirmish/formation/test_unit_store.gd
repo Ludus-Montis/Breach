@@ -26,13 +26,9 @@ const WAVE_AT := 120  # a later wave, once the first blows have fallen
 const FIELDS := "[slot, at, bearing, flags, entries]"  # what _slots gives each unit
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -98,11 +94,7 @@ func test_the_loose_and_fleeing_places_round_trip_and_start_blank() -> void:
 
 func test_a_sync_reads_where_each_unit_stands_from_the_store() -> void:
 	for engine in _backends().map(func(backend): return backend[0]):
-		if engine != NativeKernels.RUST:
-			continue
-		NativeKernels.use(engine)
 		var sim := FormationBench.clash(8, 4, 3)
-		NativeKernels.use(NativeKernels.GDSCRIPT)
 		for _tick in range(30):
 			sim.step()
 		var field: Object = sim.store.field()
@@ -197,10 +189,8 @@ func _places(squad: SkirmishSquad, unit: SkirmishUnit, said: String) -> Array:
 
 ## A 24-a-side clash on `engine`, a second grem wave sent at WAVE_AT; its slots each tick.
 func _battle(engine: String) -> Array:
-	NativeKernels.use(engine)
 	var sim := FormationBench.clash(24, 8, 3)
 	sim.blow_rolls = true
-	NativeKernels.use(NativeKernels.GDSCRIPT)
 	var grem: Resource = CrateContent.unit("grem")
 	var wave := []
 	for column in range(8):
@@ -260,10 +250,8 @@ func _state(sim: FormationSimulation) -> String:
 
 func test_units_given_other_slots_play_the_same_battle() -> void:
 	for engine in _backends().map(func(backend): return backend[0]):
-		NativeKernels.use(engine)
 		var usual := FormationBench.clash(16, 8, 2)
 		var shuffled := FormationBench.clash(16, 8, 2)
-		NativeKernels.use(NativeKernels.GDSCRIPT)
 		var store := shuffled.store
 		var stood := {}  # unit -> each column's value for it
 		for squad in shuffled.squads():

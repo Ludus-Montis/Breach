@@ -294,3 +294,6 @@ fn apply(bodies: &mut Bodies, index: usize, push: V2, loosens: bool, loosened: &
         bodies.nexts[index] = bodies.points[index];
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -9,12 +9,8 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	for backend in out:
 		for unit_id in [1, 2, 3]:
 			backend[1].enrol(unit_id)

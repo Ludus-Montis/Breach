@@ -1,7 +1,7 @@
 name: Sim checks
 
 # The heavy simulation checks, run here rather than in an agent's session: the suite under
-# the Rust core, both engines' tick digests compared, the mirror trials fought from both
+# the Rust core, the tick digests compared with the base's, the mirror trials fought from both
 # sides, and the scaling check. None needs another's output, so after the Rust core is
 # built once (`build`) they run side by side: the suite in shards
 # (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. The `summary` job prints a short summary between
@@ -119,7 +119,7 @@ jobs:
 
       - name: Suite under the Rust core, shard ${{ matrix.shard }}
         run: |
-          BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
+          /opt/godot/godot --headless --path . \
             -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
             $(python3 ci/godot/scripts/shard_tests.py "$SHARDS" ${{ matrix.shard }}) \
             -c --ignoreHeadlessMode \
@@ -145,12 +145,11 @@ jobs:
           path: reports/
           if-no-files-found: ignore
 
-  # One job per digest set: each compares its own two engines' files, so splitting the
-  # sets across machines changes nothing (a digest is the same wherever it is taken). Each
-  # also takes the base's Rust digest of its set, on the core `base-build` built, and compares
-  # the branch's Rust digest with it (check_outcomes.py, Decision 151), so an outcome change
-  # both engines share is seen too: it fails unless one of the branch's commits says why
-  # (`Outcomes-changed: <why>`).
+  # One job per digest set (a digest is the same wherever it is taken, so splitting the sets
+  # across machines changes nothing). Each takes the base's digest of its set, on the core
+  # `base-build` built, and compares the branch's with it (check_outcomes.py, Decision 151):
+  # it fails unless one of the branch's commits says why (`Outcomes-changed: <why>`). The
+  # run under each engine retired with the last GDScript twin (spec 39 step 6a).
   digests:
     needs: [build, base-build]
     runs-on: ubuntu-latest
@@ -176,14 +175,12 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Digests ${{ matrix.set }}, both engines
+      - name: Digest ${{ matrix.set }}
         run: |
           mkdir -p digests
-          for engine in gdscript rust; do
-            BREACH_NATIVE=$engine /opt/godot/godot --headless --path . \
-              --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
-              out=digests/${{ matrix.set }}.$engine.txt > /dev/null 2>&1
-          done
+          /opt/godot/godot --headless --path . \
+            --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
+            out=digests/${{ matrix.set }}.branch.txt > /dev/null 2>&1
           (cd digests && sha256sum *.txt)
 
       - uses: actions/download-artifact@v7
@@ -191,8 +188,9 @@ jobs:
           name: native-bin-base
           path: ${{ runner.temp }}/native-bin-base/
 
-      # The base's own Rust digest, from a worktree of the base with its core, against the
-      # branch's. Without the core the base would run on GDScript silently, so it must be there.
+      # The base's own digest, from a worktree of the base with its core, against the
+      # branch's. BREACH_NATIVE=rust picks Rust's parting on a base from before spec 39 step
+      # 6a, which still had the switch (later code ignores it); the core must be there.
       - name: Digest ${{ matrix.set }} against the base
         run: |
           git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
@@ -203,8 +201,8 @@ jobs:
             --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
             out="$GITHUB_WORKSPACE/digests/${{ matrix.set }}.base.txt" > /dev/null 2>&1 || true)
           python3 ci/godot/scripts/check_outcomes.py ${{ matrix.set }} \
-            digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.rust.txt "$BASE_REF" \
-            --changed digests/${{ matrix.set }}.changed.txt --engine rust \
+            digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.branch.txt "$BASE_REF" \
+            --changed digests/${{ matrix.set }}.changed.txt \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
 
@@ -280,9 +278,9 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Scaling check (Rust), ${{ matrix.stage }}
+      - name: Scaling check, ${{ matrix.stage }}
         run: |
-          BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
+          /opt/godot/godot --headless --path . \
             --script res://tools/scaling_check.gd -- stages=${{ matrix.stage }} 2>/dev/null \
             | tee scaling.${{ matrix.stage }}.txt
 
@@ -294,9 +292,9 @@ jobs:
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if either build
-  # failed (without the base's, the digests jobs are skipped, not failed) or the two engines'
-  # digests differ (each other job fails on its own, the digests
-  # also when the branch changes outcomes against its base without saying why). Named as
+  # failed (without the base's, the digests jobs are skipped, not failed) or a digest is
+  # missing (each other job fails on its own, the digests when the branch changes outcomes
+  # against its base without saying why). Named as
   # the single job was, so the check keeps its name.
   sim-checks:
     needs: [scope, build, base-build, suite, digests, trials, scaling]
@@ -322,10 +320,9 @@ jobs:
             done
             echo "suite (rust): $failed failed across $(ls suite.*.log 2>/dev/null | wc -l) of $SHARDS shards"
             for set in standard clash160 wide; do
-              g=$(sha256sum $set.gdscript.txt 2>/dev/null | cut -c1-16)
-              r=$(sha256sum $set.rust.txt 2>/dev/null | cut -c1-16)
-              verdict=$([ -s $set.gdscript.txt ] && [ "$g" = "$r" ] && echo same || echo DIFFERS)
-              echo "digest $set: gdscript $g rust $r $verdict"
+              b=$(sha256sum $set.branch.txt 2>/dev/null | cut -c1-16)
+              verdict=$([ -s $set.branch.txt ] && echo taken || echo MISSING)
+              echo "digest $set: $b $verdict"
               head -1 $set.outcomes.txt 2>/dev/null || echo "check_outcomes $set: no result"
             done
             for diff in traces/*.diff.txt; do
@@ -340,4 +337,4 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           [ "${{ needs.build.result }}" = "success" ]
           [ "${{ needs.base-build.result }}" = "success" ]
-          ! grep -q DIFFERS "$GITHUB_STEP_SUMMARY"
+          ! grep -q MISSING "$GITHUB_STEP_SUMMARY"

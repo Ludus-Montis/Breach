@@ -5,14 +5,12 @@ extends GdUnitTestSuite
 ## - the line's units chasing B back through the wood (after its retreat at 815) go at the
 ##   wood's half pace (TerrainStep);
 ## - A's first group, ordered to retreat at home (550), arrives and holds, never turning
-##   (FormationMarch.check_ends);
-## and the record plays alike under either engine.
+##   (FormationMarch.check_ends).
 
 const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 
 const RECORD := """record 2 seed 841592 captain off build 789653b8de9e
 0 player hurry A on
@@ -32,27 +30,21 @@ const OPEN_STEP := 0.96
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
-static var _seen := {}  # engine -> what its replay saw (_replay)
+static var _seen := {}  # what the replay saw, once played (_replay)
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
-## What the record's replay under `engine` shows: B's shared targets and least gap at the
+## What the record's replay shows: B's shared targets and least gap at the
 ## ford, the kingdom's steps on half-pace ground after B's retreat, A's first group's
-## turns after its order, its end state, and a fingerprint of every tick.
-func _replay(engine: String) -> Dictionary:
-	if _seen.has(engine):
-		return _seen[engine]
-	NativeKernels.use(engine)
-	var seen := {"shared": 0, "least": INF, "wood": [0.0, 0], "turns": 0, "trace": [], "was": {}}
+## turns after its order, and its end state.
+func _replay() -> Dictionary:
+	if not _seen.is_empty():
+		return _seen
+	var seen := {"shared": 0, "least": INF, "wood": [0.0, 0], "turns": 0, "was": {}}
 	var field := FormationFieldActions.replay(
 		RECORD, 200, func(played, events): _look(played, events, seen)
 	)
 	seen["first"] = field.sim.squad(A_FIRST)
-	seen["trace"] = hash(var_to_str(seen["trace"]))
-	_seen[engine] = seen
+	_seen = seen
 	return seen
 
 
@@ -70,7 +62,6 @@ func _look(played, events: Array, seen: Dictionary) -> void:
 				if squad.loose.has(unit.id)
 				else UnitPlaces.of(squad, unit)
 			)
-			seen["trace"].append(at)
 			var was = seen["was"].get(unit.id)
 			seen["was"][unit.id] = at
 			if squad.faction_id != "the_kingdom" or tick <= 816 or was == null or at == was:
@@ -97,30 +88,21 @@ func _at_the_ford(squad: SkirmishSquad, terrain, seen: Dictionary) -> void:
 
 
 func test_at_bs_ford_no_two_units_share_a_target_or_stand_on_each_other() -> void:
-	var seen := _replay(NativeKernels.GDSCRIPT)
+	var seen := _replay()
 	assert_int(seen["shared"]).is_equal(0)
 	assert_float(seen["least"]).is_greater(0.5)
 
 
 func test_the_line_chasing_through_the_wood_goes_at_its_half_pace() -> void:
-	var seen := _replay(NativeKernels.GDSCRIPT)
+	var seen := _replay()
 	assert_int(seen["wood"][1]).is_greater(50)
 	assert_float(seen["wood"][0] / seen["wood"][1]).is_less(OPEN_STEP * 0.5 + 0.05)
 
 
 func test_as_first_group_ordered_home_while_home_holds_there() -> void:
-	var seen := _replay(NativeKernels.GDSCRIPT)
+	var seen := _replay()
 	var first: SkirmishSquad = seen["first"]
 	assert_int(seen["turns"]).is_equal(0)
 	assert_int(first.order).is_equal(SkirmishUnit.Order.HOLD)
 	assert_float(first.front_distance).is_equal(first.home_distance)
 	assert_bool(first.loose.is_empty()).is_true()
-
-
-func test_the_record_plays_alike_under_either_engine() -> void:
-	if not NativeKernels.available(NativeKernels.RUST):
-		print("test_field_test_record: no native kernel built - native case skipped")
-		return
-	var reference := _replay(NativeKernels.GDSCRIPT)
-	var native := _replay(NativeKernels.RUST)
-	assert_int(native["trace"]).is_equal(reference["trace"])

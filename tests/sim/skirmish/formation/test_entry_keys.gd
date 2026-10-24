@@ -15,13 +15,9 @@ const FormationRecovery = preload("res://sim/skirmish/formation/formation_recove
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -110,9 +106,7 @@ func test_a_unit_moved_to_another_squad_leaves_no_entry_behind() -> void:
 
 
 func test_the_native_store_holds_every_column_on_its_field() -> void:
-	NativeKernels.use(NativeKernels.RUST)
 	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
 	if field == null:
 		print("test_entry_keys: the Rust core isn't built - its half skipped")
 		return

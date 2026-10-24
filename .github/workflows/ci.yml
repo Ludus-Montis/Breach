@@ -1,7 +1,7 @@
 name: CI
 
 # The baseline: lint, the static checks and commit messages (`run-baseline`), the gdUnit4
-# suite on the GDScript engine split into shards (`tests`, ci/godot/scripts/shard_tests.py)
+# suite split into shards (`tests`, ci/godot/scripts/shard_tests.py)
 # and the scaling check by stage (`scaling`), side by side.
 
 on:
@@ -81,7 +81,7 @@ jobs:
           done
 
   # The Rust core, built once for the jobs that start Godot: every run loads the content
-  # through it (CrateContent, Decision 153), whichever engine runs the kernels.
+  # through it (CrateContent, Decision 153), and every battle runs on it.
   native:
     needs: scope
     if: needs.scope.outputs.godot == 'true'
