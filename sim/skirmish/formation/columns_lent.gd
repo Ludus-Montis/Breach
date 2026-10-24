@@ -39,6 +39,7 @@ static func all(columns: UnitColumns, call: Callable) -> Variant:
 	var out: Variant = call.call()
 	var copies: Dictionary = columns.copies
 	for name in copies:
+		# store: per squad (each held column read back once a call, by name, not per unit)
 		var fresh: Variant = columns.inner.column(name)
 		var copy: Variant = copies[name]
 		for index in range(fresh.size()):
