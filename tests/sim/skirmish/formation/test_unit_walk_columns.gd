@@ -32,13 +32,9 @@ const SET := {
 const CLIMBER := [1.0, 0, 1, false, true]  # height, swimmer, climber, swims, climbs
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 
@@ -122,21 +118,18 @@ func test_the_melee_clears_each_target_in_the_store_on_both_backends() -> void:
 
 
 ## Each unit in its place stands along the route at its rank's distance, as the march
-## writes it to the store, on both engines.
+## writes it to the store.
 func test_the_march_writes_where_along_the_route_each_unit_stands() -> void:
-	for engine in [NativeKernels.GDSCRIPT, NativeKernels.RUST]:
-		NativeKernels.use(engine)
-		var sim := FormationSimulation.new(9.0, 0.1)
-		var placements := [[_melee(), Vector2i(0, 0)], [_melee(), Vector2i(1, 0)]]
-		var squad := sim.spawn_squad(1, placements, "player", true)
-		for tick in 3:
-			sim.step()
-		for unit in squad.units:
-			var along: float = squad.store.columns.value(unit.slot, UnitColumns.DISTANCE)
-			assert_float(along).override_failure_message(engine).is_equal_approx(
-				squad.rank_distance(UnitPlace.rank(squad, unit)), 0.0001
-			)
-		NativeKernels.use(NativeKernels.GDSCRIPT)
+	var sim := FormationSimulation.new(9.0, 0.1)
+	var placements := [[_melee(), Vector2i(0, 0)], [_melee(), Vector2i(1, 0)]]
+	var squad := sim.spawn_squad(1, placements, "player", true)
+	for tick in 3:
+		sim.step()
+	for unit in squad.units:
+		var along: float = squad.store.columns.value(unit.slot, UnitColumns.DISTANCE)
+		assert_float(along).is_equal_approx(
+			squad.rank_distance(UnitPlace.rank(squad, unit)), 0.0001
+		)
 
 
 ## A climber stepping onto a cliff begins its climb in the store; on the face it takes no

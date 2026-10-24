@@ -11,7 +11,6 @@ const FormationSimulation = preload("res://sim/skirmish/formation/formation_simu
 const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 
@@ -20,7 +19,6 @@ func _init() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts: PackedStringArray = arg.split("=", true, 1)
 		args[parts[0]] = parts[1] if parts.size() > 1 else "true"
-	NativeKernels.use(str(args.get("engine", "gdscript")))
 	var side := int(args.get("side", 1024))
 	var count := int(args.get("squads", 16))
 	var width := int(args.get("width", 16))

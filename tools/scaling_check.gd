@@ -13,11 +13,10 @@ extends SceneTree
 ## stage as its own job (the timings within a stage must come from one machine).
 ##
 ##   godot --headless --path . --script res://tools/scaling_check.gd -- \
-##       [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5] [engine=gdscript]
+##       [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5]
 ##       [stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]
 
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
-const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const Sim = preload("res://sim/skirmish/formation/formation_simulation.gd")
 
 const STAGES := ["march", "fight", "stacks"]
@@ -28,13 +27,12 @@ func _init() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts: PackedStringArray = arg.split("=", true, 1)
 		args[parts[0]] = parts[1] if parts.size() > 1 else "true"
-	NativeKernels.use(str(args.get("engine", "gdscript")))
 	var sizes: Array = Array(str(args.get("sizes", "128,256,512")).split(",")).map(
 		func(s): return int(s)
 	)
 	var limit := float(args.get("limit", 2.5))
 	var failures := 0
-	print("scaling_check (%s): ms a tick, and its growth per doubling" % NativeKernels.engine())
+	print("scaling_check: ms a tick, and its growth per doubling")
 	var stacks: Array = Array(str(args.get("stacks", "1,2,4")).split(",")).map(
 		func(s): return int(s)
 	)

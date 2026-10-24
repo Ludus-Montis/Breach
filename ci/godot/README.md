@@ -65,18 +65,19 @@ Every check that doesn't need another's output runs in its own job, side by side
 
 - **`CI`** (`ci.yml`): `run-baseline` (lint, the static checks, the Python tests and
   commit messages: pre-commit with its `run-tests` hook skipped), `tests` (the gdUnit4
-  suite on the GDScript engine, in shards) and `scaling` (the GDScript scaling check, one
-  job per stage).
+  suite, in shards) and `scaling` (the scaling check, one job per stage; both on the core,
+  the one engine since spec 39 step 6a).
 - **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
   as an artifact, and `base-build` does the same for the merge base; then `suite` (the suite
   under Rust, in shards, each failing when a test does: it keeps gdUnit's exit status
-  past the `sed` that writes its log), `digests` (one job per set, each comparing its own two engines,
-  and its Rust digest with the base's from a worktree of the merge base given the base's
+  past the `sed` that writes its log), `digests` (one job per set, each comparing
+  its digest with the base's from a worktree of the merge base given the base's
   core: `check_outcomes.py`, Decision 151), `trials` and `scaling` (one job per
   stage) run together; `sim-checks` waits for them all and prints the SUMMARY block.
-- **Why the digests also compare with the base:** the two engines agreeing doesn't show an
-  outcome is kept: a change in shared GDScript rules moves both alike. Spec 35's steps were
-  checked only engine against engine until 2026-10-17 (found reviewing step 6c).
+- **Why the digests compare with the base:** two engines agreeing doesn't show an outcome
+  is kept: a change in shared GDScript rules moves both alike. Spec 35's steps were checked
+  only engine against engine until 2026-10-17 (found reviewing step 6c). The run under each
+  engine retired with the last twin (spec 39 step 6a).
 - **The scaling check splits by stage, never by size.** It checks how a tick's time grows
   from one size to the next, and timings only compare when taken on one machine: each
   stage (march, fight, stacks) runs all its sizes in one job (`scaling_check.gd`'s

@@ -11,13 +11,9 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 

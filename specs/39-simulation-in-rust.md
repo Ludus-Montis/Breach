@@ -181,6 +181,17 @@ from step 3d: Built, "Step 3d").
 
 Deaths, wounds, recovery, carrying, taking, stamina and the bodies' parting (`UnitBodies`).
 
+- **Split** (2026-10-24, the user's call: about 1,650 lines of GDScript in eight classes):
+  **6a** stamina (`FormationStamina`) and the bodies' parting, its GDScript twin retired;
+  **6b** the downed: the fallen (`FormationDeaths`), the takers and surrender
+  (`FormationWounds`), recovery and regeneration (`FormationRecovery`,
+  `FormationRegeneration`); **6c** carrying (`FormationCarry`) and taking
+  (`FormationTaking`). 6c's PR closes the step.
+- **The last twin** (2026-10-24, the user's call): the parting was the last pass with a
+  GDScript twin, so 6a also retires `BREACH_NATIVE`, the engine switch and the digests' run
+  under each engine, which step 8 had listed "with the last twin". The digests then compare
+  only with the base (`check_outcomes.py`).
+
 ### Step 7, morale, the rout and orders
 
 `FormationMorale`, `FormationRout` with its flight, crush, rally and hold, and orders and their
@@ -953,6 +964,52 @@ Decision's conditions.
   partner, only the named one, a friend on another route and none on its own or hostile,
   seeing a fight, a coordinated leader waiting and going, the lists' order).
 - **Step 5 is done** with this PR.
+
+### Step 6a, stamina in the crate, and the last twin retired
+
+- **Stamina** (`stamina.rs`): who runs (fleeing; pursuing or retreating unless its leader or
+  all its units keep to a march; hurried, while not fighting), a unit chasing on its own
+  running, a run building up and a pursuer reacting first by its wits, the spent unable to
+  run, running, a laden march and blows spending stamina and restarting the breather,
+  recovering after it (none on a climb face) by constitution and condition, the pace by
+  stage, and a formation too tired to keep up a chase. `FormationStamina` hands it each
+  squad's slot, whether it pursues and is on its way back and whether it is hurried (the
+  pursuit record and the command stay GDScript), and per living unit its id, slot, fresh
+  speed, most stamina, tiring, run pace, wits, constitution, load stage, leading and its two
+  "at a march" traits. A unit made by hand still takes its fresh speed from its SPEED column
+  first. `stage_at` is `ScrumRules.stamina_stage`, which the landing's skill shift reads.
+- **The bodies' parting**: its Rust (`parting.rs`, `field_parting.rs`) was already the
+  battle's under `BREACH_NATIVE=rust` (Decision 129). UnitBodies' GDScript passes are gone, so
+  every battle parts on its field. With the last twin gone, `BREACH_NATIVE`, the project
+  setting `breach/native/engine` and `NativeKernels.use`, `engine` and `parts_natively` retire
+  (Open, "The last twin"). The tools lose their `engine=` argument (an old base still reads
+  it, so the bench's default keeps `engine=rust`); `native_bench`'s engines are `rust` and
+  `rust_threads`. CI's suite and scaling jobs drop the variable, and each digest job takes
+  one digest and compares it with the base's (`BREACH_NATIVE=rust` is still set on the base's
+  run, for a base from before this step).
+- **Identical:** stamina follows the GDScript's order and precision (f64 throughout, Godot's
+  `maxf`, `minf`, `clampf`; `stamina_run * tiring * seconds` and `fresh_speed * gait * pace`
+  in that order). The native calls are lent held columns (ColumnsLent.all). The parting's
+  Rust is the code the `rust` digests already ran. The proof is CI's digests against the
+  base. Outcomes unchanged.
+- **Retired:** FormationStamina's `_step_squad`, `runs`, `_build`, `_marches`, `_spend`,
+  `_breathe`, `_march_cost` and its held columns; UnitBodies' `_passes`, `_drawn`,
+  `_bodies`, `_pairs`, `_framed`, `_push`, `_keeps`, `_mass`, `_move`, `BUCKET` and
+  `EPSILON`. `test_unit_bodies.gd` (now `parting/tests.rs`), `test_formation_stamina.gd`'s
+  stamina cases (now `stamina/tests.rs`; its load cases stay), and the engine comparisons
+  in `test_body_parting.gd`, `test_field_test_record.gd`, `test_formation_pour.gd`,
+  `test_terrain_toll.gd`, `test_unit_store.gd` and `test_unit_walk_columns.gd`. The
+  scenarios through a battle or the store stay gdUnit (`test_unit_stamina.gd`,
+  `test_body_parting.gd`'s kept field and list order, `test_formation_pour.gd`).
+- **Tests:** cargo: `stamina/tests.rs` (running tires and a light march doesn't, a run
+  building up and a pursuer reacting, a chaser running on its own, the breather and a
+  hardy unit's shorter one, a heavy load and a poor condition, no breather on a face, who
+  runs, a routing formation and a returning pursuit, the spent can't run, the stages'
+  paces, a mostly tired formation giving up, the lists' order) and `parting/tests.rs` (a
+  body's radius, mass, foes stepping back half, a framed unit giving way and loosened, a
+  brush, holding its space against another squad's loose unit, two squads' frames and one
+  squad's, bodies on one spot, the lists' order on a field). The parting's were written
+  against Rust that already passed them: they had no red run.
 
 ## Open, for the implementing session to settle and record here
 

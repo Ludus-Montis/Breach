@@ -1,8 +1,8 @@
 class_name NativeLibrary
 extends RefCounted
 ## Breach's native core (native/README.md), loaded once whoever needs it first: the content
-## (CrateContent, which always does: the crate loads it, Decision 153) or the native kernels
-## (NativeKernels, when BREACH_NATIVE=rust). native/ holds a .gdignore, so the editor never
+## (CrateContent, which always does: the crate loads it, Decision 153) or the battle's field
+## (NativeKernels). native/ holds a .gdignore, so the editor never
 ## loads it on its own; native/build.sh builds it.
 
 const EXTENSION := "res://native/breach_rust.gdextension"
