@@ -189,6 +189,25 @@ pub fn snapped(value: f64, step: f64) -> f64 {
     (value / step + 0.5).floor() * step
 }
 
+/// DetMath.rotated: `v` turned by `angle` radians, worked in f64, then made a Vector2.
+#[inline]
+pub fn rotated(v: V2, angle: f64) -> V2 {
+    let (s, c) = (det_math::sin(angle), det_math::cos(angle));
+    let (x, y) = (v.x as f64, v.y as f64);
+    V2::new((x * c - y * s) as f32, (x * s + y * c) as f32)
+}
+
+/// GDScript's `move_toward(from, to, delta)` for floats: `to` within `delta`, else `delta`
+/// towards it.
+#[inline]
+pub fn move_toward(from: f64, to: f64, delta: f64) -> f64 {
+    if (to - from).abs() <= delta {
+        to
+    } else {
+        from + signf(to - from) * delta
+    }
+}
+
 /// `UnitMotion.vector(bearing)`: the unit vector of a bearing (degrees clockwise from
 /// north), exact on the quarter bearings. `deg_to_rad` is `bearing * (PI / 180)`; `sin` and
 /// `cos` are DetMath's (`det_math.rs`), the same bits on every platform.

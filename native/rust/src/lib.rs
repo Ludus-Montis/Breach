@@ -52,6 +52,7 @@ mod steer;
 mod trade;
 mod walk_store;
 mod walking;
+mod withdraw;
 
 use std::time::Instant;
 
@@ -3237,5 +3238,74 @@ impl BodyField {
             ),
             None => PackedFloat64Array::new(),
         }
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationWithdraw.step's flight over `roster`'s withdrawing squads, flat in the lists'
+    /// order: per squad its index in the roster, whether a squad pursues it (`pursued`), its
+    /// disorder, its re-form pace, its home along its route (cells), how many of its route's
+    /// points follow in `points`, and its living units' own flight angles in `fans`, in its
+    /// order. `rules`: [pace, seconds, reach_contact, rout_enemy_near, rout_fan_cells].
+    /// Returns per squad 1 if it was safe as the tick began, plus 2 if its units are home.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn withdraw(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        pursued: PackedByteArray,
+        orders: PackedFloat64Array,
+        counts: PackedInt32Array,
+        points: PackedVector2Array,
+        fans: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+    ) -> PackedByteArray {
+        let roster = roster.bind();
+        let (points, orders, fans) = (v2s(&points), orders.as_slice(), fans.as_slice());
+        let mut withdrawing = Vec::with_capacity(listed.len());
+        let (mut from, mut fanned) = (0, 0);
+        for n in 0..listed.len() {
+            let to = from + counts.as_slice()[n] as usize;
+            let index = listed.as_slice()[n] as usize;
+            let living = roster.roster.listed[index].living.len();
+            withdrawing.push(withdraw::Withdrawing {
+                listed: index,
+                pursued: pursued.as_slice()[n] != 0,
+                disorder: orders[3 * n],
+                reform: orders[3 * n + 1],
+                home: orders[3 * n + 2],
+                route: route::Route::new(points[from..to].to_vec(), 0.0),
+                fans: fans[fanned..fanned + living].to_vec(),
+            });
+            from = to;
+            fanned += living;
+        }
+        let r = rules.as_slice();
+        let rules =
+            withdraw::Rules { pace: r[0], seconds: r[1], reach: r[2], near: r[3], fan_cells: r[4] };
+        let (squads, columns) = (&self.squads, &mut self.field.columns);
+        let out = on_ground(ground, |g| {
+            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &rules)
+        });
+        out.iter().map(|&(safe, home)| safe as u8 | (home as u8) << 1).collect()
+    }
+
+    /// FormationWithdraw._home: true if all `roster`'s squad `listed`'s units stand within
+    /// half a cell of `home` (cells) along the route through `points`.
+    #[func]
+    fn withdraw_home(
+        &self,
+        roster: Gd<SquadRoster>,
+        listed: i64,
+        points: PackedVector2Array,
+        home: f64,
+    ) -> bool {
+        let roster = roster.bind();
+        let route = route::Route::new(v2s(&points), 0.0);
+        let (squads, columns) = (&self.squads, &self.field.columns);
+        withdraw::home(squads, columns, &roster.roster, listed as usize, &route, home)
     }
 }
