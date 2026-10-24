@@ -1,14 +1,13 @@
 extends GdUnitTestSuite
 ## The passes that look only near (BodyGrid) give what a look at everything gives (spec 30
-## round 3, Decision 97): the bodies underfoot, the bearers for the downed and the nearest
-## formation one coming to joins - each checked against a plain search of every unit over a
-## scattered field. The gap between two groups meeting is the crate's (`groups/tests.rs`).
+## round 3, Decision 97): the bodies underfoot and the bearers for the downed - each checked
+## against a plain search of every unit over a scattered field. The gap between two groups
+## meeting is the crate's (`groups/tests.rs`), and the nearest formation one coming to joins
+## too (`recovery/tests.rs`).
 
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
-const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -117,31 +116,3 @@ func test_the_bearers_paired_are_those_a_look_at_all_finds() -> void:
 	var got := pairs.map(func(pair): return [pair[1].id, pair[2].id])
 	assert_array(expected).is_not_empty()
 	assert_array(got).is_equal(expected)
-
-
-func test_one_coming_to_joins_the_formation_a_look_at_all_finds() -> void:
-	var squads := _field()
-	var friends := FormationRecovery._index(squads, true, SEED)
-	var joined := {true: 0, false: 0}  # some find one, some none in sight
-	for squad in squads:
-		for unit in squad.units:
-			if unit.state != SkirmishUnit.State.DOWNED:
-				continue
-			unit.detection = [0.5, 3.0, 40.0][unit.id % 3]
-			var best = null
-			var best_key := [INF]
-			for other_squad in squads:
-				if other_squad.faction_id != unit.faction_id:
-					continue
-				for other in other_squad.living():
-					var gap: float = _places.at(other).distance_to(_places.at(unit))
-					var key := [snappedf(gap, 0.000001), ScrumContest.squad_draw(other_squad, SEED)]
-					if gap <= unit.detection and (best == null or key < best_key):
-						best = other_squad
-						best_key = key
-			var pick := FormationRecovery._nearest(unit, friends)
-			assert_object(pick[0]).is_same(best)
-			assert_float(pick[1]).is_equal(best_key[0])
-			joined[best != null] += 1
-	assert_int(joined[true]).is_greater(0)
-	assert_int(joined[false]).is_greater(0)

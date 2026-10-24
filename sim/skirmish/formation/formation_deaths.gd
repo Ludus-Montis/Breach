@@ -7,7 +7,9 @@ extends RefCounted
 ## themselves: Decision 88), and a squad with no one left is destroyed, freeing whoever
 ## fought it. What becomes of the downed is FormationWounds'. The fallen are those on the
 ## store's fell queue (UnitHealth, Decision 145), so deaths costs per fallen unit, not per
-## army. Pure over the squads.
+## army. Which die and which are downed is the crate's (`deaths.rs`, spec 39 step 6b): this
+## finds each fallen unit's squad and lands the fates, the morale and the step-ups. Pure over
+## the squads.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -20,22 +22,24 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 static func bury(squads: Array, tick: int, events: Array) -> void:
 	var by_squad := _fallen(squads)
+	if by_squad.is_empty():
+		return
+	var fates := _fates(squads, by_squad)
+	var at := 0
 	for index in range(squads.size()):
 		if not by_squad.has(index):
 			continue
 		var fallen_squad: SkirmishSquad = squads[index]
 		var fallen: Array = by_squad[index]
 		for unit in fallen:  # store: scattered (few: the tick's fallen)
-			if UnitHealth.of_one(fallen_squad, unit) <= -depth(unit):
+			var wounds: int = fates[at]
+			at += 1
+			if wounds < 0:
 				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DEAD)
 				events.append(FormationEvents.unit_event("died", tick, fallen_squad, unit))
 			else:
-				UnitHealth.put_one(fallen_squad, unit, 0)
 				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DOWNED)
-				var columns := fallen_squad.store.columns
-				var wounding: int = columns.value(unit.slot, UnitColumns.LAST_WOUNDING)
-				unit.wounded += 1 + wounding  # lowering its condition (Decision 126)
-				columns.put(unit.slot, UnitColumns.WAKE_LEFT, -1.0)  # not yet reckoned
+				unit.wounded += wounds  # lowering its condition (Decision 126)
 				events.append(FormationEvents.unit_event("downed", tick, fallen_squad, unit))
 		FormationMorale.losses(fallen_squad, fallen, tick, events)
 		# store: scattered (few: the step-ups, the units that moved up)
@@ -49,6 +53,20 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 			fallen_squad.state = SkirmishSquad.State.DESTROYED
 			FormationLocks.release(fallen_squad, squads)
 			events.append(FormationEvents.squad_event("destroyed", tick, fallen_squad))
+
+
+## The crate's fates for the fallen, in the squads' order then their own: -1 if it dies,
+## else the wounds it takes (deaths.rs), its hp put to 0 and its time downed to be reckoned.
+static func _fates(squads: Array, by_squad: Dictionary) -> PackedInt64Array:
+	var slots := PackedInt32Array()
+	var constitutions := PackedFloat64Array()
+	for index in range(squads.size()):
+		for unit in by_squad.get(index, []):
+			slots.append(unit.slot)
+			constitutions.append(unit.attributes.get("constitution", UnitDef.AVERAGE))
+	var columns: UnitColumns = squads[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
+	return ColumnsLent.all(columns, func(): return field.deaths_fate(slots, constitutions))
 
 
 ## The fell queue's units still living at 0 hp or below, by the index of the squad each is
@@ -98,8 +116,3 @@ static func _place(unit: SkirmishUnit, squads: Array, where: Dictionary) -> Arra
 		if at >= 0:
 			return [index, at]
 	return []
-
-
-## How far below 0 hp a unit lives on, at death's door: its constitution (Decision 121).
-static func depth(unit: SkirmishUnit) -> int:
-	return int(unit.attributes.get("constitution", UnitDef.AVERAGE))

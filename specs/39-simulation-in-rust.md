@@ -1011,6 +1011,59 @@ Decision's conditions.
   squad's, bodies on one spot, the lists' order on a field). The parting's were written
   against Rust that already passed them: they had no red run.
 
+### Step 6b, the downed in the crate
+
+- **The fallen** (`deaths.rs`): which of the fallen die (past minus their constitution) and
+  which are downed, their hp put to 0, the wounds they take (1 and their last blow's) and
+  their time downed left to reckon. FormationDeaths keeps taking the fell queue and finding
+  each fallen unit's squad (`_fallen`, `_place`: the lists are GDScript's), and lands the
+  fates: the states, the wounds, the morale, the step-ups and a squad destroyed.
+- **The takers and surrender** (`wounds.rs`): the standing and the downed in their draws'
+  order, a body guarded by a friend within `wounds_guard_reach`, the nearest unguarded foe's
+  body within `wounds_reach` and a taker with no foe of its own near, a body playing dead
+  fooling a taker, a captor, a leader's messenger (the messengers left counted down within
+  the pass) and the strikes through death's door on each taker's interval (its cooldown,
+  target and the body's hp, a strike that takes a body from above 0 putting it on the fell
+  queue); and the struck router's surrender roll. FormationWounds hands it every squad's
+  living and lying bodies, and lands each body's taking in order: the states, the messenger
+  spent, the morale shocks and the events. Which struck routers it asks about (routing,
+  standing, no "never_surrenders") and a squad's destruction stay GDScript.
+- **Recovery and regeneration** (`recovery.rs`, `regeneration.rs`): condition, its drain
+  (onto the fell queue when it crosses 0), regeneration's mending, the time downed, playing
+  dead with a foe near (its own cunning or its leaders'), and those coming to - each finds
+  the nearest joinable friendly formation in sight, then they rise nearest first, ties by
+  their draws, at 1 HP at least. The nearest is a search of the grid within the unit's
+  detection; its key ([gap, the squad's draw, the unit's place]) is a total order, so it
+  equals the ring search it replaces. FormationRecovery hands it the squads, and lands the
+  deaths, those playing dead, and those coming to: `_join` (the lists, `enlist`, the place
+  at the back and the entry), or a stray for FormationStrays.
+- **Kept GDScript**: `FormationRegeneration.scorch`, which the blows' landing calls while it
+  holds REGENERATION_HALT (it ports with the landing).
+- **Identical:** each port follows the GDScript's order and precision (`Vector2` distances in
+  f32, `snappedf`, Godot's `maxf`, `minf`, `clampf`, `lerpf`, `int()` of a constitution,
+  `floori(x + 0.000001)`, the seeded rolls through `ghash::uniform` with the same keys). The
+  grid's cells around the downed that `tend` filtered the standing by is gone: every unit it
+  let in or out was beyond any reach the rules test. The native calls are lent held columns
+  (ColumnsLent.all). The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationDeaths' `depth` and the fates' rule; FormationWounds' `STRUCK`,
+  `_cells_around`, `_by_draw`, `_within_reach`, `_fooled`, `_guarded`, `_take`, `_messenger`
+  and the surrender roll; FormationRecovery's `HELD`, `_lies_still`, `_led_cunning`,
+  `_index`, `condition_of`, `_unclamped`, `_drain`, `_wakes`, `_rise` and `_nearest`;
+  FormationRegeneration's `mend`. From the gdUnit tests: test_formation_wounds.gd's struck
+  and guarded cases, test_formation_recovery.gd's condition, drain, regeneration, downed
+  regenerator, playing dead and fooled cases, and test_formation_near_passes.gd's nearest
+  formation (each now a cargo test). The scenarios that land what the crate decides or run
+  through a battle stay gdUnit (test_formation_wounds.gd, test_formation_recovery.gd,
+  test_formation_wounds_order.gd, test_unit_downed.gd, test_unit_health.gd).
+- **Tests:** cargo: `deaths/tests.rs` (downed within the constitution and dead past it, a
+  wounding blow's wounds), `wounds/tests.rs` (struck through death's door, a captor, guarded
+  and pressed, a messenger, which body a messenger takes whatever the lists' order, a
+  thorough foe fooled less, a router's surrender) and `recovery/tests.rs` (condition and
+  hardening, drain, coming to and rejoining, alone, the nearest not its own nor a routed one,
+  the nearest as a look at all finds it, regeneration's limit and max, a halt, a downed
+  regenerator, playing dead and the cunning, getting up once foes are gone, two rising
+  whatever the lists' order). The Rust was drafted before them, so they had no red run.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

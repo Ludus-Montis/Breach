@@ -1,14 +1,14 @@
 extends GdUnitTestSuite
-## FormationRecovery and FormationStrays, per Decisions 121, 125 and 126: wounds lower a
-## unit's condition; a poor condition drains HP, standing or downed; a downed unit comes to
-## at 1 HP after a seeded while, rejoining its formation if it stands within sight, and
-## otherwise makes for home alone; regeneration mends up to its limit, times condition.
+## FormationRecovery and FormationStrays, per Decisions 121, 125 and 126, as GDScript lands
+## what the crate decides (`recovery.rs`, whose tests hold the rules): a downed unit comes to
+## at 1 HP after a seeded while, rejoining the nearest formation in sight at its back, and
+## otherwise makes for home alone; a blow of a type it fears stops its regeneration; the
+## fallen lie where they fell and take their last blow's wounds.
 
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
 const FormationRegeneration = preload("res://sim/skirmish/formation/formation_regeneration.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
-const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
@@ -58,35 +58,6 @@ func _run(squads: Array, seconds: float, events: Array = []) -> Array:
 	return strays
 
 
-func test_each_wound_lowers_its_condition_past_those_it_is_hardened_to() -> void:
-	var step := BattleTuning.current().wounds_condition
-	var unit := _unit(1, Vector2.ZERO)
-	unit.wounded = 1
-	var hardened := _unit(2, Vector2.ZERO)
-	hardened.wounded = 1
-	hardened.traits = {"hardened": 1}
-
-	assert_float(FormationRecovery.condition_of(unit)).is_equal_approx(1.0 - step, 0.0001)
-	assert_float(FormationRecovery.condition_of(hardened)).is_equal(1.0)
-
-
-func test_a_poor_condition_drains_it_to_death_the_faster_the_worse() -> void:
-	var three := _downed(_unit(1, Vector2.ZERO))
-	three.wounded = 3  # just below the threshold with the usual tuning
-	var four := _downed(_unit(2, Vector2(5, 0)))
-	four.wounded = 4
-	var two := _downed(_unit(3, Vector2(10, 0)))
-	two.wounded = 2  # survivable in otherwise good condition
-	var events := []
-	_run([_squad([three, four, two])], 5.0, events)
-
-	assert_int(UnitHealth.of_one(_places, four)).is_less(UnitHealth.of_one(_places, three))
-	assert_int(UnitHealth.of_one(_places, two)).is_equal(0)
-	_run([_squad([three, four, two])], 25.0, events)
-	assert_int(three.state).is_equal(SkirmishUnit.State.DEAD)
-	assert_bool(events.any(func(e): return e["type"] == "died_of_wounds")).is_true()
-
-
 func test_downed_it_comes_to_and_rejoins_its_formation_in_sight() -> void:
 	var friend := _unit(2, Vector2(3, 0))
 	var downed := _downed(_unit(1, Vector2.ZERO))
@@ -128,20 +99,6 @@ func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:
 	assert_bool(events.any(func(e): return e["type"] == "fled_home")).is_true()
 
 
-func test_regeneration_mends_to_its_max_and_no_further_than_its_limit() -> void:
-	var troll := _unit(1, Vector2.ZERO)
-	_places.health(troll, 2)
-	troll.regeneration = 2.0
-	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 5.0)
-	var squads := [_squad([troll])]
-	_run(squads, 3.0)
-
-	assert_int(UnitHealth.of_one(_places, troll)).is_equal(7)  # 5 regained: its limit until it rests
-	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
-	_run(squads, 7.0)
-	assert_int(UnitHealth.of_one(_places, troll)).is_equal(10)  # never past its max
-
-
 func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
 	var troll := _unit(1, Vector2.ZERO)
 	_places.health(troll, 2)
@@ -157,19 +114,6 @@ func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
 	_run([_squad([troll])], 1.0)
 
 	assert_int(UnitHealth.of_one(_places, troll)).is_equal(2)
-
-
-func test_a_downed_regenerator_mends_only_with_the_trait() -> void:
-	var plain := _downed(_unit(1, Vector2.ZERO))
-	var troll := _downed(_unit(2, Vector2(1, 0)))
-	for unit in [plain, troll]:
-		unit.regeneration = 10.0
-		_places.store.columns.put(unit.slot, UnitColumns.REGENERATION_LEFT, 100.0)
-	troll.traits = {"regenerates_downed": 1}
-	_run([_squad([plain, troll])], 0.5)
-
-	assert_int(UnitHealth.of_one(_places, plain)).is_equal(0)
-	assert_int(UnitHealth.of_one(_places, troll)).is_greater(0)
 
 
 func test_it_comes_to_where_it_lies_and_walks_to_the_nearest_friendly_formation() -> void:
@@ -217,74 +161,3 @@ func test_a_wounding_blow_that_downs_adds_its_wounds() -> void:
 	FormationDeaths.bury([_squad([unit])], 1, [])
 
 	assert_int(unit.wounded).is_equal(3)
-
-
-## `count` downed player units due to come to, a kingdom foe standing two cells off each.
-func _due_with_foes(count: int, cunning: int = 0) -> Array:
-	var downed := []
-	var foes := []
-	for index in range(count):
-		var unit := _downed(_unit(index + 1, Vector2(index * 20, 0)))
-		_places.store.columns.put(unit.slot, UnitColumns.WAKE_LEFT, 0.05)
-		unit.traits = {"cunning": cunning}
-		downed.append(unit)
-		var foe := _unit(100 + index, Vector2(index * 20 + 2, 0))
-		foe.faction_id = "the_kingdom"
-		foes.append(foe)
-	var theirs := _squad(foes)
-	theirs.faction_id = "the_kingdom"
-	theirs.id = 2
-	return [[_squad(downed), theirs], downed, foes]
-
-
-func test_with_a_foe_near_some_play_dead_and_the_cunning_more_often() -> void:
-	var plain := _due_with_foes(40)
-	_places = UnitPlaces.new()  # the same ids, so a store of its own: a slot is one unit's
-	var cunning := _due_with_foes(40, 2)
-	_run(plain[0], 0.1)
-	_run(cunning[0], 0.1)
-
-	var lying := func(units): return units.filter(func(u): return u.playing_dead).size()
-	assert_int(lying.call(plain[1])).is_between(4, 36)
-	assert_int(lying.call(cunning[1])).is_greater(lying.call(plain[1]))
-	for unit in plain[1]:  # the rest get up into the fight
-		assert_bool(unit.playing_dead or unit.is_alive()).is_true()
-
-
-func test_one_playing_dead_gets_up_once_its_foes_are_gone() -> void:
-	var scene := _due_with_foes(40, 5)
-	_run(scene[0], 0.1)
-	var faker: SkirmishUnit = scene[1].filter(func(u): return u.playing_dead)[0]
-	_run(scene[0], 10.0)
-	assert_bool(faker.is_alive()).is_false()  # its foe still stands by
-	for foe in scene[2]:
-		_places.move(foe, _places.at(foe) + Vector2(0, 50))
-	_run(scene[0], 5.0)
-
-	assert_bool(faker.is_alive()).is_true()
-	assert_bool(faker.playing_dead).is_false()
-
-
-func test_a_thorough_foe_is_fooled_less_often() -> void:
-	var FormationWounds = load("res://sim/skirmish/formation/formation_wounds.gd")
-	var fooled := [0, 0]
-	for index in range(60):
-		var body := _downed(_unit(index + 1, Vector2.ZERO))
-		body.playing_dead = true
-		for which in range(2):
-			var taker := _unit(1000 + index, Vector2(1, 0))
-			taker.faction_id = "the_kingdom"
-			taker.traits = {"thorough": 2 * which}
-			var events := []
-			var theirs := _squad([taker])
-			theirs.faction_id = "the_kingdom"
-			theirs.id = 2
-			_places.health(body, 0)
-			UnitState.start(body, SkirmishUnit.State.DOWNED)
-			FormationWounds.tend([_squad([body]), theirs], 1, 10, 1, events)
-			var target: int = _places.store.columns.value(taker.slot, UnitColumns.TARGET_ID)
-			if events.is_empty() and target == 0:
-				fooled[which] += 1
-
-	assert_int(fooled[0]).is_greater(fooled[1])
-	assert_int(fooled[0]).is_between(5, 55)

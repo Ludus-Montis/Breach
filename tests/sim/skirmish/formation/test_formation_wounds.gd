@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
-## The downed and the caught, per Decision 121 (spec 28 part 6): a unit brought to 0 hp is
-## downed, its hp stopping there, unless past minus its constitution, which kills it; an
-## unguarded downed unit beside a foe with no fight of its own is finished - struck down
-## through death's door - or captured by a captor, or sent home by a leader's messenger;
-## a routing unit struck may surrender.
+## The downed and the caught, per Decision 121 (spec 28 part 6), as GDScript lands what the
+## crate decides (`deaths.rs` and `wounds.rs`, whose tests hold the rules): a unit brought
+## to 0 hp is downed, unless past minus its constitution, which kills it; a body is captured
+## by a captor, or sent home by a leader's messenger, who has one fewer; a routing unit
+## struck may surrender.
 
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
@@ -68,18 +68,6 @@ func test_brought_to_zero_it_is_downed_and_past_its_constitution_it_dies() -> vo
 	assert_bool(downed.is_alive()).is_false()
 
 
-func test_an_unguarded_body_is_struck_through_deaths_door_till_it_dies() -> void:
-	var scene := _scene()
-	var events := []
-	for tick in range(1, 4 * SECOND):
-		FormationWounds.tend(scene[0], tick, SECOND, 1, events)
-
-	var body: SkirmishUnit = scene[1]
-	assert_int(body.state).is_equal(SkirmishUnit.State.DEAD)
-	assert_int(UnitHealth.of_one(_places, body)).is_less_equal(-6)
-	assert_array(_types(events)).contains(["finished"])
-
-
 func test_a_captor_captures_it_instead() -> void:
 	var scene := _scene()
 	scene[2].traits = {"captor": 1}
@@ -89,23 +77,6 @@ func test_a_captor_captures_it_instead() -> void:
 
 	assert_int(scene[1].state).is_equal(SkirmishUnit.State.TAKEN)
 	assert_array(_types(events)).contains(["captured"])
-
-
-func test_a_friend_near_guards_it_and_a_foe_near_keeps_the_taker_fighting() -> void:
-	var guarded := _scene()
-	guarded[0][0].units.append(_unit(3, "the_kingdom", Vector2(-3.5, 0)))  # guards it
-	UnitState.regather(guarded[0][0])
-	var pressed := _scene()
-	pressed[0][0].units.append(_unit(3, "the_kingdom", Vector2(5, 0)))  # near the taker
-	UnitState.regather(pressed[0][0])
-	var events := []
-	for tick in range(1, 4 * SECOND):
-		FormationWounds.tend(guarded[0], tick, SECOND, 1, events)
-		FormationWounds.tend(pressed[0], tick, SECOND, 1, events)
-
-	assert_int(UnitHealth.of_one(_places, guarded[1])).is_equal(0)
-	assert_int(UnitHealth.of_one(_places, pressed[1])).is_equal(0)
-	assert_array(events).is_empty()
 
 
 func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
