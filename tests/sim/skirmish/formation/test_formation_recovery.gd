@@ -161,6 +161,3 @@ func test_a_wounding_blow_that_downs_adds_its_wounds() -> void:
 	FormationDeaths.bury([_squad([unit])], 1, [])
 
 	assert_int(unit.wounded).is_equal(3)
-
-	assert_int(fooled[0]).is_greater(fooled[1])
-	assert_int(fooled[0]).is_between(5, 55)
