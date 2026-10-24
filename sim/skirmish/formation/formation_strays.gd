@@ -4,15 +4,12 @@ extends RefCounted
 ## its formation gone or out of sight. It becomes a lone router of its own (FormationRout):
 ## it flees home along its formation's route - caught by a friendly formation it runs into,
 ## it joins it; struck, it may be downed again or surrender; home, it returns to the
-## reserve ("fled_home"). Pure.
+## reserve ("fled_home"). Pure. Its setting off and the strays' numbering are the crate's
+## (`strays.rs`, spec 39 step 5b); the stray's squad, its command and orders, are made here.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
 
 
 ## A new routing squad (id 0, for the simulation to number) of `unit` alone, taken out of
@@ -35,17 +32,15 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 		squad.store
 	)
 	stray.route = squad.route
-	var at: Vector2 = squad.store.columns.value(unit.slot, UnitColumns.POSITION)
-	var along: float = squad.route.distance_of(at)
-	stray.front_distance = along / MapLayoutDef.CELLS_PER_TILE
 	stray.heading = squad.heading
 	stray.state = SkirmishSquad.State.ROUTING
 	stray.morale = 0
-	var offset: Vector2 = at - squad.route.point_at(along)
-	# it walks home straight, not fanning out as a panicked rout does (RoutFlight)
-	SquadEntries.flee(stray, unit, along, offset)
-	EntryKeys.keep(stray.store.columns, unit.slot, UnitColumns.FANNED, INF)
-	UnitPlace.put(stray, unit, Vector2i.ZERO)
+	var columns: UnitColumns = squad.store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var points: PackedVector2Array = squad.route.points()
+	stray.front_distance = ColumnsLent.all(
+		columns, func(): return field.stray_set_off(stray.slot, unit.id, unit.slot, points)
+	)
 	return stray
 
 
@@ -54,12 +49,14 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 ## are numbered in their units' seeded draws' order, never the list's (Decision 97): a
 ## squad's id salts its own draws.
 static func adopt(strays: Array, squads: Array, next_id: int, fight_seed: int) -> int:
-	var ordered := strays.duplicate()
-	ordered.sort_custom(
-		func(a, b): return ScrumContest.draw(a[0], fight_seed) < ScrumContest.draw(b[0], fight_seed)
-	)
-	for stray in ordered:
-		var lone := strand(stray[0], stray[1])
+	if strays.is_empty():
+		return next_id
+	var ids := PackedInt64Array()
+	for stray in strays:
+		ids.append(stray[0].id)
+	var order: PackedInt32Array = strays[0][1].store.field().strays_numbered(ids, fight_seed)
+	for index in order:
+		var lone := strand(strays[index][0], strays[index][1])
 		lone.id = next_id
 		next_id += 1
 		squads.append(lone)

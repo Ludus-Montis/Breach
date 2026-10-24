@@ -226,7 +226,7 @@ func _move(events: Array, roster: Object) -> void:
 			waiting.append(mover)
 			continue
 		var paced := [TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE, tick_seconds]
-		if FormationStaging.holds(mover, _squads, _tick, events, paced, terrain):
+		if FormationStaging.holds(mover, _squads, _tick, events, paced, terrain, roster):
 			continue
 		var end := FormationMarch.length(mover, route_length)
 		if mover.order == SkirmishUnit.Order.RETREAT:  # home already: it holds, no about-face
