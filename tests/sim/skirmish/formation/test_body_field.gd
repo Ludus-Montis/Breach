@@ -23,14 +23,8 @@ func before_test() -> void:
 	_places = UnitPlaces.new()
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 func _field() -> Object:
-	NativeKernels.use(NativeKernels.RUST)
 	var field := NativeKernels.body_field()
-	NativeKernels.use(NativeKernels.GDSCRIPT)
 	if field == null:
 		print("test_body_field: the Rust core isn't built - skipped")
 	return field

@@ -7,9 +7,9 @@ extends SceneTree
 ## plain step() leaves it, or it says so.
 ##
 ##   godot --headless --path . --script res://tools/tick_phases.gd -- \
-##       [engine=gdscript|rust] [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
+##       [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 ##       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [copies]
-## copies (rust only) also counts each phase's column copies across the boundary
+## copies also counts each phase's column copies across the boundary
 ## (ColumnCopies); counting slows the phases it counts, so time without it.
 ## squads=N splits each side into N squads of side/N on parallel lanes (FormationBench.lanes);
 ## archers=K makes the grems' back K a squad spitters, which shoot.
@@ -18,7 +18,6 @@ extends SceneTree
 ## settled in (its withdrawal, and its enemies' chasers, timed).
 
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
-const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const Sim = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const Scrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
@@ -45,7 +44,6 @@ func _init() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts: PackedStringArray = arg.split("=", true, 1)
 		args[parts[0]] = parts[1] if parts.size() > 1 else "true"
-	NativeKernels.use(str(args.get("engine", "gdscript")))
 	var side := int(args.get("side", 1024))
 	var width := int(args.get("width", 32))
 	var fight := int(args.get("fight", 5))
@@ -64,8 +62,8 @@ func _init() -> void:
 			% [OS.get_processor_name(), OS.get_processor_count(), OS.get_name()]
 		)
 	)
-	var heading := "%s, %d a side, %d wide: %.1f ms a tick"
-	print(heading % [NativeKernels.engine(), side, width, total / fight / 1000.0])
+	var heading := "%d a side, %d wide: %.1f ms a tick"
+	print(heading % [side, width, total / fight / 1000.0])
 	var names := _spent.keys()
 	names.sort_custom(func(a, b): return _spent[a] > _spent[b])
 	for phase in names:

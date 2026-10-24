@@ -20,7 +20,8 @@ head_dir="$(pwd)"
 mkdir -p "$out"
 
 # The run's trace from `dir`'s digest (Rust, as check_outcomes compares: Decision 151; the
-# digests job gives the base's worktree its core).
+# digests job gives the base's worktree its core). BREACH_NATIVE=rust picks Rust's parting on
+# a base from before spec 39 step 6a, which still had the switch; later code ignores it.
 trace() {
 	local dir="$1" run="$2" from="$3" to="$4" file="$5"
 	(cd "$dir" && BREACH_NATIVE=rust "$godot" --headless --path . \

@@ -55,6 +55,7 @@ mod snapshot;
 mod split;
 mod squads;
 mod staging;
+mod stamina;
 mod stance;
 mod steer;
 mod strays;
@@ -1525,6 +1526,13 @@ impl ScrumRules {
     #[func]
     fn radius(&self, width: i64, depth: i64) -> f64 {
         reach::radius(width, depth)
+    }
+
+    /// FormationStamina.stage_at: 0 fresh, 1 tired, 2 spent, below the shares `tired` and
+    /// `spent` of its `most` stamina.
+    #[func]
+    fn stamina_stage(&self, stamina: f64, most: f64, tired: f64, spent: f64) -> i64 {
+        stamina::stage_of(stamina, most, tired, spent) as i64
     }
 
     #[func]
@@ -3664,5 +3672,111 @@ fn moving(movers: &PackedInt32Array) -> Vec<compact::Moving> {
     let (rows, _) = movers.as_slice().as_chunks::<5>();
     rows.iter()
         .map(|r| compact::Moving { slot: r[0] as usize, to: (r[1], r[2]), foot: (r[3], r[4]) })
+        .collect()
+}
+
+/// Stamina (spec 39 step 6a).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationStamina.step: one tick of `seconds`. `squads`: two numbers a squad, its squad
+    /// slot and its flags (1 pursuing, 2 on its way back, 4 hurried); `counts`: its living
+    /// units' count; `ints`: four numbers a unit, its id, store slot, load stage and flags (1
+    /// leads, 2 "pursues_at_march", 4 "retreats_at_march"); `reals`: six a unit, its fresh
+    /// speed, most stamina, tiring, run pace, wits and constitution. `tuning`: stamina_run,
+    /// stamina_delay, stamina_recovery, run_build_seconds, run_reaction,
+    /// condition_cap, stamina_tired, stamina_spent, the three stamina_pace, then
+    /// load_march_tiring.
+    #[func]
+    fn stamina_step(
+        &mut self,
+        squads: PackedInt64Array,
+        counts: PackedInt32Array,
+        ints: PackedInt64Array,
+        reals: PackedFloat64Array,
+        seconds: f64,
+        tuning: PackedFloat64Array,
+    ) {
+        let listed = paced(&squads, &counts, &ints, &reals);
+        let t = tuning.as_slice();
+        let tuning = stamina::StaminaTuning {
+            run: t[0],
+            delay: t[1],
+            recovery: t[2],
+            run_build_seconds: t[3],
+            run_reaction: t[4],
+            condition_cap: t[5],
+            tired: t[6],
+            spent: t[7],
+            pace: t[8..11].to_vec(),
+            march_tiring: t[11..].to_vec(),
+        };
+        stamina::step(&self.squads, &mut self.field.columns, &listed, seconds, &tuning);
+    }
+
+    /// FormationStamina.strike: `blow` stamina times each striker's tiring spent, in the
+    /// blows' order (`slots` and `tirings`, one a blow).
+    #[func]
+    fn stamina_strike(&mut self, slots: PackedInt32Array, tirings: PackedFloat64Array, blow: f64) {
+        let strikers: Vec<(usize, f64)> = slots
+            .as_slice()
+            .iter()
+            .zip(tirings.as_slice())
+            .map(|(&slot, &tiring)| (slot as usize, tiring))
+            .collect();
+        stamina::strike(&mut self.field.columns, &strikers, blow);
+    }
+
+    /// FormationStamina.squad_gives_up: its living units' store `slots` and most stamina.
+    #[func]
+    fn stamina_gives_up(
+        &self,
+        slots: PackedInt32Array,
+        most: PackedFloat64Array,
+        give_up: f64,
+    ) -> bool {
+        let living: Vec<(usize, f64)> = slots
+            .as_slice()
+            .iter()
+            .zip(most.as_slice())
+            .map(|(&slot, &most)| (slot as usize, most))
+            .collect();
+        stamina::squad_gives_up(&self.field.columns, &living, give_up)
+    }
+}
+
+/// The squads as stamina_step is given them.
+fn paced(
+    squads: &PackedInt64Array,
+    counts: &PackedInt32Array,
+    ints: &PackedInt64Array,
+    reals: &PackedFloat64Array,
+) -> Vec<stamina::Paced> {
+    let (squad_rows, _) = squads.as_slice().as_chunks::<2>();
+    let (int_rows, _) = ints.as_slice().as_chunks::<4>();
+    let (real_rows, _) = reals.as_slice().as_chunks::<6>();
+    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| stamina::Gaited {
+        id: i[0],
+        slot: i[1] as usize,
+        load_stage: i[2],
+        leads: i[3] & 1 != 0,
+        pursues_at_march: i[3] & 2 != 0,
+        retreats_at_march: i[3] & 4 != 0,
+        fresh_speed: r[0],
+        max_stamina: r[1],
+        tiring: r[2],
+        run_pace: r[3],
+        wits: r[4],
+        constitution: r[5],
+    });
+    squad_rows
+        .iter()
+        .zip(counts.as_slice())
+        .map(|(s, &count)| stamina::Paced {
+            squad: s[0] as usize,
+            pursuing: s[1] & 1 != 0,
+            returning: s[1] & 2 != 0,
+            hurry: s[1] & 4 != 0,
+            living: units.by_ref().take(count as usize).collect(),
+        })
         .collect()
 }

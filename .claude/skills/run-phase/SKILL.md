@@ -84,9 +84,9 @@ step, in the order the spec's own "Test-first order" section lays out:
    **Before the first run in a session**, import the project once
    (`"$GODOT_BIN" --headless --path . --import`) so gdUnit4's class names resolve. Build
    the Rust core (`bash native/build.sh`, a few minutes) only when the step changes
-   `native/` or the store's columns, or its test compares both engines and you need the
-   Rust half before CI. Otherwise don't: tests that compare the engines skip their Rust
-   half when the core isn't built, and CI's `sim-checks` runs both engines on every PR.
+   `native/` or the store's columns, or its gdUnit test needs the core (every battle and
+   unit store runs on it since spec 39 step 6a). Otherwise don't: cargo tests need no
+   build, and CI's `sim-checks` runs the suite and the digests on every PR.
    A cloud session without Godot (`GODOT_BIN` unset) fetches it when a step first needs it:
    `bash ci/godot/scripts/get_godot.sh`, then export the `GODOT_BIN` it prints. It installs
    the version CI pins, checks it against Godot's published sums and imports the project

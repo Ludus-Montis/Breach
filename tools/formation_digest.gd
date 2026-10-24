@@ -14,7 +14,7 @@ extends SceneTree
 ## field (spec 37, DigestTrace); the hashes are the same with it or without. snapshot: after
 ## each tick listed in `at`, write the crate's whole state - units, squads, the tick and the
 ## seed (spec 39 step 1) - to <dir>/<run label>.t<tick>.bin, for the crate's tests to read
-## back; it needs the Rust engine (BREACH_NATIVE=rust), and the hashes are the same with it.
+## back; the hashes are the same with it.
 ##
 ## standard: the mirrors head-on and on a flank (BattleTrials), seeds 1-3; five feel-test
 ## field logs (FormationFieldActions), two tending their downed; a 40-a-side clash of grems
@@ -174,7 +174,7 @@ func _field(index: int, rolls: bool) -> void:
 func _snapshot(label: String, ticks: int, sim: FormationSimulation) -> void:
 	var field: Object = sim.store.field()
 	if field == null:
-		push_warning("formation_digest: snapshot= needs the Rust engine (BREACH_NATIVE=rust)")
+		push_warning("formation_digest: snapshot= needs the Rust core (native/build.sh)")
 		return
 	for squad in sim.squads():
 		squad.living()

@@ -15,13 +15,9 @@ const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.g
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
-func after_test() -> void:
-	NativeKernels.use(NativeKernels.GDSCRIPT)
-
-
 ## Each engine that runs here: [name, a new store on it].
 func _backends() -> Array:
-	var out := [[NativeKernels.RUST, NativeKernels.unit_store(null)]]
+	var out := [["rust", NativeKernels.unit_store(null)]]
 	return out
 
 

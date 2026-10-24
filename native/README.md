@@ -17,12 +17,12 @@ reference behind one switch. The first production piece is in place:
 
 All three reproduced the GDScript reference bit for bit, and since spec 39 step 4a they run
 under either engine: every battle has a field, and the scrum's twins (and `UnitStoreGd`)
-are gone. Body parting is the last pass with a GDScript twin. The C++ kernel from the
-spike (#174) is retired.
+are gone. Body parting was the last pass with a GDScript twin; spec 39 step 6a retired it,
+and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 
 | | |
 |---|---|
-| Switch | `sim/skirmish/formation/native_kernels.gd`: `BREACH_NATIVE=gdscript\|rust` (env), else project setting `breach/native/engine`, else `gdscript`. `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. It picks only body parting's engine (spec 39 step 4a): the library is always loaded (`content/definitions/native_library.gd`), because the content is (below), and every battle has its field. |
+| Switch | None since spec 39 step 6a: every battle runs on the core, whose library is always loaded (`content/definitions/native_library.gd`), because the content is (below). `sim/skirmish/formation/native_kernels.gd` makes a battle's field and store; `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. `BREACH_NATIVE` is ignored (CI still sets it for a base from before 6a). |
 | Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `BodyField`, `ContentStore`, `TerrainGround`, `UnitMoves`, `GroundPaths`, `GroundMarch`, `ScrumRules` and `SquadRoster` |
 | Ground | `native/rust/src/ground/` (spec 39 step 3a): the ground a battle is on, its cells and rules (how fast a walker crosses them, its mode, the high ground) and its obscurance (`sight.rs`), and a map's surface with its relief and channels (`surface.rs`). `TerrainGround` holds it; `FormationTerrain` and `TerrainObscurance` are views over it, under both engines, and their GDScript is gone. Its scenarios are cargo tests (`ground/tests.rs`) |
 | Moves | `native/rust/src/route.rs`, `motion.rs`, `mover.rs`, `steer.rs` (spec 39 step 3b): routes and their learned detours, a unit's turning and pace by facing, the one mover and the ground's toll on a step (Decision 139), and steering round bodies (shared with the scrum's walk). `UnitMoves` binds them, stateless and shared (`CrateMoves`); `FormationRoute`, `RoutePatch`, `UnitMotion`, `UnitMover` and `TerrainStep` are views over it, under both engines (steering is the crate's phases' own since step 4c). Their scenarios are cargo tests (`route/`, `mover/`, `steer/`, `motion.rs`) |
@@ -37,7 +37,8 @@ spike (#174) is retired.
 | Groups | `native/rust/src/split.rs`, `groups.rs` (spec 39 step 5a): which of a group's units fallen behind split off, in what order and where each new group's front is, and which groups at ease meet (the pairs near enough, the gap between their bodies) and what each meeting does - a group taken in, or a led group's units going back to the command they started under - decided in turn on the groups as the ones before left them. `GroupSplit` and `FormationGroups` are views over them that make the new groups, take groups in and send units back, with the events; `GroupPairs` is gone. Their scenarios are cargo tests (`split/tests.rs`, `groups/tests.rs`) |
 | Closing up, strays and staging | `native/rust/src/compact.rs`, `strays.rs`, `rendezvous.rs`, `staging.rs` (spec 39 step 5b): a squad closing up as units fall and taking a joining squad in behind its back rank, a unit on its own setting off home and strays numbered by their draws, the predicted march a planned rendezvous waits by, and a staged wave's trigger and its coordinated leader's timing. `SquadCompact`, `FormationContact.reinforce`, `FormationStrays`, `FormationRendezvous` and `FormationStaging` are views over them; the units' lists and commands, the stray's squad, holding at the staging point, its fallback and the events stay GDScript. Their scenarios are cargo tests (`compact/`, `strays/`, `rendezvous/`, `staging/`) |
 | Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks). The facing, walk and blows benches retired with their twins (spec 39 step 4a); their results below are history |
-| Identity | `tools/formation_digest.gd` (every set, both engines: body parting's twin); `tests/sim/skirmish/formation/test_unit_store.gd`, `test_body_field.gd` and `test_body_parting.gd`; the whole suite under `BREACH_NATIVE=rust` |
+| Stamina | `native/rust/src/stamina.rs` (spec 39 step 6a): gaits, runs building up and a pursuer reacting, running, marching laden and blows tiring a unit, its breather and recovery, its pace by how tired it is, and a formation too tired to keep up a chase. `FormationStamina` is a view over it that hands it each squad's pursuit and hurry; `ScrumRules.stamina_stage` gives the landing a unit's stage. Its scenarios are cargo tests (`stamina/tests.rs`), and the parting's are `parting/tests.rs` |
+| Identity | `tools/formation_digest.gd`, against the base's (`check_outcomes.py`, Decision 151); until spec 39 step 6a also under each engine, while body parting had its twin |
 
 ## The native state and its boundary
 
@@ -211,7 +212,8 @@ Windows.
 Each set gives the same file under the release and the dev build, with and without
 `BREACH_NATIVE_THREADS=1`.
 
-The suite proves the same:
+The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
+engine, and these tests keep only what doesn't compare engines):
 
 - `test_body_parting.gd`: a crowd parted the same as GDScript, reversed, on a field kept
   across ticks while units die and change squad, and a 40-a-side battle.
