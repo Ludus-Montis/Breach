@@ -38,6 +38,7 @@ and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 | Closing up, strays and staging | `native/rust/src/compact.rs`, `strays.rs`, `rendezvous.rs`, `staging.rs` (spec 39 step 5b): a squad closing up as units fall and taking a joining squad in behind its back rank, a unit on its own setting off home and strays numbered by their draws, the predicted march a planned rendezvous waits by, and a staged wave's trigger and its coordinated leader's timing. `SquadCompact`, `FormationContact.reinforce`, `FormationStrays`, `FormationRendezvous` and `FormationStaging` are views over them; the units' lists and commands, the stray's squad, holding at the staging point, its fallback and the events stay GDScript. Their scenarios are cargo tests (`compact/`, `strays/`, `rendezvous/`, `staging/`) |
 | Benchmarks | `tools/native_bench.gd` (parting and the slot search, split), `tools/tick_phases.gd` (a whole tick, phase by phase), `tools/formation_bench.gd` (whole ticks). The facing, walk and blows benches retired with their twins (spec 39 step 4a); their results below are history |
 | Stamina | `native/rust/src/stamina.rs` (spec 39 step 6a): gaits, runs building up and a pursuer reacting, running, marching laden and blows tiring a unit, its breather and recovery, its pace by how tired it is, and a formation too tired to keep up a chase. `FormationStamina` is a view over it that hands it each squad's pursuit and hurry; `ScrumRules.stamina_stage` gives the landing a unit's stage. Its scenarios are cargo tests (`stamina/tests.rs`), and the parting's are `parting/tests.rs` |
+| The downed | `deaths.rs`, `wounds.rs`, `recovery.rs` and `regeneration.rs` (spec 39 step 6b): which of the fallen die and which are downed with the wounds they take; the takers of the downed, guards, playing dead and being fooled, captors, messengers and the strikes through death's door, and a struck router's surrender; condition, its drain, regeneration, the time downed, playing dead, and those coming to joining the nearest formation in sight or setting off alone. `FormationDeaths`, `FormationWounds` and `FormationRecovery` are views over them that keep the states, the lists, the joins, the morale shocks and the events; `FormationRegeneration.scorch` stays with the blows' landing. Their scenarios are cargo tests (`deaths/tests.rs`, `wounds/tests.rs`, `recovery/tests.rs`) |
 | Identity | `tools/formation_digest.gd`, against the base's (`check_outcomes.py`, Decision 151); until spec 39 step 6a also under each engine, while body parting had its twin |
 
 ## The native state and its boundary
@@ -318,7 +319,8 @@ as it goes) and `BodyField.blows` (`blows.rs`) gives each striking unit its foe 
 ScrumBlows._pick's least [front, distance, draw], the same `facing::touching` the facing
 uses - with whether its blow falls on the foe's flank and whether a retreating unit has
 turned away. Cooldowns, the morale's interval, the blows, rolls, damage, hit points,
-events, surrender and stamina stay GDScript's, taken in ScrumBlows' order. For rolled
+events and the landing stay GDScript's, taken in ScrumBlows' order; surrender's rolls and
+stamina are the crate's (spec 39 steps 6a and 6b). For rolled
 blows, `BodyField.pressed` counts the foes pressing each target (BlowLanding._pressed) on
 the same sync (since spec 39 step 4a, a tick no squad strikes in syncs for the count when
 blows are rolled). RoutBlows and the ranged shots stay GDScript. A tick no squad can strike

@@ -13,6 +13,7 @@ mod compact;
 mod contact;
 pub mod content;
 mod contest;
+mod deaths;
 pub mod designer;
 mod det_math;
 mod det_pow;
@@ -44,7 +45,9 @@ mod perception;
 mod pursuit;
 mod ranks;
 mod reach;
+mod recovery;
 mod rect;
+mod regeneration;
 mod regroup;
 mod rendezvous;
 mod roster;
@@ -63,6 +66,7 @@ mod trade;
 mod walk_store;
 mod walking;
 mod withdraw;
+mod wounds;
 
 use std::time::Instant;
 
@@ -3777,6 +3781,203 @@ fn paced(
             returning: s[1] & 2 != 0,
             hurry: s[1] & 4 != 0,
             living: units.by_ref().take(count as usize).collect(),
+        })
+        .collect()
+}
+
+/// The downed: the fallen, the takers, surrender and recovery (spec 39 step 6b).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationDeaths.bury's fates, for the fallen in the order they are buried (`slots` and
+    /// `constitutions`, one a unit): -1 if it dies, else the wounds it takes. The downed's hp
+    /// is put to 0 and their time downed is to be reckoned.
+    #[func]
+    fn deaths_fate(
+        &mut self,
+        slots: PackedInt32Array,
+        constitutions: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let fallen: Vec<(usize, f64)> = slots
+            .as_slice()
+            .iter()
+            .zip(constitutions.as_slice())
+            .map(|(&slot, &constitution)| (slot as usize, constitution))
+            .collect();
+        let fates = deaths::fate(&mut self.field.columns, &fallen);
+        fates.iter().map(|fate| fate.unwrap_or(-1)).collect()
+    }
+
+    /// FormationWounds.tend: this tick's takings of the downed. `counts`: two numbers a squad
+    /// in the lists' order, how many living units follow and then how many downed (not borne)
+    /// bodies; `ints`: eight a unit, its id, store slot, faction (a code), flags (1 a captor, 2
+    /// leads, 4 playing dead), messengers left, damage, "cunning" and "thorough"; `reals`:
+    /// three a unit, its wits, constitution and melee seconds. `tuning`: as `wounds_tuning`.
+    /// Returns five numbers a body taken, in order: [what (0 captured, 1 sent home, 2
+    /// finished), the body's squad, its index in that squad's downed, then the captor's or
+    /// leader's squad and its index in that squad's living, or 0, 0].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn wounds_tend(
+        &mut self,
+        counts: PackedInt32Array,
+        ints: PackedInt64Array,
+        reals: PackedFloat64Array,
+        interval: i64,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let squads = tended(&counts, &ints, &reals);
+        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
+        let tending = wounds::tend(&mut self.field.columns, &squads, interval, seed, &tuning);
+        for id in tending.fell {
+            self.field.fell(id);
+        }
+        let mut out = vec![];
+        for taken in tending.taken {
+            let (what, body, other) = match taken {
+                wounds::Taken::Captured { body, by } => (0, body, by),
+                wounds::Taken::SentHome { body, leader } => (1, body, leader),
+                wounds::Taken::Finished { body } => (2, body, (0, 0)),
+            };
+            out.extend([what, body.0 as i64, body.1 as i64, other.0 as i64, other.1 as i64]);
+        }
+        PackedInt64Array::from(out.as_slice())
+    }
+
+    /// FormationWounds.surrender's rolls: which struck routers (`slots`, `ids` and `courages`,
+    /// one a unit; still standing, none "never_surrenders") surrender, 1 or 0 each.
+    #[func]
+    fn wounds_surrenders(
+        &self,
+        slots: PackedInt32Array,
+        ids: PackedInt64Array,
+        courages: PackedFloat64Array,
+        tick: i64,
+        seed: i64,
+        chance: f64,
+    ) -> PackedByteArray {
+        let caught: Vec<wounds::Caught> = (0..slots.len())
+            .map(|n| wounds::Caught {
+                id: ids.as_slice()[n],
+                slot: slots.as_slice()[n] as usize,
+                courage: courages.as_slice()[n],
+            })
+            .collect();
+        let taken = wounds::surrenders(&self.field.columns, &caught, tick, seed, chance);
+        taken.iter().map(|&t| t as u8).collect()
+    }
+
+    /// FormationRecovery.step: one tick of `seconds`. `squads`: two numbers a squad in the
+    /// lists' order, its id and whether one coming to may join it (1); `counts`: two a squad,
+    /// how many living units follow and then how many downed; `ints`: eight a unit, its id,
+    /// store slot, faction (a code), wounds, "hardened", "cunning", flags (1 leads, 2
+    /// "regenerates_downed", 4 playing dead) and most hp; `reals`: four a unit, its
+    /// regeneration, wits, constitution and detection. `tuning`: as `wounds_tuning`. Returns
+    /// the downed's events, three numbers each, [what (0 died of wounds, 1 began to play dead),
+    /// its squad, its index in that squad's downed], after their count; then three a unit
+    /// coming to, nearest first: [its squad, its index, the squad it joins or -1].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn recovery_step(
+        &mut self,
+        squads: PackedInt64Array,
+        counts: PackedInt32Array,
+        ints: PackedInt64Array,
+        reals: PackedFloat64Array,
+        seconds: f64,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let wards = wards(&squads, &counts, &ints, &reals);
+        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
+        let recovered = recovery::step(&mut self.field.columns, &wards, seconds, seed, &tuning);
+        for id in recovered.fell {
+            self.field.fell(id);
+        }
+        let mut out = vec![recovered.lay.len() as i64];
+        for lay in recovered.lay {
+            let (what, at) = match lay {
+                recovery::Lay::DiedOfWounds(at) => (0, at),
+                recovery::Lay::PlayingDead(at) => (1, at),
+            };
+            out.extend([what, at.0 as i64, at.1 as i64]);
+        }
+        for rising in recovered.rising {
+            let joins = rising.joins.map_or(-1, |s| s as i64);
+            out.extend([rising.unit.0 as i64, rising.unit.1 as i64, joins]);
+        }
+        PackedInt64Array::from(out.as_slice())
+    }
+}
+
+/// The squads as wounds_tend is given them.
+fn tended(
+    counts: &PackedInt32Array,
+    ints: &PackedInt64Array,
+    reals: &PackedFloat64Array,
+) -> Vec<wounds::Tended> {
+    let (int_rows, _) = ints.as_slice().as_chunks::<8>();
+    let (real_rows, _) = reals.as_slice().as_chunks::<3>();
+    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| wounds::Taking {
+        id: i[0],
+        slot: i[1] as usize,
+        faction: i[2] as u32,
+        captor: i[3] & 1 != 0,
+        leads: i[3] & 2 != 0,
+        playing_dead: i[3] & 4 != 0,
+        messengers: i[4],
+        dmg: i[5],
+        cunning: i[6],
+        thorough: i[7],
+        wits: r[0],
+        constitution: r[1],
+        melee_seconds: r[2],
+    });
+    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
+    count_rows
+        .iter()
+        .map(|c| wounds::Tended {
+            living: units.by_ref().take(c[0] as usize).collect(),
+            downed: units.by_ref().take(c[1] as usize).collect(),
+        })
+        .collect()
+}
+
+/// The squads as recovery_step is given them.
+fn wards(
+    squads: &PackedInt64Array,
+    counts: &PackedInt32Array,
+    ints: &PackedInt64Array,
+    reals: &PackedFloat64Array,
+) -> Vec<recovery::Ward> {
+    let (int_rows, _) = ints.as_slice().as_chunks::<8>();
+    let (real_rows, _) = reals.as_slice().as_chunks::<4>();
+    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| recovery::Recovering {
+        id: i[0],
+        slot: i[1] as usize,
+        faction: i[2] as u32,
+        wounded: i[3],
+        hardened: i[4],
+        cunning: i[5],
+        leads: i[6] & 1 != 0,
+        regenerates_downed: i[6] & 2 != 0,
+        playing_dead: i[6] & 4 != 0,
+        max_hp: i[7],
+        regeneration: r[0],
+        wits: r[1],
+        constitution: r[2],
+        detection: r[3],
+    });
+    let (squad_rows, _) = squads.as_slice().as_chunks::<2>();
+    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
+    squad_rows
+        .iter()
+        .zip(count_rows)
+        .map(|(s, c)| recovery::Ward {
+            id: s[0],
+            joinable: s[1] != 0,
+            living: units.by_ref().take(c[0] as usize).collect(),
+            downed: units.by_ref().take(c[1] as usize).collect(),
         })
         .collect()
 }
