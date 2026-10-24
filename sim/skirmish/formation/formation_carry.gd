@@ -7,16 +7,14 @@ extends RefCounted
 ## "recover": the bearer sets off home with it alone (FormationStrays), and when it gets
 ## there both return to the reserve; "carry": the bearer keeps its place, bearing it on.
 ## A bearer that falls drops its body where it stands; a body that comes to is set down.
-## A borne body still comes to, or dies of its wounds (FormationRecovery). Pure over the
-## squads it is given.
+## A borne body still comes to, or dies of its wounds (FormationRecovery). Who picks up whom
+## is the crate's (`carry.rs`, spec 39 step 6c). Pure over the squads it is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitArms = preload("res://content/definitions/unit_arms.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const BodyGrid = preload("res://sim/skirmish/formation/body_grid.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
@@ -87,59 +85,76 @@ static func _hold(unit: SkirmishUnit, bodies: Dictionary) -> void:
 
 
 ## Every free unit of a formation that tends its downed, beside a friendly body it can
-## still move bearing, may pick it up: the nearest pairs first, ties by the body's then the
-## bearer's seeded draws - never the lists (Decision 97) - each body and bearer once.
+## still move bearing, may pick it up: the crate decides who bears whom (`carry.rs`: the
+## nearest pairs first, ties by the seeded draws, each body and bearer once), and this lands
+## it - the states, the load, the events and those setting off home.
 static func _pick_up(
 	squads: Array, bodies: Dictionary, tick: int, fight_seed: int, events: Array
 ) -> Array:
-	var pairs := _pairs(squads, bodies, fight_seed)
-	pairs.sort_custom(func(a, b): return ScrumContest.before(a[0], b[0]))
+	if not squads.any(func(squad): return _tending(squad)):
+		return []
+	var listed := []  # per squad, [its living, its downed bodies lying], as handed in
+	var counts := PackedInt32Array()
+	var ints := PackedInt64Array()
+	var gear := PackedFloat64Array()
+	var codes := {}  # faction -> its code
+	for squad in squads:
+		var living: Array = squad.living()
+		var lying := UnitState.downed(squad).filter(
+			func(unit): return unit.state == SkirmishUnit.State.DOWNED
+		)
+		listed.append([living, lying])
+		var code: int = codes.get_or_add(squad.faction_id, codes.size())
+		counts.append_array([code, int(_tending(squad)), living.size(), lying.size()])
+		for unit: SkirmishUnit in living:
+			var strength := int(unit.attributes.get("strength", 10))
+			var hauler := int(unit.traits.get("hauler", 0))
+			var faction: int = codes.get_or_add(unit.faction_id, codes.size())
+			ints.append_array(
+				[unit.id, unit.slot, faction, int(unit.carrying != 0), strength, hauler]
+			)
+			gear.append(unit.gear_weight)
+		for body: SkirmishUnit in lying:
+			var faction: int = codes.get_or_add(body.faction_id, codes.size())
+			var cells := body.footprint_width * body.footprint_depth
+			ints.append_array([body.id, body.slot, faction, cells, 0, 0])
+			gear.append(0.0)
+	var columns: UnitColumns = squads[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var tuning := tuning()
+	var picked: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.carry_pick_up(counts, ints, gear, fight_seed, tuning)
+	)
 	var strays := []
-	for pair in pairs:
-		var body: SkirmishUnit = pair[1]
-		var bearer: SkirmishUnit = pair[2]
-		if body.state != SkirmishUnit.State.DOWNED or bearer.carrying != 0:
-			continue
+	for at in range(0, picked.size(), 4):
+		var body: SkirmishUnit = listed[picked[at]][1][picked[at + 1]]
+		var squad: SkirmishSquad = squads[picked[at + 2]]
+		var bearer: SkirmishUnit = listed[picked[at + 2]][0][picked[at + 3]]
 		UnitState.put(bodies[body.id][1], body, SkirmishUnit.State.CARRIED)
 		body.carried_by = bearer.id
 		bearer.carrying = body.id
 		_bear(bearer, body)
 		var extra := {"body": body.id}
-		events.append(FormationEvents.unit_event("borne", tick, pair[3], bearer, extra))
-		if pair[3].tends == "recover":
-			strays.append([bearer, pair[3]])
+		events.append(FormationEvents.unit_event("borne", tick, squad, bearer, extra))
+		if squad.tends == "recover":
+			strays.append([bearer, squad])
 	return strays
 
 
-## [key, body, bearer, its squad] for each friendly body a free unit of a formation that
-## tends its downed could pick up, as all stand (`bodies`: body id -> [body, its squad]).
-## The downed are found once, and whether a foe guards each; each formation's bearers
-## through a grid of where they stand.
-static func _pairs(squads: Array, bodies: Dictionary, fight_seed: int) -> Array:
-	var reach := BattleTuning.current().wounds_reach
-	var pairs := []
-	var free := {}  # faction -> [downed body no foe is near, ...]: found if any tends
-	if squads.any(func(squad): return _tending(squad)):
-		free = _unguarded(squads, bodies)
-	var views := {}  # store -> where its units stand, read once a pass (Decision 150)
-	for squad in squads:
-		if not _tending(squad) or not free.has(squad.faction_id):
-			continue
-		var living: Array = squad.living()
-		var at: PackedVector2Array = (
-			UnitView.read_once(views, squad, [UnitColumns.POSITION]).position
-		)
-		var grid := BodyGrid.build(living.map(func(unit): return at[unit.slot]))
-		for body in free[squad.faction_id]:
-			for found in BodyGrid.near(grid, at[body.slot], reach + BodyGrid.MARGIN):
-				var unit: SkirmishUnit = living[found]
-				var gap: float = at[unit.slot].distance_to(at[body.slot])
-				if unit.carrying != 0 or gap > reach or _stage(unit, body) >= 3:
-					continue
-				var key := [snappedf(gap, 0.000001), ScrumContest.draw(body, fight_seed)]
-				key.append(ScrumContest.draw(unit, fight_seed))
-				pairs.append([key, body, unit, squad])
-	return pairs
+## What the pick-up takes of BattleTuning, in the order the crate reads it (CarryTuning).
+static func tuning() -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	return PackedFloat64Array(
+		[
+			tuning.wounds_reach,
+			tuning.wounds_guard_reach,
+			tuning.wounds_body_weight,
+			tuning.load_per_strength,
+			tuning.load_easy,
+			tuning.load_most,
+			tuning.load_hauler,
+		]
+	)
 
 
 ## True if the squad tends its downed now: told to, and not fighting or routing.
@@ -149,37 +164,6 @@ static func _tending(squad: SkirmishSquad) -> bool:
 	return (
 		squad.state != SkirmishSquad.State.FIGHTING and squad.state != SkirmishSquad.State.ROUTING
 	)
-
-
-## {faction: [each downed body of it with no foe standing within wounds_guard_reach, in
-## the order of `bodies`]}: the standing found through a grid of where they stand.
-static func _unguarded(squads: Array, bodies: Dictionary) -> Dictionary:
-	var guard := BattleTuning.current().wounds_guard_reach
-	var downed := []
-	for body_id in bodies:
-		if bodies[body_id][0].state == SkirmishUnit.State.DOWNED:
-			downed.append(bodies[body_id][0])
-	if downed.is_empty():
-		return {}
-	var standing := []
-	for squad in squads:
-		standing.append_array(squad.living())
-	var at: PackedVector2Array = bodies[downed[0].id][1].store.columns.column(UnitColumns.POSITION)
-	var grid := BodyGrid.build(standing.map(func(unit): return at[unit.slot]))
-	var free := {}
-	for body in downed:
-		var guarded := false
-		for found in BodyGrid.near(grid, at[body.slot], guard + BodyGrid.MARGIN):
-			var other: SkirmishUnit = standing[found]
-			if other.faction_id != body.faction_id:
-				guarded = at[other.slot].distance_to(at[body.slot]) <= guard
-				if guarded:
-					break
-		if not guarded:
-			if not free.has(body.faction_id):
-				free[body.faction_id] = []
-			free[body.faction_id].append(body)
-	return free
 
 
 ## Its load stage bearing `body` (null: none).
