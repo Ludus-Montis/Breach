@@ -3,7 +3,7 @@ extends RefCounted
 ## Regrouping after a fight (Decisions 88 and 92, spec 27 rounds 5 and 6): units of squads
 ## out of the fight walk back to their places - in the squad's stance, if it holds one - at
 ## its re-form pace (FormationDiscipline), and rejoin its frame once in place and facing its
-## way; one held off its place trades places or takes it (ScrumTrade, Decision 110). A
+## way; one held off its place trades places or takes it (`trade.rs`, Decision 110). A
 ## drilled retreat's units back away facing the foe they touch (a fighting withdrawal,
 ## Decision 95). Every squad's units face the foes they touched as the phase began, so no
 ## squad listed earlier moves first and changes what a later one sees (Decision 97).

@@ -801,6 +801,66 @@ Decision's conditions.
   (the three GDScript scenarios, a chaser and a stance, trades in turn whatever the lists),
   `frame.rs` and `rect.rs`.
 
+### Step 4c, regroup onwards in the crate
+
+- **The roster** (`roster.rs`, `SquadRoster`): GDScript keeps who is living (UnitState,
+  Decision 147), so each phase is given the squads as `CrateRoster` fills them once a tick:
+  per squad its slot, id, faction, whether units joined it and whether it merges, and per
+  living unit what the crate doesn't hold (id, slot, footprint, band, ranged reach, kind,
+  turn rate, backward pace, detection, most stamina, and its walker on terrain). Where each
+  stands, faces and its place are the store's columns. FormationScrum makes one after the
+  seek for regroup, the pursuits and the withdrawal; FormationSimulation one in `_engage`
+  for perception, the locks, skirmishing and the march's limits (nobody falls or joins
+  between them).
+- **The phases**: ScrumRegroup's walk back, a drilled retreat's foes faced and the trade
+  (`regroup.rs`); ScrumPursuit's chase and breaking ranks, and FormationPursuit's lag and
+  spread (`pursuit.rs`); FormationWithdraw's engaged and safe tests, each unit's flight and
+  whether the squad is home (`withdraw.rs`); the squads' geometry - SquadFrame's corners and
+  spans, SquadGeometry's overlap and facing off, SquadEdges' edges, reach and bounds
+  (`geometry.rs`); FormationContact's limit, skirmishing and joining, FormationFronts' and
+  FormationEdges' locks (`contact.rs`); FormationSight and FormationPerception
+  (`perception.rs`). The bodies a walker steps round and a faction's foes indexed where they
+  stand are `near.rs`, shared; Godot's `Rect2.merge`, `grow` and `intersects` are in
+  `rect.rs`, `DetMath.rotated` and `move_toward` in `maths.rs`.
+- **Kept GDScript, with the orders (step 7)** (the boundary moved, "Open"): each squad's
+  `pursuit` and `withdraw` records and what they drive - ScrumPursuit.retreat,
+  FormationPursuit's give-up, going back and arriving, FormationWithdraw.begin, its
+  `safe_ticks` and its re-form - with ScrumTurn, the events and the morale shocks. Also
+  FormationContact.reinforce (the groups', step 5), SquadGeometry.gap and unit_gap (joining,
+  ranged combat), ScrumNear and BodyGrid (the rout, wounds, recovery, groups),
+  FormationStamina.squad_gives_up (step 6) and RoutFlight.fan (the rout's, handed in).
+- **Identical:** each port follows the GDScript's order and precision (`Vector2` and `Rect2`
+  in f32, Godot's `minf`, `snappedf`, `fposmod`, `roundi`, `lerp`). A search through a grid
+  looks at a superset of what qualifies in the lists' order, so it picks as a look at every
+  body did (`near.rs`, and a cargo test steering both ways). Before each commit, a one-off
+  run of nine digest battles (the mirrors, the five field logs, two unrolled) on `main` and
+  on the branch gave the same hashes, every tick. The proof is CI's digests. Outcomes
+  unchanged.
+- **Retired:** `scrum_slots.gd`, `unit_steer.gd`, `unit_shuffle.gd`, `scrum_trade.gd`,
+  `squad_memo.gd`; ScrumBlows' touches, hostiles and nearest touching, FormationStamina's
+  `gives_up`, EntryKeys' `set_goal`, the passes' GDScript bodies above, and
+  the bindings nothing calls (`UnitMoves.steer`, `BodyField.trade_track` and `trade`).
+  `test_scrum_regroup.gd`, `test_nearest_touching.gd`, `test_squad_memo.gd` and
+  `test_squad_heading.gd` (its scenarios are `geometry/tests.rs`), the steering half of
+  `test_scrum_search.gd`, and the unit scenarios of `test_formation_engage_rule.gd` (now
+  `contact/tests.rs`). The scenarios through a battle stay gdUnit (`test_formation_retreat`,
+  `test_formation_withdraw`, `test_retreat_home`, `test_formation_contact`,
+  `test_formation_perception`, `test_formation_sight`, `test_formation_terrain_sight`).
+- **Tests:** cargo: `regroup/tests.rs` (the walk back at the re-form pace, holding while
+  regrouping, rejoining in place, a stance keeps them loose, chasers and the withdrawing left
+  out, a drilled retreat backing away, an undrilled one turning, steering round a body,
+  steering through the crowd as through every body, the lists' order), `pursuit/tests.rs`
+  (after the nearest, turning back at the leash, out of sight, tired or its quarry gone,
+  rejoining, a fallen chaser, breaking ranks by chance and nearness, lagging, spread, the
+  lists' order), `withdraw/tests.rs` (fleeing at full pace, disengaging at the re-form pace,
+  the fan and its limit, home, safe, the lists' order), `geometry/tests.rs`,
+  `contact/tests.rs` (front locks, out of reach, one getting away, the draw whatever the
+  order, limits at a front and behind a friend, skirmishing, joining, flank locks and the
+  nearer holding an edge, who may be engaged, a rout met where its units are),
+  `perception/tests.rs` (in range, screened by a wood, the tick's picture, none living),
+  `near.rs` and `rect.rs`.
+- **Step 4 is done** with this PR.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
@@ -809,3 +869,8 @@ Decision's conditions.
   format is settled in "Built", step 1. Which snapshots are committed, and their size, is
   step 8's.
 - A chunk's boundary may move when a dependency demands it. The session records the move here.
+- **Step 4c's boundary moved** (2026-10-24): the squads' `pursuit` and `withdraw` records,
+  and the order handling around them (a retreat's start, a pursuit's giving up, going back
+  and arriving, a withdrawal's record and re-form), stay GDScript with step 7's orders: they
+  drive ScrumTurn, the events and the morale shocks, all step 7's. Their per-unit rules port
+  here. Recorded in "Built", step 4c.

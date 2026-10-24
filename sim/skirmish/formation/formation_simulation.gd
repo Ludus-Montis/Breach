@@ -156,9 +156,9 @@ func step() -> Array:
 	_tick += 1
 	var events := []
 	_apply_orders(events)
-	_engage(events)
+	var roster := _engage(events)  # who is living, till the joins: nobody falls before them
 	FormationPathing.step(_squads, terrain, _tick, fight_seed, events)
-	_move(events)
+	_move(events, roster)
 	var pace := TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE
 	events.append_array(
 		FormationScrum.step(_squads, _tick, pace, tick_seconds, fight_seed, terrain, _field)
@@ -205,19 +205,20 @@ func _apply_orders(events: Array) -> void:
 	_pending_orders.clear()
 
 
-func _engage(events: Array) -> void:
-	var roster := CrateRoster.of(_squads)  # who is living: a lock fells nobody
+## The squads' roster (CrateRoster) it decided on, for the march's decisions too.
+func _engage(events: Array) -> Object:
+	var roster := CrateRoster.of(_squads)
 	perception = FormationPerception.see(_squads, terrain, roster)  # all decide on one picture
 	FormationFronts.engage(_squads, _tick, fight_seed, events, roster)
 	FormationEdges.engage(_squads, _tick, events, fight_seed, roster)
+	return roster
 
 
 ## Each squad decides its move from the tick's start; all moves land together (Decision 97).
-func _move(events: Array) -> void:
+func _move(events: Array, roster: Object) -> void:
 	var ground := {"squads": _squads}  # the bodies lying on the field, found once (drag)
 	var marching := {}  # squad id -> [mover, where it wants to get, its route's end]
 	var waiting := []
-	var roster := CrateRoster.of(_squads)  # who is living: nobody falls on the march
 	for mover in _squads:
 		if mover.state in STANDING or FormationScrum.regrouping(mover):
 			continue
@@ -247,20 +248,19 @@ func _move(events: Array) -> void:
 		var step := FormationMarch.pace(mover, terrain, open_step, _tick, events)
 		step *= GroundBodies.drag(mover, ground) * keeping  # bodies on the ground (Decision 121)
 		marching[mover.id] = [mover, FormationMarch.toward(mover, travel * step, end), end]
-	_march(marching, events)
+	_march(marching, events, roster)
 	for mover in waiting:
 		mover.wait_ticks -= 1
 
 
 ## Lands every move: an advancing squad stops at contact or behind a friend, as they stood
 ## at the tick's start; then arrivals, and waves that reached a friend join it.
-func _march(marching: Dictionary, events: Array) -> void:
+func _march(marching: Dictionary, events: Array, roster: Object) -> void:
 	var advancing := {}
 	for squad_id in marching:
 		if marching[squad_id][0].order == SkirmishUnit.Order.ADVANCE:
 			advancing[squad_id] = true
-	var landing := {}
-	var roster := CrateRoster.of(_squads)  # every limit judged before any move lands
+	var landing := {}  # every limit judged before any move lands
 	for squad_id in marching:
 		var plan: Array = marching[squad_id]
 		var next: float = plan[1]

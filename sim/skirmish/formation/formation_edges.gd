@@ -30,7 +30,8 @@ static func engage(
 	for at in range(0, flanked.size(), 3):
 		var victim: SkirmishSquad = squads[flanked[at]]
 		var edge: int = flanked[at + 2]
-		var extra := {"by": squads[flanked[at + 1]].id, "edge": edge}
+		var attacker: SkirmishSquad = squads[flanked[at + 1]]
+		var extra := {"by": attacker.id, "edge": edge}
 		events.append(FormationEvents.squad_event("flanked", tick, victim, extra))
 		var impact := (
 			BattleTuning.current().morale_rear_impact

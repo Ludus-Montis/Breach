@@ -1,9 +1,9 @@
 //! The squads as a pass is given them (spec 39 step 4c): each listed squad, in the lists'
 //! order, with its living units in its own order and what of each the crate doesn't hold
-//! (its id, store slot, footprint, preferred band, ranged reach, kind, turn rate, backward pace, detection
-//! range, most stamina and the walker it crosses the ground as). GDScript keeps who is living (UnitState,
-//! Decision 147), so it hands them in; where each stands, how it faces and its place are
-//! the store's columns, read where they live.
+//! (its id, store slot, footprint, preferred band, ranged reach, kind, turn rate, backward
+//! pace, detection range, most stamina and the walker it crosses the ground as). GDScript
+//! keeps who is living (UnitState, Decision 147), so it hands them in; where each stands,
+//! how it faces and its place are the store's columns, read where they live.
 
 use std::collections::HashSet;
 

@@ -30,7 +30,7 @@ static func build(points: Array) -> Dictionary:
 	return {"cells": cells, "low": low, "high": high}
 
 
-## A grid over bodies ([[point, radius, unit], ...], ScrumSlots), with "widest": the
+## A grid over bodies ([[point, radius, unit], ...]), with "widest": the
 ## largest radius among them, so a search for any body touching a point knows how far to
 ## look.
 static func of_bodies(bodies: Array) -> Dictionary:

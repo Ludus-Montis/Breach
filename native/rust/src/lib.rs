@@ -1540,11 +1540,11 @@ impl ScrumRules {
 }
 
 /// Routes, motion, the one mover and steering (spec 39 step 3b; `route`, `motion`,
-/// `mover`, `steer`): FormationRoute, RoutePatch, UnitMotion, UnitMover, TerrainStep and
-/// UnitSteer are views over it. Stateless: one is shared. A unit's motion is passed as
-/// [bearing, turn rate, backward pace], a walker as [height, swimmer, climber, swims,
-/// climbs], a point and a bearing as [x, y, bearing], and the ground as its
-/// `TerrainGround` (null: open).
+/// `mover`): FormationRoute, RoutePatch, UnitMotion, UnitMover and TerrainStep are views
+/// over it (steering's phases call `steer` in the crate, spec 39 step 4c). Stateless: one
+/// is shared. A unit's motion is passed as [bearing, turn rate, backward pace], a walker
+/// as [height, swimmer, climber, swims, climbs], a point and a bearing as [x, y, bearing],
+/// and the ground as its `TerrainGround` (null: open).
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct UnitMoves {}
@@ -1729,38 +1729,6 @@ impl UnitMoves {
         }
         let out = route::Patch::patched(&route_of(&points), &patches);
         packed(&out.points)
-    }
-
-    /// UnitSteer.toward over the bodies near the way: body `i` stands at `points[i]`, of
-    /// `radii[i]`, unit `ids[i]` of squad `squads[i]`; the walker is unit `id` of `squad`,
-    /// of radius `own`.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn steer(
-        &self,
-        at: Vector2,
-        goal: Vector2,
-        own: f64,
-        squad: i64,
-        id: i64,
-        tuning: PackedFloat64Array,
-        seed: i64,
-        bodies: PackedVector2Array,
-        radii: PackedFloat64Array,
-        squads: PackedInt64Array,
-        ids: PackedInt64Array,
-    ) -> Vector2 {
-        let (points, radii, squads) = (bodies.as_slice(), radii.as_slice(), squads.as_slice());
-        let near: Vec<steer::Body> = (0..points.len())
-            .map(|i| steer::Body { at: v2(points[i]), radius: radii[i], squad: squads[i] })
-            .collect();
-        let ids = ids.as_slice();
-        let draw = |i: usize| contest::draw(seed, ids[i]);
-        let (look, clear) = (tuning[0], tuning[1]);
-        let own_draw = || contest::draw(seed, id);
-        let to =
-            steer::toward(v2(at), v2(goal), own, squad, &near, look, clear, seed, &own_draw, &draw);
-        vector2(to)
     }
 }
 
@@ -2544,8 +2512,8 @@ fn json_variant(value: &serde_json::Value) -> Variant {
 /// SkirmishSquad's loose, fleeing, stance, flank contacts and chasers, and the phases that
 /// read and write them - the entries (SquadEntries, EntryKeys), the locks (FormationLocks),
 /// engaging (ScrumEngage), the stance (ScrumStance), the manoeuvre (FormationManoeuvre), the
-/// stall (FormationScrum), closing ranks (SquadRanks) and the trade (ScrumTrade). Every call
-/// that may change a record moves `edits`.
+/// stall (FormationScrum) and closing ranks (SquadRanks); the trade is regroup's (step 4c).
+/// Every call that may change a record moves `edits`.
 #[godot_api(secondary)]
 impl BodyField {
     /// How many calls have changed the records: a view taken at this count still holds.
@@ -2977,45 +2945,6 @@ impl BodyField {
             })
             .collect();
         ranks::close(&mut self.field.columns, &units, width as i32);
-    }
-
-    /// ScrumTrade.track: the loose unit in `slot` stands `gap` cells off its place.
-    #[func]
-    fn trade_track(&mut self, slot: i64, gap: f64, seconds: f64) {
-        trade::track(&mut self.field.columns, slot as usize, gap, seconds);
-    }
-
-    /// ScrumTrade.trade over the squad's units: the living in its order, then any loose ones
-    /// that aren't; per unit its id, store slot, kind (a code), preferred band, footprint
-    /// (`feet`: width, depth each) and whether it is living.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn trade(
-        &mut self,
-        squad: i64,
-        ids: PackedInt64Array,
-        slots: PackedInt32Array,
-        kinds: PackedInt32Array,
-        preferred: PackedInt64Array,
-        feet: PackedInt32Array,
-        living: PackedByteArray,
-        seed: i64,
-        after: f64,
-    ) {
-        let feet = feet.as_slice();
-        let units: Vec<trade::Trader> = (0..ids.len())
-            .map(|n| trade::Trader {
-                id: ids.as_slice()[n],
-                slot: slots.as_slice()[n] as usize,
-                kind: kinds.as_slice()[n] as u32,
-                preferred: preferred.as_slice()[n],
-                foot: (feet[2 * n] as i64, feet[2 * n + 1] as i64),
-                living: living.as_slice()[n] != 0,
-            })
-            .collect();
-        let trading = trade::Trading { squad: squad as usize, units: &units, seed, after };
-        trade::trade(&mut self.squads, &mut self.field.columns, &trading);
-        self.edits += 1;
     }
 }
 

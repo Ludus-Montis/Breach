@@ -22,5 +22,7 @@ static func engage(
 		roster = CrateRoster.of(squads)
 	var picks: PackedInt32Array = squads[0].store.field().contact_fronts(roster, fight_seed)
 	for at in range(0, picks.size(), 2):
-		var extra := {"with": squads[picks[at + 1]].id}
-		events.append(FormationEvents.squad_event("engaged", tick, squads[picks[at]], extra))
+		var foe: SkirmishSquad = squads[picks[at + 1]]
+		events.append(
+			FormationEvents.squad_event("engaged", tick, squads[picks[at]], {"with": foe.id})
+		)
