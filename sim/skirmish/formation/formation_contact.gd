@@ -11,7 +11,7 @@ extends RefCounted
 ## - when a squad without front units holds to skirmish (Decision 47)
 ## Pure over the squads it is given; FormationSimulation calls it each tick. The rules are
 ## the crate's (`contact.rs`, spec 39 step 4c), on the squads' roster (CrateRoster); joining's
-## moves (reinforce) stay here with the groups.
+## moves too (`compact.rs`, spec 39 step 5b).
 
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -66,33 +66,33 @@ static func joinable(mover: SkirmishSquad, squads: Array, roster: Object = null)
 
 ## Moves the joining squad's living units in behind the leader's back rank, both lines
 ## centred on the wider of the two, and steps them up. They are the leader's joined units,
-## free to spread in a fight (Decision 51). Returns the units that moved up.
+## free to spread in a fight (Decision 51). Returns the units that moved up. The moves are
+## the crate's (`compact.rs`, spec 39 step 5b); the units change lists and command here.
 static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[SkirmishUnit]:
-	var width := maxi(leader.width, joining.width)
-	var back := _back_rows(leader)
-	var shift := (width - leader.width) / 2
-	# store: scattered (few: a reinforcement, once as a squad joins)
+	var frame := PackedInt32Array()  # all its units: the fallen shift with the frame
 	for unit in leader.units:
-		UnitPlace.put(leader, unit, UnitPlace.of(leader, unit) + Vector2i(0, shift))
-	var moved := Vector2i(back, (width - joining.width) / 2)  # read once (Decision 144)
-	# store: scattered (few: a reinforcement, once as a squad joins)
-	for unit in joining.living():
-		UnitPlace.put(joining, unit, UnitPlace.of(joining, unit) + moved)
-		joining.store.columns.put(unit.slot, UnitColumns.ATTACK_COOLDOWN, 1)
-		SquadEntries.unloose(joining, unit.id)
-		SquadEntries.unflee(joining, unit.id)
+		frame.append(unit.slot)
+	var leading := leader.living()
+	var taken := joining.living()
+	var columns: UnitColumns = leader.store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var front := leader.front_distance
+	var stepped: PackedInt32Array = ColumnsLent.all(
+		columns,
+		func():
+			return field.squad_reinforce(
+				leader.slot,
+				joining.slot,
+				frame,
+				SquadCompact.closers(leading),
+				SquadCompact.closers(taken),
+				SquadCompact.movers(leader)
+			)
+	)
+	SquadCompact.placed(leader, front)
+	for unit in taken:
 		FormationCommand.enlist(leader, unit)
 		leader.joined.append(unit)
-	leader.centre_shift += (width - leader.width) / 2.0 - shift  # the leader stays put
-	leader.width = width
 	joining.units.clear()
 	UnitState.regather(joining)
-	return leader.compact()
-
-
-static func _back_rows(squad: SkirmishSquad) -> int:
-	var rows := 0
-	var ranks: PackedInt32Array = UnitView.read(squad, [UnitColumns.RANK]).rank  # read once
-	for unit in squad.living():
-		rows = maxi(rows, ranks[unit.slot] + unit.footprint_depth)
-	return rows
+	return SquadCompact.units_at(leading + taken, stepped)

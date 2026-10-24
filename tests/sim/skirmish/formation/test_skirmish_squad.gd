@@ -1,6 +1,7 @@
 extends GdUnitTestSuite
 ## SkirmishSquad, per specs/22-formation-feel-test.md: a wave in the field - ranks spaced
-## behind its front, moving as a block, front-rank fighters and step-up.
+## behind its front, moving as a block, front-rank fighters. Step-up's scenarios are the
+## crate's (`compact/tests.rs`, spec 39 step 5b).
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -65,43 +66,6 @@ func test_fighters_are_the_foremost_living_unit_of_each_column() -> void:
 	assert_array(ids).contains_exactly_in_any_order([2, 1, 4])
 
 
-func test_step_up_closes_the_column_after_a_front_death() -> void:
-	var front := _unit(1, 0, 0)
-	var squad := _squad(1, [front, _unit(2, 1, 0), _unit(3, 2, 0)])
-	UnitState.put(squad, front, SkirmishUnit.State.DEAD)
-
-	var moved := squad.compact()
-
-	assert_array(moved.map(func(u): return u.id)).contains_exactly_in_any_order([2, 3])
-	assert_int(UnitPlace.rank(squad, squad.units[1])).is_equal(0)
-	assert_int(UnitPlace.rank(squad, squad.units[2])).is_equal(1)
-	assert_array(squad.fighters().map(func(u): return u.id)).is_equal([2])
-
-
-func test_a_wide_unit_only_steps_up_when_its_whole_footprint_is_clear() -> void:
-	var blocker := _unit(1, 0, 0)
-	var squad := _squad(2, [blocker, _unit(2, 0, 1), _unit(3, 1, 0, 1, 2)])
-	UnitState.put(squad, squad.units[1], SkirmishUnit.State.DEAD)
-
-	assert_array(squad.compact()).is_empty()  # column 0 is still held at rank 0
-
-
-func test_a_unit_steps_up_over_passes_and_the_units_behind_follow_while_clear() -> void:
-	var lost := [_unit(1, 0, 0), _unit(2, 1, 0)]  # column 0's two front ranks
-	var climber := _unit(3, 2, 0)  # two ranks to close: one a pass
-	var wide := _unit(6, 3, 0, 1, 2)  # behind it, across columns 0 and 1
-	var squad := _squad(2, lost + [climber, _unit(4, 0, 1), _unit(5, 1, 1), wide])
-	for unit in lost:
-		UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
-
-	var moved := squad.compact()
-
-	assert_array(moved.map(func(u): return u.id)).contains_exactly_in_any_order([3, 6])
-	assert_int(UnitPlace.rank(squad, climber)).is_equal(0)
-	assert_int(UnitPlace.rank(squad, wide)).is_equal(2)  # column 1's rank 1 still holds it
-	assert_int(UnitPlace.rank(squad, squad.units[4])).is_equal(1)
-
-
 func test_lateral_spans_are_centred_and_mirrored_for_the_other_facing() -> void:
 	var squad := _squad(4, [_unit(1, 0, 0)])
 	var mirrored := _squad(4, [_unit(2, 0, 0)], -1)
@@ -120,16 +84,3 @@ func test_lateral_spans_are_centred_and_mirrored_for_the_other_facing() -> void:
 		)
 		. is_equal(Vector2(1.0, 2.0))
 	)
-
-
-func test_no_one_steps_up_into_a_place_a_move_under_way_is_heading_for() -> void:
-	var fallen := _unit(1, 0, 0)
-	var behind := _unit(2, 1, 0)  # would step up into the hole
-	var mover := _unit(3, 1, 1)  # on its way to that same place
-	var squad := _squad(3, [fallen, behind, mover, _unit(4, 0, 2)])  # the front still stands
-	squad.swaps.append({"to": {mover: Vector2i(0, 0)}, "from": {mover: Vector2i(1, 1)}})
-	UnitState.put(squad, fallen, SkirmishUnit.State.DEAD)
-
-	assert_array(squad.compact()).is_empty()  # the hole is the mover's
-	assert_int(UnitPlace.rank(squad, behind)).is_equal(1)
-	assert_int(UnitPlace.rank(squad, mover)).is_equal(1)  # mid-move: it lands where its move ends

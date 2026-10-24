@@ -911,6 +911,49 @@ Decision's conditions.
   met no more and the taker meeting with what it took, the lists' order, the pairs in list
   order and as every pair finds them, the gap exact within `group_join`).
 
+### Step 5b, closing up, strays, rendezvous and staging in the crate
+
+- **Closing up and taking in** (`compact.rs`): SquadCompact's step-up (front first, a unit
+  looked at again only when a place in its columns changed, the moves under way holding
+  where they head, the re-anchoring when the front has all fallen) and
+  FormationContact.reinforce's moves (the leader's frame shifted to centre both lines on the
+  wider, the joining units behind its back rank, striking no sooner than next tick, no longer
+  loose or fleeing, the leader's width and centre shift, then closing up over both). The
+  units' lists and commands (`enlist`, `joined`) stay GDScript; so does the squad's position,
+  which its front's setter places (`SquadCompact.placed`).
+- **Strays** (`strays.rs`): a stray's setting off (fleeing home from where it stands along
+  its formation's route, walking straight, in its squad's only place, its front where it
+  stands) and the strays' numbering by their draws. The stray's squad, its command and orders
+  stay GDScript (`FormationStrays.strand`).
+- **Rendezvous** (`rendezvous.rs`): the predicted march, tick by tick, and the waits.
+  FormationRehearsal stays GDScript (not this round's).
+- **Staging** (`staging.rs`): which friends fire a staged wave's trigger and whether a
+  coordinated leader's timing lets it go, on the tick's roster (`_engage`'s). Holding at the
+  staging point, the fallback, giving up or turning back and the events stay GDScript with
+  the orders (step 7), as 4c's order handling did.
+- **Identical:** each port follows the GDScript's order and precision (`Vector2` in f32,
+  `rad_to_deg`, `fposmod`, `clampf`, the draws). The native calls that write the unit store
+  are lent its held columns (ColumnsLent.all), as FormationRout's rallying calls reinforce
+  under a hold. The proof is CI's digests, which compare with the base on both engines.
+  Outcomes unchanged.
+- **Retired:** SquadCompact's `Held` and its loop, FormationContact's `_back_rows` and
+  reinforce's moves, FormationStrays' setting off and sort, FormationRendezvous' `_tick` and
+  `_places`, FormationStaging's `_triggered`, `_time_to_go` and `SLACK_TICKS`.
+  `test_skirmish_squad.gd`'s four step-up cases (now `compact/tests.rs`). The scenarios
+  through a battle stay gdUnit (`test_formation_rendezvous`, `test_formation_staging`,
+  `test_formation_leaders`, `test_formation_command`, `test_formation_wounds_order`,
+  `test_formation_recovery`, `test_entry_keys`).
+- **Tests:** cargo: `compact/tests.rs` (closing a column, a wide unit waiting for its whole
+  footprint, passes and the units behind following, a move under way's place, only the front
+  band into the front rank, re-anchoring, the lists' order, falling in behind centred on the
+  wider, a narrower squad centred and stepping up, the half cell left over, the entries
+  cleared), `strays/tests.rs` (fleeing from where it stands, walking straight, numbered by
+  the draws whatever the order), `rendezvous/tests.rs` (a straight march, setting out part
+  way, a wheel, a tighter slack, slow ground, the waits) and `staging/tests.rs` (seeing the
+  partner, only the named one, a friend on another route and none on its own or hostile,
+  seeing a fight, a coordinated leader waiting and going, the lists' order).
+- **Step 5 is done** with this PR.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

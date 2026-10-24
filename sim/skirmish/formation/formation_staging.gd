@@ -15,40 +15,39 @@ extends RefCounted
 ## listed in (Decision 97). A squad's `staging`: {"at":
 ## cells along its route, "trigger", "partner": squad id or 0, "fallback": ticks, "then":
 ## "go" or "back", optionally "meet": the meeting point and "meet_cells": how far along its
-## own route that is}. Pure.
+## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
+## crate's (`staging.rs`, spec 39 step 5b); holding, the fallback and the events stay here
+## with the orders (step 7).
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const FormationSight = preload("res://sim/skirmish/formation/formation_sight.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationRendezvous = preload("res://sim/skirmish/formation/formation_rendezvous.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 
 const SEES_PARTNER := "sees_partner"
 const SEES_FIGHT := "sees_fight"
-## A coordinated leader leaves this many ticks early at most.
-const SLACK_TICKS := 2
 
 
 ## True if the squad holds this tick: it is at its staging point and its trigger hasn't
 ## fired. Emits "staged" when it first holds, then "signalled" or "gave_up".
 ## `pace` = [cells a second at speed 1, seconds a tick].
-## `terrain`, if given, can block sight.
+## `terrain`, if given, can block sight. `roster`: the tick's (CrateRoster) of `squads`, made
+## here if none is given.
 static func holds(
 	squad: SkirmishSquad,
 	squads: Array,
 	tick: int,
 	events: Array,
 	pace: Array = [8.0, 0.1],
-	terrain: FormationTerrain = null
+	terrain: FormationTerrain = null,
+	roster: Object = null
 ) -> bool:
 	if squad.staging.is_empty() or squad.order != SkirmishUnit.Order.ADVANCE:
 		return false
-	var partners := _triggered(squad, squads, terrain)
-	var ready := partners.all(func(p): return _time_to_go(squad, p, pace, terrain))
-	if not partners.is_empty() and ready:
+	if _signalled(squad, squads, pace, terrain, roster):
 		squad.staging = {}
 		events.append(FormationEvents.squad_event("signalled", tick, squad))
 		return false
@@ -69,48 +68,37 @@ static func holds(
 	return false
 
 
-## True unless a coordinated leader judges it too soon: it would arrive before its partner.
-static func _time_to_go(
-	squad: SkirmishSquad, partner: SkirmishSquad, pace: Array, terrain: FormationTerrain
+## True if the trigger has fired and it is time to go: a friend it detects fires it and, led
+## by a coordinated leader with a meeting point, it would arrive no earlier than any of them.
+static func _signalled(
+	squad: SkirmishSquad, squads: Array, pace: Array, terrain: FormationTerrain, roster: Object
 ) -> bool:
-	if not squad.staging.has("meet") or not _coordinated(squad) or partner.speed() <= 0.0:
-		return true
-	var tick_seconds: float = pace[1]
-	var partner_ticks: float = (
-		partner.position.distance_to(squad.staging["meet"])
-		/ (partner.speed() * pace[0] * tick_seconds)
+	if roster == null:
+		roster = CrateRoster.of(squads)
+	var routes := {}  # route -> its code
+	var codes := PackedInt32Array()
+	for other in squads:
+		codes.append(routes.get_or_add(other.route, routes.size()))
+	var order := PackedInt64Array(
+		[int(squad.staging["trigger"] != SEES_PARTNER), squad.staging.get("partner", 0)]
 	)
-	var own_ticks := FormationRendezvous.ticks_to(
-		squad.route,
-		squad.staging["meet_cells"],
-		squad.width,
-		squad.speed() * pace[0],
-		tick_seconds,
-		squad.front_distance * MapLayoutDef.CELLS_PER_TILE,
-		terrain,
-		FormationWalk.slack_of(squad)
+	var meet := PackedFloat64Array()
+	if squad.staging.has("meet") and _coordinated(squad):
+		var at: Vector2 = squad.staging["meet"]
+		meet = PackedFloat64Array(
+			[at.x, at.y, squad.staging["meet_cells"], FormationWalk.slack_of(squad)]
+		)
+	return squad.store.field().staging_signalled(
+		roster,
+		squads.find(squad),
+		order,
+		codes,
+		meet,
+		squad.route.points() if squad.route != null else PackedVector2Array(),
+		PackedFloat64Array(pace),
+		UnitMover.ground(terrain)
 	)
-	return own_ticks >= partner_ticks - SLACK_TICKS
 
 
 static func _coordinated(squad: SkirmishSquad) -> bool:
 	return squad.living().any(func(u): return u.tactics.has("coordinated"))
-
-
-## The friends whose sight fires the trigger (none: it hasn't fired).
-static func _triggered(squad: SkirmishSquad, squads: Array, terrain: FormationTerrain) -> Array:
-	var out := []
-	var partner: int = squad.staging.get("partner", 0)
-	for other in squads:
-		if other == squad or other.faction_id != squad.faction_id:
-			continue
-		if partner != 0 and other.id != partner:
-			continue
-		if partner == 0 and other.route == squad.route:
-			continue  # a wave on its own route is no partner
-		var wanted: bool = (
-			squad.staging["trigger"] == SEES_PARTNER or other.state == SkirmishSquad.State.FIGHTING
-		)
-		if wanted and FormationSight.detects(squad, other, terrain):
-			out.append(other)
-	return out

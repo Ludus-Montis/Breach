@@ -9,6 +9,7 @@ mod blows;
 #[cfg(test)]
 mod build;
 mod columns;
+mod compact;
 mod contact;
 pub mod content;
 mod contest;
@@ -45,6 +46,7 @@ mod ranks;
 mod reach;
 mod rect;
 mod regroup;
+mod rendezvous;
 mod roster;
 mod route;
 mod scrum;
@@ -52,8 +54,10 @@ mod seeking;
 mod snapshot;
 mod split;
 mod squads;
+mod staging;
 mod stance;
 mod steer;
+mod strays;
 mod trade;
 mod walk_store;
 mod walking;
@@ -2174,6 +2178,35 @@ impl GroundMarch {
         march::walk::slack_of(discipline, loose, drilled)
     }
 
+    /// FormationRendezvous.ticks_to: the ticks for a march `march` = [cells along the route,
+    /// width, cells a second, seconds a tick, cells along it it sets out from, slack] to come
+    /// along `route`, over `ground` (none: open ground).
+    #[func]
+    fn rendezvous_ticks(
+        &self,
+        route: PackedVector2Array,
+        march: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> i64 {
+        let route = route::Route::new(v2s(&route), 0.0);
+        let m = march.as_slice();
+        let march = rendezvous::March {
+            cells: m[0],
+            width: m[1] as i32,
+            cells_per_second: m[2],
+            tick_seconds: m[3],
+            from: m[4],
+            slack: m[5],
+        };
+        on_ground(ground, |g| rendezvous::ticks_to(&route, &march, g))
+    }
+
+    /// FormationRendezvous.waits: the ticks each wave waits, from each one's predicted ticks.
+    #[func]
+    fn rendezvous_waits(&self, predicted: PackedInt64Array) -> PackedInt64Array {
+        PackedInt64Array::from(rendezvous::waits(predicted.as_slice()).as_slice())
+    }
+
     /// PlaceOrder.front_first: the indices of the units at `ranks` and `files`, front first.
     #[func]
     fn front_first(&self, ranks: PackedInt32Array, files: PackedInt32Array) -> PackedInt32Array {
@@ -3488,4 +3521,148 @@ impl BodyField {
         }
         PackedInt64Array::from(&out[..])
     }
+}
+
+/// Closing up, taking in, strays and staging (spec 39 step 5b).
+#[godot_api(secondary)]
+impl BodyField {
+    /// SquadCompact.compact for the squad in squad slot `squad`: its living units five
+    /// numbers each, in its order ([id, store slot, footprint width and depth, band]), and
+    /// its moves under way' units five each ([store slot, the rank and column it heads for,
+    /// footprint width and depth]). Returns the indices into `living` of those that stepped
+    /// up, in the order each first did.
+    #[func]
+    fn squad_compact(
+        &mut self,
+        squad: i64,
+        living: PackedInt64Array,
+        movers: PackedInt32Array,
+    ) -> PackedInt32Array {
+        let (living, movers) = (closers(&living), moving(&movers));
+        let moved = compact::compact(
+            &mut self.squads,
+            &mut self.field.columns,
+            squad as usize,
+            &living,
+            &movers,
+        );
+        PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
+    }
+
+    /// FormationContact.reinforce: the squad in squad slot `joining` taken in behind the
+    /// squad in `leader`. `units`: the store slots of all the leader's units; `leader` and
+    /// `joining_living`: each squad's living units as squad_compact takes them; `movers`: the
+    /// leader's moves under way, as squad_compact takes them. Returns the indices into the
+    /// leader's living then the joining's of those that stepped up.
+    #[func]
+    fn squad_reinforce(
+        &mut self,
+        leader: i64,
+        joining: i64,
+        units: PackedInt32Array,
+        leader_living: PackedInt64Array,
+        joining_living: PackedInt64Array,
+        movers: PackedInt32Array,
+    ) -> PackedInt32Array {
+        let units: Vec<usize> = units.as_slice().iter().map(|&slot| slot as usize).collect();
+        let join = compact::Joining {
+            leader: leader as usize,
+            joining: joining as usize,
+            leader_units: &units,
+        };
+        let moved = compact::reinforce(
+            &mut self.squads,
+            &mut self.field.columns,
+            join,
+            &closers(&leader_living),
+            &closers(&joining_living),
+            &moving(&movers),
+        );
+        PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
+    }
+
+    /// FormationStrays.strand's setting off: the unit `unit_id` in store slot `slot`, alone
+    /// in the stray squad in squad slot `stray`, flees home along `route` from where it
+    /// stands. Returns the stray squad's front (tiles along the route).
+    #[func]
+    fn stray_set_off(
+        &mut self,
+        stray: i64,
+        unit_id: i64,
+        slot: i64,
+        route: PackedVector2Array,
+    ) -> f64 {
+        let route = route::Route::new(v2s(&route), 0.0);
+        let unit = (unit_id, slot as usize);
+        strays::set_off(&mut self.squads, &mut self.field.columns, stray as usize, unit, &route)
+    }
+
+    /// FormationStrays.adopt's order: the indices of the strays' unit ids in the order their
+    /// squads are numbered.
+    #[func]
+    fn strays_numbered(&self, ids: PackedInt64Array, seed: i64) -> PackedInt32Array {
+        let order = strays::numbered(ids.as_slice(), seed);
+        PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
+    }
+
+    /// FormationStaging's trigger: true if `roster`'s squad `listed` has seen it fire and it is
+    /// time to go. `order`: [1 if it waits to see a fight, its partner's squad id (0: none)];
+    /// `routes`: each listed squad's route (a code); `meet`: [x, y, cells along its route,
+    /// slack] if a coordinated leader times its departure by a meeting point, else empty;
+    /// `route`: its route's points; `pace`: [cells a second at speed 1, seconds a tick].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn staging_signalled(
+        &self,
+        roster: Gd<SquadRoster>,
+        listed: i64,
+        order: PackedInt64Array,
+        routes: PackedInt32Array,
+        meet: PackedFloat64Array,
+        route: PackedVector2Array,
+        pace: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> bool {
+        let roster = roster.bind();
+        let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
+        let m = meet.as_slice();
+        let meet = (m.len() == 4).then(|| staging::Meeting {
+            at: V2::new(m[0] as f32, m[1] as f32),
+            cells: m[2],
+            route: route::Route::new(v2s(&route), 0.0),
+            slack: m[3],
+        });
+        let (o, p) = (order.as_slice(), pace.as_slice());
+        let staged = staging::Staged {
+            listed: listed as usize,
+            sees_fight: o[0] != 0,
+            partner: o[1],
+            routes: &routes,
+            meet,
+            pace: [p[0], p[1]],
+        };
+        let (squads, columns) = (&self.squads, &self.field.columns);
+        on_ground(ground, |g| staging::signalled(squads, columns, &roster.roster, g, &staged))
+    }
+}
+
+/// A squad's living units as squad_compact is given them, five numbers each.
+fn closers(living: &PackedInt64Array) -> Vec<compact::Closer> {
+    let (rows, _) = living.as_slice().as_chunks::<5>();
+    rows.iter()
+        .map(|r| compact::Closer {
+            id: r[0],
+            slot: r[1] as usize,
+            foot: (r[2] as i32, r[3] as i32),
+            preferred: r[4],
+        })
+        .collect()
+}
+
+/// A squad's moves under way as squad_compact is given them, five numbers each.
+fn moving(movers: &PackedInt32Array) -> Vec<compact::Moving> {
+    let (rows, _) = movers.as_slice().as_chunks::<5>();
+    rows.iter()
+        .map(|r| compact::Moving { slot: r[0] as usize, to: (r[1], r[2]), foot: (r[3], r[4]) })
+        .collect()
 }
