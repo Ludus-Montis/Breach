@@ -53,6 +53,7 @@ mod regeneration;
 mod regroup;
 mod rendezvous;
 mod roster;
+mod rout;
 mod rout_blows;
 mod route;
 mod scrum;
@@ -4163,18 +4164,7 @@ impl BodyField {
         seed: i64,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let points = v2s(&points);
-        let (rows, _) = routing.as_slice().as_chunks::<2>();
-        let mut from = 0;
-        let routing: Vec<rout_blows::Routing> = rows
-            .iter()
-            .map(|r| {
-                let to = from + r[1] as usize;
-                let route = (to > from).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
-                from = to;
-                rout_blows::Routing { listed: r[0] as usize, route }
-            })
-            .collect();
+        let routing = routings(&routing, &points);
         let (rows, _) = fighters.as_slice().as_chunks::<3>();
         let fighters: Vec<rout_blows::Fighter> = rows
             .iter()
@@ -4188,6 +4178,172 @@ impl BodyField {
         let out = rout_blows::blows(columns, &roster.roster, &routing, &fighters, reach, seed);
         let flat: Vec<i64> =
             out.iter().flat_map(|&(f, r, m)| [f, r, m].map(|n| n as i64)).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+}
+
+/// Routing formations as RoutBlows and FormationRout hand them in: two numbers a formation in
+/// `routing`, its index in the roster and how many of `points` are its route's (0: none).
+fn routings(routing: &PackedInt32Array, points: &PackedVector2Array) -> Vec<rout_blows::Routing> {
+    let points = v2s(points);
+    let (rows, _) = routing.as_slice().as_chunks::<2>();
+    let mut from = 0;
+    rows.iter()
+        .map(|r| {
+            let to = from + r[1] as usize;
+            let route = (to > from).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
+            from = to;
+            rout_blows::Routing { listed: r[0] as usize, route }
+        })
+        .collect()
+}
+
+/// The rout (spec 39 step 7b). `routing` and `points` as `routings` reads them; `leaders`
+/// every listed squad's living units' leadership, in the roster's order; `tuning` as
+/// RoutTuning.of_slice reads it.
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationRout's breaking and flight. Returns how many of the roster break, their
+    /// indices in it, then six numbers a thing the flight did, in order: its kind (0 a
+    /// crush, 1 home, 2 scattered), the formation's index in `routing`, the router's in its
+    /// living, and for a crush the friend's index in the roster, its unit's in its living
+    /// and 1 if it panics that friend (else 0, 0, 0).
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn rout_flee(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        routing: PackedInt32Array,
+        points: PackedVector2Array,
+        leaders: PackedInt32Array,
+        tuning: PackedFloat64Array,
+        seed: i64,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let routing = routings(&routing, &points);
+        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
+        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
+        let breaking = rout::breaking(&self.squads, &roster.roster);
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let fled = on_ground(ground, |g| {
+            rout::flee(squads, columns, &roster.roster, &routing, &leaders, &tuning, seed, g)
+        });
+        self.edits += 1;
+        let mut flat: Vec<i64> = vec![breaking.len() as i64];
+        flat.extend(breaking.iter().map(|&n| n as i64));
+        for f in fled {
+            flat.extend(match f {
+                rout::Fled::Crushed { routing, member, hit, panic } => {
+                    [0, routing as i64, member as i64, hit.0 as i64, hit.1 as i64, panic as i64]
+                }
+                rout::Fled::Home { routing, member } => [1, routing as i64, member as i64, 0, 0, 0],
+                rout::Fled::Scattered { routing } => [2, routing as i64, 0, 0, 0, 0],
+            });
+        }
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// FormationRout's rallies. `morale`: two numbers a listed squad, its morale (below 0: not
+    /// read yet) and then its ceiling (else 0). Returns how many squads' morale was first
+    /// read, their indices in the roster, then three numbers a join, in the order they join:
+    /// the formation's index in `routing`, the router's in its living, and the friend's index
+    /// in the roster.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn rout_rallies(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        routing: PackedInt32Array,
+        points: PackedVector2Array,
+        leaders: PackedInt32Array,
+        morale: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let routing = routings(&routing, &points);
+        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
+        let (rows, _) = morale.as_slice().as_chunks::<2>();
+        let morale: Vec<(i64, i64)> = rows.iter().map(|m| (m[0], m[1])).collect();
+        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
+        let columns = &mut self.field.columns;
+        let rallied = rout::rallies(
+            &self.squads,
+            columns,
+            &roster.roster,
+            &routing,
+            &leaders,
+            &morale,
+            &tuning,
+            seed,
+        );
+        let mut flat: Vec<i64> = vec![rallied.first_read.len() as i64];
+        flat.extend(rallied.first_read.iter().map(|&n| n as i64));
+        flat.extend(rallied.joins.iter().flat_map(|&(r, u, f)| [r, u, f].map(|n| n as i64)));
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// FormationRout's re-forming. Returns the indices in `routing` of the formations that
+    /// re-formed, in order.
+    #[func]
+    fn rout_regroup(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        routing: PackedInt32Array,
+        points: PackedVector2Array,
+        leaders: PackedInt32Array,
+        tuning: PackedFloat64Array,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let routing = routings(&routing, &points);
+        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
+        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
+        let mut slots = std::collections::BTreeMap::new();
+        for formation in &routing {
+            for &id in &self.squads.fleeing[roster.roster.listed[formation.listed].squad] {
+                slots.insert(id, self.field.slot_of(id).map(|s| s as usize));
+            }
+        }
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let slot_of = |id: i64| slots.get(&id).copied().flatten();
+        let out = rout::regroup(
+            squads,
+            columns,
+            &roster.roster,
+            &routing,
+            &leaders,
+            &tuning,
+            seed,
+            slot_of,
+        );
+        self.edits += 1;
+        let flat: Vec<i64> = out.iter().map(|&r| r as i64).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// FormationRout's breaks, of the formations in `breaking` (as `routings` reads them).
+    /// Returns, for each, how many friends saw it break and their indices in the roster.
+    #[func]
+    fn rout_break(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        breaking: PackedInt32Array,
+        points: PackedVector2Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let breaking = routings(&breaking, &points);
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let seen =
+            on_ground(ground, |g| rout::breaks(squads, columns, &roster.roster, &breaking, g));
+        self.edits += 1;
+        let mut flat: Vec<i64> = Vec::new();
+        for friends in seen {
+            flat.push(friends.len() as i64);
+            flat.extend(friends.iter().map(|&n| n as i64));
+        }
         PackedInt64Array::from(flat.as_slice())
     }
 }

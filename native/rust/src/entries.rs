@@ -118,6 +118,12 @@ pub fn keep(columns: &mut Columns, slot: usize, key: Key, value: Value) {
     columns.keys[slot] = keys;
 }
 
+/// True if the entry in `slot` holds a value for the key (`toward` and `held_by`; EntryKeys.
+/// held is that value, or null).
+pub fn holds_value(columns: &Columns, slot: usize, key: Key) -> bool {
+    columns.keys[slot] & key.valued() != 0
+}
+
 /// Takes the keys out of the entry in `slot`: each reads blank again.
 pub fn forget(columns: &mut Columns, slot: usize, names: &[Key]) {
     let mut keys = columns.keys[slot];

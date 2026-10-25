@@ -21,36 +21,29 @@ extends RefCounted
 ## one break's shock can't cascade within the tick for squads listed later; every router
 ## flees, then every rally is decided, then they join; a router crushes or is caught by the
 ## nearest friend; ties go to the units' seeded draws (ScrumContest).
-## A routing squad's `fleeing`: unit id -> the unit; the cells along its route each has come
+## The breaking, the flight, the crush, the rallies, re-forming and reaching home are the
+## crate's (`rout.rs`, spec 39 step 7b): this hands it the squads' roster (CrateRoster), the
+## routes and each unit's leadership, and lands what it decides in its order - the hurts,
+## the shocks (FormationMorale), the joins (FormationContact.reinforce) and the events. A
+## routing squad's `fleeing`: unit id -> the unit; the cells along its route each has come
 ## are the store's ALONG, its spread from the route its FLEE_OFFSET (SquadEntries). Pure over
 ## the squads it is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
-const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
-const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
-const FormationSight = preload("res://sim/skirmish/formation/formation_sight.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const RoutFlight = preload("res://sim/skirmish/formation/rout_flight.gd")
-const RoutCatch = preload("res://sim/skirmish/formation/rout_catch.gd")
-const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
-const RoutFriends = preload("res://sim/skirmish/formation/rout_friends.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns a router's point is read from (where_in).
 const ROUTE := [UnitColumns.ALONG, UnitColumns.FLEE_OFFSET]
-## The fleeing entries' columns, the keys that say which an entry holds (SquadEntries) and
-## each router's pace (RoutFlight): the rout's view (UnitView), held for its pass.
-const FLED := [UnitColumns.FANNED, UnitColumns.CAUGHT, UnitColumns.HELD_BY, UnitColumns.KEYS]
-const HELD := ROUTE + FLED + [UnitColumns.SPEED]
-
-const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
+## The kinds of what the flight did (rout_flee's records).
+const CRUSHED := 0
+const HOME := 1
+const SCATTERED := 2
 
 
 ## One tick of routs: formations at 0 morale break, routers flee (crushing friends in the
@@ -64,28 +57,44 @@ static func step(
 	fight_seed := 0
 ) -> Array:
 	var events := []
-	var view := UnitView.hold(squads, HELD)  # read router by router: held
-	var breaking := squads.filter(
-		func(s): return s.state != SkirmishSquad.State.ROUTING and _breaks(s)
+	if not squads.any(func(s): return s.state == SkirmishSquad.State.ROUTING or s.morale == 0):
+		return events  # nothing routs and nothing breaks
+	var routing := []
+	var routes := _routes(
+		squads, func(squad): return squad.state == SkirmishSquad.State.ROUTING, routing
 	)
-	var routing := squads.filter(func(s): return s.state == SkirmishSquad.State.ROUTING)
-	var pace := cells_per_second * tick_seconds
-	var friends := {"squads": squads}  # each faction's units, found by grids (RoutFriends)
-	for squad in routing:
-		_flee(squad, tick, [pace, fight_seed, terrain, friends], events)
-	var joins := []
-	friends["read"] = {}  # squads' fields, read once for the rallies (RoutCatch.read_once)
-	for squad in routing:
-		joins.append_array(_rallies(squad, friends, tick_seconds, fight_seed))
-	friends.erase("read")  # the joins change squads
-	joins.sort_custom(func(a, b): return a[0] < b[0])
-	for entry in joins:
-		_join(entry[1], entry[2], entry[3], tick, events)
-	for squad in routing:
-		_regroup(squad, friends, tick, tick_seconds, events, fight_seed)
-	for squad in breaking:
-		_break(squad, squads, tick, events, terrain)
-	UnitView.release(view)
+	var columns: UnitColumns = squads[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var rules := _rules(cells_per_second * tick_seconds, tick_seconds)
+	var ground: Object = UnitMover.ground(terrain)
+	var roster := CrateRoster.of(squads, terrain)
+	var leaders := _leaders(squads)
+	var fled: PackedInt64Array = ColumnsLent.all(
+		columns,
+		func():
+			return field.rout_flee(roster, routes[0], routes[1], leaders, rules, fight_seed, ground)
+	)
+	var breaking := []
+	for at in range(1, fled[0] + 1):
+		breaking.append(squads[fled[at]])
+	if _land_flight(fled.slice(fled[0] + 1), squads, routing, tick, events):
+		roster = CrateRoster.of(squads, terrain)  # routers left the field
+		leaders = _leaders(squads)
+	if not routing.is_empty():
+		if _rally(
+			squads, routing, [field, roster, routes, leaders, rules, fight_seed], tick, events
+		):
+			roster = CrateRoster.of(squads, terrain)  # routers joined friends
+			leaders = _leaders(squads)
+		var reformed: PackedInt64Array = ColumnsLent.all(
+			columns,
+			func():
+				return field.rout_regroup(roster, routes[0], routes[1], leaders, rules, fight_seed)
+		)
+		for at in reformed:
+			events.append(FormationEvents.squad_event("reformed", tick, routing[at]))
+	if not breaking.is_empty():
+		_break(squads, breaking, [field, roster, ground], tick, events)
 	return events
 
 
@@ -108,76 +117,83 @@ static func route_point_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishU
 	return _route_point(squad, view.along[unit.slot])
 
 
-static func _breaks(squad: SkirmishSquad) -> bool:
-	return (
-		squad.state != SkirmishSquad.State.DESTROYED
-		and squad.state != SkirmishSquad.State.ARRIVED
-		and not squad.living().is_empty()
-		and squad.morale == 0
+## [the crate's routing (each chosen squad's index in `squads` and its route's point count),
+## the routes' points] for the squads `chosen` takes, which are appended to `out`.
+static func _routes(squads: Array, chosen: Callable, out: Array) -> Array:
+	var routing := PackedInt32Array()
+	var points := PackedVector2Array()
+	for index in squads.size():
+		var squad: SkirmishSquad = squads[index]
+		if not chosen.call(squad):
+			continue
+		out.append(squad)
+		var route := squad.route.points() if squad.route != null else PackedVector2Array()
+		routing.append_array([index, route.size()])
+		points.append_array(route)
+	return [routing, points]
+
+
+## Every listed squad's living units' leadership, in the roster's order.
+static func _leaders(squads: Array) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for squad in squads:
+		for unit in squad.living():
+			out.append(unit.leadership)
+	return out
+
+
+## The crate's rout tuning (RoutTuning.of_slice), `pace` cells a tick at speed 1.
+static func _rules(pace: float, tick_seconds: float) -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	return PackedFloat64Array(
+		[
+			pace,
+			tick_seconds,
+			tuning.rout_fan_degrees,
+			tuning.rout_fan_cells,
+			tuning.rout_rally_reach,
+			tuning.rout_steady_rally_seconds,
+			tuning.rout_rally_seconds,
+			tuning.rout_enemy_near,
+			tuning.rout_reformed_morale,
+			tuning.morale_steady_at
+		]
 	)
 
 
-static func _break(
-	squad: SkirmishSquad, squads: Array, tick: int, events: Array, terrain: FormationTerrain
-) -> void:
-	FormationLocks.release(squad, squads)
-	squad.unflank_all()
-	squad.staging = {}
-	squad.swaps.clear()
-	squad.state = SkirmishSquad.State.ROUTING
-	squad.rally_ticks = 0
-	var along := squad.front_distance * CELLS
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	for unit in squad.living():
-		var offset: Vector2 = at[unit.slot] - _route_point(squad, along)
-		SquadEntries.flee(squad, unit, along, offset)
-	events.append(FormationEvents.squad_event("routed", tick, squad))
-	for friend in squads:
-		if friend != squad and friend.faction_id == squad.faction_id and not friend.is_destroyed():
-			if FormationSight.detects(friend, squad, terrain):
-				FormationMorale.shock(friend, BattleTuning.current().rout_seen, tick, events)
+## Lands what the flight did (rout_flee's six numbers a record, in order): the crushes'
+## hurts, events and panic, the routers home and the squads scattered. True if any router
+## left the field.
+static func _land_flight(
+	fled: PackedInt64Array, squads: Array, routing: Array, tick: int, events: Array
+) -> bool:
+	var living := routing.map(func(squad): return squad.living())  # as the crate read them
+	var left := false
+	for at in range(0, fled.size(), 6):
+		var squad: SkirmishSquad = routing[fled[at + 1]]
+		match fled[at]:
+			CRUSHED:
+				var router: SkirmishUnit = living[fled[at + 1]][fled[at + 2]]
+				var friend: SkirmishSquad = squads[fled[at + 3]]
+				var hit: SkirmishUnit = friend.living()[fled[at + 4]]
+				_crush(squad, router, [friend, hit, fled[at + 5] != 0], tick, events)
+			HOME:
+				var unit: SkirmishUnit = living[fled[at + 1]][fled[at + 2]]
+				squad.units.erase(unit)
+				UnitState.regather(squad)
+				var extra := {"unit": unit.id, "definition": unit.definition}
+				events.append(FormationEvents.squad_event("fled_home", tick, squad, extra))
+				left = true
+			SCATTERED:
+				events.append(FormationEvents.squad_event("scattered", tick, squad))
+	return left
 
 
-## `motion` is [pace (cells a tick at speed 1), fight seed, terrain or null, the tick's
-## RoutFriends].
-static func _flee(squad: SkirmishSquad, tick: int, motion: Array, events: Array) -> void:
-	var home := squad.home_distance * CELLS
-	var panicked := {}
-	var alone := RoutFriends.alone(motion[3], squad)  # no friend to crush or flee to
-	var friends: Dictionary = {} if alone else motion[3]
-	var view := UnitView.of(squad)  # the held view: indexed, not called
-	var along: PackedFloat64Array = view.along
-	var caught: PackedInt64Array = view.caught
-	for unit in squad.living():
-		if caught[unit.slot] > 0:
-			continue  # held by a steady friend it ran into
-		var at := where_in(view, squad, unit)
-		RoutFlight.step(squad, unit, home, [motion[0], motion[1], motion[2], at, friends, view])
-		if not alone:
-			_crush([squad, unit, motion[1], view], friends, tick, panicked, events)
-		if is_equal_approx(along[unit.slot], home):
-			SquadEntries.unflee(squad, unit.id)
-			squad.units.erase(unit)
-			UnitState.regather(squad)
-			var extra := {"unit": unit.id, "definition": unit.definition}
-			events.append(FormationEvents.squad_event("fled_home", tick, squad, extra))
-	if squad.living().is_empty():
-		squad.state = SkirmishSquad.State.DESTROYED
-		events.append(FormationEvents.squad_event("scattered", tick, squad))
-
-
-## A router (`who` = [its squad, the unit, the battle seed, the rout's view]) crushes the
-## nearest friend's unit it runs into (ties by their draws). `friends` is the tick's
-## RoutFriends.
+## A router crushes a friend's unit (`hit` = [the friend, its unit, true if it panics]):
+## both are hurt by its size, and a panicked friend takes the shock.
 static func _crush(
-	who: Array, friends: Dictionary, tick: int, panicked: Dictionary, events: Array
+	squad: SkirmishSquad, router: SkirmishUnit, hit: Array, tick: int, events: Array
 ) -> void:
-	var squad: SkirmishSquad = who[0]
-	var router: SkirmishUnit = who[1]
-	var at := where_in(who[3], squad, router)
-	var hit := RoutFriends.crushed(friends, squad, at, who[2])  # [friend, unit]
-	if hit.is_empty():
-		return
 	var damage := (
 		BattleTuning.current().rout_crush * router.footprint_width * router.footprint_depth
 	)
@@ -185,69 +201,55 @@ static func _crush(
 	UnitHealth.hurt_one(squad, hit[1], damage)
 	var extra := {"unit": router.id, "target": hit[1].id, "dmg": damage}
 	events.append(FormationEvents.squad_event("crushed", tick, hit[0], extra))
-	if not panicked.has(hit[0].id):
-		panicked[hit[0].id] = true
+	if hit[2]:
 		FormationMorale.shock(hit[0], BattleTuning.current().rout_panic, tick, events)
 
 
-## [[key, squad, unit, friend], ...]: the squad's routers that join a friend this tick,
-## decided before any joins - one with a leader near, or one held long enough by a steady
-## friend - keyed nearest first. Counts each held router's time caught.
-static func _rallies(
-	squad: SkirmishSquad, friends: Dictionary, tick_seconds: float, fight_seed: int
-) -> Array:
-	var out := []
-	var alone := RoutFriends.alone(friends, squad)  # no friend to rally to or be held by
-	var view := UnitView.of(squad)  # the held view: indexed, not called
-	var caught_for: PackedInt64Array = view.caught
-	for unit in squad.living():
-		var at := where_in(view, squad, unit)
-		var leader: SkirmishSquad = null
-		if not alone:
-			var reach := BattleTuning.current().rout_rally_reach
-			leader = RoutCatch.friend_near(squad, at, friends, reach, true, fight_seed)
-		if leader != null:
-			out.append([_key(leader, unit, at, fight_seed), squad, unit, leader])
-			continue
-		var breadth := 2.0 * ScrumReach.radius(unit)  # its own body's breadth
-		var friend: SkirmishSquad = null
-		if not alone:
-			friend = RoutCatch.holder(squad, unit, at, friends, breadth, fight_seed)
-		var calm: bool = (
-			friend != null
-			and RoutCatch.read_once(friends, friend, "band") == FormationMorale.Band.STEADY
-		)
-		var held: int = caught_for[unit.slot]
-		var caught := 0 if friend == null else (held + 1 if calm else maxi(held, 1))
-		view.keep(unit.slot, UnitColumns.CAUGHT, caught)
-		view.keep(unit.slot, UnitColumns.HELD_BY, null if friend == null else friend.id)
-		if calm and caught * tick_seconds >= BattleTuning.current().rout_steady_rally_seconds:
-			out.append([_key(friend, unit, at, fight_seed), squad, unit, friend])
-	return out
+## Decides the rallies in the crate (`call` = [field, roster, routes, leaders, rules, fight
+## seed]) and makes the joins, nearest first. True if any router joined.
+static func _rally(squads: Array, routing: Array, call: Array, tick: int, events: Array) -> bool:
+	var morale := PackedInt64Array()
+	for squad in squads:
+		var unread: bool = squad.morale < 0
+		morale.append_array([squad.morale, FormationMorale.ceiling(squad) if unread else 0])
+	var field: Object = call[0]
+	var columns: UnitColumns = squads[0].store.columns
+	var rallied: PackedInt64Array = ColumnsLent.all(
+		columns,
+		func():
+			return field.rout_rallies(
+				call[1], call[2][0], call[2][1], call[3], morale, call[4], call[5]
+			)
+	)
+	for at in range(1, rallied[0] + 1):
+		FormationMorale.band(squads[rallied[at]])  # first read: its morale is its ceiling
+	var living := routing.map(func(squad): return squad.living())  # as the crate read them
+	for at in range(rallied[0] + 1, rallied.size(), 3):
+		var unit: SkirmishUnit = living[rallied[at]][rallied[at + 1]]
+		_join(routing[rallied[at]], unit, squads[rallied[at + 2]], tick, events)
+	return rallied.size() > rallied[0] + 1
 
 
-## Routers joining a friend line up behind it nearest first, ties by their draws.
-static func _key(friend: SkirmishSquad, unit: SkirmishUnit, at: Vector2, fight_seed: int) -> Array:
-	return [snappedf(RoutCatch.gap(friend, at), 0.000001), ScrumContest.draw(unit, fight_seed)]
-
-
-## A routing formation whose own leader lives re-forms after a while with no enemy near.
-## `friends` is the tick's RoutFriends.
-static func _regroup(
-	squad: SkirmishSquad,
-	friends: Dictionary,
-	tick: int,
-	tick_seconds: float,
-	events: Array,
-	fight_seed: int
-) -> void:
-	if squad.living().is_empty() or FormationMorale.leadership(squad) == 0:
-		return
-	var points := squad.living().map(func(unit): return where(squad, unit.id))
-	var near := RoutFriends.enemy_near(friends, squad, points)
-	squad.rally_ticks = 0 if near else squad.rally_ticks + 1
-	if squad.rally_ticks * tick_seconds >= BattleTuning.current().rout_rally_seconds:
-		_reform(squad, tick, events, fight_seed)
+## The breaking squads rout in the crate (`call` = [field, roster, ground]); each drops its
+## staging and swaps, and its friends that see it break take the shock.
+static func _break(squads: Array, breaking: Array, call: Array, tick: int, events: Array) -> void:
+	var chosen := []
+	var routes := _routes(squads, func(squad): return squad in breaking, chosen)
+	var field: Object = call[0]
+	var seen: PackedInt64Array = ColumnsLent.all(
+		squads[0].store.columns,
+		func(): return field.rout_break(call[1], routes[0], routes[1], call[2])
+	)
+	var at := 0
+	for squad in chosen:
+		squad.staging = {}
+		squad.swaps.clear()
+		events.append(FormationEvents.squad_event("routed", tick, squad))
+		for index in range(at + 1, at + 1 + seen[at]):
+			FormationMorale.shock(
+				squads[seen[index]], BattleTuning.current().rout_seen, tick, events
+			)
+		at += 1 + seen[at]
 
 
 static func _join(
@@ -268,30 +270,6 @@ static func _join(
 	events.append(FormationEvents.unit_event("rallied", tick, squad, unit, {"into": leader.id}))
 	if squad.living().is_empty():
 		squad.state = SkirmishSquad.State.DESTROYED
-
-
-## Re-forms where its leader stands (the best, ties by draw), facing the enemy's end again,
-## and holds.
-static func _reform(squad: SkirmishSquad, tick: int, events: Array, fight_seed: int) -> void:
-	var leader: SkirmishUnit = null
-	var best := []
-	for unit in squad.living():
-		var key := [-unit.leadership, ScrumContest.draw(unit, fight_seed)]
-		if leader == null or key < best:
-			leader = unit
-			best = key
-	squad.front_distance = squad.store.columns.value(leader.slot, UnitColumns.ALONG) / CELLS
-	SquadEntries.unflee_all(squad)
-	squad.direction = 1 if is_zero_approx(squad.home_distance) else -1
-	var way := Vector2.RIGHT * squad.direction  # it faces the enemy's end along its route
-	if squad.route != null:
-		way = squad.route.heading_at(squad.front_distance * CELLS) * squad.direction
-	squad.heading = UnitMotion.bearing_to(Vector2.ZERO, way, squad.heading)
-	squad.order = SkirmishUnit.Order.HOLD
-	squad.state = SkirmishSquad.State.HOLDING
-	squad.morale = BattleTuning.current().rout_reformed_morale
-	squad.reforming = true
-	events.append(FormationEvents.squad_event("reformed", tick, squad))
 
 
 static func _route_point(squad: SkirmishSquad, along: float) -> Vector2:

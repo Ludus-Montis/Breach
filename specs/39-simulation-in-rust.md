@@ -1160,6 +1160,72 @@ Decision's conditions.
   router on its route plus its offset, two equally near by their draws whatever the lists'
   order, once a tick). Both ran red on a stub, then green.
 
+### Step 7b, the rout in the crate
+
+- **The rout** (`rout.rs`): who breaks (standing, not arrived, a unit living, at 0 morale),
+  decided before the flight; each break in the lists' order releases its locks
+  (`locks::release`), drops its flanks, routs with its rally ticks at 0, gives each living
+  unit a fleeing entry where it stands (`front_distance` cells along, its offset from that
+  point) and names the friends of its faction with a unit living that detect it
+  (`perception::detects`). Each routing squad's routers not held flee a step, crush the
+  nearest friend's unit nearer than a cell (`panic` the first time a routing squad crushes
+  that friend, by its id) and, reaching home, lose their entries; a squad left with none is
+  destroyed. The rallies: a router with a led friend within `rout_rally_reach` it has got
+  behind joins it, else the friend holding it (the one it was held by while that one stands,
+  else the nearest it has got behind within its breadth) counts its time while steady, keeps
+  it while not, and after `rout_steady_rally_seconds` steady joins it; all are decided before
+  any join, which go nearest first, [the snapped gap, its draw]. A routing squad whose leader
+  lives counts its ticks with no enemy within `rout_enemy_near` of its routers and after
+  `rout_rally_seconds` re-forms round its best leader ([-leadership, its draw]): its front
+  there, its position on its route, its entries gone, facing the enemy's end along its route,
+  holding, at `rout_reformed_morale`, re-forming.
+- **The flight** (`rout/flight.rs`, RoutFlight.step): its pace by its speed, out to the side by
+  its fan angle (`fan`, RoutFlight.fan) unless fanned `rout_fan_cells` out or the ground to the
+  side is barred, or with a refuge (the standing friend's unit nearest it between it and home)
+  turned towards that friend's ranks by at most the fan's sine; the step paid by the ground
+  (`mover::share`).
+- **The searches** (`rout/friends.rs`, RoutFriends and RoutCatch): per faction, the crush index
+  (the living of its squads not routing, at their points) and the stand index (of its squads
+  neither routing nor destroyed, where their bodies are), taken as each call begins. A faction
+  is alone with no squad but its routing ones. `refuge` looks ring by ring; `short_of` takes
+  the least and most of (where - at)·side over the friend's living, which is what the old
+  look at the units within 0.1 of each edge found.
+- **Four calls a tick**, each lent the held columns (ColumnsLent.all): `rout_flee` (the
+  breaking and the flight), `rout_rallies`, `rout_regroup` and `rout_break`. Between them
+  GDScript lands in the old order: the crushes' hurts (UnitHealth.hurt_one), events and panic
+  shocks, the routers home (out of `units`, UnitState.regather) and the scattered; the bands
+  first read (`morale` below 0 is handed in with its ceiling, and FormationMorale.band sets
+  it on those named) and the joins (`_join`, FormationContact.reinforce); the reformed events;
+  each break's staging, swaps, event and the shocks of those that saw it. The roster and the
+  leadership are made again after routers leave or join. `step` returns at once when no squad
+  routs and none is at 0 morale.
+- **Kept GDScript**: `where`, `where_in` and `route_point_in` (their readers port with the
+  march's sync and step 8), RoutFlight.fan (FormationWithdraw's, 7c), `_join`, the bands, the
+  shocks and the ceiling.
+- **Identical:** each follows the GDScript's order and precision (`Vector2` in f32,
+  `Vector2 * float` narrowed first, `snappedf`, DetMath's `sin`, `ghash::uniform` for the fan,
+  `move_toward`, `is_equal_approx`). The squads the rout passes stand where they are through
+  it, and a crush's hurt changes no unit's state within the tick, so indexes taken as a call
+  begins find what the old ones, gathered the first time asked, found; who is alone is the same
+  through the tick, as it was kept for it. The proof is CI's digests against the base.
+  Outcomes unchanged.
+- **Retired:** RoutCatch, RoutFriends and ScrumNear (GDScript), RoutFlight.step, and
+  FormationRout's `_flee`, `_crush`'s search, `_rallies`, `_key`, `_regroup` and `_reform`, and
+  its held view (`FLED`, `HELD`). From the gdUnit tests: test_rout_friends.gd (each search as a
+  look at every unit), test_one_mover.gd (a router in a wood at half pace) and
+  test_formation_rout.gd's re-forming facing a slanting route (each now a cargo test). The
+  battles stay gdUnit (test_formation_rout.gd, test_formation_rally.gd,
+  test_formation_rout_order.gd).
+- **Tests:** cargo: `rout/tests.rs` (who breaks, a break ending its fight and its units
+  fleeing from where they stand, the friends that see it, a lone router's fan, one fanned out
+  as far as it may, a router in a wood at half pace, a refuge, a held router, the nearest
+  friend crushed and panicked once, no foe or routing friend crushed, home and scattering, a
+  led friend got behind, a steady friend's hold and join, a shaken one's hold, a holder kept
+  while it stands, a band first read, the joins' order whatever the lists', re-forming facing
+  a slanting route, an enemy near and a leaderless rout) and `rout/friends/tests.rs` (crushing,
+  catching, a refuge and turning aside, and an enemy near, each as a look at every unit; who is
+  alone). Both ran red on a stub, then green.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
