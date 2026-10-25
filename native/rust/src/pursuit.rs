@@ -23,6 +23,8 @@ use crate::rect::Rect;
 use crate::roster::{self, Member, Roster};
 use crate::squads::{Chaser, Squads};
 
+pub mod whole;
+
 const EPSILON: f64 = 0.000001;
 
 /// A squad of the roster with units out chasing, in the lists' order: its index in the

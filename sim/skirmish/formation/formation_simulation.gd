@@ -45,7 +45,7 @@ const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.g
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
-const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
+const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
 const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
@@ -184,24 +184,7 @@ func step() -> Array:
 
 
 func _apply_orders(events: Array) -> void:
-	var fighting := {}  # before any lands, so orders given together act together
-	for squad_id in _pending_orders:
-		var given := squad(squad_id)
-		var locked := given != null and given.engaged_with != 0
-		fighting[squad_id] = locked or (given != null and not given.flank_contacts.is_empty())
-	for squad_id in _pending_orders:
-		var target := squad(squad_id)
-		if target == null or target.state == SkirmishSquad.State.DESTROYED:
-			continue
-		target.order = _pending_orders[squad_id]
-		var order_name: String = SkirmishUnit.Order.keys()[target.order]
-		events.append(
-			FormationEvents.squad_event("order_applied", _tick, target, {"order": order_name})
-		)
-		if target.order == SkirmishUnit.Order.RETREAT and fighting[squad_id]:
-			events.append_array(
-				ScrumPursuit.retreat(target, _squads, _tick, fight_seed, tick_seconds)
-			)
+	FormationOrders.apply(_squads, _pending_orders, _tick, fight_seed, events)  # the crate's
 	_pending_orders.clear()
 
 

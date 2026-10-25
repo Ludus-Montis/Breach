@@ -17,7 +17,9 @@
 //! views over: its loose and fleeing units (their ids, in the order each entry was given;
 //! the entries' keys are the unit store's columns, `entries`), the line it re-faced to
 //! (`stance`), the foes on its other edges (`flanks`, in the order each began) and its units
-//! out chasing (`chasers`, in the order each set out).
+//! out chasing (`chasers`, in the order each set out). Since spec 39 step 7c, also its
+//! pursuit as a whole (`pursuit`) and its withdrawal (`withdraw`, the ticks it has felt
+//! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port.
 
 use serde::{Deserialize, Serialize};
 
@@ -67,6 +69,24 @@ pub struct Squads {
     /// Its units out chasing on their own (ScrumPursuit, Decision 109), in the order each set
     /// out.
     pub chasers: Vec<Vec<Chaser>>,
+    /// Its pursuit as a whole under way (FormationPursuit, Decision 95), if any.
+    pub pursuit: Vec<Option<Pursuit>>,
+    /// Its withdrawal under way (FormationWithdraw, Decision 99): the ticks it has felt safe.
+    pub withdraw: Vec<Option<i64>>,
+}
+
+/// A pursuit as a whole: the squad it pursues, the post it left (tiles along its own route,
+/// and the point), how it held it (its home, direction and order), and whether it has given
+/// up and marches back.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Pursuit {
+    pub foe: i64,
+    pub post: f64,
+    pub post_at: V2,
+    pub home: f64,
+    pub direction: i32,
+    pub order: i32,
+    pub returning: bool,
 }
 
 /// A re-formed line (ScrumStance): its frame's anchor and heading, and the squad it faces.
@@ -226,6 +246,8 @@ impl Squads {
         self.stance.push(None);
         self.flanks.push(Vec::new());
         self.chasers.push(Vec::new());
+        self.pursuit.push(None);
+        self.withdraw.push(None);
         slot
     }
 

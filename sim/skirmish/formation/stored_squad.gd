@@ -24,12 +24,14 @@ var store: UnitStore:
 		for column in SquadColumns.BLANKS.size():
 			row.append(store.squads.value(slot, column))
 		var records: SquadRecords = store.records
+		var orders: OrderRecords = store.orders
 		var was := slot
 		store = value
 		slot = value.squads.open(id)
 		for column in row.size():
 			value.squads.put(slot, column, row[column])
 		value.records.carry(records, was, slot)
+		value.orders.carry(orders, was, slot)
 		UnitState.regather(self)
 ## Which way the squad's front points along its route: +1 up it, -1 down it. An
 ## about-face flips it.

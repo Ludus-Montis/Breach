@@ -38,10 +38,17 @@ var pursues: bool:
 		return command.pursues
 	set(value):
 		command.pursues = value
-## A pursuit under way (FormationPursuit): the enemy, the post it left, and how it held it.
-var pursuit := {}
-## A withdrawal under way (FormationWithdraw): ticks it has felt safe; empty when none.
-var withdraw := {}
+## A pursuit under way (FormationPursuit): the enemy, the post it left, and how it held it;
+## empty when none. A view of its records (OrderRecords), set by the crate's orders and
+## pursuit (spec 39 step 7c).
+var pursuit: Dictionary:
+	get:
+		return store.orders.pursuit(slot)
+## A withdrawal under way (FormationWithdraw): ticks it has felt safe; empty when none. A
+## view of its records, set by the crate's orders and withdrawal.
+var withdraw: Dictionary:
+	get:
+		return store.orders.withdraw(slot)
 ## A hold-until order (FormationStaging, Decision 87); empty when it has none.
 var staging := {}
 ## Its command's orders (FormationCommand): hurrying and tending its own downed.

@@ -6,14 +6,18 @@
 //! out from the route's line, by a seeded angle per unit; ground it can't cross turns it
 //! back onto the route. It is safe with no standing enemy within `rout_enemy_near` of it and
 //! none pursuing it. Who is engaged and who is safe is decided from where everyone stood
-//! before anyone fled (Decision 97); the squad's record of how long it has been safe, and its
-//! re-forming, are GDScript's (FormationWithdraw) until orders port.
+//! before anyone fled (Decision 97). Its record is the ticks it has felt safe (spec 39 step
+//! 7c): safe for `rout_rally_seconds`, or with all its units home, it re-forms on its route
+//! where its units stand (`reform`), and GDScript turns it to face home (ScrumTurn) and lands
+//! the events.
 
 use std::collections::HashSet;
 
 use crate::columns::Columns;
+use crate::content::CELLS_PER_TILE;
 use crate::ground::Ground;
-use crate::maths::{maxf, minf, move_toward, rotated, signf, V2};
+use crate::locks;
+use crate::maths::{clampf, is_zero_approx, maxf, minf, move_toward, rotated, signf, V2};
 use crate::mover;
 use crate::near::Foes;
 use crate::roster::{self, Member, Roster};
@@ -25,6 +29,9 @@ const HOME_CELLS: f64 = 0.5;
 /// How far ahead along its route (cells) a fleeing unit looks for the way home.
 const LOOK_CELLS: f64 = 1.0;
 const EPSILON: f64 = 0.000001;
+const CELLS: f64 = CELLS_PER_TILE as f64;
+/// SkirmishUnit.Order's hold.
+const HOLD: i32 = 1;
 
 /// A withdrawing squad of the roster (not routing or destroyed), in the lists' order: its
 /// index in the roster, whether a squad pursues it, how far from orderly it is (0 drilled
@@ -194,6 +201,86 @@ pub fn home(
     listed.living.iter().all(|unit| {
         (route.distance_of(roster::at(columns, &loose, unit)) - home).abs() < HOME_CELLS
     })
+}
+
+/// A withdrawal that re-formed, by the squad's index in the roster: the way along its route it
+/// now faces (+1 up it, -1 down it), and whether it is home with nowhere further to go (it
+/// then holds there, facing out).
+#[derive(Debug, PartialEq)]
+pub struct Reformed {
+    pub listed: usize,
+    pub homeward: i32,
+    pub arrived: bool,
+}
+
+/// The first part of FormationWithdraw.step: a listed squad routing or destroyed withdraws no
+/// more.
+pub fn ended(squads: &mut Squads, roster: &Roster) {
+    for listed in &roster.listed {
+        let s = listed.squad;
+        if matches!(squads.state[s], locks::ROUTING | locks::DESTROYED) {
+            squads.withdraw[s] = None;
+        }
+    }
+}
+
+/// FormationWithdraw._pursued: true if a listed squad pursues the listed `n`, not yet on its
+/// way back.
+pub fn pursued(squads: &Squads, roster: &Roster, n: usize) -> bool {
+    let id = roster.listed[n].id;
+    roster
+        .listed
+        .iter()
+        .any(|other| squads.pursuit[other.squad].is_some_and(|p| p.foe == id && !p.returning))
+}
+
+/// The rest of FormationWithdraw.step: each withdrawing squad, in order, counts the ticks it
+/// has been safe (`out`: what `step` returned for it), and re-forms once that is
+/// `rally_seconds` of `seconds` ticks or it is home.
+pub fn records(
+    squads: &mut Squads,
+    columns: &Columns,
+    roster: &Roster,
+    withdrawing: &[Withdrawing],
+    out: &[(bool, bool)],
+    (seconds, rally_seconds): (f64, f64),
+) -> Vec<Reformed> {
+    let mut reformed = Vec::new();
+    for (w, &(safe, home)) in withdrawing.iter().zip(out) {
+        let s = roster.listed[w.listed].squad;
+        let ticks = if safe { squads.withdraw[s].unwrap_or(0) + 1 } else { 0 };
+        squads.withdraw[s] = Some(ticks);
+        if ticks as f64 * seconds >= rally_seconds || home {
+            reformed.push(reform(squads, columns, roster, w));
+        }
+    }
+    reformed
+}
+
+/// FormationWithdraw._reform_here: puts the squad's frame on its route where its units stand
+/// (their mean along it, kept between its home and its front), its withdrawal over, facing
+/// home; one whose units are all home goes to its home, to face out and hold.
+fn reform(squads: &mut Squads, columns: &Columns, roster: &Roster, w: &Withdrawing) -> Reformed {
+    let listed = &roster.listed[w.listed];
+    let s = listed.squad;
+    let loose: HashSet<i64> = squads.loose[s].iter().copied().collect();
+    let mut total = 0.0;
+    for unit in &listed.living {
+        total += w.route.distance_of(roster::at(columns, &loose, unit));
+    }
+    let mean = total / listed.living.len().max(1) as f64 / CELLS;
+    let (home, front) = (squads.home_distance[s], squads.front_distance[s]);
+    squads.front_distance[s] = clampf(mean, minf(home, front), maxf(home, front));
+    squads.withdraw[s] = None;
+    let mut homeward = if home < squads.front_distance[s] { -1 } else { 1 };
+    let arrived = self::home(squads, columns, roster, w.listed, &w.route, w.home);
+    if arrived {
+        homeward = if is_zero_approx(home) { 1 } else { -1 };
+        squads.front_distance[s] = home;
+        squads.order[s] = HOLD;
+    }
+    squads.position[s] = w.route.point_at(squads.front_distance[s] * CELLS);
+    Reformed { listed: w.listed, homeward, arrived }
 }
 
 #[cfg(test)]
