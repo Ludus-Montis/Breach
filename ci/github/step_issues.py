@@ -6,14 +6,22 @@ heading, wherever it sits. Bodies link the spec and never copy it; a marker line
 knows an issue is its own; where several carry one marker, the lowest-numbered is (spec 40
 step 4) and the later ones are closed as duplicates. It never edits a body, and closes only
 its own issues.
+
+A heading that only the spec's `## Built` section carries (a step split while it was built,
+like 7b) was added by the PR that built it, so the sync only learns of the step once that PR
+has merged, and the PR, labelled with the parent step's label, can't have closed it. Its
+issue is closed against that PR, found from git: the merge that first added the heading.
 """
 import re
+import subprocess
 from dataclasses import dataclass, field
 
 import labels
 
 STEP_HEADING = re.compile(r"^### Step (\w+)(?:,\s*(.*?)|)\s*$", re.MULTILINE)
 MARKER = re.compile(r"<!-- github-sync: (spec \d+|step \d+-\w+) -->")
+SECTION = re.compile(r"^## (.*?)\s*$")
+MERGED_PR = re.compile(r"\(#(\d+)\)\s*$|^Merge pull request #(\d+)\b")
 
 
 @dataclass
@@ -23,6 +31,7 @@ class Issue:
     body: str
     labels: list = field(default_factory=list)
     step: str = ""
+    built: str = ""  # its heading line, when only the Built section carries it
 
 
 @dataclass
@@ -47,6 +56,45 @@ def step_ids(text):
     return titles
 
 
+def built_steps(text):
+    """Each step id whose headings all sit under `## Built`, with its first heading line."""
+    section, built, elsewhere = "", {}, set()
+    for line in text.splitlines():
+        found = SECTION.match(line)
+        if found:
+            section = found.group(1)
+            continue
+        heading = STEP_HEADING.match(line)
+        if not heading:
+            continue
+        if section.startswith("Built"):
+            built.setdefault(heading.group(1), line.rstrip())
+        else:
+            elsewhere.add(heading.group(1))
+    return {step: line for step, line in built.items() if step not in elsewhere}
+
+
+def pr_of_subject(subject):
+    """The PR a merge's subject names: a squash's `(#N)` at its end, or `Merge pull request #N`."""
+    found = MERGED_PR.search(subject)
+    return int(found.group(1) or found.group(2)) if found else None
+
+
+def built_by_git(root):
+    """(path, heading) -> the PR whose merge first added the heading to the file, from git."""
+
+    def built_by(path, heading):
+        log = subprocess.run(
+            ["git", "-C", str(root), "log", "--reverse", "--format=%s", "-S", heading, "--", path],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        return pr_of_subject(log[0]) if log else None
+
+    return built_by
+
+
 def plan_spec(number, path, milestone, text, repo_url):
     link = f"[`{path}`]({repo_url}/blob/main/{path})"
     parent = Issue(
@@ -55,6 +103,7 @@ def plan_spec(number, path, milestone, text, repo_url):
         f"The steps of {link}, one sub-issue each. The spec is the source.\n\n{_marker_line(f'spec {number}')}\n",
     )
     steps = []
+    built = built_steps(text)
     for step, title in step_ids(text).items():
         marker = f"step {number}-{step}"
         heading = f"### Step {step}, {title}" if title else f"### Step {step}"
@@ -65,6 +114,7 @@ def plan_spec(number, path, milestone, text, repo_url):
                 f"`{heading}` in {link}. The spec is the source.\n\n{_marker_line(marker)}\n",
                 [labels.step_label(number, step)],
                 step,
+                built.get(step, ""),
             )
         )
     return SpecIssues(number, path, milestone, parent, steps)
@@ -190,10 +240,25 @@ def _close_gone(client, specs, marked):
         print(f"closed #{record['number']} ({marker} is gone)")
 
 
-def apply(client, specs, milestones, own):
+def _close_built(client, specs, marked, records, built_by):
+    """Closes each open built step's issue against the merged PR that added its heading."""
+    for spec in specs:
+        for step in spec.steps:
+            record = marked.get(step.marker)
+            if not step.built or record is None or record["state"] != "open":
+                continue
+            pr = built_by(spec.path, step.built)
+            if pr is None or not records.get(pr, {}).get("merged"):
+                continue
+            client.comment(record["number"], f"Built by #{pr}, which added this step to the spec's Built section.")
+            _close(client, record, "completed")
+            print(f"closed #{record['number']} (built by #{pr})")
+
+
+def apply(client, specs, milestones, own, built_by=None):
     """Creates the missing parents and steps, closes later copies of a marker as duplicates,
-    and closes the sync's steps that are gone. `own` is what read() found; its records take
-    the run's writes."""
+    closes the sync's steps that are gone, and with `built_by` (built_by_git) the built steps
+    whose PR merged. `own` is what read() found; its records take the run's writes."""
     copies, merged, records = own
     for spec in specs:
         milestone = milestones[spec.milestone]
@@ -202,3 +267,6 @@ def apply(client, specs, milestones, own):
         _create_spec(client, spec, milestone, _kept(copies), merged, records)
     _close_copies(client, copies)
     _close_gone(client, specs, _kept(copies))
+    if built_by is not None:
+        made, _ = _own(list(records.values()))  # this run's new steps too
+        _close_built(client, specs, _kept(made), records, built_by)

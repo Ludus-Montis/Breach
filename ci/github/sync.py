@@ -72,8 +72,9 @@ def apply_labels(client, wanted):
             print(f"label {name}")
 
 
-def apply(client, wanted):
-    """Creates every planned label, milestone and step issue the client doesn't report."""
+def apply(client, wanted, built_by=None):
+    """Creates every planned label, milestone and step issue the client doesn't report, and
+    closes the built steps `built_by` finds merged (step_issues.built_by_git)."""
     own = step_issues.read(client)
     apply_labels(client, wanted)
     have_milestones = client.list_milestones()
@@ -81,7 +82,7 @@ def apply(client, wanted):
         if title not in have_milestones:
             have_milestones[title] = client.create_milestone(title)
             print(f"milestone {title}")
-    step_issues.apply(client, wanted.specs, have_milestones, own)
+    step_issues.apply(client, wanted.specs, have_milestones, own, built_by)
     open_while_open.apply_run(client, own[2])
 
 
@@ -108,7 +109,7 @@ def main():
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
         apply_issue_event(client, event["issue"]["number"])
     else:
-        apply(client, wanted)
+        apply(client, wanted, step_issues.built_by_git(ROOT))
     return 0
 
 
