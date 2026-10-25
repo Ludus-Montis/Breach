@@ -127,13 +127,16 @@ func _step(sim: Sim) -> void:
 	var tick := sim.tick_number()
 	sim._apply_orders(events)
 	_lap("orders")
-	sim.perception = Sim.FormationPerception.see(squads, sim.terrain)
+	var roster := CrateRoster.of(squads)  # sim._engage, its parts timed
+	sim.perception = Sim.FormationPerception.see(squads, sim.terrain, roster)
 	_lap("perception")
-	Sim.FormationFronts.engage(squads, tick, sim.fight_seed, events)
+	Sim.FormationFronts.engage(squads, tick, sim.fight_seed, events, roster)
 	_lap("engage: fronts")
-	Sim.FormationEdges.engage(squads, tick, events, sim.fight_seed)
+	Sim.FormationEdges.engage(squads, tick, events, sim.fight_seed, roster)
 	_lap("engage: edges")
-	sim._move(events)
+	FormationPathing.step(squads, sim.terrain, tick, sim.fight_seed, events)
+	_lap("pathing")
+	sim._move(events, roster)
 	_lap("march (squads move)")
 	_scrum(sim, events)
 	sim._fight(events)
@@ -179,8 +182,10 @@ func _after(sim: Sim, events: Array) -> void:
 	for entry in squads:
 		events.append_array(FormationShuffle.step(entry, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
 	_lap("shuffle (re-form)")
-	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain)
+	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain, sim.fight_seed)
 	_lap("units walk to places")
+	sim.store.settle(squads)
+	_lap("store settles")
 
 
 ## FormationScrum.step, phase by phase.
@@ -204,16 +209,34 @@ func _scrum(sim: Sim, events: Array) -> void:
 	_seek(ctx)
 	_lap("scrum: seek (slot search)")
 	_walk_and_face(ctx)
+	_after_seek(sim, ctx, events)
+
+
+## FormationScrum.step after the seek: the roster, regroup, the chasers, withdrawal and
+## pursuit, and the stall.
+func _after_seek(sim: Sim, ctx: Dictionary, events: Array) -> void:
+	var squads := sim.squads()
+	var tick := sim.tick_number()
+	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var scrum_events := []
-	ScrumRegroup.step(squads, ctx["pace"], sim.tick_seconds, sim.fight_seed)
+	var roster := CrateRoster.of(squads, sim.terrain)  # who is living: nobody falls from here on
+	_lap("scrum: roster")
+	ScrumRegroup.step(squads, ctx["pace"], sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
 	_lap("scrum: regroup")
-	ScrumPursuit.step(squads, tick, pace, sim.tick_seconds, sim.fight_seed)
+	ScrumPursuit.step(squads, tick, pace, sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
 	_lap("scrum: chasers (ScrumPursuit)")
 	FormationWithdraw.step(
-		squads, tick, ctx["pace"], sim.tick_seconds, sim.fight_seed, sim.terrain, scrum_events
+		squads,
+		tick,
+		ctx["pace"],
+		sim.tick_seconds,
+		sim.fight_seed,
+		sim.terrain,
+		scrum_events,
+		roster
 	)
 	_lap("scrum: withdraw")
-	FormationPursuit.step(squads, tick, pace, sim.tick_seconds, scrum_events)
+	FormationPursuit.step(squads, tick, pace, sim.tick_seconds, scrum_events, roster)
 	Scrum._stall(squads, ctx["active"], tick, sim.tick_seconds, scrum_events)
 	events.append_array(scrum_events)
 	_lap("scrum: pursuit, stall")
