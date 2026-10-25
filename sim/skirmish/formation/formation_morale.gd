@@ -13,14 +13,14 @@ extends RefCounted
 ##   squad near is supported and counts one less.
 ## - **Recovery**, each second out of contact: a little plus its leadership, up to the
 ##   ceiling.
-## Pure over the squads it is given; the simulation calls it.
+## Pure over the squads it is given; the simulation calls it. Its pressure and recovery
+## are the crate's (`morale.rs`); the ceiling, the bands and the shocks stay here, read and
+## dealt by the passes that land what the crate decides.
 
 enum Band { STEADY, SHAKEN, WAVERING, ROUTING }
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
-const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 
@@ -78,69 +78,35 @@ static func losses(squad: SkirmishSquad, fallen: Array, tick: int, events: Array
 
 
 ## Once a second: pressure on squads fighting on several sides, recovery for those out of
-## contact, and every squad held to its ceiling.
+## contact, and every squad held to its ceiling. The pressure and recovery are the crate's
+## (`morale.rs`, spec 39 step 7a): this hands it each squad's morale, leadership and ceiling,
+## and sets what it returns, in the lists' order.
 static func step(squads: Array, tick: int, ticks_per_second: int, events: Array) -> void:
 	if tick % maxi(1, ticks_per_second) != 0:
 		return
-	var conditions := {}  # store -> its CONDITION, read once a pass: no morale changes it
-	for squad in squads:
+	var stepped := []
+	var stepping := PackedInt64Array()
+	for index in squads.size():
+		var squad: SkirmishSquad = squads[index]
 		if squad.is_destroyed() or squad.state == SkirmishSquad.State.ROUTING:
 			continue
-		var sides := _sides_engaged(squad)
-		var morale := _morale(squad)
-		if sides.is_empty():
-			morale += (
-				roundi(_tuning().morale_recovery * _condition(squad, conditions))
-				+ leadership(squad)
-			)
-		else:
-			var count := maxi(1, sides.size() - _supported(squad, squads, sides))
-			var pressure := _tuning().morale_pressure
-			morale -= pressure[mini(count, pressure.size() - 1)]
-		_set_morale(squad, mini(morale, ceiling(squad)), tick, events)
-
-
-## Its units' mean condition (Decision 125), which their morale recovers by.
-## `views`: store -> its CONDITION, read once a pass (Decision 150).
-static func _condition(squad: SkirmishSquad, views: Dictionary) -> float:
-	var living := squad.living()
-	if living.is_empty():
-		return 1.0
-	var condition: PackedFloat64Array = (
-		UnitView.read_once(views, squad, [UnitColumns.CONDITION]).condition
+		stepped.append(squad)
+		stepping.append_array([index, _morale(squad), leadership(squad), ceiling(squad)])
+	if stepped.is_empty():
+		return
+	var tuning := _tuning()
+	var rules := PackedFloat64Array(
+		[tuning.morale_recovery, tuning.morale_support_cells, tuning.condition_cap]
 	)
-	var total: float = living.reduce(func(sum, u): return sum + condition[u.slot], 0.0)
-	return clampf(total / living.size(), 0.0, _tuning().condition_cap)
-
-
-## The edges (SquadEdges) a squad is fought on: its front and its flank contacts.
-static func _sides_engaged(squad: SkirmishSquad) -> Array:
-	var sides := []
-	if squad.engaged_with != 0:
-		sides.append(SquadEdges.FRONT)
-	for edge in squad.flank_contacts:
-		if not sides.has(edge):
-			sides.append(edge)
-	return sides
-
-
-static func _supported(squad: SkirmishSquad, squads: Array, sides: Array) -> int:
-	var area := SquadEdges.bounds(squad).grow(_tuning().morale_support_cells)
-	var covered := 0
-	for edge in [SquadEdges.LEFT, SquadEdges.RIGHT]:
-		if not sides.has(edge):
-			continue
-		var outward := UnitMotion.vector(squad.heading + edge * 90.0)
-		for friend in squads:
-			if friend == squad or friend.faction_id != squad.faction_id or friend.is_destroyed():
-				continue
-			var gap := (
-				SquadEdges.bounds(friend).get_center() - SquadEdges.bounds(squad).get_center()
-			)
-			if area.intersects(SquadEdges.bounds(friend)) and gap.dot(outward) > 0.0:
-				covered += 1
-				break
-	return covered
+	rules.append_array(PackedFloat64Array(tuning.morale_pressure))
+	var columns: UnitColumns = squads[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var roster := CrateRoster.of(squads)
+	var after: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.morale_step(roster, stepping, rules)
+	)
+	for index in stepped.size():
+		_set_morale(stepped[index], after[index], tick, events)
 
 
 static func _morale(squad: SkirmishSquad) -> int:

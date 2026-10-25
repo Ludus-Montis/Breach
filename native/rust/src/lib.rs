@@ -35,6 +35,7 @@ mod lying;
 mod manoeuvre;
 mod march;
 mod maths;
+mod morale;
 mod motion;
 mod mover;
 mod near;
@@ -52,6 +53,7 @@ mod regeneration;
 mod regroup;
 mod rendezvous;
 mod roster;
+mod rout_blows;
 mod route;
 mod scrum;
 mod seeking;
@@ -4110,4 +4112,82 @@ fn wards(
             downed: units.by_ref().take(c[1] as usize).collect(),
         })
         .collect()
+}
+
+/// Morale and the blows on routers (spec 39 step 7a).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationMorale.step's pressure and recovery for `roster`'s squads. `stepping`: four
+    /// numbers a squad stepped, in order: its index in the roster, its morale, its best
+    /// leader's leadership and its ceiling. `tuning`: [morale_recovery, morale_support_cells,
+    /// condition_cap, the morale_pressure...]. Returns each one's morale after the second,
+    /// before it is held to 0..100.
+    #[func]
+    fn morale_step(
+        &self,
+        roster: Gd<SquadRoster>,
+        stepping: PackedInt64Array,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let (rows, _) = stepping.as_slice().as_chunks::<4>();
+        let stepping: Vec<morale::Stepping> = rows
+            .iter()
+            .map(|s| morale::Stepping {
+                listed: s[0] as usize,
+                morale: s[1],
+                leadership: s[2],
+                ceiling: s[3],
+            })
+            .collect();
+        let tuning = morale::MoraleTuning::of_slice(tuning.as_slice());
+        let out =
+            morale::step(&self.squads, &self.field.columns, &roster.roster, &stepping, &tuning);
+        PackedInt64Array::from(out.as_slice())
+    }
+
+    /// RoutBlows.blows: `routing`, two numbers a routing squad, its index in `roster` and how
+    /// many of `points` are its route's (0: none); `fighters`, three a fighter, its squad's
+    /// index in `roster`, its store slot and the cooldown it starts again at. Sets each
+    /// fighter's target and cooldown, and returns three numbers a blow, in order: [the
+    /// fighter's index, the router's squad's index in `routing`, its index in that one's
+    /// living].
+    #[func]
+    fn rout_blows(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        routing: PackedInt32Array,
+        points: PackedVector2Array,
+        fighters: PackedInt64Array,
+        reach: f64,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let points = v2s(&points);
+        let (rows, _) = routing.as_slice().as_chunks::<2>();
+        let mut from = 0;
+        let routing: Vec<rout_blows::Routing> = rows
+            .iter()
+            .map(|r| {
+                let to = from + r[1] as usize;
+                let route = (to > from).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
+                from = to;
+                rout_blows::Routing { listed: r[0] as usize, route }
+            })
+            .collect();
+        let (rows, _) = fighters.as_slice().as_chunks::<3>();
+        let fighters: Vec<rout_blows::Fighter> = rows
+            .iter()
+            .map(|f| rout_blows::Fighter {
+                listed: f[0] as usize,
+                slot: f[1] as usize,
+                reset: f[2] as i32,
+            })
+            .collect();
+        let columns = &mut self.field.columns;
+        let out = rout_blows::blows(columns, &roster.roster, &routing, &fighters, reach, seed);
+        let flat: Vec<i64> =
+            out.iter().flat_map(|&(f, r, m)| [f, r, m].map(|n| n as i64)).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
 }

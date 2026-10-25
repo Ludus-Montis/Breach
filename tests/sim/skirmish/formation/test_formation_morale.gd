@@ -1,14 +1,13 @@
 extends GdUnitTestSuite
 ## Morale, per Decision 82 and spec 27 round 3: a ceiling from courage and leadership;
-## impact shock from side and rear hits; pressure from fighting on several sides, less
-## where a friend covers a side; recovery out of contact; bands, the slower strikes of a
-## wavering squad, and the shock of a fallen leader.
+## impact shock from side and rear hits; bands, the slower strikes of a wavering squad, and
+## the shock of a fallen leader. Pressure, a friend's support and recovery are the crate's
+## (`morale/tests.rs`, spec 39 step 7a).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
-const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
@@ -106,43 +105,6 @@ func test_a_rear_hit_is_a_bigger_shock() -> void:
 	_until(setup[0], "flanked")
 
 	assert_int(line.morale).is_equal(60 - BattleTuning.current().morale_rear_impact)
-
-
-func test_pressure_grows_with_the_sides_fought_on() -> void:
-	var squad := _squad(1, [_unit(1, 0)])
-	squad.engaged_with = 99
-	squad.flank(SquadEdges.RIGHT, 98, 0)
-	var events := []
-
-	FormationMorale.step([squad], 10, 10, events)
-	assert_int(squad.morale).is_equal(60 - 3)
-	squad.flank(SquadEdges.REAR, 97, 0)
-	FormationMorale.step([squad], 20, 10, events)
-	assert_int(squad.morale).is_equal(60 - 3 - 9)
-
-
-func test_a_friend_beside_a_fought_side_takes_its_pressure() -> void:
-	var squad := _squad(1, [_unit(1, 0)])
-	squad.engaged_with = 99
-	squad.flank(SquadEdges.RIGHT, 98, 0)
-	var friend := _squad(2, [_unit(2, 0)])
-	friend.front_distance = 0.0
-	friend.centre_shift = 1.5  # one cell along: beside the squad's right (south) face
-
-	FormationMorale.step([squad, friend], 10, 10, [])
-
-	assert_int(squad.morale).is_equal(60)
-
-
-func test_out_of_contact_morale_recovers_to_its_ceiling() -> void:
-	var squad := _squad(1, [_unit(1, 0, 1)])
-	squad.morale = 40
-
-	FormationMorale.step([squad], 10, 10, [])
-	assert_int(squad.morale).is_equal(43)
-	squad.morale = 69
-	FormationMorale.step([squad], 20, 10, [])
-	assert_int(squad.morale).is_equal(70)
 
 
 func test_crossing_a_band_is_an_event() -> void:

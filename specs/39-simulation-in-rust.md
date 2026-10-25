@@ -197,6 +197,14 @@ Deaths, wounds, recovery, carrying, taking, stamina and the bodies' parting (`Un
 `FormationMorale`, `FormationRout` with its flight, crush, rally and hold, and orders and their
 events. After this step no battle phase runs in GDScript.
 
+- **Split** (2026-10-24, the user's call: about 1,700 lines of GDScript in nine classes):
+  **7a** morale's pressure and recovery (`FormationMorale.step`) and the blows on routers
+  (`RoutBlows`); **7b** the rout: breaking, the flight, the crush, the rally and the hold,
+  re-forming and reaching home (`FormationRout`, `RoutFlight`, `RoutFriends`, `RoutCatch`);
+  **7c** orders: applying them, the retreat, and the pursuit's and the withdrawal's records
+  and their events (`FormationSimulation._apply_orders`, `ScrumPursuit.retreat`,
+  `FormationPursuit`, `FormationWithdraw`'s record and re-form). 7c's PR closes the step.
+
 ### Step 8, the tick in Rust, and the tools under cargo
 
 - `FormationSimulation.tick` moves to the crate: one call a tick from Godot, the events handed
@@ -1107,6 +1115,50 @@ Decision's conditions.
   first, two groups to one body, who takes which whatever the lists' order). The Rust was
   drafted before them, so they had no red run.
 - **Step 6 is done** with this PR.
+
+### Step 7a, morale's pressure and recovery, and the blows on routers, in the crate
+
+- **Pressure and recovery** (`morale.rs`): once a second, each formation not routing or
+  destroyed is fought on its front while locked and on each edge it is flanked on, each
+  once; a left or right edge counts one less when a friendly formation (not destroyed) has
+  its box within `morale_support_cells` of the squad's and its centre out beyond that edge.
+  It loses `morale_pressure` by the sides left (at least one), or out of contact gains
+  `morale_recovery` times its units' mean condition (held to 0..`condition_cap`, rounded)
+  plus its leadership; either way up to its ceiling. `FormationMorale.step` hands it each
+  squad's index, morale (its ceiling the first time it is read), leadership and ceiling, and
+  sets what it returns through `_set_morale` in the lists' order (the 0..100 hold, the band
+  and its event).
+- **The blows on routers** (`rout_blows.rs`): each router stands at its route's point that
+  far along plus its offset (`where_on`, FormationRout.where_in; on no route, the line y =
+  0); each fighter given takes the nearest hostile router within `rout_strike_reach`,
+  [the snapped gap, its draw] first, as its target, runs its cooldown down and at 0 strikes
+  and starts again. `RoutBlows` hands it each routing squad's route and the fighters of the
+  squads free to fight (`FormationContact.can_engage`, `SkirmishSquad.fighters`) with the
+  cooldown each starts again at (`interval` times its melee seconds), and makes the blows
+  (`FormationCombat.damage`, a flank blow).
+- **Kept GDScript**: the ceiling, leadership, the bands, `interval`, `shock` and `losses`.
+  The landings of the deaths, the wounds, the edges, the rout and the retreat deal the shocks,
+  and the blows and the rallies read the bands: they port with the passes that call them
+  (7b, 7c and step 8's tick).
+- **Identical:** both follow the GDScript's order and precision (`Rect2` in f32 with
+  `grow`, `intersects` and `get_center`, `Vector2` distances and dots in f32, the condition
+  summed in f64 in the living's order, `roundi` as `round`, `snappedf`). Nothing in the
+  pressure reads another squad's morale, so stepping them together decides as one by one did.
+  The routers' grid visits a superset of those in reach, and the key is total, so the nearest
+  is what a look at all finds. The native calls are lent held columns (ColumnsLent.all). The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationMorale's `_condition`, `_sides_engaged` and `_supported`, and
+  step's loop; RoutBlows' `_nearest` and its search. From the gdUnit tests:
+  test_formation_morale.gd's pressure growing with the sides, a friend beside a fought side
+  and recovery to the ceiling (each now a cargo test). The scenarios of the ceiling, the
+  shocks, the bands and a battle stay gdUnit (test_formation_morale.gd, test_formation_rout.gd).
+- **Tests:** cargo: `morale/tests.rs` (pressure growing with the sides, a flank alone, a
+  friend beside a fought side, a friend on the other side, a foe or one too far, a destroyed
+  friend, a friend on each flank, recovery by leadership to the ceiling, a poor and a hardened
+  condition, the lists' order) and `rout_blows/tests.rs` (the nearest router struck and the
+  cooldown started again, the cooldown running down, none beyond reach or of its own side, a
+  router on its route plus its offset, two equally near by their draws whatever the lists'
+  order, once a tick). Both ran red on a stub, then green.
 
 ## Open, for the implementing session to settle and record here
 
