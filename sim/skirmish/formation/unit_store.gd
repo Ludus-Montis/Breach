@@ -9,7 +9,8 @@ extends RefCounted
 ## of per-tick state are in `columns` (UnitColumns), indexed by slot; a unit's slot is on
 ## its record (SkirmishUnit.slot) and reached through its squad (SkirmishSquad.store).
 ## Its squads' state is the squad store, `squads` (SquadColumns, spec 39 step 1), and their
-## records there, `records` (SquadRecords, step 4b).
+## records there, `records` (SquadRecords, step 4b), and their pursuits and withdrawals,
+## `orders` (OrderRecords, step 7c).
 ## On the native backend the columns live on the field (UnitColumnsNative), and a native
 ## pass runs on the field of the squads' own store (`field`).
 
@@ -19,6 +20,7 @@ const SquadColumns = preload("res://sim/skirmish/formation/squad_columns.gd")
 var columns: UnitColumns = UnitColumns.new()
 var squads: SquadColumns = SquadColumns.new()  # the squad store (spec 39 step 1)
 var records: SquadRecords  # the squads' records there (spec 39 step 4b)
+var orders: OrderRecords  # their pursuits and withdrawals (spec 39 step 7c)
 var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or below (UnitHealth)
 var _records := {}  # unit id -> its record, kept in GDScript
 

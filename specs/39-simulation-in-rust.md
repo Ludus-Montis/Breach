@@ -1226,6 +1226,68 @@ Decision's conditions.
   catching, a refuge and turning aside, and an enemy near, each as a look at every unit; who is
   alone). Both ran red on a stub, then green.
 
+### Step 7c, orders, the retreat, and the pursuit's and the withdrawal's records, in the crate
+
+- **Orders** (`orders.rs`): the orders given since the last tick, in the order given, each to
+  its squad if it is listed and not destroyed; who is fighting (locked, or a foe on an edge)
+  is read before any lands. A retreat out of a fight finds its enemies (another faction,
+  fighting it front to front or on an edge of either), ends its locks (`locks::release`),
+  withdraws (its record at 0 safe ticks, its stance dropped, its units not yet loose loosened
+  where they stand), and for each enemy in the lists' order: one that may pursue locks onto it
+  and, with no pursuit yet, keeps its post (front, point, home, direction, order) and takes up
+  its quarry's route where that passes within 2 cells, travelling towards its quarry (Decision
+  113; a route taken is that pursuer's for the rest of the tick); then its units may break
+  ranks (`pursuit::tempt`). `FormationOrders` hands it the roster, and only when an order
+  retreats each squad's route (a code per route object, its points), whether it pursues and
+  its units' chances and leashes (FormationDiscipline), and lands what it returns in order:
+  the events, the ragged retreat's shock (FormationMorale.shock) and a pursuer's routes.
+- **The pursuit as a whole** (`pursuit/whole.rs`, FormationPursuit.step): each pursuer in the
+  lists' order: going back, once its march home is over, it takes up its post, home and order
+  again (ScrumTurn then faces it the way it held its post); else it gives up when its quarry
+  is gone, destroyed or not retreating, out of its sight (open ground, as before), most of it
+  is too tired, or its frame is its leash from its post: its locks end and it marches back
+  (home its post along the route it is on, ordered to retreat); else it sweeps round its
+  route's bends and advances after its quarry's units, no nearer than a cell, while none of it
+  lags (`lagging`, `spread`). GDScript hands it each pursuer's two routes and its leash
+  (FormationDiscipline.pursuit_leash) and lands the routes, the turns and the events.
+- **The withdrawal's record and re-form** (`withdraw.rs`): those routing or destroyed withdraw
+  no more; who is pursued is read from the records; after the flight each counts its safe
+  ticks (back to 0 when not safe) and after `rout_rally_seconds`, or with its units all home,
+  re-forms: its front at its units' mean along its route, kept between its home and its front,
+  facing home, or home and holding there facing out. GDScript lands the turn (ScrumTurn) and
+  the events.
+- **The records** (`squads.rs`): `pursuit` ({foe, post, post_at, home, direction, order,
+  returning}) and `withdraw` (its safe ticks) are the squad store's. `OrderRecords` reads them
+  as the dictionaries they were (SkirmishSquad's `pursuit` and `withdraw`) and keeps the route
+  a pursuer held its post on until routes port; it was not split into SquadRecords, which
+  would have outgrown its interface (`check_isp`).
+- **Kept GDScript**: the routes (FormationRoute objects), ScrumTurn, the discipline and the
+  leashes, the shocks and the events. Each lands after the crate's call, in its order. What a
+  turn changes (its squad's heading, direction, front and loose entries) is read by no later
+  decision of the same call: a pursuer back at its post is no other's quarry still pursued (a
+  quarry's order is to retreat, and one ordered to retreat does not arrive), and a re-form
+  reads only its own squad.
+- **Identical:** each follows the GDScript's order and precision (`Vector2` in f32,
+  `distance_to` and `dot` in f32, the mean along the route summed in f64 in the living's order,
+  `clampf`, `is_zero_approx`, a front set moving its point as StoredSquad._place does). The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** ScrumPursuit.retreat, `_fights` and `_tempt`; FormationPursuit.begin, `_take`,
+  `_given_up`, `_advance`, `_ahead`, `_lagging`, `_go_back`, `_arrive` and `_spread`;
+  FormationWithdraw.begin, `_pursued` and `_reform_here`; FormationSimulation's order loop; and
+  the bindings `pursuit_tempt`, `pursuit_lagging` and `pursuit_spread`. No gdUnit test called
+  them directly: the battles stay gdUnit (test_formation_retreat.gd, test_formation_withdraw.gd,
+  test_retreat_home.gd, test_formation_simulation.gd).
+- **Tests:** cargo: `orders/tests.rs` (an order to its squad and none to one gone or destroyed,
+  a retreat out of no fight, a retreat ending its fight and withdrawing from where its units
+  stand, a pursuer locking on and keeping its post, one ordered not to and one pursuing
+  already, taking its quarry's route and not when it passes far or is its own, a foe on an
+  edge and a friend, breaking ranks, orders given together whatever the lists' order),
+  `pursuit/whole/tests.rs` (advancing at its pace, a cell short, waiting for its rearmost,
+  giving up on a quarry not retreating, gone or destroyed, out of sight, most tired and at its
+  leash, going back and arriving, whatever the lists' order) and `withdraw/tests.rs` (the safe
+  ticks, re-forming where its units stand, between its home and its front, at home holding,
+  routing or destroyed, pursued). All ran red on a stub, then green.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
@@ -1238,4 +1300,4 @@ Decision's conditions.
   and the order handling around them (a retreat's start, a pursuit's giving up, going back
   and arriving, a withdrawal's record and re-form), stay GDScript with step 7's orders: they
   drive ScrumTurn, the events and the morale shocks, all step 7's. Their per-unit rules port
-  here. Recorded in "Built", step 4c.
+  here. Recorded in "Built", step 4c; the records and their order handling ported in 7c.

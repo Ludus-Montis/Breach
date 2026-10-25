@@ -40,6 +40,7 @@ mod motion;
 mod mover;
 mod near;
 mod ordered;
+mod orders;
 mod parting;
 mod pathing;
 mod paths;
@@ -2688,6 +2689,54 @@ impl BodyField {
         self.edits += 1;
     }
 
+    /// The squad's pursuit as a whole as [foe, post, post x, y, home, direction, order, 1 if
+    /// returning else 0], or empty for none.
+    #[func]
+    fn squad_pursuit(&self, squad: i64) -> PackedFloat64Array {
+        match self.squads.pursuit[squad as usize] {
+            Some(p) => PackedFloat64Array::from(&[
+                p.foe as f64,
+                p.post,
+                p.post_at.x as f64,
+                p.post_at.y as f64,
+                p.home,
+                p.direction as f64,
+                p.order as f64,
+                if p.returning { 1.0 } else { 0.0 },
+            ]),
+            None => PackedFloat64Array::new(),
+        }
+    }
+
+    /// Sets the squad's pursuit from what `squad_pursuit` reads, or none from empty.
+    #[func]
+    fn put_squad_pursuit(&mut self, squad: i64, pursuit: PackedFloat64Array) {
+        let p = pursuit.as_slice();
+        self.squads.pursuit[squad as usize] = (p.len() == 8).then(|| squads::Pursuit {
+            foe: p[0] as i64,
+            post: p[1],
+            post_at: V2::new(p[2] as f32, p[3] as f32),
+            home: p[4],
+            direction: p[5] as i32,
+            order: p[6] as i32,
+            returning: p[7] != 0.0,
+        });
+        self.edits += 1;
+    }
+
+    /// The ticks the squad's withdrawal has felt safe, or -1 for none under way.
+    #[func]
+    fn squad_withdraw(&self, squad: i64) -> i64 {
+        self.squads.withdraw[squad as usize].unwrap_or(-1)
+    }
+
+    /// Sets the ticks the squad's withdrawal has felt safe (below 0: none under way).
+    #[func]
+    fn put_squad_withdraw(&mut self, squad: i64, safe_ticks: i64) {
+        self.squads.withdraw[squad as usize] = (safe_ticks >= 0).then_some(safe_ticks);
+        self.edits += 1;
+    }
+
     /// SquadEntries.loosen: the unit, in store slot `slot`, goes loose standing at `at`.
     #[func]
     fn loosen(&mut self, squad: i64, unit_id: i64, slot: i64, at: Vector2) {
@@ -3186,81 +3235,158 @@ impl BodyField {
         self.edits += 1;
     }
 
-    /// ScrumPursuit._tempt: the units of `roster`'s squad `enemy` (its index) near its squad
-    /// `fleeing` may break ranks to chase it, each by its chance and on its leash (in its
-    /// order), if within `within` cells of it.
+    /// FormationSimulation._apply_orders over `roster`'s squads: `ids` and `orders` the orders
+    /// given, in the order given. Per listed squad: a code naming its route (-1: none, the
+    /// straight lane) and how many of its points follow in `points`, 1 if it may pursue
+    /// (`pursues`), and its living units' chances to break ranks and leashes, flat in the
+    /// roster's order. `rules`: [pursuit_tempted_within]. Returns per order applied its
+    /// squad's index in the roster and -1, or for a retreat out of a fight how many enemies
+    /// pursue it and three numbers each: its index, 1 if its pursuit began now, 1 if it took
+    /// its quarry's route.
     #[func]
     #[allow(clippy::too_many_arguments)]
-    fn pursuit_tempt(
+    fn apply_orders(
         &mut self,
         roster: Gd<SquadRoster>,
-        enemy: i64,
-        fleeing: i64,
-        chances: PackedFloat64Array,
-        leashes: PackedFloat64Array,
-        within: f64,
+        ids: PackedInt64Array,
+        orders: PackedInt32Array,
+        routes: PackedInt64Array,
+        points: PackedVector2Array,
+        pursues: PackedByteArray,
+        temptations: PackedFloat64Array,
+        rules: PackedFloat64Array,
         tick: i64,
         seed: i64,
-    ) {
-        let pairs: Vec<(f64, f64)> =
-            chances.as_slice().iter().copied().zip(leashes.as_slice().iter().copied()).collect();
-        let temptation = pursuit::Temptation { chances: &pairs, within, tick, seed };
+    ) -> PackedInt64Array {
+        let given: Vec<(i64, i32)> =
+            ids.as_slice().iter().copied().zip(orders.as_slice().iter().copied()).collect();
+        let (pairs, _) = temptations.as_slice().as_chunks::<2>();
+        let pairs: Vec<(f64, f64)> = pairs.iter().map(|p| (p[0], p[1])).collect();
+        let mut retreats = orders::Retreats {
+            routes: coded_routes(&routes, &points),
+            pursues: &pursues.as_slice().iter().map(|&p| p != 0).collect::<Vec<bool>>(),
+            temptations: &pairs,
+            within: rules.as_slice()[0],
+            tick,
+            seed,
+        };
         let roster = roster.bind();
-        let pair = (enemy as usize, fleeing as usize);
-        pursuit::tempt(
-            &mut self.squads,
-            &mut self.field.columns,
-            &roster.roster,
-            pair,
-            &temptation,
-        );
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let applied = orders::apply(squads, columns, &roster.roster, &given, &mut retreats);
         self.edits += 1;
-    }
-
-    /// FormationPursuit._lagging for `roster`'s squad `listed` (its index).
-    #[func]
-    fn pursuit_lagging(&self, roster: Gd<SquadRoster>, listed: i64, lag: f64) -> bool {
-        let roster = roster.bind();
-        pursuit::lagging(&self.squads, &self.field.columns, &roster.roster, listed as usize, lag)
-    }
-
-    /// FormationPursuit._spread for `roster`'s squad `listed`, as [x, y, width, height]; empty
-    /// for a squad with none living.
-    #[func]
-    fn pursuit_spread(&self, roster: Gd<SquadRoster>, listed: i64) -> PackedFloat64Array {
-        let roster = roster.bind();
-        match pursuit::spread(&self.squads, &self.field.columns, &roster.roster, listed as usize) {
-            Some(r) => PackedFloat64Array::from(
-                &[r.position.x as f64, r.position.y as f64, r.size.x as f64, r.size.y as f64][..],
-            ),
-            None => PackedFloat64Array::new(),
+        let mut flat: Vec<i64> = Vec::new();
+        for a in applied {
+            flat.push(a.listed as i64);
+            match a.retreat {
+                None => flat.push(-1),
+                Some(pursuers) => {
+                    flat.push(pursuers.len() as i64);
+                    for p in pursuers {
+                        flat.extend([p.listed as i64, p.began as i64, p.took as i64]);
+                    }
+                }
+            }
         }
+        PackedInt64Array::from(flat.as_slice())
     }
+
+    /// FormationPursuit.step over `roster`'s pursuing squads (a record set, a unit living), in
+    /// the lists' order: per squad its index in the roster (`listed`), its leash, and the
+    /// route it is on and the one it held its post on, each as how many of its points follow
+    /// in `points` (-1: none). `rules`: [cells a second at speed 1, seconds, stamina_give_up,
+    /// reach_pursuit_lag]. Returns three numbers a pursuit that ended or arrived back, in
+    /// order: 0 ended or 1 arrived, the squad's index in the roster, and the way it is to
+    /// face along its own route (arrived; else 0).
+    #[func]
+    fn pursue(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        listed: PackedInt32Array,
+        leashes: PackedFloat64Array,
+        counts: PackedInt32Array,
+        points: PackedVector2Array,
+        rules: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let points = v2s(&points);
+        let mut from = 0;
+        let mut route = |count: i32| {
+            let count = usize::try_from(count).ok()?;
+            from += count;
+            Some(route::Route::new(points[from - count..from].to_vec(), 0.0))
+        };
+        let mut pursuing = Vec::with_capacity(listed.len());
+        for n in 0..listed.len() {
+            pursuing.push(pursuit::whole::Pursuing {
+                listed: listed.as_slice()[n] as usize,
+                route: route(counts.as_slice()[2 * n]),
+                held: route(counts.as_slice()[2 * n + 1]),
+                leash: leashes.as_slice()[n],
+            });
+        }
+        let r = rules.as_slice();
+        let rules = pursuit::whole::Rules {
+            cells_per_second: r[0],
+            seconds: r[1],
+            give_up: r[2],
+            lag: r[3],
+        };
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &self.field.columns);
+        let out = pursuit::whole::step(squads, columns, &roster.roster, &pursuing, &rules);
+        self.edits += 1;
+        let flat: Vec<i64> = out
+            .iter()
+            .flat_map(|p| match *p {
+                pursuit::whole::Pursued::Ended(n) => [0, n as i64, 0],
+                pursuit::whole::Pursued::Arrived(n, way) => [1, n as i64, way as i64],
+            })
+            .collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+}
+
+/// Each listed squad's route as [its code, its route]: `routes` two numbers a squad (its
+/// code, -1 for none, and how many of its points follow in `points`).
+fn coded_routes(routes: &PackedInt64Array, points: &PackedVector2Array) -> Vec<orders::Coded> {
+    let points = v2s(points);
+    let (pairs, _) = routes.as_slice().as_chunks::<2>();
+    let mut from = 0;
+    pairs
+        .iter()
+        .map(|&[code, count]| {
+            let to = from + count as usize;
+            let route = (code >= 0).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
+            from = to;
+            (code, route)
+        })
+        .collect()
 }
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationWithdraw.step's flight over `roster`'s withdrawing squads, flat in the lists'
-    /// order: per squad its index in the roster, whether a squad pursues it (`pursued`), its
-    /// disorder, its re-form pace, its home along its route (cells), how many of its route's
-    /// points follow in `points`, and its living units' own flight angles in `fans`, in its
-    /// order. `rules`: [pace, seconds, reach_contact, rout_enemy_near, rout_fan_cells].
-    /// Returns per squad 1 if it was safe as the tick began, plus 2 if its units are home.
+    /// FormationWithdraw.step over `roster`'s squads: those routing or destroyed withdraw no
+    /// more; then `listed` (flat in the lists' order, those still withdrawing) flee: per
+    /// squad its index in the roster, its disorder, its re-form pace, its home along its
+    /// route (cells), how many of its route's points follow in `points`, and its living
+    /// units' own flight angles in `fans`, in its order. `rules`: [pace, seconds,
+    /// reach_contact, rout_enemy_near, rout_fan_cells, rout_rally_seconds]. Returns three
+    /// numbers a squad that re-formed, in order: its index in the roster, the way it now
+    /// faces along its route, and 1 if it is home and holds (else 0).
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn withdraw(
         &mut self,
         roster: Gd<SquadRoster>,
         listed: PackedInt32Array,
-        pursued: PackedByteArray,
         orders: PackedFloat64Array,
         counts: PackedInt32Array,
         points: PackedVector2Array,
         fans: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
-    ) -> PackedByteArray {
+    ) -> PackedInt64Array {
         let roster = roster.bind();
+        withdraw::ended(&mut self.squads, &roster.roster);
         let (points, orders, fans) = (v2s(&points), orders.as_slice(), fans.as_slice());
         let mut withdrawing = Vec::with_capacity(listed.len());
         let (mut from, mut fanned) = (0, 0);
@@ -3270,7 +3396,7 @@ impl BodyField {
             let living = roster.roster.listed[index].living.len();
             withdrawing.push(withdraw::Withdrawing {
                 listed: index,
-                pursued: pursued.as_slice()[n] != 0,
+                pursued: withdraw::pursued(&self.squads, &roster.roster, index),
                 disorder: orders[3 * n],
                 reform: orders[3 * n + 1],
                 home: orders[3 * n + 2],
@@ -3281,13 +3407,21 @@ impl BodyField {
             fanned += living;
         }
         let r = rules.as_slice();
-        let rules =
+        let tuning =
             withdraw::Rules { pace: r[0], seconds: r[1], reach: r[2], near: r[3], fan_cells: r[4] };
-        let (squads, columns) = (&self.squads, &mut self.field.columns);
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
         let out = on_ground(ground, |g| {
-            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &rules)
+            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &tuning)
         });
-        out.iter().map(|&(safe, home)| safe as u8 | (home as u8) << 1).collect()
+        let timing = (r[1], r[5]);
+        let reformed =
+            withdraw::records(squads, columns, &roster.roster, &withdrawing, &out, timing);
+        self.edits += 1;
+        let flat: Vec<i64> = reformed
+            .iter()
+            .flat_map(|w| [w.listed as i64, w.homeward as i64, w.arrived as i64])
+            .collect();
+        PackedInt64Array::from(flat.as_slice())
     }
 
     /// FormationWithdraw._home: true if all `roster`'s squad `listed`'s units stand within

@@ -166,3 +166,86 @@ fn withdrawals_are_the_same_whatever_the_lists_order() {
     assert_eq!(run(&mut r, &[w]), out);
     assert_eq!(b.columns.loose_at, r.columns.loose_at);
 }
+
+/// Its record after `records` is handed what `step` found for it.
+fn recorded(b: &mut Built, w: &Withdrawing, out: (bool, bool)) -> Vec<Reformed> {
+    let timing = (0.1, 0.25); // three safe ticks re-form it
+    records(&mut b.squads, &b.columns, &b.roster, std::slice::from_ref(w), &[out], timing)
+}
+
+#[test]
+fn it_counts_the_ticks_it_is_safe_and_starts_again_when_it_is_not() {
+    let mut b = built(&[V2::new(20.0, 0.5)], &[]);
+    b.squads.withdraw[0] = Some(0);
+    let w = withdrawing(&b, 0.0, 0.0);
+    assert_eq!(recorded(&mut b, &w, (true, false)), vec![]);
+    assert_eq!(recorded(&mut b, &w, (true, false)), vec![]);
+    assert_eq!(b.squads.withdraw[0], Some(2));
+    assert_eq!(recorded(&mut b, &w, (false, false)), vec![]);
+    assert_eq!(b.squads.withdraw[0], Some(0));
+}
+
+#[test]
+fn safe_long_enough_it_re_forms_where_its_units_stand_facing_home() {
+    let mut b = built(&[V2::new(20.0, 0.5), V2::new(24.0, 0.5)], &[]);
+    b.squads.withdraw[0] = Some(2);
+    b.squads.front_distance[0] = 30.0 / CELLS;
+    let w = withdrawing(&b, 0.0, 0.0);
+    let reformed = recorded(&mut b, &w, (true, false));
+    assert_eq!(reformed, vec![Reformed { listed: 0, homeward: -1, arrived: false }]);
+    assert_eq!(b.squads.front_distance[0], 22.0 / CELLS, "their mean along the road");
+    assert_eq!(b.squads.position[0], V2::new(22.0, 0.5));
+    assert!(b.squads.withdraw[0].is_none());
+    assert_eq!(b.squads.order[0], 0, "it marches home on its order");
+}
+
+#[test]
+fn it_re_forms_no_further_out_than_its_front_nor_nearer_than_its_home() {
+    let mut b = built(&[V2::new(20.0, 0.5)], &[]);
+    b.squads.withdraw[0] = Some(2);
+    b.squads.front_distance[0] = 16.0 / CELLS;
+    let w = withdrawing(&b, 0.0, 0.0);
+    assert_eq!(recorded(&mut b, &w, (true, false)).len(), 1);
+    assert_eq!(b.squads.front_distance[0], 16.0 / CELLS, "its front, not 20 beyond it");
+}
+
+#[test]
+fn with_all_its_units_home_it_re_forms_there_at_once_facing_out_and_holds() {
+    let mut b = built(&[V2::new(0.2, 0.5)], &[]);
+    b.squads.withdraw[0] = Some(0);
+    b.squads.front_distance[0] = 8.0 / CELLS;
+    let w = withdrawing(&b, 0.0, 0.0);
+    let reformed = recorded(&mut b, &w, (false, true));
+    assert_eq!(reformed, vec![Reformed { listed: 0, homeward: 1, arrived: true }]);
+    assert_eq!(b.squads.front_distance[0], 0.0);
+    assert_eq!(b.squads.position[0], V2::new(0.0, 0.5));
+    assert_eq!(b.squads.order[0], HOLD);
+}
+
+#[test]
+fn a_routing_or_destroyed_squad_withdraws_no_more() {
+    for state in [locks::ROUTING, locks::DESTROYED, locks::MOVING] {
+        let mut b = built(&[V2::new(20.0, 0.5)], &[]);
+        b.squads.withdraw[0] = Some(1);
+        b.squads.state[0] = state;
+        ended(&mut b.squads, &b.roster);
+        assert_eq!(b.squads.withdraw[0].is_some(), state == locks::MOVING, "state {state}");
+    }
+}
+
+#[test]
+fn it_is_pursued_by_a_squad_pursuing_it_not_yet_on_its_way_back() {
+    for (foe, returning, pursued) in [(1, false, true), (1, true, false), (9, false, false)] {
+        let mut b = built(&[V2::new(20.0, 0.5)], &[V2::new(30.0, 0.5)]);
+        b.squads.pursuit[1] = Some(crate::squads::Pursuit {
+            foe,
+            post: 0.5,
+            post_at: V2::new(32.0, 0.5),
+            home: 0.6,
+            direction: -1,
+            order: 0,
+            returning,
+        });
+        assert_eq!(super::pursued(&b.squads, &b.roster, 0), pursued, "foe {foe} {returning}");
+    }
+}
