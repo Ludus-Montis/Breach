@@ -101,9 +101,12 @@ jobs:
               && /opt/godot/godot --headless --path . --import > /dev/null 2>&1)
           }
           time_in() {
+            # stderr is kept aside, and shown if the tool printed nothing (#601)
+            local err="$RUNNER_TEMP/stderr.txt"
             (cd "$1" \
               && /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
-                2>/dev/null | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)')
+                2>"$err" | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)') \
+              || { echo "::error::$TOOL printed nothing in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
           }
           prepare "$here" || true  # as before: time what was built, even if import complains
           if [ -n "$BASE" ]; then prepare base || true; fi
