@@ -44,6 +44,8 @@ pub struct Columns {
     pub was_running: Vec<i32>,
     pub last_wounding: Vec<i32>,
     pub on_face: Vec<i32>,
+    /// Its state (SkirmishUnit.State; UnitState's one writer mirrors it here, step 8b4-v).
+    pub state: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -107,6 +109,7 @@ impl Columns {
             "was_running" => Some(&mut self.was_running),
             "last_wounding" => Some(&mut self.last_wounding),
             "on_face" => Some(&mut self.on_face),
+            "state" => Some(&mut self.state),
             _ => None,
         }
     }
@@ -172,6 +175,7 @@ impl Columns {
             &mut self.was_running,
             &mut self.last_wounding,
             &mut self.on_face,
+            &mut self.state,
         ] {
             column.push(0);
         }
@@ -228,6 +232,7 @@ impl Columns {
             &mut self.was_running,
             &mut self.last_wounding,
             &mut self.on_face,
+            &mut self.state,
         ] {
             column[slot] = 0;
         }
@@ -341,6 +346,7 @@ mod tests {
             "was_running",
             "last_wounding",
             "on_face",
+            "state",
         ] {
             assert!(columns.ints(name).is_some(), "{name}");
         }

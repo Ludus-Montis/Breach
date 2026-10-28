@@ -71,9 +71,14 @@ var tends: String:
 		return command.tends
 	set(value):
 		command.tends = value
-## The swaps of its re-forming under way (FormationShuffle): [[mover, passed units, ticks
-## left, ticks in all], ...].
-var swaps := []
+## The swaps of its re-forming under way (FormationShuffle), as the crate holds them (spec
+## 39 step 8b4-v): each {"ticks", "total", "mover", "to", "from", "foot", "passed"}, units by
+## id. Read and written whole; FormationShuffle.swapping() and clear() ask and cancel them.
+var swaps: Array:
+	get:
+		return store.field().squad_swaps(slot)
+	set(value):
+		store.field().put_squad_swaps(slot, value)
 var units: Array[SkirmishUnit] = []
 ## Its living and downed units, kept by UnitState (Decision 147).
 var kept := UnitState.Kept.new()
@@ -117,6 +122,7 @@ func _init(
 	width = maxi(formation_width, 1)
 	for unit in members:
 		unit.slot = store.admit(unit)
+		UnitState.admitted(store, unit)
 		FormationCommand.enlist(self, unit)
 
 

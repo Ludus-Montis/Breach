@@ -29,7 +29,7 @@ static func begin(squad: SkirmishSquad, travel_sign: int, tick: int, events: Arr
 	if turned == KEPT:
 		return false
 	if turned == ABOUT_FACED:
-		squad.swaps.clear()  # moves under way are cancelled: it re-forms
+		FormationShuffle.clear(squad)  # moves under way are cancelled: it re-forms
 	var faced := {"facing": squad.facing, "heading": squad.heading}
 	events.append(FormationEvents.squad_event("turning", tick, squad, faced))
 	events.append(FormationEvents.squad_event("turned", tick, squad, faced))

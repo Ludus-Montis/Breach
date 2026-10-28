@@ -23,7 +23,7 @@
 //! step 8b4-i, also the route each follows (`route`, none: a straight lane), as
 //! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
 //! (`command`) and the commands themselves (`commands`); since 8b4-iv, its hold-until
-//! order (`staging`).
+//! order (`staging`); since 8b4-v, its swaps under way (`swaps`).
 
 use serde::{Deserialize, Serialize};
 
@@ -83,6 +83,8 @@ pub struct Squads {
     pub route: Vec<Option<Route>>,
     /// The command each follows (a slot in `commands`; none till it is given one).
     pub command: Vec<Option<usize>>,
+    /// The swaps under way of each re-forming (FormationShuffle), in the order they began.
+    pub swaps: Vec<Vec<crate::swaps::Held>>,
     /// The hold-until order each holds (FormationStaging; none: none).
     pub staging: Vec<Option<crate::staging::Stage>>,
     /// The commands the squads follow (spec 39 step 8b4-iii).
@@ -265,6 +267,7 @@ impl Squads {
         self.route.push(None);
         self.command.push(None);
         self.staging.push(None);
+        self.swaps.push(Vec::new());
         slot
     }
 

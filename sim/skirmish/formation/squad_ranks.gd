@@ -20,4 +20,4 @@ static func close(squad: SkirmishSquad) -> void:
 	var columns: UnitColumns = squad.store.columns
 	var field: Object = ColumnsLent.field(columns)
 	ColumnsLent.all(columns, func(): field.close_ranks(squad.width, slots, preferred, feet))
-	squad.swaps.clear()
+	FormationShuffle.clear(squad)

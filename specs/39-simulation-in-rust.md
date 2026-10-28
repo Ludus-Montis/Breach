@@ -250,7 +250,10 @@ events. After this step no battle phase runs in GDScript.
   **8b4-v** spawning and the order queue. **8b4-iv split further** (2026-10-28, under the
   same leave), on its survey: **8b4-iv** staging held by the crate, and the painted places
   retired (nothing writes them); **8b4-v** the swaps under way and the taking held by the
-  crate; **8b4-vi** spawning and the order queue.
+  crate; **8b4-vi** spawning and the order queue. **8b4-v split further** (2026-10-28, under
+  the same leave), on its survey: **8b4-v** the swaps under way held by the crate, with the
+  units' state mirrored in the store; **8b4-vi** the taking held by the crate; **8b4-vii**
+  spawning and the order queue.
 
 ### Step 9, the rest of `sim/`
 
@@ -1720,7 +1723,42 @@ Decision's conditions.
   `test_formation_staging.gd`: the crate holds a squad's staging order, read back whole, and
   none once cleared (red against the library before, then green); the file and
   `test_formation_leaders.gd` green.
-- **After it**, 8b4-v: the swaps under way and the taking held by the crate.
+- **After it**, 8b4-v: the swaps under way held by the crate.
+
+### Step 8b4-v, the swaps under way held by the crate
+
+- **The swaps** (`swaps::Held`, FormationShuffle's swaps): each squad's swaps under way, in
+  the order they began, each its ticks left and in all, its units (the mover first) by id
+  and store slot with the place each heads for, the one it stood in and its footprint, and
+  the ids of the units it passed: a squad column (`Squads::swaps`) the snapshot carries.
+- **Their ends** (`swaps::end_held`): the crate builds what `swaps::end` reads from them,
+  keeps those still under way (counted down, moved left with the widenings) and drops the
+  rest, and hands back each that ended: its mover, the units it passed and those that
+  stepped up after it, for the "swapped" and "stepped_up" events.
+- **Their start** (`swaps::claims`, `swaps::begin`): `squad_start_moves` reads the places the
+  held swaps claim and their living units, starts the moves (`march::shuffle::start_moves`)
+  and holds each. CrateMarch's `start_moves` retires.
+- **Read there:** how far each unit is through its move (`swaps::offsets`, FormationShuffle
+  `movers` and `offset`, now by unit id), and the moves compact and the taking-in close up
+  round (`swaps::moving`; `squad_compact` and `squad_reinforce` lose their `movers`).
+  `FormationShuffle.swapping` and `clear` ask and cancel them; SkirmishSquad.swaps is a view,
+  read and written whole.
+- **Who still stands:** a swap with a fallen unit is cancelled. A unit's state is now
+  mirrored in the unit store (`UnitColumns.STATE`, `Columns::state`), written by UnitState,
+  its one writer (Decision 147), and when a unit takes its slot; the crate reads a unit as
+  standing while its state is before DEAD, as `is_alive()` does.
+- **Identical:** the same swaps in the same order with the same units, places and ticks; the
+  same progress (`1 - ticks / total`) from the same places; the "swapped" event's keys in the
+  same order, its unit by id as before. The proof is CI's digests against the base. Outcomes
+  unchanged.
+- **Tests:** cargo `swaps/tests.rs` (a held swap with time left counts down and stays; one
+  ending reports its mover and passed and is dropped; one whose unit is dead is cancelled;
+  moves begun are held and claim their places; a unit's offset is how far it is through its
+  first swap). Red on stubs, then green. gdUnit `test_formation_moves.gd`: the crate holds a
+  move under way by its units' ids (red against the library before, then green);
+  `test_squad_turn.gd`, `test_formation_spread.gd`, `test_unit_state.gd` and
+  `test_unit_store.gd` green.
+- **After it**, 8b4-vi: the taking held by the crate.
 
 ## Open, for the implementing session to settle and record here
 

@@ -76,6 +76,9 @@ const DISTANCE := &"distance"
 const FOOTHOLD := &"foothold"
 const ON_FACE := &"on_face"
 const CLIMB_LEFT := &"climb_left"
+## Its state (SkirmishUnit.State), as UnitState, its one writer, mirrors it (spec 39 step
+## 8b4-v): the crate reads who still stands there.
+const STATE := &"state"
 ## Which of the keys above an entry holds (EntryKeys), as the digest hashes them.
 const KEYS := &"keys"
 
@@ -122,6 +125,7 @@ const BLANKS := {
 	FOOTHOLD: Vector2.ZERO,
 	ON_FACE: 0,
 	CLIMB_LEFT: 0.0,
+	STATE: 0,
 }
 
 var _columns := {
@@ -165,6 +169,7 @@ var _columns := {
 	FOOTHOLD: PackedVector2Array(),
 	ON_FACE: PackedInt32Array(),
 	CLIMB_LEFT: PackedFloat64Array(),
+	STATE: PackedInt32Array(),
 }
 
 

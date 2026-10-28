@@ -18,7 +18,7 @@ static func compact(squad: SkirmishSquad) -> Array[SkirmishUnit]:
 	var field: Object = ColumnsLent.field(columns)
 	var front := squad.front_distance
 	var stepped: PackedInt32Array = ColumnsLent.all(
-		columns, func(): return field.squad_compact(squad.slot, closers(living), movers(squad))
+		columns, func(): return field.squad_compact(squad.slot, closers(living))
 	)
 	placed(squad, front)
 	return units_at(living, stepped)
@@ -38,17 +38,6 @@ static func closers(living: Array) -> PackedInt64Array:
 				unit.preferred_position
 			]
 		)
-	return out
-
-
-## The squad's moves under way (FormationShuffle's swaps), five numbers a unit in them: its
-## store slot, the rank and column it heads for, its footprint width and depth.
-static func movers(squad: SkirmishSquad) -> PackedInt32Array:
-	var out := PackedInt32Array()
-	for swap in squad.swaps:
-		for mover in swap["to"]:
-			var to: Vector2i = swap["to"][mover]
-			out.append_array([mover.slot, to.x, to.y, mover.footprint_width, mover.footprint_depth])
 	return out
 
 

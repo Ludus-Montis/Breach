@@ -68,8 +68,7 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 				joining.slot,
 				frame,
 				SquadCompact.closers(leading),
-				SquadCompact.closers(taken),
-				SquadCompact.movers(leader)
+				SquadCompact.closers(taken)
 			)
 	)
 	SquadCompact.placed(leader, front)
