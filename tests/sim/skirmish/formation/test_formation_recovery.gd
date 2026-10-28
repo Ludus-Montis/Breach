@@ -2,11 +2,10 @@ extends GdUnitTestSuite
 ## FormationRecovery and FormationStrays, per Decisions 121, 125 and 126, as GDScript lands
 ## what the crate decides (`recovery.rs`, whose tests hold the rules): a downed unit comes to
 ## at 1 HP after a seeded while, rejoining the nearest formation in sight at its back, and
-## otherwise makes for home alone; a blow of a type it fears stops its regeneration; the
+## otherwise makes for home alone; a unit whose regeneration a blow stopped mends nothing; the
 ## fallen lie where they fell and take their last blow's wounds.
 
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
-const FormationRegeneration = preload("res://sim/skirmish/formation/formation_regeneration.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -99,18 +98,12 @@ func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:
 	assert_bool(events.any(func(e): return e["type"] == "fled_home")).is_true()
 
 
-func test_a_blow_of_a_type_it_fears_stops_its_regeneration_a_while() -> void:
+func test_a_unit_whose_regeneration_a_blow_stopped_mends_nothing_a_while() -> void:
 	var troll := _unit(1, Vector2.ZERO)
 	_places.health(troll, 2)
 	troll.regeneration = 10.0
 	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_LEFT, 100.0)
-	troll.regeneration_stops = ["fire"]
-	var marks := UnitView.hold([_places], [UnitColumns.REGENERATION_HALT])
-	var halts: PackedFloat64Array = marks.regeneration_halt
-	FormationRegeneration.scorch(halts, troll, [[3.0, "slashing", false]], 3)
-	assert_float(halts[troll.slot]).is_equal(0.0)
-	FormationRegeneration.scorch(halts, troll, [[3.0, "fire", true]], 3)
-	UnitView.release(marks)
+	_places.store.columns.put(troll.slot, UnitColumns.REGENERATION_HALT, 5.0)  # landing.rs's
 	_run([_squad([troll])], 1.0)
 
 	assert_int(UnitHealth.of_one(_places, troll)).is_equal(2)

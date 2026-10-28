@@ -214,6 +214,16 @@ events. After this step no battle phase runs in GDScript.
   `terrain=mixed` and per-pass changed counts. `check_outcomes.py` and the outcome trace (spec
   37) read their output unchanged.
 - Snapshot tests for every phase, cut from the digest's battles.
+- **Split** (2026-10-28, the user's call): **8a** the rules still GDScript in the tick, into the
+  crate: ranged combat and the blows' landing (**8a1**), then the rest (**8a2**: ScrumTurn, the
+  joins, staging, the bodies' drag, the shuffle and what else the tick still decides in
+  GDScript); **8b** the tick itself: spawning, the order queue, the routes and the ground held
+  by the crate, one `step()` call, the events handed back as data; **8c** the digest, the
+  trials, `scaling_check` and the benches as cargo binaries (`tick_phases` with spec 38 step
+  2's series, `terrain=mixed` and per-pass changed counts), the Godot digest retired after the
+  cargo one matches it on `main`; **8d** the snapshot tests for every phase, cut from the
+  digest's battles. Each is an identical port, proved on the digests against the base. 8d's
+  PR closes the step.
 
 ### Step 9, the rest of `sim/`
 
@@ -1287,6 +1297,60 @@ Decision's conditions.
   leash, going back and arriving, whatever the lists' order) and `withdraw/tests.rs` (the safe
   ticks, re-forming where its units stand, between its home and its front, at home holding,
   routing or destroyed, pursued). All ran red on a stub, then green.
+
+### Step 8a1, ranged combat and the blows' landing in the crate
+
+- **The shots** (`shots.rs`, FormationCombat.ranged_blows): each shooter in the order handed
+  in finds the nearest enemy unit within its range in ranks: a rank's gap goes by how far it
+  stands ahead of the shooter's squad's front along its heading (SquadGeometry.unit_gap), less
+  the shooter's own rank's, snapped to 0.000001; of the nearest, one it overlaps across its
+  squad's columns first, then the targets' draws (ScrumContest), then their place in the
+  listing of every squad not arrived. It takes that one as its target, its cooldown runs down,
+  and at 0 it shoots and starts again. GDScript picks the shooters (squads standing and not
+  arrived, their living with a range, a fighting squad's front rank fighting as melee), hands
+  in each one's cooldown and makes the shots.
+- **The landing** (`landing.rs`, BlowLanding, BlowRoll and BlowDamage): each blow in order,
+  melee then shots. With rolls, its margin is the striker's skill plus a shift (its band's,
+  the high ground's, the surrounded's for each presser past the first, the skill past the
+  floor's, the stamina stage's, added in that order) plus its roll across the die; read
+  against parry (melee from the front), dodge (not from the rear), defence (a graze) and the
+  hit band, else a critical; a shot's flank is whether it comes from outside its target's
+  front (ScrumReach.in_front). What it deals is its weapons' parts scaled by the roll between
+  the floor skill lifts and the full and by how it landed, each part by its damage type,
+  armour off the mundane and ward off the magical, at least 1 if any. Without rolls every
+  blow is a hit at full damage, and a shot marks no wounds, as before. A blow dealing damage
+  of a type that stops the target's regeneration halts it (FormationRegeneration.scorch).
+  GDScript hands in each unit's arms once a call (skills, critical, floors, most stamina,
+  agility, dodging, defence, armour, ward, wounding, whether it parries, its damage types as
+  bit sets of codes given in the order met, and its parts), who presses each target and the
+  striker's band (ScrumBlowsField.pressed, FormationMorale.band, both still GDScript), and
+  lands the damage and how it landed (the events' names).
+- **The rolls' hash** (`ghash.rs`): a bool's element hash is its 0 or 1 (Godot 4.7.2's
+  `hash([true])` is 2714831339, `hash([false])` 1771887473), so BattleRolls' keys
+  `[tick, striker, "blow", ranged]` hash in the crate as in GDScript. BattleRolls stays for
+  the flight's and the bodies' draws.
+- **Kept GDScript**: who may shoot, the morale band, the pressed counts, applying the damage
+  (UnitHealth) and the events, FormationWounds.surrender and FormationStamina.strike, each
+  where it was in FormationSimulation._fight.
+- **Identical:** each follows the GDScript's order and precision (points and dots in f32,
+  gaps, shifts and damage in f64, `snappedf`, `lerpf`, `clampf`, `roundi`, DetMath's cosine).
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** BlowRoll, BlowDamage and FormationRegeneration (their files), FormationCombat's
+  `_marks`, `_rows` and `_in_range`, BlowLanding's `_land`; test_blow_roll.gd and
+  test_blow_damage.gd, whose rule scenarios are now cargo tests. Their content tests (a unit
+  parries with a held weapon or a shield, a unit in the field carries its skills, strength
+  scaling, proficiency, armour worn) moved to tests/content/test_unit_arms.gd;
+  test_formation_recovery.gd's regeneration test now sets the halt itself. The battles stay
+  gdUnit (test_blow_landing.gd, test_formation_ranged.gd).
+- **Tests:** cargo: `landing/tests.rs` (the margin through parry, dodge, defence and hit into
+  a critical; flank, rear and range; the margin; the side; the floor, the lift and the spill;
+  how it landed; weakness, resistance and immunity by part; armour and ward; a unit without
+  parts; without rolls a plain hit, and a shot marking no wounds; regeneration stopped;
+  wavering, pressed and tired strikers landing fewer or more; the same seed; whatever the
+  arms' order), `shots/tests.rs` (a shooter behind its front striking the enemy front, out of
+  range holding fire, its cooldown, the nearest rank, one it overlaps first, friends and
+  arrived squads not shot at, whatever the lists' order) and `ghash.rs` (bools against the
+  engine). All ran red on a stub, then green.
 
 ## Open, for the implementing session to settle and record here
 

@@ -85,7 +85,7 @@ fn widen((low, high): Extent, along: f32) -> Extent {
 
 /// How much two extents overlap: `minf(a.y, b.y) - maxf(a.x, b.x)`, in f64.
 #[inline]
-fn overlap(a: Extent, b: Extent) -> f64 {
+pub fn overlap(a: Extent, b: Extent) -> f64 {
     let most = if a.1 < b.1 { a.1 } else { b.1 } as f64;
     let least = if a.0 > b.0 { a.0 } else { b.0 } as f64;
     most - least
