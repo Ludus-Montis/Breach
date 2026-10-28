@@ -1669,6 +1669,34 @@ Decision's conditions.
   battles through the rout, the withdrawal, the split, the orders and the pursuit unchanged.
 - **After it**, 8b4-iii: the commands held by the crate.
 
+### Step 8b4-iii, the commands held by the crate
+
+- **The commands** (`commands.rs`, FormationCommand): each one's guide route, home, standing
+  options (hurrying, merging, pursuing and taking as flags; what it does with its own downed
+  as its word) and the ways round its groups have learned, in the order learned, in a table
+  the squad store keeps (`Squads::commands`, so the snapshot carries it). Each squad names
+  the command it follows (`Squads::command`), written whenever SkirmishSquad.command is set.
+- **FormationCommand is a view** of its slot on the battle's field: `FormationCommand.new`
+  takes the field and opens the command there, and every field reads or writes the crate.
+  Units still carry the views they follow and started under (object identity, which the
+  groups' codes read), till the tick ports.
+- **The patches** are learned in the crate (`Commands::learn`, a look's way round made a
+  patch to the command's route, `route::Patch::of_detour`); following reads the command's
+  route and patches there (`detours::command_patches`, `command_route`), so `path_follows`
+  and `path_follow` take the squad only.
+- **Identical:** the same defaults (pursuing and taking, nothing else, home as given), the
+  same patch from the same route and way, and the patched route from the same points and
+  patches in the same order. The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationCommand's own fields and `patches` list (now `patch_count()` and
+  `learn()`), and the patches' flattening for the follow.
+- **Tests:** cargo `commands/tests.rs` (a new command has no route and pursues and takes; an
+  order given and taken back; a way round is kept as a patch, in the order learned) and
+  `detours/tests.rs` (a group reads its command's route and ways round). Red on stubs, then
+  green. gdUnit `test_formation_command.gd`: the crate holds a command's orders, and its
+  groups read them there. `test_formation_pathing.gd` green through the crate's patches.
+- **After it**, 8b4-iv: staging, the swaps under way, the painted places and the taking held
+  by the crate.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

@@ -11,6 +11,7 @@ mod blows;
 mod build;
 mod carry;
 mod columns;
+mod commands;
 mod compact;
 mod contact;
 pub mod content;
@@ -2943,6 +2944,79 @@ impl BodyField {
         march::sweep::sweep_held(&mut self.squads, squad as usize, cells_per_second, seconds);
     }
 
+    /// FormationCommand.new: a command calling `home` its home (tiles along its route), on
+    /// no route, pursuing and taking. Returns its slot.
+    #[func]
+    fn command_open(&mut self, home: f64) -> i64 {
+        self.squads.commands.open(home) as i64
+    }
+
+    /// The command in `command` takes `points` as its guide route (corridor `half_width`), or
+    /// none if `routed` is false.
+    #[func]
+    fn command_put_route(
+        &mut self,
+        command: i64,
+        routed: bool,
+        points: PackedVector2Array,
+        half_width: f64,
+    ) {
+        self.squads.commands.route[command as usize] =
+            routed.then(|| route::Route::new(v2s(&points), half_width));
+    }
+
+    /// The tiles along its route the command in `command`'s home end lies at.
+    #[func]
+    fn command_home(&self, command: i64) -> f64 {
+        self.squads.commands.home[command as usize]
+    }
+
+    #[func]
+    fn put_command_home(&mut self, command: i64, home: f64) {
+        self.squads.commands.home[command as usize] = home;
+    }
+
+    /// Whether the command in `command` gives `flag` (`commands::HURRY`, `MERGES`,
+    /// `PURSUES` or `TAKES`).
+    #[func]
+    fn command_gives(&self, command: i64, flag: i64) -> bool {
+        self.squads.commands.gives(command as usize, flag as u8)
+    }
+
+    #[func]
+    fn command_give(&mut self, command: i64, flag: i64, on: bool) {
+        self.squads.commands.give(command as usize, flag as u8, on);
+    }
+
+    /// What the command in `command` does with its own downed ("", "recover" or "carry").
+    #[func]
+    fn command_tends(&self, command: i64) -> GString {
+        GString::from(self.squads.commands.tends[command as usize].as_str())
+    }
+
+    #[func]
+    fn put_command_tends(&mut self, command: i64, tends: GString) {
+        self.squads.commands.tends[command as usize] = tends.to_string();
+    }
+
+    /// Keeps the way round `detour` on the command in `command` (`Commands::learn`).
+    #[func]
+    fn command_learn(&mut self, command: i64, detour: PackedVector2Array) {
+        self.squads.commands.learn(command as usize, &v2s(&detour));
+    }
+
+    /// How many ways round the command in `command` has learned.
+    #[func]
+    fn command_patch_count(&self, command: i64) -> i64 {
+        self.squads.commands.patches[command as usize].len() as i64
+    }
+
+    /// The squad in `squad` follows the command in `command`.
+    #[func]
+    fn squad_put_command(&mut self, squad: i64, command: i64) {
+        self.squads.command[squad as usize] = Some(command as usize);
+    }
+
     /// FormationContact.can_engage.
     #[func]
     fn squad_can_engage(&self, squad: i64) -> bool {
@@ -3578,30 +3652,22 @@ impl BodyField {
         PackedFloat64Array::from(flat.as_slice())
     }
 
-    /// Whether the squad in `squad` re-routes onto its command's route, which carries
-    /// `patches` ways round (-1: the command has no route; `detours::follows`).
+    /// Whether the squad in `squad` re-routes onto its command's route, with ways round it
+    /// doesn't carry yet (`detours::follows`).
     #[func]
-    fn path_follows(&self, squad: i64, patches: i64) -> bool {
-        let count = usize::try_from(patches).ok();
-        detours::follows(&self.squads, squad as usize, count)
+    fn path_follows(&self, squad: i64) -> bool {
+        let slot = squad as usize;
+        detours::follows(&self.squads, slot, detours::command_patches(&self.squads, slot))
     }
 
-    /// The squad in `squad` takes its command's route `points` with its ways round (patch
-    /// `i` leaves at `froms[i]`, rejoins at `tos[i]`, through the next `counts[i]` of
-    /// `waypoints`), standing where it stood (`detours::follow`). Returns the patched route.
+    /// The squad in `squad` takes its command's route with its ways round, standing where it
+    /// stood (`detours::follow`). Returns the patched route's points.
     #[func]
-    fn path_follow(
-        &mut self,
-        squad: i64,
-        points: PackedVector2Array,
-        froms: PackedFloat64Array,
-        tos: PackedFloat64Array,
-        counts: PackedInt32Array,
-        waypoints: PackedVector2Array,
-    ) -> PackedVector2Array {
-        let patches = patches_of(&froms, &tos, &counts, &waypoints);
-        let route = route::Patch::patched(&route_of(&points), &patches);
-        detours::follow(&mut self.squads, squad as usize, &route, patches.len());
+    fn path_follow(&mut self, squad: i64) -> PackedVector2Array {
+        let slot = squad as usize;
+        let patches = detours::command_patches(&self.squads, slot).expect("a command's route");
+        let route = detours::command_route(&self.squads, slot).expect("a command's route");
+        detours::follow(&mut self.squads, slot, &route, patches);
         packed(&route.points)
     }
 

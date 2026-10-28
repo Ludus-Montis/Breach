@@ -10,15 +10,14 @@ extends RefCounted
 ## patched route from then on. It looks again only once its front has moved on
 ## (path_relook cells). Pure over the squads it is given. The look, the group's walker and
 ## its pathfinder are the crate's (native/rust/src/pathing.rs, spec 39 step 3c), and so are
-## which groups follow their command's patches and which look (detours.rs, step 8b3); the
-## patches' list stays on the command until the crate holds it (step 8b4).
+## which groups follow their command's patches and which look (detours.rs, step 8b3), and
+## the commands' patches themselves (commands.rs, step 8b4-iii).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
-const RoutePatch = preload("res://sim/skirmish/formation/route_patch.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
@@ -52,18 +51,13 @@ static func group_walker(squad: SkirmishSquad) -> TerrainWalker:
 
 
 ## Re-routes the group onto its command's route with the command's patches, if they have
-## changed since it last followed it; it stands where it stood along it.
+## changed since it last followed it; it stands where it stood along it. The crate's.
 static func _follow(squad: SkirmishSquad) -> void:
-	var command = squad.command
 	var field: Object = squad.store.field()
-	var patches: int = -1 if command.route == null else command.patches.size()
-	if not field.path_follows(squad.slot, patches):
+	if not field.path_follows(squad.slot):
 		return
-	var flat := RoutePatch.flat(command.patches)
-	var points: PackedVector2Array = field.path_follow(
-		squad.slot, command.route.points(), flat[0], flat[1], flat[2], flat[3]
-	)
-	squad.route = FormationRoute.new(points, command.route.corridor_half_width)
+	var points: PackedVector2Array = field.path_follow(squad.slot)
+	squad.route = FormationRoute.new(points, squad.command.route.corridor_half_width)
 
 
 ## Looks along the route ahead; keeps a way round on the command where one is better.
@@ -91,5 +85,5 @@ static func _look_ahead(
 	)
 	if way.is_empty():
 		return
-	squad.command.patches.append(RoutePatch.of_detour(squad.command.route, way))
+	squad.command.learn(way)
 	events.append(FormationEvents.squad_event("detoured", tick, squad, {"cells": way.size()}))

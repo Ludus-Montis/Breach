@@ -77,7 +77,7 @@ func test_a_barred_route_ahead_makes_a_detour_kept_on_the_command() -> void:
 
 	FormationPathing.step(sim.squads(), ground, 1, 0, events)
 	assert_int(_detours(events)).is_equal(1)
-	assert_int(squad.command.patches.size()).is_equal(1)
+	assert_int(squad.command.patch_count()).is_equal(1)
 
 	FormationPathing.step(sim.squads(), ground, 2, 0, events)
 	var walker := FormationPathing.group_walker(squad)
@@ -119,7 +119,7 @@ func test_an_open_route_makes_no_detour() -> void:
 	FormationPathing.step(sim.squads(), FormationTerrain.new(Vector2i(80, 40)), 1, 0, events)
 
 	assert_int(_detours(events)).is_equal(0)
-	assert_array(squad.command.patches).is_empty()
+	assert_int(squad.command.patch_count()).is_equal(0)
 
 
 func test_a_group_looks_again_only_once_it_has_moved_on() -> void:
