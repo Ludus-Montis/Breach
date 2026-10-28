@@ -40,6 +40,11 @@ impl Lexicon {
         code
     }
 
+    /// Every word, by its code.
+    pub fn words(&self) -> &[String] {
+        &self.words
+    }
+
     /// The word coded `code` ("" for none given).
     pub fn word(&self, code: u32) -> &str {
         self.words.get(code as usize).map_or("", String::as_str)

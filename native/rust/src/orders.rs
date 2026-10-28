@@ -209,6 +209,8 @@ fn take(squads: &mut Squads, s: usize, (own, theirs): (&Coded, &Coded), towards:
     true
 }
 
+pub mod pass;
+
 #[cfg(test)]
 mod tests;
 

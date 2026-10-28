@@ -21,8 +21,10 @@ pub mod designer;
 mod det_math;
 mod det_pow;
 mod detours;
+mod discipline;
 mod engage;
 mod entries;
+mod events;
 mod face_store;
 mod facing;
 mod field;
@@ -67,6 +69,7 @@ mod route;
 mod scrum;
 mod seeking;
 mod sheet;
+mod shocks;
 mod shots;
 mod snapshot;
 mod split;
@@ -114,6 +117,8 @@ struct BodyField {
     /// How many calls have changed the squads' records (spec 39 step 4b): SquadRecords'
     /// views are taken afresh when it moves.
     edits: i64,
+    /// The events the passes have built and GDScript hasn't yet taken (spec 39 step 8b5-v).
+    events: events::Log,
 }
 
 #[godot_api]
@@ -3577,55 +3582,80 @@ impl BodyField {
         self.edits += 1;
     }
 
-    /// FormationSimulation._apply_orders over `roster`'s squads: the orders queued
-    /// (`orders::queue`), in the order given, which it takes. Per listed squad: a code naming the route it holds (-1:
-    /// none, the straight lane), 1 if it may pursue
-    /// (`pursues`), and its living units' chances to break ranks and leashes, flat in the
-    /// roster's order. `rules`: [pursuit_tempted_within]. Returns per order applied its
-    /// squad's index in the roster and -1, or for a retreat out of a fight how many enemies
-    /// pursue it and three numbers each: its index, 1 if its pursuit began now, 1 if it took
-    /// its quarry's route.
+    /// FormationOrders.apply over `roster`'s squads: the orders queued (`orders::queue`), in
+    /// the order given, which it takes (`orders::pass`). Per listed squad a code naming the
+    /// route it holds (-1: none, the straight lane; empty when no order retreats). `rules`:
+    /// [pursuit_tempted_within, pursuit_ragged_shock, discipline_per_leadership,
+    /// discipline_meets_threats, discipline_expected_max, how many leash shares follow, the
+    /// shares, the leash steps]; `bands`: morale's (`bands::BandTuning`). Its events go to the
+    /// log (`events_take`). Returns four numbers an enemy that pursues a retreat, in order: the
+    /// quarry's index in the roster, the enemy's, 1 if its pursuit began now, 1 if it took its
+    /// quarry's route.
     #[func]
-    #[allow(clippy::too_many_arguments)]
     fn apply_orders(
         &mut self,
         roster: Gd<SquadRoster>,
         routes: PackedInt64Array,
-        pursues: PackedByteArray,
-        temptations: PackedFloat64Array,
         rules: PackedFloat64Array,
+        bands: PackedInt64Array,
         tick: i64,
         seed: i64,
     ) -> PackedInt64Array {
-        let given = std::mem::take(&mut self.squads.pending);
-        let (pairs, _) = temptations.as_slice().as_chunks::<2>();
-        let pairs: Vec<(f64, f64)> = pairs.iter().map(|p| (p[0], p[1])).collect();
+        let r = rules.as_slice();
+        let shares = r[5] as usize;
+        let discipline = discipline::DisciplineTuning {
+            per_leadership: r[2] as i64,
+            meets_threats: r[3] as i64,
+            expected_max: r[4],
+            leash_shares: r[6..6 + shares].to_vec(),
+            leash_steps: r[6 + shares..].to_vec(),
+        };
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
         let roster = roster.bind();
-        let mut retreats = orders::Retreats {
+        let given = orders::pass::Given {
             routes: coded_routes(&self.squads, &roster.roster, &routes),
-            pursues: &pursues.as_slice().iter().map(|&p| p != 0).collect::<Vec<bool>>(),
-            temptations: &pairs,
-            within: rules.as_slice()[0],
+            within: r[0],
+            ragged_shock: r[1] as i64,
+            discipline: &discipline,
+            bands: &bands,
             tick,
             seed,
         };
         let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let applied = orders::apply(squads, columns, &roster.roster, &given, &mut retreats);
+        let applied = orders::pass::pass(squads, columns, &roster.roster, given, &mut self.events);
         self.edits += 1;
         let mut flat: Vec<i64> = Vec::new();
         for a in applied {
-            flat.push(a.listed as i64);
-            match a.retreat {
-                None => flat.push(-1),
-                Some(pursuers) => {
-                    flat.push(pursuers.len() as i64);
-                    for p in pursuers {
-                        flat.extend([p.listed as i64, p.began as i64, p.took as i64]);
-                    }
-                }
+            for p in a.retreat.unwrap_or_default() {
+                flat.extend([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
             }
         }
         PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// The events the passes have built since last taken, flat (`events::Log`); the log is
+    /// left empty.
+    #[func]
+    fn events_take(&mut self) -> PackedInt64Array {
+        PackedInt64Array::from(self.events.take().as_slice())
+    }
+
+    /// Each event kind, by its index: [its type, its fields' names] (`events::KINDS`).
+    #[func]
+    fn event_kinds(&self) -> Array<Variant> {
+        events::KINDS
+            .iter()
+            .map(|(kind, fields)| {
+                let names: PackedStringArray = fields.iter().map(|&f| GString::from(f)).collect();
+                varray![&GString::from(*kind), &names].to_variant()
+            })
+            .collect()
+    }
+
+    /// The field's words, by their codes (`words::Lexicon`).
+    #[func]
+    fn lexicon_words(&self) -> PackedStringArray {
+        self.field.lexicon.words().iter().map(|w| GString::from(w.as_str())).collect()
     }
 
     /// FormationPursuit.step over `roster`'s pursuing squads (a record set, a unit living), in
