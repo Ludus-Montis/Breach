@@ -92,8 +92,14 @@ var units: Array[SkirmishUnit] = []
 ## Its living and downed units, kept by UnitState (Decision 147).
 var kept := UnitState.Kept.new()
 ## Units that joined as reinforcements: only they spread beyond the painted columns. The
-## crate holds their ids too (spec 39 step 8b5-iv): add them with add_joined.
-var joined: Array[SkirmishUnit] = []
+## crate holds their ids too (spec 39 step 8b5-iv): written whole, so set it, never append.
+var joined: Array[SkirmishUnit] = []:
+	set(value):
+		joined = value
+		var ids := PackedInt64Array()
+		for unit in value:
+			ids.append(unit.id)
+		store.field().put_squad_joined(slot, ids)
 ## Whether this wave merges into a friendly squad it catches up with on the march.
 var merges: bool:
 	get:
@@ -139,15 +145,6 @@ func _init(
 ## Its standing units, in its order: kept by UnitState, so asking costs nothing. Read-only.
 func living() -> Array[SkirmishUnit]:
 	return UnitState.living(self)
-
-
-## `taken` joined it as reinforcements (FormationContact.reinforce), in their order.
-func add_joined(taken: Array) -> void:
-	joined.append_array(taken)
-	var ids := PackedInt64Array()
-	for unit: SkirmishUnit in joined:
-		ids.append(unit.id)
-	store.field().put_squad_joined(slot, ids)
 
 
 func is_destroyed() -> bool:

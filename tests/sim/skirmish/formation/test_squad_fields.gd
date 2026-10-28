@@ -39,12 +39,12 @@ func test_a_squads_faction_is_held_by_the_crate() -> void:
 	assert_str(field.squad_faction(squad.slot)).is_equal("the_kingdom")
 
 
-func test_units_that_join_are_held_by_their_ids_in_the_order_they_joined() -> void:
+func test_units_that_joined_are_held_by_their_ids_in_their_order() -> void:
 	var squad := _squad(3)
 	var field: Object = squad.store.field()
 	assert_array(Array(field.squad_joined(squad.slot))).is_empty()
-	squad.add_joined([squad.units[2], squad.units[0]])
-	squad.add_joined([squad.units[1]])
+	var joined: Array[SkirmishUnit] = [squad.units[2], squad.units[0], squad.units[1]]
+	squad.joined = joined
 	assert_array(Array(field.squad_joined(squad.slot))).is_equal([3, 1, 2])
 
 

@@ -1932,8 +1932,8 @@ Decision's conditions.
   its members and the STATE column (8b4-v's mirror) as UnitState does (`Squads::living`,
   `downed`; `squad_living`, `squad_downed`), standing before DEAD, downed DOWNED or CARRIED.
 - **Written:** the faction by SkirmishSquad.faction_id's setter (`squad_put_faction`); the
-  joined whole by `add_joined` (`put_squad_joined`), FormationContact.reinforce's one
-  write. A squad moved to another store (a test's) starts them blank there, as its route and
+  joined whole by its setter (`put_squad_joined`), set by FormationContact.reinforce, its
+  one writer. A squad moved to another store (a test's) starts them blank there, as its route and
   command do.
 - **Read:** SkirmishSquad keeps the copy it sets and reads it without a call, as in 8b5-i.
 - **Identical:** nothing reads them yet; the same values are set in the same order (the
@@ -1942,10 +1942,11 @@ Decision's conditions.
 - **Tests:** cargo `squads.rs` (a squad's living and downed are its members by state, in its
   order; a new squad has no faction and none joined; red on stubs, then green) and
   `snapshot.rs` (a state with a faction and joined units read back writes the same bytes).
-  gdUnit `test_squad_fields.gd`: a squad's faction is held by the crate; units that join are
-  held by their ids in the order they joined, and a wave that reinforces a fight is; its
-  living and downed are read from its members and their states (red against the library
-  with the writes stubbed, then green). `test_formation_contact.gd` runs in CI.
+  gdUnit `test_squad_fields.gd`: a squad's faction is held by the crate; units that joined are
+  held by their ids in their order, and a wave that reinforces a fight is; its
+  living and downed are read from its members and their states (the first three red against
+  the library with the writes stubbed, the last, which no write feeds, red in cargo; then
+  green). `test_formation_contact.gd` runs in CI.
 - **After it**, 8b5-v: orders, engagement, pathing and the move as one crate pass, their
   events built as data.
 
