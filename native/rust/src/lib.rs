@@ -3002,6 +3002,51 @@ impl BodyField {
         self.squads.command[squad as usize] = Some(command as usize);
     }
 
+    /// FormationSimulation.order: `order` for the squad `squad_id` takes effect on the next
+    /// tick (`orders::queue`).
+    #[func]
+    fn order_give(&mut self, squad_id: i64, order: i64) {
+        orders::queue(&mut self.squads, squad_id, order as i32);
+    }
+
+    /// The orders queued for the next tick, two numbers each: [squad id, order].
+    #[func]
+    fn orders_pending(&self) -> PackedInt64Array {
+        let flat: Vec<i64> =
+            self.squads.pending.iter().flat_map(|&(id, order)| [id, i64::from(order)]).collect();
+        PackedInt64Array::from(&flat[..])
+    }
+
+    /// The orders queued are dropped (a tick took them, or nobody was left to take them).
+    #[func]
+    fn orders_clear(&mut self) {
+        self.squads.pending.clear();
+    }
+
+    /// The next squad id the battle issues (`Squads::issue_squad`).
+    #[func]
+    fn issue_squad(&mut self) -> i64 {
+        self.squads.issue_squad()
+    }
+
+    /// The first of `count` unit ids the battle issues together (`Squads::issue_units`).
+    #[func]
+    fn issue_units(&mut self, count: i64) -> i64 {
+        self.squads.issue_units(count)
+    }
+
+    /// How many squad ids the battle has issued; the strays and the groups issue theirs in
+    /// GDScript and hand the count back (`put_squads_issued`).
+    #[func]
+    fn squads_issued(&self) -> i64 {
+        self.squads.squads_issued
+    }
+
+    #[func]
+    fn put_squads_issued(&mut self, issued: i64) {
+        self.squads.squads_issued = issued;
+    }
+
     /// FormationContact.can_engage.
     #[func]
     fn squad_can_engage(&self, squad: i64) -> bool {
@@ -3376,8 +3421,8 @@ impl BodyField {
         self.edits += 1;
     }
 
-    /// FormationSimulation._apply_orders over `roster`'s squads: `ids` and `orders` the orders
-    /// given, in the order given. Per listed squad: a code naming the route it holds (-1:
+    /// FormationSimulation._apply_orders over `roster`'s squads: the orders queued
+    /// (`orders::queue`), in the order given, which it takes. Per listed squad: a code naming the route it holds (-1:
     /// none, the straight lane), 1 if it may pursue
     /// (`pursues`), and its living units' chances to break ranks and leashes, flat in the
     /// roster's order. `rules`: [pursuit_tempted_within]. Returns per order applied its
@@ -3389,8 +3434,6 @@ impl BodyField {
     fn apply_orders(
         &mut self,
         roster: Gd<SquadRoster>,
-        ids: PackedInt64Array,
-        orders: PackedInt32Array,
         routes: PackedInt64Array,
         pursues: PackedByteArray,
         temptations: PackedFloat64Array,
@@ -3398,8 +3441,7 @@ impl BodyField {
         tick: i64,
         seed: i64,
     ) -> PackedInt64Array {
-        let given: Vec<(i64, i32)> =
-            ids.as_slice().iter().copied().zip(orders.as_slice().iter().copied()).collect();
+        let given = std::mem::take(&mut self.squads.pending);
         let (pairs, _) = temptations.as_slice().as_chunks::<2>();
         let pairs: Vec<(f64, f64)> = pairs.iter().map(|p| (p[0], p[1])).collect();
         let roster = roster.bind();
