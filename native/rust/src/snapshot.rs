@@ -60,6 +60,7 @@ mod tests {
         squads.heading[0] = 0.1 + 0.2; // not a round number
         let bend = vec![V2::new(0.0, 0.0), V2::new(128.0, 0.0), V2::new(128.0, 64.0)];
         squads.route[1] = Some(crate::route::Route::new(bend, 2.0));
+        squads.taking[0] = vec![(7, 2), (5, 1)];
         let bytes = write(40, 3, &field, &squads);
         let state = read(&bytes).unwrap();
         assert_eq!((state.tick, state.seed), (40, 3));

@@ -119,6 +119,7 @@ func test_each_unit_takes_one_body_whatever_the_list_order() -> void:
 		second.faction_id = "the_kingdom"
 		second.id = 999
 		second.slot = sim.store.enrol(second.id)
+		UnitState.admitted(sim.store, second)
 		UnitPlaces.put(foe, second, lay)
 		foe.units.append(second)
 		UnitState.regather(foe)
@@ -128,8 +129,24 @@ func test_each_unit_takes_one_body_whatever_the_list_order() -> void:
 			UnitState.regather(line)
 		_run(sim, 1)
 		var taken := {}
-		for unit_id in line.taking:
-			taken[unit_id] = UnitPlaces.of(line, line.taking[unit_id])
+		var taking := line.taking  # taker's id -> its body's store slot
+		for unit_id in taking:
+			taken[unit_id] = line.store.columns.value(taking[unit_id], UnitColumns.POSITION)
 		picks.append(taken)
 	assert_dict(picks[0]).is_equal(picks[1])
 	assert_int(picks[0].size()).is_equal(2)
+
+
+func test_the_crate_holds_who_is_out_taking_which_body() -> void:
+	var setup := _setup(1, 3.0)
+	var sim: FormationSimulation = setup[0]
+	var line: SkirmishSquad = setup[1]
+	var body: SkirmishUnit = setup[2]
+	_run(sim, 1)
+
+	var taking := line.taking
+	assert_int(taking.size()).is_equal(1)
+	assert_int(taking.values()[0]).is_equal(body.slot)
+	assert_bool(line.units.any(func(u): return u.id == taking.keys()[0])).is_true()
+	line.taking = {}
+	assert_bool(FormationTaking.holding(line)).is_false()

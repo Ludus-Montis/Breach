@@ -32,9 +32,14 @@ var facing: int:
 		return posmod(roundi(heading / 90.0), 4)
 	set(value):
 		heading = posmod(value, 4) * 90.0
-## Its units out taking the downed (FormationTaking): unit id -> the body; the tick they
-## set out (-1: none), and the tick it gave up on them (-1: none) - it then marches on.
-var taking := {}
+## Its units out taking the downed (FormationTaking): taker's id -> its body's store slot,
+## as the crate holds it (spec 39 step 8b4-vi), read and written whole; the tick they set out
+## (-1: none), and the tick it gave up on them (-1: none) - it then marches on.
+var taking: Dictionary:
+	get:
+		return store.field().squad_taking(slot)
+	set(value):
+		store.field().put_squad_taking(slot, value)
 ## Pursuit (ScrumPursuit, Decision 109): whether it may pursue a retreating enemy (false:
 ## ordered not to); its units out chasing one on their own are `chasers` (StoredSquad).
 var pursues: bool:

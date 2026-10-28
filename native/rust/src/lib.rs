@@ -4005,6 +4005,24 @@ impl BodyField {
         PackedFloat64Array::from(&flat[..])
     }
 
+    /// The squad in `squad`'s units out taking the downed, as FormationTaking reads them:
+    /// {taker's id: its body's store slot}, in the order they set out.
+    #[func]
+    fn squad_taking(&self, squad: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        for &(taker, body) in &self.squads.taking[squad as usize] {
+            out.set(taker, body as i64);
+        }
+        out
+    }
+
+    /// The squad in `squad`'s units out taking, as `squad_taking` reads them, replacing any.
+    #[func]
+    fn put_squad_taking(&mut self, squad: i64, taking: VarDictionary) {
+        self.squads.taking[squad as usize] =
+            taking.iter_shared().map(|(k, v)| (k.to::<i64>(), v.to::<i64>() as usize)).collect();
+    }
+
     /// Whether the squad in `squad` holds any swap under way.
     #[func]
     fn squad_swapping(&self, squad: i64) -> bool {
