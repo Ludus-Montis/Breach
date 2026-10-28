@@ -4,13 +4,14 @@
 //! coordinated leader (Decision 81) with a meeting point, it times its departure: from each
 //! such friend's distance to the point and its pace, as seen, against its own predicted march
 //! (FormationRendezvous), it goes when it would arrive no earlier than every one of them, so
-//! none is singled out by the order squads are listed in (Decision 97). Holding at the
-//! staging point, the fallback and the events are the order's, GDScript's (step 7).
+//! none is singled out by the order squads are listed in (Decision 97). Until then it holds
+//! at its staging point while its fallback lasts, then goes on or turns back (`hold`, spec
+//! 39 step 8a2-ii); the staging order itself and the events stay GDScript's.
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
 use crate::ground::Ground;
-use crate::locks::FIGHTING;
+use crate::locks::{FIGHTING, HOLDING};
 use crate::maths::{minf, V2};
 use crate::perception;
 use crate::rendezvous::{self, March};
@@ -55,6 +56,67 @@ pub fn signalled(
     let partners = triggered(squads, columns, roster, ground, staged);
     !partners.is_empty()
         && partners.iter().all(|&n| time_to_go(squads, columns, roster, ground, staged, n))
+}
+
+/// What a staged squad does this tick (FormationStaging.holds).
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Hold {
+    /// Its trigger fired: it goes.
+    Signalled,
+    /// Not yet at its staging point: it marches on.
+    OnItsWay,
+    /// It holds there; `staged` if it first did this tick.
+    Holds { staged: bool },
+    /// Its fallback ran out: it goes on or turns back, as its order says; `staged` as above.
+    GivesUp { staged: bool },
+}
+
+/// Hold's codes, as GDScript is handed them: what it does, plus STAGED if it first held.
+pub const SIGNALLED: i64 = 0;
+pub const ON_ITS_WAY: i64 = 1;
+pub const HOLDS: i64 = 2;
+pub const GIVES_UP: i64 = 3;
+pub const STAGED: i64 = 4;
+
+impl Hold {
+    /// Its code (SIGNALLED, ON_ITS_WAY, HOLDS or GIVES_UP, plus STAGED).
+    pub fn code(self) -> i64 {
+        match self {
+            Hold::Signalled => SIGNALLED,
+            Hold::OnItsWay => ON_ITS_WAY,
+            Hold::Holds { staged } => HOLDS + STAGED * staged as i64,
+            Hold::GivesUp { staged } => GIVES_UP + STAGED * staged as i64,
+        }
+    }
+}
+
+/// FormationStaging.holds for the staged squad: signalled first; else, at `at` cells along
+/// its route from home, it holds (taking the HOLDING state) while `fallback`, the ticks it
+/// had left, lasts past this one.
+pub fn hold(
+    squads: &mut Squads,
+    columns: &Columns,
+    roster: &Roster,
+    ground: Option<&Ground>,
+    staged: &Staged,
+    at: f64,
+    fallback: i64,
+) -> Hold {
+    if signalled(squads, columns, roster, ground, staged) {
+        return Hold::Signalled;
+    }
+    let squad = roster.listed[staged.listed].squad;
+    let cells = squads.front_distance[squad] * CELLS_PER_TILE as f64;
+    if (cells - squads.home_distance[squad] * CELLS_PER_TILE as f64).abs() < at {
+        return Hold::OnItsWay;
+    }
+    let staged = squads.state[squad] != HOLDING;
+    squads.state[squad] = HOLDING;
+    if fallback - 1 > 0 {
+        Hold::Holds { staged }
+    } else {
+        Hold::GivesUp { staged }
+    }
 }
 
 /// The listed friends whose sight fires the trigger, in the lists' order.

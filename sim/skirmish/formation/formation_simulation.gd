@@ -229,7 +229,7 @@ func _move(events: Array, roster: Object) -> void:
 		FormationSweep.step(mover, cells_per_second, tick_seconds * keeping)  # Decision 105
 		var open_step := mover.speed() * TRAVEL_SCALE * tick_seconds
 		var step := FormationMarch.pace(mover, terrain, open_step, _tick, events)
-		step *= GroundBodies.drag(mover, ground) * keeping  # bodies on the ground (Decision 121)
+		step *= GroundBodies.drag(mover, ground, roster) * keeping  # bodies on the ground
 		marching[mover.id] = [mover, FormationMarch.toward(mover, travel * step, end), end]
 	_march(marching, events, roster)
 	for mover in waiting:

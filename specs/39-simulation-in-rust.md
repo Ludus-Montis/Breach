@@ -1392,6 +1392,39 @@ Decision's conditions.
   test_squad_turn.gd's about-face now goes through ScrumTurn.begin (the swaps cancelled, the
   events), and one facing its way doesn't turn.
 
+### Step 8a2-ii, staging's hold and fallback and the bodies' drag in the crate
+
+- **Staging's hold and fallback** (`staging.rs`, `hold`, FormationStaging.holds): a staged
+  squad whose trigger fired goes (`signalled`, as before); else, short of its staging point
+  (its front less its home, in cells, under `at`) it marches on; else it takes the HOLDING
+  state, staged if it first did so this tick, and holds while its fallback lasts past this
+  tick, else it gives up. GDScript keeps the order (`staging`, which only an advancing squad's
+  holds are asked of), counts the fallback down, and adds the events ("signalled", "staged",
+  "gave_up") and the turn back. The answer is a code: what it does, plus STAGED.
+- **The bodies' drag** (`lying.rs`, `Lying::drag`, GroundBodies.drag): the share of its pace
+  a marching squad keeps for the bodies its front rank steps onto, half a cell ahead along
+  its heading: the least of each front-rank unit's footing (`underfoot`, already the
+  crate's). GDScript still finds which bodies lie and where (GroundBodies.ground, read by the
+  walk too) and hands them in as the walk has them (CrateMarch.lying); the tick's roster
+  names the squad.
+- **Identical:** the same operations in the same order and precision (the step
+  `Vector2 + vector * 0.5` in f32, the footprint area and weights in f64, `minf`; the
+  staging distance `front * CELLS_PER_TILE` less the home's, `absf`, `< at`; the fallback
+  `- 1 > 0`). The roster is the one the tick decided on, and nobody falls before the joins.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** GroundBodies.underfoot (the walk's footing was already the crate's) and
+  BodyGrid, which only it searched; FormationStaging's own hold. test_scrum_search.gd
+  (BodyGrid's rings) and test_formation_near_passes.gd (the near search against a look at
+  all, now `lying/tests.rs`), and test_ground_underfoot.gd's two rule scenarios.
+- **Tests:** cargo: `lying/tests.rs` (a body slows by its weight against the walker's, one
+  too heavy blocks, the bodies a near search finds are those a look at all finds; a front
+  over its own weight halves its pace and a great one blocks it, only the front rank steps
+  over them and the worst step counts, whatever the order) and `staging/tests.rs` (short of
+  its point it marches on; at it, it holds, staged first; its last tick of fallback gives up,
+  staged too if it just arrived; a fired trigger goes before it holds). The drag's and the
+  hold's ran red on stubs, then green. gdUnit: test_ground_bodies.gd and
+  test_formation_staging.gd unchanged, now through the crate.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

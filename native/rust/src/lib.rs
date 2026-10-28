@@ -3800,15 +3800,16 @@ impl BodyField {
         PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
     }
 
-    /// FormationStaging's trigger: true if `roster`'s squad `listed` has seen it fire and it is
-    /// time to go. `order`: [1 if it waits to see a fight, its partner's squad id (0: none)];
-    /// `routes`: each listed squad's route (a code); `meet`: [x, y, cells along its route,
-    /// slack] if a coordinated leader times its departure by a meeting point, else empty;
-    /// `route`: its route's points; `pace`: [cells a second at speed 1, seconds a tick].
+    /// FormationStaging.holds for `roster`'s squad `listed` (index), staged `at` cells along
+    /// its route with `fallback` ticks left: its trigger's `order` = [whether it waits to see
+    /// a fight, its partner's id (0: none)], `routes`: each listed squad's route as a code,
+    /// `meet`: [x, y, cells along its route, slack] if a coordinated leader times it (else
+    /// empty), `route`: its route's points; `pace`: [cells a second at speed 1, seconds a
+    /// tick]. Returns staging::Hold's code; a squad at its point takes the HOLDING state.
     #[func]
     #[allow(clippy::too_many_arguments)]
-    fn staging_signalled(
-        &self,
+    fn staging_hold(
+        &mut self,
         roster: Gd<SquadRoster>,
         listed: i64,
         order: PackedInt64Array,
@@ -3817,7 +3818,9 @@ impl BodyField {
         route: PackedVector2Array,
         pace: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
-    ) -> bool {
+        at: f64,
+        fallback: i64,
+    ) -> i64 {
         let roster = roster.bind();
         let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
         let m = meet.as_slice();
@@ -3836,8 +3839,34 @@ impl BodyField {
             meet,
             pace: [p[0], p[1]],
         };
-        let (squads, columns) = (&self.squads, &self.field.columns);
-        on_ground(ground, |g| staging::signalled(squads, columns, &roster.roster, g, &staged))
+        let (squads, columns) = (&mut self.squads, &self.field.columns);
+        let held = on_ground(ground, |g| {
+            staging::hold(squads, columns, &roster.roster, g, &staged, at, fallback)
+        });
+        held.code()
+    }
+
+    /// GroundBodies.drag for `roster`'s squad `listed` (index) over the bodies lying at
+    /// `lying_ats` ([radius, footprint area] each in `lying_sizes`), `weights` =
+    /// [bodies_ground_drag, bodies_ground_block].
+    #[func]
+    fn ground_drag(
+        &self,
+        roster: Gd<SquadRoster>,
+        listed: i64,
+        lying_ats: PackedVector2Array,
+        lying_sizes: PackedFloat64Array,
+        weights: PackedFloat64Array,
+    ) -> f64 {
+        let roster = roster.bind();
+        let ats = v2s(&lying_ats);
+        let (sizes, _) = lying_sizes.as_slice().as_chunks::<2>();
+        let radii: Vec<f64> = sizes.iter().map(|s| s[0]).collect();
+        let areas: Vec<f64> = sizes.iter().map(|s| s[1]).collect();
+        let lying = lying::Lying::new(&ats, &radii, &areas);
+        let w = weights.as_slice();
+        let squad = &roster.roster.listed[listed as usize];
+        lying.drag(&self.squads, &self.field.columns, squad, w[0], w[1])
     }
 }
 

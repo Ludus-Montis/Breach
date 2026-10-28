@@ -16,19 +16,24 @@ extends RefCounted
 ## cells along its route, "trigger", "partner": squad id or 0, "fallback": ticks, "then":
 ## "go" or "back", optionally "meet": the meeting point and "meet_cells": how far along its
 ## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
-## crate's (`staging.rs`, spec 39 step 5b); holding, the fallback and the events stay here
-## with the orders (step 7).
+## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii);
+## the order and the events stay here.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 
 const SEES_PARTNER := "sees_partner"
 const SEES_FIGHT := "sees_fight"
+
+## The crate's answers (staging::SIGNALLED, ON_ITS_WAY, HOLDS and GIVES_UP, plus STAGED).
+const SIGNALLED := 0
+const HOLDS := 2
+const GIVES_UP := 3
+const STAGED := 4
 
 
 ## True if the squad holds this tick: it is at its staging point and its trigger hasn't
@@ -47,19 +52,19 @@ static func holds(
 ) -> bool:
 	if squad.staging.is_empty() or squad.order != SkirmishUnit.Order.ADVANCE:
 		return false
-	if _signalled(squad, squads, pace, terrain, roster):
+	var held := _hold(squad, squads, pace, terrain, roster)
+	if held == SIGNALLED:
 		squad.staging = {}
 		events.append(FormationEvents.squad_event("signalled", tick, squad))
 		return false
-	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	if absf(cells - squad.home_distance * MapLayoutDef.CELLS_PER_TILE) < squad.staging["at"]:
-		return false  # still on its way
-	if squad.state != SkirmishSquad.State.HOLDING:
-		squad.state = SkirmishSquad.State.HOLDING
+	if held & STAGED:
 		events.append(FormationEvents.squad_event("staged", tick, squad))
-	squad.staging["fallback"] -= 1
-	if squad.staging["fallback"] > 0:
+	var what := held & ~STAGED
+	if what == HOLDS:
+		squad.staging["fallback"] -= 1
 		return true
+	if what != GIVES_UP:
+		return false  # still on its way
 	var then: String = squad.staging.get("then", "go")
 	squad.staging = {}
 	events.append(FormationEvents.squad_event("gave_up", tick, squad, {"then": then}))
@@ -68,11 +73,13 @@ static func holds(
 	return false
 
 
-## True if the trigger has fired and it is time to go: a friend it detects fires it and, led
-## by a coordinated leader with a meeting point, it would arrive no earlier than any of them.
-static func _signalled(
+## The crate's answer for the staged squad (staging::hold): whether its trigger has fired
+## and it is time to go (a friend it detects fires it and, led by a coordinated leader with
+## a meeting point, it would arrive no earlier than any of them), else whether it is at its
+## staging point, holding while its fallback lasts.
+static func _hold(
 	squad: SkirmishSquad, squads: Array, pace: Array, terrain: FormationTerrain, roster: Object
-) -> bool:
+) -> int:
 	if roster == null:
 		roster = CrateRoster.of(squads)
 	var routes := {}  # route -> its code
@@ -88,7 +95,7 @@ static func _signalled(
 		meet = PackedFloat64Array(
 			[at.x, at.y, squad.staging["meet_cells"], FormationWalk.slack_of(squad)]
 		)
-	return squad.store.field().staging_signalled(
+	return squad.store.field().staging_hold(
 		roster,
 		squads.find(squad),
 		order,
@@ -96,7 +103,9 @@ static func _signalled(
 		meet,
 		squad.route.points() if squad.route != null else PackedVector2Array(),
 		PackedFloat64Array(pace),
-		UnitMover.ground(terrain)
+		UnitMover.ground(terrain),
+		float(squad.staging["at"]),
+		int(squad.staging["fallback"])
 	)
 
 

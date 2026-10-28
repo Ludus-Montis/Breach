@@ -148,3 +148,56 @@ fn the_lists_order_does_not_change_whether_it_fires() {
         assert_eq!(fires(&a, &staged(&a, false, partner)), fires(&b, &staged(&b, false, partner)));
     }
 }
+
+/// The staged squad alone, `front` tiles along from home (0), in `state`.
+fn alone(front: f64, state: i32) -> Built {
+    let mut b = built(&[S(1, 0, 0, 0.0, 1.0, state)]);
+    b.squads.front_distance[0] = front;
+    b
+}
+
+fn holds(b: &mut Built, at: f64, fallback: i64) -> Hold {
+    let routes = b.routes.clone();
+    let staged = Staged {
+        listed: 0,
+        sees_fight: false,
+        partner: 0,
+        routes: &routes,
+        meet: None,
+        pace: PACE,
+    };
+    hold(&mut b.squads, &b.columns, &b.roster, None, &staged, at, fallback)
+}
+
+#[test]
+fn short_of_its_staging_point_it_marches_on() {
+    let mut b = alone(1.0, crate::locks::MOVING);
+    assert_eq!(holds(&mut b, 2.0 * CELLS_PER_TILE as f64, 5), Hold::OnItsWay);
+    assert_eq!(b.squads.state[0], crate::locks::MOVING);
+}
+
+#[test]
+fn at_its_staging_point_it_holds_first_staged_then_holding() {
+    let mut b = alone(2.0, crate::locks::MOVING);
+    let at = 2.0 * CELLS_PER_TILE as f64;
+    assert_eq!(holds(&mut b, at, 5), Hold::Holds { staged: true });
+    assert_eq!(b.squads.state[0], HOLDING);
+    assert_eq!(holds(&mut b, at, 4), Hold::Holds { staged: false });
+}
+
+#[test]
+fn it_gives_up_as_its_last_tick_of_fallback_runs_out() {
+    let mut b = alone(3.0, HOLDING);
+    assert_eq!(holds(&mut b, 2.0 * CELLS_PER_TILE as f64, 2), Hold::Holds { staged: false });
+    assert_eq!(holds(&mut b, 2.0 * CELLS_PER_TILE as f64, 1), Hold::GivesUp { staged: false });
+    let mut fresh = alone(3.0, crate::locks::MOVING);
+    let gave = holds(&mut fresh, 2.0 * CELLS_PER_TILE as f64, 1);
+    assert_eq!(gave, Hold::GivesUp { staged: true });
+}
+
+#[test]
+fn a_trigger_fired_goes_before_it_holds() {
+    let mut b = built(&[S(1, 0, 0, 0.0, 1.0, HOLDING), friend(2, 1, 6.0)]);
+    b.squads.front_distance[0] = 3.0;
+    assert_eq!(holds(&mut b, 2.0 * CELLS_PER_TILE as f64, 5), Hold::Signalled);
+}
