@@ -5,9 +5,7 @@ extends RefCounted
 ##   end needs to march its quarter arc at the squad's pace
 ## - an **about-face** turns in place after a short pause; the back rank becomes the
 ##   front, and the re-form shuffle (Decision 46) moves front-preferring units forward
-## Pure over the squad it is given.
-
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+## Pure. Reversing the ranks is the crate's (`turn.rs`, ScrumTurn, spec 39 step 8a2-i).
 
 const ABOUT_FACE_SECONDS := 1.0
 
@@ -22,23 +20,3 @@ static func wheel_ticks(width: int, cells_per_second: float, tick_seconds: float
 
 static func about_face_ticks(tick_seconds: float) -> int:
 	return maxi(1, roundi(ABOUT_FACE_SECONDS / tick_seconds))
-
-
-## Turns the squad's places half round: ranks count from the old back, columns from the old
-## right, and the centre shift flips with them. Moves under way are cancelled and the squad
-## re-forms. Returns the squad's depth in ranks, how far its front moves back.
-static func reverse_ranks(squad: SkirmishSquad) -> int:
-	var depth := 0
-	# store: scattered (few: turning about, once as a squad turns)
-	for unit in squad.living():
-		depth = maxi(depth, UnitPlace.rank(squad, unit) + unit.footprint_depth)
-	var width := squad.width  # read once (Decision 144)
-	# store: scattered (few: turning about, once as a squad turns)
-	for unit in squad.living():
-		var at := UnitPlace.of(squad, unit)
-		var rank := depth - at.x - unit.footprint_depth
-		UnitPlace.put(squad, unit, Vector2i(rank, width - at.y - unit.footprint_width))
-	squad.centre_shift = -squad.centre_shift
-	squad.swaps.clear()
-	squad.reforming = true
-	return depth

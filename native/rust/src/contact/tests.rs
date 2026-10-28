@@ -209,3 +209,29 @@ fn a_routing_squad_is_met_where_its_units_are_not_at_its_frame() {
     assert!(field.framed(0));
     assert_eq!(field.nearest_hostile(0, &[0, 1], 7), None);
 }
+
+#[test]
+fn waves_reaching_one_friend_join_nearest_first_whatever_their_order() {
+    let friend = (V2::new(1.0, 0.0), EAST, 0);
+    let mut b = built(&[(V2::new(0.0, 0.0), EAST, 0), (V2::new(0.5, 0.0), EAST, 0), friend]);
+    b.squads.state[2] = locks::FIGHTING;
+    assert_eq!(
+        b.field().joins(&[0, 1], 7),
+        vec![(2, 1), (2, 0)],
+        "the nearer takes the rank behind"
+    );
+    assert_eq!(b.field().joins(&[1, 0], 7), vec![(2, 1), (2, 0)]);
+}
+
+#[test]
+fn of_two_waves_as_near_the_lower_draw_joins_first_and_one_short_does_not_join() {
+    let wave = (V2::new(0.0, 0.0), EAST, 0);
+    let short = (V2::new(-4.0, 0.0), EAST, 0);
+    let mut b = built(&[wave, wave, (V2::new(1.0, 0.0), EAST, 0), short]);
+    b.squads.state[2] = locks::FIGHTING;
+    let seed = 7;
+    let first = if contest::squad_draw(seed, 1) < contest::squad_draw(seed, 2) { 0 } else { 1 };
+    let joins = b.field().joins(&[3, 1, 0], seed);
+    assert_eq!(joins, vec![(2, first), (2, 1 - first)]);
+    assert_eq!(b.field().joins(&[0, 1, 3], seed), joins);
+}

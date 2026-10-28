@@ -184,6 +184,22 @@ impl<'a> Field<'a> {
         })
     }
 
+    /// FormationJoins.join's order: each of `movers` that has reached a friend's back rank
+    /// (`joinable`), as (its friend, it), nearest first by its gap to that friend snapped to
+    /// 0.000001, a tie going to the movers' draws, never to the order they are listed in.
+    pub fn joins(&self, movers: &[usize], seed: i64) -> Vec<(usize, usize)> {
+        let mut joins: Vec<((f64, i64), usize, usize)> = Vec::new();
+        for &mover in movers {
+            if let Some(leader) = self.joinable(mover) {
+                let gap = geometry::gap(&self.shape(mover), &self.shape(leader));
+                let draw = contest::squad_draw(seed, self.roster.listed[mover].id);
+                joins.push(((snapped(gap, EPSILON), draw), leader, mover));
+            }
+        }
+        joins.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("gaps are numbers"));
+        joins.into_iter().map(|(_, leader, mover)| (leader, mover)).collect()
+    }
+
     fn accepts(&self, mover: usize, leader: usize) -> bool {
         let slot = self.slot(leader);
         let state = self.squads.state[slot];

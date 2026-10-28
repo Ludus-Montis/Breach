@@ -223,7 +223,10 @@ events. After this step no battle phase runs in GDScript.
   2's series, `terrain=mixed` and per-pass changed counts), the Godot digest retired after the
   cargo one matches it on `main`; **8d** the snapshot tests for every phase, cut from the
   digest's battles. Each is an identical port, proved on the digests against the base. 8d's
-  PR closes the step.
+  PR closes the step. **8a2 split further** (2026-10-28, under the user's standing leave to
+  split): **8a2-i** ScrumTurn and the joins' order; **8a2-ii** staging's hold and fallback
+  and the bodies' drag (GroundBodies); **8a2-iii** the shuffle's swaps under way, their ends
+  and the widening, and whatever else the tick still decides in GDScript.
 
 ### Step 9, the rest of `sim/`
 
@@ -1351,6 +1354,43 @@ Decision's conditions.
   range holding fire, its cooldown, the nearest rank, one it overlaps first, friends and
   arrived squads not shot at, whatever the lists' order) and `ghash.rs` (bools against the
   engine). All ran red on a stub, then green.
+
+### Step 8a2-i, the turn and the joins' order in the crate
+
+- **The turn** (`turn.rs`, ScrumTurn.begin and SquadTurn.reverse_ranks): a squad about to
+  move against the way it faces turns about first: its places reversed (ranks from the old
+  back by each unit's footprint depth, columns from the old right by its width), its centre
+  shift flipped, it re-forms, its front moves back by its depth in ranks and is placed on its
+  route (or the straight lane), its direction flips and its heading turns half round. Then,
+  on a route, its heading is the route's there, by its direction. Unless its heading is the
+  same (`is_equal_approx`) and it kept its direction, every living unit not already loose is
+  loosened where it stands, in the lists' order. GDScript hands in the squad's roster
+  (CrateRoster of the one squad) and its route's points, and on the answer (kept, turned,
+  turned about) cancels the swaps under way after an about-face and adds the "turning" and
+  "turned" events.
+- **The joins' order** (`contact.rs`, `Field::joins`, FormationJoins.join): each advancing
+  mover that has reached a friend's back rank (`joinable`), as (friend, mover), nearest first
+  by its gap to that friend snapped to 0.000001, then by the movers' draws (ScrumContest).
+  GDScript joins each in that order (FormationContact.reinforce, already the crate's), adds
+  the events and takes the joined squad out of the lists.
+- **Kept GDScript**: the swaps (a per-squad list until the shuffle ports, 8a2-iii), the
+  events, the lists.
+- **Identical:** the same operations in the same order and precision (the front's shift
+  `(direction * depth) * RANK_DEPTH`, the route's heading scaled as `Vector2 * int`,
+  `fposmod`, `bearing_to`, the sort by `[gap, draw]`). One roster serves every mover's join,
+  as nothing changes between them. The proof is CI's digests against the base. Outcomes
+  unchanged.
+- **Retired:** SquadTurn.reverse_ranks (SquadTurn keeps the wheel's and the about-face's
+  times), ScrumTurn's own turn and loosening, FormationJoins' own sort.
+- **Tests:** cargo: `turn/tests.rs` (an about-face puts the back rank in front and turns the
+  columns; a wide or deep unit's footprint kept inside; going back turns it about, its front
+  back by its depth; a turn loosens every unit in its frame where it stands, in the lists'
+  order, one already loose kept; on a bend it faces the route; facing its way it keeps its
+  heading; turning about on a route faces back along it) and `contact/tests.rs` (waves
+  reaching one friend join nearest first whatever their order; of two as near the lower draw
+  first, one short not joining). All ran red on a stub, then green. gdUnit:
+  test_squad_turn.gd's about-face now goes through ScrumTurn.begin (the swaps cancelled, the
+  events), and one facing its way doesn't turn.
 
 ## Open, for the implementing session to settle and record here
 
