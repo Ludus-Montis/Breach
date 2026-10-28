@@ -188,6 +188,10 @@ var climb_left: PackedFloat64Array:
 	get:
 		assert(names.has(UnitColumns.CLIMB_LEFT), NOT_NAMED % UnitColumns.CLIMB_LEFT)
 		return climb_left
+var state: PackedInt32Array:
+	get:
+		assert(names.has(UnitColumns.STATE), NOT_NAMED % UnitColumns.STATE)
+		return state
 
 var _held_with := []  # the stores held with it (hold), for release
 
