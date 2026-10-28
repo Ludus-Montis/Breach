@@ -45,6 +45,7 @@ mod motion;
 mod mover;
 mod moving;
 mod near;
+mod objects;
 mod ordered;
 mod orders;
 mod parting;
@@ -863,6 +864,41 @@ impl BodyField {
                 parts.push(&varray![part.damage, &kind, part.magical].to_variant());
             }
             out.set(*name, &parts.to_variant());
+        }
+        out
+    }
+
+    /// A unit's objects' names (SkirmishUnit's properties): its walker, then its codes
+    /// (spec 39 step 8b5-iii).
+    #[func]
+    fn object_names(&self) -> PackedStringArray {
+        let names = std::iter::once("walker").chain(objects::CODES.iter().copied());
+        names.map(GString::from).collect()
+    }
+
+    /// Sets a slot's walker from its fields (TerrainWalker.fields; empty for none).
+    #[func]
+    fn put_walker(&mut self, slot: i64, fields: PackedFloat64Array) {
+        self.field.columns.objects[slot as usize].put_walker(fields.as_slice());
+    }
+
+    /// Sets a slot's code `name`: a command's slot or a definition's code, -1 for none
+    /// (false: no such code).
+    #[func]
+    fn put_object(&mut self, slot: i64, name: GString, code: i64) -> bool {
+        let held = self.field.columns.objects[slot as usize].code(&name.to_string());
+        held.map(|at| *at = code).is_some()
+    }
+
+    /// A slot's objects, by name: its walker's fields (empty for none) and its codes.
+    #[func]
+    fn objects(&self, slot: i64) -> VarDictionary {
+        let mut held = self.field.columns.objects[slot as usize].clone();
+        let walker: PackedFloat64Array = held.walker.iter().flatten().copied().collect();
+        let mut out = VarDictionary::new();
+        out.set("walker", &walker.to_variant());
+        for name in objects::CODES {
+            out.set(*name, *held.code(name).unwrap());
         }
         out
     }

@@ -70,7 +70,9 @@ var backward_pace := 0.4:
 		backward_pace = _held(&"backward_pace", value)
 ## Formation sim: the definition it was made from (a router fleeing home rejoins the
 ## reserve as one of these).
-var definition: Resource = null
+var definition: Resource = null:
+	set(value):
+		definition = _coded(&"definition", value)
 ## +1 advances toward the kingdom's end, -1 toward the player's.
 var advance_direction: int = 1:
 	set(value):
@@ -84,14 +86,20 @@ var squad_id: int = 0:
 		squad_id = _held(&"squad_id", value)
 ## The command it follows, and the one it started under (FormationCommand, spec 30 round
 ## 3); typed loosely to keep the unit free of formation code.
-var command: RefCounted = null
-var origin: RefCounted = null
+var command: RefCounted = null:
+	set(value):
+		command = _coded(&"command", value)
+var origin: RefCounted = null:
+	set(value):
+		origin = _coded(&"origin", value)
 ## How it crosses terrain (TerrainWalker: swimming, climbing), from its definition. The
 ## last place it could stand, whether it is on a climb face and the climb still above it
 ## live in the unit store, as do the unit it fights and how far along its route it stands
 ## (UnitColumns.FOOTHOLD, ON_FACE, CLIMB_LEFT, TARGET_ID, DISTANCE; spec 35 step 7c). Its
 ## order, home and wait are its squad's.
-var walker: RefCounted = null
+var walker: RefCounted = null:
+	set(value):
+		walker = _coded(&"walker", value)
 ## Its rank and column in its squad's formation live in the unit store (UnitColumns.RANK,
 ## COLUMN; spec 35 step 4a).
 ## Slots it occupies, depth (ranks) x width (columns) - Decision 40.
@@ -236,22 +244,23 @@ var ranged_seconds := 1.0:
 	set(value):
 		ranged_seconds = _held(&"ranged_seconds", value)
 
-## The native field whose store holds its numbers, words and lists while it holds it (null
-## before it enrols and once it is let go). Its own copy is read without a call: no crate
-## pass writes them.
+## The store holding its numbers, words, lists and objects, and its field (null when not
+## held). Its own copy is read without a call: no crate pass writes them.
+var _store: Object = null
 var _sheet_field: Object = null
 
 
-## Its numbers, words and lists are the crate's from now on (UnitStore.admit, once it has
-## its slot): all written at once, then each by its own setter (UnitWrites).
-func hold_sheet(field: Object) -> void:
-	_sheet_field = field
-	if field != null:
-		UnitWrites.all(self, field)
+## Its numbers, words, lists and objects are the crate's from now on (UnitStore.admit, once
+## it has its slot): all written at once, then each by its own setter (UnitWrites).
+func hold_sheet(store: Object) -> void:
+	_store = store
+	_sheet_field = store.field()
+	UnitWrites.all(self, store)
 
 
 ## The store has let it go: its slot may be another's, so it writes there no more.
 func let_go() -> void:
+	_store = null
 	_sheet_field = null
 
 
@@ -281,4 +290,11 @@ func _held(name: StringName, value: Variant) -> Variant:
 func _said(name: StringName, value: Variant) -> Variant:
 	if _sheet_field != null:
 		UnitWrites.word(_sheet_field, slot, name, value)
+	return value
+
+
+## An object just set (returned), coded and written to the crate while a store holds it.
+func _coded(name: StringName, value: Variant) -> Variant:
+	if _store != null:
+		UnitWrites.object(_store, slot, name, value)
 	return value

@@ -23,6 +23,8 @@ var records: SquadRecords  # the squads' records there (spec 39 step 4b)
 var orders: OrderRecords  # their pursuits and withdrawals (spec 39 step 7c)
 var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or below (UnitHealth)
 var _records := {}  # unit id -> its record, kept in GDScript
+var _definitions: Array[Resource] = []  # its units' definitions, by code (spec 39 step 8b5-iii)
+var _definition_codes := {}  # definition -> its code
 
 
 ## Enrols a unit's record: its slot, as `enrol`, given it, and the record kept so a unit
@@ -31,8 +33,24 @@ var _records := {}  # unit id -> its record, kept in GDScript
 func admit(unit) -> int:
 	_records[unit.id] = unit
 	unit.slot = enrol(unit.id)
-	unit.hold_sheet(field())
+	unit.hold_sheet(self)
 	return unit.slot
+
+
+## The code the crate holds for a unit's definition (spec 39 step 8b5-iii): given in the
+## order first seen, -1 for none. A definition is a Resource, so it stays here, by code.
+func definition_code(definition: Resource) -> int:
+	if definition == null:
+		return -1
+	if not _definition_codes.has(definition):
+		_definition_codes[definition] = _definitions.size()
+		_definitions.append(definition)
+	return _definition_codes[definition]
+
+
+## The definition coded `code`, or null.
+func definition_of(code: int) -> Resource:
+	return _definitions[code] if code >= 0 and code < _definitions.size() else null
 
 
 ## The record admitted for a unit id, or null.

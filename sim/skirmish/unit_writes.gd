@@ -1,16 +1,17 @@
 class_name UnitWrites
 extends RefCounted
-## How a unit's numbers, words and lists reach the crate while a store holds it (spec 39
-## steps 8b5-i and 8b5-ii, native sheet.rs and words.rs): all at once when the store admits
-## it, then each by SkirmishUnit's own setter.
+## How a unit's numbers, words, lists and objects reach the crate while a store holds it
+## (spec 39 steps 8b5-i to 8b5-iii, native sheet.rs, words.rs and objects.rs): all at once
+## when the store admits it, then each by SkirmishUnit's own setter.
 
 ## Each of its numbers' index in the crate's sheet, by name: the crate's own order, asked
 ## once.
 static var _sheet_at := {}
 
 
-## Writes all of `unit`'s numbers, words and lists to `field`, in its slot.
-static func all(unit: Object, field: Object) -> void:
+## Writes all of `unit`'s numbers, words, lists and objects to `store`'s field, in its slot.
+static func all(unit: Object, store: Object) -> void:
+	var field: Object = store.field()
 	if _sheet_at.is_empty():
 		for name in field.sheet_names():
 			_sheet_at[StringName(name)] = _sheet_at.size()
@@ -20,6 +21,8 @@ static func all(unit: Object, field: Object) -> void:
 	field.put_sheet(unit.slot, values)
 	for name in field.word_names():
 		word(field, unit.slot, StringName(name), unit.get(name))
+	for name in field.object_names():
+		object(store, unit.slot, StringName(name), unit.get(name))
 
 
 ## Writes the number `name` in `slot`.
@@ -38,3 +41,16 @@ static func word(field: Object, slot: int, name: StringName, value: Variant) -> 
 		field.put_word_parts(slot, name, value)
 	else:
 		field.put_word_list(slot, name, PackedStringArray(value))
+
+
+## Writes the object `name` in `slot`, coded: a walker's fields (TerrainWalker.fields), a
+## command's slot (FormationCommand.slot) or a definition's code (UnitStore.definition_code);
+## none is empty or -1.
+static func object(store: Object, slot: int, name: StringName, value: Variant) -> void:
+	var field: Object = store.field()
+	if name == &"walker":
+		field.put_walker(slot, PackedFloat64Array() if value == null else value.fields())
+	elif name == &"definition":
+		field.put_object(slot, name, store.definition_code(value))
+	else:
+		field.put_object(slot, name, -1 if value == null else value.slot)
