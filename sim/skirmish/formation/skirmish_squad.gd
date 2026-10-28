@@ -15,7 +15,11 @@ const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 ## Tiles between one rank and the next: one cell (Decisions 48 and 68).
 const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
 
-var faction_id: String
+## Its faction; the crate holds it too (spec 39 step 8b5-iv), coded as a unit's.
+var faction_id: String:
+	set(value):
+		faction_id = value
+		store.field().squad_put_faction(slot, value)
 ## The route the squad follows (Decision 75); null is a straight lane along x. The crate
 ## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there.
 var route: FormationRoute = null:
@@ -87,7 +91,8 @@ var swaps: Array:
 var units: Array[SkirmishUnit] = []
 ## Its living and downed units, kept by UnitState (Decision 147).
 var kept := UnitState.Kept.new()
-## Units that joined as reinforcements: only they spread beyond the painted columns.
+## Units that joined as reinforcements: only they spread beyond the painted columns. The
+## crate holds their ids too (spec 39 step 8b5-iv): add them with add_joined.
 var joined: Array[SkirmishUnit] = []
 ## Whether this wave merges into a friendly squad it catches up with on the march.
 var merges: bool:
@@ -134,6 +139,15 @@ func _init(
 ## Its standing units, in its order: kept by UnitState, so asking costs nothing. Read-only.
 func living() -> Array[SkirmishUnit]:
 	return UnitState.living(self)
+
+
+## `taken` joined it as reinforcements (FormationContact.reinforce), in their order.
+func add_joined(taken: Array) -> void:
+	joined.append_array(taken)
+	var ids := PackedInt64Array()
+	for unit: SkirmishUnit in joined:
+		ids.append(unit.id)
+	store.field().put_squad_joined(slot, ids)
 
 
 func is_destroyed() -> bool:

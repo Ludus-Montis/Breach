@@ -4221,6 +4221,47 @@ impl BodyField {
             taking.iter_shared().map(|(k, v)| (k.to::<i64>(), v.to::<i64>() as usize)).collect();
     }
 
+    /// The squad in `squad`'s faction (SkirmishSquad.faction_id), coded in the lexicon a
+    /// unit's is, so the two compare.
+    #[func]
+    fn squad_put_faction(&mut self, squad: i64, faction: GString) {
+        self.squads.faction[squad as usize] = self.field.lexicon.code(&faction.to_string());
+    }
+
+    /// The squad in `squad`'s faction, as `squad_put_faction` set it.
+    #[func]
+    fn squad_faction(&self, squad: i64) -> GString {
+        GString::from(self.field.lexicon.word(self.squads.faction[squad as usize]))
+    }
+
+    /// The units that joined the squad in `squad` as reinforcements: their ids, in the order
+    /// they joined, replacing any.
+    #[func]
+    fn put_squad_joined(&mut self, squad: i64, ids: PackedInt64Array) {
+        self.squads.joined[squad as usize] = ids.as_slice().to_vec();
+    }
+
+    /// The units that joined the squad in `squad`, as `put_squad_joined` set them.
+    #[func]
+    fn squad_joined(&self, squad: i64) -> PackedInt64Array {
+        PackedInt64Array::from(self.squads.joined[squad as usize].as_slice())
+    }
+
+    /// The squad in `squad`'s standing units, by unit-store slot in its members' order,
+    /// read from its members and the STATE column (UnitState.living).
+    #[func]
+    fn squad_living(&self, squad: i64) -> PackedInt32Array {
+        let states = &self.field.columns.state;
+        PackedInt32Array::from(self.squads.living(squad as usize, states).as_slice())
+    }
+
+    /// The squad in `squad`'s downed units, DOWNED or CARRIED, as `squad_living` reads them.
+    #[func]
+    fn squad_downed(&self, squad: i64) -> PackedInt32Array {
+        let states = &self.field.columns.state;
+        PackedInt32Array::from(self.squads.downed(squad as usize, states).as_slice())
+    }
+
     /// Whether the squad in `squad` holds any swap under way.
     #[func]
     fn squad_swapping(&self, squad: i64) -> bool {

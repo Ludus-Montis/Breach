@@ -61,6 +61,8 @@ mod tests {
         let bend = vec![V2::new(0.0, 0.0), V2::new(128.0, 0.0), V2::new(128.0, 64.0)];
         squads.route[1] = Some(crate::route::Route::new(bend, 2.0));
         squads.taking[0] = vec![(7, 2), (5, 1)];
+        squads.faction[1] = field.lexicon.code("kingdom");
+        squads.joined[0] = vec![9, 4];
         field.columns.sheet[2].critical = 0.1 + 0.2;
         field.columns.sheet[2].carried_by = 11;
         let fire = field.lexicon.code("fire");
