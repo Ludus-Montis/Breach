@@ -69,7 +69,7 @@ pub fn members(field: &Field, squads: &Squads, slot: usize) -> Vec<Member> {
 }
 
 /// A walker's fields (TerrainWalker.fields), or a grounded one `height` cells tall for none.
-fn walker(fields: Option<[f64; 5]>, height: f64) -> Walker {
+pub(crate) fn walker(fields: Option<[f64; 5]>, height: f64) -> Walker {
     let [height, swimmer, climber, swims, climbs] = fields.unwrap_or([height, 0.0, 0.0, 0.0, 0.0]);
     Walker {
         height,

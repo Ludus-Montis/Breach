@@ -65,7 +65,7 @@ pub fn begin(
 }
 
 /// StoredSquad's place: the point `cells` along its route, or along a straight lane on x.
-fn place(route: Option<&Route>, cells: f64) -> V2 {
+pub(crate) fn place(route: Option<&Route>, cells: f64) -> V2 {
     route.map_or(V2::new(cells as f32, 0.0), |route| route.point_at(cells))
 }
 

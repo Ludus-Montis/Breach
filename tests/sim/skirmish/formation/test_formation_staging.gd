@@ -138,6 +138,29 @@ func test_when_the_fallback_runs_out_it_goes_or_turns_back() -> void:
 			assert_int(_of(log, "returned").size()).is_equal(1)  # it turned back home
 
 
+## The move's events are built in the crate (spec 39 step 8b5-viii) and read as
+## FormationEvents made them: giving up names what its order said, and the turn back home
+## its facing and heading.
+func test_the_move_s_events_read_as_formation_events_made_them() -> void:
+	var sim := FormationSimulation.new(2.0, TICK)
+	var wave := _staged(
+		sim, 10.0, {"trigger": FormationStaging.SEES_FIGHT, "fallback": 3, "then": "back"}
+	)
+
+	var log := _run(sim, 40)
+
+	var gave_up: Dictionary = _of(log, "gave_up")[0]
+	assert_that(gave_up.keys()).is_equal(["type", "tick", "squad", "faction", "then"])
+	assert_str(gave_up["then"]).is_equal("back")
+	assert_int(gave_up["squad"]).is_equal(wave.id)
+	assert_str(gave_up["faction"]).is_equal("player")
+	var turned: Dictionary = _of(log, "turned")[0]
+	assert_that(turned.keys()).is_equal(["type", "tick", "squad", "faction", "facing", "heading"])
+	assert_int(turned["facing"]).is_equal(3)  # west, home
+	assert_float(turned["heading"]).is_equal_approx(270.0, 0.001)
+	assert_that(_of(log, "turning")[0]).is_equal(turned.merged({"type": "turning"}, true))
+
+
 func test_the_crate_holds_a_squad_s_staging_order() -> void:
 	var sim := FormationSimulation.new(2.0, TICK)
 	var wave := _staged(sim, 10.0, {"trigger": FormationStaging.SEES_FIGHT, "fallback": 30})

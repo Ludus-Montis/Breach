@@ -17,87 +17,18 @@ extends RefCounted
 ## "go" or "back", optionally "meet": the meeting point and "meet_cells": how far along its
 ## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
 ## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii),
-## and the order itself (step 8b4-iv: SkirmishSquad.staging is a view of it); the events
-## stay here.
-
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
-const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
+## and the order itself (step 8b4-iv: SkirmishSquad.staging is a view of it), and its
+## events (the move's pass, step 8b5-viii); the routes' codes stay here.
 
 const SEES_PARTNER := "sees_partner"
 const SEES_FIGHT := "sees_fight"
 
-## The crate's answers (staging::SIGNALLED, ON_ITS_WAY, HOLDS and GIVES_UP, plus STAGED).
-const SIGNALLED := 0
-const HOLDS := 2
-const GIVES_UP := 3
-const STAGED := 4
 
-
-## True if the squad holds this tick: it is at its staging point and its trigger hasn't
-## fired. Emits "staged" when it first holds, then "signalled" or "gave_up".
-## `pace` = [cells a second at speed 1, seconds a tick].
-## `terrain`, if given, can block sight. `roster`: the tick's (CrateRoster) of `squads`, made
-## here if none is given.
-static func holds(
-	squad: SkirmishSquad,
-	squads: Array,
-	tick: int,
-	events: Array,
-	pace: Array = [8.0, 0.1],
-	terrain: FormationTerrain = null,
-	roster: Object = null
-) -> bool:
-	if squad.staging.is_empty() or squad.order != SkirmishUnit.Order.ADVANCE:
-		return false
-	var held := _hold(squad, squads, pace, terrain, roster)
-	if held == SIGNALLED:
-		squad.staging = {}
-		events.append(FormationEvents.squad_event("signalled", tick, squad))
-		return false
-	if held & STAGED:
-		events.append(FormationEvents.squad_event("staged", tick, squad))
-	var what := held & ~STAGED
-	if what == HOLDS:
-		return true  # its fallback counted down in the crate
-	if what != GIVES_UP:
-		return false  # still on its way
-	var then: String = squad.staging.get("then", "go")
-	squad.staging = {}
-	events.append(FormationEvents.squad_event("gave_up", tick, squad, {"then": then}))
-	if then == "back":
-		squad.order = SkirmishUnit.Order.RETREAT
-	return false
-
-
-## The crate's answer for the staged squad (staging::hold): whether its trigger has fired
-## and it is time to go (a friend it detects fires it and, led by a coordinated leader with
-## a meeting point, it would arrive no earlier than any of them), else whether it is at its
-## staging point, holding while its fallback lasts.
-static func _hold(
-	squad: SkirmishSquad, squads: Array, pace: Array, terrain: FormationTerrain, roster: Object
-) -> int:
-	if roster == null:
-		roster = CrateRoster.of(squads)
+## Each of `squads`' route as a code, in the lists' order: a wave on its own route is no
+## partner for one with no partner named.
+static func route_codes(squads: Array) -> PackedInt32Array:
 	var routes := {}  # route -> its code
 	var codes := PackedInt32Array()
 	for other in squads:
 		codes.append(routes.get_or_add(other.route, routes.size()))
-	var coordinated := squad.staging.has("meet") and _coordinated(squad)
-	var slack := FormationWalk.slack_of(squad) if coordinated else 0.0
-	return squad.store.field().staging_hold(
-		roster,
-		squads.find(squad),
-		codes,
-		coordinated,
-		slack,
-		PackedFloat64Array(pace),
-		UnitMover.ground(terrain)
-	)
-
-
-static func _coordinated(squad: SkirmishSquad) -> bool:
-	return squad.living().any(func(u): return u.tactics.has("coordinated"))
+	return codes

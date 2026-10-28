@@ -298,7 +298,16 @@ events. After this step no battle phase runs in GDScript.
   look, "detoured") likewise. The rest follow, renumbered: **8b5-viii** the move;
   **8b5-ix** the scrum, the fight and deaths; **8b5-x** taking, wounds, recovery and
   strays; **8b5-xi** morale, the rout and carrying; **8b5-xii** groups, stamina, the bodies,
-  the shuffle and the march's sync; **8b5-xiii** one `step()` binding.
+  the shuffle and the march's sync; **8b5-xiii** one `step()` binding. **8b5-viii split
+  further** (2026-10-28, under the same leave), on its survey (each march's glue reads what
+  the crate already holds, but the walk's share reads each unit's pour, its place, its swap
+  and its walker, and the joins rebuild GDScript's lists): **8b5-viii** the move's march as a
+  crate pass (staging, the march's ends, the hold, the turn, the sweep, the pace, the drag and
+  the landing), its events built as data, each squad's share handed in; **8b5-ix** the walk's
+  share read in the crate, and the joins and their step-ups as data. The rest follow,
+  renumbered: **8b5-x** the scrum, the fight and deaths; **8b5-xi** taking, wounds, recovery
+  and strays; **8b5-xii** morale, the rout and carrying; **8b5-xiii** groups, stamina, the
+  bodies, the shuffle and the march's sync; **8b5-xiv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2057,6 +2066,44 @@ Decision's conditions.
   green).
 - **After it**, 8b5-viii: the move (staging, the march's ends, the turn, the sweep, the
   walk, the drag, the joins) as a crate pass, its events built as data.
+
+### Step 8b5-viii, the move's march as a crate pass
+
+- **The pass** (`moving::pass::step`): FormationSimulation hands the crate the tick's
+  roster, each squad's share of its pace (FormationWalk.share, worked out for each squad that
+  may march and isn't ordered to hold; read only where it steps), its route's code
+  (FormationStaging.route_codes) and the tuning (`move_step`). Each squad, in the lists'
+  order, decides from the tick's start (`moving::choose`): a staged one holds till its
+  trigger (`staging::hold_staged`; a coordinated leader's slack from its discipline, read
+  from the sheets, and its tactic from the lexicon), a retreat home already ends there, one
+  free to march holds or goes (`moving::hold`), one going back the way it faces turns first
+  (`turn::begin`; an about-face cancels its swaps), and the rest step: at their slowest
+  unit's pace within the share handed in, the frame swept round any bend (`sweep_held`),
+  slowed by the ground its front rank steps into (`march::pace`, each unit's walker from its
+  objects) and the bodies lying on the field (`lying`, the downed and the dead found in the
+  store once a tick). Every move lands together (`moving::land`), each front placed on its
+  route; arrivals and returns after; the waiting count down. The events ("staged",
+  "signalled", "gave_up" with its word coded in the lexicon, "arrived", "returned",
+  "turning" and "turned" with the facing and the heading's bits, "blocked") go to the log,
+  in the order GDScript built them. It returns the squads that advanced, which GDScript joins
+  (FormationJoins) as before.
+- **Gone:** `move_holds`, `move_land`, `staging_hold`, `march_sweep`, GroundMarch's
+  `toward`, `travel_sign` and `pace`; FormationStaging.holds, FormationSweep.step and
+  FormationMarch's `length`, `pace`, `toward` and `travel_sign`. ScrumTurn.begin,
+  FormationMarch.check_ends and GroundBodies.drag stay for the withdrawal, the pursuit and
+  their tests.
+- **Identical:** the same holds, turns, steps, landings, ends and events in the same order
+  with the same keys and values. The proof is CI's digests against the base. Outcomes
+  unchanged.
+- **Tests:** cargo `moving/pass/tests.rs` (a squad steps at its slowest unit's pace within
+  its share and advances; one out of its slack waits; one reaching the enemy's end arrives;
+  one going back the way it faces turns first and reports its heading; a staged squad holds,
+  then gives up and turns back as its order says; the waiting count down and one ordered to
+  hold holds), red on a stubbed pass, then green. gdUnit `test_formation_staging.gd`: the
+  move's events read as FormationEvents made them (red with CrateEvents' word and heading
+  decoding stubbed, then green).
+- **After it**, 8b5-ix: the walk's share (each unit's pour, place, swap and walker, read
+  where they live) and the joins with their step-ups, in the crate.
 
 ## Open, for the implementing session to settle and record here
 

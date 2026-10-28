@@ -7,7 +7,7 @@ extends RefCounted
 ## 90 degree bend follow the same rule, so it doesn't halt to turn; at a sharp bend it cuts
 ## the corner a little. Going back the way it faces is an about-face instead (ScrumTurn).
 ## Pure over the squad it is given. A view over the crate's (native/rust/src/march/sweep.rs,
-## spec 39 step 3d).
+## spec 39 step 3d); the move's pass sweeps each march (step 8b5-viii).
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 
@@ -15,9 +15,3 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 ## Degrees a second the squad's frame may turn marching at `cells_per_second`.
 static func rate(squad: SkirmishSquad, cells_per_second: float) -> float:
 	return CrateMarch.core().sweep_rate(squad.width, cells_per_second)
-
-
-## Turns the squad's frame towards its route's heading at its front, by what its rate allows
-## in `seconds` (none: as it is). The crate's, along the route it holds (spec 39 step 8b4-ii).
-static func step(squad: SkirmishSquad, cells_per_second: float, seconds: float) -> void:
-	squad.store.field().march_sweep(squad.slot, cells_per_second, seconds)  # its held route

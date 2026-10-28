@@ -31,6 +31,8 @@ const FormationCommand = preload("res://sim/skirmish/formation/formation_command
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
@@ -43,13 +45,10 @@ const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.g
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
 const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
-const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
-const FormationSweep = preload("res://sim/skirmish/formation/formation_sweep.gd")
 const FormationStaging = preload("res://sim/skirmish/formation/formation_staging.gd")
 const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd")
 const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
@@ -64,9 +63,8 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 const MELEE_REACH := FormationContact.MELEE_REACH
 const TRAVEL_SCALE := 0.125  # tiles per second at speed 1: 8 cells a second (Decision 68)
-## The crate's first choices for the move (`moving::Choice`): it stands, it waits.
-const MOVE_STANDS := 0
-const MOVE_WAITS := 1
+## The crate's choice for a squad that may march (`moving::Choice::Goes`).
+const MOVE_GOES := 2
 
 var route_length: float
 var tick_seconds: float
@@ -200,68 +198,46 @@ func _engage(events: Array) -> Object:
 
 
 ## Each squad decides its move from the tick's start; all moves land together (Decision 97).
-## Which squads march, hold or wait, and the landing, are the crate's (`moving.rs`, spec 39
-## step 8b1); each march between, here.
+## The move is the crate's (`moving::pass`, spec 39 step 8b5-viii): staging, the march's
+## ends, the turn, the sweep, the pace, the drag and the landing, its events in the crate's
+## log; each squad's share of its pace (FormationWalk.share) and the joins after, here.
 func _move(events: Array, roster: Object) -> void:
-	var ground := {"squads": _squads}  # the bodies lying on the field, found once (drag)
-	var marching := []  # [mover, its route's end] a march, in the order planned
-	var plans := PackedFloat64Array()  # [its index in the roster, where it wants to get] a march
-	var waiting := []
+	var tuning := BattleTuning.current()
+	var rules := PackedFloat64Array(
+		[
+			TRAVEL_SCALE,
+			tick_seconds,
+			route_length,
+			tuning.discipline_per_leadership,
+			tuning.walk_slack_loose,
+			tuning.walk_slack_drilled,
+			tuning.bodies_ground_drag,
+			tuning.bodies_ground_block,
+		]
+	)
+	var codes := FormationStaging.route_codes(_squads)
+	var ground := UnitMover.ground(terrain)
+	var joining: PackedInt32Array = _field.move_step(
+		roster, _keeping(roster), codes, ground, _tick, rules
+	)
+	events.append_array(CrateEvents.taken(_field))
+	var joiners := []  # the squads that advanced, in the order planned
+	for listed in joining:
+		joiners.append(_squads[listed])
+	FormationJoins.join(_squads, joiners, _tick, fight_seed, events)
+
+
+## The share of its pace (FormationWalk.share) each squad that may march keeps for its
+## units, in the lists' order; 0 for one that stands, waits or is ordered to hold.
+func _keeping(roster: Object) -> PackedFloat64Array:
 	var choices: PackedInt32Array = _field.move_choices(roster)
+	var out := PackedFloat64Array()
+	out.resize(_squads.size())
 	for listed in _squads.size():
 		var mover := _squads[listed]
-		if choices[listed] == MOVE_STANDS:
-			continue
-		if choices[listed] == MOVE_WAITS:
-			waiting.append(mover)
-			continue
-		var paced := [TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE, tick_seconds]
-		if FormationStaging.holds(mover, _squads, _tick, events, paced, terrain, roster):
-			continue
-		var end := FormationMarch.length(mover, route_length)
-		if mover.order == SkirmishUnit.Order.RETREAT:  # home already: it holds, no about-face
-			FormationMarch.check_ends(mover, end, _tick, events)
-		if _field.move_holds(roster, listed):
-			continue
-		var travel := FormationMarch.travel_sign(mover, end)
-		if travel != mover.direction and ScrumTurn.begin(mover, travel, _tick, events):
-			continue  # an about-face is a re-form: its units walk to their places (Decision 92)
-		var step := _step(mover, ground, roster, events)
-		if step < 0.0:
-			continue  # it waits for its units (spec 30 round 3)
-		marching.append([mover, end])
-		plans.append_array([listed, FormationMarch.toward(mover, travel * step, end)])
-	_march(marching, plans, events, roster)
-	for mover in waiting:
-		mover.wait_ticks -= 1
-
-
-## How far the squad steps this tick (tiles), sweeping round any bend as it goes; -1 if it
-## waits for its units, out of its slack.
-func _step(mover: SkirmishSquad, ground: Dictionary, roster: Object, events: Array) -> float:
-	var keeping := FormationWalk.share(mover, terrain, fight_seed)  # within its units' slack
-	if keeping <= 0.0:
-		return -1.0
-	var cells_per_second := mover.speed() * TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE
-	FormationSweep.step(mover, cells_per_second, tick_seconds * keeping)  # Decision 105
-	var open_step := mover.speed() * TRAVEL_SCALE * tick_seconds
-	var step := FormationMarch.pace(mover, terrain, open_step, _tick, events)
-	return step * GroundBodies.drag(mover, ground, roster) * keeping  # bodies on the ground
-
-
-## Lands every move as the crate judged it (an advancing squad stopped at contact or behind
-## a friend, as they stood at the tick's start); then arrivals, and waves that reached a
-## friend join it.
-func _march(marching: Array, plans: PackedFloat64Array, events: Array, roster: Object) -> void:
-	var landed: PackedFloat64Array = _field.move_land(roster, plans)
-	var joiners := []
-	for n in marching.size():
-		marching[n][0].front_distance = landed[2 * n]
-		if landed[2 * n + 1] != 0.0:
-			joiners.append(marching[n][0])
-	for plan in marching:
-		FormationMarch.check_ends(plan[0], plan[1], _tick, events)
-	FormationJoins.join(_squads, joiners, _tick, fight_seed, events)
+		if choices[listed] == MOVE_GOES and mover.order != SkirmishUnit.Order.HOLD:
+			out[listed] = FormationWalk.share(mover, terrain, fight_seed)
+	return out
 
 
 ## The blows and shots chosen and landed, then their hurts landed in the crate (`hurts.rs`,

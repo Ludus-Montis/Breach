@@ -88,25 +88,6 @@ pub enum Hold {
     GivesUp { staged: bool },
 }
 
-/// Hold's codes, as GDScript is handed them: what it does, plus STAGED if it first held.
-pub const SIGNALLED: i64 = 0;
-pub const ON_ITS_WAY: i64 = 1;
-pub const HOLDS: i64 = 2;
-pub const GIVES_UP: i64 = 3;
-pub const STAGED: i64 = 4;
-
-impl Hold {
-    /// Its code (SIGNALLED, ON_ITS_WAY, HOLDS or GIVES_UP, plus STAGED).
-    pub fn code(self) -> i64 {
-        match self {
-            Hold::Signalled => SIGNALLED,
-            Hold::OnItsWay => ON_ITS_WAY,
-            Hold::Holds { staged } => HOLDS + STAGED * staged as i64,
-            Hold::GivesUp { staged } => GIVES_UP + STAGED * staged as i64,
-        }
-    }
-}
-
 /// FormationStaging.holds for the staged squad: signalled first; else, at `at` cells along
 /// its route from home, it holds (taking the HOLDING state) while `fallback`, the ticks it
 /// had left, lasts past this one.
@@ -199,7 +180,7 @@ fn time_to_go(
 }
 
 /// Its slowest living unit's pace this tick (SkirmishSquad.speed): 0 with none living.
-fn speed(columns: &Columns, listed: &Listed) -> f64 {
+pub(crate) fn speed(columns: &Columns, listed: &Listed) -> f64 {
     let slowest =
         listed.living.iter().fold(f64::INFINITY, |least, m| minf(least, columns.speed[m.slot]));
     if slowest == f64::INFINITY {
