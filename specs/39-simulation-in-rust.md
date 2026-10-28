@@ -271,7 +271,16 @@ events. After this step no battle phase runs in GDScript.
   **8b5-iii** the squads' remaining fields; **8b5-iv** orders, engagement, pathing and the move;
   **8b5-v** the scrum, the fight and deaths; **8b5-vi** taking, wounds, recovery and strays;
   **8b5-vii** morale, the rout and carrying; **8b5-viii** groups, stamina, the bodies, the
-  shuffle and the march's sync; **8b5-ix** one `step()` binding.
+  shuffle and the march's sync; **8b5-ix** one `step()` binding. **8b5-ii split further** (2026-10-28, under the
+  same leave), on its survey (twelve words and lists, plain data, against four objects whose
+  coding each needs its own table): **8b5-ii** the units' words and lists (faction, tags,
+  tactics, attributes, traits, the weapons' parts, damage type, weaknesses, resistances,
+  immunities, what stops regeneration) coded for the crate; **8b5-iii** their objects (the
+  walker, the command and origin, the definition) coded for the crate. The rest follow,
+  renumbered: **8b5-iv** the squads' remaining fields; **8b5-v** orders, engagement, pathing
+  and the move; **8b5-vi** the scrum, the fight and deaths; **8b5-vii** taking, wounds,
+  recovery and strays; **8b5-viii** morale, the rout and carrying; **8b5-ix** groups,
+  stamina, the bodies, the shuffle and the march's sync; **8b5-x** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -1851,6 +1860,36 @@ Decision's conditions.
   writes no more to its old slot (red against the library with the bindings stubbed, then
   green); `test_unit_state.gd`, `test_unit_store.gd` and `test_skirmish_squad.gd` green.
 - **After it**, 8b5-ii: the units' words, lists and objects held by the crate.
+
+### Step 8b5-ii, the units' words and lists held by the crate
+
+- **The words** (`words::Words`, `Columns::words`, `Field::lexicon`): each unit's twelve
+  words and lists, SkirmishUnit's: its faction and damage type (a word each); its tags,
+  tactics, weaknesses, resistances, immunities and what stops its regeneration (lists of
+  words, in order); its attributes and traits ({word: level}, in order, the level a float as
+  content may give one); and its melee and ranged weapons' parts ([damage, type, magical]).
+  Each word is coded once for the field (`Lexicon`, the order first seen, "" is 0), so a
+  crate pass compares codes. By store slot, blank at SkirmishUnit's own defaults, carried
+  by the snapshot with the lexicon. The crate names them by shape (`word_names`).
+- **Written:** whole when the store admits a unit (with its numbers, `UnitWrites.all`), and
+  one at a time after by each of SkirmishUnit's setters (`put_word`, `put_word_list`,
+  `put_word_levels`, `put_word_parts`). A trait set in place goes through `set_trait`, which
+  writes the traits whole (the messenger sent home, FormationWounds). A unit let go writes
+  no more. `UnitWrites` holds the writing, numbers and words, so the unit keeps to its size.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads the words yet; the same values are set in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `words.rs` (words are coded in the order first seen and read back; each
+  named field is found by its shape and no other; a field set reads back what was set; red
+  on stubs, then green) and `snapshot.rs` (a state with words read back writes the same
+  bytes, lexicon too). gdUnit `test_unit_words.gd`: every word the crate names is one of the
+  unit's own; an admitted unit has its words in the crate; one set after, or a trait set in
+  place, is written there; one let go writes no more to its old slot (red against the
+  library with the writes stubbed, then green). `test_unit_numbers.gd`,
+  `test_formation_wounds.gd`, `test_formation_groups.gd` and `test_formation_taking.gd` run
+  in CI (the last two now set their traits through `set_trait`).
+- **After it**, 8b5-iii: the units' objects (the walker, the command and origin, the
+  definition) coded for the crate.
 
 ## Open, for the implementing session to settle and record here
 

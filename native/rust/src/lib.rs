@@ -82,6 +82,7 @@ mod turn;
 mod walk_store;
 mod walking;
 mod withdraw;
+mod words;
 mod wounds;
 
 use std::time::Instant;
@@ -774,6 +775,96 @@ impl BodyField {
     #[func]
     fn put_sheet_value(&mut self, slot: i64, index: i64, value: f64) {
         self.field.columns.sheet[slot as usize].set(index as usize, value);
+    }
+
+    /// A unit's words' and lists' names (SkirmishUnit's properties), by shape: the words,
+    /// the lists, the levels, then the parts (spec 39 step 8b5-ii).
+    #[func]
+    fn word_names(&self) -> PackedStringArray {
+        let shapes = [words::WORDS, words::LISTS, words::LEVELS, words::PARTS];
+        shapes.iter().flat_map(|names| names.iter()).map(|name| GString::from(*name)).collect()
+    }
+
+    /// Sets a slot's word `name` (false: no such word).
+    #[func]
+    fn put_word(&mut self, slot: i64, name: GString, word: GString) -> bool {
+        let code = self.field.lexicon.code(&word.to_string());
+        let held = self.field.columns.words[slot as usize].word(&name.to_string());
+        held.map(|at| *at = code).is_some()
+    }
+
+    /// Sets a slot's list of words `name`, in order (false: no such list).
+    #[func]
+    fn put_word_list(&mut self, slot: i64, name: GString, list: PackedStringArray) -> bool {
+        let lexicon = &mut self.field.lexicon;
+        let codes: Vec<u32> =
+            list.as_slice().iter().map(|w| lexicon.code(&w.to_string())).collect();
+        let held = self.field.columns.words[slot as usize].list(&name.to_string());
+        held.map(|at| *at = codes).is_some()
+    }
+
+    /// Sets a slot's words with levels `name`, {word: level} in its order (false: none such).
+    #[func]
+    fn put_word_levels(&mut self, slot: i64, name: GString, levels: VarDictionary) -> bool {
+        let lexicon = &mut self.field.lexicon;
+        let coded: Vec<(u32, f64)> = levels
+            .iter_shared()
+            .map(|(word, level)| (lexicon.code(&word.stringify().to_string()), number(&level)))
+            .collect();
+        let held = self.field.columns.words[slot as usize].levels(&name.to_string());
+        held.map(|at| *at = coded).is_some()
+    }
+
+    /// Sets a slot's weapons' parts `name`, [[damage, type, magical], ...] (false: none such).
+    #[func]
+    fn put_word_parts(&mut self, slot: i64, name: GString, parts: VarArray) -> bool {
+        let lexicon = &mut self.field.lexicon;
+        let coded: Vec<words::Part> = parts
+            .iter_shared()
+            .map(|part| {
+                let part = part.to::<VarArray>();
+                words::Part {
+                    damage: number(&part.at(0)),
+                    kind: lexicon.code(&part.at(1).stringify().to_string()),
+                    magical: number(&part.at(2)) != 0.0,
+                }
+            })
+            .collect();
+        let held = self.field.columns.words[slot as usize].parts(&name.to_string());
+        held.map(|at| *at = coded).is_some()
+    }
+
+    /// A slot's words and lists, by name, read back as SkirmishUnit holds them.
+    #[func]
+    fn words(&self, slot: i64) -> VarDictionary {
+        let lexicon = &self.field.lexicon;
+        let mut held = self.field.columns.words[slot as usize].clone();
+        let mut out = VarDictionary::new();
+        for name in words::WORDS {
+            let code = *held.word(name).unwrap();
+            out.set(*name, &GString::from(lexicon.word(code)).to_variant());
+        }
+        for name in words::LISTS {
+            let list: PackedStringArray =
+                held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
+            out.set(*name, &list.to_variant());
+        }
+        for name in words::LEVELS {
+            let mut levels = VarDictionary::new();
+            for &(code, level) in held.levels(name).unwrap().iter() {
+                levels.set(lexicon.word(code), level);
+            }
+            out.set(*name, &levels.to_variant());
+        }
+        for name in words::PARTS {
+            let mut parts = VarArray::new();
+            for part in held.parts(name).unwrap().iter() {
+                let kind = GString::from(lexicon.word(part.kind));
+                parts.push(&varray![part.damage, &kind, part.magical].to_variant());
+            }
+            out.set(*name, &parts.to_variant());
+        }
+        out
     }
 
     /// Microseconds of native work in the last sync, part, seek, walk or face.

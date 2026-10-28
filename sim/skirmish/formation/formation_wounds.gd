@@ -143,7 +143,7 @@ static func _land(what: int, taking: Array, squads: Array, tick: int, events: Ar
 			var extra := {"by": other.id}
 			events.append(FormationEvents.unit_event("captured", tick, squad, body, extra))
 		Taken.SENT_HOME:
-			other.traits["messenger"] = other.traits["messenger"] - 1
+			other.set_trait("messenger", other.traits["messenger"] - 1)
 			UnitState.put(squad, body, SkirmishUnit.State.RELEASED)
 			events.append(FormationEvents.unit_event("sent_home", tick, squad, body))
 			for side in squads:

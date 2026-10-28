@@ -63,11 +63,16 @@ mod tests {
         squads.taking[0] = vec![(7, 2), (5, 1)];
         field.columns.sheet[2].critical = 0.1 + 0.2;
         field.columns.sheet[2].carried_by = 11;
+        let fire = field.lexicon.code("fire");
+        field.columns.words[2].immunities = vec![fire, field.lexicon.code("cold")];
+        field.columns.words[2].traits = vec![(fire, 0.5)];
         let bytes = write(40, 3, &field, &squads);
         let state = read(&bytes).unwrap();
         assert_eq!((state.tick, state.seed), (40, 3));
         assert_eq!(state.squads, squads);
         assert_eq!(state.field.columns.sheet, field.columns.sheet);
+        assert_eq!(state.field.columns.words, field.columns.words);
+        assert_eq!(state.field.lexicon, field.lexicon);
         assert_eq!(write(state.tick, state.seed, &state.field, &state.squads), bytes);
     }
 

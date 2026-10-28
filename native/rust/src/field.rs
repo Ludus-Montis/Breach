@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::columns::Columns;
 use crate::maths::V2;
 use crate::ordered;
+use crate::words::Lexicon;
 
 /// A body is loose (in its squad's `loose`).
 pub const LOOSE: u8 = 1;
@@ -134,6 +135,8 @@ pub struct Field {
     free: BinaryHeap<Reverse<u32>>,
     /// The unit store's columns, by slot.
     pub columns: Columns,
+    /// The words its units' words are coded by (spec 39 step 8b5-ii, `words`).
+    pub lexicon: Lexicon,
     /// The store's fell queue (spec 35 step 5b, Decision 145): the ids of units an hp write
     /// took from above 0 to 0 or below, in the order they fell, till deaths takes them.
     fallen: Vec<i64>,

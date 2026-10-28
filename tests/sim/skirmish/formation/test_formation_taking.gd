@@ -71,7 +71,7 @@ func test_fall_behind_left_behind_presses_on_and_takes_none() -> void:
 	var setup := _setup(2, 4.0)
 	var line: SkirmishSquad = setup[1]
 	for unit in line.units:
-		unit.traits["fall_behind_left_behind"] = 1
+		unit.set_trait("fall_behind_left_behind", 1)
 
 	var log := _run(setup[0], 5)
 
@@ -93,7 +93,7 @@ func test_the_hold_runs_out_and_the_group_marches_on() -> void:
 	var sim: FormationSimulation = setup[0]
 	var line: SkirmishSquad = setup[1]
 	var body: SkirmishUnit = setup[2]
-	body.traits["regenerates_downed"] = 0
+	body.set_trait("regenerates_downed", 0)
 	for unit in line.units:
 		unit.dmg = 0  # it can't finish the body
 
