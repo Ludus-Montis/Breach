@@ -40,6 +40,7 @@ mod maths;
 mod morale;
 mod motion;
 mod mover;
+mod moving;
 mod near;
 mod ordered;
 mod orders;
@@ -2922,6 +2923,12 @@ impl BodyField {
         locks::can_engage(&self.squads, squad as usize)
     }
 
+    /// FormationScrum.regrouping for the squad in `squad` (`moving::regrouping`).
+    #[func]
+    fn squad_regrouping(&self, squad: i64) -> bool {
+        moving::regrouping(&self.squads, squad as usize)
+    }
+
     /// ScrumSeek.foe_ids: the ids of the squads of `listed` (squad slots) the squad fights;
     /// `factions` each listed squad's faction (as a code), and its own `faction`.
     #[func]
@@ -3504,6 +3511,50 @@ impl BodyField {
         };
         PackedFloat64Array::from(ended.as_slice())
     }
+
+    /// FormationSimulation._move's first choice for each of `roster`'s squads, in its order
+    /// (`moving::choose`): 0 it stands, 1 it waits, 2 it may march.
+    #[func]
+    fn move_choices(&self, roster: Gd<SquadRoster>) -> PackedInt32Array {
+        let roster = roster.bind();
+        let choices: Vec<i32> = roster
+            .roster
+            .listed
+            .iter()
+            .map(|l| moving::choose(&self.squads, l.squad) as i32)
+            .collect();
+        PackedInt32Array::from(choices.as_slice())
+    }
+
+    /// Whether `roster`'s squad `listed`, free to march, holds where it stands (`moving::hold`);
+    /// its state becomes holding or moving.
+    #[func]
+    fn move_holds(&mut self, roster: Gd<SquadRoster>, listed: i64) -> bool {
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &self.field.columns);
+        moving::hold(squads, columns, &roster.roster, listed as usize)
+    }
+
+    /// FormationSimulation._march's landing (`moving::land`) of `plans`, two numbers a march:
+    /// its squad's index in `roster` and where it wants to get (tiles). Returns two a march, in
+    /// order: where its front lands, and 1 if it advances (else 0).
+    #[func]
+    fn move_land(&self, roster: Gd<SquadRoster>, plans: PackedFloat64Array) -> PackedFloat64Array {
+        let roster = roster.bind();
+        let (rows, _) = plans.as_slice().as_chunks::<2>();
+        let plans: Vec<moving::Plan> =
+            rows.iter().map(|p| moving::Plan { listed: p[0] as usize, next: p[1] }).collect();
+        let field = contact::Field {
+            squads: &self.squads,
+            columns: &self.field.columns,
+            roster: &roster.roster,
+        };
+        let flat: Vec<f64> = moving::land(&field, &plans)
+            .iter()
+            .flat_map(|&(front, advances)| [front, f64::from(u8::from(advances))])
+            .collect();
+        PackedFloat64Array::from(flat.as_slice())
+    }
 }
 
 #[godot_api(secondary)]
@@ -3528,25 +3579,6 @@ impl BodyField {
             contact::edges(&mut self.squads, &mut self.field.columns, &roster.roster, tick, seed);
         self.edits += 1;
         flanked.iter().flat_map(|f| [f.victim as i32, f.attacker as i32, f.edge]).collect()
-    }
-
-    /// FormationContact.limit for `roster`'s squad `mover` (its index), wanting to reach
-    /// `next` (tiles), `marching` the ids of the squads advancing this tick.
-    #[func]
-    fn contact_limit(
-        &self,
-        roster: Gd<SquadRoster>,
-        mover: i64,
-        next: f64,
-        marching: PackedInt64Array,
-    ) -> f64 {
-        let roster = roster.bind();
-        let field = contact::Field {
-            squads: &self.squads,
-            columns: &self.field.columns,
-            roster: &roster.roster,
-        };
-        field.limit(mover as usize, next, marching.as_slice())
     }
 
     /// FormationContact.skirmishing for `roster`'s squad `mover`.

@@ -88,9 +88,10 @@ static func step(
 
 
 ## True while the squad's units are out of their places: it doesn't march. Units out chasing
-## or straggling back on their own don't hold it (Decision 112).
+## or straggling back on their own don't hold it (Decision 112). The crate's rule
+## (`moving::regrouping`, spec 39 step 8b1), as the move reads it.
 static func regrouping(squad: SkirmishSquad) -> bool:
-	return squad.loose.keys().any(func(unit_id): return not squad.chasers.has(unit_id))
+	return squad.store.field().squad_regrouping(squad.slot)
 
 
 static func _prepare(squad: SkirmishSquad, tick: int) -> void:
