@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 var _places := UnitPlaces.new()
@@ -84,3 +85,14 @@ func test_lateral_spans_are_centred_and_mirrored_for_the_other_facing() -> void:
 		)
 		. is_equal(Vector2(1.0, 2.0))
 	)
+
+
+func test_the_crate_holds_the_route_a_squad_follows() -> void:
+	var squad := _squad(1, [_unit(1, 0, 0)])
+	var field: Object = squad.store.field()
+	assert_bool(field.squad_route(squad.slot).is_empty()).is_true()
+	var bend := PackedVector2Array([Vector2(0, 0), Vector2(128, 0), Vector2(128, 64)])
+	squad.route = FormationRoute.new(bend, 2.0)
+	assert_array(Array(field.squad_route(squad.slot))).is_equal(Array(bend))
+	squad.route = null
+	assert_bool(field.squad_route(squad.slot).is_empty()).is_true()

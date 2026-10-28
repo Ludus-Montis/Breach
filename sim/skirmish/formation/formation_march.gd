@@ -103,14 +103,11 @@ static func face(squad: SkirmishSquad) -> void:
 ## rank's length back to home and about-face again. Which, if either, is the crate's
 ## (`march::end`, spec 39 step 8a2-v); a retreat hands it its roster for the units' test.
 static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events: Array) -> void:
-	var points := PackedVector2Array()
 	var roster: Object = null
 	if mover.order == SkirmishUnit.Order.RETREAT:
 		roster = CrateRoster.of([mover])
-		if mover.route != null:
-			points = mover.route.points()
 	var ended: PackedFloat64Array = mover.store.field().march_end(
-		_along(mover), route_end, points, roster, 0
+		_along(mover), route_end, mover.slot, roster, 0
 	)
 	if ended[0] == ENDED_NOT:
 		return

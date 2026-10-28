@@ -16,10 +16,14 @@ const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
 
 var faction_id: String
-## The route the squad follows (Decision 75); null is a straight lane along x.
+## The route the squad follows (Decision 75); null is a straight lane along x. The crate
+## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there.
 var route: FormationRoute = null:
 	set(value):
 		route = value
+		var points := PackedVector2Array() if value == null else value.points()
+		var half_width := 0.0 if value == null else value.corridor_half_width
+		store.field().squad_put_route(slot, value != null, points, half_width)
 		_place()
 ## The facing (SquadFrame) nearest its heading, for what still reckons in four ways (an
 ## exact diagonal rounds clockwise); setting it turns the frame to that way.

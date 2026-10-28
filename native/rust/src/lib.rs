@@ -2931,6 +2931,28 @@ impl BodyField {
         self.edits += 1;
     }
 
+    /// The route the squad in `squad` follows, as GDScript's SkirmishSquad.route sets it:
+    /// its `points` and corridor's `half_width`, or none if `routed` is false.
+    #[func]
+    fn squad_put_route(
+        &mut self,
+        squad: i64,
+        routed: bool,
+        points: PackedVector2Array,
+        half_width: f64,
+    ) {
+        self.squads.route[squad as usize] =
+            routed.then(|| route::Route::new(v2s(&points), half_width));
+    }
+
+    /// The points of the route the squad in `squad` follows (none: a straight lane).
+    #[func]
+    fn squad_route(&self, squad: i64) -> PackedVector2Array {
+        self.squads.route[squad as usize]
+            .as_ref()
+            .map_or_else(PackedVector2Array::new, |r| packed(&r.points))
+    }
+
     /// FormationContact.can_engage.
     #[func]
     fn squad_can_engage(&self, squad: i64) -> bool {
@@ -3494,8 +3516,8 @@ impl BodyField {
         PackedInt64Array::from(flat.as_slice())
     }
 
-    /// FormationMarch.check_ends, the squad `along` as [front, home, order, direction] on a
-    /// route `route_end` tiles long through `points` (none: no route). Whether all its units
+    /// FormationMarch.check_ends, the squad in `squad`, `along` as [front, home, order,
+    /// direction], on a route `route_end` tiles long (the one it holds). Whether all its units
     /// are home (FormationWithdraw's test, half a cell of its home end) reads `roster`'s squad
     /// `listed`, handed in for a retreat. Returns [0 marching on, 1 arrived or 2 returned,
     /// the front's tiles along its route].
@@ -3504,21 +3526,21 @@ impl BodyField {
         &self,
         along: PackedFloat64Array,
         route_end: f64,
-        points: PackedVector2Array,
+        squad: i64,
         roster: Option<Gd<SquadRoster>>,
         listed: i64,
     ) -> PackedFloat64Array {
         let along = along_of(&along);
+        let held = self.squads.route[squad as usize].as_ref();
         let all_home = || {
-            roster.is_some_and(|roster| {
+            roster.zip(held).is_some_and(|(roster, route)| {
                 let roster = roster.bind();
-                let route = route::Route::new(v2s(&points), 0.0);
                 let home = along.home * content::CELLS_PER_TILE as f64;
                 let (squads, columns) = (&self.squads, &self.field.columns);
-                withdraw::home(squads, columns, &roster.roster, listed as usize, &route, home)
+                withdraw::home(squads, columns, &roster.roster, listed as usize, route, home)
             })
         };
-        let ended = match march::end(&along, route_end, !points.is_empty(), all_home) {
+        let ended = match march::end(&along, route_end, held.is_some(), all_home) {
             march::End::Under => [0.0, along.front],
             march::End::Arrived(front) => [1.0, front],
             march::End::Returned(front) => [2.0, front],
@@ -3676,16 +3698,11 @@ impl BodyField {
     }
 
     /// ScrumTurn.begin for `roster`'s only squad, about to move `travel` (+1 or -1) along
-    /// `route` (its points; none: a straight lane). Returns turn::KEPT, TURNED or ABOUT_FACED.
+    /// the route it holds (none: a straight lane). Returns turn::KEPT, TURNED or ABOUT_FACED.
     #[func]
-    fn squad_turn(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        travel: i64,
-        route: PackedVector2Array,
-    ) -> i64 {
+    fn squad_turn(&mut self, roster: Gd<SquadRoster>, travel: i64) -> i64 {
         let roster = roster.bind();
-        let route = (!route.is_empty()).then(|| route::Route::new(v2s(&route), 0.0));
+        let route = self.squads.route[roster.roster.listed[0].squad].clone();
         turn::begin(
             &mut self.squads,
             &mut self.field.columns,
@@ -3957,17 +3974,12 @@ impl BodyField {
     }
 
     /// FormationStrays.strand's setting off: the unit `unit_id` in store slot `slot`, alone
-    /// in the stray squad in squad slot `stray`, flees home along `route` from where it
-    /// stands. Returns the stray squad's front (tiles along the route).
+    /// in the stray squad in squad slot `stray`, flees home along the route it holds from
+    /// where it stands. Returns the stray squad's front (tiles along the route).
     #[func]
-    fn stray_set_off(
-        &mut self,
-        stray: i64,
-        unit_id: i64,
-        slot: i64,
-        route: PackedVector2Array,
-    ) -> f64 {
-        let route = route::Route::new(v2s(&route), 0.0);
+    fn stray_set_off(&mut self, stray: i64, unit_id: i64, slot: i64) -> f64 {
+        let held = self.squads.route[stray as usize].clone();
+        let route = held.expect("a stray flees along its squad's route");
         let unit = (unit_id, slot as usize);
         strays::set_off(&mut self.squads, &mut self.field.columns, stray as usize, unit, &route)
     }
@@ -3984,7 +3996,7 @@ impl BodyField {
     /// its route with `fallback` ticks left: its trigger's `order` = [whether it waits to see
     /// a fight, its partner's id (0: none)], `routes`: each listed squad's route as a code,
     /// `meet`: [x, y, cells along its route, slack] if a coordinated leader times it (else
-    /// empty), `route`: its route's points; `pace`: [cells a second at speed 1, seconds a
+    /// empty), timed along the route it holds; `pace`: [cells a second at speed 1, seconds a
     /// tick]. Returns staging::Hold's code; a squad at its point takes the HOLDING state.
     #[func]
     #[allow(clippy::too_many_arguments)]
@@ -3995,7 +4007,6 @@ impl BodyField {
         order: PackedInt64Array,
         routes: PackedInt32Array,
         meet: PackedFloat64Array,
-        route: PackedVector2Array,
         pace: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
         at: f64,
@@ -4004,10 +4015,11 @@ impl BodyField {
         let roster = roster.bind();
         let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
         let m = meet.as_slice();
+        let held = &self.squads.route[roster.roster.listed[listed as usize].squad];
         let meet = (m.len() == 4).then(|| staging::Meeting {
             at: V2::new(m[0] as f32, m[1] as f32),
             cells: m[2],
-            route: route::Route::new(v2s(&route), 0.0),
+            route: held.clone().unwrap_or_else(|| route::Route::new(Vec::new(), 0.0)),
             slack: m[3],
         });
         let (o, p) = (order.as_slice(), pace.as_slice());
