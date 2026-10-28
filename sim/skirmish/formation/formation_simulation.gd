@@ -63,8 +63,6 @@ const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 const MELEE_REACH := FormationContact.MELEE_REACH
 const TRAVEL_SCALE := 0.125  # tiles per second at speed 1: 8 cells a second (Decision 68)
-## The crate's choice for a squad that may march (`moving::Choice::Goes`).
-const MOVE_GOES := 2
 
 var route_length: float
 var tick_seconds: float
@@ -200,7 +198,7 @@ func _engage(events: Array) -> Object:
 ## Each squad decides its move from the tick's start; all moves land together (Decision 97).
 ## The move is the crate's (`moving::pass`, spec 39 step 8b5-viii): staging, the march's
 ## ends, the turn, the sweep, the pace, the drag and the landing, its events in the crate's
-## log; each squad's share of its pace (FormationWalk.share) and the joins after, here.
+## log, and each squad's share of its pace (`moving::share`, 8b5-ix); the joins after, here.
 func _move(events: Array, roster: Object) -> void:
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array(
@@ -213,31 +211,20 @@ func _move(events: Array, roster: Object) -> void:
 			tuning.walk_slack_drilled,
 			tuning.bodies_ground_drag,
 			tuning.bodies_ground_block,
+			tuning.wounds_reach,
+			tuning.walk_lost,
 		]
 	)
 	var codes := FormationStaging.route_codes(_squads)
 	var ground := UnitMover.ground(terrain)
 	var joining: PackedInt32Array = _field.move_step(
-		roster, _keeping(roster), codes, ground, _tick, rules
+		roster, codes, ground, _tick, fight_seed, rules
 	)
 	events.append_array(CrateEvents.taken(_field))
 	var joiners := []  # the squads that advanced, in the order planned
 	for listed in joining:
 		joiners.append(_squads[listed])
 	FormationJoins.join(_squads, joiners, _tick, fight_seed, events)
-
-
-## The share of its pace (FormationWalk.share) each squad that may march keeps for its
-## units, in the lists' order; 0 for one that stands, waits or is ordered to hold.
-func _keeping(roster: Object) -> PackedFloat64Array:
-	var choices: PackedInt32Array = _field.move_choices(roster)
-	var out := PackedFloat64Array()
-	out.resize(_squads.size())
-	for listed in _squads.size():
-		var mover := _squads[listed]
-		if choices[listed] == MOVE_GOES and mover.order != SkirmishUnit.Order.HOLD:
-			out[listed] = FormationWalk.share(mover, terrain, fight_seed)
-	return out
 
 
 ## The blows and shots chosen and landed, then their hurts landed in the crate (`hurts.rs`,

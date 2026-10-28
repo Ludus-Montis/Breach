@@ -307,7 +307,14 @@ events. After this step no battle phase runs in GDScript.
   share read in the crate, and the joins and their step-ups as data. The rest follow,
   renumbered: **8b5-x** the scrum, the fight and deaths; **8b5-xi** taking, wounds, recovery
   and strays; **8b5-xii** morale, the rout and carrying; **8b5-xiii** groups, stamina, the
-  bodies, the shuffle and the march's sync; **8b5-xiv** one `step()` binding.
+  bodies, the shuffle and the march's sync; **8b5-xiv** one `step()` binding. **8b5-ix split
+  further** (2026-10-28, under the same leave), on its survey (the share reads only what the
+  crate holds, but a join changes GDScript's lists, its units' command and the squads' list,
+  each its own rebuild): **8b5-ix** the walk's share read in the crate; **8b5-x** the joins
+  and their step-ups as data. The rest follow, renumbered: **8b5-xi** the scrum, the fight and
+  deaths; **8b5-xii** taking, wounds, recovery and strays; **8b5-xiii** morale, the rout and
+  carrying; **8b5-xiv** groups, stamina, the bodies, the shuffle and the march's sync;
+  **8b5-xv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2104,6 +2111,38 @@ Decision's conditions.
   decoding stubbed, then green).
 - **After it**, 8b5-ix: the walk's share (each unit's pour, place, swap and walker, read
   where they live) and the joins with their step-ups, in the crate.
+
+### Step 8b5-ix, the walk's share read in the crate
+
+- **The share** (`moving::share::of`): the share (0 to 1) of its step a squad's frame takes
+  for its units lagging behind their places, each unit read where it lives. None while any
+  of its units is out taking (the squad's taking); all of it under "fall behind, left
+  behind" (the rule from its living units' traits, by their lexicon codes, and their
+  sheets' leadership). Otherwise its living units, less the loose and the fleeing (the
+  squad's lists, by id), are poured as `march::pour` reads them: where each stands, its
+  place (rank, column) from the store, its footprint from its sheet, its walker from its
+  objects (a grounded one of its sheet's height for none), how far it is through a swap
+  from the squad's swaps under way (`swaps::offsets`); the slack from its discipline
+  (`share::slack`, read from the sheets, which the staged hold now reads too).
+- **The pass** (`moving::pass`): works out each listed squad's share as the tick starts,
+  for each that may march (`choose`) and isn't ordered to hold, as `_keeping` did; `move_step`
+  takes the fight's seed and wounds_reach and walk_lost instead of the shares.
+  FormationWalk.share reads the same for one squad (`walk_share`), for its callers and tests.
+- **Gone:** FormationSimulation._keeping and MOVE_GOES, the `move_choices` binding,
+  GroundMarch's `share`, FormationWalk.RULE_CODES.
+- **Identical:** the same shares from the same units in the same order. The proof is CI's
+  digests against the base. Outcomes unchanged.
+- **Tests:** cargo `moving/share/tests.rs` (every unit at its place keeps the whole step;
+  one lagging three quarters of its slack halves it, one at its slack stops it; one fallen
+  behind is waited for only if no man is left behind; a leader who leaves the fallen behind
+  never waits; a unit part way through a swap is judged from its place part way there; the
+  loose and the fleeing aren't waited for and one out taking holds the frame; a drilled squad
+  has more slack) and `moving/pass/tests.rs` (the share the pass works out sets the step),
+  red on a stubbed share, then green. gdUnit `test_formation_walk.gd`: a unit lagging three
+  quarters of its slack halves its frame's step (red with FormationWalk.share stubbed, then
+  green).
+- **After it**, 8b5-x: the joins and their step-ups as data (who joins whom, the moves, the
+  lists, the command and the events in the crate; GDScript drops the joined squads).
 
 ## Open, for the implementing session to settle and record here
 

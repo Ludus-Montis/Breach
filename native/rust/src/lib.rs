@@ -2324,42 +2324,6 @@ impl GroundMarch {
         packed(&aims)
     }
 
-    /// FormationWalk.share for the squad's units in its frame (pourer_of's), by its
-    /// `rule` (FormationWalk.rule_of's code), slack and walk_lost.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn share(
-        &self,
-        ground: Option<Gd<TerrainGround>>,
-        frame: PackedFloat64Array,
-        units: PackedFloat64Array,
-        seed: i64,
-        wounds_reach: f64,
-        rule: i64,
-        slack: f64,
-        lost: f64,
-    ) -> f64 {
-        let rule = rule_from(rule);
-        if rule == march::walk::Rule::LeftBehind {
-            return 1.0;
-        }
-        let units = pourers_of(&units);
-        let frame = frame_of(&frame);
-        let aims = on_ground(ground, |ground| {
-            march::pour::targets(ground, &frame, &units, seed, wounds_reach)
-        });
-        let lags: Vec<march::walk::Lag> = units
-            .iter()
-            .zip(&aims)
-            .map(|(unit, &target)| march::walk::Lag {
-                target,
-                place: march::pour::place(&frame, unit),
-                at: unit.at,
-            })
-            .collect();
-        march::walk::share(rule, slack, lost, &lags)
-    }
-
     /// FormationWalk.rule_of over the living units' [leads, left behind, no man left]: 0
     /// none, 1 fall behind left behind, 2 no man left behind.
     #[func]
@@ -2517,11 +2481,14 @@ fn pourers_of(rows: &PackedFloat64Array) -> Vec<march::pour::Pourer> {
         .collect()
 }
 
-fn rule_from(code: i64) -> march::walk::Rule {
-    match code {
-        1 => march::walk::Rule::LeftBehind,
-        2 => march::walk::Rule::NoManLeft,
-        _ => march::walk::Rule::Lagging,
+/// The share's tuning: the fight's `seed`, [discipline_per_leadership, walk_slack_loose,
+/// walk_slack_drilled] and [wounds_reach, walk_lost].
+fn share_tuning(seed: i64, slack: &[f64], reach: &[f64]) -> moving::share::ShareTuning {
+    moving::share::ShareTuning {
+        seed,
+        wounds_reach: reach[0],
+        lost: reach[1],
+        slack: [slack[0], slack[1], slack[2]],
     }
 }
 
@@ -3775,48 +3742,33 @@ impl BodyField {
         PackedFloat64Array::from(ended.as_slice())
     }
 
-    /// FormationSimulation._move's first choice for each of `roster`'s squads, in its order
-    /// (`moving::choose`): 0 it stands, 1 it waits, 2 it may march.
-    #[func]
-    fn move_choices(&self, roster: Gd<SquadRoster>) -> PackedInt32Array {
-        let roster = roster.bind();
-        let choices: Vec<i32> = roster
-            .roster
-            .listed
-            .iter()
-            .map(|l| moving::choose(&self.squads, l.squad) as i32)
-            .collect();
-        PackedInt32Array::from(choices.as_slice())
-    }
-
     /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`): per
-    /// listed squad the share of its pace its units keep up with (`keeping`, FormationWalk.share)
-    /// and its route's code (`routes`, FormationStaging's); `tuning`: [TRAVEL_SCALE, seconds a
-    /// tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
-    /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block]. Its events go to the log
-    /// (`events_take`). Returns the listed squads that advanced, in the order planned, for the
-    /// joins.
+    /// listed squad its route's code (`routes`, FormationStaging's); `tuning`: [TRAVEL_SCALE,
+    /// seconds a tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
+    /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block, wounds_reach, walk_lost].
+    /// Each squad's share of its pace is worked out here (`moving::share`, by the fight's
+    /// `seed`). Its events go to the log (`events_take`). Returns the listed squads that
+    /// advanced, in the order planned, for the joins.
     #[func]
     fn move_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        keeping: PackedFloat64Array,
         routes: PackedInt32Array,
         ground: Option<Gd<TerrainGround>>,
         tick: i64,
+        seed: i64,
         tuning: PackedFloat64Array,
     ) -> PackedInt32Array {
         let roster = roster.bind();
         let t = tuning.as_slice();
         let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
         let given = moving::pass::Given {
-            keeping: keeping.as_slice(),
             routes: &routes,
             tick,
             travel_scale: t[0],
             seconds: t[1],
             route_length: t[2],
-            slack: [t[3], t[4], t[5]],
+            share: share_tuning(seed, &t[3..6], &t[8..10]),
             drag: [t[6], t[7]],
         };
         let (squads, field, events) = (&mut self.squads, &mut self.field, &mut self.events);
@@ -3825,6 +3777,24 @@ impl BodyField {
         });
         self.edits += 1;
         joiners.iter().map(|&n| n as i32).collect()
+    }
+
+    /// FormationWalk.share for `roster`'s only squad on `ground` (`moving::share`), by the
+    /// fight's `seed`; `tuning`: [discipline_per_leadership, walk_slack_loose,
+    /// walk_slack_drilled, wounds_reach, walk_lost].
+    #[func]
+    fn walk_share(
+        &self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> f64 {
+        let roster = roster.bind();
+        let t = tuning.as_slice();
+        let tuning = share_tuning(seed, &t[0..3], &t[3..5]);
+        let listed = &roster.roster.listed[0];
+        on_ground(ground, |g| moving::share::of(&self.squads, &self.field, listed, g, &tuning))
     }
 
     /// FormationPathing.step over the squads in `squads` (their slots, in the lists' order)

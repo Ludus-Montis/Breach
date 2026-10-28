@@ -3,9 +3,11 @@
 //! stands, and every move landed together, each advancing squad stopped at contact or behind
 //! a friend as they stood at the tick's start (Decision 97). The pass (`pass`, spec 39 step
 //! 8b5-viii) runs each march between them (staging, the turn, the sweep, the pace, the drag)
-//! and the ends after; the walk's share and the joins are GDScript's still.
+//! and the ends after, with the walk's share (`share`, 8b5-ix); the joins are GDScript's
+//! still.
 
 pub mod pass;
+pub mod share;
 #[cfg(test)]
 mod tests;
 

@@ -34,6 +34,23 @@ fn grem(id: i64, slot: usize) -> Member {
     }
 }
 
+/// Where the unit in `column` of a two-abreast front at `anchor`, facing east, belongs.
+fn place(anchor: V2, column: i32) -> V2 {
+    let frame = march::pour::Frame { anchor, heading: EAST, width: 2, centre_shift: 0.0 };
+    let unit = march::pour::Pourer {
+        id: 0,
+        at: anchor,
+        rank: 0,
+        column,
+        footprint_width: 1,
+        footprint_depth: 1,
+        offset: V2::ZERO,
+        walker: Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false },
+        taking: None,
+    };
+    march::pour::place(&frame, &unit)
+}
+
 struct Built {
     squads: Squads,
     field: Field,
@@ -59,7 +76,8 @@ fn built(fronts: &[f64]) -> Built {
             let slot = field.hold(id) as usize;
             field.columns.column[slot] = column as i32;
             field.columns.speed[slot] = 1.0;
-            field.columns.position[slot] = lane().point_at(front * CELLS);
+            field.columns.sheet[slot].discipline = 0; // a slack of 1 cell
+            field.columns.position[slot] = place(squads.position[s], column as i32);
             squads.members[s].push(slot as i32);
             living.push(grem(id, slot));
         }
@@ -69,23 +87,27 @@ fn built(fronts: &[f64]) -> Built {
 }
 
 impl Built {
-    /// The pass on `tick`, every squad keeping `keeping` of its pace, on open ground; its
-    /// joiners and the events it logged.
-    fn run(&mut self, keeping: &[f64]) -> (Vec<usize>, Vec<i64>) {
+    /// The pass on `tick`, on open ground; its joiners and the events it logged.
+    fn run(&mut self) -> (Vec<usize>, Vec<i64>) {
         let routes = vec![0; self.roster.listed.len()];
+        let share = ShareTuning { seed: 0, wounds_reach: 1.0, lost: 2.0, slack: [0.0, 1.0, 4.0] };
         let given = Given {
-            keeping,
             routes: &routes,
             tick: TICK,
             travel_scale: 0.125,
             seconds: 0.1,
             route_length: 10.0,
-            slack: [0.0, 1.0, 4.0],
+            share,
             drag: [0.5, 2.0],
         };
         let mut log = Log::default();
         let joiners = step(&mut self.squads, &mut self.field, &self.roster, None, &given, &mut log);
         (joiners, log.take())
+    }
+
+    /// The unit in store slot `slot` stands `by` cells behind its place (west).
+    fn lag(&mut self, slot: usize, by: f32) {
+        self.field.columns.position[slot].x -= by;
     }
 }
 
@@ -98,7 +120,8 @@ fn event(kind: usize, values: &[i64]) -> Vec<i64> {
 fn a_squad_steps_at_its_slowest_units_pace_within_the_share_its_units_keep_and_advances() {
     let mut b = built(&[2.0, 6.0]);
     b.field.columns.speed[1] = 0.5;
-    let (joiners, log) = b.run(&[1.0, 0.5]);
+    b.lag(3, 0.75); // three quarters of its slack of 1: it keeps half its pace
+    let (joiners, log) = b.run();
     let step = 0.5 * 0.125 * 0.1;
     assert!((b.squads.front_distance[0] - (2.0 + step)).abs() < 1e-12);
     assert!((b.squads.front_distance[1] - (6.0 + 1.0 * 0.125 * 0.1 * 0.5)).abs() < 1e-12);
@@ -111,7 +134,8 @@ fn a_squad_steps_at_its_slowest_units_pace_within_the_share_its_units_keep_and_a
 #[test]
 fn a_squad_out_of_its_units_slack_waits_for_them() {
     let mut b = built(&[2.0]);
-    let (joiners, _) = b.run(&[0.0]);
+    b.lag(0, 1.5); // beyond its slack of 1, within walk_lost
+    let (joiners, _) = b.run();
     assert_eq!(b.squads.front_distance[0], 2.0);
     assert!(joiners.is_empty());
 }
@@ -119,7 +143,7 @@ fn a_squad_out_of_its_units_slack_waits_for_them() {
 #[test]
 fn a_squad_reaching_the_enemys_end_arrives_there() {
     let mut b = built(&[9.999]);
-    let (_, log) = b.run(&[1.0]);
+    let (_, log) = b.run();
     assert_eq!(b.squads.front_distance[0], 10.0);
     assert_eq!(b.squads.state[0], ARRIVED);
     assert_eq!(log, event(events::ARRIVED, &[]));
@@ -130,7 +154,7 @@ fn a_squad_going_back_the_way_it_faces_turns_first_and_reports_its_new_heading()
     let mut b = built(&[5.0]);
     b.squads.order[0] = RETREAT;
     b.squads.swaps[0] = vec![Held { ticks: 2, total: 4, units: Vec::new(), passed: Vec::new() }];
-    let (joiners, log) = b.run(&[1.0]);
+    let (joiners, log) = b.run();
     assert_eq!(b.squads.direction[0], -1, "about-faced");
     assert!(b.squads.swaps[0].is_empty(), "its swaps under way cancelled");
     assert!(joiners.is_empty(), "it re-forms before it moves");
@@ -151,10 +175,10 @@ fn a_staged_squad_holds_at_its_point_then_gives_up_and_turns_back_as_its_order_s
         meet: None,
     };
     b.squads.staging[0] = Some(stage);
-    let (_, log) = b.run(&[1.0]);
+    let (_, log) = b.run();
     assert_eq!(log, event(events::STAGED, &[]));
     assert_eq!((b.squads.state[0], b.squads.front_distance[0]), (HOLDING, 2.0));
-    let (_, log) = b.run(&[1.0]);
+    let (_, log) = b.run();
     assert!(b.squads.staging[0].is_none());
     assert_eq!(b.squads.order[0], RETREAT);
     let back = i64::from(b.field.lexicon.find("back").expect("coded"));
@@ -167,7 +191,7 @@ fn a_squad_still_waiting_counts_down_and_one_ordered_to_hold_holds() {
     let mut b = built(&[2.0, 6.0]);
     b.squads.wait_ticks[0] = 2;
     b.squads.order[1] = HOLD;
-    b.run(&[1.0, 1.0]);
+    b.run();
     assert_eq!(b.squads.wait_ticks[0], 1);
     assert_eq!((b.squads.state[1], b.squads.front_distance[1]), (HOLDING, 6.0));
 }
