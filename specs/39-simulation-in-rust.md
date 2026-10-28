@@ -253,7 +253,16 @@ events. After this step no battle phase runs in GDScript.
   crate; **8b4-vi** spawning and the order queue. **8b4-v split further** (2026-10-28, under
   the same leave), on its survey: **8b4-v** the swaps under way held by the crate, with the
   units' state mirrored in the store; **8b4-vi** the taking held by the crate; **8b4-vii**
-  spawning and the order queue.
+  spawning and the order queue. **8b5 split** (2026-10-28, under the same leave), on its
+  survey (the tick still runs about 18 phases' glue in GDScript, each unit is a GDScript object of 61
+  fields, and every phase builds its events as dictionaries): **8b5-i** the units' remaining
+  fields held by the crate, SkirmishUnit a view of them; **8b5-ii** the squads' remaining
+  fields (their units, the joined, faction, the living and downed lists) held by the crate;
+  **8b5-iii** orders, engagement, pathing and the move as one crate pass, their events built
+  as data; **8b5-iv** the scrum, the fight and deaths, likewise; **8b5-v** taking, wounds,
+  recovery and strays; **8b5-vi** morale, the rout and carrying; **8b5-vii** groups, stamina,
+  the bodies, the shuffle and the march's sync; **8b5-viii** one `step()` binding,
+  FormationSimulation.step that one call and the events decoded from its data.
 
 ### Step 9, the rest of `sim/`
 
@@ -1801,7 +1810,8 @@ Decision's conditions.
   apart). Red on stubs, then green. gdUnit `test_formation_simulation.gd`: the crate issues
   the ids and queues the orders (red with the queue stubbed: it and the file's ordering tests
   fail; then green, with `test_formation_command.gd` and `test_formation_staging.gd`).
-- **After it**, 8b5: one `step()` call, the events handed back as data.
+- **After it**, 8b5-i: the units' remaining fields held by the crate (8b5's split is in
+  Step 8's bullet).
 
 ## Open, for the implementing session to settle and record here
 
