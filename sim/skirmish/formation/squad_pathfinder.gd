@@ -13,5 +13,5 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 ## The squad's pathfinder in the battle seeded `fight_seed`; null with none standing.
 static func pick(squad: SkirmishSquad, fight_seed: int) -> SkirmishUnit:
 	var living := squad.living()
-	var index: int = CratePaths.core().pathfinder(CratePaths.members(squad, living), fight_seed)
+	var index: int = CratePaths.core().pathfinder(CratePaths.members(squad), fight_seed)
 	return null if index < 0 else living[index]

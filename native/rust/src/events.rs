@@ -17,6 +17,7 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("morale_band", &["band", "morale"]),
     ("engaged", &["with"]),
     ("flanked", &["by", "edge"]),
+    ("detoured", &["cells"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -25,6 +26,7 @@ pub const PURSUING: usize = 3;
 pub const MORALE_BAND: usize = 4;
 pub const ENGAGED: usize = 5;
 pub const FLANKED: usize = 6;
+pub const DETOURED: usize = 7;
 
 /// The events a pass has built and GDScript hasn't yet taken, flat, in the order built.
 #[derive(Clone, Debug, Default, PartialEq)]

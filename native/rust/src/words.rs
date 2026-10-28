@@ -40,6 +40,11 @@ impl Lexicon {
         code
     }
 
+    /// The code of `word`, if it has been given one.
+    pub fn find(&self, word: &str) -> Option<u32> {
+        self.codes.get(word).copied()
+    }
+
     /// Every word, by its code.
     pub fn words(&self) -> &[String] {
         &self.words
@@ -140,6 +145,7 @@ mod tests {
         assert_eq!(lexicon.code("player"), 1);
         assert_eq!(lexicon.code("fire"), 2);
         assert_eq!(lexicon.code("player"), 1);
+        assert_eq!((lexicon.find("fire"), lexicon.find("wits")), (Some(2), None));
         assert_eq!((lexicon.word(2), lexicon.word(0), lexicon.word(9)), ("fire", "", ""));
     }
 
