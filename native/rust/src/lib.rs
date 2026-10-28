@@ -69,6 +69,7 @@ mod stamina;
 mod stance;
 mod steer;
 mod strays;
+mod swaps;
 mod taking;
 mod trade;
 mod turn;
@@ -3744,6 +3745,44 @@ impl BodyField {
         PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
     }
 
+    /// FormationShuffle.step's swaps under way for the squad in squad slot `squad`: its
+    /// living units as squad_compact takes them, the store slots of all its units, and its
+    /// swaps in the list's order, each its ticks left, its units' count, then six numbers a
+    /// unit, the mover first: store slot, 1 if it stands, the rank and column it heads for,
+    /// footprint width and depth. Returns how far left the widenings moved the columns' 0,
+    /// the count of swaps still under way, each its index and ticks left; then each swap that
+    /// ended, in the order it did: its index, the count of units that stepped up after it and
+    /// each one's index into `living` and rank (swaps::end).
+    #[func]
+    fn squad_swaps_end(
+        &mut self,
+        squad: i64,
+        living: PackedInt64Array,
+        units: PackedInt32Array,
+        swaps: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let units: Vec<usize> = units.as_slice().iter().map(|&slot| slot as usize).collect();
+        let ends = swaps::end(
+            &mut self.squads,
+            &mut self.field.columns,
+            squad as usize,
+            &closers(&living),
+            &units,
+            &under_way(&swaps),
+        );
+        let mut out: Vec<i64> = vec![ends.left as i64, ends.kept.len() as i64];
+        for (index, ticks) in ends.kept {
+            out.extend_from_slice(&[index as i64, ticks]);
+        }
+        for (index, stepped) in ends.ended {
+            out.extend_from_slice(&[index as i64, stepped.len() as i64]);
+            for (n, rank) in stepped {
+                out.extend_from_slice(&[n as i64, rank as i64]);
+            }
+        }
+        PackedInt64Array::from(&out[..])
+    }
+
     /// FormationContact.reinforce: the squad in squad slot `joining` taken in behind the
     /// squad in `leader`. `units`: the store slots of all the leader's units; `leader` and
     /// `joining_living`: each squad's living units as squad_compact takes them; `movers`: the
@@ -3889,6 +3928,30 @@ fn moving(movers: &PackedInt32Array) -> Vec<compact::Moving> {
     rows.iter()
         .map(|r| compact::Moving { slot: r[0] as usize, to: (r[1], r[2]), foot: (r[3], r[4]) })
         .collect()
+}
+
+/// A squad's swaps under way as squad_swaps_end is given them.
+fn under_way(swaps: &PackedInt64Array) -> Vec<swaps::Swap> {
+    let s = swaps.as_slice();
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < s.len() {
+        let (ticks, count) = (s[at], s[at + 1] as usize);
+        at += 2;
+        let (rows, _) = s[at..at + count * 6].as_chunks::<6>();
+        let units = rows
+            .iter()
+            .map(|r| swaps::SwapUnit {
+                slot: r[0] as usize,
+                alive: r[1] != 0,
+                to: (r[2] as i32, r[3] as i32),
+                foot: (r[4] as i32, r[5] as i32),
+            })
+            .collect();
+        at += count * 6;
+        out.push(swaps::Swap { ticks, units });
+    }
+    out
 }
 
 /// Stamina (spec 39 step 6a).

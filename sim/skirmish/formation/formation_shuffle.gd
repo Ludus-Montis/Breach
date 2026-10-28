@@ -16,8 +16,8 @@ extends RefCounted
 ##   keeps fighting. A death of anyone involved cancels it.
 ## A squad re-forms until no further move can start. Pure over the squad it is given. Which
 ## moves start is the crate's (native/rust/src/march/shuffle.rs and front.rs, spec 39 step
-## 3d); the swaps under way, their ends and the widening stay here until compaction ports
-## (step 5).
+## 3d), and so are the swaps' ends, the widening and the closing up after (swaps.rs, step
+## 8a2-iii); the list of swaps under way and the events stay here.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -30,42 +30,69 @@ const FormationEvents = preload("res://sim/skirmish/formation/formation_events.g
 static func step(
 	squad: SkirmishSquad, tick_seconds: float, travel_scale: float, tick: int
 ) -> Array:
-	var events := []
-	var within := false  # every living unit known to stand in the squad's columns
-	for index in range(squad.swaps.size() - 1, -1, -1):
-		var swap: Dictionary = squad.swaps[index]
-		if swap["to"].keys().any(func(u): return not u.is_alive()):
-			squad.swaps.remove_at(index)
-			continue
-		swap["ticks"] -= 1
-		if swap["ticks"] > 0:
-			continue
-		# store: scattered (few: a swap ending, its step-ups, a widening)
-		for unit in swap["to"]:
-			UnitPlace.put(squad, unit, swap["to"][unit])
-		squad.swaps.remove_at(index)
-		if not within or not swap["to"].keys().all(func(u): return _inside(squad, u)):
-			_widen_to_fit(squad)  # only the movers' columns have changed since it last did
-			within = true
-		var ids: Array = swap["passed"].map(func(u): return u.id)
-		events.append(
-			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
-		)
-		# store: scattered (few: a swap ending, its step-ups, a widening)
-		for moved in squad.compact():  # close the gaps the move left
-			var rank := UnitPlace.rank(squad, moved)
-			events.append(
-				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
-			)
+	var events := [] if squad.swaps.is_empty() else _end_swaps(squad, tick)
 	if squad.reforming and not _start_moves(squad, tick_seconds, travel_scale):
 		squad.reforming = not squad.swaps.is_empty()
 	return events
 
 
-## True if the unit stands within the squad's columns.
-static func _inside(squad: SkirmishSquad, unit: SkirmishUnit) -> bool:
-	var column := UnitPlace.of(squad, unit).y
-	return column >= 0 and column + unit.footprint_width <= squad.width
+## The crate cancels, counts down and ends the squad's swaps under way, widens it and closes
+## it up (swaps.rs); this keeps the list, renumbered, and makes the events.
+static func _end_swaps(squad: SkirmishSquad, tick: int) -> Array:
+	var living := squad.living()
+	var columns: UnitColumns = squad.store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var front := squad.front_distance
+	var closers := SquadCompact.closers(living)
+	var slots := PackedInt32Array(squad.units.map(func(unit): return unit.slot))
+	var swaps := _under_way(squad)
+	var ends: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.squad_swaps_end(squad.slot, closers, slots, swaps)
+	)
+	SquadCompact.placed(squad, front)
+	var was: Array = squad.swaps
+	var left := Vector2i(0, ends[0])
+	var kept := []
+	var at := 2
+	for _each in ends[1]:
+		var swap: Dictionary = was[ends[at]]
+		swap["ticks"] = ends[at + 1]
+		for key in ["from", "to"]:
+			for unit in swap[key]:
+				swap[key][unit] -= left
+		kept.append(swap)
+		at += 2
+	squad.swaps = kept
+	var events := []
+	while at < ends.size():
+		var swap: Dictionary = was[ends[at]]
+		var ids: Array = swap["passed"].map(func(u): return u.id)
+		events.append(
+			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
+		)
+		for _each in ends[at + 1]:
+			at += 2
+			var rank: int = ends[at + 1]
+			var moved: SkirmishUnit = living[ends[at]]
+			events.append(
+				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
+			)
+		at += 2
+	return events
+
+
+## The squad's swaps under way as the crate takes them: each its ticks left, its units'
+## count, then six numbers a unit, the mover first: store slot, 1 if it stands, the place
+## (rank, column) it heads for, footprint width and depth.
+static func _under_way(squad: SkirmishSquad) -> PackedInt64Array:
+	var out := PackedInt64Array()
+	for swap in squad.swaps:
+		out.append_array([swap["ticks"], swap["to"].size()])
+		for unit in swap["to"]:
+			var to: Vector2i = swap["to"][unit]
+			var shape := [unit.footprint_width, unit.footprint_depth]
+			out.append_array([unit.slot, int(unit.is_alive()), to.x, to.y] + shape)
+	return out
 
 
 ## {unit: the swap under way it moves in} for the squad, as it stands: give it to offset()
@@ -158,27 +185,3 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 		plan.merge({"ticks": ticks, "total": ticks})
 		squad.swaps.append(plan)
 	return not moves.is_empty()
-
-
-## A front-preferring unit's move to the nearest free place in the front rank; {} if none.
-## Takes in any columns units now stand in outside 0..width (a spread, Decision 51):
-## renumbers every column, swaps under way included, and shifts the centre to match.
-static func _widen_to_fit(squad: SkirmishSquad) -> void:
-	var left := 0
-	var right := squad.width
-	var files: PackedInt32Array = UnitView.read(squad, [UnitColumns.COLUMN]).column  # read once
-	for unit in squad.living():
-		var column: int = files[unit.slot]
-		left = mini(left, column)
-		right = maxi(right, column + unit.footprint_width)
-	if left == 0 and right == squad.width:
-		return
-	squad.centre_shift += left + (right - left - squad.width) / 2.0
-	# store: scattered (few: a swap ending, its step-ups, a widening)
-	for unit in squad.units:
-		UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(0, left))
-	for swap in squad.swaps:
-		for key in ["from", "to"]:
-			for unit in swap[key]:
-				swap[key][unit] -= Vector2i(0, left)
-	squad.width = right - left

@@ -226,7 +226,10 @@ events. After this step no battle phase runs in GDScript.
   PR closes the step. **8a2 split further** (2026-10-28, under the user's standing leave to
   split): **8a2-i** ScrumTurn and the joins' order; **8a2-ii** staging's hold and fallback
   and the bodies' drag (GroundBodies); **8a2-iii** the shuffle's swaps under way, their ends
-  and the widening, and whatever else the tick still decides in GDScript.
+  and the widening, and whatever else the tick still decides in GDScript. **8a2-iii split
+  further** (2026-10-28, under the same leave): **8a2-iii** the shuffle's swaps' ends, the
+  widening and the closing up after; **8a2-iv** whatever else the tick still decides in
+  GDScript (surveyed by its session).
 
 ### Step 9, the rest of `sim/`
 
@@ -1424,6 +1427,39 @@ Decision's conditions.
   staged too if it just arrived; a fired trigger goes before it holds). The drag's and the
   hold's ran red on stubs, then green. gdUnit: test_ground_bodies.gd and
   test_formation_staging.gd unchanged, now through the crate.
+
+### Step 8a2-iii, the shuffle's swaps' ends and the widening in the crate
+
+- **The swaps' ends** (`swaps.rs`, `end`, FormationShuffle.step): last first, a swap any of
+  whose units has fallen is cancelled where they stand; the rest count down, and one whose
+  time is up ends: its units take the places it was heading for, the squad widens to take in
+  any living unit now outside its columns (the first end always looks; after it, only an end
+  with a unit outside), and it closes up (`compact`, already the crate's) round the swaps
+  still under way. The widening renumbers every unit's column, the fallen's too, and the
+  swaps still under way, and shifts the centre by `left + (right - left - width) / 2.0`.
+  GDScript hands in the swaps as numbers (`_under_way`: ticks, then each unit's slot, whether
+  it stands, its place to and footprint) and the squad's units; the answer is the swaps kept
+  with their ticks left, how far the widenings moved the columns, and each swap that ended
+  with the units that stepped up after it and their ranks. GDScript keeps the list (its
+  `from`, `to`, mover and passed, renumbered by the answer), makes the "swapped" and
+  "stepped_up" events in the order they happened, and starts new moves (already the
+  crate's).
+- **Kept GDScript:** the list of swaps under way, read as it stands by the offsets
+  (`offset`, `movers`) of the march, the pour, the split and the presentation, until the
+  crate holds the tick's state (8b).
+- **Identical:** the same operations in the same order: swaps last first, a swap's units
+  in its `to` order (the mover first), compact's movers the swaps still listed in the list's
+  order, each widening's bounds over the living, the centre shift in f64. The events carry
+  ids and the rank each stepped up to as it did. The squad's position follows its front once
+  after (`SquadCompact.placed`): nothing reads it between. The proof is CI's digests against
+  the base. Outcomes unchanged.
+- **Retired:** FormationShuffle's own ends, `_inside` and `_widen_to_fit`.
+- **Tests:** cargo: `swaps/tests.rs` (a swap with time left counts down and nobody moves;
+  one ending puts its units in place and the gap closes; one with a fallen unit is cancelled;
+  ending outside the columns widens the squad and renumbers every place, the fallen's and a
+  later-ending swap's too; a widening on the right keeps the columns while a swap under way
+  counts down). Red on a stub, then green. gdUnit: test_formation_moves.gd and
+  test_formation_spread.gd unchanged, now through the crate.
 
 ## Open, for the implementing session to settle and record here
 
