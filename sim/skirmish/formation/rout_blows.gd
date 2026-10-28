@@ -21,18 +21,13 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 ## striker's target and cooldown.
 static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var routers := []  # each routing squad's living, as the crate indexes them
-	var routing := PackedInt32Array()
-	var points := PackedVector2Array()
+	var routing := PackedInt32Array()  # each routing squad's index, on the route it holds
 	for index in squads.size():
 		var squad: SkirmishSquad = squads[index]
 		if squad.state != SkirmishSquad.State.ROUTING:
 			continue
 		routers.append(squad.living())
-		var route: PackedVector2Array = (
-			squad.route.points() if squad.route != null else PackedVector2Array()
-		)
-		routing.append_array([index, route.size()])
-		points.append_array(route)
+		routing.append(index)
 	if routers.all(func(living): return living.is_empty()):
 		return []
 	var fighters := []
@@ -52,8 +47,7 @@ static func blows(squads: Array, interval: int, fight_seed: int = 0) -> Array:
 	var roster := CrateRoster.of(squads)
 	var reach := BattleTuning.current().rout_strike_reach
 	var struck: PackedInt64Array = ColumnsLent.all(
-		columns,
-		func(): return field.rout_blows(roster, routing, points, hunting, reach, fight_seed)
+		columns, func(): return field.rout_blows(roster, routing, hunting, reach, fight_seed)
 	)
 	var out := []
 	for at in range(0, struck.size(), 3):

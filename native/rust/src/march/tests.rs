@@ -476,6 +476,39 @@ fn a_frame_sweeps_no_faster_than_its_outer_file_marches_the_arc() {
     assert_eq!(sweep::wanted(&bend, 40.0, -1, 90.0), 0.0); // going back up the route
 }
 
+/// A squad of `width` columns, its front 40 cells along a route bending south at 32 cells.
+fn on_the_bend(width: i32) -> crate::squads::Squads {
+    let mut squads = crate::squads::Squads::default();
+    squads.open(1);
+    squads.width[0] = width;
+    squads.direction[0] = 1;
+    squads.heading[0] = 90.0;
+    squads.front_distance[0] = 40.0 / 64.0;
+    squads.route[0] = Some(Route::new(vec![v(0.0, 0.0), v(32.0, 0.0), v(32.0, 64.0)], 0.0));
+    squads
+}
+
+#[test]
+fn a_squad_faces_its_held_route_where_its_front_stands() {
+    let mut squads = on_the_bend(8);
+    sweep::face_held(&mut squads, 0);
+    assert_eq!(squads.heading[0], 180.0);
+    squads.route[0] = None;
+    squads.heading[0] = 90.0;
+    sweep::face_held(&mut squads, 0);
+    assert_eq!(squads.heading[0], 90.0, "no route: as it is");
+}
+
+#[test]
+fn a_squad_sweeps_towards_its_held_route_no_faster_than_its_rate() {
+    let mut squads = on_the_bend(8);
+    sweep::sweep_held(&mut squads, 0, 8.0, 0.1);
+    assert_eq!(squads.heading[0], sweep::step(90.0, 180.0, 8, 8.0, 0.1));
+    squads.route[0] = None;
+    sweep::sweep_held(&mut squads, 0, 8.0, 0.1);
+    assert_eq!(squads.heading[0], sweep::step(90.0, 180.0, 8, 8.0, 0.1), "no route: as it is");
+}
+
 // PlaceOrder (test_place_order) and FormationShuffle.
 
 #[test]

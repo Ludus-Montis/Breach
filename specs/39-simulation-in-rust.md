@@ -1647,6 +1647,28 @@ Decision's conditions.
 - **After it**, 8b4-ii: the bindings that take many squads' routes, and the march's face and
   sweep, read the held routes.
 
+### Step 8b4-ii, the held routes read by every binding
+
+- **Read there now:** the bindings that took many squads' routes as points: the withdrawal
+  (`withdraw`), the rout's flight, rallies, re-forming and breaks (`rout_flee`,
+  `rout_rallies`, `rout_regroup`, `rout_break`, each routing squad now one number, its index
+  in the roster), the rout's blows (`rout_blows`), the split (`group_split`), a retreat's
+  orders (`apply_orders`: each squad's route code only, still GDScript's, since two squads
+  share a code only when they share the route object) and the pursuit (`pursue`: the route
+  a squad is on; the one it held its post on stays GDScript's, in its pursuit record, till
+  8b4-iv).
+- **The march's face and sweep** (`march::sweep::face_held` and `sweep_held`) turn a squad's
+  frame along the route it holds, its heading written in the crate (`march_face`,
+  `march_sweep` on the field). CrateMarch's `face` and `sweep`, which took the points, retire.
+- **Identical:** each call reads the same points GDScript passed before, at the same moment
+  (nothing in the crate changes a route), and a squad with no route reads none, as before.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `march/tests.rs` (a squad faces its held route where its front stands, and
+  as it is with none; a squad sweeps towards its held route no faster than its rate, and as
+  it is with none). Red on stubs, then green. gdUnit `test_formation_sweep.gd` green. The
+  battles through the rout, the withdrawal, the split, the orders and the pursuit unchanged.
+- **After it**, 8b4-iii: the commands held by the crate.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

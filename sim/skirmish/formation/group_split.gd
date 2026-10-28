@@ -34,17 +34,12 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 		return next_id
 	var livings := []  # each candidate's living units as the crate is given them
 	var listed := PackedInt32Array()
-	var counts := PackedInt32Array()
-	var points := PackedVector2Array()
 	var taking := PackedByteArray()
 	var offsets := PackedVector2Array()
 	for index in candidates.size():
 		var squad: SkirmishSquad = candidates[index]
 		var waits := FormationWalk.rule_of(squad) == "no_man_left_behind"
 		listed.append_array([index, int(waits)])
-		var route_points: PackedVector2Array = squad.route.points()
-		counts.append(route_points.size())
-		points.append_array(route_points)
 		var living := squad.living()
 		livings.append(living)
 		for unit in living:
@@ -55,7 +50,7 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 		[tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE]
 	)
 	var out: PackedFloat64Array = squads[0].store.field().group_split(
-		CrateRoster.of(candidates), listed, counts, points, taking, offsets, rules, fight_seed
+		CrateRoster.of(candidates), listed, taking, offsets, rules, fight_seed
 	)
 	var i := 0
 	while i < out.size():  # no split moves a unit: each was decided on where they stood
