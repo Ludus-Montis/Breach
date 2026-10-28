@@ -15,12 +15,16 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("withdrawing", &[]),
     ("pursuing", &["of"]),
     ("morale_band", &["band", "morale"]),
+    ("engaged", &["with"]),
+    ("flanked", &["by", "edge"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
 pub const WITHDRAWING: usize = 2;
 pub const PURSUING: usize = 3;
 pub const MORALE_BAND: usize = 4;
+pub const ENGAGED: usize = 5;
+pub const FLANKED: usize = 6;
 
 /// The events a pass has built and GDScript hasn't yet taken, flat, in the order built.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -66,5 +70,6 @@ mod tests {
             assert!(KINDS[n + 1..].iter().all(|other| other.0 != kind.0));
         }
         assert_eq!(KINDS[MORALE_BAND], ("morale_band", &["band", "morale"][..]));
+        assert_eq!(KINDS[FLANKED], ("flanked", &["by", "edge"][..]));
     }
 }

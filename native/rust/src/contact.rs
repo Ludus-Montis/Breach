@@ -354,6 +354,8 @@ fn reaches(field: &Field, attacker: usize, victim: usize) -> bool {
     gap > -EPSILON && gap <= MELEE_REACH + EPSILON && geometry::overlap_across(&mine, &theirs)
 }
 
+pub mod pass;
+
 #[cfg(test)]
 #[path = "contact/tests.rs"]
 mod tests;

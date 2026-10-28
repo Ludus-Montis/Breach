@@ -290,7 +290,15 @@ events. After this step no battle phase runs in GDScript.
   pathing likewise; **8b5-vii** the move likewise. The rest follow, renumbered:
   **8b5-viii** the scrum, the fight and deaths; **8b5-ix** taking, wounds, recovery and
   strays; **8b5-x** morale, the rout and carrying; **8b5-xi** groups, stamina, the bodies,
-  the shuffle and the march's sync; **8b5-xii** one `step()` binding.
+  the shuffle and the march's sync; **8b5-xii** one `step()` binding. **8b5-vi split
+  further** (2026-10-28, under the same leave), on its survey (the fronts and edges already
+  decide in the crate and only their events and shocks are GDScript's, while pathing's look
+  reads each unit's wits and its definition's sight, still GDScript's): **8b5-vi**
+  engagement's events and shocks built in the crate; **8b5-vii** pathing (the follow, the
+  look, "detoured") likewise. The rest follow, renumbered: **8b5-viii** the move;
+  **8b5-ix** the scrum, the fight and deaths; **8b5-x** taking, wounds, recovery and
+  strays; **8b5-xi** morale, the rout and carrying; **8b5-xii** groups, stamina, the bodies,
+  the shuffle and the march's sync; **8b5-xiii** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -1995,6 +2003,30 @@ Decision's conditions.
   `test_formation_retreat.gd` and `test_formation_simulation.gd` run in CI.
 - **After it**, 8b5-vi: engagement (perception, the fronts, the edges and their shocks) and
   pathing (the follow, the look) as crate passes, their events built as data.
+
+### Step 8b5-vi, engagement's events and shocks built in the crate
+
+- **The passes** (`contact::pass`): the fronts and the edges decide in the crate already
+  (step 4c); now they report there too. Each front lock picked is its attacker's "engaged"
+  event (with: its foe's id), in the lists' order; each flank lock landed is its victim's
+  "flanked" event (by: the attacker's id, edge: SquadEdges' number), then the victim's
+  shock (`shocks.rs`, 8b5-v's): `morale_rear_impact` for its rear, `morale_side_impact`
+  for a side. FormationFronts and FormationEdges hand the crate the tick, the impacts and
+  morale's tuning (BandTuning, now shared with FormationOrders and FormationMorale) and
+  take the events (CrateEvents). Perception reports nothing, and stays the binding it was:
+  taking reads its picture till taking moves (8b5-x).
+- **Identical:** the same locks, shocks and events in the same order with the same keys
+  and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `contact/pass.rs` (each front lock is its attacker's event in the lists'
+  order; a flank lock is the victim's event then the shock of its edge; the rear's is the
+  rear's impact) and `events.rs` (the new kinds named once); red on stubs, then green.
+  gdUnit `test_formation_morale.gd`: a rear hit is reported, keys in order, then the band
+  it shocks the line into; `test_formation_engage_rule.gd`: a front lock is its attacker's
+  "engaged" event with its foe, keys in order (red with the GDScript's taking of the events
+  stubbed, then green).
+- **After it**, 8b5-vii: pathing (the follow, the look, "detoured") as a crate pass, its
+  event built as data; the look reads each unit's wits and its definition's sight from the
+  crate.
 
 ## Open, for the implementing session to settle and record here
 

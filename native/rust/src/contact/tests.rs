@@ -22,10 +22,10 @@ fn grem(id: i64, slot: usize) -> Member {
     }
 }
 
-struct Built {
-    squads: Squads,
-    columns: Columns,
-    roster: Roster,
+pub(super) struct Built {
+    pub(super) squads: Squads,
+    pub(super) columns: Columns,
+    pub(super) roster: Roster,
 }
 
 impl Built {
@@ -36,7 +36,7 @@ impl Built {
 
 /// A squad per `fronts` entry (front, heading, faction), ids from 1, each two grems abreast
 /// in its front rank.
-fn built(fronts: &[(V2, f64, u32)]) -> Built {
+pub(super) fn built(fronts: &[(V2, f64, u32)]) -> Built {
     let mut squads = Squads::default();
     let mut columns = Columns::default();
     let mut roster = Roster::default();
@@ -63,9 +63,9 @@ fn built(fronts: &[(V2, f64, u32)]) -> Built {
     Built { squads, columns, roster }
 }
 
-const EAST: f64 = 90.0;
-const WEST: f64 = 270.0;
-const NORTH: f64 = 0.0;
+pub(super) const EAST: f64 = 90.0;
+pub(super) const WEST: f64 = 270.0;
+pub(super) const NORTH: f64 = 0.0;
 
 #[test]
 fn two_fronts_face_to_face_within_reach_lock_onto_each_other() {
