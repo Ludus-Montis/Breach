@@ -16,8 +16,9 @@ extends RefCounted
 ## cells along its route, "trigger", "partner": squad id or 0, "fallback": ticks, "then":
 ## "go" or "back", optionally "meet": the meeting point and "meet_cells": how far along its
 ## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
-## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii);
-## the order and the events stay here.
+## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii),
+## and the order itself (step 8b4-iv: SkirmishSquad.staging is a view of it); the events
+## stay here.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
@@ -61,8 +62,7 @@ static func holds(
 		events.append(FormationEvents.squad_event("staged", tick, squad))
 	var what := held & ~STAGED
 	if what == HOLDS:
-		squad.staging["fallback"] -= 1
-		return true
+		return true  # its fallback counted down in the crate
 	if what != GIVES_UP:
 		return false  # still on its way
 	var then: String = squad.staging.get("then", "go")
@@ -86,25 +86,16 @@ static func _hold(
 	var codes := PackedInt32Array()
 	for other in squads:
 		codes.append(routes.get_or_add(other.route, routes.size()))
-	var order := PackedInt64Array(
-		[int(squad.staging["trigger"] != SEES_PARTNER), squad.staging.get("partner", 0)]
-	)
-	var meet := PackedFloat64Array()
-	if squad.staging.has("meet") and _coordinated(squad):
-		var at: Vector2 = squad.staging["meet"]
-		meet = PackedFloat64Array(
-			[at.x, at.y, squad.staging["meet_cells"], FormationWalk.slack_of(squad)]
-		)
+	var coordinated := squad.staging.has("meet") and _coordinated(squad)
+	var slack := FormationWalk.slack_of(squad) if coordinated else 0.0
 	return squad.store.field().staging_hold(
 		roster,
 		squads.find(squad),
-		order,
 		codes,
-		meet,
+		coordinated,
+		slack,
 		PackedFloat64Array(pace),
-		UnitMover.ground(terrain),
-		float(squad.staging["at"]),
-		int(squad.staging["fallback"])
+		UnitMover.ground(terrain)
 	)
 
 

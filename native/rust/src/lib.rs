@@ -1798,6 +1798,14 @@ impl UnitMoves {
     }
 }
 
+/// A number GDScript handed in, an int or a float.
+fn variant_number(value: &Variant) -> f64 {
+    match value.get_type() {
+        VariantType::INT => value.to::<i64>() as f64,
+        _ => value.try_to::<f64>().unwrap_or(0.0),
+    }
+}
+
 /// Route patches handed in flat: patch `i` leaves at `froms[i]`, rejoins at `tos[i]` and
 /// has the next `counts[i]` of `waypoints`.
 fn patches_of(
@@ -4041,50 +4049,73 @@ impl BodyField {
         PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
     }
 
-    /// FormationStaging.holds for `roster`'s squad `listed` (index), staged `at` cells along
-    /// its route with `fallback` ticks left: its trigger's `order` = [whether it waits to see
-    /// a fight, its partner's id (0: none)], `routes`: each listed squad's route as a code,
-    /// `meet`: [x, y, cells along its route, slack] if a coordinated leader times it (else
-    /// empty), timed along the route it holds; `pace`: [cells a second at speed 1, seconds a
-    /// tick]. Returns staging::Hold's code; a squad at its point takes the HOLDING state.
+    /// FormationStaging.holds for `roster`'s squad `listed` (index), by the order it holds
+    /// (`staging::hold_staged`): `routes` each listed squad's route as a code, `slack` its
+    /// units' slack if a coordinated leader times its meeting (`coordinated`), `pace` [cells a
+    /// second at speed 1, seconds a tick]. Returns staging::Hold's code; a squad at its point
+    /// takes the HOLDING state, and its fallback counts down while it holds.
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn staging_hold(
         &mut self,
         roster: Gd<SquadRoster>,
         listed: i64,
-        order: PackedInt64Array,
         routes: PackedInt32Array,
-        meet: PackedFloat64Array,
+        coordinated: bool,
+        slack: f64,
         pace: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
-        at: f64,
-        fallback: i64,
     ) -> i64 {
         let roster = roster.bind();
         let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
-        let m = meet.as_slice();
-        let held = &self.squads.route[roster.roster.listed[listed as usize].squad];
-        let meet = (m.len() == 4).then(|| staging::Meeting {
-            at: V2::new(m[0] as f32, m[1] as f32),
-            cells: m[2],
-            route: held.clone().unwrap_or_else(|| route::Route::new(Vec::new(), 0.0)),
-            slack: m[3],
-        });
-        let (o, p) = (order.as_slice(), pace.as_slice());
-        let staged = staging::Staged {
-            listed: listed as usize,
-            sees_fight: o[0] != 0,
-            partner: o[1],
-            routes: &routes,
-            meet,
-            pace: [p[0], p[1]],
-        };
+        let (p, slack) = (pace.as_slice(), coordinated.then_some(slack));
         let (squads, columns) = (&mut self.squads, &self.field.columns);
         let held = on_ground(ground, |g| {
-            staging::hold(squads, columns, &roster.roster, g, &staged, at, fallback)
+            let listed = listed as usize;
+            let pace = [p[0], p[1]];
+            staging::hold_staged(squads, columns, &roster.roster, g, listed, &routes, slack, pace)
         });
         held.code()
+    }
+
+    /// The hold-until order the squad in `squad` holds, as FormationStaging reads it: {"at",
+    /// "trigger", "partner", "fallback", "then", and "meet" and "meet_cells" if it has a
+    /// meeting point}; empty if none.
+    #[func]
+    fn squad_staging(&self, squad: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        if let Some(order) = &self.squads.staging[squad as usize] {
+            out.set("at", order.at);
+            out.set("trigger", if order.sees_fight { "sees_fight" } else { "sees_partner" });
+            out.set("partner", order.partner);
+            out.set("fallback", order.fallback);
+            if let Some(then) = &order.then {
+                out.set("then", then.as_str());
+            }
+            if let Some((at, cells)) = order.meet {
+                out.set("meet", Vector2::new(at.x, at.y));
+                out.set("meet_cells", cells);
+            }
+        }
+        out
+    }
+
+    /// The squad in `squad` holds the hold-until `order` (as `squad_staging` reads it: any
+    /// trigger but "sees_partner" waits to see a fight; no partner is 0); empty: none.
+    #[func]
+    fn put_squad_staging(&mut self, squad: i64, order: VarDictionary) {
+        let number = |key: &str| order.get(key).map_or(0.0, |v| variant_number(&v));
+        self.squads.staging[squad as usize] = (!order.is_empty()).then(|| staging::Stage {
+            at: number("at"),
+            sees_fight: order.get("trigger").is_none_or(|t| t.to_string() != "sees_partner"),
+            partner: number("partner") as i64,
+            fallback: number("fallback") as i64,
+            then: order.get("then").map(|t| t.to_string()),
+            meet: order.get("meet").map(|m| {
+                let at = m.to::<Vector2>();
+                (V2::new(at.x, at.y), number("meet_cells"))
+            }),
+        });
     }
 
     /// GroundBodies.drag for `roster`'s squad `listed` (index) over the bodies lying at

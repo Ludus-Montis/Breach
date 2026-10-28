@@ -247,7 +247,10 @@ events. After this step no battle phase runs in GDScript.
   orders, the pursuit) and the march's face and sweep read the held routes; **8b4-iii** the
   commands (their route, home, standing options and patches) held by the crate; **8b4-iv**
   staging, the swaps under way, the painted places and the taking held by the crate;
-  **8b4-v** spawning and the order queue.
+  **8b4-v** spawning and the order queue. **8b4-iv split further** (2026-10-28, under the
+  same leave), on its survey: **8b4-iv** staging held by the crate, and the painted places
+  retired (nothing writes them); **8b4-v** the swaps under way and the taking held by the
+  crate; **8b4-vi** spawning and the order queue.
 
 ### Step 9, the rest of `sim/`
 
@@ -1694,8 +1697,30 @@ Decision's conditions.
   `detours/tests.rs` (a group reads its command's route and ways round). Red on stubs, then
   green. gdUnit `test_formation_command.gd`: the crate holds a command's orders, and its
   groups read them there. `test_formation_pathing.gd` green through the crate's patches.
-- **After it**, 8b4-iv: staging, the swaps under way, the painted places and the taking held
-  by the crate.
+- **After it**, 8b4-iv: staging held by the crate.
+
+### Step 8b4-iv, staging held by the crate
+
+- **A squad's hold-until order** (`staging::Stage`, FormationStaging's `staging`): its
+  staging point, whether it waits to see a fight or its partner, its partner, its fallback,
+  what it does then, and its meeting point, a squad column (`Squads::staging`) the snapshot
+  carries. SkirmishSquad.staging is a view of it, read and written whole (`squad_staging`,
+  `put_squad_staging`); the two tests that changed one key of it in place now write it back.
+- **The hold reads it** (`staging::hold_staged`): `staging_hold` takes the squad, the route
+  codes and, if a coordinated leader times its meeting, its units' slack; its fallback
+  counts down in the crate while it holds.
+- **The painted places retire:** nothing wrote SkirmishSquad.painted, so the scrum's test of
+  it was always true.
+- **Identical:** the same order read the same way (a trigger other than "sees_partner"
+  waits to see a fight, no partner is 0, the fallback an integer), the meeting only for a
+  coordinated leader with a meeting point, and the fallback counted down only while it holds,
+  as before. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `staging/tests.rs` (a held order counts its fallback down while it holds,
+  not on its way; a held order's trigger reads its partner). Red on stubs, then green. gdUnit
+  `test_formation_staging.gd`: the crate holds a squad's staging order, read back whole, and
+  none once cleared (red against the library before, then green); the file and
+  `test_formation_leaders.gd` green.
+- **After it**, 8b4-v: the swaps under way and the taking held by the crate.
 
 ## Open, for the implementing session to settle and record here
 
