@@ -269,6 +269,10 @@ func test_units_given_other_slots_play_the_same_battle() -> void:
 			unit.slot = store.slot_of(unit.id)
 			for index in UnitColumns.BLANKS.size():
 				store.columns.put(unit.slot, UnitColumns.BLANKS.keys()[index], stood[unit][index])
+			unit.hold_sheet(store)  # what the crate holds of it, in its new slot (as admit)
+		for squad in shuffled.squads():
+			UnitState.regather(squad)  # the squad store lists its members' new slots
+			squad.living()
 		assert_int(store.slot_of(ids[0])).is_equal(0)
 		for tick in range(200):
 			usual.step()
