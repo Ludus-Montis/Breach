@@ -185,3 +185,60 @@ fn a_shot_is_the_same_whatever_the_lists_order() {
     let (_, n_r, u_r) = reversed.shoot(&[shooter(ours_r, spitter_r)])[0];
     assert_eq!(forward.roster.listed[n].living[u].id, reversed.roster.listed[n_r].living[u_r].id);
 }
+
+// Who may shoot (FormationCombat.ranged_blows' choice, spec 39 step 8a2-v).
+
+/// Every living unit's ranged time, one second each.
+fn seconds(built: &Built) -> Vec<f64> {
+    built.roster.listed.iter().flat_map(|l| l.living.iter().map(|_| 1.0)).collect()
+}
+
+fn chosen(built: &Built, seconds: &[f64], interval: i64) -> Vec<(usize, usize, i32)> {
+    shooters(&built.squads, &built.columns, &built.roster, seconds, interval)
+        .iter()
+        .map(|s| (s.listed, s.member, s.reset))
+        .collect()
+}
+
+#[test]
+fn the_living_with_a_range_may_shoot_in_the_lists_order() {
+    let (mut built, ours, theirs) = Built::facing(3.0);
+    built.unit(ours, 1, (0, 0), 0);
+    let spitter = built.unit(ours, 2, (1, 0), 5);
+    let theirs_spitter = built.unit(theirs, 3, (0, 0), 4);
+    let all = seconds(&built);
+    assert_eq!(chosen(&built, &all, 10), vec![(ours, spitter, 10), (theirs, theirs_spitter, 10)]);
+}
+
+#[test]
+fn it_starts_again_at_its_ranged_time_in_ticks_rounded_and_at_least_one() {
+    let (mut built, ours, _) = Built::facing(3.0);
+    built.unit(ours, 1, (0, 0), 5);
+    built.unit(ours, 2, (1, 0), 5);
+    built.unit(ours, 3, (2, 0), 5);
+    let resets: Vec<i32> =
+        chosen(&built, &[1.25, 0.01, 0.35], 10).iter().map(|&(_, _, r)| r).collect();
+    assert_eq!(resets, vec![13, 1, 4]);
+}
+
+#[test]
+fn a_fighting_squads_front_rank_fights_as_melee_and_its_rear_shoots() {
+    let (mut built, ours, _) = Built::facing(3.0);
+    built.unit(ours, 1, (0, 0), 5);
+    let rear = built.unit(ours, 2, (1, 0), 5);
+    built.squads.state[built.roster.listed[ours].squad] = locks::FIGHTING;
+    let all = seconds(&built);
+    assert_eq!(chosen(&built, &all, 10), vec![(ours, rear, 10)]);
+    built.squads.state[built.roster.listed[ours].squad] = locks::HOLDING;
+    assert_eq!(chosen(&built, &all, 10).len(), 2);
+}
+
+#[test]
+fn a_squad_that_arrived_holds_its_fire() {
+    let (mut built, ours, theirs) = Built::facing(3.0);
+    built.unit(ours, 1, (0, 0), 5);
+    let spitter = built.unit(theirs, 2, (0, 0), 5);
+    built.squads.state[built.roster.listed[ours].squad] = locks::ARRIVED;
+    let all = seconds(&built);
+    assert_eq!(chosen(&built, &all, 10), vec![(theirs, spitter, 10)]);
+}

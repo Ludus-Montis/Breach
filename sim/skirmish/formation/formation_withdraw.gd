@@ -105,14 +105,6 @@ static func step(
 		_reformed(squads[reformed[at]], reformed[at + 1], reformed[at + 2] != 0, tick, events)
 
 
-## True if all its units are home: it has nowhere further to go. The crate's
-## (`withdraw::home`).
-static func _home(squad: SkirmishSquad) -> bool:
-	var home: float = squad.home_distance * CELLS
-	var roster := CrateRoster.of([squad])
-	return squad.store.field().withdraw_home(roster, 0, squad.route.points(), home)
-
-
 ## The crate re-formed the squad on its route facing `homeward` (and, `arrived` home, made it
 ## hold there): its units walk to their places (a re-form), and it marches home on its order.
 static func _reformed(

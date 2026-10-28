@@ -7,9 +7,10 @@
 //! in (Decision 97). It takes that one as its target, its cooldown runs down, and at 0 it
 //! shoots and starts again. Squads that have arrived neither shoot nor are shot at.
 //!
-//! GDScript picks the shooters (its squads standing and not arrived, their living with a
-//! range, those of a fighting squad's front rank fighting as melee instead), hands in each
-//! one's cooldown, and makes the shots (their damage) from what this returns.
+//! Who may shoot is decided here too (`shooters`, spec 39 step 8a2-v): its squads standing
+//! and not arrived, their living with a range, but a fighting squad's front rank, which
+//! fights as melee instead. GDScript hands in each living unit's ranged time and makes the
+//! shots (their damage) from what this returns.
 
 use crate::columns::Columns;
 use crate::contest;
@@ -37,6 +38,36 @@ type Ranks = Vec<(i32, Vec<(usize, usize)>)>;
 /// A target's place in the shooter's choice, least first: 0 if the shooter overlaps it
 /// across its columns else 1, its draw, its place in the listing.
 type Choice = (u8, i64, usize);
+
+/// Who may shoot this tick (FormationCombat.ranged_blows' choice), in the lists' order: the
+/// living with a range of every squad standing and not arrived, but for a fighting squad's
+/// front rank, which fights as melee. Each starts again, once it shoots, at its ranged time
+/// (`seconds`, each living unit's in the roster's order) in ticks of `interval`, rounded,
+/// at least 1.
+pub fn shooters(
+    squads: &Squads,
+    columns: &Columns,
+    roster: &Roster,
+    seconds: &[f64],
+    interval: i64,
+) -> Vec<Shooter> {
+    let mut out = Vec::new();
+    let mut at = 0; // each living unit's place in `seconds`
+    for (n, listed) in roster.listed.iter().enumerate() {
+        let state = squads.state[listed.squad];
+        for (member, unit) in listed.living.iter().enumerate() {
+            let ranged = seconds[at];
+            at += 1;
+            let melee = state == locks::FIGHTING && columns.rank[unit.slot] == 0;
+            if state == locks::ARRIVED || unit.attack_range <= 0 || melee {
+                continue;
+            }
+            let reset = (interval as f64 * ranged).round().max(1.0) as i32;
+            out.push(Shooter { listed: n, member, reset });
+        }
+    }
+    out
+}
 
 /// This tick's shots, in the shooters' order: [(the shooter's index in `shooters`, its
 /// target's squad's index in the roster, its index in that one's living)]. Sets each
