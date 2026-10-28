@@ -1760,6 +1760,27 @@ Decision's conditions.
   `test_unit_store.gd` green.
 - **After it**, 8b4-vi: the taking held by the crate.
 
+### Step 8b4-vi, the taking held by the crate
+
+- **Who is out taking which body** (FormationTaking): each squad's units out taking the
+  downed, [taker's id, its body's store slot] in the order they set out, a squad column
+  (`Squads::taking`) the snapshot carries. SkirmishSquad.taking is a view of it, {taker's id:
+  its body's store slot}, read and written whole (`squad_taking`, `put_squad_taking`).
+- **Read by slot:** a taker's recall reads its body's state from the store's STATE column
+  (8b4-v's mirror) where it read the body object; the send claims bodies by store slot;
+  the pour finds the body where it lies by its slot. Callers that ask per unit take the view
+  once a squad. The test that moves a body in from another battle mirrors its state, as a
+  unit's admission now does.
+- **Identical:** the same takers in the same order with the same bodies (one slot a body),
+  the same state read (UnitState, its one writer, mirrors every write). The proof is CI's
+  digests against the base. Outcomes unchanged.
+- **Tests:** gdUnit `test_formation_taking.gd`: the crate holds who is out taking which body,
+  and none once cleared. Red with the crate's write stubbed (it and the file's sending tests
+  fail), then green; `test_formation_wounds_order.gd`, `test_formation_carry.gd`,
+  `test_formation_recovery.gd`, `test_ground_bodies.gd` and `test_ground_underfoot.gd`
+  green. Cargo: a state with units out taking read back writes the same bytes.
+- **After it**, 8b4-vii: spawning and the order queue.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
