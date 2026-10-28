@@ -262,7 +262,16 @@ events. After this step no battle phase runs in GDScript.
   as data; **8b5-iv** the scrum, the fight and deaths, likewise; **8b5-v** taking, wounds,
   recovery and strays; **8b5-vi** morale, the rout and carrying; **8b5-vii** groups, stamina,
   the bodies, the shuffle and the march's sync; **8b5-viii** one `step()` binding,
-  FormationSimulation.step that one call and the events decoded from its data.
+  FormationSimulation.step that one call and the events decoded from its data. **8b5-i split
+  further** (2026-10-28, under the same leave), on its survey (61 fields: 42 numbers, the rest
+  words, lists and objects): **8b5-i** the units' numbers held by the crate; **8b5-ii** their
+  words, lists and objects (faction, tags, tactics, attributes, traits, the weapons' parts,
+  damage type, weaknesses, resistances, immunities, what stops regeneration, the walker, the
+  command and origin, the definition), coded for the crate. The rest follow, renumbered:
+  **8b5-iii** the squads' remaining fields; **8b5-iv** orders, engagement, pathing and the move;
+  **8b5-v** the scrum, the fight and deaths; **8b5-vi** taking, wounds, recovery and strays;
+  **8b5-vii** morale, the rout and carrying; **8b5-viii** groups, stamina, the bodies, the
+  shuffle and the march's sync; **8b5-ix** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -1812,6 +1821,36 @@ Decision's conditions.
   fail; then green, with `test_formation_command.gd` and `test_formation_staging.gd`).
 - **After it**, 8b5-i: the units' remaining fields held by the crate (8b5's split is in
   Step 8's bullet).
+
+### Step 8b5-i, the units' numbers held by the crate
+
+- **The sheet** (`sheet::Sheet`, `Columns::sheet`): each unit's 42 numbers, every int, float
+  and bool of SkirmishUnit but its id, slot and state (the state is 8b4-v's column): its hp at
+  most and strikes, its detection, courage, leadership, height, initiative and discipline, its
+  turn rate and backward pace, its direction and squad, its footprint and band, its ranged
+  reach and damage, its skills, defence, critical and parrying, its floors, armour and ward,
+  its stamina at most, pace, tiring, dodging, run and load, its regeneration, its wounds and
+  wounding, playing dead, whom it carries or is carried by, its gear's weight, and its blows'
+  and shots' seconds. By store slot, blank at SkirmishUnit's own defaults, carried by the
+  snapshot. The crate names them (`sheet_names`), in its order; GDScript asks once.
+- **Written:** whole when the store admits a unit (`UnitStore.admit`, which now gives it its
+  slot: `put_sheet`), and one at a time after by each of SkirmishUnit's setters
+  (`put_sheet_value`). A unit the store lets go (`settle`) writes no more, as its slot may be
+  another's. A unit built and not yet admitted writes nothing.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call: no crate pass
+  writes these yet, and a read through the binding per field would cost a call in every pass
+  that reads them per unit per tick until it moves. A later part whose crate pass writes one
+  reads it from the store.
+- **Identical:** nothing reads the sheet yet; the same values are set in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `sheet.rs` (every number reads back what was set at its index; the names are
+  unique and past the last reads nothing; a blank sheet has the unit's defaults; red with the
+  write stubbed, then green) and `snapshot.rs` (a state with sheets read back writes the same
+  bytes). gdUnit `test_unit_numbers.gd`: every number the crate names is one of the unit's own;
+  an admitted unit has its numbers in the crate; one set after is written there; one let go
+  writes no more to its old slot (red against the library with the bindings stubbed, then
+  green); `test_unit_state.gd`, `test_unit_store.gd` and `test_skirmish_squad.gd` green.
+- **After it**, 8b5-ii: the units' words, lists and objects held by the crate.
 
 ## Open, for the implementing session to settle and record here
 

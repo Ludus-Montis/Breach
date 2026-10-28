@@ -65,6 +65,7 @@ mod rout_blows;
 mod route;
 mod scrum;
 mod seeking;
+mod sheet;
 mod shots;
 mod snapshot;
 mod split;
@@ -745,6 +746,34 @@ impl BodyField {
     #[func]
     fn blank(&mut self, slot: i64) {
         self.field.columns.blank(slot as usize);
+    }
+
+    /// A unit's numbers' names (SkirmishUnit's properties), by index (spec 39 step 8b5-i).
+    #[func]
+    fn sheet_names(&self) -> PackedStringArray {
+        sheet::NAMES.iter().map(|name| GString::from(*name)).collect()
+    }
+
+    /// A slot's numbers, by index.
+    #[func]
+    fn sheet(&self, slot: i64) -> PackedFloat64Array {
+        let sheet = &self.field.columns.sheet[slot as usize];
+        (0..sheet::NAMES.len()).map(|index| sheet.get(index)).collect()
+    }
+
+    /// Sets a slot's numbers, by index (UnitStore.admit: all of a unit's at once).
+    #[func]
+    fn put_sheet(&mut self, slot: i64, values: PackedFloat64Array) {
+        let sheet = &mut self.field.columns.sheet[slot as usize];
+        for (index, value) in values.as_slice().iter().enumerate() {
+            sheet.set(index, *value);
+        }
+    }
+
+    /// Sets one of a slot's numbers (SkirmishUnit's setters).
+    #[func]
+    fn put_sheet_value(&mut self, slot: i64, index: i64, value: f64) {
+        self.field.columns.sheet[slot as usize].set(index as usize, value);
     }
 
     /// Microseconds of native work in the last sync, part, seek, walk or face.
