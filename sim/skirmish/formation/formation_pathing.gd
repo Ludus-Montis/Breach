@@ -9,8 +9,9 @@ extends RefCounted
 ## command as a patch to the route (RoutePatch): every group of the command follows the
 ## patched route from then on. It looks again only once its front has moved on
 ## (path_relook cells). Pure over the squads it is given. The look, the group's walker and
-## its pathfinder are the crate's (native/rust/src/pathing.rs, spec 39 step 3c); which
-## groups look and their commands' patches stay here until the tick ports (step 8).
+## its pathfinder are the crate's (native/rust/src/pathing.rs, spec 39 step 3c), and so are
+## which groups follow their command's patches and which look (detours.rs, step 8b3); the
+## patches' list stays on the command until the crate holds it (step 8b4).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -18,6 +19,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const RoutePatch = preload("res://sim/skirmish/formation/route_patch.gd")
+const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
 
@@ -30,10 +32,10 @@ static func step(
 		return
 	for squad in squads:
 		_follow(squad)
+	var relook := BattleTuning.current().path_relook
 	for squad in squads:
-		if squad.state == SkirmishSquad.State.MOVING and squad.route != null:
-			if _looks(squad):
-				_look_ahead(squad, terrain, tick, fight_seed, events)
+		if squad.store.field().path_looks(squad.slot, squad.route != null, relook):
+			_look_ahead(squad, terrain, tick, fight_seed, events)
 
 
 ## The group as one walker: its tallest height, swimming or climbing only if every unit
@@ -50,24 +52,18 @@ static func group_walker(squad: SkirmishSquad) -> TerrainWalker:
 
 
 ## Re-routes the group onto its command's route with the command's patches, if they have
-## changed since it last followed it.
+## changed since it last followed it; it stands where it stood along it.
 static func _follow(squad: SkirmishSquad) -> void:
 	var command = squad.command
-	if command.route == null or squad.patched_count == command.patches.size():
+	var field: Object = squad.store.field()
+	var patches: int = -1 if command.route == null else command.patches.size()
+	if not field.path_follows(squad.slot, patches):
 		return
-	squad.patched_count = command.patches.size()
-	var at := squad.position
-	var far_end := squad.home_distance > 0.0
-	squad.route = RoutePatch.patched(command.route, command.patches)
-	var cells := squad.route.length_cells()
-	squad.front_distance = squad.route.distance_of(at) / MapLayoutDef.CELLS_PER_TILE
-	if far_end:
-		squad.home_distance = cells / MapLayoutDef.CELLS_PER_TILE
-
-
-static func _looks(squad: SkirmishSquad) -> bool:
-	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	return absf(cells - squad.looked_at) >= BattleTuning.current().path_relook
+	var flat := RoutePatch.flat(command.patches)
+	var points: PackedVector2Array = field.path_follow(
+		squad.slot, command.route.points(), flat[0], flat[1], flat[2], flat[3]
+	)
+	squad.route = FormationRoute.new(points, command.route.corridor_half_width)
 
 
 ## Looks along the route ahead; keeps a way round on the command where one is better.
@@ -76,7 +72,6 @@ static func _look_ahead(
 ) -> void:
 	var tuning := BattleTuning.current()
 	var front := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	squad.looked_at = front
 	var looks := PackedFloat64Array(
 		[tuning.path_look, tuning.path_detour_gain, tuning.sight_budget]
 	)

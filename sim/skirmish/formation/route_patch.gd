@@ -26,6 +26,16 @@ static func of_detour(route: FormationRoute, detour: PackedVector2Array) -> Rout
 
 ## `route` with each patch's stretch replaced by its detour.
 static func patched(route: FormationRoute, patches: Array) -> FormationRoute:
+	var flat := RoutePatch.flat(patches)
+	var points: PackedVector2Array = CrateMoves.core().patched(
+		route.points(), flat[0], flat[1], flat[2], flat[3]
+	)
+	return FormationRoute.new(points, route.corridor_half_width)
+
+
+## `patches` as the crate takes them: [where each leaves, where each rejoins, how many
+## waypoints each has, all their waypoints in order].
+static func flat(patches: Array) -> Array:
 	var froms := PackedFloat64Array()
 	var tos := PackedFloat64Array()
 	var counts := PackedInt32Array()
@@ -35,10 +45,7 @@ static func patched(route: FormationRoute, patches: Array) -> FormationRoute:
 		tos.append(patch.to_along)
 		counts.append(patch.waypoints.size())
 		waypoints.append_array(patch.waypoints)
-	var points: PackedVector2Array = CrateMoves.core().patched(
-		route.points(), froms, tos, counts, waypoints
-	)
-	return FormationRoute.new(points, route.corridor_half_width)
+	return [froms, tos, counts, waypoints]
 
 
 func _init(leaves: float, rejoins: float, detour: PackedVector2Array) -> void:

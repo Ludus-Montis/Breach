@@ -19,6 +19,7 @@ mod deaths;
 pub mod designer;
 mod det_math;
 mod det_pow;
+mod detours;
 mod engage;
 mod entries;
 mod face_store;
@@ -1790,21 +1791,33 @@ impl UnitMoves {
         counts: PackedInt32Array,
         waypoints: PackedVector2Array,
     ) -> PackedVector2Array {
-        let all = v2s(&waypoints);
-        let mut first = 0usize;
-        let mut patches = Vec::with_capacity(counts.len());
-        for (i, &count) in counts.as_slice().iter().enumerate() {
-            let next = first + count as usize;
-            patches.push(route::Patch {
-                from_along: froms[i],
-                to_along: tos[i],
-                waypoints: all[first..next].to_vec(),
-            });
-            first = next;
-        }
+        let patches = patches_of(&froms, &tos, &counts, &waypoints);
         let out = route::Patch::patched(&route_of(&points), &patches);
         packed(&out.points)
     }
+}
+
+/// Route patches handed in flat: patch `i` leaves at `froms[i]`, rejoins at `tos[i]` and
+/// has the next `counts[i]` of `waypoints`.
+fn patches_of(
+    froms: &PackedFloat64Array,
+    tos: &PackedFloat64Array,
+    counts: &PackedInt32Array,
+    waypoints: &PackedVector2Array,
+) -> Vec<route::Patch> {
+    let all = v2s(waypoints);
+    let mut first = 0usize;
+    let mut patches = Vec::with_capacity(counts.len());
+    for (i, &count) in counts.as_slice().iter().enumerate() {
+        let next = first + count as usize;
+        patches.push(route::Patch {
+            from_along: froms[i],
+            to_along: tos[i],
+            waypoints: all[first..next].to_vec(),
+        });
+        first = next;
+    }
+    patches
 }
 
 /// Paths over the ground (spec 39 step 3c; `paths`, `pathing`): TerrainPaths, PathSearch,
@@ -3555,6 +3568,40 @@ impl BodyField {
             .flat_map(|&(front, advances)| [front, f64::from(u8::from(advances))])
             .collect();
         PackedFloat64Array::from(flat.as_slice())
+    }
+
+    /// Whether the squad in `squad` re-routes onto its command's route, which carries
+    /// `patches` ways round (-1: the command has no route; `detours::follows`).
+    #[func]
+    fn path_follows(&self, squad: i64, patches: i64) -> bool {
+        let count = usize::try_from(patches).ok();
+        detours::follows(&self.squads, squad as usize, count)
+    }
+
+    /// The squad in `squad` takes its command's route `points` with its ways round (patch
+    /// `i` leaves at `froms[i]`, rejoins at `tos[i]`, through the next `counts[i]` of
+    /// `waypoints`), standing where it stood (`detours::follow`). Returns the patched route.
+    #[func]
+    fn path_follow(
+        &mut self,
+        squad: i64,
+        points: PackedVector2Array,
+        froms: PackedFloat64Array,
+        tos: PackedFloat64Array,
+        counts: PackedInt32Array,
+        waypoints: PackedVector2Array,
+    ) -> PackedVector2Array {
+        let patches = patches_of(&froms, &tos, &counts, &waypoints);
+        let route = route::Patch::patched(&route_of(&points), &patches);
+        detours::follow(&mut self.squads, squad as usize, &route, patches.len());
+        packed(&route.points)
+    }
+
+    /// Whether the squad in `squad`, on a route if `routed`, looks ahead, its front `relook`
+    /// cells or more from where it last looked; it looks from there (`detours::looks`).
+    #[func]
+    fn path_looks(&mut self, squad: i64, routed: bool, relook: f64) -> bool {
+        detours::looks(&mut self.squads, squad as usize, routed, relook)
     }
 }
 
