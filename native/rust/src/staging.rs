@@ -8,6 +8,8 @@
 //! at its staging point while its fallback lasts, then goes on or turns back (`hold`, spec
 //! 39 step 8a2-ii); the staging order itself and the events stay GDScript's.
 
+use serde::{Deserialize, Serialize};
+
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
 use crate::ground::Ground;
@@ -21,6 +23,21 @@ use crate::squads::Squads;
 
 /// A coordinated leader leaves this many ticks early at most.
 const SLACK_TICKS: f64 = 2.0;
+
+/// A squad's hold-until order as given (FormationStaging's `staging`, held by the crate since
+/// step 8b4-iv): its staging point (cells along its route from home), whether it waits to
+/// see a fight (else its partner), its partner's squad id (0: none named), the ticks its
+/// fallback has left, what it does then ("go" or "back"; none: go), and the meeting point
+/// with how far along its own route that is (cells), if it has one.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Stage {
+    pub at: f64,
+    pub sees_fight: bool,
+    pub partner: i64,
+    pub fallback: i64,
+    pub then: Option<String>,
+    pub meet: Option<(V2, f64)>,
+}
 
 /// A staged squad's order: its index in the roster, whether it waits to see a fight (else
 /// to see its partner), its partner's squad id (0: none named), each listed squad's route
@@ -194,3 +211,35 @@ fn speed(columns: &Columns, listed: &Listed) -> f64 {
 
 #[cfg(test)]
 mod tests;
+
+/// FormationStaging.holds' hold for `roster`'s squad `listed` by the order it holds
+/// (`Squads::staging`), each listed squad's route a code in `routes`; `slack` its units'
+/// slack (FormationWalk) if a coordinated leader leads it, else none; `pace` as Staged's.
+/// Its fallback counts down while it holds.
+#[allow(clippy::too_many_arguments)]
+pub fn hold_staged(
+    squads: &mut Squads,
+    columns: &Columns,
+    roster: &Roster,
+    ground: Option<&Ground>,
+    listed: usize,
+    routes: &[u32],
+    slack: Option<f64>,
+    pace: [f64; 2],
+) -> Hold {
+    let squad = roster.listed[listed].squad;
+    let order = squads.staging[squad].clone().expect("a staged squad holds an order");
+    let meet = order.meet.zip(slack).map(|((at, cells), slack)| Meeting {
+        at,
+        cells,
+        route: squads.route[squad].clone().unwrap_or_else(|| Route::new(Vec::new(), 0.0)),
+        slack,
+    });
+    let staged =
+        Staged { listed, sees_fight: order.sees_fight, partner: order.partner, routes, meet, pace };
+    let held = hold(squads, columns, roster, ground, &staged, order.at, order.fallback);
+    if let (Hold::Holds { .. }, Some(order)) = (held, squads.staging[squad].as_mut()) {
+        order.fallback -= 1;
+    }
+    held
+}

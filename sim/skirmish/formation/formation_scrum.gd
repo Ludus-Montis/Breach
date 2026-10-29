@@ -109,7 +109,7 @@ static func _prepare(squad: SkirmishSquad, tick: int) -> void:
 		squad.fought = true
 		squad.stall_ticks = 0
 	elif not fighting:
-		if squad.fight_since >= 0 and squad.painted.is_empty():
+		if squad.fight_since >= 0:
 			SquadRanks.close(squad)  # the dead leave holes: the living close up
 		squad.fight_since = -1
 	if not fighting and squad.stance.is_empty():

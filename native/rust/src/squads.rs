@@ -22,7 +22,8 @@
 //! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port. Since
 //! step 8b4-i, also the route each follows (`route`, none: a straight lane), as
 //! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
-//! (`command`) and the commands themselves (`commands`).
+//! (`command`) and the commands themselves (`commands`); since 8b4-iv, its hold-until
+//! order (`staging`).
 
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +83,8 @@ pub struct Squads {
     pub route: Vec<Option<Route>>,
     /// The command each follows (a slot in `commands`; none till it is given one).
     pub command: Vec<Option<usize>>,
+    /// The hold-until order each holds (FormationStaging; none: none).
+    pub staging: Vec<Option<crate::staging::Stage>>,
     /// The commands the squads follow (spec 39 step 8b4-iii).
     pub commands: Commands,
 }
@@ -261,6 +264,7 @@ impl Squads {
         self.withdraw.push(None);
         self.route.push(None);
         self.command.push(None);
+        self.staging.push(None);
         slot
     }
 

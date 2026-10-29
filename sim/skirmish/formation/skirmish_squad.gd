@@ -53,8 +53,13 @@ var pursuit: Dictionary:
 var withdraw: Dictionary:
 	get:
 		return store.orders.withdraw(slot)
-## A hold-until order (FormationStaging, Decision 87); empty when it has none.
-var staging := {}
+## A hold-until order (FormationStaging, Decision 87); empty when it has none. A view of
+## the crate's (`staging::Stage`, spec 39 step 8b4-iv): read and written whole.
+var staging: Dictionary:
+	get:
+		return store.field().squad_staging(slot)
+	set(value):
+		store.field().put_squad_staging(slot, value)
 ## Its command's orders (FormationCommand): hurrying and tending its own downed.
 var hurry: bool:
 	get:
@@ -66,9 +71,6 @@ var tends: String:
 		return command.tends
 	set(value):
 		command.tends = value
-## Narrowed through a gap (FormationNarrowing): its painted places (unit id -> [rank,
-## column]), width and shift, and ticks left re-forming.
-var painted := {}
 ## The swaps of its re-forming under way (FormationShuffle): [[mover, passed units, ticks
 ## left, ticks in all], ...].
 var swaps := []

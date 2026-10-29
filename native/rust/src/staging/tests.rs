@@ -201,3 +201,39 @@ fn a_trigger_fired_goes_before_it_holds() {
     b.squads.front_distance[0] = 3.0;
     assert_eq!(holds(&mut b, 2.0 * CELLS_PER_TILE as f64, 5), Hold::Signalled);
 }
+
+fn stage(at: f64, fallback: i64) -> Stage {
+    Stage { at, sees_fight: false, partner: 0, fallback, then: None, meet: None }
+}
+
+fn holds_staged(b: &mut Built) -> Hold {
+    let routes = b.routes.clone();
+    hold_staged(&mut b.squads, &b.columns, &b.roster, None, 0, &routes, None, PACE)
+}
+
+#[test]
+fn a_held_order_counts_its_fallback_down_while_it_holds() {
+    let at = 2.0 * CELLS_PER_TILE as f64;
+    let mut short = alone(1.0, crate::locks::MOVING);
+    short.squads.staging[0] = Some(stage(at, 5));
+    assert_eq!(holds_staged(&mut short), Hold::OnItsWay);
+    assert_eq!(short.squads.staging[0].as_ref().unwrap().fallback, 5);
+    let mut b = alone(2.0, crate::locks::MOVING);
+    b.squads.staging[0] = Some(stage(at, 3));
+    assert_eq!(holds_staged(&mut b), Hold::Holds { staged: true });
+    assert_eq!(b.squads.staging[0].as_ref().unwrap().fallback, 2);
+    assert_eq!(holds_staged(&mut b), Hold::Holds { staged: false });
+    assert_eq!(b.squads.staging[0].as_ref().unwrap().fallback, 1);
+    assert_eq!(holds_staged(&mut b), Hold::GivesUp { staged: false });
+}
+
+#[test]
+fn a_held_order_s_trigger_reads_its_partner() {
+    let mut b = built(&[S(1, 0, 0, 0.0, 1.0, HOLDING), friend(2, 0, 6.0), friend(3, 0, 6.0)]);
+    let mut order = stage(0.0, 50);
+    order.partner = 3;
+    b.squads.staging[0] = Some(order);
+    assert_eq!(holds_staged(&mut b), Hold::Signalled);
+    b.squads.staging[0].as_mut().unwrap().partner = 4;
+    assert_ne!(holds_staged(&mut b), Hold::Signalled);
+}
