@@ -11,12 +11,10 @@ enum Order { ADVANCE, HOLD, RETREAT }
 ## borne by a friend (Decision 126).
 enum State { MOVING, HOLDING, FIGHTING, ARRIVED, DEAD, DOWNED, TAKEN, RELEASED, CARRIED }
 
-## Each of its numbers' index in the crate's sheet (spec 39 step 8b5-i, native sheet.rs),
-## by name: the crate's own order, asked once.
-static var _sheet_at := {}
-
 var id: int = 0
-var faction_id: String = ""
+var faction_id: String = "":
+	set(value):
+		faction_id = _said(&"faction_id", value)
 var max_hp: int = 0:
 	set(value):
 		max_hp = _held(&"max_hp", value)
@@ -37,16 +35,24 @@ var courage := 60:
 var leadership := 0:
 	set(value):
 		leadership = _held(&"leadership", value)
-var tactics: Array[String] = []
+var tactics: Array[String] = []:
+	set(value):
+		tactics = _said(&"tactics", value)
 var height := 1.0:
 	set(value):
 		height = _held(&"height", value)
 ## Formation sim: its sheet as it stands now (Decision 117) - archetype tags, attributes
 ## (UnitDef.ATTRIBUTES, name -> value) and rated traits (name -> level) - copied from its
 ## definition, so tech, items and ranks can change one unit and not its type.
-var tags: Array[String] = []
-var attributes := {}
-var traits := {}
+var tags: Array[String] = []:
+	set(value):
+		tags = _said(&"tags", value)
+var attributes := {}:
+	set(value):
+		attributes = _said(&"attributes", value)
+var traits := {}:
+	set(value):
+		traits = _said(&"traits", value)
 ## Formation sim: how quickly it acts, and how drilled it is (Decisions 88 and 92).
 var initiative := 10:
 	set(value):
@@ -110,7 +116,9 @@ var attack_range: int = 0:
 var ranged_dmg: int = 0:
 	set(value):
 		ranged_dmg = _held(&"ranged_dmg", value)
-var damage_type: String = ""
+var damage_type: String = "":
+	set(value):
+		damage_type = _said(&"damage_type", value)
 ## Formation sim: its skills, defence and critical multiplier, and whether it can parry
 ## (Decision 118, UnitDef).
 var melee_skill := 40:
@@ -131,17 +139,27 @@ var parries := false:
 ## Formation sim: what its blows are made of and what stands against them (Decision 119,
 ## UnitArms): its melee and ranged weapons' parts [[damage, type, magical], ...], their
 ## floor shares, its weaknesses, resistances and immunities, and its armour and ward.
-var melee_parts := []
-var ranged_parts := []
+var melee_parts := []:
+	set(value):
+		melee_parts = _said(&"melee_parts", value)
+var ranged_parts := []:
+	set(value):
+		ranged_parts = _said(&"ranged_parts", value)
 var melee_floor := 1.0:
 	set(value):
 		melee_floor = _held(&"melee_floor", value)
 var ranged_floor := 1.0:
 	set(value):
 		ranged_floor = _held(&"ranged_floor", value)
-var weaknesses: Array[String] = []
-var resistances: Array[String] = []
-var immunities: Array[String] = []
+var weaknesses: Array[String] = []:
+	set(value):
+		weaknesses = _said(&"weaknesses", value)
+var resistances: Array[String] = []:
+	set(value):
+		resistances = _said(&"resistances", value)
+var immunities: Array[String] = []:
+	set(value):
+		immunities = _said(&"immunities", value)
 var armour := 0:
 	set(value):
 		armour = _held(&"armour", value)
@@ -179,7 +197,9 @@ var load_stage := 0:
 var regeneration := 0.0:
 	set(value):
 		regeneration = _held(&"regeneration", value)
-var regeneration_stops: Array[String] = []
+var regeneration_stops: Array[String] = []:
+	set(value):
+		regeneration_stops = _said(&"regeneration_stops", value)
 ## Formation sim: its wounds (Decision 126) - a time downed each, lowering its condition. The
 ## seconds it has yet to lie downed and the part of a point its poor condition has drained
 ## are the store's (WAKE_LEFT, DRAIN_CARRY, step 7b).
@@ -216,29 +236,29 @@ var ranged_seconds := 1.0:
 	set(value):
 		ranged_seconds = _held(&"ranged_seconds", value)
 
-## The native field whose store holds its numbers while it holds it (null before it enrols
-## and once it is let go). Its own copy is read without a call: no crate pass writes them.
+## The native field whose store holds its numbers, words and lists while it holds it (null
+## before it enrols and once it is let go). Its own copy is read without a call: no crate
+## pass writes them.
 var _sheet_field: Object = null
 
 
-## Its numbers are the crate's from now on (UnitStore.admit, once it has its slot): all
-## written at once, then each by its own setter.
+## Its numbers, words and lists are the crate's from now on (UnitStore.admit, once it has
+## its slot): all written at once, then each by its own setter (UnitWrites).
 func hold_sheet(field: Object) -> void:
 	_sheet_field = field
-	if field == null:
-		return
-	if _sheet_at.is_empty():
-		for name in field.sheet_names():
-			_sheet_at[StringName(name)] = _sheet_at.size()
-	var values := PackedFloat64Array()
-	for name: StringName in _sheet_at:
-		values.append(float(get(name)))
-	field.put_sheet(slot, values)
+	if field != null:
+		UnitWrites.all(self, field)
 
 
 ## The store has let it go: its slot may be another's, so it writes there no more.
 func let_go() -> void:
 	_sheet_field = null
+
+
+## Sets one of its traits' levels in place, written to the crate as `traits = ...` is.
+func set_trait(trait_id: String, level: Variant) -> void:
+	traits[trait_id] = level
+	_said(&"traits", traits)
 
 
 ## Still in the fight: standing, not dead, downed, taken or released.
@@ -253,5 +273,12 @@ func is_hostile_to(other: SkirmishUnit) -> bool:
 ## A number just set (returned), written to the crate's sheet while a store holds it.
 func _held(name: StringName, value: Variant) -> Variant:
 	if _sheet_field != null:
-		_sheet_field.put_sheet_value(slot, _sheet_at[name], float(value))
+		UnitWrites.number(_sheet_field, slot, name, value)
+	return value
+
+
+## A word or list just set (returned), written to the crate while a store holds it.
+func _said(name: StringName, value: Variant) -> Variant:
+	if _sheet_field != null:
+		UnitWrites.word(_sheet_field, slot, name, value)
 	return value
