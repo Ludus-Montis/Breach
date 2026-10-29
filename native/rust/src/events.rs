@@ -53,6 +53,7 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("rallied", &["unit", "into"]),
     ("reformed", &[]),
     ("routed", &[]),
+    ("borne", &["unit", "body"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -96,6 +97,7 @@ pub const SCATTERED: usize = 38;
 pub const RALLIED: usize = 39;
 pub const REFORMED: usize = 40;
 pub const ROUTED: usize = 41;
+pub const BORNE: usize = 42;
 
 /// The kinds told of a unit, not a squad: their third number is the unit's id, and their
 /// faction its own ("hit").

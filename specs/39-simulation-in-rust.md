@@ -429,6 +429,15 @@ events. After this step no battle phase runs in GDScript.
   for it, as FormationRout's did, so outcomes are unchanged; "crushed", "fled_home",
   "scattered", "rallied", "reformed" and "routed" are logged. FormationRout mirrors only its
   unit lists and the friends' `joined`.
+  **8b5-xxix built** (2026-10-29): carrying as one crate pass (`carry/pass.rs`, the
+  `carry_step` binding in place of `carry_pick_up`): the bodies whose bearers fled home this
+  tick come home out of their squads' members ("fled_home" with the definition's code), the
+  borne follow their bearers or are dropped, bearers set their loads down, and the free units
+  of the formations that tend their downed pick bodies up ("borne": unit, body), each bearer's
+  load stage, pace, tiring and dodge set in its sheet, its pace a share of its definition's
+  speed (which UnitWrites now hands the crate, `put_speed`, beside its sight), so outcomes are
+  unchanged. FormationCarry mirrors the states, the carrying and the loads, and its unit
+  lists, and returns the bearers setting off home for FormationStrays.
 
 ### Step 9, the rest of `sim/`
 
