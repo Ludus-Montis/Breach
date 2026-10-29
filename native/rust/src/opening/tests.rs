@@ -31,7 +31,7 @@ fn grem(id: i64, slot: usize) -> Member {
     }
 }
 
-fn rules() -> Rules<'static> {
+pub(crate) fn rules() -> Rules<'static> {
     let share = ShareTuning { seed: 3, wounds_reach: 1.0, lost: 4.0, slack: [5.0, 1.0, 0.5] };
     Rules {
         tick: 5,

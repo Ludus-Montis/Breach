@@ -87,6 +87,7 @@ mod steer;
 mod strays;
 mod swaps;
 mod taking;
+mod tick;
 mod trade;
 mod turn;
 mod walk_store;
@@ -3090,21 +3091,8 @@ impl BodyField {
         withdraw: PackedFloat64Array,
         pursue: PackedFloat64Array,
     ) -> PackedInt32Array {
-        let i = ints.as_slice();
-        let (tick, seed) = (i[0], i[1]);
-        let (anticipate, stance) = stance_rules(stance.as_slice());
-        let rules = scrum::step::Rules {
-            tick,
-            seed,
-            reach_engage,
-            anticipate,
-            stance,
-            seek: seek_rules(&i[..3], seek.as_slice()),
-            regroup: regroup_rules(regroup.as_slice(), seed),
-            withdraw: withdraw_rules(withdraw.as_slice(), tick, seed),
-            pursue: pursue_rules(pursue.as_slice(), tick),
-            stall_ticks: i[3],
-        };
+        let phases = [&stance, &seek, &regroup, &withdraw, &pursue];
+        let rules = scrum_rules(ints.as_slice(), reach_engage, phases.map(|p| p.as_slice()));
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let scrummed =
@@ -3112,6 +3100,26 @@ impl BodyField {
         self.usec = scrummed.seek_usec;
         self.edits += 1;
         scrummed.back.into_iter().map(|n| n as i32).collect()
+    }
+}
+
+/// `scrum_step`'s `ints`, reach_engage and its phases' rules ([stance, seek, regroup,
+/// withdraw, pursue]) as the scrum's rules.
+fn scrum_rules(i: &[i64], reach_engage: f64, phases: [&[f64]; 5]) -> scrum::step::Rules {
+    let (tick, seed) = (i[0], i[1]);
+    let [stance, seek, regroup, withdraw, pursue] = phases;
+    let (anticipate, stance) = stance_rules(stance);
+    scrum::step::Rules {
+        tick,
+        seed,
+        reach_engage,
+        anticipate,
+        stance,
+        seek: seek_rules(&i[..3], seek),
+        regroup: regroup_rules(regroup, seed),
+        withdraw: withdraw_rules(withdraw, tick, seed),
+        pursue: pursue_rules(pursue, tick),
+        stall_ticks: i[3],
     }
 }
 
@@ -3454,6 +3462,44 @@ fn looks_of(t: &[f64]) -> (paths::PathTuning, pathing::pass::Looks) {
     (climb, pathing::pass::Looks { relook: t[0], look })
 }
 
+/// `opening_step`'s rules ([ints, bands, impacts] and [orders, looks, moving]) as the climb
+/// its paths take and the opening's rules.
+fn opening_rules(
+    ints: [&PackedInt64Array; 3],
+    floats: [&PackedFloat64Array; 3],
+) -> (paths::PathTuning, opening::Rules<'static>) {
+    let [ints, bands, impacts] = ints.map(|p| p.as_slice());
+    let [o, looks, moving] = floats.map(|p| p.as_slice());
+    let (tick, seed) = (ints[0], ints[1]);
+    let (climb, looks) = looks_of(looks);
+    let rules = opening::Rules {
+        tick,
+        seed,
+        within: o[0],
+        ragged_shock: o[1] as i64,
+        discipline: orders_discipline(o),
+        bands: bands::BandTuning::of_slice(bands),
+        impacts: contact::pass::Impacts { side: impacts[0], rear: impacts[1] },
+        looks,
+        moving: moving_given(&[], tick, seed, moving),
+    };
+    (climb, rules)
+}
+
+/// What the opening did, flat as `opening_step` returns it.
+fn opened_flat(opened: &opening::Opened) -> Vec<i64> {
+    let mut flat = vec![opened.pursuers.len() as i64];
+    flat.extend(opened.pursuers.iter().flatten());
+    flat.push(opened.followed.len() as i64);
+    flat.extend(opened.followed.iter().map(|&s| s as i64));
+    for one in &opened.seen {
+        flat.push(one.len() as i64);
+        flat.extend(one.iter().map(|&n| n as i64));
+    }
+    flat.extend(opened.joins.iter().flat_map(|&(l, j)| [l as i64, j as i64]));
+    flat
+}
+
 /// `move_step`'s ten as the move's tuning, over `routes`.
 fn moving_given<'a>(routes: &'a [u32], tick: i64, seed: i64, t: &[f64]) -> moving::pass::Given<'a> {
     moving::pass::Given {
@@ -3576,20 +3622,7 @@ impl BodyField {
         looks: PackedFloat64Array,
         moving: PackedFloat64Array,
     ) -> PackedInt64Array {
-        let (tick, seed) = (ints[0], ints[1]);
-        let o = orders.as_slice();
-        let (climb, looks) = looks_of(looks.as_slice());
-        let rules = opening::Rules {
-            tick,
-            seed,
-            within: o[0],
-            ragged_shock: o[1] as i64,
-            discipline: orders_discipline(o),
-            bands: bands::BandTuning::of_slice(bands.as_slice()),
-            impacts: contact::pass::Impacts { side: impacts[0], rear: impacts[1] },
-            looks,
-            moving: moving_given(&[], tick, seed, moving.as_slice()),
-        };
+        let (climb, rules) = opening_rules([&ints, &bands, &impacts], [&orders, &looks, &moving]);
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let opened = match ground {
@@ -3599,16 +3632,7 @@ impl BodyField {
             None => opening::step(squads, field, &roster.roster, None, &rules, log),
         };
         self.edits += 1;
-        let mut flat = vec![opened.pursuers.len() as i64];
-        flat.extend(opened.pursuers.iter().flatten());
-        flat.push(opened.followed.len() as i64);
-        flat.extend(opened.followed.iter().map(|&s| s as i64));
-        for one in &opened.seen {
-            flat.push(one.len() as i64);
-            flat.extend(one.iter().map(|&n| n as i64));
-        }
-        flat.extend(opened.joins.iter().flat_map(|&(l, j)| [l as i64, j as i64]));
-        PackedInt64Array::from(flat.as_slice())
+        PackedInt64Array::from(opened_flat(&opened).as_slice())
     }
 
     /// FormationWalk.share for `roster`'s only squad on `ground` (`moving::share`), by the
@@ -4518,29 +4542,45 @@ impl BodyField {
         wounds: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let (i, f) = (ints.as_slice(), floats.as_slice());
-        let rules = aftermath::Rules {
-            fight: fight_rules(i, f, &bands, &tuning),
-            seconds: f[5],
-            taking: taking::pass::TakingTuning { hold: f[6], reach: f[7] },
-            wounds: wounds::WoundsTuning::of_slice(wounds.as_slice()),
-            messenger_shock: i[4],
-            bands: bands::BandTuning::of_slice(bands.as_slice()),
-        };
+        let rules = aftermath_rules(&ints, &floats, &bands, &tuning, &wounds);
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let after =
             on_ground(ground, |g| aftermath::step(squads, field, &roster.roster, g, &rules, log));
         self.edits += 1;
-        let mut out = vec![after.taken.len() as i64];
-        out.extend(after.taken.iter().flat_map(|&(n, id)| [n as i64, id]));
-        out.push(after.buried.len() as i64);
-        out.extend(buried_flat(&after.buried));
-        out.push(after.tended.len() as i64);
-        out.extend(tended_flat(&after.tended));
-        out.extend(recovered_flat(&after.recovered));
-        PackedInt64Array::from(out.as_slice())
+        PackedInt64Array::from(aftermath_flat(&after).as_slice())
     }
+}
+
+/// `aftermath_step`'s rules as the aftermath's.
+fn aftermath_rules(
+    ints: &PackedInt64Array,
+    floats: &PackedFloat64Array,
+    bands: &PackedInt64Array,
+    tuning: &PackedFloat64Array,
+    wounds: &PackedFloat64Array,
+) -> aftermath::Rules {
+    let (i, f) = (ints.as_slice(), floats.as_slice());
+    aftermath::Rules {
+        fight: fight_rules(i, f, bands, tuning),
+        seconds: f[5],
+        taking: taking::pass::TakingTuning { hold: f[6], reach: f[7] },
+        wounds: wounds::WoundsTuning::of_slice(wounds.as_slice()),
+        messenger_shock: i[4],
+        bands: bands::BandTuning::of_slice(bands.as_slice()),
+    }
+}
+
+/// What the aftermath did, flat as `aftermath_step` returns it.
+fn aftermath_flat(after: &aftermath::Aftermath) -> Vec<i64> {
+    let mut out = vec![after.taken.len() as i64];
+    out.extend(after.taken.iter().flat_map(|&(n, id)| [n as i64, id]));
+    out.push(after.buried.len() as i64);
+    out.extend(buried_flat(&after.buried));
+    out.push(after.tended.len() as i64);
+    out.extend(tended_flat(&after.tended));
+    out.extend(recovered_flat(&after.recovered));
+    out
 }
 
 /// The strays through the groups as one call (spec 39 step 8b5-xxxix).
@@ -4568,30 +4608,8 @@ impl BodyField {
         bands: PackedInt64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let tuning = |n: usize| {
-            tunings.get(n).map_or_else(PackedFloat64Array::new, |t| t.to::<PackedFloat64Array>())
-        };
-        let (morale, rout, carrying, loads, grouping) =
-            (tuning(0), tuning(1), tuning(2), tuning(3), tuning(4));
-        let (&[tick, seed, second], (r, &[crush, panic, seen]), &[lost, join, cells_per_tile]) =
-            (ints.as_slice(), rout.as_slice().split_at(10), grouping.as_slice())
-        else {
+        let Some(rules) = mustering_rules(&ints, &tunings, &bands) else {
             return PackedInt64Array::new();
-        };
-        let rules = mustering::Rules {
-            morale: (second != 0).then(|| morale::MoraleTuning::of_slice(morale.as_slice())),
-            rout: rout::RoutTuning::of_slice(r),
-            shocks: rout::pass::RoutShocks {
-                crush: crush as i64,
-                panic: panic as i64,
-                seen: seen as i64,
-            },
-            bands: bands::BandTuning::of_slice(bands.as_slice()),
-            carry: carry::CarryTuning::of_slice(carrying.as_slice()),
-            loads: carry::pass::LoadTuning::of_slice(loads.as_slice()),
-            groups: split::Rules { lost, join, seed, cells_per_tile },
-            tick,
-            seed,
         };
         let (rows, _) = strays.as_slice().as_chunks::<2>();
         let strays: Vec<(usize, usize)> =
@@ -4602,22 +4620,61 @@ impl BodyField {
             mustering::step(squads, field, &roster.roster, &strays, g, &rules, log)
         });
         self.edits += 1;
-        let pairs = |opened: &[(usize, usize)]| {
-            let mut out = vec![opened.len() as i64];
-            out.extend(opened.iter().flat_map(|&(n, s)| [n as i64, s as i64]));
-            out
-        };
-        let mut out = pairs(&done.adopted);
-        out.push(done.routed.len() as i64);
-        let routed = done.routed.iter();
-        out.extend(routed.flat_map(|m| [m.listed as i64, m.id, m.into.map_or(-1, |n| n as i64)]));
-        let carried = carried_flat(&done.carried);
-        out.push(carried.len() as i64 / 3);
-        out.extend(carried);
-        out.extend(pairs(&done.bearers));
-        out.extend(grouped_flat(&done.grouped, &done.split));
-        PackedInt64Array::from(out.as_slice())
+        PackedInt64Array::from(mustered_flat(&done).as_slice())
     }
+}
+
+/// `mustering_step`'s `ints`, `tunings` and `bands` as the mustering's rules; None if one is
+/// short.
+fn mustering_rules(
+    ints: &PackedInt64Array,
+    tunings: &VarArray,
+    bands: &PackedInt64Array,
+) -> Option<mustering::Rules> {
+    let tuning = |n: usize| {
+        tunings.get(n).map_or_else(PackedFloat64Array::new, |t| t.to::<PackedFloat64Array>())
+    };
+    let (morale, rout, carrying, loads, grouping) =
+        (tuning(0), tuning(1), tuning(2), tuning(3), tuning(4));
+    let (&[tick, seed, second], (r, &[crush, panic, seen]), &[lost, join, cells_per_tile]) =
+        (ints.as_slice(), rout.as_slice().split_at_checked(10)?, grouping.as_slice())
+    else {
+        return None;
+    };
+    Some(mustering::Rules {
+        morale: (second != 0).then(|| morale::MoraleTuning::of_slice(morale.as_slice())),
+        rout: rout::RoutTuning::of_slice(r),
+        shocks: rout::pass::RoutShocks {
+            crush: crush as i64,
+            panic: panic as i64,
+            seen: seen as i64,
+        },
+        bands: bands::BandTuning::of_slice(bands.as_slice()),
+        carry: carry::CarryTuning::of_slice(carrying.as_slice()),
+        loads: carry::pass::LoadTuning::of_slice(loads.as_slice()),
+        groups: split::Rules { lost, join, seed, cells_per_tile },
+        tick,
+        seed,
+    })
+}
+
+/// What the mustering did, flat as `mustering_step` returns it.
+fn mustered_flat(done: &mustering::Mustered) -> Vec<i64> {
+    let pairs = |opened: &[(usize, usize)]| {
+        let mut out = vec![opened.len() as i64];
+        out.extend(opened.iter().flat_map(|&(n, s)| [n as i64, s as i64]));
+        out
+    };
+    let mut out = pairs(&done.adopted);
+    out.push(done.routed.len() as i64);
+    let routed = done.routed.iter();
+    out.extend(routed.flat_map(|m| [m.listed as i64, m.id, m.into.map_or(-1, |n| n as i64)]));
+    let carried = carried_flat(&done.carried);
+    out.push(carried.len() as i64 / 3);
+    out.extend(carried);
+    out.extend(pairs(&done.bearers));
+    out.extend(grouped_flat(&done.grouped, &done.split));
+    out
 }
 
 /// What carrying did, as `carry_step` returns it: three numbers a unit, [what (0 changed, 1
@@ -4730,25 +4787,117 @@ impl BodyField {
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
         let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
-        let (i, f, b) = (ints.as_slice(), floats.as_slice(), bodies.as_slice());
-        let rules = ending::Rules {
-            tick: i[0],
-            seconds: f[0],
-            seed: i[1],
-            stamina: stamina_tuning(stamina.as_slice()),
-            parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
-            threaded: i[2] != 0,
-            shuffle: [f[0], f[1], f[2]],
-            timing: [f[0], f[3]],
-            walk: walk_tuning_of(&walk),
-            wounds_reach: walk.as_slice()[9],
-        };
+        let rules = ending_rules(&ints, [&floats, &stamina, &bodies, &walk]);
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let ended = on_ground(ground, |g| ending::step(squads, field, &listed, g, &rules, log));
         self.usec = ended.parting_usec;
         self.edits += 1;
-        let mut out = vec![ended.parting_usec, ended.passes, ended.pairs];
-        out.extend(ended.made);
+        PackedInt64Array::from(ended_flat(&ended).as_slice())
+    }
+}
+
+/// `ending_step`'s `ints` and [floats, stamina, bodies, walk] as the end's rules.
+fn ending_rules(ints: &PackedInt64Array, floats: [&PackedFloat64Array; 4]) -> ending::Rules {
+    let [f, stamina, b, walk] = floats;
+    let (i, f, b) = (ints.as_slice(), f.as_slice(), b.as_slice());
+    ending::Rules {
+        tick: i[0],
+        seconds: f[0],
+        seed: i[1],
+        stamina: stamina_tuning(stamina.as_slice()),
+        parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
+        threaded: i[2] != 0,
+        shuffle: [f[0], f[1], f[2]],
+        timing: [f[0], f[3]],
+        walk: walk_tuning_of(walk),
+        wounds_reach: walk.as_slice()[9],
+    }
+}
+
+/// What the end did, flat as `ending_step` returns it.
+fn ended_flat(ended: &ending::Ended) -> Vec<i64> {
+    let mut out = vec![ended.parting_usec, ended.passes, ended.pairs];
+    out.extend(&ended.made);
+    out
+}
+
+/// The whole tick as one call (spec 39 step 8b5-xli).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationSimulation.step as one call (`tick::step`) over `roster`'s squads, a roster of
+    /// every unit each squad holds, living or not, on `ground`: the opening, the scrum, the
+    /// fight and its aftermath, the strays through the groups and the tick's end, the squads
+    /// listed afresh between them as CrateRoster.of listed them; every pass's events in the
+    /// log in that order. Each of `opening`, `scrum`, `aftermath`, `mustering` and `ending`
+    /// holds its pass's own binding's arguments past the roster (and the ground, and the
+    /// mustering's strays, which the crate hands it from recovery): `opening_step`'s [ints,
+    /// orders, bands, impacts, looks, moving]; `scrum_step`'s [ints, reach_engage, stance,
+    /// seek, regroup, withdraw, pursue]; `aftermath_step`'s [ints, floats, bands, tuning,
+    /// wounds]; `mustering_step`'s [ints, tunings, bands]; `ending_step`'s [ints, floats,
+    /// stamina, bodies, walk], its squads the crate's own list. Returns each pass's result as
+    /// its own binding returns it, each part its length first: the opening's; the scrum's
+    /// [the seek's usec, then the pursuers back at their posts]; the aftermath's; the
+    /// mustering's; then the end's.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn tick_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        opening: VarArray,
+        scrum: VarArray,
+        aftermath: VarArray,
+        mustering: VarArray,
+        ending: VarArray,
+    ) -> PackedInt64Array {
+        let ints = |a: &VarArray, n: usize| arg::<PackedInt64Array>(a, n);
+        let floats = |a: &VarArray, n: usize| arg::<PackedFloat64Array>(a, n);
+        let (o, s, a, e) = (&opening, &scrum, &aftermath, &ending);
+        let (climb, opening) = opening_rules(
+            [&ints(o, 0), &ints(o, 2), &ints(o, 3)],
+            [&floats(o, 1), &floats(o, 4), &floats(o, 5)],
+        );
+        let phases = [2, 3, 4, 5, 6].map(|n| floats(s, n));
+        let scrum = scrum_rules(
+            ints(s, 0).as_slice(),
+            arg::<f64>(s, 1),
+            phases.each_ref().map(|p| p.as_slice()),
+        );
+        let aftermath =
+            aftermath_rules(&ints(a, 0), &floats(a, 1), &ints(a, 2), &floats(a, 3), &floats(a, 4));
+        let musters = (ints(&mustering, 0), arg::<VarArray>(&mustering, 1), ints(&mustering, 2));
+        let Some(mustering) = mustering_rules(&musters.0, &musters.1, &musters.2) else {
+            return PackedInt64Array::new();
+        };
+        let ending = ending_rules(&ints(e, 0), [1, 2, 3, 4].map(|n| floats(e, n)).each_ref());
+        let rules = tick::Rules { opening, scrum, aftermath, mustering, ending };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let ticked = match ground {
+            Some(ground) => on_paths(ground, climb, |over| {
+                tick::step(squads, field, &roster.roster, Some(over), &rules, log)
+            }),
+            None => tick::step(squads, field, &roster.roster, None, &rules, log),
+        };
+        self.edits += 1;
+        let back = ticked.back.iter().map(|&n| n as i64);
+        let parts = [
+            opened_flat(&ticked.opened),
+            std::iter::once(ticked.seek_usec).chain(back).collect(),
+            aftermath_flat(&ticked.after),
+            mustered_flat(&ticked.mustered),
+            ended_flat(&ticked.ended),
+        ];
+        let mut out = Vec::new();
+        for part in parts {
+            out.push(part.len() as i64);
+            out.extend(part);
+        }
         PackedInt64Array::from(out.as_slice())
     }
+}
+
+/// The `n`th of a binding's arguments handed over in `args`, or its default if missing.
+fn arg<T: FromGodot + Default>(args: &VarArray, n: usize) -> T {
+    args.get(n).map_or_else(T::default, |v| v.to::<T>())
 }

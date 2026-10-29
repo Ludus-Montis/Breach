@@ -6,7 +6,7 @@
 //! pass's events go to the log in that order; GDScript mirrors each pass's result after it.
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::bands::BandTuning;
 use crate::deaths::bury::{self, Buried};
