@@ -58,7 +58,7 @@ impl Built {
     fn stand_at_places(&mut self) {
         let frame = self.frame();
         let framed: Vec<(i32, i64)> = (0..3).map(|n| (n, 10 + i64::from(n))).collect();
-        for (n, unit) in pourers(&self.squads, &self.field, 0, &framed).iter().enumerate() {
+        for (n, unit) in pourers(&self.squads, &self.field, 0, &framed, false).iter().enumerate() {
             self.field.columns.position[n] = pour::place(&frame, unit);
         }
     }

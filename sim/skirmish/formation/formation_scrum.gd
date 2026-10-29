@@ -31,7 +31,6 @@ const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
@@ -61,13 +60,13 @@ static func step(
 		"tick": tick,
 		"seconds": tick_seconds,
 		"pace": cells_per_second * tick_seconds,
+		"cells_per_second": cells_per_second,
 		"seed": fight_seed,
 		"terrain": terrain,
 		"active": {},
 	}
 	_seek(field, roster, ctx)
-	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
-	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
+	_regroup(field, roster, ctx)
 	FormationWithdraw.step(
 		squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events, roster
 	)
@@ -100,6 +99,13 @@ static func _seek(field: Object, roster: Object, ctx: Dictionary) -> void:
 	if field == null:
 		return  # no squads: no field to run on
 	ScrumSeek.step(field, roster, ctx)
+
+
+## Walks the units of squads out of the fight back to their places, then the chasers, in
+## the crate over the scrum's roster (ScrumRegroup, spec 39 step 8b5-xiv).
+static func _regroup(field: Object, roster: Object, ctx: Dictionary) -> void:
+	if field != null:
+		ScrumRegroup.step(field, roster, ctx)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while, in
