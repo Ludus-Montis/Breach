@@ -4,16 +4,13 @@ extends GdUnitTestSuite
 ## it for, the seconds a downed unit has yet to lie, the part of a point its condition has
 ## drained, and the wounds the last blow that struck it would add. The columns round-trip
 ## and start blank and the native store holds them on its field; the recovery pass reads
-## and writes them through its view; a blow
-## that lands writes its wounds and its halt to the store, and bury reads them back; and
+## and writes them through its view; bury reads the last blow's wounds from the store; and
 ## SkirmishUnit no longer declares them.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
 
@@ -119,38 +116,21 @@ func test_the_recovery_pass_reads_and_writes_the_store_alike_on_both_backends() 
 		assert_array(row).is_equal(said[0])
 
 
-## A wounding blow that lands (rolls off: a hit at its full damage) writes the wounds it
-## would add, and a blow of a type its target fears stops its regeneration, both in the
-## store; bury then reads the wounds from it as the target is downed.
-func test_a_landed_blow_writes_its_wounds_and_halt_to_the_store_for_bury() -> void:
+## The wounds the last blow that struck a unit would add are the store's (the fight's pass
+## writes them as a blow lands, and a feared blow's halt with them: `fight/tests.rs`); bury
+## reads them from it as the unit is downed.
+func test_bury_reads_the_last_blow_s_wounds_from_the_store() -> void:
 	for backend in _backends():
 		var store: UnitStore = backend[1]
 		var said: String = backend[0]
-		var striker := _unit(1)
-		striker.wounding = 2
-		striker.melee_parts = [[3.0, "fire", true]]
 		var target := _unit(2)
-		target.regeneration_stops = ["fire"]
-		target.faction_id = "the_kingdom"
-		var ours := _squad(1, [striker], store)
 		var theirs := _squad(2, [target], store)
-		UnitHealth.put_one(ours, striker, 10)
 		UnitHealth.put_one(theirs, target, 1)
-		var blows := [[striker, target, 3, false]]
-		BlowLanding.land(blows, [], [ours, theirs], null, [])
-		var columns := store.columns
-		(
-			assert_int(columns.value(target.slot, UnitColumns.LAST_WOUNDING))
-			. override_failure_message(said)
-			. is_equal(2)
-		)
-		assert_float(columns.value(target.slot, UnitColumns.REGENERATION_HALT)).is_equal(
-			BattleTuning.current().wounds_regeneration_halt
-		)
+		store.columns.put(target.slot, UnitColumns.LAST_WOUNDING, 2)
 		UnitHealth.put_one(theirs, target, 0)
-		FormationDeaths.bury([ours, theirs], 1, [])
+		FormationDeaths.bury([theirs], 1, [])
 		assert_int(target.wounded).override_failure_message(said).is_equal(3)
-		assert_float(columns.value(target.slot, UnitColumns.WAKE_LEFT)).is_equal(-1.0)
+		assert_float(store.columns.value(target.slot, UnitColumns.WAKE_LEFT)).is_equal(-1.0)
 
 
 func test_the_downed_s_and_recovery_s_fields_are_the_store_s_alone() -> void:

@@ -50,7 +50,7 @@ and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 | Morale's ceiling, bands and shocks | `bands.rs` (spec 39 step 8a2-iv), on `ScrumRules`: a formation's ceiling (its living's mean courage, rounded, plus a step per point of its best leader's leadership, at most 100), its band by its morale, the slower strikes of a wavering one, a shock held to 0..100 and the shock of the tick's dead. `FormationMorale` is a view over them that keeps each squad's morale and makes the events. Their scenarios are cargo tests (`bands/tests.rs`) |
 | The march's ends and who may shoot | `march::end` and `shots::shooters` (spec 39 step 8a2-v): an advance whose front reaches the enemy's end arriving, and a retreat whose front is home, or on a route all of whose units are home, holding there as it faces; and who may shoot, the living with a range of every squad standing and not arrived but a fighting squad's front rank, each starting again at its ranged time in ticks. `FormationMarch` and `FormationCombat` are views over them that keep the states, the orders and the events. Their scenarios are cargo tests (`march/tests.rs`, `shots/tests.rs`) |
 | The move's choices | `moving.rs` (spec 39 step 8b1): which squads march as the move begins (not one fighting, routing, arrived or destroyed, nor one regrouping, its units out of their places but for its own chasers), which still wait to set out, whether one free to march holds (ordered to, or skirmishing), and every move landed together, each advance stopped at contact or behind a friend as they all stood at the tick's start. The move's pass (`moving/pass.rs`, spec 39 step 8b5-viii) runs each march between (staging, the ends, the hold, the turn, the sweep, the pace, the drag) and the landing, its events in the crate's log; Each squad's share of its pace is worked out there too (`moving/share.rs`, 8b5-ix), and the squads that advanced join their friends (`joins.rs`, 8b5-x); `FormationSimulation` calls `move_step`, takes the events (`CrateEvents`) and drops the joined squads. Its scenarios are cargo tests (`moving/tests.rs`, `moving/pass/tests.rs`) |
-| The fight's hurts | `hurts.rs` (spec 39 step 8b2): each shot, then each blow, in the order landed, takes what it dealt from its target's hp; a unit taken from above 0 to 0 or below falls, onto the fell queue in that order. Each answers its target's hp after it, which the "hit" event reports. `UnitHealth.hurt_landed` hands them in; `FormationSimulation._fight` builds the "spat" and "hit" events. Its scenarios are cargo tests (`hurts/tests.rs`) |
+| The fight's hurts | `hurts.rs` (spec 39 step 8b2): each shot, then each blow, in the order landed, takes what it dealt from its target's hp; a unit taken from above 0 to 0 or below falls, onto the fell queue in that order. Each answers its target's hp after it, which the "hit" event reports. The fight's pass (`fight::step`, spec 39 step 8b5-xix) lands them and logs "spat" and "hit". Its scenarios are cargo tests (`hurts/tests.rs`) |
 | The groups' ways round | `detours.rs` (spec 39 step 8b3): which groups re-route onto their command's route with its ways round (one it doesn't carry yet), standing where they stood along it, a group bound for the far end keeping it as home; and which look ahead (marching, on a route, its front moved on `path_relook` cells since it last looked). The commands keep the patches (`commands.rs`, step 8b4-iii) and the pass that calls these and the look is the crate's (`pathing/pass.rs`, step 8b5-vii). Its scenarios are cargo tests (`detours/tests.rs`) |
 | The squads' routes | `squads.rs`'s `route` column (spec 39 step 8b4-i): the route each squad follows, written whenever SkirmishSquad.route is set (`squad_put_route`) and carried by the snapshot. Every binding that follows a squad's route reads it there (step 8b4-ii: the rout, the withdrawal, the split, a retreat's orders, the pursuit, and the march's face and sweep, `march::sweep::face_held` and `sweep_held`) rather than taking points. Its tests are gdUnit's (`test_skirmish_squad.gd`) and cargo's (`march/tests.rs`) |
 | The commands | `commands.rs` (spec 39 step 8b4-iii): each command's guide route, home, standing options and learned ways round, in a table the squad store keeps (the snapshot carries it), and which command each squad follows. `FormationCommand` is a view of its slot. Groups follow their command's patched route from there (`detours::command_route`). Its scenarios are cargo tests (`commands/tests.rs`) |
@@ -333,8 +333,8 @@ positions.
 
 ### The melee blows (`tools/blows_bench.gd`, 1,024 a side, 32 wide)
 
-The fight's choice (FormationMelee.blows) is one crate pass over the squads' roster since
-spec 39 step 8b5-xvii (`fight::choose`, binding `fight_choose`): every living unit's target
+The fight's choice is one crate pass over the squads' roster since spec 39 step 8b5-xvii
+(`fight::choose`, inside FormationMelee.fight's `fight_step` since 8b5-xix): every living unit's target
 is cleared; if some squad may strike, the field is synced to the scrum (`scrum::seek::sync`)
 and `blows.rs` gives each striking unit its foe - ScrumBlows._pick's least [front,
 distance, draw], the same `facing::touching` the facing uses - with whether its blow falls
@@ -342,11 +342,11 @@ on the foe's flank and whether a retreating unit has turned away; its target and
 are set, the cooldown starting again at its melee time, half again while its squad wavers
 (its band read from the squad's morale, `shocks::morale`). Then the blows on routers
 (`rout_blows.rs`) and the shots (`shots.rs`), each blow's damage from its striker's sheet.
-Their landing is the crate's too (`fight/land.rs`, `fight_land`, spec 39 step 8b5-xviii):
+Their landing is the crate's too (`fight/land.rs`, spec 39 step 8b5-xviii):
 each unit's arms read from its sheet and words, and for rolled blows each striker's band
 and the foes pressing each target (`blows::pressed`) counted on the same sync (a tick no
-squad strikes in syncs for the count when blows are rolled). The events, surrender and
-stamina stay GDScript's glue for now, over the crate's rolls (spec 39 steps 6a and 6b).
+squad strikes in syncs for the count when blows are rolled). The hurts, events, stamina
+and surrender follow in the same pass (`fight::step`, spec 39 steps 8b5-xix and 8b5-xx).
 A tick no squad can strike
 in (marching, or only a rout left) makes no sync for the search. `test_blows_field.gd`
 checked the blows (until spec 39 step 4a retired the twin),
