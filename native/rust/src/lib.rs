@@ -50,6 +50,7 @@ mod mover;
 mod moving;
 mod near;
 mod objects;
+mod opening;
 mod ordered;
 mod orders;
 mod parting;
@@ -3300,18 +3301,11 @@ impl BodyField {
         seed: i64,
     ) -> PackedInt64Array {
         let r = rules.as_slice();
-        let shares = r[5] as usize;
-        let discipline = discipline::DisciplineTuning {
-            per_leadership: r[2] as i64,
-            meets_threats: r[3] as i64,
-            expected_max: r[4],
-            leash_shares: r[6..6 + shares].to_vec(),
-            leash_steps: r[6 + shares..].to_vec(),
-        };
+        let discipline = orders_discipline(r);
         let bands = bands::BandTuning::of_slice(bands.as_slice());
         let roster = roster.bind();
         let given = orders::pass::Given {
-            routes: coded_routes(&self.squads, &roster.roster, &routes),
+            routes: opening::coded(&self.squads, &roster.roster, routes.as_slice()),
             within: r[0],
             ragged_shock: r[1] as i64,
             discipline: &discipline,
@@ -3385,18 +3379,40 @@ impl BodyField {
 
 /// Each listed squad's route as [its code, the route it holds]: `codes` one a squad in
 /// `roster` (-1 for none).
-fn coded_routes(
-    squads: &Squads,
-    roster: &roster::Roster,
-    codes: &PackedInt64Array,
-) -> Vec<orders::Coded> {
-    let held = |n: usize| squads.route[roster.listed[n].squad].clone();
-    codes
-        .as_slice()
-        .iter()
-        .enumerate()
-        .map(|(n, &code)| (code, if code >= 0 { held(n) } else { None }))
-        .collect()
+/// FormationOrders' `rules` past its first two as the discipline a retreat reads: [
+/// discipline_per_leadership, discipline_meets_threats, discipline_expected_max, how many
+/// leash shares follow, the shares, the leash steps].
+fn orders_discipline(r: &[f64]) -> discipline::DisciplineTuning {
+    let shares = r[5] as usize;
+    discipline::DisciplineTuning {
+        per_leadership: r[2] as i64,
+        meets_threats: r[3] as i64,
+        expected_max: r[4],
+        leash_shares: r[6..6 + shares].to_vec(),
+        leash_steps: r[6 + shares..].to_vec(),
+    }
+}
+
+/// FormationPathing's seven: [path_relook, path_look, path_detour_gain, sight_budget,
+/// ground_cliff_quarters, stamina_climb, stamina_swim] as the climb and the looks.
+fn looks_of(t: &[f64]) -> (paths::PathTuning, pathing::pass::Looks) {
+    let climb =
+        paths::PathTuning { cliff_quarters: t[4] as i64, stamina_climb: t[5], stamina_swim: t[6] };
+    let look = pathing::LookTuning { look: t[1], detour_gain: t[2], sight_budget: t[3] };
+    (climb, pathing::pass::Looks { relook: t[0], look })
+}
+
+/// `move_step`'s ten as the move's tuning, over `routes`.
+fn moving_given<'a>(routes: &'a [u32], tick: i64, seed: i64, t: &[f64]) -> moving::pass::Given<'a> {
+    moving::pass::Given {
+        routes,
+        tick,
+        travel_scale: t[0],
+        seconds: t[1],
+        route_length: t[2],
+        share: share_tuning(seed, &t[3..6], &t[8..10]),
+        drag: [t[6], t[7]],
+    }
 }
 
 #[godot_api(secondary)]
@@ -3478,15 +3494,7 @@ impl BodyField {
         let roster = roster.bind();
         let t = tuning.as_slice();
         let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
-        let given = moving::pass::Given {
-            routes: &routes,
-            tick,
-            travel_scale: t[0],
-            seconds: t[1],
-            route_length: t[2],
-            share: share_tuning(seed, &t[3..6], &t[8..10]),
-            drag: [t[6], t[7]],
-        };
+        let given = moving_given(&routes, tick, seed, t);
         let (squads, field, events) = (&mut self.squads, &mut self.field, &mut self.events);
         let joiners = on_ground(ground, |g| {
             moving::pass::step(squads, field, &roster.roster, g, &given, events)
@@ -3494,6 +3502,64 @@ impl BodyField {
         let joins = joins::step(squads, field, &roster.roster, &joiners, seed, tick, events);
         self.edits += 1;
         joins.into_iter().flat_map(|(leader, joining)| [leader as i32, joining as i32]).collect()
+    }
+
+    /// FormationSimulation's opening over `roster`'s squads on `ground` (`opening::step`): the
+    /// orders queued, the perception, the fronts and edges, the pathing (on ground only) and
+    /// the move with its joins, every pass's events in the log (`events_take`). `codes`: each
+    /// listed squad's route as a code (-1: none); `ints`: [tick, seed]; `orders`:
+    /// `apply_orders`' rules; `bands`: morale's; `impacts`: `contact_edges`'; `looks`:
+    /// `path_step`'s; `moving`: `move_step`'s. Returns, flat: how many pursuers, four numbers
+    /// each (`apply_orders`'); how many slots re-routed, then each; per listed squad how many
+    /// it sees, then their indices; then the joins as pairs of listed indices to the end.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn opening_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        codes: PackedInt64Array,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        orders: PackedFloat64Array,
+        bands: PackedInt64Array,
+        impacts: PackedInt64Array,
+        looks: PackedFloat64Array,
+        moving: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let (tick, seed) = (ints[0], ints[1]);
+        let o = orders.as_slice();
+        let (climb, looks) = looks_of(looks.as_slice());
+        let rules = opening::Rules {
+            tick,
+            seed,
+            within: o[0],
+            ragged_shock: o[1] as i64,
+            discipline: orders_discipline(o),
+            bands: bands::BandTuning::of_slice(bands.as_slice()),
+            impacts: contact::pass::Impacts { side: impacts[0], rear: impacts[1] },
+            looks,
+            moving: moving_given(&[], tick, seed, moving.as_slice()),
+        };
+        let roster = roster.bind();
+        let codes = codes.to_vec();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let opened = match ground {
+            Some(ground) => on_paths(ground, climb, |over| {
+                opening::step(squads, field, &roster.roster, Some(over), (&rules, codes), log)
+            }),
+            None => opening::step(squads, field, &roster.roster, None, (&rules, codes), log),
+        };
+        self.edits += 1;
+        let mut flat = vec![opened.pursuers.len() as i64];
+        flat.extend(opened.pursuers.iter().flatten());
+        flat.push(opened.followed.len() as i64);
+        flat.extend(opened.followed.iter().map(|&s| s as i64));
+        for one in &opened.seen {
+            flat.push(one.len() as i64);
+            flat.extend(one.iter().map(|&n| n as i64));
+        }
+        flat.extend(opened.joins.iter().flat_map(|&(l, j)| [l as i64, j as i64]));
+        PackedInt64Array::from(flat.as_slice())
     }
 
     /// FormationWalk.share for `roster`'s only squad on `ground` (`moving::share`), by the
@@ -3528,14 +3594,7 @@ impl BodyField {
         seed: i64,
         tuning: PackedFloat64Array,
     ) -> PackedInt32Array {
-        let t = tuning.as_slice();
-        let climb = paths::PathTuning {
-            cliff_quarters: t[4] as i64,
-            stamina_climb: t[5],
-            stamina_swim: t[6],
-        };
-        let look = pathing::LookTuning { look: t[1], detour_gain: t[2], sight_budget: t[3] };
-        let looks = pathing::pass::Looks { relook: t[0], look };
+        let (climb, looks) = looks_of(tuning.as_slice());
         let listed: Vec<usize> = squads.as_slice().iter().map(|&s| s as usize).collect();
         let (field, events) = (&self.field, &mut self.events);
         let followed = on_paths(ground, climb, |over| {

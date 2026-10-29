@@ -18,6 +18,7 @@ use crate::swaps;
 
 /// What the share reads besides the squad: the fight's seed, wounds_reach, walk_lost, and
 /// discipline_per_leadership, walk_slack_loose and walk_slack_drilled for its slack.
+#[derive(Clone, Copy)]
 pub struct ShareTuning {
     pub seed: i64,
     pub wounds_reach: f64,

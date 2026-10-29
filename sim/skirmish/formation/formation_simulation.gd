@@ -55,6 +55,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const FormationFronts = preload("res://sim/skirmish/formation/formation_fronts.gd")
 const FormationJoins = preload("res://sim/skirmish/formation/formation_joins.gd")
+const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
@@ -150,10 +151,7 @@ func tick_number() -> int:
 func step() -> Array:
 	_tick += 1
 	var events := []
-	_apply_orders(events)
-	var roster := _engage(events)  # who is living, till the joins: nobody falls before them
-	FormationPathing.step(_squads, terrain, _tick, fight_seed, events)
-	_move(events, roster)
+	_open(events)
 	var pace := TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE
 	events.append_array(
 		FormationScrum.step(_squads, _tick, pace, tick_seconds, fight_seed, terrain, _field)
@@ -177,41 +175,28 @@ func step() -> Array:
 	return events
 
 
+## The tick's opening as one crate call (FormationOpening, spec 39 step 8b5-xxxv): the
+## orders, the perception, the fronts and edges, the pathing and the move with its joins.
+func _open(events: Array) -> void:
+	var moving := [TRAVEL_SCALE, tick_seconds, route_length]
+	perception = FormationOpening.step(_squads, terrain, [_tick, fight_seed], moving, events)
+	_field.orders_clear()  # taken, or nobody was left to take them
+
+
+## The orders alone, as the opening applies them (tools/tick_phases.gd times each pass).
 func _apply_orders(events: Array) -> void:
 	FormationOrders.apply(_squads, _field.orders_pending(), _tick, fight_seed, events)
 	_field.orders_clear()  # taken, or nobody was left to take them
 
 
-## The squads' roster (CrateRoster) it decided on, for the march's decisions too.
-func _engage(events: Array) -> Object:
-	var roster := CrateRoster.of(_squads)
-	perception = FormationPerception.see(_squads, terrain, roster)  # all decide on one picture
-	FormationFronts.engage(_squads, _tick, fight_seed, events, roster)
-	FormationEdges.engage(_squads, _tick, events, fight_seed, roster)
-	return roster
-
-
-## Each squad decides its move from the tick's start; all moves land together (Decision 97).
+## The move alone, as the opening makes it (tools/tick_phases.gd times each pass). Each
+## squad decides its move from the tick's start; all moves land together (Decision 97).
 ## The move is the crate's (`moving::pass`, spec 39 step 8b5-viii): staging, the march's
 ## ends, the turn, the sweep, the pace, the drag and the landing, its events in the crate's
 ## log, and each squad's share of its pace (`moving::share`, 8b5-ix); the joins after
 ## (`joins.rs`, 8b5-x), whose dropped squads leave GDScript's list here.
 func _move(events: Array, roster: Object) -> void:
-	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
-		[
-			TRAVEL_SCALE,
-			tick_seconds,
-			route_length,
-			tuning.discipline_per_leadership,
-			tuning.walk_slack_loose,
-			tuning.walk_slack_drilled,
-			tuning.bodies_ground_drag,
-			tuning.bodies_ground_block,
-			tuning.wounds_reach,
-			tuning.walk_lost,
-		]
-	)
+	var rules := FormationOpening.move_rules([TRAVEL_SCALE, tick_seconds, route_length])
 	var codes := FormationStaging.route_codes(_squads)
 	var ground := UnitMover.ground(terrain)
 	var joins: PackedInt32Array = _field.move_step(roster, codes, ground, _tick, fight_seed, rules)
