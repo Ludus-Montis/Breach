@@ -1586,6 +1586,38 @@ Decision's conditions.
   stubs, then green. The battles through the fight unchanged, now through the crate.
 - **After it**, 8b3: which groups look ahead and their commands' patches.
 
+### Step 8b3, which groups look ahead and follow their commands' patches in the crate
+
+- **Following** (`detours::follows` and `detours::follow`, FormationPathing._follow): a group
+  whose command has a route re-routes onto it, patched (`route::Patch::patched`), when the
+  command carries ways round it doesn't (its `patched_count` differs from theirs). It stands
+  where it stood along the new route (its front from its position), and one bound for the far
+  end (`home_distance` above 0) keeps the new route's end as home. GDScript asks
+  (`path_follows`, -1 for a command with no route), hands in the command's route and patches
+  (`path_follow`, the patches flat as `RoutePatch.flat`) and sets the group's route from the
+  points it answers.
+- **Looking** (`detours::looks`, FormationPathing._looks): a group marching on a route looks
+  ahead once its front is `path_relook` cells or more from where it last looked, either way;
+  it looks from there (`looked_at`). GDScript asks (`path_looks`) after every group has
+  followed, as before, and calls the look (`pathing::look_ahead`, step 3c) for those that do.
+- **The patches' list** stays on the GDScript command (FormationCommand.patches), and a look's
+  way round is still made a patch there (`RoutePatch.of_detour`, the crate's since 3b), till
+  the crate holds the commands (8b4).
+- **Identical:** the same tests in the same order (the command's route, then the count; the
+  state, the route, then the distance), the same route maths over the same points, and
+  `looked_at` written when the group looks, before the look reads anything it changes. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationPathing._looks and _follow's own re-anchoring; RoutePatch.patched's
+  flattening is now `RoutePatch.flat`, shared.
+- **Tests:** cargo `detours/tests.rs` (a command without a route leaves its groups be; a group
+  follows only ways round it doesn't carry yet; one following stands where it stood along the
+  new route; one bound for the far end keeps it as home, one not stays so; only a marching
+  group on a route looks; a group looks again only once its front has moved on, back along it
+  too). Red on stubs, then green. gdUnit `test_formation_pathing.gd` and `test_route_patch.gd`
+  unchanged and green, now through the crate.
+- **After it**, 8b4: the squads' objects still GDScript held by the crate, with spawning and
+  the order queue.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
