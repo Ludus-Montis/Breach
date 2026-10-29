@@ -1738,41 +1738,6 @@ impl UnitMoves {
     }
 }
 
-/// A squad as march::shuffle takes it: [width, combat width, centre shift, fighting].
-fn shuffle_squad(shape: &PackedFloat64Array) -> march::shuffle::Squad {
-    let s = shape.as_slice();
-    march::shuffle::Squad {
-        width: s[0] as i32,
-        combat_width: s[1] as i32,
-        centre_shift: s[2],
-        fighting: s[3] != 0.0,
-    }
-}
-
-/// Living units as march::shuffle takes them: seven numbers each in `units` (rank, column,
-/// footprint width and depth, band, priority, joined), at `speeds`.
-fn ranked_of(units: &PackedInt32Array, speeds: &PackedFloat64Array) -> Vec<march::shuffle::Ranked> {
-    let (rows, _) = units.as_slice().as_chunks::<7>();
-    rows.iter()
-        .zip(speeds.as_slice())
-        .map(|(r, &speed)| march::shuffle::Ranked {
-            place: (r[0], r[1]),
-            footprint_width: r[2],
-            footprint_depth: r[3],
-            preferred_position: r[4],
-            position_priority: r[5],
-            speed,
-            joined: r[6] != 0,
-        })
-        .collect()
-}
-
-/// [tick seconds, cells a second at speed 1, scrum_crowding].
-fn pace_of(pace: &PackedFloat64Array) -> [f64; 3] {
-    let p = pace.as_slice();
-    [p[0], p[1], p[2]]
-}
-
 /// A number GDScript handed in, an int or a float.
 fn variant_number(value: &Variant) -> f64 {
     match value.get_type() {
@@ -3752,67 +3717,19 @@ impl BodyField {
         PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
     }
 
-    /// FormationShuffle.step's swaps under way for the squad in squad slot `squad`, as it
-    /// holds them (`swaps::end_held`): `living` its living units as squad_compact takes them,
-    /// `units` the store slots of all its units. Returns, for each swap that ended in the
-    /// order it did: its mover's id, how many units it passed and their ids, then how many
-    /// stepped up after it and each one's index into `living` and rank.
+    /// FormationShuffle.step over the squads in squad slots `listed`, in the lists' order
+    /// (`swaps::pass::step`): each one's swaps under way end, "swapped" (unit, passed) and
+    /// "stepped_up" in the log, then a re-forming squad starts every move it can, each
+    /// unit's place, footprint, band, priority, pace and whether it joined read here, and
+    /// stops re-forming once none starts and none is under way. `pace`: [tick seconds, cells
+    /// a second at speed 1, scrum_crowding].
     #[func]
-    fn squad_swaps_end(
-        &mut self,
-        squad: i64,
-        living: PackedInt64Array,
-        units: PackedInt32Array,
-    ) -> PackedInt64Array {
-        let units: Vec<usize> = units.as_slice().iter().map(|&slot| slot as usize).collect();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let ended = swaps::end_held(squads, columns, squad as usize, &closers(&living), &units);
-        let mut out: Vec<i64> = Vec::new();
-        for one in ended {
-            out.extend_from_slice(&[one.mover, one.passed.len() as i64]);
-            out.extend_from_slice(&one.passed);
-            out.push(one.stepped.len() as i64);
-            for (n, rank) in one.stepped {
-                out.extend_from_slice(&[n as i64, rank as i64]);
-            }
-        }
-        PackedInt64Array::from(&out[..])
-    }
-
-    /// FormationShuffle._start_moves for the squad in squad slot `squad`: the moves `shape`
-    /// [width, combat width, centre shift, fighting] can start round the moves it holds, its
-    /// living units given by [id, store slot] in `living` and seven numbers each in `units`
-    /// (rank, column, footprint width and depth, band, priority, joined) at `speeds`, at
-    /// `pace` = [tick seconds, cells a second at speed 1, scrum_crowding]. It holds each move
-    /// it starts (`swaps::begin`). True if any started.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn squad_start_moves(
-        &mut self,
-        squad: i64,
-        living: PackedInt64Array,
-        shape: PackedFloat64Array,
-        units: PackedInt32Array,
-        speeds: PackedFloat64Array,
-        pace: PackedFloat64Array,
-    ) -> bool {
-        let (pairs, _) = living.as_slice().as_chunks::<2>();
-        let living: Vec<(i64, usize)> = pairs.iter().map(|p| (p[0], p[1] as usize)).collect();
-        let slots: Vec<usize> = living.iter().map(|&(_, slot)| slot).collect();
-        let (claimed, busy) = swaps::claims(&self.squads, squad as usize, &slots);
-        let ranked = ranked_of(&units, &speeds);
-        let started = march::shuffle::start_moves(
-            &shuffle_squad(&shape),
-            &ranked,
-            &claimed,
-            &busy,
-            pace_of(&pace),
-        );
-        let places: Vec<(i32, i32)> = ranked.iter().map(|r| r.place).collect();
-        let feet: Vec<(i32, i32)> =
-            ranked.iter().map(|r| (r.footprint_width, r.footprint_depth)).collect();
-        swaps::begin(&mut self.squads, squad as usize, &started, &living, &places, &feet);
-        !started.is_empty()
+    fn shuffle_step(&mut self, listed: PackedInt32Array, pace: PackedFloat64Array, tick: i64) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let p = pace.as_slice();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        swaps::pass::step(squads, field, &listed, ([p[0], p[1], p[2]], tick), log);
+        self.edits += 1;
     }
 
     /// How far each unit in the squad in `squad`'s held swaps is through its move, three
