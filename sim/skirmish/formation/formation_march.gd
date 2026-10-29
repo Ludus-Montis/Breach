@@ -89,12 +89,7 @@ static func travel_sign(squad: SkirmishSquad, route_end: float) -> int:
 ## Turns the squad's frame at once to its route's heading at its front: where it is placed
 ## (on the march it sweeps round bends: FormationSweep).
 static func face(squad: SkirmishSquad) -> void:
-	if squad.route == null:
-		return
-	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	squad.heading = CrateMarch.core().face(
-		squad.route.points(), cells, squad.direction, squad.heading
-	)
+	squad.store.field().march_face(squad.slot)  # along the route the crate holds
 
 
 ## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home: its

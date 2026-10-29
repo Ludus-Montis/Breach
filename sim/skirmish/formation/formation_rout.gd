@@ -70,9 +70,7 @@ static func step(
 	var roster := CrateRoster.of(squads, terrain)
 	var leaders := _leaders(squads)
 	var fled: PackedInt64Array = ColumnsLent.all(
-		columns,
-		func():
-			return field.rout_flee(roster, routes[0], routes[1], leaders, rules, fight_seed, ground)
+		columns, func(): return field.rout_flee(roster, routes, leaders, rules, fight_seed, ground)
 	)
 	var breaking := []
 	for at in range(1, fled[0] + 1):
@@ -87,9 +85,7 @@ static func step(
 			roster = CrateRoster.of(squads, terrain)  # routers joined friends
 			leaders = _leaders(squads)
 		var reformed: PackedInt64Array = ColumnsLent.all(
-			columns,
-			func():
-				return field.rout_regroup(roster, routes[0], routes[1], leaders, rules, fight_seed)
+			columns, func(): return field.rout_regroup(roster, routes, leaders, rules, fight_seed)
 		)
 		for at in reformed:
 			events.append(FormationEvents.squad_event("reformed", tick, routing[at]))
@@ -117,20 +113,17 @@ static func route_point_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishU
 	return _route_point(squad, view.along[unit.slot])
 
 
-## [the crate's routing (each chosen squad's index in `squads` and its route's point count),
-## the routes' points] for the squads `chosen` takes, which are appended to `out`.
-static func _routes(squads: Array, chosen: Callable, out: Array) -> Array:
+## The crate's routing (each chosen squad's index in `squads`, on the route the crate holds)
+## for the squads `chosen` takes, which are appended to `out`.
+static func _routes(squads: Array, chosen: Callable, out: Array) -> PackedInt32Array:
 	var routing := PackedInt32Array()
-	var points := PackedVector2Array()
 	for index in squads.size():
 		var squad: SkirmishSquad = squads[index]
 		if not chosen.call(squad):
 			continue
 		out.append(squad)
-		var route := squad.route.points() if squad.route != null else PackedVector2Array()
-		routing.append_array([index, route.size()])
-		points.append_array(route)
-	return [routing, points]
+		routing.append(index)
+	return routing
 
 
 ## Every listed squad's living units' leadership, in the roster's order.
@@ -216,10 +209,7 @@ static func _rally(squads: Array, routing: Array, call: Array, tick: int, events
 	var columns: UnitColumns = squads[0].store.columns
 	var rallied: PackedInt64Array = ColumnsLent.all(
 		columns,
-		func():
-			return field.rout_rallies(
-				call[1], call[2][0], call[2][1], call[3], morale, call[4], call[5]
-			)
+		func(): return field.rout_rallies(call[1], call[2], call[3], morale, call[4], call[5])
 	)
 	for at in range(1, rallied[0] + 1):
 		FormationMorale.band(squads[rallied[at]])  # first read: its morale is its ceiling
@@ -237,8 +227,7 @@ static func _break(squads: Array, breaking: Array, call: Array, tick: int, event
 	var routes := _routes(squads, func(squad): return squad in breaking, chosen)
 	var field: Object = call[0]
 	var seen: PackedInt64Array = ColumnsLent.all(
-		squads[0].store.columns,
-		func(): return field.rout_break(call[1], routes[0], routes[1], call[2])
+		squads[0].store.columns, func(): return field.rout_break(call[1], routes, call[2])
 	)
 	var at := 0
 	for squad in chosen:

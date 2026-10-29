@@ -2063,30 +2063,6 @@ impl GroundMarch {
         march::pace(ground.bind().ground(), &walkers, &v2s(&points), heading)
     }
 
-    /// FormationMarch.face: the bearing of `route` at `cells` along it, travelled in
-    /// `direction`.
-    #[func]
-    fn face(&self, route: PackedVector2Array, cells: f64, direction: i64, heading: f64) -> f64 {
-        march::sweep::wanted(&route_of(&route), cells, direction as i32, heading)
-    }
-
-    /// FormationSweep.step: the heading turned towards `route`'s at `cells`.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn sweep(
-        &self,
-        route: PackedVector2Array,
-        cells: f64,
-        direction: i64,
-        heading: f64,
-        width: i64,
-        cells_per_second: f64,
-        seconds: f64,
-    ) -> f64 {
-        let wanted = march::sweep::wanted(&route_of(&route), cells, direction as i32, heading);
-        march::sweep::step(heading, wanted, width as i32, cells_per_second, seconds)
-    }
-
     /// FormationSweep.rate.
     #[func]
     fn sweep_rate(&self, width: i64, cells_per_second: f64) -> f64 {
@@ -2953,6 +2929,20 @@ impl BodyField {
             .map_or_else(PackedVector2Array::new, |r| packed(&r.points))
     }
 
+    /// FormationMarch.face for the squad in `squad`, along the route it holds
+    /// (`march::sweep::face_held`).
+    #[func]
+    fn march_face(&mut self, squad: i64) {
+        march::sweep::face_held(&mut self.squads, squad as usize);
+    }
+
+    /// FormationSweep.step for the squad in `squad`, marching at `cells_per_second` for
+    /// `seconds`, along the route it holds (`march::sweep::sweep_held`).
+    #[func]
+    fn march_sweep(&mut self, squad: i64, cells_per_second: f64, seconds: f64) {
+        march::sweep::sweep_held(&mut self.squads, squad as usize, cells_per_second, seconds);
+    }
+
     /// FormationContact.can_engage.
     #[func]
     fn squad_can_engage(&self, squad: i64) -> bool {
@@ -3328,8 +3318,8 @@ impl BodyField {
     }
 
     /// FormationSimulation._apply_orders over `roster`'s squads: `ids` and `orders` the orders
-    /// given, in the order given. Per listed squad: a code naming its route (-1: none, the
-    /// straight lane) and how many of its points follow in `points`, 1 if it may pursue
+    /// given, in the order given. Per listed squad: a code naming the route it holds (-1:
+    /// none, the straight lane), 1 if it may pursue
     /// (`pursues`), and its living units' chances to break ranks and leashes, flat in the
     /// roster's order. `rules`: [pursuit_tempted_within]. Returns per order applied its
     /// squad's index in the roster and -1, or for a retreat out of a fight how many enemies
@@ -3343,7 +3333,6 @@ impl BodyField {
         ids: PackedInt64Array,
         orders: PackedInt32Array,
         routes: PackedInt64Array,
-        points: PackedVector2Array,
         pursues: PackedByteArray,
         temptations: PackedFloat64Array,
         rules: PackedFloat64Array,
@@ -3354,15 +3343,15 @@ impl BodyField {
             ids.as_slice().iter().copied().zip(orders.as_slice().iter().copied()).collect();
         let (pairs, _) = temptations.as_slice().as_chunks::<2>();
         let pairs: Vec<(f64, f64)> = pairs.iter().map(|p| (p[0], p[1])).collect();
+        let roster = roster.bind();
         let mut retreats = orders::Retreats {
-            routes: coded_routes(&routes, &points),
+            routes: coded_routes(&self.squads, &roster.roster, &routes),
             pursues: &pursues.as_slice().iter().map(|&p| p != 0).collect::<Vec<bool>>(),
             temptations: &pairs,
             within: rules.as_slice()[0],
             tick,
             seed,
         };
-        let roster = roster.bind();
         let (squads, columns) = (&mut self.squads, &mut self.field.columns);
         let applied = orders::apply(squads, columns, &roster.roster, &given, &mut retreats);
         self.edits += 1;
@@ -3384,8 +3373,8 @@ impl BodyField {
 
     /// FormationPursuit.step over `roster`'s pursuing squads (a record set, a unit living), in
     /// the lists' order: per squad its index in the roster (`listed`), its leash, and the
-    /// route it is on and the one it held its post on, each as how many of its points follow
-    /// in `points` (-1: none). `rules`: [cells a second at speed 1, seconds, stamina_give_up,
+    /// route it held its post on, as how many of its points follow in `points` (-1: none);
+    /// the route it is on is the one it holds. `rules`: [cells a second at speed 1, seconds, stamina_give_up,
     /// reach_pursuit_lag]. Returns three numbers a pursuit that ended or arrived back, in
     /// order: 0 ended or 1 arrived, the squad's index in the roster, and the way it is to
     /// face along its own route (arrived; else 0).
@@ -3406,12 +3395,14 @@ impl BodyField {
             from += count;
             Some(route::Route::new(points[from - count..from].to_vec(), 0.0))
         };
+        let roster = roster.bind();
         let mut pursuing = Vec::with_capacity(listed.len());
         for n in 0..listed.len() {
+            let index = listed.as_slice()[n] as usize;
             pursuing.push(pursuit::whole::Pursuing {
-                listed: listed.as_slice()[n] as usize,
-                route: route(counts.as_slice()[2 * n]),
-                held: route(counts.as_slice()[2 * n + 1]),
+                listed: index,
+                route: self.squads.route[roster.roster.listed[index].squad].clone(),
+                held: route(counts.as_slice()[n]),
                 leash: leashes.as_slice()[n],
             });
         }
@@ -3422,7 +3413,6 @@ impl BodyField {
             give_up: r[2],
             lag: r[3],
         };
-        let roster = roster.bind();
         let (squads, columns) = (&mut self.squads, &self.field.columns);
         let out = pursuit::whole::step(squads, columns, &roster.roster, &pursuing, &rules);
         self.edits += 1;
@@ -3437,20 +3427,19 @@ impl BodyField {
     }
 }
 
-/// Each listed squad's route as [its code, its route]: `routes` two numbers a squad (its
-/// code, -1 for none, and how many of its points follow in `points`).
-fn coded_routes(routes: &PackedInt64Array, points: &PackedVector2Array) -> Vec<orders::Coded> {
-    let points = v2s(points);
-    let (pairs, _) = routes.as_slice().as_chunks::<2>();
-    let mut from = 0;
-    pairs
+/// Each listed squad's route as [its code, the route it holds]: `codes` one a squad in
+/// `roster` (-1 for none).
+fn coded_routes(
+    squads: &Squads,
+    roster: &roster::Roster,
+    codes: &PackedInt64Array,
+) -> Vec<orders::Coded> {
+    let held = |n: usize| squads.route[roster.listed[n].squad].clone();
+    codes
+        .as_slice()
         .iter()
-        .map(|&[code, count]| {
-            let to = from + count as usize;
-            let route = (code >= 0).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
-            from = to;
-            (code, route)
-        })
+        .enumerate()
+        .map(|(n, &code)| (code, if code >= 0 { held(n) } else { None }))
         .collect()
 }
 
@@ -3458,9 +3447,9 @@ fn coded_routes(routes: &PackedInt64Array, points: &PackedVector2Array) -> Vec<o
 impl BodyField {
     /// FormationWithdraw.step over `roster`'s squads: those routing or destroyed withdraw no
     /// more; then `listed` (flat in the lists' order, those still withdrawing) flee: per
-    /// squad its index in the roster, its disorder, its re-form pace, its home along its
-    /// route (cells), how many of its route's points follow in `points`, and its living
-    /// units' own flight angles in `fans`, in its order. `rules`: [pace, seconds,
+    /// squad its index in the roster, its disorder, its re-form pace, its home along the
+    /// route it holds (cells), and its living units' own flight angles in `fans`, in its
+    /// order. `rules`: [pace, seconds,
     /// reach_contact, rout_enemy_near, rout_fan_cells, rout_rally_seconds]. Returns three
     /// numbers a squad that re-formed, in order: its index in the roster, the way it now
     /// faces along its route, and 1 if it is home and holds (else 0).
@@ -3471,31 +3460,28 @@ impl BodyField {
         roster: Gd<SquadRoster>,
         listed: PackedInt32Array,
         orders: PackedFloat64Array,
-        counts: PackedInt32Array,
-        points: PackedVector2Array,
         fans: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
     ) -> PackedInt64Array {
         let roster = roster.bind();
         withdraw::ended(&mut self.squads, &roster.roster);
-        let (points, orders, fans) = (v2s(&points), orders.as_slice(), fans.as_slice());
+        let (orders, fans) = (orders.as_slice(), fans.as_slice());
         let mut withdrawing = Vec::with_capacity(listed.len());
-        let (mut from, mut fanned) = (0, 0);
+        let mut fanned = 0;
         for n in 0..listed.len() {
-            let to = from + counts.as_slice()[n] as usize;
             let index = listed.as_slice()[n] as usize;
             let living = roster.roster.listed[index].living.len();
+            let held = self.squads.route[roster.roster.listed[index].squad].clone();
             withdrawing.push(withdraw::Withdrawing {
                 listed: index,
                 pursued: withdraw::pursued(&self.squads, &roster.roster, index),
                 disorder: orders[3 * n],
                 reform: orders[3 * n + 1],
                 home: orders[3 * n + 2],
-                route: route::Route::new(points[from..to].to_vec(), 0.0),
+                route: held.expect("a withdrawing squad has a route"),
                 fans: fans[fanned..fanned + living].to_vec(),
             });
-            from = to;
             fanned += living;
         }
         let r = rules.as_slice();
@@ -3777,8 +3763,7 @@ impl BodyField {
 impl BodyField {
     /// GroupSplit.step's decisions over `roster`'s squads. Per candidate (at ease, on a
     /// route), in `candidates`: its index in the roster and 1 if its frame waits for every
-    /// unit; its route's points follow in `points` (`counts` of them each), and per living
-    /// unit, in its order, 1 in `taking` if it is out taking a downed foe and its swap offset
+    /// unit, on the route it holds; and per living unit, in its order, 1 in `taking` if it is out taking a downed foe and its swap offset
     /// in `offsets`. `rules`: [walk_lost, group_join, cells per tile]. Returns per split, in
     /// the order they are numbered: [its candidate, its front (tiles), its unit count, then
     /// its units (indices into its squad's living) in the order they line up].
@@ -3788,29 +3773,27 @@ impl BodyField {
         &self,
         roster: Gd<SquadRoster>,
         candidates: PackedInt32Array,
-        counts: PackedInt32Array,
-        points: PackedVector2Array,
         taking: PackedByteArray,
         offsets: PackedVector2Array,
         rules: PackedFloat64Array,
         seed: i64,
     ) -> PackedFloat64Array {
         let roster = roster.bind();
-        let (points, offsets, taking) = (v2s(&points), v2s(&offsets), taking.as_slice());
-        let mut list = Vec::with_capacity(counts.len());
-        let (mut from, mut unit) = (0, 0);
-        for n in 0..counts.len() {
-            let to = from + counts.as_slice()[n] as usize;
-            let listed = candidates.as_slice()[2 * n] as usize;
+        let (offsets, taking) = (v2s(&offsets), taking.as_slice());
+        let (rows, _) = candidates.as_slice().as_chunks::<2>();
+        let mut list = Vec::with_capacity(rows.len());
+        let mut unit = 0;
+        for row in rows {
+            let listed = row[0] as usize;
             let living = roster.roster.listed[listed].living.len();
+            let held = self.squads.route[roster.roster.listed[listed].squad].clone();
             list.push(split::Candidate {
                 listed,
-                waits: candidates.as_slice()[2 * n + 1] != 0,
-                route: route::Route::new(points[from..to].to_vec(), 0.0),
+                waits: row[1] != 0,
+                route: held.expect("a group splitting is on a route"),
                 taking: taking[unit..unit + living].iter().map(|&t| t != 0).collect(),
                 offsets: offsets[unit..unit + living].to_vec(),
             });
-            from = to;
             unit += living;
         }
         let r = rules.as_slice();
@@ -4570,8 +4553,7 @@ impl BodyField {
         PackedInt64Array::from(out.as_slice())
     }
 
-    /// RoutBlows.blows: `routing`, two numbers a routing squad, its index in `roster` and how
-    /// many of `points` are its route's (0: none); `fighters`, three a fighter, its squad's
+    /// RoutBlows.blows: `routing`, each routing squad's index in `roster`; `fighters`, three a fighter, its squad's
     /// index in `roster`, its store slot and the cooldown it starts again at. Sets each
     /// fighter's target and cooldown, and returns three numbers a blow, in order: [the
     /// fighter's index, the router's squad's index in `routing`, its index in that one's
@@ -4581,13 +4563,12 @@ impl BodyField {
         &mut self,
         roster: Gd<SquadRoster>,
         routing: PackedInt32Array,
-        points: PackedVector2Array,
         fighters: PackedInt64Array,
         reach: f64,
         seed: i64,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let routing = routings(&routing, &points);
+        let routing = routings(&self.squads, &roster.roster, &routing);
         let (rows, _) = fighters.as_slice().as_chunks::<3>();
         let fighters: Vec<rout_blows::Fighter> = rows
             .iter()
@@ -4605,23 +4586,24 @@ impl BodyField {
     }
 }
 
-/// Routing formations as RoutBlows and FormationRout hand them in: two numbers a formation in
-/// `routing`, its index in the roster and how many of `points` are its route's (0: none).
-fn routings(routing: &PackedInt32Array, points: &PackedVector2Array) -> Vec<rout_blows::Routing> {
-    let points = v2s(points);
-    let (rows, _) = routing.as_slice().as_chunks::<2>();
-    let mut from = 0;
-    rows.iter()
-        .map(|r| {
-            let to = from + r[1] as usize;
-            let route = (to > from).then(|| route::Route::new(points[from..to].to_vec(), 0.0));
-            from = to;
-            rout_blows::Routing { listed: r[0] as usize, route }
+/// Routing formations as RoutBlows and FormationRout hand them in: each one's index in
+/// `roster`, on the route it holds.
+fn routings(
+    squads: &Squads,
+    roster: &roster::Roster,
+    routing: &PackedInt32Array,
+) -> Vec<rout_blows::Routing> {
+    routing
+        .as_slice()
+        .iter()
+        .map(|&listed| rout_blows::Routing {
+            listed: listed as usize,
+            route: squads.route[roster.listed[listed as usize].squad].clone(),
         })
         .collect()
 }
 
-/// The rout (spec 39 step 7b). `routing` and `points` as `routings` reads them; `leaders`
+/// The rout (spec 39 step 7b). `routing` as `routings` reads it; `leaders`
 /// every listed squad's living units' leadership, in the roster's order; `tuning` as
 /// RoutTuning.of_slice reads it.
 #[godot_api(secondary)]
@@ -4637,14 +4619,13 @@ impl BodyField {
         &mut self,
         roster: Gd<SquadRoster>,
         routing: PackedInt32Array,
-        points: PackedVector2Array,
         leaders: PackedInt32Array,
         tuning: PackedFloat64Array,
         seed: i64,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let routing = routings(&routing, &points);
+        let routing = routings(&self.squads, &roster.roster, &routing);
         let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
         let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
         let breaking = rout::breaking(&self.squads, &roster.roster);
@@ -4678,14 +4659,13 @@ impl BodyField {
         &mut self,
         roster: Gd<SquadRoster>,
         routing: PackedInt32Array,
-        points: PackedVector2Array,
         leaders: PackedInt32Array,
         morale: PackedInt64Array,
         tuning: PackedFloat64Array,
         seed: i64,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let routing = routings(&routing, &points);
+        let routing = routings(&self.squads, &roster.roster, &routing);
         let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
         let (rows, _) = morale.as_slice().as_chunks::<2>();
         let morale: Vec<(i64, i64)> = rows.iter().map(|m| (m[0], m[1])).collect();
@@ -4714,13 +4694,12 @@ impl BodyField {
         &mut self,
         roster: Gd<SquadRoster>,
         routing: PackedInt32Array,
-        points: PackedVector2Array,
         leaders: PackedInt32Array,
         tuning: PackedFloat64Array,
         seed: i64,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let routing = routings(&routing, &points);
+        let routing = routings(&self.squads, &roster.roster, &routing);
         let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
         let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
         let mut slots = std::collections::BTreeMap::new();
@@ -4753,11 +4732,10 @@ impl BodyField {
         &mut self,
         roster: Gd<SquadRoster>,
         breaking: PackedInt32Array,
-        points: PackedVector2Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let breaking = routings(&breaking, &points);
+        let breaking = routings(&self.squads, &roster.roster, &breaking);
         let (squads, columns) = (&mut self.squads, &mut self.field.columns);
         let seen =
             on_ground(ground, |g| rout::breaks(squads, columns, &roster.roster, &breaking, g));

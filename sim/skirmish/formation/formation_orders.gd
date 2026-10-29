@@ -36,7 +36,6 @@ static func apply(
 		given[0],
 		given[1],
 		given[2],
-		given[3],
 		PackedFloat64Array([tuning.pursuit_tempted_within]),
 		tick,
 		fight_seed
@@ -54,33 +53,27 @@ static func apply(
 			at += 3 * pursuers
 
 
-## What a retreat reads of each squad, in the lists' order: [its route's code and point
-## count, the routes' points, whether it may pursue, its living units' chances and leashes].
+## What a retreat reads of each squad, in the lists' order: [its route's code (the crate
+## holds the route), whether it may pursue, its living units' chances and leashes].
 static func _given(squads: Array) -> Array:
 	var tuning := BattleTuning.current()
 	var codes := {}  # route -> its code
 	var routes := PackedInt64Array()
-	var points := PackedVector2Array()
 	var pursues := PackedByteArray()
 	var temptations := PackedFloat64Array()
 	for squad: SkirmishSquad in squads:
-		if squad.route == null:
-			routes.append_array([-1, 0])
-		else:
-			var route_points: PackedVector2Array = squad.route.points()
-			routes.append_array([codes.get_or_add(squad.route, codes.size()), route_points.size()])
-			points.append_array(route_points)
+		routes.append(-1 if squad.route == null else codes.get_or_add(squad.route, codes.size()))
 		pursues.append(int(squad.pursues))
 		for unit in squad.living():
 			var steadied := FormationDiscipline.unit_discipline(squad, unit)  # its leader's too
 			var chance := float(tuning.discipline_meets_threats - steadied) / 100.0
 			temptations.append_array([chance, FormationDiscipline.unit_leash(squad, unit)])
-	return [routes, points, pursues, temptations]
+	return [routes, pursues, temptations]
 
 
 ## What a retreat reads when no order retreats: nothing.
 static func _none() -> Array:
-	return [PackedInt64Array(), PackedVector2Array(), PackedByteArray(), PackedFloat64Array()]
+	return [PackedInt64Array(), PackedByteArray(), PackedFloat64Array()]
 
 
 ## Lands a retreat out of a fight: its events, a ragged one's shock, and each pursuer's
