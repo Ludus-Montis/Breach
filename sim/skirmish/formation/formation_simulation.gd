@@ -42,6 +42,7 @@ const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.g
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
 const FormationAftermath = preload("res://sim/skirmish/formation/formation_aftermath.gd")
+const FormationMustering = preload("res://sim/skirmish/formation/formation_mustering.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
@@ -158,12 +159,9 @@ func step() -> Array:
 	)
 	var ticks := [_attack_interval_ticks(), fight_seed, _tick]  # the fight through recovery
 	var strays := FormationAftermath.step(_squads, ticks, tick_seconds, blow_rolls, terrain, events)
-	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)
-	FormationMorale.step(_squads, _tick, _attack_interval_ticks(), events)
-	events.append_array(FormationRout.step(_squads, _tick, pace, tick_seconds, terrain, fight_seed))
-	strays = FormationCarry.step(_squads, _tick, fight_seed, events)  # the wounded borne
-	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)
-	_next_squad_id = FormationGroups.step(_squads, _tick, fight_seed, events, _next_squad_id)
+	var at := [_tick, _attack_interval_ticks(), fight_seed, _next_squad_id]  # strays to groups
+	var paces := [pace, tick_seconds]
+	_next_squad_id = FormationMustering.step(_squads, strays, at, paces, terrain, events)
 	FormationStamina.step(_squads, tick_seconds)  # runners tire, the rest recover
 	UnitBodies.step(_squads, fight_seed, _field)  # after every move: bodies part (Decision 106)
 	events.append_array(FormationShuffle.step(_squads, tick_seconds, TRAVEL_SCALE, _tick))

@@ -11,6 +11,18 @@ extends RefCounted
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SquadColumns = preload("res://sim/skirmish/formation/squad_columns.gd")
+## What the crate set on a stray's squad (routing, at no morale, facing as its squad, set off
+## from where it stands), read before GDScript's squad is made over the slot and kept after.
+const HELD := [
+	SquadColumns.HEADING,
+	SquadColumns.STATE,
+	SquadColumns.MORALE,
+	SquadColumns.FRONT_DISTANCE,
+	SquadColumns.POSITION
+]
+const HELD_NAMES: Array[StringName] = [
+	&"heading", &"state", &"morale", &"front_distance", &"position"
+]
 
 
 ## Sets each of `strays` ([[unit, its squad], ...]) off home alone, as squads numbered from
@@ -31,6 +43,14 @@ static func adopt(strays: Array, squads: Array, next_id: int, fight_seed: int) -
 	var opened: PackedInt32Array = ColumnsLent.all(
 		store.columns, func(): return field.strays_adopt(flat, fight_seed)
 	)
+	return mirror(strays, squads, PackedInt64Array(Array(opened)), next_id)
+
+
+## GDScript's squads over the slots the crate opened for `strays` (`opened`: two numbers a
+## stray, [its index in `strays`, the slot], in the order numbered from `next_id`), added
+## to `squads`; returns the next free squad id. Later passes of the same crate call may have
+## changed a slot since (FormationMustering): what the crate holds there is kept.
+static func mirror(strays: Array, squads: Array, opened: PackedInt64Array, next_id: int) -> int:
 	for n in range(0, opened.size(), 2):
 		var stray: Array = strays[opened[n]]
 		squads.append(_mirrored(stray[0], stray[1], opened[n + 1], next_id))
@@ -45,7 +65,7 @@ static func _mirrored(
 ) -> SkirmishSquad:
 	squad.units.erase(unit)
 	UnitState.regather(squad)
-	var front: float = squad.store.squads.value(slot, SquadColumns.FRONT_DISTANCE)
+	var held := HELD.map(func(column): return squad.store.squads.value(slot, column))
 	var members: Array[SkirmishUnit] = [unit]
 	squad.store.squads.opened = slot
 	var stray := SkirmishSquad.new(
@@ -59,8 +79,6 @@ static func _mirrored(
 		squad.store
 	)
 	stray.route = squad.route
-	stray.heading = squad.heading
-	stray.state = SkirmishSquad.State.ROUTING
-	stray.morale = 0
-	stray.front_distance = front
+	for n in HELD.size():  # the crate's, as its setters write them
+		stray.set(HELD_NAMES[n], held[n])
 	return stray

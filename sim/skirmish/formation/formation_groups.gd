@@ -49,28 +49,29 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 	if squads.is_empty():
 		return next_id
 	var store: UnitStore = squads[0].store
-	var livings := []  # each squad's living units as the crate is given them
-	for squad: SkirmishSquad in squads:
-		livings.append(squad.living())
-	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
-		[tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE]
-	)
 	var field: Object = store.field()
 	field.put_squads_issued(next_id - 1)
 	var roster := CrateRoster.of(squads)
 	var at := PackedInt64Array([tick, fight_seed])
 	var out: PackedInt64Array = ColumnsLent.all(
-		store.columns, func(): return field.groups_step(roster, rules, at)
+		store.columns, func(): return field.groups_step(roster, rules(), at)
 	)
-	next_id = _mirrored(out, squads, livings, next_id)
+	next_id = mirror(out, squads, next_id)
 	events.append_array(CrateEvents.taken(field, store))
 	return next_id
 
 
-## GDScript's lists after the crate's pass `out`: each split's group wrapped over the slot
-## opened and listed, each group taken in out of `squads`, each unit gone back moved.
-static func _mirrored(out: PackedInt64Array, squads: Array, livings: Array, next_id: int) -> int:
+## What the pass takes of BattleTuning, in the order the crate reads it: [walk_lost,
+## group_join, cells a tile].
+static func rules() -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	return PackedFloat64Array([tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE])
+
+
+## GDScript's lists after the crate's pass `out`, as `groups_step` returns it: each split's
+## group wrapped over the slot opened and listed, each group taken in out of `squads`, each
+## unit gone back moved. Returns the next free squad id.
+static func mirror(out: PackedInt64Array, squads: Array, next_id: int) -> int:
 	var listed := squads.duplicate()  # as the crate numbers them: the splits after the rest
 	var i := 0
 	while i < out.size():
@@ -80,16 +81,17 @@ static func _mirrored(out: PackedInt64Array, squads: Array, livings: Array, next
 			i += 3
 			continue
 		var count := int(out[i + 3])
-		var picked := Array(out.slice(i + 4, i + 4 + count))
+		var ids := Array(out.slice(i + 4, i + 4 + count))
 		if out[i] == Landed.SPLIT:
-			var living: Array = livings[out[i + 1]]
-			var members := picked.map(func(n): return living[n])
-			var group := _split(listed[out[i + 1]], members, int(out[i + 2]), next_id)
+			var from: SkirmishSquad = listed[out[i + 1]]
+			# store: scattered (few: the units splitting off, once as a group splits)
+			var members := ids.map(func(id): return from.store.record_of(id))
+			var group := _split(from, members, int(out[i + 2]), next_id)
 			next_id += 1
 			squads.append(group)
 			listed.append(group)
 		else:
-			_returned(listed[out[i + 1]], listed[out[i + 2]], picked)
+			_returned(listed[out[i + 1]], listed[out[i + 2]], ids)
 		i += 4 + count
 	return next_id
 

@@ -579,6 +579,24 @@ events. After this step no battle phase runs in GDScript.
   FormationRecovery.mirror, split out of their passes), then takes the events once.
   FormationSimulation.step makes the one call; the per-pass bindings and `_fight` stay for
   their tests and `tick_phases`. Outcomes don't change.
+  **8b5-xxxix built** (2026-10-29): the strays through the groups as one crate call
+  (`mustering::step`, binding `mustering_step`): `strays::adopt` over recovery's strays,
+  `morale::pass` on a second's tick, `rout::pass` when a listed squad routs or is at 0
+  morale, `carry::pass` (its homes the routers the rout brought home), `strays::adopt` over
+  the bearers it set off, then `groups::pass`, each pass's events in the log in that order.
+  The squads listed grow in the crate as GDScript's lists did (`mustering::listing`): each
+  squad opened is listed after the rest, its faction coded as a listed squad of the same
+  one, its merging its command's, and every listed squad's living read again from the
+  members, each unit as the roster first gave it. It returns each pass's result, its count
+  first; FormationMustering mirrors them in the same order (FormationStrays.mirror,
+  FormationRout.mirror, FormationCarry.mirror, FormationStrays.mirror,
+  FormationGroups.mirror), then takes the events once. A mirror now runs after the later
+  passes, so one must not write back what they changed: a stray's squad keeps the heading,
+  state, morale, front and place the crate holds for it (a stray home or rallied in the
+  same call is DESTROYED there), not those it was set off with. `groups_step` (and so
+  FormationGroups.mirror) names a split's units by id, not by their index in the living.
+  FormationSimulation.step makes the one call; the per-pass bindings stay for their tests
+  and `tick_phases`. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

@@ -51,14 +51,15 @@ static func step(
 		return []  # nothing routs and nothing breaks
 	var store: UnitStore = squads[0].store
 	var field: Object = ColumnsLent.field(store.columns)
-	var rules := _rules(cells_per_second * tick_seconds, tick_seconds)
+	var tuning := rules(cells_per_second * tick_seconds, tick_seconds)
 	var roster := CrateRoster.of(squads, terrain)
 	var ground: Object = UnitMover.ground(terrain)
 	var at := PackedInt64Array([tick, fight_seed])
 	var moved: PackedInt64Array = ColumnsLent.all(
-		store.columns, func(): return field.rout_step(roster, rules, BandTuning.rules(), at, ground)
+		store.columns,
+		func(): return field.rout_step(roster, tuning, BandTuning.rules(), at, ground)
 	)
-	_mirror(squads, moved)
+	mirror(squads, moved)
 	return CrateEvents.taken(field, store)
 
 
@@ -83,7 +84,7 @@ static func route_point_in(view: UnitView, squad: SkirmishSquad, unit: SkirmishU
 
 ## The crate's rout tuning (RoutTuning.of_slice, then rout_crush, rout_panic and rout_seen),
 ## `pace` cells a tick at speed 1.
-static func _rules(pace: float, tick_seconds: float) -> PackedFloat64Array:
+static func rules(pace: float, tick_seconds: float) -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
 	return PackedFloat64Array(
 		[
@@ -107,7 +108,7 @@ static func _rules(pace: float, tick_seconds: float) -> PackedFloat64Array:
 ## GDScript's lists after the crate's rout (`moved`: three numbers a router that left its
 ## squad, as `rout_step` returns them): one home is out of its squad's units; one that
 ## rallied is out of its squad's and the friend's, which took it in.
-static func _mirror(squads: Array, moved: PackedInt64Array) -> void:
+static func mirror(squads: Array, moved: PackedInt64Array) -> void:
 	for at in range(0, moved.size(), 3):
 		var squad: SkirmishSquad = squads[moved[at]]
 		var unit: SkirmishUnit = null

@@ -60,6 +60,18 @@ fn at_ease(squads: &Squads, s: usize) -> bool {
     [MOVING, HOLDING, ARRIVED].contains(&squads.state[s])
 }
 
+/// The ids of each split's units, in the order `landed` has the splits and each one's units,
+/// as `roster` (the one the pass was given) lists them.
+pub fn split_ids(landed: &[Landed], roster: &Roster) -> Vec<Vec<i64>> {
+    let split = landed.iter().filter_map(|done| match done {
+        Landed::Split { from, members, .. } => Some((from, members)),
+        _ => None,
+    });
+    split
+        .map(|(&from, members)| members.iter().map(|&m| roster.listed[from].living[m].id).collect())
+        .collect()
+}
+
 /// GroupSplit.step: the groups split off, each opened and listed after the rest.
 fn split_off(
     squads: &mut Squads,
