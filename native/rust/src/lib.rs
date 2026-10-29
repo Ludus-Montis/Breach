@@ -4041,8 +4041,9 @@ impl BodyField {
     /// numbered: [its index in `strays`, the squad slot opened for it].
     #[func]
     fn strays_adopt(&mut self, strays: PackedInt32Array, seed: i64) -> PackedInt32Array {
+        let (rows, _) = strays.as_slice().as_chunks::<2>();
         let pairs: Vec<(usize, usize)> =
-            strays.as_slice().chunks_exact(2).map(|p| (p[0] as usize, p[1] as usize)).collect();
+            rows.iter().map(|&[a, b]| (a as usize, b as usize)).collect();
         let opened = strays::adopt(&mut self.squads, &mut self.field, &pairs, seed);
         self.edits += 1;
         PackedInt32Array::from_iter(opened.into_iter().flat_map(|(n, s)| [n as i32, s as i32]))
