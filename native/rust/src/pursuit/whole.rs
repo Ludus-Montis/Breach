@@ -4,9 +4,9 @@
 //! its quarry's units stand (`spread`). When the enemy is out of its sight, gone or no longer
 //! retreating, or it has gone as far from its post as its discipline leashes it, or most of
 //! it has tired, it gives up: its fight ends and it marches back along the route it is on to
-//! the post it held (a march home, with home its post). Back there it takes up its own route,
-//! its post and its order again, and GDScript turns it to face the way it held it
-//! (ScrumTurn), from what this returns, with the events.
+//! the post it held (a march home, with home its post). Back there it takes up its post and
+//! its order again; the scrum's pass (`scrum::pursue`, spec 39 step 8b5-xvi) gives it its own
+//! route back and turns it to face the way it held it, from what this returns.
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
@@ -46,7 +46,7 @@ pub struct Rules {
     pub lag: f64,
 }
 
-/// What a pursuit did that GDScript lands, by the squad's index in the roster.
+/// What a pursuit did that the scrum's pass lands, by the squad's index in the roster.
 #[derive(Debug, PartialEq)]
 pub enum Pursued {
     /// It gave up and marches back to its post.
