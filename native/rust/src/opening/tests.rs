@@ -152,7 +152,8 @@ impl Built {
                 squads.route_code[p.listed] = squads.route_code[a.listed];
             }
         }
-        perception::see(squads, &field.columns, roster, None);
+        let seen = perception::see(squads, &field.columns, roster, None);
+        perception::keep(squads, roster, &seen);
         contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
         let shocks = (&rules.impacts, &rules.bands);
         contact::engage_edges(squads, &mut field.columns, roster, (tick, seed), shocks, log);
@@ -205,6 +206,14 @@ fn what_each_squad_sees_is_handed_back() {
     let opened = b.whole(&rules);
     assert_eq!(opened.seen, vec![vec![1, 2], vec![0], vec![0]]);
     assert_eq!(opened.pursuers, vec![[0, 1, 1, 1]]);
+}
+
+#[test]
+fn each_squad_s_threat_is_kept_as_it_saw() {
+    let rules = rules();
+    let mut b = built();
+    b.whole(&rules);
+    assert_eq!(b.squads.threatened, vec![true, true, true], "each saw a foe");
 }
 
 #[test]

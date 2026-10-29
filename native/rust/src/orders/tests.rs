@@ -184,10 +184,12 @@ fn a_pursuer_keeps_the_route_it_held_its_post_on_as_it_begins_and_only_then() {
     let mut b = built();
     let own = Route::new(vec![V2::new(0.0, 0.0), V2::new(40.0, 0.0)], 1.0);
     b.squads.route[1] = Some(own.clone());
+    b.squads.route_code[1] = 4;
     let mut r = retreats(&b, 0.0);
     r.routes[0] = (7, Some(Route::new(vec![V2::new(20.0, 1.0), V2::new(0.0, 1.0)], 0.0)));
     run(&mut b, &[(1, RETREAT)], &mut r);
     assert_eq!(b.squads.post_route[1], Some(own.clone()), "the one it held, not its quarry's");
+    assert_eq!(b.squads.post_route_code[1], 4, "and its code");
     b.squads.route[1] = None;
     let mut r = retreats(&b, 0.0);
     run(&mut b, &[(1, RETREAT)], &mut r);

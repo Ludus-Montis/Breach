@@ -157,7 +157,7 @@ func step() -> Array:
 	)
 	_fight(events)
 	FormationDeaths.bury(_squads, _tick, events)
-	FormationTaking.step(_squads, _tick, tick_seconds, fight_seed, events, perception)
+	FormationTaking.step(_squads, _tick, tick_seconds, fight_seed, events)
 	FormationWounds.tend(_squads, _tick, _attack_interval_ticks(), fight_seed, events)
 	var strays := FormationRecovery.step(_squads, tick_seconds, _tick, fight_seed, events)
 	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)

@@ -54,6 +54,12 @@ pub fn step(
             Pursued::Arrived(n, way) => {
                 let s = roster.listed[n].squad;
                 squads.route[s] = squads.post_route[s].take(); // at its post: its own again
+                let code = std::mem::replace(&mut squads.post_route_code[s], -1);
+                squads.route_code[s] = match &squads.route[s] {
+                    None => -1,
+                    Some(_) if code < 0 => squads.issue_route(), // handed over unnamed
+                    Some(_) => code,
+                };
                 turn::landed(squads, columns, &roster.listed[n], way, rules.tick, log);
                 back.push(n);
             }

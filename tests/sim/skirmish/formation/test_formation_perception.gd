@@ -41,8 +41,8 @@ func test_formations_within_sight_see_each_other_and_are_threatened() -> void:
 	var seen := FormationPerception.see(sim.squads())
 
 	assert_array(seen[mine.id]["seen"]).contains_exactly([theirs])
-	assert_bool(FormationPerception.threatened(seen, mine)).is_true()
-	assert_bool(FormationPerception.threatened(seen, theirs)).is_true()
+	assert_bool(mine.threatened).is_true()
+	assert_bool(theirs.threatened).is_true()
 
 
 func test_a_foe_beyond_sight_is_no_threat() -> void:
@@ -53,7 +53,7 @@ func test_a_foe_beyond_sight_is_no_threat() -> void:
 
 	var seen := FormationPerception.see(sim.squads())
 
-	assert_bool(FormationPerception.threatened(seen, mine)).is_false()
+	assert_bool(mine.threatened).is_false()
 	assert_array(seen[mine.id]["seen"]).is_empty()
 
 
@@ -66,7 +66,7 @@ func test_friends_and_routers_are_no_threat() -> void:
 
 	var seen := FormationPerception.see(sim.squads())
 
-	assert_bool(FormationPerception.threatened(seen, mine)).is_false()
+	assert_bool(mine.threatened).is_false()
 
 
 ## A holding player line with a downed kingdom unit 4 cells ahead, and - if `foe_at` is

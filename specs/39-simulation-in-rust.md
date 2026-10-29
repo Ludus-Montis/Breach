@@ -546,6 +546,22 @@ events. After this step no battle phase runs in GDScript.
   `opening_step`, `apply_orders`, `move_step` and `groups_step` read the codes there, and
   FormationOrders.route_codes, FormationStaging.route_codes and FormationGroups' codes are
   gone. Outcomes don't change: the codes fall into the same groups as GDScript's routes.
+  **8b5-xxxvii built** (2026-10-29): the routes and the perception held by the crate.
+  SkirmishSquad.route is a view of the crate's route and code (SquadRoutes, on the store):
+  it reads the route kept for its squad's code, and a route the crate made (a group
+  re-routed, a pursuit's post route handed over unnamed) is made once from the crate's
+  points and corridor (`squad_route_half_width`) and named by its object (`name_route`). The
+  crate keeps the post route's code as a pursuit begins (`Squads::post_route_code`) and the
+  squad takes it up again back at its post; one handed over by `put_squad_pursuit` is issued
+  a fresh code there. So FormationOpening's `_pursued`, FormationOrders.apply's quarry copy,
+  FormationPathing's `_follow`/`rerouted` and FormationPursuit.mirror are gone, and a squad
+  carried to another store takes its route along (SquadRoutes.carry). The perception keeps
+  each squad's threat (`Squads::threatened`, `perception::keep`, from the opening and
+  `perception_see`), which `taking_step` reads instead of a list handed to it
+  (SkirmishSquad.threatened; FormationTaking.step takes no perception, and
+  FormationPerception.threatened is gone). Outcomes don't change, except where a pursuer
+  back at its post now holds the code of the very route it held it on, not one of the same
+  points (the old mirror's command's route or a new copy).
 
 ### Step 9, the rest of `sim/`
 

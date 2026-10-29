@@ -94,6 +94,12 @@ pub struct Squads {
     /// The route each pursuing as a whole held its post on (none: a straight lane, or none
     /// held), set as its pursuit began.
     pub post_route: Vec<Option<Route>>,
+    /// The code of the route each pursuing as a whole held its post on (-1: none, or a route
+    /// handed over from GDScript unnamed; it is issued one as the squad takes it up again).
+    pub post_route_code: Vec<i64>,
+    /// Whether each saw a standing foe as the tick's perception looked (`perception::keep`,
+    /// spec 39 step 8b5-xxxvii): threatened, it sends no takers (`taking::pass`).
+    pub threatened: Vec<bool>,
     /// The command each follows (a slot in `commands`; none till it is given one).
     pub command: Vec<Option<usize>>,
     /// Orders given for the next tick (FormationSimulation.order): [squad id, order], in
@@ -301,6 +307,8 @@ impl Squads {
         self.route.push(None);
         self.route_code.push(-1);
         self.post_route.push(None);
+        self.post_route_code.push(-1);
+        self.threatened.push(false);
         self.command.push(None);
         self.staging.push(None);
         self.swaps.push(Vec::new());

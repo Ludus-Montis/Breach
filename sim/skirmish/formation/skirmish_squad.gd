@@ -21,15 +21,14 @@ var faction_id: String:
 		faction_id = value
 		store.field().squad_put_faction(slot, value)
 ## The route the squad follows (Decision 75); null is a straight lane along x. The crate
-## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there, named
-## by the code the crate gives this route (8b5-xxxvi: the same route, the same code).
-var route: FormationRoute = null:
+## holds it (spec 39 step 8b4-i), named by the code it gives this route (8b5-xxxvi: the same
+## route, the same code), and this is a view of it (8b5-xxxvii, SquadRoutes): a route a pass
+## there hands the squad is the one read here, with no copy made by hand.
+var route: FormationRoute:
+	get:
+		return store.routes.of(slot)
 	set(value):
-		route = value
-		var points := PackedVector2Array() if value == null else value.points()
-		var half_width := 0.0 if value == null else value.corridor_half_width
-		var object := 0 if value == null else value.get_instance_id()
-		store.field().squad_put_route(slot, value != null, points, half_width, object)
+		store.routes.put(slot, value)
 		_place()
 ## The facing (SquadFrame) nearest its heading, for what still reckons in four ways (an
 ## exact diagonal rounds clockwise); setting it turns the frame to that way.
@@ -46,6 +45,14 @@ var taking: Dictionary:
 		return store.field().squad_taking(slot)
 	set(value):
 		store.field().put_squad_taking(slot, value)
+## Whether it saw a standing foe as the tick's perception looked (FormationPerception,
+## Decision 134), as the crate keeps it (spec 39 step 8b5-xxxvii): threatened, it sends no
+## takers (FormationTaking).
+var threatened: bool:
+	get:
+		return store.field().squad_threatened(slot)
+	set(value):
+		store.field().put_squad_threatened(slot, value)
 ## Pursuit (ScrumPursuit, Decision 109): whether it may pursue a retreating enemy (false:
 ## ordered not to); its units out chasing one on their own are `chasers` (StoredSquad).
 var pursues: bool:
