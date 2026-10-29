@@ -332,6 +332,15 @@ events. After this step no battle phase runs in GDScript.
   renumbered: **8b5-xvi** the fight; **8b5-xvii** deaths; **8b5-xviii** taking, wounds,
   recovery and strays; **8b5-xix** morale, the rout and carrying; **8b5-xx** groups,
   stamina, the bodies, the shuffle and the march's sync; **8b5-xxi** one `step()` binding.
+  **8b5-xv split further** (2026-10-29, under the same leave), on its survey (the
+  withdrawal's say all lies in the crate, but the pursuit's post route is still GDScript's,
+  kept by OrderRecords, and must become a squad column the snapshot carries first):
+  **8b5-xv** the withdrawal, its turns and events; **8b5-xvi** the pursuit (its leash and
+  its post's route held in the crate, its turns, "pursuit_ended", GDScript's route mirrored
+  on its return). The rest follow, renumbered: **8b5-xvii** the fight; **8b5-xviii**
+  deaths; **8b5-xix** taking, wounds, recovery and strays; **8b5-xx** morale, the rout and
+  carrying; **8b5-xxi** groups, stamina, the bodies, the shuffle and the march's sync;
+  **8b5-xxii** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2318,6 +2327,34 @@ Decision's conditions.
   its loose unit back (red with the GDScript's call stubbed, then green);
   `test_formation_list_order.gd`'s regroup test runs the one call.
 - **After it**, 8b5-xv: the withdrawal and the pursuit, their turns and events.
+
+### Step 8b5-xv, the scrum's withdrawal over the roster
+
+- **One call** (`scrum::withdraw::step`, `scrum_withdraw(roster, ground, rules, tick,
+  seed)`, FormationWithdraw.step(field, roster, ctx, events) from FormationScrum._withdraw):
+  those routing or destroyed withdraw no more (`withdraw::ended`); the rest flee
+  (`withdraw::step`), count their safe ticks and re-form (`withdraw::records`); each
+  re-form is landed in order: its turn (`turn::landed`: ScrumTurn.begin with the route it
+  holds, an about-face cancelling its swaps under way, "turning" and "turned"), then
+  "regrouping", and "returned" for one home with nowhere further to go.
+- **Read in the crate:** which squads withdraw (their record and state), each one's
+  disorder (FormationWithdraw.disorder, `discipline::disorder`) and re-form pace
+  (FormationDiscipline.reform_pace, `discipline::reform_pace`, which the regroup now shares)
+  from its living units' sheets, its route and home (`home_distance`), and its living units'
+  flight angles (RoutFlight.fan, `rout::flight::fan`).
+- **Gone:** the `withdraw` binding; FormationWithdraw's `_reformed`. The move's turn logs
+  through the same `turn::landed`. FormationWithdraw keeps `disorder`; ScrumTurn.begin stays
+  for the pursuit. "regrouping" joins `events::KINDS`. tools/tick_phases.gd follows.
+- **Identical:** the same flights, records, re-forms, turns and events, in the same order.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/withdraw/tests.rs` (a withdrawing squad's units flee home; safe
+  long enough it about-faces for home, "turning", "turned", "regrouping"; an about-face
+  cancels the swaps under way; with all its units home it holds, "regrouping", "returned";
+  one routing withdraws no more; its disorder, re-form pace, home and fans are read in the
+  crate), red on a stubbed pass, then green. gdUnit `test_scrum_withdraw.gd`: a withdrawal
+  safe long enough re-forms, its "regrouping" as FormationEvents made it (red with the
+  GDScript's taking of the log stubbed, then green).
+- **After it**, 8b5-xvi: the pursuit, its turns and events.
 
 ## Open, for the implementing session to settle and record here
 
