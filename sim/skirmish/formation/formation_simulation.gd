@@ -112,7 +112,7 @@ func spawn_squad(
 	for placement in placements:
 		members.append(FormationUnits.make(placement[0], faction_id, direction, _next_unit_id))
 		_next_unit_id += 1
-	var orders := FormationCommand.new(home, path)
+	var orders := FormationCommand.new(_field, home, path)
 	var squad := SkirmishSquad.new(
 		_next_squad_id, faction_id, direction, home, width, members, orders, store
 	)

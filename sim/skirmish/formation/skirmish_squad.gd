@@ -83,8 +83,11 @@ var merges: bool:
 		return command.merges
 	set(value):
 		command.merges = value
-## The command this group of units follows (spec 30 round 3).
-var command: FormationCommand
+## The command this group of units follows (spec 30 round 3); the crate knows it too.
+var command: FormationCommand:
+	set(value):
+		command = value
+		store.field().squad_put_command(slot, value.slot)
 
 
 func _init(
@@ -102,7 +105,7 @@ func _init(
 		unit_store if unit_store != null else NativeKernels.unit_store(NativeKernels.body_field())
 	)
 	slot = store.squads.open(squad_id)
-	command = orders if orders != null else FormationCommand.new(home)
+	command = orders if orders != null else FormationCommand.new(store.field(), home)
 	id = squad_id
 	faction_id = faction
 	direction = travel_direction

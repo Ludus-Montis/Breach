@@ -3,14 +3,15 @@
 //! whenever the command has learned a way round it doesn't carry yet, standing where it
 //! stood along the new route. A marching group with a route looks ahead once its front has
 //! moved on `relook` cells or more since it last looked. The look itself (`pathing`) and
-//! the patches' list on the command stay where they are; GDScript calls them between these.
+//! the commands' patches are the crate's (`commands`, step 8b4-iii); GDScript calls the look
+//! between these.
 
 #[cfg(test)]
 mod tests;
 
 use crate::geometry::CELLS;
 use crate::locks::MOVING;
-use crate::route::Route;
+use crate::route::{Patch, Route};
 use crate::squads::Squads;
 
 /// FormationPathing._follow's test: whether the squad in `slot` re-routes onto its
@@ -41,4 +42,21 @@ pub fn looks(squads: &mut Squads, slot: usize, routed: bool, relook: f64) -> boo
         squads.looked_at[slot] = front;
     }
     looks
+}
+
+/// How many ways round the command the squad in `slot` follows has learned, if it has a
+/// route (none: no route, or no command).
+pub fn command_patches(squads: &Squads, slot: usize) -> Option<usize> {
+    let command = squads.command[slot]?;
+    let commands = &squads.commands;
+    commands.route[command].as_ref().map(|_| commands.patches[command].len())
+}
+
+/// The route the command the squad in `slot` follows takes, with its ways round (none: no
+/// route, or no command).
+pub fn command_route(squads: &Squads, slot: usize) -> Option<Route> {
+    let command = squads.command[slot]?;
+    let commands = &squads.commands;
+    let route = commands.route[command].as_ref()?;
+    Some(Patch::patched(route, &commands.patches[command]))
 }

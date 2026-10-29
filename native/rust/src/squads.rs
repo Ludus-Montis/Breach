@@ -21,10 +21,12 @@
 //! pursuit as a whole (`pursuit`) and its withdrawal (`withdraw`, the ticks it has felt
 //! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port. Since
 //! step 8b4-i, also the route each follows (`route`, none: a straight lane), as
-//! SkirmishSquad.route sets it.
+//! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
+//! (`command`) and the commands themselves (`commands`).
 
 use serde::{Deserialize, Serialize};
 
+use crate::commands::Commands;
 use crate::maths::V2;
 use crate::route::Route;
 
@@ -78,6 +80,10 @@ pub struct Squads {
     pub withdraw: Vec<Option<i64>>,
     /// The route each follows (none: a straight lane along x).
     pub route: Vec<Option<Route>>,
+    /// The command each follows (a slot in `commands`; none till it is given one).
+    pub command: Vec<Option<usize>>,
+    /// The commands the squads follow (spec 39 step 8b4-iii).
+    pub commands: Commands,
 }
 
 /// A pursuit as a whole: the squad it pursues, the post it left (tiles along its own route,
@@ -254,6 +260,7 @@ impl Squads {
         self.pursuit.push(None);
         self.withdraw.push(None);
         self.route.push(None);
+        self.command.push(None);
         slot
     }
 

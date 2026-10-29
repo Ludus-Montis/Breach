@@ -89,3 +89,20 @@ func test_in_a_whole_battle_every_unit_follows_its_squads_command() -> void:
 			for unit in squad.units:
 				assert_object(unit.command).is_same(squad.command)
 				assert_object(unit.origin).is_not_null()
+
+
+func test_the_crate_holds_a_command_s_orders() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var squad := _line(sim, 3, true)
+	var command := squad.command
+	var field: Object = command.field
+	command.hurry = true
+	command.pursues = false
+	command.tends = "carry"
+	command.home_distance = 6.5
+	assert_bool(field.command_gives(command.slot, FormationCommand.HURRY)).is_true()
+	assert_bool(field.command_gives(command.slot, FormationCommand.PURSUES)).is_false()
+	assert_bool(field.command_gives(command.slot, FormationCommand.TAKES)).is_true()
+	assert_str(field.command_tends(command.slot)).is_equal("carry")
+	assert_float(field.command_home(command.slot)).is_equal(6.5)
+	assert_bool(squad.pursues).is_false()  # its groups read it there

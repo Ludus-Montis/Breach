@@ -80,3 +80,21 @@ fn a_group_looks_again_only_once_its_front_has_moved_on() {
     squads.front_distance[0] = 2.0;
     assert!(looks(&mut squads, 0, true, 32.0), "back along it counts too");
 }
+
+#[test]
+fn a_group_reads_its_command_s_route_and_ways_round() {
+    let mut squads = squad(V2::new(0.0, 0.0), 0.0);
+    assert_eq!(command_patches(&squads, 0), None, "no command");
+    let command = squads.commands.open(0.0);
+    squads.command[0] = Some(command);
+    assert_eq!(command_patches(&squads, 0), None, "no route");
+    assert_eq!(command_route(&squads, 0), None);
+    squads.commands.route[command] = Some(lane());
+    assert_eq!(command_patches(&squads, 0), Some(0));
+    assert_eq!(command_route(&squads, 0), Some(lane()));
+    let detour = [V2::new(64.0, 0.0), V2::new(96.0, 32.0), V2::new(128.0, 0.0)];
+    squads.commands.learn(command, &detour);
+    assert_eq!(command_patches(&squads, 0), Some(1));
+    let patched = crate::route::Patch::patched(&lane(), &squads.commands.patches[command]);
+    assert_eq!(command_route(&squads, 0), Some(patched));
+}

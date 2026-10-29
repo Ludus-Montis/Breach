@@ -59,7 +59,7 @@ func _units(first_id: int, count: int) -> Array[SkirmishUnit]:
 
 func _squad(store: UnitStore, squad_id: int, members: Array[SkirmishUnit]) -> SkirmishSquad:
 	return SkirmishSquad.new(
-		squad_id, "player", 1, 2.0, 3, members, FormationCommand.new(2.0), store
+		squad_id, "player", 1, 2.0, 3, members, FormationCommand.new(store.field(), 2.0), store
 	)
 
 

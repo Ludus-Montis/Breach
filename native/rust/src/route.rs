@@ -22,7 +22,7 @@ pub struct Route {
 
 /// A learned detour: between `from_along` and `to_along` cells along a route, follow
 /// `waypoints`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Patch {
     pub from_along: f64,
     pub to_along: f64,
