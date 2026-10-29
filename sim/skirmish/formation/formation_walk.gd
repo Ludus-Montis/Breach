@@ -9,7 +9,8 @@ extends RefCounted
 ## towards what its formation's discipline allows (walk_slack_drilled to walk_slack_loose)
 ## and waits beyond it, unless that unit has fallen behind (walk_lost) - then only "no man
 ## left behind" waits for it; under "fall behind, left behind" it never waits. Placing a
-## squad sets its units on their places (FormationMarch.sync_units). Pure. A view over the
+## squad sets its units on their places (FormationMarch.sync_units, the crate's
+## `march::sync`). Pure. A view over the
 ## crate's (native/rust/src/march/walk.rs and modes.rs, spec 39 step 3d): the walk, its
 ## climbing and swimming (modes.rs, once WalkModes), the slack and the rule; the share is
 ## the move pass's (native/rust/src/moving/share.rs, spec 39 step 8b5-ix).
@@ -53,10 +54,9 @@ static func walk(
 
 
 ## `walk` for each of `units` of `squad`, towards its point in `aims` (unit id -> point):
-## one call for the squad. `held` is the squad's view of a hold of WALKS (the march's,
-## FormationMarch.WALKED): each unit reads its own columns there, the ground and the bodies
-## lying, so the order they walk in can't matter; a fall hurts it (UnitHealth) after, in
-## their order.
+## one call for the squad. `held` is the squad's view of a hold of WALKS: each unit reads
+## its own columns there, the ground and the bodies lying, so the order they walk in can't
+## matter; a fall hurts it (UnitHealth) after, in their order.
 static func walk_all(
 	squad: SkirmishSquad,
 	held: UnitView,
@@ -117,15 +117,8 @@ static func walk_all(
 
 
 ## Where `unit` belongs in its squad's frame now, including any swap under way (`moving`:
-## FormationShuffle.movers for the squad, or null; `places`: a view of the squad's store
-## holding UnitView.PLACES).
-static func place_of(
-	squad: SkirmishSquad, basis: Array, unit: SkirmishUnit, moving, places: UnitView
-) -> Vector2:
-	return FormationPour.place(squad, basis, unit, moving, UnitPlace.in_view(places, unit))
-
-
-## `place_of` for one unit, its place read from the store: scattered, for an event's few.
+## FormationShuffle.movers for the squad, or null), its place read from the store:
+## scattered, for an event's few.
 static func place_of_one(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Vector2:
 	return FormationPour.place(squad, squad.frame(), unit, moving, UnitPlace.of(squad, unit))
 
