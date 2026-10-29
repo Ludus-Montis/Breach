@@ -231,7 +231,7 @@ func _fight(events: Array) -> void:
 	var blows: Array = chosen[0]
 	var shots: Array = chosen[1]
 	var rolls := [fight_seed, _tick] if blow_rolls else []
-	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field)
+	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field, chosen[2])
 	var hurts := []  # the shots, then the blows, in the order landed: hurt in the crate
 	for each in shots + blows:
 		hurts.append([each[1], each[2]])
