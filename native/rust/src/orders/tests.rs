@@ -180,6 +180,21 @@ fn a_pursuer_takes_its_quarrys_route_where_it_passes_by_towards_its_quarry() {
 }
 
 #[test]
+fn a_pursuer_keeps_the_route_it_held_its_post_on_as_it_begins_and_only_then() {
+    let mut b = built();
+    let own = Route::new(vec![V2::new(0.0, 0.0), V2::new(40.0, 0.0)], 1.0);
+    b.squads.route[1] = Some(own.clone());
+    let mut r = retreats(&b, 0.0);
+    r.routes[0] = (7, Some(Route::new(vec![V2::new(20.0, 1.0), V2::new(0.0, 1.0)], 0.0)));
+    run(&mut b, &[(1, RETREAT)], &mut r);
+    assert_eq!(b.squads.post_route[1], Some(own.clone()), "the one it held, not its quarry's");
+    b.squads.route[1] = None;
+    let mut r = retreats(&b, 0.0);
+    run(&mut b, &[(1, RETREAT)], &mut r);
+    assert_eq!(b.squads.post_route[1], Some(own), "pursuing already: kept");
+}
+
+#[test]
 fn a_pursuer_keeps_its_own_route_when_its_quarrys_passes_far_from_it_or_is_its_own() {
     for (code, y) in [(7, 5.0), (0, 1.0)] {
         let mut b = built();

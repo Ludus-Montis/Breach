@@ -2,9 +2,9 @@ class_name OrderRecords
 extends RefCounted
 ## The squads' pursuits and withdrawals in the crate's squad store (spec 39 step 7c), set by
 ## the crate's orders, pursuit and withdrawal. SkirmishSquad's `pursuit` and `withdraw` read
-## them here as the dictionaries they were ({"foe", "route", "post", "post_at", "home",
-## "direction", "order", "returning"}; {"safe_ticks"}). The route a pursuer held its post on
-## is kept here (`hold_route`) until routes are the crate's. A view is taken once and kept
+## them here as the dictionaries they were ({"foe", "post", "post_at", "home", "direction",
+## "order", "returning"}; {"safe_ticks"}). The route a pursuer held its post on is the
+## crate's too (spec 39 step 8b5-xvi), carried with its pursuit. A view is taken once and kept
 ## until a call changes any record (the field's `records_edits`), as SquadRecords' are, so it
 ## must never be changed in place.
 
@@ -14,7 +14,6 @@ const WITHDRAW := 1
 var _field: Object
 var _seen := -1
 var _held := {}  # Vector2i(kind, squad slot) -> its view
-var _routes := {}  # squad slot -> the route its pursuit left its post on
 
 
 func _init(field: Object) -> void:
@@ -31,17 +30,10 @@ func withdraw(slot: int) -> Dictionary:
 	return _view(WITHDRAW, slot)
 
 
-## Keeps the route the squad's pursuit left its post on.
-func hold_route(slot: int, route) -> void:
-	_routes[slot] = route
-	_held.erase(Vector2i(PURSUIT, slot))
-
-
 ## Puts the pursuit and withdrawal of the squad in `slot` of `from` (another store's
 ## OrderRecords) into `to` here, as they stand: a squad carried to another store.
 func carry(from: OrderRecords, slot: int, to: int) -> void:
 	_field.put_squad_pursuit(to, from._field.squad_pursuit(slot))
-	hold_route(to, from._routes.get(slot))
 	_field.put_squad_withdraw(to, from._field.squad_withdraw(slot))
 
 
@@ -62,7 +54,6 @@ func _pursuit(slot: int) -> Dictionary:
 		return {}
 	return {
 		"foe": int(held[0]),
-		"route": _routes.get(slot),
 		"post": held[1],
 		"post_at": Vector2(held[2], held[3]),
 		"home": held[4],
