@@ -24,7 +24,6 @@ const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
-const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
@@ -198,6 +197,7 @@ func _scrum(sim: Sim, events: Array) -> void:
 		"tick": tick,
 		"seconds": sim.tick_seconds,
 		"pace": pace * sim.tick_seconds,
+		"cells_per_second": pace,
 		"seed": sim.fight_seed,
 		"terrain": sim.terrain,
 		"active": {},
@@ -216,10 +216,8 @@ func _after_seek(sim: Sim, scrum: Array, events: Array) -> void:
 	var tick := sim.tick_number()
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var scrum_events := []
-	ScrumRegroup.step(squads, ctx["pace"], sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
-	_lap("scrum: regroup")
-	ScrumPursuit.step(squads, tick, pace, sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
-	_lap("scrum: chasers (ScrumPursuit)")
+	ScrumRegroup.step(sim._field, roster, ctx)
+	_lap("scrum: regroup and chasers")
 	FormationWithdraw.step(
 		squads,
 		tick,

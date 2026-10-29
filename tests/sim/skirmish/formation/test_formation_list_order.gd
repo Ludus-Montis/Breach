@@ -260,7 +260,10 @@ func test_two_regrouping_squads_of_one_side_walk_back_the_same_with_their_lists_
 	_reverse(reversed.squads())
 	for _tick in range(3):
 		for sim in [usual, reversed]:
-			ScrumRegroup.step(sim.squads(), 0.25, TICK, sim.fight_seed)
+			var ctx := {"pace": 0.25, "seconds": TICK, "cells_per_second": 2.5}
+			ctx.merge({"seed": sim.fight_seed, "terrain": null})
+			var squads := sim.squads()
+			ScrumRegroup.step(squads[0].store.field(), CrateRoster.of(squads), ctx)
 
 	assert_str(_loose(usual.squads())).is_not_equal("[]")  # still walking back
 	assert_str(_loose(reversed.squads())).is_equal(_loose(usual.squads()))
