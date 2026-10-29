@@ -30,6 +30,7 @@ mod ghash;
 mod grid;
 pub mod ground;
 mod groups;
+mod landing;
 mod locks;
 mod lying;
 mod manoeuvre;
@@ -59,6 +60,7 @@ mod rout_blows;
 mod route;
 mod scrum;
 mod seeking;
+mod shots;
 mod snapshot;
 mod split;
 mod squads;
@@ -4480,4 +4482,130 @@ impl BodyField {
         }
         PackedInt64Array::from(flat.as_slice())
     }
+}
+
+/// The ranged picks and the blows' landing (spec 39 step 8a1).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationCombat.ranged_blows: `shooters`, three numbers a shooter, its squad's index in
+    /// `roster`, its index in that one's living and the cooldown it starts again at. Sets each
+    /// one's target and cooldown, and returns three numbers a shot, in order: [the shooter's
+    /// index, its target's squad's index in the roster, its index in that one's living].
+    #[func]
+    fn shots(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        shooters: PackedInt64Array,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let (rows, _) = shooters.as_slice().as_chunks::<3>();
+        let shooters: Vec<shots::Shooter> = rows
+            .iter()
+            .map(|s| shots::Shooter {
+                listed: s[0] as usize,
+                member: s[1] as usize,
+                reset: s[2] as i32,
+            })
+            .collect();
+        let columns = &mut self.field.columns;
+        let out = shots::shots(&self.squads, columns, &roster.roster, &shooters, seed);
+        let flat: Vec<i64> =
+            out.iter().flat_map(|&(s, n, u)| [s, n, u].map(|v| v as i64)).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// BlowLanding.land. `ints`, ARMS_INTS numbers a unit: [id, slot, defence, armour, ward,
+    /// wounding, parries, the sets of damage-type codes it is weak to, resists, is immune to
+    /// and that stop its regeneration (one bit a code), how many melee parts and ranged
+    /// parts]; `reals`, ARMS_REALS a unit: [melee skill, ranged skill, critical, melee floor,
+    /// ranged floor, most stamina, agility, dodging]; `parts`, three a part, each unit's melee
+    /// parts then its ranged ones: [damage, type code, 1 if magical]. `blows`, seven a blow:
+    /// [the striker's and the target's index among the units, its damage, 1 if a shot, 1 if
+    /// from a flank, the striker's formation's morale band (-1: none), the foes pressing its
+    /// target]. `tuning` as LandingTuning.of_slice reads it; `rolls` [battle seed, tick], or
+    /// empty for none. Returns two numbers a blow: [the damage it deals, how it landed].
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn land_blows(
+        &mut self,
+        ints: PackedInt64Array,
+        reals: PackedFloat64Array,
+        parts: PackedFloat64Array,
+        blows: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        rolls: PackedInt64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let arms = arms_of(&ints, &reals, &parts);
+        let (rows, _) = blows.as_slice().as_chunks::<7>();
+        let blows: Vec<landing::Blow> = rows
+            .iter()
+            .map(|b| landing::Blow {
+                striker: b[0] as usize,
+                target: b[1] as usize,
+                nominal: b[2],
+                ranged: b[3] != 0,
+                flank: b[4] != 0,
+                band: (b[5] >= 0).then_some(b[5] as usize),
+                pressed: b[6],
+            })
+            .collect();
+        let tuning = landing::LandingTuning::of_slice(tuning.as_slice());
+        let rolls = (rolls.len() == 2).then(|| (rolls[0], rolls[1]));
+        let columns = &mut self.field.columns;
+        let out = on_ground(ground, |g| landing::land(columns, &arms, &blows, &tuning, rolls, g));
+        let flat: Vec<i64> =
+            out.iter().flat_map(|&(dealt, landed)| [dealt, landed as i64]).collect();
+        PackedInt64Array::from(flat.as_slice())
+    }
+}
+
+/// Numbers a unit's arms take in `land_blows`' `ints` and `reals`.
+const ARMS_INTS: usize = 13;
+const ARMS_REALS: usize = 8;
+
+/// The units' arms as `land_blows` is handed them.
+fn arms_of(
+    ints: &PackedInt64Array,
+    reals: &PackedFloat64Array,
+    parts: &PackedFloat64Array,
+) -> Vec<landing::Arms> {
+    let (ints, _) = ints.as_slice().as_chunks::<ARMS_INTS>();
+    let (reals, _) = reals.as_slice().as_chunks::<ARMS_REALS>();
+    let (mut parts, _) = parts.as_slice().as_chunks::<3>();
+    let mut take = |count: i64| -> Vec<landing::Part> {
+        let (these, rest) = parts.split_at(count as usize);
+        parts = rest;
+        these
+            .iter()
+            .map(|p| landing::Part { amount: p[0], kind: p[1] as u32, magical: p[2] != 0.0 })
+            .collect()
+    };
+    ints.iter()
+        .zip(reals)
+        .map(|(i, r)| landing::Arms {
+            id: i[0],
+            slot: i[1] as usize,
+            defence: i[2],
+            armour: i[3],
+            ward: i[4],
+            wounding: i[5] as i32,
+            parries: i[6] != 0,
+            weak: i[7] as u64,
+            resists: i[8] as u64,
+            immune: i[9] as u64,
+            stops: i[10] as u64,
+            melee_parts: take(i[11]),
+            ranged_parts: take(i[12]),
+            melee_skill: r[0],
+            ranged_skill: r[1],
+            critical: r[2],
+            melee_floor: r[3],
+            ranged_floor: r[4],
+            max_stamina: r[5],
+            agility: r[6],
+            dodging: r[7],
+        })
+        .collect()
 }

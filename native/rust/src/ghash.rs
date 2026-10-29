@@ -1,7 +1,7 @@
 //! Godot's `hash()` of an Array of ints and Strings, as GDScript computes it (Godot 4.7:
 //! `Array::recursive_hash` - MurmurHash3 steps over each element's own hash, seeded with
 //! the ARRAY type and finished with fmix32; an int's hash is `hash_one_uint64`, a String's
-//! the djb2 `String::hash` over its code points). The battle's seeded draws (BattleRolls,
+//! the djb2 `String::hash` over its code points, a bool's 0 or 1 itself). The battle's seeded draws (BattleRolls,
 //! ScrumContest) are posmods of it. `BodyField.godot_hash` exposes it, so the suite proves
 //! it against the engine's own `hash()` (tests/sim/skirmish/formation/test_body_field.gd).
 
@@ -14,6 +14,7 @@ const ARRAY_TYPE: u32 = 28;
 pub enum Key<'a> {
     Int(i64),
     Str(&'a str),
+    Bool(bool),
 }
 
 #[inline]
@@ -64,6 +65,7 @@ pub fn hash(keys: &[Key]) -> u32 {
         let one = match *key {
             Key::Int(v) => one_uint64(v as u64),
             Key::Str(s) => string_hash(s),
+            Key::Bool(b) => b as u32,
         };
         h = murmur3_one_32(one, h);
     }
@@ -91,5 +93,11 @@ mod tests {
         assert_eq!(hash(&[Key::Int(-5), Key::Int(3)]), 1782146209);
         let big = [Key::Int(123456789012345), Key::Int(3), Key::Int(1)];
         assert_eq!(hash(&big), 2113128541);
+        assert_eq!(hash(&[Key::Bool(true)]), 2714831339);
+        assert_eq!(hash(&[Key::Bool(false)]), 1771887473);
+        let blow = [Key::Int(7), Key::Int(3), Key::Int(11), Key::Str("blow"), Key::Bool(true)];
+        assert_eq!(hash(&blow), 4117355511);
+        let damage = [Key::Int(7), Key::Int(3), Key::Int(11), Key::Str("damage"), Key::Bool(false)];
+        assert_eq!(hash(&damage), 1482015660);
     }
 }
