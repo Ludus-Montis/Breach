@@ -105,7 +105,12 @@ pub fn step(
 /// BodyFieldSync.scrum: the field brought to the listed squads' living units, in the lists'
 /// order, those new to it enrolled with their record. Returns each synced unit's member, by
 /// its flat index.
-fn sync<'r>(squads: &Squads, field: &mut Field, roster: &'r Roster, seed: i64) -> Vec<&'r Member> {
+pub(crate) fn sync<'r>(
+    squads: &Squads,
+    field: &mut Field,
+    roster: &'r Roster,
+    seed: i64,
+) -> Vec<&'r Member> {
     let mut ids = Vec::with_capacity(roster.listed.len());
     let mut factions = Vec::with_capacity(roster.listed.len());
     let mut flags = Vec::with_capacity(roster.listed.len());

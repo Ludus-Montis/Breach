@@ -10,7 +10,7 @@ extends RefCounted
 ##   at its turn rate, and steps away at its pace, times the re-form pace - a disciplined
 ##   formation breaks off quickly and cleanly, a ragged one slowly, backing off and exposed
 ##   (flank blows) while it turns. Once clear it is in flight, at its full pace. Until it
-##   has turned, a unit still facing a foe it touches strikes it (ScrumBlows). The less
+##   has turned, a unit still facing a foe it touches strikes it (FormationMelee). The less
 ##   ordered the formation, the wider its units fan out from the route's line: up to
 ##   rout_fan_degrees (BattleTuning) either side, by a seeded angle per unit, for one with no
 ##   discipline. Ground it can't cross turns it back onto the route (a ford it fanned
