@@ -20,19 +20,20 @@ const FormationEvents = preload("res://sim/skirmish/formation/formation_events.g
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 
 
-## Applies `pending` (squad id -> SkirmishUnit.Order, in the order given) to `squads`.
+## Applies the orders the crate has queued, `pending` ([squad id, SkirmishUnit.Order] each, in
+## the order given), to `squads`; the crate takes them from its queue.
 static func apply(
-	squads: Array, pending: Dictionary, tick: int, fight_seed: int, events: Array
+	squads: Array, pending: PackedInt64Array, tick: int, fight_seed: int, events: Array
 ) -> void:
 	if pending.is_empty() or squads.is_empty():
 		return
-	var retreats: bool = pending.values().has(SkirmishUnit.Order.RETREAT)
+	var retreats := false
+	for at in range(1, pending.size(), 2):
+		retreats = retreats or pending[at] == SkirmishUnit.Order.RETREAT
 	var given := _given(squads) if retreats else _none()
 	var tuning := BattleTuning.current()
 	var applied: PackedInt64Array = squads[0].store.field().apply_orders(
 		CrateRoster.of(squads),
-		PackedInt64Array(pending.keys()),
-		PackedInt32Array(pending.values()),
 		given[0],
 		given[1],
 		given[2],

@@ -233,3 +233,12 @@ fn orders_given_together_act_together_whoever_is_listed_first() {
         assert!(b.squads.withdraw[2].is_none());
     }
 }
+
+#[test]
+fn orders_queue_in_the_order_given_and_a_second_replaces_the_first_in_place() {
+    let mut squads = Squads::default();
+    queue(&mut squads, 3, ADVANCE);
+    queue(&mut squads, 1, HOLD);
+    queue(&mut squads, 3, RETREAT);
+    assert_eq!(squads.pending, vec![(3, RETREAT), (1, HOLD)]);
+}

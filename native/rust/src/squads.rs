@@ -24,7 +24,8 @@
 //! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
 //! (`command`) and the commands themselves (`commands`); since 8b4-iv, its hold-until
 //! order (`staging`); since 8b4-v, its swaps under way (`swaps`); since 8b4-vi, its units out
-//! taking the downed (`taking`).
+//! taking the downed (`taking`); since 8b4-vii, the orders given for the next tick (`pending`)
+//! and the ids issued (`squads_issued`, `units_issued`).
 
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +85,13 @@ pub struct Squads {
     pub route: Vec<Option<Route>>,
     /// The command each follows (a slot in `commands`; none till it is given one).
     pub command: Vec<Option<usize>>,
+    /// Orders given for the next tick (FormationSimulation.order): [squad id, order], in
+    /// the order first given (`orders::queue`).
+    pub pending: Vec<(i64, i32)>,
+    /// How many squad ids and unit ids the battle has issued (spawning: `issue_squad`,
+    /// `issue_units`; spec 39 step 8b4-vii).
+    pub squads_issued: i64,
+    pub units_issued: i64,
     /// Its units out taking the downed (FormationTaking): [taker's id, its body's store
     /// slot] each, in the order they set out.
     pub taking: Vec<Vec<(i64, usize)>>,
@@ -276,6 +284,19 @@ impl Squads {
         slot
     }
 
+    /// The next squad id the battle issues (ids from 1, in the order issued).
+    pub fn issue_squad(&mut self) -> i64 {
+        self.squads_issued += 1;
+        self.squads_issued
+    }
+
+    /// The first of `count` unit ids the battle issues together (ids from 1, in order).
+    pub fn issue_units(&mut self, count: i64) -> i64 {
+        let first = self.units_issued + 1;
+        self.units_issued += count;
+        first
+    }
+
     /// Sets the foe on `edge` of the squad in `slot`: an edge it already had keeps its
     /// place in the order, as a dictionary's key does.
     pub fn flank(&mut self, slot: usize, edge: i32, foe: i64, since: i64) {
@@ -370,6 +391,17 @@ impl Squads {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ids_are_issued_from_1_in_order_squads_and_units_apart() {
+        let mut squads = Squads::default();
+        assert_eq!(squads.issue_squad(), 1);
+        assert_eq!(squads.issue_units(3), 1);
+        assert_eq!(squads.issue_squad(), 2);
+        assert_eq!(squads.issue_units(2), 4);
+        assert_eq!(squads.issue_units(0), 6);
+        assert_eq!(squads.issue_units(1), 6);
+    }
 
     #[test]
     fn a_new_squad_takes_the_next_slot_and_starts_as_skirmish_squad_does() {

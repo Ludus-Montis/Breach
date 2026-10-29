@@ -1781,6 +1781,28 @@ Decision's conditions.
   green. Cargo: a state with units out taking read back writes the same bytes.
 - **After it**, 8b4-vii: spawning and the order queue.
 
+### Step 8b4-vii, spawning's ids and the order queue in the crate
+
+- **The order queue** (`orders::queue`, FormationSimulation.order): orders given for the
+  next tick, [squad id, order] in the order first given, a second order for a squad before
+  then replacing the first where it stands, as a dictionary's key keeps its place: a squad
+  column set (`Squads::pending`) the snapshot carries. `apply_orders` takes the queue itself;
+  GDScript reads it (`orders_pending`) only to see whether any retreats, and drops it after
+  the tick (`orders_clear`), as before when no squad was left to take it.
+- **Spawning's ids** (`Squads::issue_squad`, `issue_units`): the battle's squad and unit ids,
+  from 1 in the order issued, counted by the crate (`squads_issued`, `units_issued`, carried
+  by the snapshot). `spawn_squad` asks for its unit ids together, then its squad id; the
+  strays and the groups still number theirs from the next squad id and hand the count back.
+  Building the squad's and units' views, and entering them, stays where it is till 8b5.
+- **Identical:** the same ids in the same order, and the same orders applied in the same order
+  with the same retreat test. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `orders/tests.rs` (orders queue in the order given, and a second replaces
+  the first in place) and `squads.rs` (ids are issued from 1, in order, squads and units
+  apart). Red on stubs, then green. gdUnit `test_formation_simulation.gd`: the crate issues
+  the ids and queues the orders (red with the queue stubbed: it and the file's ordering tests
+  fail; then green, with `test_formation_command.gd` and `test_formation_staging.gd`).
+- **After it**, 8b5: one `step()` call, the events handed back as data.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

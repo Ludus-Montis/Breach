@@ -81,11 +81,15 @@ var store: UnitStore  # every unit's slot (spec 35), on the engine's backend; re
 
 var _route: FormationRoute
 var _squads: Array[SkirmishSquad] = []
-var _next_squad_id := 1
-var _next_unit_id := 1
-var _pending_orders := {}  # squad id -> SkirmishUnit.Order
 var _tick := 0
 var _field: Object = NativeKernels.body_field()  # the bodies, native (Decision 129)
+## The next squad id: the crate issues them (spec 39 step 8b4-vii); the strays and the groups
+## number theirs from it and hand it back.
+var _next_squad_id: int:
+	get:
+		return _field.squads_issued() + 1
+	set(value):
+		_field.put_squads_issued(value - 1)
 
 
 func _init(length: float, seconds_per_tick: float) -> void:
@@ -109,14 +113,15 @@ func spawn_squad(
 	var direction := 1 if at_player_end else -1
 	var home := 0.0 if at_player_end else path.length_cells() / MapLayoutDef.CELLS_PER_TILE
 	var members: Array[SkirmishUnit] = []
+	var unit_id: int = _field.issue_units(placements.size())  # the crate issues the ids
 	for placement in placements:
-		members.append(FormationUnits.make(placement[0], faction_id, direction, _next_unit_id))
-		_next_unit_id += 1
+		members.append(FormationUnits.make(placement[0], faction_id, direction, unit_id))
+		unit_id += 1
 	var orders := FormationCommand.new(_field, home, path)
+	var squad_id: int = _field.issue_squad()
 	var squad := SkirmishSquad.new(
-		_next_squad_id, faction_id, direction, home, width, members, orders, store
+		squad_id, faction_id, direction, home, width, members, orders, store
 	)
-	_next_squad_id += 1
 	FormationUnits.enter(squad, members, placements)
 	squad.route = path
 	FormationMarch.face(squad)
@@ -128,9 +133,10 @@ func spawn_squad(
 	return squad
 
 
-## Takes effect on the next step(), whether or not the clock is paused now.
+## Takes effect on the next step(), whether or not the clock is paused now. The crate queues
+## it (`orders::queue`): a second order for the squad before then replaces the first.
 func order(squad_id: int, new_order: SkirmishUnit.Order) -> void:
-	_pending_orders[squad_id] = new_order
+	_field.order_give(squad_id, new_order)
 
 
 func squads() -> Array[SkirmishSquad]:
@@ -180,8 +186,8 @@ func step() -> Array:
 
 
 func _apply_orders(events: Array) -> void:
-	FormationOrders.apply(_squads, _pending_orders, _tick, fight_seed, events)  # the crate's
-	_pending_orders.clear()
+	FormationOrders.apply(_squads, _field.orders_pending(), _tick, fight_seed, events)
+	_field.orders_clear()  # taken, or nobody was left to take them
 
 
 ## The squads' roster (CrateRoster) it decided on, for the march's decisions too.

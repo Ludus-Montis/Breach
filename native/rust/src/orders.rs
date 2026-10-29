@@ -211,3 +211,12 @@ fn take(squads: &mut Squads, s: usize, (own, theirs): (&Coded, &Coded), towards:
 
 #[cfg(test)]
 mod tests;
+
+/// FormationSimulation.order: `order` for the squad `squad_id` takes effect next tick. A second
+/// order for it before then replaces the first where it stands in the queue.
+pub fn queue(squads: &mut Squads, squad_id: i64, order: i32) {
+    match squads.pending.iter_mut().find(|(id, _)| *id == squad_id) {
+        Some(given) => given.1 = order,
+        None => squads.pending.push((squad_id, order)),
+    }
+}
