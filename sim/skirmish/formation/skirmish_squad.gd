@@ -126,7 +126,7 @@ func _init(
 	front_distance = home
 	width = maxi(formation_width, 1)
 	for unit in members:
-		unit.slot = store.admit(unit)
+		store.admit(unit)
 		UnitState.admitted(store, unit)
 		FormationCommand.enlist(self, unit)
 

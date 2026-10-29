@@ -61,10 +61,13 @@ mod tests {
         let bend = vec![V2::new(0.0, 0.0), V2::new(128.0, 0.0), V2::new(128.0, 64.0)];
         squads.route[1] = Some(crate::route::Route::new(bend, 2.0));
         squads.taking[0] = vec![(7, 2), (5, 1)];
+        field.columns.sheet[2].critical = 0.1 + 0.2;
+        field.columns.sheet[2].carried_by = 11;
         let bytes = write(40, 3, &field, &squads);
         let state = read(&bytes).unwrap();
         assert_eq!((state.tick, state.seed), (40, 3));
         assert_eq!(state.squads, squads);
+        assert_eq!(state.field.columns.sheet, field.columns.sheet);
         assert_eq!(write(state.tick, state.seed, &state.field, &state.squads), bytes);
     }
 

@@ -25,11 +25,14 @@ var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or be
 var _records := {}  # unit id -> its record, kept in GDScript
 
 
-## Enrols a unit's record: its slot, as `enrol`, and the record kept so a unit named by id
-## (the fell queue) is found again (`record_of`).
+## Enrols a unit's record: its slot, as `enrol`, given it, and the record kept so a unit
+## named by id (the fell queue) is found again (`record_of`). Its numbers are held on the
+## store's field from now on (SkirmishUnit.hold_sheet, spec 39 step 8b5-i).
 func admit(unit) -> int:
 	_records[unit.id] = unit
-	return enrol(unit.id)
+	unit.slot = enrol(unit.id)
+	unit.hold_sheet(field())
+	return unit.slot
 
 
 ## The record admitted for a unit id, or null.
@@ -78,4 +81,6 @@ func settle(squads: Array) -> void:
 	for unit_id in ids():
 		if not kept.has(unit_id):
 			drop(unit_id)
+			if _records.has(unit_id):
+				_records[unit_id].let_go()
 			_records.erase(unit_id)

@@ -17,12 +17,15 @@
 //! `regeneration_halt`, `wake_left`, `drain_carry`, `last_wounding`, step 7b), and the rest:
 //! the unit it fights, how far along its route it stands, the last place it could stand,
 //! whether it is on a climb face or in deep water, and the climb still above it (`target_id`,
-//! `distance`, `foothold`, `on_face`, `climb_left`, step 7c). The field holds them so its passes read them where they live. A slot newly given starts blank, each
-//! column at the value a missing key reads as. Columns are found by their UnitColumns name.
+//! `distance`, `foothold`, `on_face`, `climb_left`, step 7c), and its numbers (`sheet`, spec
+//! 39 step 8b5-i: SkirmishUnit's, written by its setters). The field holds them so its
+//! passes read them where they live. A slot newly given starts blank, each column at the
+//! value a missing key reads as. Columns are found by their UnitColumns name.
 
 use serde::{Deserialize, Serialize};
 
 use crate::maths::V2;
+use crate::sheet::Sheet;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Columns {
@@ -68,6 +71,8 @@ pub struct Columns {
     pub drain_carry: Vec<f64>,
     pub distance: Vec<f64>,
     pub climb_left: Vec<f64>,
+    /// Its numbers (SkirmishUnit's sheet, step 8b5-i).
+    pub sheet: Vec<Sheet>,
 }
 
 /// No goal (`goal_slot`).
@@ -205,6 +210,7 @@ impl Columns {
         self.stamina.push(FRESH);
         self.condition.push(AS_THINGS_STAND);
         self.wake_left.push(NOT_RECKONED);
+        self.sheet.push(Sheet::default());
     }
 
     /// Every column blank in `slot`.
@@ -262,6 +268,7 @@ impl Columns {
         self.stamina[slot] = FRESH;
         self.condition[slot] = AS_THINGS_STAND;
         self.wake_left[slot] = NOT_RECKONED;
+        self.sheet[slot] = Sheet::default();
     }
 }
 
