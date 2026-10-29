@@ -44,14 +44,14 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array) -> Ar
 	var did: PackedInt64Array = ColumnsLent.all(
 		store.columns, func(): return field.carry_step(listed, homes, at, tunings[0], tunings[1])
 	)
-	var strays := _mirrored(squads, did, field)
+	var strays := mirror(squads, did, field)
 	events.append_array(CrateEvents.taken(field, store))  # "fled_home", "borne"
 	return strays
 
 
 ## Mirrors what the crate did, three numbers a unit: [what (0 changed, 1 home, 2 setting off
 ## home alone), its squad's index in the lists, its id]. Returns those setting off.
-static func _mirrored(squads: Array, did: PackedInt64Array, field: Object) -> Array:
+static func mirror(squads: Array, did: PackedInt64Array, field: Object) -> Array:
 	var names: PackedStringArray = field.sheet_names()
 	var strays := []
 	for n in range(0, did.size(), 3):  # store: scattered (few: the bodies and their bearers)
