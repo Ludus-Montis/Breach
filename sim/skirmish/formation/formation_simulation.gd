@@ -57,6 +57,7 @@ const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd"
 const FormationFronts = preload("res://sim/skirmish/formation/formation_fronts.gd")
 const FormationJoins = preload("res://sim/skirmish/formation/formation_joins.gd")
 const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
+const FormationEnding = preload("res://sim/skirmish/formation/formation_ending.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
@@ -162,10 +163,8 @@ func step() -> Array:
 	var at := [_tick, _attack_interval_ticks(), fight_seed, _next_squad_id]  # strays to groups
 	var paces := [pace, tick_seconds]
 	_next_squad_id = FormationMustering.step(_squads, strays, at, paces, terrain, events)
-	FormationStamina.step(_squads, tick_seconds)  # runners tire, the rest recover
-	UnitBodies.step(_squads, fight_seed, _field)  # after every move: bodies part (Decision 106)
-	events.append_array(FormationShuffle.step(_squads, tick_seconds, TRAVEL_SCALE, _tick))
-	FormationMarch.sync_units(_squads, [tick_seconds, pace], terrain, fight_seed)  # to places
+	var end := [tick_seconds, TRAVEL_SCALE, pace]  # stamina, the bodies, the shuffle, the sync
+	events.append_array(FormationEnding.step(_squads, [_tick, fight_seed], end, terrain))
 	store.settle(_squads)  # the units no list holds any more give up their slots
 	return events
 
