@@ -33,10 +33,10 @@ func _unit(unit_id: int, at: Vector2) -> SkirmishUnit:
 	return unit
 
 
-func _squad(members: Array) -> SkirmishSquad:
+func _squad(members: Array, squad_id: int = 1) -> SkirmishSquad:
 	var typed: Array[SkirmishUnit] = []
 	typed.assign(members)
-	return SkirmishSquad.new(1, "player", 1, 0.0, members.size(), typed, null, _places.store)
+	return SkirmishSquad.new(squad_id, "player", 1, 0.0, members.size(), typed, null, _places.store)
 
 
 ## Downs `unit`; `squad` is the one it is in, if it is in one yet.
@@ -68,6 +68,26 @@ func test_downed_it_comes_to_and_rejoins_its_formation_in_sight() -> void:
 	assert_int(UnitPlace.of(_places, downed).x).is_equal(1)  # at the back
 	assert_array(strays).is_empty()
 	assert_bool(events.any(func(e): return e["type"] == "came_to")).is_true()
+
+
+func test_the_crate_pass_joins_it_to_a_friendly_squad_and_tells_of_it() -> void:
+	var friend := _unit(2, Vector2(3, 0))
+	var downed := _downed(_unit(1, Vector2.ZERO))
+	var squads := [_squad([friend]), _squad([downed], 2)]
+	_places.store.columns.put(downed.slot, UnitColumns.WAKE_LEFT, 0.0)
+	var events := []
+	var strays := FormationRecovery.step(squads, 0.1, 4, 3, events)
+
+	assert_array(strays).is_empty()
+	assert_array(squads[0].units).is_equal([friend, downed])
+	assert_array(squads[1].units).is_empty()
+	assert_int(downed.squad_id).is_equal(1)
+	assert_int(downed.state).is_equal(SkirmishUnit.State.MOVING)
+	assert_bool(squads[0].reforming).is_true()
+	var told := events.map(
+		func(e): return [e["type"], e["squad"], e["unit"], e["alone"], e["joined"]]
+	)
+	assert_array(told).is_equal([["came_to", 2, 1, false, 1]])
 
 
 func test_with_no_formation_in_sight_it_makes_for_home_alone() -> void:
