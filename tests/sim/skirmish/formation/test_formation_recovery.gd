@@ -13,6 +13,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
+const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 var _places := UnitPlaces.new()
@@ -96,6 +97,33 @@ func test_with_no_formation_in_sight_it_makes_for_home_alone() -> void:
 
 	assert_int(strays.size()).is_equal(1)
 	assert_object(strays[0][0]).is_same(downed)
+
+
+func test_the_crate_makes_each_stray_a_routing_squad_of_its_own_numbered_and_set_off() -> void:
+	var first := _unit(2, Vector2(32, 1))
+	var second := _unit(3, Vector2(40, -1))
+	var gone := _squad([first, second])
+	gone.route = FormationRoute.new(PackedVector2Array([Vector2.ZERO, Vector2(128, 0)]))
+	var squads := [gone]
+	var next := FormationStrays.adopt([[first, gone], [second, gone]], squads, 5, 7)
+
+	assert_int(next).is_equal(7)
+	assert_int(gone.store.squads.count()).is_equal(3)  # one slot a stray, the crate's
+	assert_array(gone.units).is_empty()
+	var strays := squads.slice(1)
+	var made := strays.map(
+		func(s): return [s.units[0].squad_id, s.state, s.morale, s.store.squads.members(s.slot)]
+	)
+	var routing := SkirmishSquad.State.ROUTING
+	var expected := strays.map(
+		func(s): return [s.id, routing, 0, PackedInt32Array([s.units[0].slot])]
+	)
+	assert_array(made).is_equal(expected)
+	assert_array(strays.map(func(s): return s.id)).contains_exactly_in_any_order([5, 6])
+	var fronts := {}
+	for stray in strays:
+		fronts[stray.units[0].id] = stray.front_distance
+	assert_dict(fronts).is_equal({2: 0.5, 3: 0.625})  # where each stands, in tiles
 
 
 func test_a_lone_unit_flees_home_and_returns_to_the_reserve() -> void:

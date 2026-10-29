@@ -4034,23 +4034,18 @@ impl BodyField {
         PackedInt32Array::from_iter(took.stepped.into_iter().map(|n| n as i32))
     }
 
-    /// FormationStrays.strand's setting off: the unit `unit_id` in store slot `slot`, alone
-    /// in the stray squad in squad slot `stray`, flees home along the route it holds from
-    /// where it stands. Returns the stray squad's front (tiles along the route).
+    /// FormationStrays.adopt as one pass (`strays::adopt`): each stray (two numbers in
+    /// `strays`: its squad's slot, its unit's store slot) taken out of its squad and set off
+    /// home alone as a routing squad the crate opens, numbered from the ids the battle issues
+    /// in their draws' order under `seed`. Returns two numbers a stray, in the order
+    /// numbered: [its index in `strays`, the squad slot opened for it].
     #[func]
-    fn stray_set_off(&mut self, stray: i64, unit_id: i64, slot: i64) -> f64 {
-        let held = self.squads.route[stray as usize].clone();
-        let route = held.expect("a stray flees along its squad's route");
-        let unit = (unit_id, slot as usize);
-        strays::set_off(&mut self.squads, &mut self.field.columns, stray as usize, unit, &route)
-    }
-
-    /// FormationStrays.adopt's order: the indices of the strays' unit ids in the order their
-    /// squads are numbered.
-    #[func]
-    fn strays_numbered(&self, ids: PackedInt64Array, seed: i64) -> PackedInt32Array {
-        let order = strays::numbered(ids.as_slice(), seed);
-        PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
+    fn strays_adopt(&mut self, strays: PackedInt32Array, seed: i64) -> PackedInt32Array {
+        let pairs: Vec<(usize, usize)> =
+            strays.as_slice().chunks_exact(2).map(|p| (p[0] as usize, p[1] as usize)).collect();
+        let opened = strays::adopt(&mut self.squads, &mut self.field, &pairs, seed);
+        self.edits += 1;
+        PackedInt32Array::from_iter(opened.into_iter().flat_map(|(n, s)| [n as i32, s as i32]))
     }
 
     /// The hold-until order the squad in `squad` holds, as FormationStaging reads it: {"at",
