@@ -2202,35 +2202,6 @@ impl GroundPaths {
     fn pathfinder(&self, members: PackedFloat64Array, seed: i64) -> i64 {
         pathing::pathfinder(&members_of(&members), seed).map_or(-1, |index| index as i64)
     }
-
-    /// FormationPathing's look ahead, with [path_look, path_detour_gain, sight_budget,
-    /// ground_cliff_quarters, stamina_climb, stamina_swim]: the way round to keep, empty
-    /// for none.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn look_ahead(
-        &self,
-        ground: Gd<TerrainGround>,
-        route: PackedVector2Array,
-        front: f64,
-        direction: f64,
-        members: PackedFloat64Array,
-        seed: i64,
-        tuning: PackedFloat64Array,
-    ) -> PackedVector2Array {
-        let t = tuning.as_slice();
-        let climb = paths::PathTuning {
-            cliff_quarters: t[3] as i64,
-            stamina_climb: t[4],
-            stamina_swim: t[5],
-        };
-        let look = pathing::LookTuning { look: t[0], detour_gain: t[1], sight_budget: t[2] };
-        let (route, members) = (route_of(&route), members_of(&members));
-        let way = on_paths(ground, climb, |over| {
-            pathing::look_ahead(over, &route, (front, direction), &members, seed, &look)
-        });
-        packed(&way.unwrap_or_default())
-    }
 }
 
 /// The march (`march`, spec 39 step 3d) for FormationMarch, FormationSweep, FormationWalk,
@@ -2660,6 +2631,22 @@ fn members_of(rows: &PackedFloat64Array) -> Vec<pathing::Member> {
             eyes: (r[11] != 0.0).then_some([r[12], r[13], r[14], r[15]]),
         })
         .collect()
+}
+
+/// Members as `members_of` reads them: sixteen numbers each.
+fn rows_of(members: &[pathing::Member]) -> PackedFloat64Array {
+    let mut out = Vec::with_capacity(members.len() * 16);
+    for m in members {
+        let (w, flag) = (&m.walker.walker, |on: bool| on as i64 as f64);
+        out.extend([w.height, w.swimmer as f64, w.climber as f64, flag(w.swims), flag(w.climbs)]);
+        out.extend([m.walker.stamina, m.walker.speed, m.wits as f64, m.id as f64]);
+        out.extend([f64::from(m.at.x), f64::from(m.at.y)]);
+        match m.eyes {
+            Some([range, ahead, side, behind]) => out.extend([1.0, range, ahead, side, behind]),
+            None => out.extend([0.0; 5]),
+        }
+    }
+    PackedFloat64Array::from(out.as_slice())
 }
 
 /// [bearing, turn rate, backward pace] as a mover.
@@ -3865,30 +3852,51 @@ impl BodyField {
         PackedFloat64Array::from(flat.as_slice())
     }
 
-    /// Whether the squad in `squad` re-routes onto its command's route, with ways round it
-    /// doesn't carry yet (`detours::follows`).
+    /// FormationPathing.step over the squads in `squads` (their slots, in the lists' order)
+    /// on `ground` at `tick`, with [path_relook, path_look, path_detour_gain, sight_budget,
+    /// ground_cliff_quarters, stamina_climb, stamina_swim]: each "detoured" event goes to the
+    /// log (`pathing::pass`, `events_take`). Returns the slots that re-routed, whose routes
+    /// GDScript takes afresh.
     #[func]
-    fn path_follows(&self, squad: i64) -> bool {
-        let slot = squad as usize;
-        detours::follows(&self.squads, slot, detours::command_patches(&self.squads, slot))
+    fn path_step(
+        &mut self,
+        ground: Gd<TerrainGround>,
+        squads: PackedInt32Array,
+        tick: i64,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt32Array {
+        let t = tuning.as_slice();
+        let climb = paths::PathTuning {
+            cliff_quarters: t[4] as i64,
+            stamina_climb: t[5],
+            stamina_swim: t[6],
+        };
+        let look = pathing::LookTuning { look: t[1], detour_gain: t[2], sight_budget: t[3] };
+        let looks = pathing::pass::Looks { relook: t[0], look };
+        let listed: Vec<usize> = squads.as_slice().iter().map(|&s| s as usize).collect();
+        let (field, events) = (&self.field, &mut self.events);
+        let followed = on_paths(ground, climb, |over| {
+            let given = (tick, seed);
+            pathing::pass::step(&mut self.squads, field, over, &listed, given, &looks, events)
+        });
+        self.edits += 1;
+        followed.iter().map(|&s| s as i32).collect()
     }
 
-    /// The squad in `squad` takes its command's route with its ways round, standing where it
-    /// stood (`detours::follow`). Returns the patched route's points.
+    /// The squad in `squad`'s living units as a look reads them, sixteen numbers each
+    /// (`pathing::pass::members`; GroundPaths.group_walker and pathfinder take them).
     #[func]
-    fn path_follow(&mut self, squad: i64) -> PackedVector2Array {
-        let slot = squad as usize;
-        let patches = detours::command_patches(&self.squads, slot).expect("a command's route");
-        let route = detours::command_route(&self.squads, slot).expect("a command's route");
-        detours::follow(&mut self.squads, slot, &route, patches);
-        packed(&route.points)
+    fn path_members(&self, squad: i64) -> PackedFloat64Array {
+        rows_of(&pathing::pass::members(&self.field, &self.squads, squad as usize))
     }
 
-    /// Whether the squad in `squad`, on a route if `routed`, looks ahead, its front `relook`
-    /// cells or more from where it last looked; it looks from there (`detours::looks`).
+    /// Keeps the sight of the definition coded `code` (UnitStore.definition_code):
+    /// [detection_range, sight_ahead, sight_side, sight_behind].
     #[func]
-    fn path_looks(&mut self, squad: i64, routed: bool, relook: f64) -> bool {
-        detours::looks(&mut self.squads, squad as usize, routed, relook)
+    fn put_sight(&mut self, code: i64, sight: PackedFloat64Array) {
+        let s = sight.as_slice();
+        self.field.put_sight(code as usize, [s[0], s[1], s[2], s[3]]);
     }
 }
 

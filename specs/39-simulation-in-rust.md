@@ -2028,6 +2028,36 @@ Decision's conditions.
   event built as data; the look reads each unit's wits and its definition's sight from the
   crate.
 
+### Step 8b5-vii, pathing as a crate pass
+
+- **The pass** (`pathing::pass::step`): FormationPathing hands the crate its squads' slots,
+  in the lists' order, the ground and the tuning (`path_step`). Every group re-routes onto
+  its command's patched route where it has changed (`detours::follows`), standing where it
+  stood along it: the crate now sets the squad's route and its place too. Then each
+  marching group that has moved on looks ahead (`detours::looks`); a way round it keeps is
+  learned by its command and reported as its "detoured" event (cells: the way's waypoints),
+  built in the crate's log. GDScript takes the events (CrateEvents) and gives each group
+  that re-routed its FormationRoute afresh from the crate's (`squad_route`).
+- **What a look reads** (`pathing::pass::members`): each living unit, in its members'
+  order, where it lives: its walker from its objects (8b5-iii; a grounded one of its sheet's
+  height for none), its wits from its attributes (8b5-ii; AVERAGE unlisted), its id and
+  place from the store, and its definition's sight from the field's `sights`, by the
+  definition's code: UnitWrites writes a definition's detection range and sight shares as
+  it codes it (`put_sight`). CratePaths.members is a read of the same (`path_members`), for
+  FormationPathing.group_walker and SquadPathfinder. The bindings the pass replaces
+  (`path_follows`, `path_follow`, `path_looks`, GroundPaths' `look_ahead`) are gone.
+- **Identical:** the same follows, looks, ways round and events in the same order with the
+  same keys and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `pathing/pass/tests.rs` (a look reads each unit's walker, wits, place
+  and definition's sight where they live; a barred route ahead is kept on the command and
+  reported with its cells; every group of the command follows the patched route on the
+  next tick; an open route, or a group that hasn't moved on, makes no detour), red on
+  stubs, then green. gdUnit `test_formation_pathing.gd`: a look reads each unit's wits and
+  its definition's sight from the crate (red with UnitWrites' sight write stubbed, then
+  green).
+- **After it**, 8b5-viii: the move (staging, the march's ends, the turn, the sweep, the
+  walk, the drag, the joins) as a crate pass, its events built as data.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

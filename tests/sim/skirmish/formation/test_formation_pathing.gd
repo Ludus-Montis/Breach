@@ -149,3 +149,20 @@ func test_a_unit_whose_place_is_in_deep_water_stands_on_the_ford() -> void:
 		var target := FormationWalk.target_of(squad, unit, ground)
 		var mode := ground.mode(unit.walker, target, target)
 		assert_int(mode).is_equal(TerrainWalker.Mode.WALKING)
+
+
+func test_a_look_reads_each_units_wits_and_its_definitions_sight_from_the_crate() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var squad := _group(sim, _lane(), 2)
+	var grem: UnitDef = squad.units[0].definition
+	var attributes: Dictionary = squad.units[1].attributes.duplicate()
+	attributes["wits"] = 14
+	squad.units[1].attributes = attributes
+
+	var rows: PackedFloat64Array = CratePaths.members(squad)
+
+	assert_int(rows.size()).is_equal(32)
+	assert_float(rows[16 + 7]).is_equal(14.0)
+	assert_float(rows[8]).is_equal(float(squad.units[0].id))
+	var sight := [grem.detection_range, grem.sight_ahead, grem.sight_side, grem.sight_behind]
+	assert_array(Array(rows.slice(11, 16))).is_equal([1.0] + sight)
