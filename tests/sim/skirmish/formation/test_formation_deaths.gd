@@ -75,15 +75,14 @@ func test_the_events_come_back_a_squad_at_a_time_its_destruction_last() -> void:
 
 	FormationDeaths.bury([first, second], 4, events)
 
-	assert_array(_told(events)).is_equal(
-		[
-			["died", 1, 1],
-			["leader_fell", 1, 1, 2],
-			["stepped_up", 1, 2, 0],
-			["died", 2, 3],
-			["destroyed", 2, 0],
-		]
-	)
+	var told := [
+		["died", 1, 1],
+		["leader_fell", 1, 1, 2],
+		["stepped_up", 1, 2, 0],
+		["died", 2, 3],
+		["destroyed", 2, 0],
+	]
+	assert_array(_told(events)).is_equal(told)
 	assert_array([leader.state, alone.state]).is_equal(
 		[SkirmishUnit.State.DEAD, SkirmishUnit.State.DEAD]
 	)
