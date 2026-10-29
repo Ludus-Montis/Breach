@@ -1564,6 +1564,28 @@ Decision's conditions.
   stubs, then green. gdUnit: the battles through the move unchanged, now through the crate.
 - **After it**, 8b2: landing the hurts and the fight's events.
 
+### Step 8b2, landing the hurts and the fight's events in the crate
+
+- **The hurts** (`hurts::land`, FormationSimulation._fight's UnitHealth.hurt over the shots
+  and blows): each shot, then each blow, in the order BlowLanding landed them, takes what it
+  dealt from its target's hp (`wounds::hurt`); a unit taken from above 0 to 0 or below goes
+  on the fell queue in the order it fell, once. Each hurt answers its target's hp after it.
+  GDScript hands them in through `UnitHealth.hurt_landed` (hp's one writer, Decision 145;
+  the binding `fight_hurts`, lent any held columns, ColumnsLent) and builds the "spat" and
+  "hit" events from the answers, the "hit" with its blow's answer as `target_hp`.
+- **The events** stay GDScript dictionaries, in the same order (every "spat", then every
+  "hit"), till the tick hands them back as data (8b5).
+- **Identical:** the same hurts in the same order on the same column, the fall's test the
+  same (`was > 0 and now <= 0`), the hp each "hit" reports read right after its own blow, as
+  before. The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** _fight's held view of hp, and UnitHealth.heal (no caller left).
+- **Tests:** cargo `hurts/tests.rs` (each hurt takes its damage and answers the hp left;
+  hurts on one target land in order; a unit taken to 0 or below falls once, in the order it
+  fell; one already down doesn't fall again, and nothing dealt fells nobody). gdUnit
+  `test_unit_health.gd`: the fight's hurts land in order and fell the fallen once. Red on
+  stubs, then green. The battles through the fight unchanged, now through the crate.
+- **After it**, 8b3: which groups look ahead and their commands' patches.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

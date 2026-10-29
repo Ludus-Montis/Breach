@@ -31,6 +31,7 @@ mod ghash;
 mod grid;
 pub mod ground;
 mod groups;
+mod hurts;
 mod landing;
 mod locks;
 mod lying;
@@ -4782,6 +4783,24 @@ impl BodyField {
         let flat: Vec<i64> =
             out.iter().flat_map(|&(dealt, landed)| [dealt, landed as i64]).collect();
         PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// FormationSimulation._fight's hurts (`hurts::land`), three numbers a hurt in the order
+    /// landed: [its target's store slot, its id, the damage it dealt]. The fallen go on the
+    /// fell queue. Returns each one's target's hp after it.
+    #[func]
+    fn fight_hurts(&mut self, hurts: PackedInt64Array) -> PackedInt32Array {
+        let (rows, _) = hurts.as_slice().as_chunks::<3>();
+        let hurts: Vec<hurts::Hurt> = rows
+            .iter()
+            .map(|h| hurts::Hurt { slot: h[0] as usize, id: h[1], damage: h[2] })
+            .collect();
+        let mut fell = vec![];
+        let left = hurts::land(&mut self.field.columns, &hurts, &mut fell);
+        for id in fell {
+            self.field.fell(id);
+        }
+        PackedInt32Array::from(left.as_slice())
     }
 }
 

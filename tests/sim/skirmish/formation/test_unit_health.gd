@@ -91,6 +91,22 @@ func test_a_write_that_takes_a_unit_to_0_or_below_puts_it_on_the_fell_queue() ->
 		assert_array(Array(holder.store.fallen.take())).is_equal([2])
 
 
+## The fight's hurts land at once in the crate (spec 39 step 8b2), in the order given: each
+## answers its unit's hp after it, and the fallen go on the fell queue in the order they fell,
+## once each.
+func test_the_fight_s_hurts_land_in_order_and_fell_the_fallen_once() -> void:
+	var holder := {"store": NativeKernels.unit_store(null)}
+	var one := _unit(1)
+	var two := _unit(2)
+	for unit in [one, two]:
+		unit.slot = holder.store.enrol(unit.id)
+		UnitHealth.put_one(holder, unit, 5)
+	var left := UnitHealth.hurt_landed(holder, [[two, 5], [one, 2], [two, 1], [one, 4]])
+	assert_array(Array(left)).is_equal([0, 3, -1, -1])
+	assert_array(Array(holder.store.fallen.take())).is_equal([2, 1])
+	assert_array(Array(UnitHealth.hurt_landed(holder, []))).is_empty()
+
+
 ## A pass over many units holds hp in its view (UnitView, Decision 146) and writes it in
 ## place; release commits once, and a write there that crosses the line still pushes the unit.
 func test_a_held_view_of_hp_writes_in_place_and_commits_on_release() -> void:

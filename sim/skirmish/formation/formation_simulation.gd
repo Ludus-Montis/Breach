@@ -258,22 +258,24 @@ func _march(marching: Array, plans: PackedFloat64Array, events: Array, roster: O
 	FormationJoins.join(_squads, joiners, _tick, fight_seed, events)
 
 
+## The blows and shots chosen and landed, then their hurts landed in the crate (`hurts.rs`,
+## spec 39 step 8b2), the fallen on the fell queue; their events, from what each left.
 func _fight(events: Array) -> void:
 	var interval := _attack_interval_ticks()
 	var blows := FormationMelee.blows(_squads, interval, fight_seed, _field)  # targets cleared
 	var shots := FormationCombat.ranged_blows(_squads, interval, fight_seed)
 	var rolls := [fight_seed, _tick] if blow_rolls else []
 	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field)
-	var health := UnitView.hold([self], [UnitColumns.HP])  # a write per blow landed: held
+	var hurts := []  # the shots, then the blows, in the order landed: hurt in the crate
+	for each in shots + blows:
+		hurts.append([each[1], each[2]])
+	var left := UnitHealth.hurt_landed(self, hurts)
 	for shot in shots:
-		UnitHealth.hurt(health, shot[1], shot[2])
 		var spat := {"target": shot[1].id, "dmg": shot[2], "damage_type": shot[0].damage_type}
 		spat["blow"] = shot[4]  # in the event after its damage type, as always
 		events.append(FormationEvents.unit_event("spat", _tick, shot[3], shot[0], spat))
-	for blow in blows:
-		UnitHealth.hurt(health, blow[1], blow[2])
-		events.append(FormationEvents.hit(_tick, blow, UnitHealth.of(health, blow[1])))
-	UnitView.release(health)
+	for index in blows.size():
+		events.append(FormationEvents.hit(_tick, blows[index], left[shots.size() + index]))
 	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
 	FormationStamina.strike(self, blows + shots)
 
