@@ -2956,13 +2956,8 @@ impl BodyField {
         tick: i64,
         seed: i64,
     ) {
-        let r = rules.as_slice();
-        let discipline = discipline::DisciplineTuning {
-            per_leadership: r[1] as i64,
-            meets_threats: r[2] as i64,
-            ..discipline::DisciplineTuning::default()
-        };
-        let lines = scrum::prepare::Lines { anticipate: r[0], seed, discipline: &discipline };
+        let (anticipate, discipline) = stance_rules(rules.as_slice());
+        let lines = scrum::prepare::Lines { anticipate, seed, discipline: &discipline };
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);
         on_ground(ground, |g| {
@@ -2987,22 +2982,7 @@ impl BodyField {
         floats: PackedFloat64Array,
     ) -> PackedInt64Array {
         let began = Instant::now();
-        let (i, f) = (ints.as_slice(), floats.as_slice());
-        let rules = scrum::seek::Rules {
-            tick: i[0],
-            seed: i[1],
-            die: i[2],
-            reach: f[0],
-            leash: f[1],
-            seconds: f[2],
-            pace: f[3],
-            crowding: f[4],
-            look: f[5],
-            clear: f[6],
-            drag: f[7],
-            block: f[8],
-            front: f[9],
-        };
+        let rules = seek_rules(ints.as_slice(), floats.as_slice());
         let roster = roster.bind();
         let (squads, field) = (&self.squads, &mut self.field);
         let active =
@@ -3031,6 +3011,159 @@ impl BodyField {
             })
             .collect();
         ranks::close(&mut self.field.columns, &units, width as i32);
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationScrum.step over `roster`'s squads on `ground` as one pass
+    /// (`scrum::step::step`): engaging, readying, the stances, the manoeuvres, the seek, walk
+    /// and facing, the regroup and chasers, the withdrawal, the pursuit and the stall, their
+    /// events in the log (`events_take`). `ints`: [tick, seed, combat_contest_die, the
+    /// stall's ticks]; the rest are each phase's own binding's rules (`scrum_stance`,
+    /// `scrum_seek`'s floats, `scrum_regroup`, `scrum_withdraw`, `scrum_pursue`). Returns the
+    /// listed indices of the pursuers back at their posts, in order; the seek's time is
+    /// `usec`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn scrum_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        reach_engage: f64,
+        stance: PackedFloat64Array,
+        seek: PackedFloat64Array,
+        regroup: PackedFloat64Array,
+        withdraw: PackedFloat64Array,
+        pursue: PackedFloat64Array,
+    ) -> PackedInt32Array {
+        let i = ints.as_slice();
+        let (tick, seed) = (i[0], i[1]);
+        let (anticipate, stance) = stance_rules(stance.as_slice());
+        let rules = scrum::step::Rules {
+            tick,
+            seed,
+            reach_engage,
+            anticipate,
+            stance,
+            seek: seek_rules(&i[..3], seek.as_slice()),
+            regroup: regroup_rules(regroup.as_slice(), seed),
+            withdraw: withdraw_rules(withdraw.as_slice(), tick, seed),
+            pursue: pursue_rules(pursue.as_slice(), tick),
+            stall_ticks: i[3],
+        };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let scrummed =
+            on_ground(ground, |g| scrum::step::step(squads, field, &roster.roster, g, &rules, log));
+        self.usec = scrummed.seek_usec;
+        self.edits += 1;
+        scrummed.back.into_iter().map(|n| n as i32).collect()
+    }
+}
+
+/// ScrumStance.anticipate_all's `rules` ([scrum_anticipate, discipline_per_leadership,
+/// discipline_meets_threats]) as the anticipation and the discipline it reads.
+fn stance_rules(r: &[f64]) -> (f64, discipline::DisciplineTuning) {
+    let discipline = discipline::DisciplineTuning {
+        per_leadership: r[1] as i64,
+        meets_threats: r[2] as i64,
+        ..discipline::DisciplineTuning::default()
+    };
+    (r[0], discipline)
+}
+
+/// `scrum_seek`'s `ints` and `floats` as the seek's rules.
+fn seek_rules(i: &[i64], f: &[f64]) -> scrum::seek::Rules {
+    scrum::seek::Rules {
+        tick: i[0],
+        seed: i[1],
+        die: i[2],
+        reach: f[0],
+        leash: f[1],
+        seconds: f[2],
+        pace: f[3],
+        crowding: f[4],
+        look: f[5],
+        clear: f[6],
+        drag: f[7],
+        block: f[8],
+        front: f[9],
+    }
+}
+
+/// `scrum_regroup`'s `rules` as the regroup's.
+fn regroup_rules(r: &[f64], seed: i64) -> scrum::regroup::Rules {
+    scrum::regroup::Rules {
+        regroup: regroup::Rules {
+            pace: r[0],
+            seconds: r[1],
+            seed,
+            reach: r[2],
+            arc: r[3],
+            look: r[4],
+            clear: r[5],
+            trade_seconds: r[6],
+        },
+        chase: pursuit::Rules {
+            cells_per_second: r[7],
+            seconds: r[1],
+            give_up: r[8],
+            steering: near::Steering { look: r[4], clear: r[5], seed },
+        },
+        discipline: discipline::DisciplineTuning {
+            per_leadership: r[9] as i64,
+            meets_threats: r[10] as i64,
+            ..discipline::DisciplineTuning::default()
+        },
+        reform: [r[11], r[12], r[13]],
+        seed,
+        wounds_reach: r[14],
+    }
+}
+
+/// `scrum_withdraw`'s `rules` as the withdrawal's.
+fn withdraw_rules(r: &[f64], tick: i64, seed: i64) -> scrum::withdraw::Rules {
+    scrum::withdraw::Rules {
+        flight: withdraw::Rules {
+            pace: r[0],
+            seconds: r[1],
+            reach: r[2],
+            near: r[3],
+            fan_cells: r[4],
+        },
+        rally_seconds: r[5],
+        fan_degrees: r[6],
+        discipline: discipline::DisciplineTuning {
+            per_leadership: r[7] as i64,
+            meets_threats: r[8] as i64,
+            ..discipline::DisciplineTuning::default()
+        },
+        reform: [r[9], r[10], r[11]],
+        seed,
+        tick,
+    }
+}
+
+/// `scrum_pursue`'s `rules` as the pursuit's.
+fn pursue_rules(r: &[f64], tick: i64) -> scrum::pursue::Rules {
+    let shares = r[6] as usize;
+    scrum::pursue::Rules {
+        whole: pursuit::whole::Rules {
+            cells_per_second: r[0],
+            seconds: r[1],
+            give_up: r[2],
+            lag: r[3],
+        },
+        discipline: discipline::DisciplineTuning {
+            per_leadership: r[4] as i64,
+            expected_max: r[5],
+            leash_shares: r[7..7 + shares].to_vec(),
+            leash_steps: r[7 + shares..].to_vec(),
+            ..discipline::DisciplineTuning::default()
+        },
+        tick,
     }
 }
 
@@ -3137,34 +3270,7 @@ impl BodyField {
         rules: PackedFloat64Array,
         seed: i64,
     ) {
-        let r = rules.as_slice();
-        let steering = near::Steering { look: r[4], clear: r[5], seed };
-        let rules = scrum::regroup::Rules {
-            regroup: regroup::Rules {
-                pace: r[0],
-                seconds: r[1],
-                seed,
-                reach: r[2],
-                arc: r[3],
-                look: r[4],
-                clear: r[5],
-                trade_seconds: r[6],
-            },
-            chase: pursuit::Rules {
-                cells_per_second: r[7],
-                seconds: r[1],
-                give_up: r[8],
-                steering,
-            },
-            discipline: discipline::DisciplineTuning {
-                per_leadership: r[9] as i64,
-                meets_threats: r[10] as i64,
-                ..discipline::DisciplineTuning::default()
-            },
-            reform: [r[11], r[12], r[13]],
-            seed,
-            wounds_reach: r[14],
-        };
+        let rules = regroup_rules(rules.as_slice(), seed);
         let roster = roster.bind();
         let (squads, field) = (&mut self.squads, &mut self.field);
         on_ground(ground, |g| scrum::regroup::step(squads, field, &roster.roster, g, &rules));
@@ -3268,24 +3374,7 @@ impl BodyField {
         rules: PackedFloat64Array,
         tick: i64,
     ) -> PackedInt32Array {
-        let r = rules.as_slice();
-        let shares = r[6] as usize;
-        let rules = scrum::pursue::Rules {
-            whole: pursuit::whole::Rules {
-                cells_per_second: r[0],
-                seconds: r[1],
-                give_up: r[2],
-                lag: r[3],
-            },
-            discipline: discipline::DisciplineTuning {
-                per_leadership: r[4] as i64,
-                expected_max: r[5],
-                leash_shares: r[7..7 + shares].to_vec(),
-                leash_steps: r[7 + shares..].to_vec(),
-                ..discipline::DisciplineTuning::default()
-            },
-            tick,
-        };
+        let rules = pursue_rules(rules.as_slice(), tick);
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let back = scrum::pursue::step(squads, field, &roster.roster, &rules, log);
@@ -3329,26 +3418,7 @@ impl BodyField {
         tick: i64,
         seed: i64,
     ) {
-        let r = rules.as_slice();
-        let rules = scrum::withdraw::Rules {
-            flight: withdraw::Rules {
-                pace: r[0],
-                seconds: r[1],
-                reach: r[2],
-                near: r[3],
-                fan_cells: r[4],
-            },
-            rally_seconds: r[5],
-            fan_degrees: r[6],
-            discipline: discipline::DisciplineTuning {
-                per_leadership: r[7] as i64,
-                meets_threats: r[8] as i64,
-                ..discipline::DisciplineTuning::default()
-            },
-            reform: [r[9], r[10], r[11]],
-            seed,
-            tick,
-        };
+        let rules = withdraw_rules(rules.as_slice(), tick, seed);
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         on_ground(ground, |g| scrum::withdraw::step(squads, field, &roster.roster, g, &rules, log));

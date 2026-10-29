@@ -487,6 +487,26 @@ events. After this step no battle phase runs in GDScript.
   climb face lands its hurt in the crate, onto the fell queue. FormationMarch.sync_units keeps
   its signature and makes the one call; its WALKED and SYNCED holds and FormationWalk.place_of
   are gone. Outcomes don't change.
+  **8b5-xxxiv split further** (2026-10-29, under the same leave), on its survey (the tick is
+  still some twenty GDScript passes, each one crate call between GDScript's own mirrors, and
+  a few still hand the crate what only GDScript holds: the routes as objects, the
+  perception's picture, the lists of squads and units): **8b5-xxxiv** the scrum
+  (FormationScrum.step: engaging, readying, the stances, the manoeuvres, the seek, the
+  regroup, the withdrawal, the pursuit and the stall) as one crate call; **8b5-xxxv** the
+  tick's opening (the orders, the perception, the fronts and edges, the pathing and the
+  move with its joins) as one call, the routes and the perception held by the crate;
+  **8b5-xxxvi** the fight through the groups (the fight, deaths, taking, the wounds,
+  recovery, the strays, morale, the rout, carrying and the groups) as one call, each pass's
+  mirror after it; **8b5-xxxvii** the tick's end (stamina, the bodies, the shuffle and the
+  march's sync), then one `step()` binding running them all, FormationSimulation.step that
+  one call, GDScript's copies mirrored after it and the events decoded from its data.
+  **8b5-xxxiv built** (2026-10-29): the scrum as one crate call (`scrum/step.rs`, the
+  `scrum_step` binding): its nine phases in their order over one roster, each phase's events
+  in the log in that order, the stall quiet unless the seek found its squad or a foe active,
+  and the pursuers back at their posts handed back, whose routes GDScript mirrors
+  (FormationPursuit.mirror). Each phase's class hands over its own rules (`rules`), and its
+  own binding stays for its tests and `tick_phases`, which times each phase. Outcomes don't
+  change.
 
 ### Step 9, the rest of `sim/`
 

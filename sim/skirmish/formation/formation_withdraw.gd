@@ -47,8 +47,16 @@ static func disorder(squad: SkirmishSquad) -> float:
 ## (CrateRoster): units flee, and squads that have been safe long enough re-form; their
 ## events are appended to `events`. `ctx`: the scrum's (tick, pace, seconds, seed, terrain).
 static func step(field: Object, roster: Object, ctx: Dictionary, events: Array) -> void:
+	var terrain: Object = ctx["terrain"]
+	var ground: Object = terrain.core if terrain != null else null
+	field.scrum_withdraw(roster, ground, rules(ctx), ctx["tick"], ctx["seed"])
+	events.append_array(CrateEvents.taken(field))
+
+
+## The tuning the withdrawal reads, from the scrum's `ctx` (BodyField's `scrum_withdraw`).
+static func rules(ctx: Dictionary) -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
+	return PackedFloat64Array(
 		[
 			ctx["pace"],
 			ctx["seconds"],
@@ -64,7 +72,3 @@ static func step(field: Object, roster: Object, ctx: Dictionary, events: Array) 
 			tuning.discipline_fastest,
 		]
 	)
-	var terrain: Object = ctx["terrain"]
-	var ground: Object = terrain.core if terrain != null else null
-	field.scrum_withdraw(roster, ground, rules, ctx["tick"], ctx["seed"])
-	events.append_array(CrateEvents.taken(field))

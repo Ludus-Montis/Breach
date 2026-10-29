@@ -24,8 +24,16 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 ## (NativeKernels), over the scrum's `roster` (CrateRoster); `ctx` the scrum's (seed,
 ## seconds, pace, cells_per_second, terrain).
 static func step(field: Object, roster: Object, ctx: Dictionary) -> void:
+	var terrain: Object = ctx["terrain"]
+	var ground: Object = terrain.core if terrain != null else null
+	field.scrum_regroup(roster, ground, rules(ctx), ctx["seed"])
+
+
+## The tuning the regroup and the chasers read, from the scrum's `ctx` (BodyField's
+## `scrum_regroup`).
+static func rules(ctx: Dictionary) -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
+	return PackedFloat64Array(
 		[
 			ctx["pace"],
 			ctx["seconds"],
@@ -44,6 +52,3 @@ static func step(field: Object, roster: Object, ctx: Dictionary) -> void:
 			tuning.wounds_reach,
 		]
 	)
-	var terrain: Object = ctx["terrain"]
-	var ground: Object = terrain.core if terrain != null else null
-	field.scrum_regroup(roster, ground, rules, ctx["seed"])
