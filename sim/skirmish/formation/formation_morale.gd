@@ -15,9 +15,10 @@ extends RefCounted
 ## - **Recovery**, each second out of contact: a little plus its leadership, up to the
 ##   ceiling.
 ## Pure over the squads it is given; the simulation calls it. Its pressure and recovery
-## are the crate's (`morale.rs`), and its ceiling, bands and shocks (`bands.rs`, spec 39 step
-## 8a2-iv): this hands it the living's courage and leadership and each squad's morale, keeps
-## each squad's morale, and makes the events.
+## are the crate's (`morale.rs`, its second one pass: `morale/pass.rs`, spec 39 step
+## 8b5-xxvii), and its ceiling, bands and shocks (`bands.rs`, 8a2-iv): this hands it the
+## living's courage and leadership for a ceiling or a band asked for here, and lands a shock
+## given here with its event.
 
 enum Band { STEADY, SHAKEN, WAVERING, ROUTING }
 
@@ -60,21 +61,11 @@ static func shock(squad: SkirmishSquad, amount: int, tick: int, events: Array) -
 
 
 ## Once a second: pressure on squads fighting on several sides, recovery for those out of
-## contact, and every squad held to its ceiling. The pressure and recovery are the crate's
-## (`morale.rs`, spec 39 step 7a): this hands it each squad's morale, leadership and ceiling,
-## and sets what it returns, in the lists' order.
+## contact, and every squad held to its ceiling. The crate's, as one pass (`morale/pass.rs`,
+## spec 39 step 8b5-xxvii): each squad's morale, leadership and ceiling read there, its
+## morale set and a change of band in the crate's log, taken here.
 static func step(squads: Array, tick: int, ticks_per_second: int, events: Array) -> void:
-	if tick % maxi(1, ticks_per_second) != 0:
-		return
-	var stepped := []
-	var stepping := PackedInt64Array()
-	for index in squads.size():
-		var squad: SkirmishSquad = squads[index]
-		if squad.is_destroyed() or squad.state == SkirmishSquad.State.ROUTING:
-			continue
-		stepped.append(squad)
-		stepping.append_array([index, _morale(squad), leadership(squad), ceiling(squad)])
-	if stepped.is_empty():
+	if tick % maxi(1, ticks_per_second) != 0 or squads.is_empty():
 		return
 	var tuning := _tuning()
 	var rules := PackedFloat64Array(
@@ -83,12 +74,9 @@ static func step(squads: Array, tick: int, ticks_per_second: int, events: Array)
 	rules.append_array(PackedFloat64Array(tuning.morale_pressure))
 	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
-	var roster := CrateRoster.of(squads)
-	var after: PackedInt64Array = ColumnsLent.all(
-		columns, func(): return field.morale_step(roster, stepping, rules)
-	)
-	for index in stepped.size():
-		_set_morale(stepped[index], after[index], tick, events)
+	var roster := CrateRoster.of(squads)  # each squad's living, fresh
+	ColumnsLent.all(columns, func(): return field.morale_step(roster, rules, _rules(), tick))
+	events.append_array(CrateEvents.taken(field))  # "morale_band"
 
 
 static func _morale(squad: SkirmishSquad) -> int:

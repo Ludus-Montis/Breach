@@ -4041,8 +4041,9 @@ impl BodyField {
     /// numbered: [its index in `strays`, the squad slot opened for it].
     #[func]
     fn strays_adopt(&mut self, strays: PackedInt32Array, seed: i64) -> PackedInt32Array {
+        let (rows, _) = strays.as_slice().as_chunks::<2>();
         let pairs: Vec<(usize, usize)> =
-            strays.as_slice().chunks_exact(2).map(|p| (p[0] as usize, p[1] as usize)).collect();
+            rows.iter().map(|&[a, b]| (a as usize, b as usize)).collect();
         let opened = strays::adopt(&mut self.squads, &mut self.field, &pairs, seed);
         self.edits += 1;
         PackedInt32Array::from_iter(opened.into_iter().flat_map(|(n, s)| [n as i32, s as i32]))
@@ -4414,33 +4415,24 @@ fn carrying(
 /// Morale and the blows on routers (spec 39 step 7a).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationMorale.step's pressure and recovery for `roster`'s squads. `stepping`: four
-    /// numbers a squad stepped, in order: its index in the roster, its morale, its best
-    /// leader's leadership and its ceiling. `tuning`: [morale_recovery, morale_support_cells,
-    /// condition_cap, the morale_pressure...]. Returns each one's morale after the second,
-    /// before it is held to 0..100.
+    /// FormationMorale.step's second as one pass (`morale::pass`, spec 39 step 8b5-xxvii) for
+    /// `roster`'s squads on `tick`: each one's morale, leadership and ceiling read here, its
+    /// morale set and a change of band logged. `tuning`: [morale_recovery,
+    /// morale_support_cells, condition_cap, the morale_pressure...]; `bands`: BandTuning's.
     #[func]
     fn morale_step(
-        &self,
+        &mut self,
         roster: Gd<SquadRoster>,
-        stepping: PackedInt64Array,
         tuning: PackedFloat64Array,
-    ) -> PackedInt64Array {
+        bands: PackedInt64Array,
+        tick: i64,
+    ) {
         let roster = roster.bind();
-        let (rows, _) = stepping.as_slice().as_chunks::<4>();
-        let stepping: Vec<morale::Stepping> = rows
-            .iter()
-            .map(|s| morale::Stepping {
-                listed: s[0] as usize,
-                morale: s[1],
-                leadership: s[2],
-                ceiling: s[3],
-            })
-            .collect();
         let tuning = morale::MoraleTuning::of_slice(tuning.as_slice());
-        let out =
-            morale::step(&self.squads, &self.field.columns, &roster.roster, &stepping, &tuning);
-        PackedInt64Array::from(out.as_slice())
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, columns, log) = (&mut self.squads, &self.field.columns, &mut self.events);
+        morale::pass::step((squads, columns), &roster.roster, (&tuning, &bands), tick, log);
+        self.edits += 1;
     }
 }
 

@@ -259,7 +259,7 @@ func test_two_regrouping_squads_of_one_side_walk_back_the_same_with_their_lists_
 	var reversed: FormationSimulation = _two_regrouping().call()
 	_reverse(reversed.squads())
 	for _tick in range(3):
-		for sim in [usual, reversed]:
+		for sim: FormationSimulation in [usual, reversed]:
 			var ctx := {"pace": 0.25, "seconds": TICK, "cells_per_second": 2.5}
 			ctx.merge({"seed": sim.fight_seed, "terrain": null})
 			var squads := sim.squads()

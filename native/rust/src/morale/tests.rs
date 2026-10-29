@@ -12,22 +12,22 @@ use crate::roster::Member;
 
 const GREM: Walker = Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false };
 
-fn tuning() -> MoraleTuning {
+pub(super) fn tuning() -> MoraleTuning {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
     MoraleTuning::of(&content.tuning)
 }
 
 #[derive(Default)]
-struct Built {
-    squads: Squads,
-    columns: Columns,
-    roster: Roster,
+pub(super) struct Built {
+    pub(super) squads: Squads,
+    pub(super) columns: Columns,
+    pub(super) roster: Roster,
 }
 
 impl Built {
     /// A squad of `faction` facing east, its front's centre at `at`, one column wide, of one
     /// unit at (0, 0) whose condition is `condition`; its index in the roster.
-    fn squad(&mut self, faction: u32, at: (f32, f32), condition: f64) -> usize {
+    pub(super) fn squad(&mut self, faction: u32, at: (f32, f32), condition: f64) -> usize {
         let n = self.roster.listed.len();
         let id = n as i64 + 1;
         let squad = self.squads.open(id) as usize;
@@ -60,11 +60,11 @@ impl Built {
         n
     }
 
-    fn engaged(&mut self, n: usize) {
+    pub(super) fn engaged(&mut self, n: usize) {
         self.squads.engaged_with[self.roster.listed[n].squad] = 99;
     }
 
-    fn flanked(&mut self, n: usize, edge: i32) {
+    pub(super) fn flanked(&mut self, n: usize, edge: i32) {
         self.squads.flank(self.roster.listed[n].squad, edge, 98, 0);
     }
 
