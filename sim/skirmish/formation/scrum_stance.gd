@@ -59,9 +59,14 @@ static func anticipate_all(
 ) -> void:
 	if field == null:
 		return  # no squads: no stances
+	field.scrum_stance(roster, UnitMover.ground(terrain), rules(), when[0], when[1])
+	events.append_array(CrateEvents.taken(field))
+
+
+## The tuning the stances read: [scrum_anticipate, discipline_per_leadership,
+## discipline_meets_threats].
+static func rules() -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
+	return PackedFloat64Array(
 		[tuning.scrum_anticipate, tuning.discipline_per_leadership, tuning.discipline_meets_threats]
 	)
-	field.scrum_stance(roster, UnitMover.ground(terrain), rules, when[0], when[1])
-	events.append_array(CrateEvents.taken(field))

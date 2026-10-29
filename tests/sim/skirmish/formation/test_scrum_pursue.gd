@@ -2,10 +2,12 @@ extends GdUnitTestSuite
 ## The scrum's pursuits, one call into the crate over the scrum's roster
 ## (FormationPursuit.step, spec 39 step 8b5-xvi): a pursuer that gives up says so, as
 ## FormationEvents made it, and one back at its post holds the route it held it on again,
-## kept by the crate as its pursuit began, GDScript's copy too.
+## kept by the crate as its pursuit began, GDScript's copy too. The scrum as one call
+## (FormationScrum.step, spec 39 step 8b5-xxxiv) brings it back the same way.
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
+const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
@@ -63,4 +65,17 @@ func test_back_at_its_post_it_holds_its_own_route_again_and_turns_there() -> voi
 	assert_array(Array(mine.route.points())).is_equal(OWN)
 	assert_float(mine.route.corridor_half_width).is_equal(2.0)
 	assert_float(mine.position.y).is_equal(40.0)  # on its own route
+	assert_array(events.map(func(e): return e["type"])).is_equal(["turning", "turned"])
+
+
+func test_the_scrum_as_one_call_brings_it_back_onto_its_own_route_too() -> void:
+	var sim := FormationSimulation.new(2.0, TICK)
+	var mine := _pursuer(sim, 99, true)
+	mine.order = SkirmishUnit.Order.ADVANCE
+
+	var events := FormationScrum.step(sim.squads(), 4, 20.0, TICK, sim.fight_seed, null, sim._field)
+
+	assert_bool(mine.pursuit.is_empty()).is_true()
+	assert_array(Array(mine.route.points())).is_equal(OWN)
+	assert_float(mine.route.corridor_half_width).is_equal(2.0)
 	assert_array(events.map(func(e): return e["type"])).is_equal(["turning", "turned"])
