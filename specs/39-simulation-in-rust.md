@@ -233,7 +233,13 @@ events. After this step no battle phase runs in GDScript.
   leave), on its survey: **8a2-iv** morale's ceiling, bands and shocks; **8a2-v** the march's
   ends (an arrival, a retreat's return home) and who may shoot (8a1's kept). What else the
   tick decides in GDScript is the tick itself, 8b's: which squads march, hold or wait, which
-  groups look ahead and their commands' patches, landing the hurts, and the events.
+  groups look ahead and their commands' patches, landing the hurts, and the events. **8b split
+  further** (2026-10-28, under the same leave): **8b1** the move's choices, which squads march,
+  hold or wait, and every move landed together; **8b2** landing the hurts and the fight's
+  events; **8b3** which groups look ahead and their commands' patches; **8b4** the squads'
+  objects still GDScript (routes, commands, staging, the swaps under way, the painted places,
+  the taking) held by the crate, with spawning and the order queue; **8b5** one `step()` call,
+  the events handed back as data. A later part may split again on its own survey.
 
 ### Step 9, the rest of `sim/`
 
@@ -1524,6 +1530,39 @@ Decision's conditions.
   green. gdUnit: test_retreat_home.gd and test_formation_ranged.gd unchanged, now through
   the crate.
 - **After it**, what the tick still decides in GDScript is the tick itself (8b).
+
+### Step 8b1, the move's choices in the crate
+
+- **Which squads march, hold or wait** (`moving::choose`, FormationSimulation._move's first
+  test): one fighting, routing, arrived or destroyed stands, and so does one regrouping
+  (`moving::regrouping`, FormationScrum.regrouping: any loose unit not out chasing on its
+  own); else one still waiting waits; else it may march. GDScript asks once a tick for every
+  squad of the tick's roster (`move_choices`), and runs down the waits after the joins, as
+  before.
+- **Whether one free to march holds** (`moving::hold`): ordered to hold, or skirmishing
+  (`contact::skirmishing`); its state becomes holding or moving. GDScript asks after staging
+  and a retreat's end (`move_holds`), where it decided before.
+- **The landing** (`moving::land`, FormationSimulation._march): each march's front as it
+  lands, in the order planned; an advancing squad's limit (`contact::limit`) judged before
+  any lands, with every advancing squad marching. GDScript hands in [its index in the
+  roster, where it wants to get] a march (`move_land`), sets each front (its route places
+  it), then checks the ends and joins the advancing, in that order.
+- **Identical:** each squad's first choice reads only its own state, loose units, chasers and
+  wait, which nothing earlier in the loop changes, so asking once up front is the same as
+  asking in the loop; the hold's tests in the same order (the order first); the limits from
+  the same squads advancing, before any front moves. The proof is CI's digests against the
+  base. Outcomes unchanged.
+- **Retired:** FormationSimulation.STANDING, FormationContact.limit and its binding
+  `contact_limit`, FormationScrum.regrouping's own rule (now the crate's, for the tools and
+  tests that ask it).
+- **Tests:** cargo `moving/tests.rs` (a fighting, routing, arrived or destroyed squad stands
+  and the rest may go; a unit out of its place makes a squad regroup, a chaser doesn't;
+  standing and regrouping come before waiting; an order to hold holds and a squad free to
+  march moves; a ranged line with an enemy in reach holds to skirmish; two hostiles
+  advancing at each other each close half the gap as they stood, however listed; a retreat
+  lands where it wanted and isn't counted marching; an advance alone stops at reach). Red on
+  stubs, then green. gdUnit: the battles through the move unchanged, now through the crate.
+- **After it**, 8b2: landing the hurts and the fight's events.
 
 ## Open, for the implementing session to settle and record here
 
