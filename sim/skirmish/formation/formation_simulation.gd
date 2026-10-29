@@ -171,8 +171,7 @@ func step() -> Array:
 	_next_squad_id = FormationGroups.step(_squads, _tick, fight_seed, events, _next_squad_id)
 	FormationStamina.step(_squads, tick_seconds)  # runners tire, the rest recover
 	UnitBodies.step(_squads, fight_seed, _field)  # after every move: bodies part (Decision 106)
-	for entry in _squads:
-		events.append_array(FormationShuffle.step(entry, tick_seconds, TRAVEL_SCALE, _tick))
+	events.append_array(FormationShuffle.step(_squads, tick_seconds, TRAVEL_SCALE, _tick))
 	FormationMarch.sync_units(_squads, [tick_seconds, pace], terrain, fight_seed)  # to places
 	store.settle(_squads)  # the units no list holds any more give up their slots
 	return events
