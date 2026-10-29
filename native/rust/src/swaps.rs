@@ -8,6 +8,8 @@
 //! (`Held`, `Squads::swaps`): which units each moves and where, the ticks left, the units it
 //! passed; the "swapped" and "stepped_up" events stay GDScript's.
 
+pub mod pass;
+
 use serde::{Deserialize, Serialize};
 
 use crate::columns::Columns;

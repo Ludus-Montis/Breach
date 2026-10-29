@@ -467,6 +467,15 @@ events. After this step no battle phase runs in GDScript.
   bodies parted on a way rolled in the crate from the battle's seed and their draws
   (UnitBodies.part_way is gone), those pushed from their places made loose and the moved
   written into the columns. BodyFieldSync.bodies stays for its tests. Outcomes don't change.
+  **8b5-xxxii built** (2026-10-29): the shuffle as one crate pass over every squad
+  (`swaps/pass.rs`, the `shuffle_step` binding in place of `squad_swaps_end` and
+  `squad_start_moves`): each listed squad's swaps under way end (the squad's place following
+  its front if it moved), "swapped" (unit, passed) and "stepped_up" (unit, rank) in the log,
+  then a re-forming squad starts every move it can, each living unit's place, footprint, band,
+  priority, pace and whether it joined read in the crate, and stops re-forming once none starts
+  and none is under way. "passed" is the log's first list field: how many, then each
+  (`events::LISTS`, `Log::squad_listed`; CrateEvents decodes it to an Array). FormationShuffle.step
+  now takes the squads, not one squad. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

@@ -17,57 +17,32 @@ extends RefCounted
 ## A squad re-forms until no further move can start. Pure over the squad it is given. Which
 ## moves start is the crate's (native/rust/src/march/shuffle.rs and front.rs, spec 39 step
 ## 3d), and so are the swaps' ends, the widening and the closing up after (swaps.rs, step
-## 8a2-iii), and the swaps under way themselves (step 8b4-v); the events stay here.
+## 8a2-iii), the swaps under way themselves (step 8b4-v), and the whole tick of it with its
+## events, one pass over every squad (swaps/pass.rs, step 8b5-xxxii); this takes the events.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
+const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
-## One tick: active moves cancel, count down or complete; then a re-forming squad starts
-## every move it can, and stops re-forming once nothing is moving. Returns "swapped" events.
-static func step(
-	squad: SkirmishSquad, tick_seconds: float, travel_scale: float, tick: int
-) -> Array:
-	var events := _end_swaps(squad, tick) if swapping(squad) else []
-	if squad.reforming and not _start_moves(squad, tick_seconds, travel_scale):
-		squad.reforming = swapping(squad)
-	return events
-
-
-## The crate cancels, counts down and ends the squad's swaps under way, widens it and closes
-## it up (swaps.rs); this makes the events.
-static func _end_swaps(squad: SkirmishSquad, tick: int) -> Array:
-	var living := squad.living()
-	var columns: UnitColumns = squad.store.columns
+## One tick over `squads`, in the lists' order: each one's moves under way cancel, count down
+## or complete; then a re-forming squad starts every move it can, and stops re-forming once
+## nothing is moving. Returns the "swapped" and "stepped_up" events.
+static func step(squads: Array, tick_seconds: float, travel_scale: float, tick: int) -> Array:
+	if squads.is_empty():
+		return []
+	for squad: SkirmishSquad in squads:
+		squad.living()  # its members written to the squad store, if its lists changed
+	var listed := FormationLocks.slots(squads)
+	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
-	var front := squad.front_distance
-	var closers := SquadCompact.closers(living)
-	var slots := PackedInt32Array(squad.units.map(func(unit): return unit.slot))
-	var ends: PackedInt64Array = ColumnsLent.all(
-		columns, func(): return field.squad_swaps_end(squad.slot, closers, slots)
+	var pace := PackedFloat64Array(
+		[tick_seconds, travel_scale, BattleTuning.current().scrum_crowding]
 	)
-	SquadCompact.placed(squad, front)
-	var events := []
-	var at := 0
-	while at < ends.size():
-		var mover: int = ends[at]
-		var ids := []
-		for passed in ends.slice(at + 2, at + 2 + ends[at + 1]):
-			ids.append(passed)
-		at += 2 + ends[at + 1]
-		var extra := {"unit": mover, "passed": ids}
-		events.append(FormationEvents.squad_event("swapped", tick, squad, extra))
-		for _each in ends[at]:
-			var moved: SkirmishUnit = living[ends[at + 1]]
-			var rank: int = ends[at + 2]
-			events.append(
-				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
-			)
-			at += 2
-		at += 1
-	return events
+	ColumnsLent.all(columns, func(): return field.shuffle_step(listed, pace, tick))
+	return CrateEvents.taken(field)  # "swapped", "stepped_up"
 
 
 ## Whether any swap of the squad's re-forming is under way.
@@ -98,29 +73,3 @@ static func offset(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> V
 			return Vector2.ZERO
 		moving = movers(squad)
 	return moving.get(unit.id, Vector2.ZERO)
-
-
-static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale: float) -> bool:
-	var living := squad.living()
-	var listed := PackedInt64Array()  # [id, store slot] each living unit
-	for unit in living:
-		listed.append_array([unit.id, unit.slot])
-	var table := UnitView.read(squad, UnitView.PLACES)  # no one moves while moves are planned
-	var ranks: PackedInt32Array = table.rank
-	var files: PackedInt32Array = table.column
-	var paces: PackedFloat64Array = UnitView.read(squad, [UnitColumns.SPEED]).speed
-	var units := PackedInt32Array()
-	var speeds := PackedFloat64Array()
-	for unit in living:
-		var shape := [unit.footprint_width, unit.footprint_depth]
-		var claim := [unit.preferred_position, unit.position_priority, int(squad.joined.has(unit))]
-		units.append_array(PackedInt32Array([ranks[unit.slot], files[unit.slot]] + shape + claim))
-		speeds.append(paces[unit.slot])
-	var fighting := squad.state == SkirmishSquad.State.FIGHTING
-	var shape := PackedFloat64Array(
-		[squad.width, squad.combat_width, squad.centre_shift, float(fighting)]
-	)
-	var pace := PackedFloat64Array(
-		[tick_seconds, travel_scale, BattleTuning.current().scrum_crowding]
-	)
-	return squad.store.field().squad_start_moves(squad.slot, listed, shape, units, speeds, pace)

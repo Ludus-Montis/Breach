@@ -147,3 +147,18 @@ func test_a_death_cancels_a_swap_and_it_starts_again() -> void:
 
 	assert_int(after_cancel).is_equal(1)
 	assert_int(UnitPlace.rank(squad, brute)).is_equal(0)
+
+
+func test_the_crate_pass_tells_of_the_swap_its_mover_and_the_units_it_passed() -> void:
+	var setup := _joined(_line(_grem, 3), [[_brute, Vector2i(0, 0)]], 2)
+	var sim: FormationSimulation = setup[0]
+	var squad: SkirmishSquad = setup[1]
+	var brute: Object = _of_def(squad, 2)[0]
+
+	var swapped := _steps(sim, 9).filter(func(e): return e["type"] == "swapped")
+
+	var passed := squad.living().filter(func(u): return UnitPlace.rank(squad, u) == 2)
+	(
+		assert_array(swapped.map(func(e): return [e["squad"], e["unit"], e["passed"]]))
+		. is_equal([[squad.id, brute.id, passed.map(func(u): return u.id)]])
+	)

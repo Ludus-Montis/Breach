@@ -176,8 +176,7 @@ func _after(sim: Sim, events: Array) -> void:
 	_lap("stamina")
 	Sim.UnitBodies.step(squads, sim.fight_seed, sim._field)
 	_lap("bodies (UnitBodies)")
-	for entry in squads:
-		events.append_array(FormationShuffle.step(entry, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
+	events.append_array(FormationShuffle.step(squads, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
 	_lap("shuffle (re-form)")
 	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain, sim.fight_seed)
 	_lap("units walk to places")
