@@ -11,6 +11,7 @@ pub mod modes;
 pub mod pour;
 pub mod shuffle;
 pub mod sweep;
+pub mod sync;
 #[cfg(test)]
 mod tests;
 pub mod walk;

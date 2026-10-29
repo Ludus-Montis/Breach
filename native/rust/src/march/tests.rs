@@ -47,7 +47,7 @@ fn mode_tuning() -> ModeTuning {
     }
 }
 
-fn walk_tuning() -> WalkTuning {
+pub(super) fn walk_tuning() -> WalkTuning {
     let t = content().tuning;
     WalkTuning {
         face_travel: t.walk_face_travel,

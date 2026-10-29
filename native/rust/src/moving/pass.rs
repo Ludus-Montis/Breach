@@ -327,10 +327,16 @@ pub struct Bodies {
 
 impl Bodies {
     pub fn of(squads: &Squads, field: &Field, roster: &Roster) -> Bodies {
+        let listed: Vec<usize> = roster.listed.iter().map(|listed| listed.squad).collect();
+        Bodies::listed(squads, field, &listed)
+    }
+
+    /// `of` over the squads in `listed` (their slots, in the lists' order).
+    pub fn listed(squads: &Squads, field: &Field, listed: &[usize]) -> Bodies {
         let columns = &field.columns;
         let mut bodies = Bodies { ats: Vec::new(), radii: Vec::new(), areas: Vec::new() };
-        for listed in &roster.listed {
-            for &unit in &squads.members[listed.squad] {
+        for &s in listed {
+            for &unit in &squads.members[s] {
                 let u = unit as usize;
                 if LYING.contains(&columns.state[u]) {
                     let sheet = &columns.sheet[u];

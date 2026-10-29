@@ -476,6 +476,17 @@ events. After this step no battle phase runs in GDScript.
   and none is under way. "passed" is the log's first list field: how many, then each
   (`events::LISTS`, `Log::squad_listed`; CrateEvents decodes it to an Array). FormationShuffle.step
   now takes the squads, not one squad. Outcomes don't change.
+  **8b5-xxxiii built** (2026-10-29): the march's sync as one crate pass over every squad
+  (`march/sync.rs`, the `march_sync` binding): each listed squad's living units get their
+  distance along the route (a swap under way included), a router stands on its point on the
+  route (`rout_blows::where_on`), facing the heading unless loose, a loose one where its own
+  moves took it; placing, each unit in its frame is set on its place (`pour::place`), facing
+  the heading; otherwise each walks a tick (`walk::walk`) to where it makes for
+  (`pour::targets`), its walker, stamina, turn and footprint read from its sheet, over the
+  bodies lying as the tick found them (`moving::pass::Bodies::listed`), and a fall from a
+  climb face lands its hurt in the crate, onto the fell queue. FormationMarch.sync_units keeps
+  its signature and makes the one call; its WALKED and SYNCED holds and FormationWalk.place_of
+  are gone. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
