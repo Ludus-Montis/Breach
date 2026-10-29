@@ -360,6 +360,19 @@ events. After this step no battle phase runs in GDScript.
   renumbered: **8b5-xx** deaths; **8b5-xxi** taking, wounds, recovery and strays;
   **8b5-xxii** morale, the rout and carrying; **8b5-xxiii** groups, stamina, the bodies, the
   shuffle and the march's sync; **8b5-xxiv** one `step()` binding.
+  **8b5-xix split further** (2026-10-29, under the same leave), on its survey (the hurts,
+  "spat", "hit" and the stamina follow from the landing alone, but the surrender sets unit
+  and squad states GDScript copies, releases locks and needs the test-only callers of the
+  landing, the choice, the hurts and the strike moved): **8b5-xix** the fight as one
+  `fight_step` pass (choosing and landing together, the hurts, "spat" and "hit" in the log,
+  the strike's stamina); **8b5-xx** the surrender in that pass (TAKEN, "surrendered",
+  "destroyed" and the locks' release, with GDScript's copies mirrored), and the pieces left
+  only to tests retired (BlowLanding.land, FormationMelee.blows, UnitHealth.hurt_landed,
+  FormationStamina.strike and the `fight_choose`, `fight_land`, `fight_hurts` and
+  `stamina_strike` bindings), their tests moved onto the pass or into the crate. The rest
+  follow, renumbered: **8b5-xxi** deaths; **8b5-xxii** taking, wounds, recovery and strays;
+  **8b5-xxiii** morale, the rout and carrying; **8b5-xxiv** groups, stamina, the bodies, the
+  shuffle and the march's sync; **8b5-xxv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2473,6 +2486,35 @@ Decision's conditions.
 - **After it**, 8b5-xix: the fight as one `fight_step` pass: the hurts, "hit" and "spat" in
   the log, the surrender (TAKEN, "surrendered", "destroyed", the locks' release) and the
   strike's stamina.
+
+### Step 8b5-xix, the fight as one crate pass
+
+- **One call** (`fight::step::step`, `fight_step(roster, [interval, seed, tick, 1 if blows
+  roll], [reach_contact, front dot, rout_strike_reach, stamina_blow], band tuning, landing
+  tuning, ground)`, from FormationMelee.fight, which FormationSimulation._fight calls): the
+  blows and shots chosen (`fight::choose`), landed melee then shots (`fight::land::land`, on
+  the field as the choice synced it), each at the damage it dealt; the hurts, each shot then
+  each blow (`hurts::land`), the fallen onto the fell queue; "spat" for each shot (its
+  shooter's squad, its damage type from the lexicon, how it landed) and "hit" for each blow
+  in the log; then each striker's stamina spent, blows then shots (`stamina::strike`, its
+  tiring from its sheet). Returns the melee blows, [striker, target, dealt], for the
+  surrender, which stays GDScript's (FormationWounds.surrender) till 8b5-xx.
+- **Events told of a unit:** "hit" has no squad: `events::UNIT_LED` names such kinds,
+  `Log::unit` writes the unit's id and its own faction in the squad's place, `event_kinds`
+  says which, and CrateEvents names the field "unit". A damage type decodes from the
+  lexicon, a flank to a bool, how a blow landed to BlowLanding.LANDED's name.
+- **Gone:** FormationEvents.hit. BlowLanding.land, FormationMelee.blows,
+  UnitHealth.hurt_landed and FormationStamina.strike, and their bindings, stay for their
+  tests till 8b5-xx; BlowLanding.tuning is now public, for FormationMelee.fight.
+- **Identical:** the same blows, landings, hurts, events and stamina, in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `fight/step/tests.rs` (each blow hurts its target, says "hit" and tires
+  its striker; a shot hurts first and says "spat" with its shooter's damage type; a unit
+  struck to nothing falls onto the fell queue), red on a stubbed pass, then green;
+  `events.rs` (a unit-led event carries its unit's id and faction). gdUnit
+  `test_formation_fight.gd`: a duel's blows hurt, say "hit" as FormationEvents made it, key
+  for key, and tire their strikers (red with the GDScript call stubbed, then green).
+- **After it**, 8b5-xx: the surrender in the pass, and the test-only pieces retired.
 
 ## Open, for the implementing session to settle and record here
 
