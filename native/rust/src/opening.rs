@@ -146,4 +146,4 @@ pub fn routes(squads: &Squads, roster: &Roster) -> Vec<u32> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
