@@ -4356,35 +4356,29 @@ impl BodyField {
         PackedInt64Array::from(out.as_slice())
     }
 
-    /// FormationTaking's sending: which free unit of each group sending takers walks out to
-    /// which downed foe. `counts`: two numbers a squad that sends, in the lists' order, how
-    /// many free units it has and how many bodies its takers have claimed; `takers`: three a
-    /// free unit, its id, store slot and faction (a code); `detections`: one a free unit, how
-    /// far it sees; `claimed`: the claimed bodies' indices in `downed`, the squads' in turn;
-    /// `downed`: three a body lying, its id, store slot and faction. Returns three numbers a
-    /// taker sent, in order: [its squad's index in `counts`, its index in that squad's free
-    /// units, the body's index in `downed`].
+    /// FormationTaking.step: taking the downed as one pass (`taking::pass::step`): the
+    /// takers whose work is done called back, the hold run out, then free units sent out to
+    /// the downed foes, "sent_to_take" in the log. `listed`: the squads' slots, in the lists'
+    /// order; `threatened`: 1 a listed squad that sees a standing foe (FormationPerception),
+    /// else 0; `tuning`: [take_hold, take_reach].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn taking_send(
-        &self,
-        counts: PackedInt32Array,
-        takers: PackedInt64Array,
-        detections: PackedFloat64Array,
-        claimed: PackedInt32Array,
-        downed: PackedInt64Array,
+    fn taking_step(
+        &mut self,
+        listed: PackedInt32Array,
+        threatened: PackedInt32Array,
+        tick: i64,
+        seconds: f64,
         seed: i64,
-        reach: f64,
-    ) -> PackedInt64Array {
-        let (squads, downed) = sending(&counts, &takers, &detections, &claimed, &downed);
-        let sent = taking::send(&self.field.columns, &squads, &downed, seed, reach);
-        let mut out = vec![];
-        for (s, pairs) in sent.iter().enumerate() {
-            for &(u, b) in pairs {
-                out.extend([s as i64, u as i64, b as i64]);
-            }
-        }
-        PackedInt64Array::from(out.as_slice())
+        tuning: PackedFloat64Array,
+    ) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let threatened: Vec<bool> = threatened.as_slice().iter().map(|&t| t != 0).collect();
+        let &[hold, reach, ..] = tuning.as_slice() else { return };
+        let t = taking::pass::TakingTuning { hold, reach };
+        let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);
+        let lists = (&listed[..], &threatened[..]);
+        taking::pass::step(squads, field, lists, (tick, seconds, seed), &t, log);
+        self.edits += 1;
     }
 }
 
@@ -4427,35 +4421,6 @@ fn carrying(
                 .collect(),
         })
         .collect()
-}
-
-/// The squads and the bodies as taking_send is given them.
-fn sending(
-    counts: &PackedInt32Array,
-    takers: &PackedInt64Array,
-    detections: &PackedFloat64Array,
-    claimed: &PackedInt32Array,
-    downed: &PackedInt64Array,
-) -> (Vec<taking::Sending>, Vec<taking::Taker>) {
-    let unit = |i: &[i64; 3], detection: f64| taking::Taker {
-        id: i[0],
-        slot: i[1] as usize,
-        faction: i[2] as u32,
-        detection,
-    };
-    let (rows, _) = takers.as_slice().as_chunks::<3>();
-    let mut free = rows.iter().zip(detections.as_slice());
-    let mut claims = claimed.as_slice().iter();
-    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
-    let squads = count_rows
-        .iter()
-        .map(|c| taking::Sending {
-            free: free.by_ref().take(c[0] as usize).map(|(i, &d)| unit(i, d)).collect(),
-            claimed: claims.by_ref().take(c[1] as usize).map(|&b| b as usize).collect(),
-        })
-        .collect();
-    let (body_rows, _) = downed.as_slice().as_chunks::<3>();
-    (squads, body_rows.iter().map(|i| unit(i, 0.0)).collect())
 }
 
 /// The squads as wounds_tend is given them.
