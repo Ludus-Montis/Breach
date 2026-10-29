@@ -565,3 +565,49 @@ fn a_reinforcement_in_a_fight_spreads_the_line_within_the_combat_width() {
     assert_eq!(rank, 0);
     assert!(column == -1 || column == 2, "beside the line: {column}");
 }
+
+// The march's ends (FormationMarch.check_ends, spec 39 step 8a2-v), from test_retreat_home.gd's
+// rule and the arrivals the battles reach.
+
+fn ended(front: f64, home: f64, order: i32) -> Along {
+    Along { front, home, order, direction: if home == 0.0 { 1 } else { -1 } }
+}
+
+const HOLD: i32 = 1;
+
+#[test]
+fn an_advance_whose_front_reaches_the_enemy_end_arrives_there() {
+    assert_eq!(end(&ended(12.0, 0.0, ADVANCE), 12.0, true, || false), End::Arrived(12.0));
+    assert_eq!(end(&ended(12.0 + 1e-9, 0.0, ADVANCE), 12.0, true, || false), End::Arrived(12.0));
+    assert_eq!(end(&ended(0.0, 12.0, ADVANCE), 12.0, true, || false), End::Arrived(0.0));
+}
+
+#[test]
+fn an_advance_short_of_the_enemy_end_marches_on() {
+    assert_eq!(end(&ended(11.5, 0.0, ADVANCE), 12.0, true, || true), End::Under);
+}
+
+#[test]
+fn a_retreat_whose_front_is_home_returns_without_asking_where_its_units_stand() {
+    let asked = |answer: bool| move || -> bool { panic!("asked whether all home: {answer}") };
+    assert_eq!(end(&ended(0.0, 0.0, RETREAT), 12.0, true, asked(true)), End::Returned(0.0));
+    assert_eq!(end(&ended(12.0, 12.0, RETREAT), 12.0, false, asked(false)), End::Returned(12.0));
+}
+
+#[test]
+fn a_retreat_whose_units_are_all_home_returns_wherever_its_front_stands() {
+    assert_eq!(end(&ended(0.4, 0.0, RETREAT), 12.0, true, || true), End::Returned(0.0));
+    assert_eq!(end(&ended(0.4, 0.0, RETREAT), 12.0, true, || false), End::Under);
+}
+
+#[test]
+fn off_a_route_only_its_front_brings_a_retreat_home() {
+    let never = || -> bool { panic!("asked off a route") };
+    assert_eq!(end(&ended(0.4, 0.0, RETREAT), 12.0, false, never), End::Under);
+}
+
+#[test]
+fn a_holding_squad_neither_arrives_nor_returns() {
+    assert_eq!(end(&ended(12.0, 0.0, HOLD), 12.0, true, || true), End::Under);
+    assert_eq!(end(&ended(0.0, 0.0, HOLD), 12.0, true, || true), End::Under);
+}

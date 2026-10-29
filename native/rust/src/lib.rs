@@ -3473,20 +3473,36 @@ impl BodyField {
         PackedInt64Array::from(flat.as_slice())
     }
 
-    /// FormationWithdraw._home: true if all `roster`'s squad `listed`'s units stand within
-    /// half a cell of `home` (cells) along the route through `points`.
+    /// FormationMarch.check_ends, the squad `along` as [front, home, order, direction] on a
+    /// route `route_end` tiles long through `points` (none: no route). Whether all its units
+    /// are home (FormationWithdraw's test, half a cell of its home end) reads `roster`'s squad
+    /// `listed`, handed in for a retreat. Returns [0 marching on, 1 arrived or 2 returned,
+    /// the front's tiles along its route].
     #[func]
-    fn withdraw_home(
+    fn march_end(
         &self,
-        roster: Gd<SquadRoster>,
-        listed: i64,
+        along: PackedFloat64Array,
+        route_end: f64,
         points: PackedVector2Array,
-        home: f64,
-    ) -> bool {
-        let roster = roster.bind();
-        let route = route::Route::new(v2s(&points), 0.0);
-        let (squads, columns) = (&self.squads, &self.field.columns);
-        withdraw::home(squads, columns, &roster.roster, listed as usize, &route, home)
+        roster: Option<Gd<SquadRoster>>,
+        listed: i64,
+    ) -> PackedFloat64Array {
+        let along = along_of(&along);
+        let all_home = || {
+            roster.is_some_and(|roster| {
+                let roster = roster.bind();
+                let route = route::Route::new(v2s(&points), 0.0);
+                let home = along.home * content::CELLS_PER_TILE as f64;
+                let (squads, columns) = (&self.squads, &self.field.columns);
+                withdraw::home(squads, columns, &roster.roster, listed as usize, &route, home)
+            })
+        };
+        let ended = match march::end(&along, route_end, !points.is_empty(), all_home) {
+            march::End::Under => [0.0, along.front],
+            march::End::Arrived(front) => [1.0, front],
+            march::End::Returned(front) => [2.0, front],
+        };
+        PackedFloat64Array::from(ended.as_slice())
     }
 }
 
@@ -4666,31 +4682,28 @@ impl BodyField {
 /// The ranged picks and the blows' landing (spec 39 step 8a1).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationCombat.ranged_blows: `shooters`, three numbers a shooter, its squad's index in
-    /// `roster`, its index in that one's living and the cooldown it starts again at. Sets each
-    /// one's target and cooldown, and returns three numbers a shot, in order: [the shooter's
-    /// index, its target's squad's index in the roster, its index in that one's living].
+    /// FormationCombat.ranged_blows over `roster`'s squads: who may shoot (`shots::shooters`,
+    /// `seconds` each living unit's ranged time in the roster's order, `interval` the ticks a
+    /// second's strike takes), each one's target and cooldown set. Returns four numbers a
+    /// shot, in order: [the shooter's squad's index in the roster, its index in that one's
+    /// living, its target's squad's index, its index in that one's living].
     #[func]
     fn shots(
         &mut self,
         roster: Gd<SquadRoster>,
-        shooters: PackedInt64Array,
+        seconds: PackedFloat64Array,
+        interval: i64,
         seed: i64,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let (rows, _) = shooters.as_slice().as_chunks::<3>();
-        let shooters: Vec<shots::Shooter> = rows
-            .iter()
-            .map(|s| shots::Shooter {
-                listed: s[0] as usize,
-                member: s[1] as usize,
-                reset: s[2] as i32,
-            })
-            .collect();
         let columns = &mut self.field.columns;
+        let shooters =
+            shots::shooters(&self.squads, columns, &roster.roster, seconds.as_slice(), interval);
         let out = shots::shots(&self.squads, columns, &roster.roster, &shooters, seed);
-        let flat: Vec<i64> =
-            out.iter().flat_map(|&(s, n, u)| [s, n, u].map(|v| v as i64)).collect();
+        let flat: Vec<i64> = out
+            .iter()
+            .flat_map(|&(s, n, u)| [shooters[s].listed, shooters[s].member, n, u].map(|v| v as i64))
+            .collect();
         PackedInt64Array::from(flat.as_slice())
     }
 

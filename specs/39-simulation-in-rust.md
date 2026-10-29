@@ -1492,6 +1492,39 @@ Decision's conditions.
   leadership). Red on stubs, then green. gdUnit: test_formation_morale.gd unchanged, now
   through the crate.
 
+### Step 8a2-v, the march's ends and who may shoot in the crate
+
+- **The march's ends** (`march::end`, FormationMarch.check_ends): an advancing squad whose
+  front is at the enemy's end (`is_equal_approx`) arrives there; a retreating one whose front
+  is home, or on a route all of whose units stand within half a cell of home
+  (`withdraw::home`, asked only then), returns and holds there as it faces. GDScript hands
+  in the squad (`_along`), its route's points and, for a retreat, its roster; on the answer
+  ([marching on, arrived or returned; the front]) it sets the front, the state and the
+  order and adds the "arrived" and "returned" events. The binding `march_end` replaces
+  `withdraw_home`.
+- **Who may shoot** (`shots::shooters`, FormationCombat.ranged_blows' choice): in the lists'
+  order, the living with a range of every squad not arrived, but a fighting squad's front
+  rank, which fights as melee; each starts again at its ranged time in ticks,
+  `max(1, round(interval * seconds))`. GDScript hands in each living unit's ranged time,
+  asks nothing when none has a range, and makes the shots from the answer, four numbers a
+  shot (the shooter's squad and place in its living, its target's).
+- **Identical:** the same comparisons in the same order (the advance first, the front's
+  test before the units'), the home in cells `home * CELLS_PER_TILE`, the rounding half away
+  from zero; the shooters in the order GDScript listed them, so each target and cooldown is
+  set as before. The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationWithdraw._home, FormationMarch's own end tests, FormationCombat's
+  own choice of shooters.
+- **Tests:** cargo: `march/tests.rs` (an advance at the enemy's end arrives, from either
+  end and within the tolerance; one short of it marches on; a retreat whose front is home
+  returns without asking about its units; one whose units are all home returns wherever its
+  front stands; off a route only its front brings it home; a holding squad does neither)
+  and `shots/tests.rs` (the living with a range may shoot in the lists' order; each starts
+  again at its ranged time in ticks, rounded, at least 1; a fighting squad's front rank
+  fights as melee and its rear shoots; an arrived squad holds its fire). Red on stubs, then
+  green. gdUnit: test_retreat_home.gd and test_formation_ranged.gd unchanged, now through
+  the crate.
+- **After it**, what the tick still decides in GDScript is the tick itself (8b).
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
