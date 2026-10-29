@@ -4414,33 +4414,24 @@ fn carrying(
 /// Morale and the blows on routers (spec 39 step 7a).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationMorale.step's pressure and recovery for `roster`'s squads. `stepping`: four
-    /// numbers a squad stepped, in order: its index in the roster, its morale, its best
-    /// leader's leadership and its ceiling. `tuning`: [morale_recovery, morale_support_cells,
-    /// condition_cap, the morale_pressure...]. Returns each one's morale after the second,
-    /// before it is held to 0..100.
+    /// FormationMorale.step's second as one pass (`morale::pass`, spec 39 step 8b5-xxvii) for
+    /// `roster`'s squads on `tick`: each one's morale, leadership and ceiling read here, its
+    /// morale set and a change of band logged. `tuning`: [morale_recovery,
+    /// morale_support_cells, condition_cap, the morale_pressure...]; `bands`: BandTuning's.
     #[func]
     fn morale_step(
-        &self,
+        &mut self,
         roster: Gd<SquadRoster>,
-        stepping: PackedInt64Array,
         tuning: PackedFloat64Array,
-    ) -> PackedInt64Array {
+        bands: PackedInt64Array,
+        tick: i64,
+    ) {
         let roster = roster.bind();
-        let (rows, _) = stepping.as_slice().as_chunks::<4>();
-        let stepping: Vec<morale::Stepping> = rows
-            .iter()
-            .map(|s| morale::Stepping {
-                listed: s[0] as usize,
-                morale: s[1],
-                leadership: s[2],
-                ceiling: s[3],
-            })
-            .collect();
         let tuning = morale::MoraleTuning::of_slice(tuning.as_slice());
-        let out =
-            morale::step(&self.squads, &self.field.columns, &roster.roster, &stepping, &tuning);
-        PackedInt64Array::from(out.as_slice())
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, columns, log) = (&mut self.squads, &self.field.columns, &mut self.events);
+        morale::pass::step((squads, columns), &roster.roster, (&tuning, &bands), tick, log);
+        self.edits += 1;
     }
 }
 
