@@ -342,11 +342,12 @@ on the foe's flank and whether a retreating unit has turned away; its target and
 are set, the cooldown starting again at its melee time, half again while its squad wavers
 (its band read from the squad's morale, `shocks::morale`). Then the blows on routers
 (`rout_blows.rs`) and the shots (`shots.rs`), each blow's damage from its striker's sheet.
-The rolls, damage, hit points, events and the landing's glue stay GDScript's for now;
-surrender's rolls and stamina are the crate's (spec 39 steps 6a and 6b). For rolled blows,
-`BodyField.pressed` counts the foes pressing each target (BlowLanding._pressed) on the same
-sync (ScrumBlowsField; a tick no squad strikes in syncs for the count when blows are
-rolled). A tick no squad can strike
+Their landing is the crate's too (`fight/land.rs`, `fight_land`, spec 39 step 8b5-xviii):
+each unit's arms read from its sheet and words, and for rolled blows each striker's band
+and the foes pressing each target (`blows::pressed`) counted on the same sync (a tick no
+squad strikes in syncs for the count when blows are rolled). The events, surrender and
+stamina stay GDScript's glue for now, over the crate's rolls (spec 39 steps 6a and 6b).
+A tick no squad can strike
 in (marching, or only a rout left) makes no sync for the search. `test_blows_field.gd`
 checked the blows (until spec 39 step 4a retired the twin),
 their landing and every target and cooldown against GDScript at four moments, with

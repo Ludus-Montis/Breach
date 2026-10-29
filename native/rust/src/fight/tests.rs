@@ -1,12 +1,17 @@
 //! The fight's choice scenarios: squad 1 of two grems abreast on x = 0 facing east, squad 2
 //! of two on x = `gap` facing west, built here, each loosened where it stands (`prepare`).
 
+use super::land::{self as land, Struck};
 use super::*;
+use crate::content::tests::repo_content;
+use crate::content::Content;
 use crate::ground::Walker;
+use crate::landing::{self, LandingTuning};
 use crate::locks::{HOLDING, MOVING};
 use crate::maths::{bearing_vector, V2};
 use crate::roster::{Listed, Member};
 use crate::scrum::prepare::prepare;
+use crate::words;
 
 const EAST: f64 = 90.0;
 const WEST: f64 = 270.0;
@@ -195,4 +200,78 @@ fn a_ranged_unit_shoots_the_nearest_enemy_in_its_range_for_its_ranged_damage() {
         chosen.shots.iter().map(|s| (s.striker, s.target.0, s.damage)).collect();
     assert_eq!(shots, vec![((0, 0), 1, 5)]);
     assert_eq!(b.column(100).1, 4); // its ranged time, 1 s: 4 ticks
+}
+
+/// The landing's rules on the repo's tuning, with `rolls`.
+fn landing(rolls: Option<(i64, i64)>) -> land::Rules {
+    let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
+    let tuning = LandingTuning::of(&content.tuning);
+    land::Rules { tuning, rolls, reach: 1.5, bands: rules().bands }
+}
+
+impl Built {
+    /// A blow of 7 by `striker` on `target`, from its front.
+    fn struck(&self, striker: i64, target: i64) -> Struck {
+        let (striker, target) = (self.slot(striker), self.slot(target));
+        Struck { striker, target, damage: 7, ranged: false, flank: false }
+    }
+
+    fn land(&mut self, struck: &[Struck], rules: &land::Rules) -> Vec<(i64, u8)> {
+        let (squads, field) = (&mut self.squads, &mut self.field);
+        land::land(squads, field, &self.roster, struck, rules, false, None)
+    }
+
+    /// How many of `ticks` ticks' rolled blows of `striker` on `target` land (a graze or
+    /// better).
+    fn landed_over(&mut self, striker: i64, target: i64, ticks: i64) -> usize {
+        let mut rules = landing(None);
+        let blow = self.struck(striker, target);
+        (1..=ticks)
+            .filter(|&tick| {
+                rules.rolls = Some((11, tick));
+                self.land(&[blow], &rules).first().is_some_and(|l| l.1 >= landing::GRAZED)
+            })
+            .count()
+    }
+}
+
+#[test]
+fn a_blow_lands_with_the_arms_its_units_sheets_and_words_hold() {
+    let mut b = built(1.0, FIGHTING);
+    for word in 0..70 {
+        b.field.lexicon.code(&format!("word {word}")); // past the 64 a tick's blows may name
+    }
+    let fire = b.field.lexicon.code("fire");
+    let (s, t) = (b.slot(100), b.slot(200));
+    let columns = &mut b.field.columns;
+    columns.words[s].melee_parts = vec![words::Part { damage: 3.0, kind: fire, magical: true }];
+    columns.sheet[s].wounding = 2;
+    columns.words[t].weaknesses = vec![fire];
+    columns.words[t].regeneration_stops = vec![fire];
+    columns.sheet[t].ward = 1;
+    let rules = landing(None);
+    let full = ((7.0 * rules.tuning.weak - 1.0).round() as i64).max(1);
+    assert_eq!(b.land(&[b.struck(100, 200)], &rules), vec![(full, landing::HIT)]);
+    assert_eq!(b.field.columns.last_wounding[t], 2);
+    assert_eq!(b.field.columns.regeneration_halt[t], rules.tuning.regeneration_halt);
+}
+
+#[test]
+fn a_wavering_formations_blows_land_less_often() {
+    let mut b = built(1.0, FIGHTING);
+    let steady = b.landed_over(100, 200, 400);
+    b.squads.morale[0] = 20;
+    let wavering = b.landed_over(100, 200, 400);
+    assert!(wavering + 20 < steady, "{wavering} of 400 wavering, {steady} steady");
+}
+
+#[test]
+fn a_unit_its_touching_foes_both_fight_is_struck_more_surely() {
+    let mut b = built(1.0, FIGHTING);
+    let (one, two) = (b.slot(200), b.slot(201));
+    b.field.columns.target_id[one] = 100;
+    let alone = b.landed_over(200, 100, 400);
+    b.field.columns.target_id[two] = 100;
+    let pressed = b.landed_over(200, 100, 400);
+    assert!(pressed > alone, "{pressed} of 400 pressed, {alone} alone");
 }

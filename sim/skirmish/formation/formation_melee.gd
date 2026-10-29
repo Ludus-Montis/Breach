@@ -11,7 +11,6 @@ extends RefCounted
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
-const ScrumBlowsField = preload("res://sim/skirmish/formation/scrum_blows_field.gd")
 
 ## Numbers a melee blow and a shot take in what the crate returns.
 const MELEE := 6
@@ -19,8 +18,9 @@ const SHOT := 5
 
 
 ## [the melee blows ([[attacker, target, damage, flank], ...]), the shots ([[shooter,
-## target, damage, its squad], ...])]; clears every living unit's target, then sets each
-## striker's target and cooldown. `interval`: the ticks a second's strike takes;
+## target, damage, its squad], ...]), the squads' CrateRoster they were chosen over (for
+## BlowLanding)]; clears every living unit's target, then sets each striker's target and
+## cooldown. `interval`: the ticks a second's strike takes;
 ## `fight_seed` breaks ties between equal targets (Decision 97). The scrum's search runs on
 ## the battle's native bodies (`field`, NativeKernels; without one, its squads' store's).
 static func blows(squads: Array, interval: int, fight_seed: int, field: Object = null) -> Array:
@@ -35,7 +35,6 @@ static func blows(squads: Array, interval: int, fight_seed: int, field: Object =
 	var chosen: PackedInt64Array = field.fight_choose(
 		roster, PackedInt64Array([interval, fight_seed]), floats, BandTuning.rules()
 	)
-	ScrumBlowsField.mark(field, chosen[0] != 0)
 	var livings := squads.map(func(squad): return squad.living())
 	var melee := []
 	var at := 2
@@ -50,4 +49,4 @@ static func blows(squads: Array, interval: int, fight_seed: int, field: Object =
 		var target: SkirmishUnit = livings[chosen[at + 2]][chosen[at + 3]]
 		shots.append([shooter, target, chosen[at + 4], squads[chosen[at]]])
 		at += SHOT
-	return [melee, shots]
+	return [melee, shots, roster]
