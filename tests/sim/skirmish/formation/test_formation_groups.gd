@@ -1,12 +1,11 @@
 extends GdUnitTestSuite
-## FormationGroups and GroupSplit (spec 30 round 3, part 4): units fallen behind go on as a
+## FormationGroups (spec 30 round 3, part 4): units fallen behind go on as a
 ## group of the same command; groups meeting form up by one rule - one command's groups
 ## become one, a leader takes in the leaderless, two leaderless groups merge only if set
 ## to, and two led groups keep their own while units return to the command they started
 ## under. Decided by place and seeded draws, never by lists.
 
 const FormationGroups = preload("res://sim/skirmish/formation/formation_groups.gd")
-const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
 const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
@@ -50,7 +49,7 @@ func test_units_fallen_far_behind_go_on_as_a_group_of_the_same_command() -> void
 		UnitPlaces.put(squad, unit, UnitPlaces.of(squad, unit) - back)
 
 	var events := []
-	var next := GroupSplit.step(sim.squads(), 1, 7, events, 100)
+	var next := FormationGroups.step(sim.squads(), 1, 7, events, 100)
 
 	assert_int(next).is_equal(101)
 	assert_int(sim.squads().size()).is_equal(2)
@@ -71,7 +70,7 @@ func test_no_one_splits_off_if_no_man_is_left_behind() -> void:
 	var back := Vector2(BattleTuning.current().walk_lost + 4.0, 0)
 	UnitPlaces.put(squad, squad.units[2], UnitPlaces.of(squad, squad.units[2]) - back)
 
-	GroupSplit.step(sim.squads(), 1, 7, [], 100)
+	FormationGroups.step(sim.squads(), 1, 7, [], 100)
 
 	assert_int(sim.squads().size()).is_equal(1)
 
@@ -197,3 +196,34 @@ func test_the_same_meetings_decide_the_same_whatever_the_list_order() -> void:
 		kept.sort()
 		outcomes.append([left, kept])
 	assert_array(outcomes[0]).is_equal(outcomes[1])
+
+
+func test_the_crate_pass_tells_of_a_split_and_a_return_and_keeps_the_lists() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var squad := _line(sim, 4, 40.0)
+	var back := Vector2(BattleTuning.current().walk_lost + 4.0, 0)
+	for unit in [squad.units[2], squad.units[3]]:
+		UnitPlaces.put(squad, unit, UnitPlaces.of(squad, unit) - back)
+	var events := []
+	FormationGroups.step(sim.squads(), 1, 7, events, 100)
+	var group: SkirmishSquad = sim.squads()[1]
+	var split := {"type": "split", "tick": 1, "squad": 100, "faction": "player", "from": squad.id}
+	assert_array(events).is_equal([split])
+	var slots := func(s): return PackedInt32Array(s.units.map(func(u): return u.slot))
+	var held := func(s): return s.store.squads.members(s.slot)
+	assert_array([held.call(squad), held.call(group)]).is_equal(
+		[slots.call(squad), slots.call(group)]
+	)
+
+	var led := FormationSimulation.new(4.0, 0.1)
+	var first := _line(led, 3, 40.0)
+	var second := _line(led, 3, 38.5)
+	_lead(first)
+	_lead(second)
+	first.units[2].origin = second.command
+	var unit_id: int = first.units[2].id
+	var told := _form_up(led)
+	var rejoined := {"type": "rejoined", "tick": 1, "squad": second.id, "faction": "player"}
+	rejoined["unit"] = unit_id
+	assert_array(told).is_equal([rejoined])
+	assert_array(held.call(second)).is_equal(slots.call(second))
