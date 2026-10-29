@@ -403,6 +403,13 @@ events. After this step no battle phase runs in GDScript.
   (FormationStrays.adopt) made in the crate. The rest follow, renumbered: **8b5-xxvii**
   morale, the rout and carrying; **8b5-xxviii** groups, stamina, the bodies, the shuffle and
   the march's sync; **8b5-xxix** one `step()` binding.
+  **8b5-xxvi as built** (2026-10-29): `strays::adopt` (binding `strays_adopt`) takes each
+  stray out of its squad, opens its squad's slot with the battle's next id (`issue_squad`),
+  copies its old squad's faction, way, home, command, route and heading, sets it ROUTING
+  with no morale and sets it off; GDScript wraps the slot it opened (`SquadColumns.opened`,
+  which the next `open` takes). The stray's squad was numbered in GDScript only before, so
+  the crate held it as squad 0 (its draws and its log): now it holds the stray's own id.
+  GroupSplit numbers its groups the same way and is left to 8b5-xxviii.
 
 ### Step 9, the rest of `sim/`
 

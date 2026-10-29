@@ -58,7 +58,9 @@ func test_a_stray_keeps_its_command_and_shares_its_orders() -> void:
 	var squad := _line(sim, 3, true)
 	var unit: SkirmishUnit = squad.units[1]
 
-	var stray := FormationStrays.strand(unit, squad)
+	var squads := [squad]
+	FormationStrays.adopt([[unit, squad]], squads, 9, 0)
+	var stray: SkirmishSquad = squads[1]
 	squad.hurry = true
 
 	assert_object(stray.command).is_same(squad.command)
