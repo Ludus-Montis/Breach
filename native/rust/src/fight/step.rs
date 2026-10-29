@@ -3,13 +3,14 @@
 //! synced it), then the hurts (`hurts::land`): each shot, then each blow, in the order
 //! landed, the fallen onto the fell queue; then "spat" for each shot and "hit" for each blow
 //! in the log, as FormationEvents made them; then each striker's stamina spent on its blow
-//! (`stamina::strike`), blows then shots. The melee blows go back, each at the damage it
-//! dealt, for the surrender, which stays GDScript's till the next part (8b5-xx).
+//! (`stamina::strike`), blows then shots. Then the surrender over the melee blows, each at
+//! the damage it dealt (`fight::surrender`, spec 39 step 8b5-xx).
 
 #[cfg(test)]
 mod tests;
 
 use super::land::{self, Struck};
+use super::surrender;
 use super::{Blow, Who};
 use crate::events::{Log, HIT, SPAT};
 use crate::field::Field;
@@ -26,9 +27,21 @@ pub struct Rules {
     pub tick: i64,
     /// stamina_blow: what a blow or shot costs its striker, times how fast its load tires it.
     pub blow: f64,
+    /// wounds_surrender: the chance a routing unit struck surrenders, times its want of
+    /// courage.
+    pub surrender: f64,
 }
 
-/// The fight over the roster's squads; returns its melee blows, each at the damage it dealt.
+/// What the fight did: its melee blows, each at the damage it dealt, and the units the
+/// surrender took, in the order they gave up (which GDScript copies).
+#[derive(Debug, Default)]
+pub struct Fought {
+    #[cfg_attr(not(test), allow(dead_code))] // the tests read the damage dealt
+    pub melee: Vec<Blow>,
+    pub taken: Vec<Who>,
+}
+
+/// The fight over the roster's squads.
 pub fn step(
     squads: &mut Squads,
     field: &mut Field,
@@ -36,7 +49,7 @@ pub fn step(
     rules: &Rules,
     ground: Option<&Ground>,
     log: &mut Log,
-) -> Vec<Blow> {
+) -> Fought {
     let mut chosen = super::choose(squads, field, roster, &rules.choose);
     let (melee, shots) = (chosen.melee.len(), chosen.shots.len());
     let melee_struck = chosen.melee.iter().map(|blow| struck(roster, blow, false));
@@ -71,7 +84,10 @@ pub fn step(
     let tiring = |s: &Struck| (s.striker, field.columns.sheet[s.striker].tiring);
     let strikers: Vec<(usize, f64)> = struck.iter().map(tiring).collect();
     stamina::strike(&mut field.columns, &strikers, rules.blow);
-    chosen.melee
+    let given =
+        surrender::Rules { tick: rules.tick, seed: rules.choose.seed, chance: rules.surrender };
+    let taken = surrender::surrender(squads, field, roster, &chosen.melee, &given, log);
+    Fought { melee: chosen.melee, taken }
 }
 
 fn member(roster: &Roster, who: Who) -> &Member {
