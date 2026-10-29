@@ -6,11 +6,13 @@
 //! sweeping round bends (`march::sweep`), slowed by the ground (`march::pace`) and the bodies
 //! lying on it (`lying`). Every move then lands together (`land`), arrivals and returns
 //! after; the waiting count down. Each event goes to the log as FormationEvents made it.
-//! The joins after are GDScript's still, given the squads that advanced.
+//! The share each squad's units keep up with is the crate's too (`share`, spec 39 step
+//! 8b5-ix), worked out from the tick's start. The joins after are GDScript's still, given
+//! the squads that advanced.
 
+use super::share::{self, ShareTuning};
 use super::{choose, hold, land, Choice, Plan};
 use crate::contact;
-use crate::discipline::{self, DisciplineTuning};
 use crate::events::{self, Log};
 use crate::field::Field;
 use crate::geometry::CELLS;
@@ -20,7 +22,7 @@ use crate::lying::Lying;
 use crate::march::{self, sweep, Along, End, ADVANCE, RETREAT};
 use crate::maths::V2;
 use crate::reach;
-use crate::roster::Roster;
+use crate::roster::{Listed, Roster};
 use crate::squads::Squads;
 use crate::staging::{self, Hold};
 use crate::turn::{self, ABOUT_FACED, KEPT};
@@ -31,11 +33,9 @@ const HOLD: i32 = 1;
 /// SkirmishUnit.State's DEAD and DOWNED: the bodies lying on the field (GroundBodies.LYING).
 const LYING: [i32; 2] = [4, 5];
 
-/// What the pass is given besides the squads: per listed squad, the share of its pace its
-/// units keep up with (FormationWalk.share; read only where it steps) and its route's code
+/// What the pass is given besides the squads: per listed squad its route's code
 /// (FormationStaging's), then the tick's numbers and tuning.
 pub struct Given<'a> {
-    pub keeping: &'a [f64],
     pub routes: &'a [u32],
     pub tick: i64,
     /// FormationSimulation.TRAVEL_SCALE: tiles a second at speed 1.
@@ -43,9 +43,8 @@ pub struct Given<'a> {
     pub seconds: f64,
     /// Tiles: a squad without a route marches the lane's length.
     pub route_length: f64,
-    /// discipline_per_leadership, walk_slack_loose and walk_slack_drilled: a coordinated
-    /// leader's slack (FormationWalk.slack_of).
-    pub slack: [f64; 3],
+    /// The share's (FormationWalk.share), whose slack is a coordinated leader's too.
+    pub share: ShareTuning,
     /// bodies_ground_drag and bodies_ground_block.
     pub drag: [f64; 2],
 }
@@ -64,6 +63,7 @@ pub fn step(
     let mut plans: Vec<Plan> = Vec::new();
     let mut waiting: Vec<usize> = Vec::new();
     let mut lying: Option<Bodies> = None; // found once, as a march first steps over them
+    let keeping = keeping(squads, field, roster, ground, &given.share);
     for listed in 0..roster.listed.len() {
         let s = roster.listed[listed].squad;
         match choose(squads, s) {
@@ -92,7 +92,8 @@ pub fn step(
             continue; // an about-face is a re-form: its units walk to their places
         }
         let lying = lying.get_or_insert_with(|| Bodies::of(squads, field, roster));
-        let step = stepped(squads, field, roster, ground, listed, lying, given, log);
+        let keeping = keeping[listed];
+        let step = stepped(squads, field, roster, ground, listed, lying, keeping, given, log);
         if step < 0.0 {
             continue; // it waits for its units
         }
@@ -108,6 +109,21 @@ pub fn step(
         squads.wait_ticks[s] -= 1;
     }
     joiners
+}
+
+/// The share of its pace each listed squad that may march keeps for its units
+/// (FormationWalk.share), as the tick starts; 0 for one that stands, waits or is ordered to
+/// hold.
+fn keeping(
+    squads: &Squads,
+    field: &Field,
+    roster: &Roster,
+    ground: Option<&Ground>,
+    tuning: &ShareTuning,
+) -> Vec<f64> {
+    let goes = |s| choose(squads, s) == Choice::Goes && squads.order[s] != HOLD;
+    let share = |listed: &Listed| share::of(squads, field, listed, ground, tuning);
+    roster.listed.iter().map(|l| if goes(l.squad) { share(l) } else { 0.0 }).collect()
 }
 
 /// FormationStaging.holds: whether the squad holds at its staging point this tick. Its
@@ -130,7 +146,7 @@ fn staged(
         return false;
     }
     let slack = (order.meet.is_some() && coordinated(field, roster, listed))
-        .then(|| slack_of(field, roster, listed, given.slack));
+        .then(|| share::slack(field, &roster.listed[listed], given.share.slack));
     let pace = [given.travel_scale * CELLS, given.seconds];
     let (columns, routes) = (&field.columns, given.routes);
     let held = staging::hold_staged(squads, columns, roster, ground, listed, routes, slack, pace);
@@ -170,24 +186,6 @@ fn coordinated(field: &Field, roster: &Roster, listed: usize) -> bool {
     roster.listed[listed].living.iter().any(|m| columns.words[m.slot].tactics.contains(&code))
 }
 
-/// FormationWalk.slack_of for the squad, by its discipline (FormationDiscipline.of).
-fn slack_of(
-    field: &Field,
-    roster: &Roster,
-    listed: usize,
-    [per_leadership, loose, drilled]: [f64; 3],
-) -> f64 {
-    let tuning = DisciplineTuning {
-        per_leadership: per_leadership as i64,
-        meets_threats: 0,
-        expected_max: 0.0,
-        leash_shares: Vec::new(),
-        leash_steps: Vec::new(),
-    };
-    let discipline = discipline::of(&field.columns, &roster.listed[listed], &tuning);
-    march::walk::slack_of(discipline as f64, loose, drilled)
-}
-
 /// ScrumTurn.begin: whether the squad turns where it stands to move `travel` along its route;
 /// an about-face cancels the swaps under way.
 fn turned(
@@ -208,7 +206,8 @@ fn turned(
 }
 
 /// FormationSimulation._step: how far the squad steps this tick (tiles), its frame swept
-/// round any bend as it goes; -1 if it waits for its units, out of its slack.
+/// round any bend as it goes, keeping `keeping` of its pace for its units; -1 if it waits
+/// for them, out of its slack.
 #[allow(clippy::too_many_arguments)]
 fn stepped(
     squads: &mut Squads,
@@ -217,10 +216,10 @@ fn stepped(
     ground: Option<&Ground>,
     listed: usize,
     lying: &Bodies,
+    keeping: f64,
     given: &Given,
     log: &mut Log,
 ) -> f64 {
-    let keeping = given.keeping[listed];
     if keeping <= 0.0 {
         return -1.0;
     }
