@@ -340,7 +340,17 @@ events. After this step no battle phase runs in GDScript.
   on its return). The rest follow, renumbered: **8b5-xvii** the fight; **8b5-xviii**
   deaths; **8b5-xix** taking, wounds, recovery and strays; **8b5-xx** morale, the rout and
   carrying; **8b5-xxi** groups, stamina, the bodies, the shuffle and the march's sync;
-  **8b5-xxii** one `step()` binding.
+  **8b5-xxii** one `step()` binding. **8b5-xvii split further** (2026-10-29, under the same
+  leave), on its survey (whom each strikes is the crate's already, in three calls glued by
+  GDScript, but the landing reads each unit's arms from GDScript's objects and the events,
+  the surrender and the stamina are built from GDScript's blows): **8b5-xvii** the blows and
+  shots chosen in one crate pass (targets cleared, the scrum's search, cooldowns and the
+  morale's interval, the blows on routers, the shots, each blow's damage from the sheets);
+  **8b5-xviii** their landing (the arms read in the crate), hurts, "hit" and "spat", the
+  surrender and the strike's stamina. The rest follow, renumbered: **8b5-xix** deaths;
+  **8b5-xx** taking, wounds, recovery and strays; **8b5-xxi** morale, the rout and carrying;
+  **8b5-xxii** groups, stamina, the bodies, the shuffle and the march's sync; **8b5-xxiii**
+  one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2392,6 +2402,38 @@ Decision's conditions.
   its post holds its own route again, GDScript's copy too, and turns (red with the GDScript
   mirror and the taking of the log stubbed, then green).
 - **After it**, 8b5-xvii: the fight.
+
+### Step 8b5-xvii, the fight's blows and shots chosen in the crate
+
+- **One call** (`fight::choose`, `fight_choose(roster, [interval, seed], [reach_contact,
+  front dot, rout_strike_reach], band tuning)`, from FormationMelee.blows, which now returns
+  [melee blows, shots]): every living unit's target cleared; if some squad may strike
+  (ScrumBlowsField._any_strike, now `fight::any_strike`), the field synced to the scrum
+  (`scrum::seek::sync`) and each pick of `blows::picks` taken in the sync's order: its target
+  set, its cooldown run down, and at 0 started again at its melee time (ScrumBlows.ticks),
+  half again while its squad wavers (FormationMorale.band, read at its first blow through
+  `shocks::morale`), a blow unless it retreats and has turned away; then the blows on
+  routers from the front ranks, by column, of the squads free to fight (RoutBlows,
+  `rout_blows::blows`); then the shots (FormationCombat.ranged_blows, `shots::shooters` and
+  `shots::shots`, each unit's ranged time from its sheet). Each blow's damage is its
+  striker's sheet's `dmg`, a shot's its `ranged_dmg`. Returns whether it synced, which
+  ScrumBlowsField.mark records for the landing's count.
+- **Gone:** the `blows`, `rout_blows` and `shots` bindings; ScrumBlowsField.blows, `_any_strike`,
+  `_struck` and `spent`; RoutBlows, ScrumBlows and FormationCombat (scrum_blows.gd,
+  rout_blows.gd, formation_combat.gd).
+- **Identical:** the same targets, cooldowns, blows and shots, in the same order. The proof
+  is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `fight/tests.rs` (no foe in reach: every target cleared, none strikes;
+  fighting units strike the foes they touch and start again at their melee time; a wavering
+  squad half again more slowly; a squad with no morale yet reads its band from its ceiling;
+  one still cooling down takes its target but strikes not; one retreating with its back to
+  its foe strikes no blow; hostiles free to fight strike routers from behind; a ranged unit
+  shoots for its ranged damage), red on a stubbed pass, then green. gdUnit
+  `test_formation_melee.gd`: two units locked in a duel strike each other, their targets
+  set; a wavering formation's cooldown half again longer (red with the GDScript decoding
+  stubbed, then green).
+- **After it**, 8b5-xviii: the blows' landing, hurts, "hit" and "spat", the surrender and the
+  strike's stamina.
 
 ## Open, for the implementing session to settle and record here
 
