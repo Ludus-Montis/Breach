@@ -5,7 +5,7 @@
 //! new group's front is where its foremost unit stands along the route, and its units line
 //! up across it by where they stand. Splits come in the order of their units' least seeded
 //! draws, never by ids or lists (Decision 97). Nobody moves until every split is found, so
-//! this decides them all; making the new groups (SkirmishSquad, the events) is GDScript's.
+//! this decides them all; `groups::pass` makes the new groups (spec 39 step 8b5-xxx).
 
 use std::cmp::Ordering;
 use std::collections::HashSet;

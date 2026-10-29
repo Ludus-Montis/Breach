@@ -446,6 +446,16 @@ events. After this step no battle phase runs in GDScript.
   the bodies' parting (UnitBodies.step) as crate passes; **8b5-xxxii** the shuffle
   (FormationShuffle.step); **8b5-xxxiii** the march's sync (FormationMarch.sync_units);
   **8b5-xxxiv** one `step()` binding.
+  **8b5-xxx built** (2026-10-29): the groups as one crate pass (`groups/pass.rs`, the
+  `groups_step` binding in place of `group_split` and `group_form_up`): the groups at ease on
+  a route whose units fell behind split off, each new group's squad opened in the crate with
+  the battle's next id ("split": from), then the groups at ease meet and each meeting lands
+  there: a group taken in ("merged") or units gone back to the command they started under,
+  each behind its new squad's back row ("rejoined": unit). A route is still GDScript's object,
+  so each squad's route is handed over as a code (the same code, the same route). A split's
+  group used to be opened as squad 0 and numbered only in GDScript, so the crate held it as 0;
+  now it holds the real id (outcomes change, as for the strays). FormationGroups wraps the
+  slots opened and mirrors its lists; GroupSplit is gone.
 
 ### Step 9, the rest of `sim/`
 

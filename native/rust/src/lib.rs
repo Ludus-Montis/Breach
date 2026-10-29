@@ -3699,97 +3699,45 @@ impl BodyField {
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// GroupSplit.step's decisions over `roster`'s squads. Per candidate (at ease, on a
-    /// route), in `candidates`: its index in the roster and 1 if its frame waits for every
-    /// unit, on the route it holds; and per living unit, in its order, 1 in `taking` if it is out taking a downed foe and its swap offset
-    /// in `offsets`. `rules`: [walk_lost, group_join, cells per tile]. Returns per split, in
-    /// the order they are numbered: [its candidate, its front (tiles), its unit count, then
-    /// its units (indices into its squad's living) in the order they line up].
+    /// FormationGroups.step as one pass (`groups::pass::step`) over `roster`'s squads: the
+    /// groups fallen behind split off, each opened with the battle's next id, then the groups
+    /// at ease forming up, every meeting landed, their events in the log. `routes`: a code for
+    /// each squad's route (the same code, the same route). `rules`: [walk_lost, group_join,
+    /// cells per tile]; `at`: [tick, seed]. Returns what it did, in order: [0, the listed squad
+    /// split from, the slot opened, count, its units (indices into that squad's living as
+    /// listed)...] a split; [1, taker, taken] a group taken in; [2, from, home, count, unit
+    /// ids...] units gone back. A squad by its index in the lists, the groups split off listed
+    /// after them in the order opened.
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn group_split(
-        &self,
+    fn groups_step(
+        &mut self,
         roster: Gd<SquadRoster>,
-        candidates: PackedInt32Array,
-        taking: PackedByteArray,
-        offsets: PackedVector2Array,
+        routes: PackedInt64Array,
         rules: PackedFloat64Array,
-        seed: i64,
-    ) -> PackedFloat64Array {
-        let roster = roster.bind();
-        let (offsets, taking) = (v2s(&offsets), taking.as_slice());
-        let (rows, _) = candidates.as_slice().as_chunks::<2>();
-        let mut list = Vec::with_capacity(rows.len());
-        let mut unit = 0;
-        for row in rows {
-            let listed = row[0] as usize;
-            let living = roster.roster.listed[listed].living.len();
-            let held = self.squads.route[roster.roster.listed[listed].squad].clone();
-            list.push(split::Candidate {
-                listed,
-                waits: row[1] != 0,
-                route: held.expect("a group splitting is on a route"),
-                taking: taking[unit..unit + living].iter().map(|&t| t != 0).collect(),
-                offsets: offsets[unit..unit + living].to_vec(),
-            });
-            unit += living;
-        }
-        let r = rules.as_slice();
-        let rules = split::Rules { lost: r[0], join: r[1], seed, cells_per_tile: r[2] };
-        let splits = split::step(&self.squads, &self.field.columns, &roster.roster, &list, &rules);
-        let mut out = Vec::new();
-        for s in splits {
-            out.extend([s.candidate as f64, s.front, s.members.len() as f64]);
-            out.extend(s.members.iter().map(|&u| u as f64));
-        }
-        PackedFloat64Array::from(&out[..])
-    }
-
-    /// FormationGroups._form_up's decisions over `roster`'s squads (the groups at ease with
-    /// living units). `groups`: per group [its command, its route] (codes). `followers`: per
-    /// living unit, in each group's order, [1 if it leads + 2 if it joins + 4 if it gathers,
-    /// the command it started under (-1: none)]. Returns each meeting's outcome in the order
-    /// it lands: [0, taker, taken] for a group taken in, or [1, from, home, count, unit ids...]
-    /// for units going back to the command they started under.
-    #[func]
-    fn group_form_up(
-        &self,
-        roster: Gd<SquadRoster>,
-        groups: PackedInt32Array,
-        followers: PackedInt32Array,
-        join: f64,
-        seed: i64,
+        at: PackedInt64Array,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let (g, f) = (groups.as_slice(), followers.as_slice());
-        let mut list = Vec::with_capacity(roster.roster.listed.len());
-        let mut unit = 0;
-        for (n, listed) in roster.roster.listed.iter().enumerate() {
-            let followers = (unit..unit + listed.living.len())
-                .map(|u| groups::Follower {
-                    leads: f[2 * u] & 1 != 0,
-                    joins: f[2 * u] & 2 != 0,
-                    gathers: f[2 * u] & 4 != 0,
-                    origin: (f[2 * u + 1] >= 0).then_some(f[2 * u + 1] as u32),
-                })
-                .collect();
-            unit += listed.living.len();
-            list.push(groups::Group {
-                command: g[2 * n] as u32,
-                route: g[2 * n + 1] as u32,
-                followers,
-            });
-        }
-        let meetings =
-            groups::form_up(&self.squads, &self.field.columns, &roster.roster, &list, join, seed);
+        let (&[lost, join, cells_per_tile], &[tick, seed]) = (rules.as_slice(), at.as_slice())
+        else {
+            return PackedInt64Array::new();
+        };
+        let rules = split::Rules { lost, join, seed, cells_per_tile };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let routes = (&roster.roster, routes.as_slice());
+        let landed = groups::pass::step(squads, field, routes, &rules, tick, log);
+        self.edits += 1;
         let mut out = Vec::new();
-        for meeting in meetings {
-            match meeting {
-                groups::Meeting::Taken { taker, taken } => {
-                    out.extend([0, taker as i64, taken as i64])
+        for done in landed {
+            match done {
+                groups::pass::Landed::Split { from, slot, members } => {
+                    out.extend([0, from as i64, slot as i64, members.len() as i64]);
+                    out.extend(members.iter().map(|&m| m as i64));
                 }
-                groups::Meeting::Returned { from, home, units } => {
-                    out.extend([1, from as i64, home as i64, units.len() as i64]);
+                groups::pass::Landed::Taken { taker, taken } => {
+                    out.extend([1, taker as i64, taken as i64])
+                }
+                groups::pass::Landed::Returned { from, home, units } => {
+                    out.extend([2, from as i64, home as i64, units.len() as i64]);
                     out.extend(units);
                 }
             }

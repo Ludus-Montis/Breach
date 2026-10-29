@@ -108,7 +108,7 @@ func _crowd_parted(reversed: bool, kept: bool) -> PackedByteArray:
 
 
 ## Unit 3 dies; unit 5 leaves its squad for the line (squad 1), its entries in its old
-## squad taken away first, as every move between squads does (FormationRecovery, GroupSplit,
+## squad taken away first, as every move between squads does (FormationRecovery, FormationGroups,
 ## FormationStrays): left behind, the store's flags would still call it loose while the
 ## line's `loose` holds no entry for it, and the field would part a unit in a state the
 ## battle never makes.
