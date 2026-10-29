@@ -59,7 +59,8 @@ mod tests {
         squads.looked_at[1] = f64::NEG_INFINITY;
         squads.heading[0] = 0.1 + 0.2; // not a round number
         let bend = vec![V2::new(0.0, 0.0), V2::new(128.0, 0.0), V2::new(128.0, 64.0)];
-        squads.route[1] = Some(crate::route::Route::new(bend, 2.0));
+        squads.route[1] = Some(crate::route::Route::new(bend.clone(), 2.0));
+        squads.post_route[1] = Some(crate::route::Route::new(bend, 1.5));
         squads.taking[0] = vec![(7, 2), (5, 1)];
         squads.faction[1] = field.lexicon.code("kingdom");
         squads.joined[0] = vec![9, 4];

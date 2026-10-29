@@ -9,25 +9,23 @@ extends RefCounted
 ## (FormationDiscipline.pursuit_leash, Decision 107), or most of it has tired
 ## (FormationStamina), it gives up: it marches back along the
 ## route it is on to the post it held, takes up its own route there and turns to face the
-## way it held it, taking up its order again. Squads keep `pursuit` ({"foe", "route",
-## "post", "post_at", "home", "direction", "order", "returning"}), a view of their records
+## way it held it, taking up its order again. Squads keep `pursuit` ({"foe", "post",
+## "post_at", "home", "direction", "order", "returning"}), a view of their records
 ## (OrderRecords). Its start is the crate's orders (FormationOrders), and the rest is the
-## crate's too (`pursuit/whole.rs`, spec 39 step 7c): this hands it the squads' roster
-## (CrateRoster), each pursuer's routes and leash, and lands what it returns in its order -
-## the routes, the turn back at its post (ScrumTurn) and the events. Pure over the squads.
+## crate's too (`pursuit/whole.rs`, spec 39 step 7c; `scrum::pursue`, step 8b5-xvi): each
+## pursuer's routes (the one it is on, and the one it held its post on, kept as its pursuit
+## began) and its leash read where the crate holds them, the pursuit, its own route taken up
+## again and the turn back at its post, and "pursuit_ended", "turning" and "turned" in the
+## crate's log. This hands it the squads' roster (CrateRoster) and mirrors the route a squad
+## back at its post holds. Pure over the squads.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
-## The kinds of what the crate's pursuit did (pursue's records).
-const ENDED := 0
-const ARRIVED := 1
 
 
 ## One tick of pursuit: pursuers advance after their enemy or give up and go back.
-## `roster`: the tick's (CrateRoster), made here if a squad pursues and none is given.
+## `roster`: the tick's (CrateRoster), made here if none is given.
 static func step(
 	squads: Array,
 	tick: int,
@@ -36,40 +34,46 @@ static func step(
 	events: Array,
 	roster: Object = null
 ) -> void:
-	var listed := PackedInt32Array()
-	var leashes := PackedFloat64Array()
-	var counts := PackedInt32Array()
-	var points := PackedVector2Array()
-	var posts := {}  # its index -> the route it held its post on
-	for index in squads.size():
-		var squad: SkirmishSquad = squads[index]
-		var held: Dictionary = squad.pursuit
-		if held.is_empty() or squad.is_destroyed():
-			continue
-		listed.append(index)
-		posts[index] = held["route"]
-		leashes.append(FormationDiscipline.pursuit_leash(squad))
-		var post: FormationRoute = held["route"]  # its post's; the crate holds the one it is on
-		counts.append(-1 if post == null else post.points().size())
-		points.append_array(PackedVector2Array() if post == null else post.points())
-	if listed.is_empty():
+	if squads.is_empty():
 		return
 	if roster == null:
 		roster = CrateRoster.of(squads)
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array(
-		[cells_per_second, seconds, tuning.stamina_give_up, tuning.reach_pursuit_lag]
+		[
+			cells_per_second,
+			seconds,
+			tuning.stamina_give_up,
+			tuning.reach_pursuit_lag,
+			tuning.discipline_per_leadership,
+			tuning.discipline_expected_max,
+			tuning.discipline_leash_shares.size(),
+		]
 	)
-	var done: PackedInt64Array = squads[0].store.field().pursue(
-		roster, listed, leashes, counts, points, rules
-	)
-	for at in range(0, done.size(), 3):
-		var squad: SkirmishSquad = squads[done[at + 1]]
-		if done[at] == ENDED:
-			events.append(FormationEvents.squad_event("pursuit_ended", tick, squad))
-			continue
-		squad.route = posts[done[at + 1]]  # at its post: its own route again
-		ScrumTurn.begin(squad, done[at + 2], tick, events)
+	rules.append_array(PackedFloat64Array(tuning.discipline_leash_shares))
+	rules.append_array(PackedFloat64Array(tuning.discipline_leash_steps))
+	var field: Object = squads[0].store.field()
+	var back: PackedInt32Array = field.scrum_pursue(roster, rules, tick)
+	events.append_array(CrateEvents.taken(field))
+	for index in back:
+		_mirror(squads[index], field)
+
+
+## GDScript's copy of the route the squad is back on, as the crate set it: the one it or its
+## command holds with the same points, else one made from them.
+static func _mirror(squad: SkirmishSquad, field: Object) -> void:
+	var points: PackedVector2Array = field.squad_route(squad.slot)
+	if points.is_empty():
+		squad.route = null
+		return
+	if squad.route != null and squad.route.points() == points:
+		return
+	var command: FormationRoute = squad.command.route
+	if command != null and command.points() == points:
+		squad.route = command
+		return
+	var half_width := 0.0 if command == null else command.corridor_half_width
+	squad.route = FormationRoute.new(points, half_width)
 
 
 ## [cells its frame has gone from its post, as the crow flies, cells its leash allows (INF:

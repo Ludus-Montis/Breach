@@ -11,7 +11,7 @@ extends RefCounted
 ## leashes: FormationDiscipline's rules, on their sheets), the shock and the events, built as
 ## data (`orders/pass.rs`, step 8b5-v): this hands it the squads' roster (CrateRoster) and,
 ## for a retreat, each squad's route, takes its events (CrateEvents) and lands the routes its
-## pursuers keep or take.
+## pursuers take (the route each held its post on the crate keeps, step 8b5-xvi).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -38,11 +38,9 @@ static func apply(
 		fight_seed
 	)
 	events.append_array(CrateEvents.taken(field))
-	for at in range(0, pursuers.size(), 4):
+	for at in range(0, pursuers.size(), 4):  # its post's route the crate keeps
 		var quarry: SkirmishSquad = squads[pursuers[at]]
 		var enemy: SkirmishSquad = squads[pursuers[at + 1]]
-		if pursuers[at + 2] != 0:  # its post's route, kept till it is back there
-			enemy.store.orders.hold_route(enemy.slot, enemy.route)
 		if pursuers[at + 3] != 0:
 			enemy.route = quarry.route  # the route its quarry flees by (Decision 113)
 

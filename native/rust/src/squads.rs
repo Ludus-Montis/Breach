@@ -19,8 +19,7 @@
 //! (`stance`), the foes on its other edges (`flanks`, in the order each began) and its units
 //! out chasing (`chasers`, in the order each set out). Since spec 39 step 7c, also its
 //! pursuit as a whole (`pursuit`) and its withdrawal (`withdraw`, the ticks it has felt
-//! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port. Since
-//! step 8b4-i, also the route each follows (`route`, none: a straight lane), as
+//! safe). Since step 8b4-i, also the route each follows (`route`, none: a straight lane), as
 //! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
 //! (`command`) and the commands themselves (`commands`); since 8b4-iv, its hold-until
 //! order (`staging`); since 8b4-v, its swaps under way (`swaps`); since 8b4-vi, its units out
@@ -28,7 +27,8 @@
 //! and the ids issued (`squads_issued`, `units_issued`). Since 8b5-iv, its faction (`faction`,
 //! coded in the unit store's lexicon, so it compares with a unit's) and the units that joined
 //! it as reinforcements (`joined`, their ids); its living and downed units are read from its
-//! members and the unit store's STATE column (`living`, `downed`).
+//! members and the unit store's STATE column (`living`, `downed`). Since 8b5-xvi, the route
+//! a pursuer held its post on (`post_route`), which it takes up again back there.
 
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +86,9 @@ pub struct Squads {
     pub withdraw: Vec<Option<i64>>,
     /// The route each follows (none: a straight lane along x).
     pub route: Vec<Option<Route>>,
+    /// The route each pursuing as a whole held its post on (none: a straight lane, or none
+    /// held), set as its pursuit began.
+    pub post_route: Vec<Option<Route>>,
     /// The command each follows (a slot in `commands`; none till it is given one).
     pub command: Vec<Option<usize>>,
     /// Orders given for the next tick (FormationSimulation.order): [squad id, order], in
@@ -289,6 +292,7 @@ impl Squads {
         self.pursuit.push(None);
         self.withdraw.push(None);
         self.route.push(None);
+        self.post_route.push(None);
         self.command.push(None);
         self.staging.push(None);
         self.swaps.push(Vec::new());

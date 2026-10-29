@@ -2356,6 +2356,43 @@ Decision's conditions.
   GDScript's taking of the log stubbed, then green).
 - **After it**, 8b5-xvi: the pursuit, its turns and events.
 
+### Step 8b5-xvi, the scrum's pursuit over the roster
+
+- **The post's route held** (`Squads::post_route`, a squad column the snapshot carries): the
+  orders' pass keeps the route a pursuer held its post on as its pursuit begins
+  (`orders::begin_pursuit`). `squad_pursuit`/`put_squad_pursuit` carry it after the
+  pursuit's eight numbers ([half width, then the points' x and y]), so OrderRecords.carry
+  carries it with the pursuit. OrderRecords' `hold_route`/`_routes` and the pursuit view's
+  "route" are gone; FormationOrders lands only the route a pursuer takes.
+- **One call** (`scrum::pursue::step`, `scrum_pursue(roster, rules, tick)`, from
+  FormationPursuit.step): each pursuing squad (a record set, a unit living) is read in the
+  crate: the route it is on, its `post_route`, and its leash (FormationDiscipline
+  .pursuit_leash: `discipline::of` from its living units' sheets, a step out for a living
+  unit that "pursues", a step in for one "cautious", `discipline::leash`). Then
+  `pursuit::whole::step`, and each end landed in order: "pursuit_ended" for one that gave
+  up; for one back at its post, its `post_route` taken up as its route and its turn
+  (`turn::landed`: "turning", "turned"). Returns the listed indices back at their posts.
+- **GDScript's route mirrored** on the return (FormationPursuit._mirror): the route it holds
+  if the crate's has the same points (it never took its quarry's), else its command's if
+  that has them (a lane's squads share their command's route), else one made from the
+  crate's points with its command's corridor.
+- **Gone:** the `pursue` binding, FormationPursuit's ENDED/ARRIVED and its turn through
+  ScrumTurn. ScrumTurn.begin and `squad_turn` stay: test_squad_turn.gd uses them.
+  "pursuit_ended" joins `events::KINDS`. FormationPursuit.reach and
+  FormationDiscipline.pursuit_leash stay for the presentation.
+- **Identical:** the same pursuits, ends, routes, turns and events, in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/pursue/tests.rs` (it advances along the route it is on; its leash
+  is its discipline's step moved by its leaders' tactics; at its leash it gives up,
+  "pursuit_ended"; back at its post it takes up its own route and turns the way it held it,
+  "turning", "turned"; a destroyed pursuer pursues no more) and `orders/tests.rs` (a pursuer
+  keeps the route it held its post on as it begins, and only then), red on a stubbed
+  line, then green; `snapshot.rs` carries `post_route`. gdUnit `test_scrum_pursue.gd`: a
+  pursuer whose enemy is gone says "pursuit_ended" as FormationEvents made it; one back at
+  its post holds its own route again, GDScript's copy too, and turns (red with the GDScript
+  mirror and the taking of the log stubbed, then green).
+- **After it**, 8b5-xvii: the fight.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
