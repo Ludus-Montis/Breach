@@ -438,6 +438,14 @@ events. After this step no battle phase runs in GDScript.
   speed (which UnitWrites now hands the crate, `put_speed`, beside its sight), so outcomes are
   unchanged. FormationCarry mirrors the states, the carrying and the loads, and its unit
   lists, and returns the bearers setting off home for FormationStrays.
+  **8b5-xxx split further** (2026-10-29, under the same leave), on its survey (groups, stamina,
+  the bodies, the shuffle and the march's sync are five GDScript passes; the groups' alone
+  split, form up, open squads and land meetings): **8b5-xxx** the groups (FormationGroups.step:
+  GroupSplit and the forming up) as one crate pass, each split's group opened in the crate with
+  the battle's next id as the strays' are; **8b5-xxxi** stamina (FormationStamina.step) and
+  the bodies' parting (UnitBodies.step) as crate passes; **8b5-xxxii** the shuffle
+  (FormationShuffle.step); **8b5-xxxiii** the march's sync (FormationMarch.sync_units);
+  **8b5-xxxiv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
