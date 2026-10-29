@@ -281,6 +281,16 @@ events. After this step no battle phase runs in GDScript.
   and the move; **8b5-vi** the scrum, the fight and deaths; **8b5-vii** taking, wounds,
   recovery and strays; **8b5-viii** morale, the rout and carrying; **8b5-ix** groups,
   stamina, the bodies, the shuffle and the march's sync; **8b5-x** one `step()` binding.
+  **8b5-v split further** (2026-10-28, under the same leave), on its survey (no event is
+  data yet, and the four passes still land their events, shocks, routes and the move's
+  glue in GDScript: the move alone is staging, the march's ends, the turn, the sweep, the
+  walk, the drag and the joins): **8b5-v** the events as data (a crate log, decoded by
+  GDScript into the same dictionaries) and the orders' pass reading its discipline from
+  the units' sheets and building its shock and events there; **8b5-vi** engagement and
+  pathing likewise; **8b5-vii** the move likewise. The rest follow, renumbered:
+  **8b5-viii** the scrum, the fight and deaths; **8b5-ix** taking, wounds, recovery and
+  strays; **8b5-x** morale, the rout and carrying; **8b5-xi** groups, stamina, the bodies,
+  the shuffle and the march's sync; **8b5-xii** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -1948,7 +1958,43 @@ Decision's conditions.
   the library with the writes stubbed, the last, which no write feeds, red in cargo; then
   green). `test_formation_contact.gd` runs in CI.
 - **After it**, 8b5-v: orders, engagement, pathing and the move as one crate pass, their
-  events built as data.
+  events built as data (split further: Step 8's bullet).
+
+### Step 8b5-v, the events as data and the orders' pass in the crate
+
+- **The events** (`events::Log`, `KINDS`): what a crate pass reports, built by the crate
+  and handed back flat: each is its kind's index, the tick, its squad's id and faction
+  (coded in the unit store's lexicon), then a number per field its kind names. The kinds
+  are added as their passes move here; this part's are the orders': "order_applied"
+  (order), "disengaged", "withdrawing", "pursuing" (of) and "morale_band" (band, morale).
+  GDScript asks for the kinds once (`event_kinds`) and decodes each (CrateEvents, through
+  `events_take` and `lexicon_words`) into the dictionary FormationEvents made, its keys in
+  the same order; an order or a band is named from its number. The log isn't carried by
+  the snapshot: a pass's events are taken in the same tick.
+- **The orders' pass** (`orders::pass`): the queue applied (step 7c's), then each order
+  landed in the crate: its event, and for a retreat out of a fight its events, its shock
+  and its pursuers' events, in the order FormationOrders made them. What a retreat reads is
+  read there: whether a squad may pursue (its command's, step 8b4-iii), and its living
+  units' chances to break ranks and leashes, from their sheets (`discipline.rs`,
+  FormationDiscipline's unit rules, step 8b5-i's numbers). The shock (`shocks.rs`) is
+  FormationMorale.shock: the squad's morale, first read as its ceiling, drained and held,
+  a change of band its event. The routes its pursuers keep or take stay GDScript's to land
+  (the routes it holds are objects), from the four numbers per pursuer the binding returns.
+- **Identical:** the same orders, shocks and routes in the same order, and the same events
+  in the same order with the same keys and values. The proof is CI's digests against the
+  base. Outcomes unchanged.
+- **Tests:** cargo `events.rs` (events are taken flat in the order built, once; each kind
+  is named once), `discipline.rs` (a formation's mean, rounded, bolstered by its best
+  leader; its disorder; a unit's own and its leash), `shocks.rs` (a shock drains morale, a
+  change of band its event; a squad with none yet is shocked from its ceiling) and
+  `orders/tests.rs` (the pass takes the queue and reports each order; a ragged retreat is
+  shocked and its pursuers reported in order; enemies break ranks by their sheets'
+  discipline); red on stubs, then green. gdUnit `test_formation_orders.gd`: an order applied
+  is the event it always was, keys in order; a ragged retreat is shocked by its disorder and
+  reported in order (red with the GDScript's taking of the events stubbed, then green).
+  `test_formation_retreat.gd` and `test_formation_simulation.gd` run in CI.
+- **After it**, 8b5-vi: engagement (perception, the fronts, the edges and their shocks) and
+  pathing (the follow, the look) as crate passes, their events built as data.
 
 ## Open, for the implementing session to settle and record here
 

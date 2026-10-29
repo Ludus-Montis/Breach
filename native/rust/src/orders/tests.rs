@@ -3,6 +3,9 @@
 //! y = 0, and a second kingdom squad (id 3) beside them, each of two grems.
 
 use super::*;
+use crate::bands::BandTuning;
+use crate::discipline::DisciplineTuning;
+use crate::events::{self, Log};
 use crate::ground::Walker;
 use crate::roster::{Listed, Member};
 use crate::squads::Stance;
@@ -241,4 +244,80 @@ fn orders_queue_in_the_order_given_and_a_second_replaces_the_first_in_place() {
     queue(&mut squads, 1, HOLD);
     queue(&mut squads, 3, RETREAT);
     assert_eq!(squads.pending, vec![(3, RETREAT), (1, HOLD)]);
+}
+
+/// The pass's tunings: drilled at 50, a ragged retreat shocks by up to 20, steady from 70.
+fn pass_given(b: &Built) -> (DisciplineTuning, BandTuning, Vec<Coded>) {
+    let discipline = DisciplineTuning {
+        per_leadership: 5,
+        meets_threats: 50,
+        expected_max: 100.0,
+        leash_shares: vec![0.8, 0.5],
+        leash_steps: vec![2.0, 4.0, 8.0, 16.0],
+    };
+    let bands =
+        BandTuning { per_leadership: 5, steady_at: 70, shaken_at: 40, loss: 2, leader_loss: 3 };
+    (discipline, bands, vec![(0, Some(road())); b.roster.listed.len()])
+}
+
+fn run_pass(b: &mut Built, given: &[(i64, i32)], log: &mut Log) -> Vec<Applied> {
+    let (discipline, bands, routes) = pass_given(b);
+    b.squads.pending = given.to_vec();
+    let given = pass::Given {
+        routes,
+        within: 4.0,
+        ragged_shock: 20,
+        discipline: &discipline,
+        bands: &bands,
+        tick: 5,
+        seed: 3,
+    };
+    pass::pass(&mut b.squads, &mut b.columns, &b.roster, given, log)
+}
+
+#[test]
+fn the_pass_takes_the_queue_and_each_order_applied_is_an_event() {
+    let mut b = built();
+    b.squads.faction[2] = 6;
+    let mut log = Log::default();
+    run_pass(&mut b, &[(3, HOLD)], &mut log);
+    assert!(b.squads.pending.is_empty());
+    assert_eq!(log.take(), vec![events::ORDER_APPLIED as i64, 5, 3, 6, i64::from(HOLD)]);
+}
+
+#[test]
+fn a_ragged_retreat_out_of_a_fight_is_shocked_and_its_pursuers_reported_in_order() {
+    let mut b = built();
+    b.squads.morale[0] = 75; // steady; its units' discipline 30 of 50: 0.4 short, a shock of 8
+    let command = b.squads.commands.open(0.0);
+    b.squads.command[1] = Some(command);
+    let mut log = Log::default();
+    let applied = run_pass(&mut b, &[(1, RETREAT)], &mut log);
+    let pursuer = Pursuer { listed: 1, began: true, took: false };
+    assert_eq!(applied[0].retreat, Some(vec![pursuer]), "squad 2 pursues, by its command");
+    assert_eq!(b.squads.morale[0], 67);
+    let kinds = [events::ORDER_APPLIED, events::DISENGAGED, events::MORALE_BAND];
+    let mut expected: Vec<i64> = Vec::new();
+    for (kind, values) in kinds.iter().zip([vec![i64::from(RETREAT)], vec![], vec![1, 67]]) {
+        expected.extend([*kind as i64, 5, 1, 0]);
+        expected.extend(values);
+    }
+    expected.extend([events::WITHDRAWING as i64, 5, 1, 0]);
+    expected.extend([events::PURSUING as i64, 5, 2, 0, 1]);
+    assert_eq!(log.take(), expected);
+}
+
+#[test]
+fn a_retreats_enemies_break_ranks_by_their_own_discipline_on_their_sheets() {
+    for (discipline, chasers) in [(-100, 2), (100, 0)] {
+        let mut b = built();
+        for m in &b.roster.listed[1].living {
+            b.columns.sheet[m.slot].discipline = discipline;
+        }
+        b.squads.morale[0] = 75;
+        let mut log = Log::default();
+        run_pass(&mut b, &[(1, RETREAT)], &mut log);
+        assert!(b.squads.pursuit[1].is_none(), "no command: it may not pursue");
+        assert_eq!(b.squads.chasers[1].len(), chasers, "discipline {discipline}");
+    }
 }
