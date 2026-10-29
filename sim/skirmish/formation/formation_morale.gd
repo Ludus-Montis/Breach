@@ -120,15 +120,6 @@ static func _tuning() -> BattleTuning:
 	return BattleTuning.current()
 
 
-## The tuning the crate's rules read (`bands::BandTuning`).
+## The tuning the crate's rules read (BandTuning).
 static func _rules() -> PackedInt64Array:
-	var tuning := _tuning()
-	return PackedInt64Array(
-		[
-			tuning.morale_per_leadership,
-			tuning.morale_steady_at,
-			tuning.morale_shaken_at,
-			tuning.morale_loss,
-			tuning.morale_leader_loss,
-		]
-	)
+	return BandTuning.rules()

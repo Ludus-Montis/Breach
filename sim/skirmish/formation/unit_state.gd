@@ -26,10 +26,17 @@ class Kept:
 	var listed := false  # its members in the squad store are its units (spec 39 step 1)
 
 
-## Sets the unit's state; `squad` is the one whose units it is in.
+## Sets the unit's state; `squad` is the one whose units it is in. The store's STATE column
+## mirrors it, for the crate (spec 39 step 8b4-v).
 static func put(squad, unit: SkirmishUnit, state: SkirmishUnit.State) -> void:
 	unit.state = state
 	squad.kept.stale = true
+	squad.store.columns.put(unit.slot, UnitColumns.STATE, state)
+
+
+## The unit was just given its slot in `store`: its STATE column takes its state.
+static func admitted(store, unit: SkirmishUnit) -> void:
+	store.columns.put(unit.slot, UnitColumns.STATE, unit.state)
 
 
 ## Sets the state of a unit no squad lists yet (one being made, or a test's lone body):

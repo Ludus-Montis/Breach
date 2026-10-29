@@ -232,7 +232,7 @@ static func _break(squads: Array, breaking: Array, call: Array, tick: int, event
 	var at := 0
 	for squad in chosen:
 		squad.staging = {}
-		squad.swaps.clear()
+		FormationShuffle.clear(squad)
 		events.append(FormationEvents.squad_event("routed", tick, squad))
 		for index in range(at + 1, at + 1 + seen[at]):
 			FormationMorale.shock(

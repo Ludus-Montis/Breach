@@ -250,7 +250,71 @@ events. After this step no battle phase runs in GDScript.
   **8b4-v** spawning and the order queue. **8b4-iv split further** (2026-10-28, under the
   same leave), on its survey: **8b4-iv** staging held by the crate, and the painted places
   retired (nothing writes them); **8b4-v** the swaps under way and the taking held by the
-  crate; **8b4-vi** spawning and the order queue.
+  crate; **8b4-vi** spawning and the order queue. **8b4-v split further** (2026-10-28, under
+  the same leave), on its survey: **8b4-v** the swaps under way held by the crate, with the
+  units' state mirrored in the store; **8b4-vi** the taking held by the crate; **8b4-vii**
+  spawning and the order queue. **8b5 split** (2026-10-28, under the same leave), on its
+  survey (the tick still runs about 18 phases' glue in GDScript, each unit is a GDScript object of 61
+  fields, and every phase builds its events as dictionaries): **8b5-i** the units' remaining
+  fields held by the crate, SkirmishUnit a view of them; **8b5-ii** the squads' remaining
+  fields (their units, the joined, faction, the living and downed lists) held by the crate;
+  **8b5-iii** orders, engagement, pathing and the move as one crate pass, their events built
+  as data; **8b5-iv** the scrum, the fight and deaths, likewise; **8b5-v** taking, wounds,
+  recovery and strays; **8b5-vi** morale, the rout and carrying; **8b5-vii** groups, stamina,
+  the bodies, the shuffle and the march's sync; **8b5-viii** one `step()` binding,
+  FormationSimulation.step that one call and the events decoded from its data. **8b5-i split
+  further** (2026-10-28, under the same leave), on its survey (61 fields: 42 numbers, the rest
+  words, lists and objects): **8b5-i** the units' numbers held by the crate; **8b5-ii** their
+  words, lists and objects (faction, tags, tactics, attributes, traits, the weapons' parts,
+  damage type, weaknesses, resistances, immunities, what stops regeneration, the walker, the
+  command and origin, the definition), coded for the crate. The rest follow, renumbered:
+  **8b5-iii** the squads' remaining fields; **8b5-iv** orders, engagement, pathing and the move;
+  **8b5-v** the scrum, the fight and deaths; **8b5-vi** taking, wounds, recovery and strays;
+  **8b5-vii** morale, the rout and carrying; **8b5-viii** groups, stamina, the bodies, the
+  shuffle and the march's sync; **8b5-ix** one `step()` binding. **8b5-ii split further** (2026-10-28, under the
+  same leave), on its survey (twelve words and lists, plain data, against four objects whose
+  coding each needs its own table): **8b5-ii** the units' words and lists (faction, tags,
+  tactics, attributes, traits, the weapons' parts, damage type, weaknesses, resistances,
+  immunities, what stops regeneration) coded for the crate; **8b5-iii** their objects (the
+  walker, the command and origin, the definition) coded for the crate. The rest follow,
+  renumbered: **8b5-iv** the squads' remaining fields; **8b5-v** orders, engagement, pathing
+  and the move; **8b5-vi** the scrum, the fight and deaths; **8b5-vii** taking, wounds,
+  recovery and strays; **8b5-viii** morale, the rout and carrying; **8b5-ix** groups,
+  stamina, the bodies, the shuffle and the march's sync; **8b5-x** one `step()` binding.
+  **8b5-v split further** (2026-10-28, under the same leave), on its survey (no event is
+  data yet, and the four passes still land their events, shocks, routes and the move's
+  glue in GDScript: the move alone is staging, the march's ends, the turn, the sweep, the
+  walk, the drag and the joins): **8b5-v** the events as data (a crate log, decoded by
+  GDScript into the same dictionaries) and the orders' pass reading its discipline from
+  the units' sheets and building its shock and events there; **8b5-vi** engagement and
+  pathing likewise; **8b5-vii** the move likewise. The rest follow, renumbered:
+  **8b5-viii** the scrum, the fight and deaths; **8b5-ix** taking, wounds, recovery and
+  strays; **8b5-x** morale, the rout and carrying; **8b5-xi** groups, stamina, the bodies,
+  the shuffle and the march's sync; **8b5-xii** one `step()` binding. **8b5-vi split
+  further** (2026-10-28, under the same leave), on its survey (the fronts and edges already
+  decide in the crate and only their events and shocks are GDScript's, while pathing's look
+  reads each unit's wits and its definition's sight, still GDScript's): **8b5-vi**
+  engagement's events and shocks built in the crate; **8b5-vii** pathing (the follow, the
+  look, "detoured") likewise. The rest follow, renumbered: **8b5-viii** the move;
+  **8b5-ix** the scrum, the fight and deaths; **8b5-x** taking, wounds, recovery and
+  strays; **8b5-xi** morale, the rout and carrying; **8b5-xii** groups, stamina, the bodies,
+  the shuffle and the march's sync; **8b5-xiii** one `step()` binding. **8b5-viii split
+  further** (2026-10-28, under the same leave), on its survey (each march's glue reads what
+  the crate already holds, but the walk's share reads each unit's pour, its place, its swap
+  and its walker, and the joins rebuild GDScript's lists): **8b5-viii** the move's march as a
+  crate pass (staging, the march's ends, the hold, the turn, the sweep, the pace, the drag and
+  the landing), its events built as data, each squad's share handed in; **8b5-ix** the walk's
+  share read in the crate, and the joins and their step-ups as data. The rest follow,
+  renumbered: **8b5-x** the scrum, the fight and deaths; **8b5-xi** taking, wounds, recovery
+  and strays; **8b5-xii** morale, the rout and carrying; **8b5-xiii** groups, stamina, the
+  bodies, the shuffle and the march's sync; **8b5-xiv** one `step()` binding. **8b5-ix split
+  further** (2026-10-28, under the same leave), on its survey (the share reads only what the
+  crate holds, but a join changes GDScript's lists, its units' command and the squads' list,
+  each its own rebuild): **8b5-ix** the walk's share read in the crate; **8b5-x** the joins
+  and their step-ups as data. The rest follow, renumbered: **8b5-xi** the scrum, the fight and
+  deaths; **8b5-xii** taking, wounds, recovery and strays; **8b5-xiii** morale, the rout and
+  carrying; **8b5-xiv** groups, stamina, the bodies, the shuffle and the march's sync;
+  **8b5-xv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -1720,7 +1784,365 @@ Decision's conditions.
   `test_formation_staging.gd`: the crate holds a squad's staging order, read back whole, and
   none once cleared (red against the library before, then green); the file and
   `test_formation_leaders.gd` green.
-- **After it**, 8b4-v: the swaps under way and the taking held by the crate.
+- **After it**, 8b4-v: the swaps under way held by the crate.
+
+### Step 8b4-v, the swaps under way held by the crate
+
+- **The swaps** (`swaps::Held`, FormationShuffle's swaps): each squad's swaps under way, in
+  the order they began, each its ticks left and in all, its units (the mover first) by id
+  and store slot with the place each heads for, the one it stood in and its footprint, and
+  the ids of the units it passed: a squad column (`Squads::swaps`) the snapshot carries.
+- **Their ends** (`swaps::end_held`): the crate builds what `swaps::end` reads from them,
+  keeps those still under way (counted down, moved left with the widenings) and drops the
+  rest, and hands back each that ended: its mover, the units it passed and those that
+  stepped up after it, for the "swapped" and "stepped_up" events.
+- **Their start** (`swaps::claims`, `swaps::begin`): `squad_start_moves` reads the places the
+  held swaps claim and their living units, starts the moves (`march::shuffle::start_moves`)
+  and holds each. CrateMarch's `start_moves` retires.
+- **Read there:** how far each unit is through its move (`swaps::offsets`, FormationShuffle
+  `movers` and `offset`, now by unit id), and the moves compact and the taking-in close up
+  round (`swaps::moving`; `squad_compact` and `squad_reinforce` lose their `movers`).
+  `FormationShuffle.swapping` and `clear` ask and cancel them; SkirmishSquad.swaps is a view,
+  read and written whole.
+- **Who still stands:** a swap with a fallen unit is cancelled. A unit's state is now
+  mirrored in the unit store (`UnitColumns.STATE`, `Columns::state`), written by UnitState,
+  its one writer (Decision 147), and when a unit takes its slot; the crate reads a unit as
+  standing while its state is before DEAD, as `is_alive()` does.
+- **Identical:** the same swaps in the same order with the same units, places and ticks; the
+  same progress (`1 - ticks / total`) from the same places; the "swapped" event's keys in the
+  same order, its unit by id as before. The proof is CI's digests against the base. Outcomes
+  unchanged.
+- **Tests:** cargo `swaps/tests.rs` (a held swap with time left counts down and stays; one
+  ending reports its mover and passed and is dropped; one whose unit is dead is cancelled;
+  moves begun are held and claim their places; a unit's offset is how far it is through its
+  first swap). Red on stubs, then green. gdUnit `test_formation_moves.gd`: the crate holds a
+  move under way by its units' ids (red against the library before, then green);
+  `test_squad_turn.gd`, `test_formation_spread.gd`, `test_unit_state.gd` and
+  `test_unit_store.gd` green.
+- **After it**, 8b4-vi: the taking held by the crate.
+
+### Step 8b4-vi, the taking held by the crate
+
+- **Who is out taking which body** (FormationTaking): each squad's units out taking the
+  downed, [taker's id, its body's store slot] in the order they set out, a squad column
+  (`Squads::taking`) the snapshot carries. SkirmishSquad.taking is a view of it, {taker's id:
+  its body's store slot}, read and written whole (`squad_taking`, `put_squad_taking`).
+- **Read by slot:** a taker's recall reads its body's state from the store's STATE column
+  (8b4-v's mirror) where it read the body object; the send claims bodies by store slot;
+  the pour finds the body where it lies by its slot. Callers that ask per unit take the view
+  once a squad. The test that moves a body in from another battle mirrors its state, as a
+  unit's admission now does.
+- **Identical:** the same takers in the same order with the same bodies (one slot a body),
+  the same state read (UnitState, its one writer, mirrors every write). The proof is CI's
+  digests against the base. Outcomes unchanged.
+- **Tests:** gdUnit `test_formation_taking.gd`: the crate holds who is out taking which body,
+  and none once cleared. Red with the crate's write stubbed (it and the file's sending tests
+  fail), then green; `test_formation_wounds_order.gd`, `test_formation_carry.gd`,
+  `test_formation_recovery.gd`, `test_ground_bodies.gd` and `test_ground_underfoot.gd`
+  green. Cargo: a state with units out taking read back writes the same bytes.
+- **After it**, 8b4-vii: spawning and the order queue.
+
+### Step 8b4-vii, spawning's ids and the order queue in the crate
+
+- **The order queue** (`orders::queue`, FormationSimulation.order): orders given for the
+  next tick, [squad id, order] in the order first given, a second order for a squad before
+  then replacing the first where it stands, as a dictionary's key keeps its place: a squad
+  column set (`Squads::pending`) the snapshot carries. `apply_orders` takes the queue itself;
+  GDScript reads it (`orders_pending`) only to see whether any retreats, and drops it after
+  the tick (`orders_clear`), as before when no squad was left to take it.
+- **Spawning's ids** (`Squads::issue_squad`, `issue_units`): the battle's squad and unit ids,
+  from 1 in the order issued, counted by the crate (`squads_issued`, `units_issued`, carried
+  by the snapshot). `spawn_squad` asks for its unit ids together, then its squad id; the
+  strays and the groups still number theirs from the next squad id and hand the count back.
+  Building the squad's and units' views, and entering them, stays where it is till 8b5.
+- **Identical:** the same ids in the same order, and the same orders applied in the same order
+  with the same retreat test. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `orders/tests.rs` (orders queue in the order given, and a second replaces
+  the first in place) and `squads.rs` (ids are issued from 1, in order, squads and units
+  apart). Red on stubs, then green. gdUnit `test_formation_simulation.gd`: the crate issues
+  the ids and queues the orders (red with the queue stubbed: it and the file's ordering tests
+  fail; then green, with `test_formation_command.gd` and `test_formation_staging.gd`).
+- **After it**, 8b5-i: the units' remaining fields held by the crate (8b5's split is in
+  Step 8's bullet).
+
+### Step 8b5-i, the units' numbers held by the crate
+
+- **The sheet** (`sheet::Sheet`, `Columns::sheet`): each unit's 42 numbers, every int, float
+  and bool of SkirmishUnit but its id, slot and state (the state is 8b4-v's column): its hp at
+  most and strikes, its detection, courage, leadership, height, initiative and discipline, its
+  turn rate and backward pace, its direction and squad, its footprint and band, its ranged
+  reach and damage, its skills, defence, critical and parrying, its floors, armour and ward,
+  its stamina at most, pace, tiring, dodging, run and load, its regeneration, its wounds and
+  wounding, playing dead, whom it carries or is carried by, its gear's weight, and its blows'
+  and shots' seconds. By store slot, blank at SkirmishUnit's own defaults, carried by the
+  snapshot. The crate names them (`sheet_names`), in its order; GDScript asks once.
+- **Written:** whole when the store admits a unit (`UnitStore.admit`, which now gives it its
+  slot: `put_sheet`), and one at a time after by each of SkirmishUnit's setters
+  (`put_sheet_value`). A unit the store lets go (`settle`) writes no more, as its slot may be
+  another's. A unit built and not yet admitted writes nothing.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call: no crate pass
+  writes these yet, and a read through the binding per field would cost a call in every pass
+  that reads them per unit per tick until it moves. A later part whose crate pass writes one
+  reads it from the store.
+- **Identical:** nothing reads the sheet yet; the same values are set in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `sheet.rs` (every number reads back what was set at its index; the names are
+  unique and past the last reads nothing; a blank sheet has the unit's defaults; red with the
+  write stubbed, then green) and `snapshot.rs` (a state with sheets read back writes the same
+  bytes). gdUnit `test_unit_numbers.gd`: every number the crate names is one of the unit's own;
+  an admitted unit has its numbers in the crate; one set after is written there; one let go
+  writes no more to its old slot (red against the library with the bindings stubbed, then
+  green); `test_unit_state.gd`, `test_unit_store.gd` and `test_skirmish_squad.gd` green.
+- **After it**, 8b5-ii: the units' words, lists and objects held by the crate.
+
+### Step 8b5-ii, the units' words and lists held by the crate
+
+- **The words** (`words::Words`, `Columns::words`, `Field::lexicon`): each unit's twelve
+  words and lists, SkirmishUnit's: its faction and damage type (a word each); its tags,
+  tactics, weaknesses, resistances, immunities and what stops its regeneration (lists of
+  words, in order); its attributes and traits ({word: level}, in order, the level a float as
+  content may give one); and its melee and ranged weapons' parts ([damage, type, magical]).
+  Each word is coded once for the field (`Lexicon`, the order first seen, "" is 0), so a
+  crate pass compares codes. By store slot, blank at SkirmishUnit's own defaults, carried
+  by the snapshot with the lexicon. The crate names them by shape (`word_names`).
+- **Written:** whole when the store admits a unit (with its numbers, `UnitWrites.all`), and
+  one at a time after by each of SkirmishUnit's setters (`put_word`, `put_word_list`,
+  `put_word_levels`, `put_word_parts`). A trait set in place goes through `set_trait`, which
+  writes the traits whole (the messenger sent home, FormationWounds). A unit let go writes
+  no more. `UnitWrites` holds the writing, numbers and words, so the unit keeps to its size.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads the words yet; the same values are set in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `words.rs` (words are coded in the order first seen and read back; each
+  named field is found by its shape and no other; a field set reads back what was set; red
+  on stubs, then green) and `snapshot.rs` (a state with words read back writes the same
+  bytes, lexicon too). gdUnit `test_unit_words.gd`: every word the crate names is one of the
+  unit's own; an admitted unit has its words in the crate; one set after, or a trait set in
+  place, is written there; one let go writes no more to its old slot (red against the
+  library with the writes stubbed, then green). `test_unit_numbers.gd`,
+  `test_formation_wounds.gd`, `test_formation_groups.gd` and `test_formation_taking.gd` run
+  in CI (the last two now set their traits through `set_trait`).
+- **After it**, 8b5-iii: the units' objects (the walker, the command and origin, the
+  definition) coded for the crate.
+
+### Step 8b5-iii, the units' objects coded for the crate
+
+- **The objects** (`objects::Objects`, `Columns::objects`): each unit's four objects,
+  SkirmishUnit's, as codes: its walker as its fields (TerrainWalker.fields: height, swimmer,
+  climber, swims, climbs; none for a unit made without one, which crosses as a grounded one
+  of its height), the command it follows and the one it started under as their slots in the
+  squad store's commands (step 8b4-iii), and the definition it was made from as its code in
+  the unit store's own list (`UnitStore.definition_code`, the order first seen). None is -1.
+  By store slot, blank at SkirmishUnit's own defaults, carried by the snapshot. The crate
+  names them (`object_names`).
+- **The definitions stay GDScript's:** a definition is a Resource, so the unit store keeps
+  them by code (`UnitStore.definition_of`) for a later part's events to decode. A snapshot
+  carries the codes, not the definitions.
+- **Written:** whole when the store admits a unit (with its numbers and words,
+  `UnitWrites.all`, now given the store), and one at a time after by each of SkirmishUnit's
+  setters (`put_walker`, `put_object`). A unit let go writes no more.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads the objects yet; the same values are set in the same order.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `objects.rs` (a blank unit has none; each named code is found and reads
+  back what was set; a walker reads back its fields, and none is none; red on stubs, then
+  green) and `snapshot.rs` (a state with objects read back writes the same bytes). gdUnit
+  `test_unit_objects.gd`: every object the crate names is one of the unit's own; an admitted
+  unit has its objects in the crate, one definition one code; one set after is written
+  there; one let go writes no more to its old slot (red against the library with the writes
+  stubbed, then green). `test_unit_words.gd` and `test_unit_numbers.gd` run in CI.
+- **After it**, 8b5-iv: the squads' remaining fields (their units, the joined, faction, the
+  living and downed lists).
+
+### Step 8b5-iv, the squads' remaining fields held by the crate
+
+- **The fields** (`Squads::faction`, `joined`): each squad's faction, coded in the unit
+  store's lexicon (8b5-ii's), so a crate pass compares it with a unit's; and the units that
+  joined it as reinforcements (FormationContact), their ids in the order they joined. Blank
+  ("", none) for a new slot, carried by the snapshot.
+- **Its units:** its members (its units' store slots, in its order) have been the crate's
+  since step 1, listed at the squad's next read of its lists after a join or a leaving
+  (UnitState). Its **living and downed** units are not held twice: the crate reads them from
+  its members and the STATE column (8b4-v's mirror) as UnitState does (`Squads::living`,
+  `downed`; `squad_living`, `squad_downed`), standing before DEAD, downed DOWNED or CARRIED.
+- **Written:** the faction by SkirmishSquad.faction_id's setter (`squad_put_faction`); the
+  joined whole by its setter (`put_squad_joined`), set by FormationContact.reinforce, its
+  one writer. A squad moved to another store (a test's) starts them blank there, as its route and
+  command do.
+- **Read:** SkirmishSquad keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads them yet; the same values are set in the same order (the
+  reinforcements enlist, then join, where they did both a unit at a time: enlisting reads
+  nothing joined). The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `squads.rs` (a squad's living and downed are its members by state, in its
+  order; a new squad has no faction and none joined; red on stubs, then green) and
+  `snapshot.rs` (a state with a faction and joined units read back writes the same bytes).
+  gdUnit `test_squad_fields.gd`: a squad's faction is held by the crate; units that joined are
+  held by their ids in their order, and a wave that reinforces a fight is; its
+  living and downed are read from its members and their states (the first three red against
+  the library with the writes stubbed, the last, which no write feeds, red in cargo; then
+  green). `test_formation_contact.gd` runs in CI.
+- **After it**, 8b5-v: orders, engagement, pathing and the move as one crate pass, their
+  events built as data (split further: Step 8's bullet).
+
+### Step 8b5-v, the events as data and the orders' pass in the crate
+
+- **The events** (`events::Log`, `KINDS`): what a crate pass reports, built by the crate
+  and handed back flat: each is its kind's index, the tick, its squad's id and faction
+  (coded in the unit store's lexicon), then a number per field its kind names. The kinds
+  are added as their passes move here; this part's are the orders': "order_applied"
+  (order), "disengaged", "withdrawing", "pursuing" (of) and "morale_band" (band, morale).
+  GDScript asks for the kinds once (`event_kinds`) and decodes each (CrateEvents, through
+  `events_take` and `lexicon_words`) into the dictionary FormationEvents made, its keys in
+  the same order; an order or a band is named from its number. The log isn't carried by
+  the snapshot: a pass's events are taken in the same tick.
+- **The orders' pass** (`orders::pass`): the queue applied (step 7c's), then each order
+  landed in the crate: its event, and for a retreat out of a fight its events, its shock
+  and its pursuers' events, in the order FormationOrders made them. What a retreat reads is
+  read there: whether a squad may pursue (its command's, step 8b4-iii), and its living
+  units' chances to break ranks and leashes, from their sheets (`discipline.rs`,
+  FormationDiscipline's unit rules, step 8b5-i's numbers). The shock (`shocks.rs`) is
+  FormationMorale.shock: the squad's morale, first read as its ceiling, drained and held,
+  a change of band its event. The routes its pursuers keep or take stay GDScript's to land
+  (the routes it holds are objects), from the four numbers per pursuer the binding returns.
+- **Identical:** the same orders, shocks and routes in the same order, and the same events
+  in the same order with the same keys and values. The proof is CI's digests against the
+  base. Outcomes unchanged.
+- **Tests:** cargo `events.rs` (events are taken flat in the order built, once; each kind
+  is named once), `discipline.rs` (a formation's mean, rounded, bolstered by its best
+  leader; its disorder; a unit's own and its leash), `shocks.rs` (a shock drains morale, a
+  change of band its event; a squad with none yet is shocked from its ceiling) and
+  `orders/tests.rs` (the pass takes the queue and reports each order; a ragged retreat is
+  shocked and its pursuers reported in order; enemies break ranks by their sheets'
+  discipline); red on stubs, then green. gdUnit `test_formation_orders.gd`: an order applied
+  is the event it always was, keys in order; a ragged retreat is shocked by its disorder and
+  reported in order (red with the GDScript's taking of the events stubbed, then green).
+  `test_formation_retreat.gd` and `test_formation_simulation.gd` run in CI.
+- **After it**, 8b5-vi: engagement (perception, the fronts, the edges and their shocks) and
+  pathing (the follow, the look) as crate passes, their events built as data.
+
+### Step 8b5-vi, engagement's events and shocks built in the crate
+
+- **The passes** (`contact::pass`): the fronts and the edges decide in the crate already
+  (step 4c); now they report there too. Each front lock picked is its attacker's "engaged"
+  event (with: its foe's id), in the lists' order; each flank lock landed is its victim's
+  "flanked" event (by: the attacker's id, edge: SquadEdges' number), then the victim's
+  shock (`shocks.rs`, 8b5-v's): `morale_rear_impact` for its rear, `morale_side_impact`
+  for a side. FormationFronts and FormationEdges hand the crate the tick, the impacts and
+  morale's tuning (BandTuning, now shared with FormationOrders and FormationMorale) and
+  take the events (CrateEvents). Perception reports nothing, and stays the binding it was:
+  taking reads its picture till taking moves (8b5-x).
+- **Identical:** the same locks, shocks and events in the same order with the same keys
+  and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `contact/pass.rs` (each front lock is its attacker's event in the lists'
+  order; a flank lock is the victim's event then the shock of its edge; the rear's is the
+  rear's impact) and `events.rs` (the new kinds named once); red on stubs, then green.
+  gdUnit `test_formation_morale.gd`: a rear hit is reported, keys in order, then the band
+  it shocks the line into; `test_formation_engage_rule.gd`: a front lock is its attacker's
+  "engaged" event with its foe, keys in order (red with the GDScript's taking of the events
+  stubbed, then green).
+- **After it**, 8b5-vii: pathing (the follow, the look, "detoured") as a crate pass, its
+  event built as data; the look reads each unit's wits and its definition's sight from the
+  crate.
+
+### Step 8b5-vii, pathing as a crate pass
+
+- **The pass** (`pathing::pass::step`): FormationPathing hands the crate its squads' slots,
+  in the lists' order, the ground and the tuning (`path_step`). Every group re-routes onto
+  its command's patched route where it has changed (`detours::follows`), standing where it
+  stood along it: the crate now sets the squad's route and its place too. Then each
+  marching group that has moved on looks ahead (`detours::looks`); a way round it keeps is
+  learned by its command and reported as its "detoured" event (cells: the way's waypoints),
+  built in the crate's log. GDScript takes the events (CrateEvents) and gives each group
+  that re-routed its FormationRoute afresh from the crate's (`squad_route`).
+- **What a look reads** (`pathing::pass::members`): each living unit, in its members'
+  order, where it lives: its walker from its objects (8b5-iii; a grounded one of its sheet's
+  height for none), its wits from its attributes (8b5-ii; AVERAGE unlisted), its id and
+  place from the store, and its definition's sight from the field's `sights`, by the
+  definition's code: UnitWrites writes a definition's detection range and sight shares as
+  it codes it (`put_sight`). CratePaths.members is a read of the same (`path_members`), for
+  FormationPathing.group_walker and SquadPathfinder. The bindings the pass replaces
+  (`path_follows`, `path_follow`, `path_looks`, GroundPaths' `look_ahead`) are gone.
+- **Identical:** the same follows, looks, ways round and events in the same order with the
+  same keys and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `pathing/pass/tests.rs` (a look reads each unit's walker, wits, place
+  and definition's sight where they live; a barred route ahead is kept on the command and
+  reported with its cells; every group of the command follows the patched route on the
+  next tick; an open route, or a group that hasn't moved on, makes no detour), red on
+  stubs, then green. gdUnit `test_formation_pathing.gd`: a look reads each unit's wits and
+  its definition's sight from the crate (red with UnitWrites' sight write stubbed, then
+  green).
+- **After it**, 8b5-viii: the move (staging, the march's ends, the turn, the sweep, the
+  walk, the drag, the joins) as a crate pass, its events built as data.
+
+### Step 8b5-viii, the move's march as a crate pass
+
+- **The pass** (`moving::pass::step`): FormationSimulation hands the crate the tick's
+  roster, each squad's share of its pace (FormationWalk.share, worked out for each squad that
+  may march and isn't ordered to hold; read only where it steps), its route's code
+  (FormationStaging.route_codes) and the tuning (`move_step`). Each squad, in the lists'
+  order, decides from the tick's start (`moving::choose`): a staged one holds till its
+  trigger (`staging::hold_staged`; a coordinated leader's slack from its discipline, read
+  from the sheets, and its tactic from the lexicon), a retreat home already ends there, one
+  free to march holds or goes (`moving::hold`), one going back the way it faces turns first
+  (`turn::begin`; an about-face cancels its swaps), and the rest step: at their slowest
+  unit's pace within the share handed in, the frame swept round any bend (`sweep_held`),
+  slowed by the ground its front rank steps into (`march::pace`, each unit's walker from its
+  objects) and the bodies lying on the field (`lying`, the downed and the dead found in the
+  store once a tick). Every move lands together (`moving::land`), each front placed on its
+  route; arrivals and returns after; the waiting count down. The events ("staged",
+  "signalled", "gave_up" with its word coded in the lexicon, "arrived", "returned",
+  "turning" and "turned" with the facing and the heading's bits, "blocked") go to the log,
+  in the order GDScript built them. It returns the squads that advanced, which GDScript joins
+  (FormationJoins) as before.
+- **Gone:** `move_holds`, `move_land`, `staging_hold`, `march_sweep`, GroundMarch's
+  `toward`, `travel_sign` and `pace`; FormationStaging.holds, FormationSweep.step and
+  FormationMarch's `length`, `pace`, `toward` and `travel_sign`. ScrumTurn.begin,
+  FormationMarch.check_ends and GroundBodies.drag stay for the withdrawal, the pursuit and
+  their tests.
+- **Identical:** the same holds, turns, steps, landings, ends and events in the same order
+  with the same keys and values. The proof is CI's digests against the base. Outcomes
+  unchanged.
+- **Tests:** cargo `moving/pass/tests.rs` (a squad steps at its slowest unit's pace within
+  its share and advances; one out of its slack waits; one reaching the enemy's end arrives;
+  one going back the way it faces turns first and reports its heading; a staged squad holds,
+  then gives up and turns back as its order says; the waiting count down and one ordered to
+  hold holds), red on a stubbed pass, then green. gdUnit `test_formation_staging.gd`: the
+  move's events read as FormationEvents made them (red with CrateEvents' word and heading
+  decoding stubbed, then green).
+- **After it**, 8b5-ix: the walk's share (each unit's pour, place, swap and walker, read
+  where they live) and the joins with their step-ups, in the crate.
+
+### Step 8b5-ix, the walk's share read in the crate
+
+- **The share** (`moving::share::of`): the share (0 to 1) of its step a squad's frame takes
+  for its units lagging behind their places, each unit read where it lives. None while any
+  of its units is out taking (the squad's taking); all of it under "fall behind, left
+  behind" (the rule from its living units' traits, by their lexicon codes, and their
+  sheets' leadership). Otherwise its living units, less the loose and the fleeing (the
+  squad's lists, by id), are poured as `march::pour` reads them: where each stands, its
+  place (rank, column) from the store, its footprint from its sheet, its walker from its
+  objects (a grounded one of its sheet's height for none), how far it is through a swap
+  from the squad's swaps under way (`swaps::offsets`); the slack from its discipline
+  (`share::slack`, read from the sheets, which the staged hold now reads too).
+- **The pass** (`moving::pass`): works out each listed squad's share as the tick starts,
+  for each that may march (`choose`) and isn't ordered to hold, as `_keeping` did; `move_step`
+  takes the fight's seed and wounds_reach and walk_lost instead of the shares.
+  FormationWalk.share reads the same for one squad (`walk_share`), for its callers and tests.
+- **Gone:** FormationSimulation._keeping and MOVE_GOES, the `move_choices` binding,
+  GroundMarch's `share`, FormationWalk.RULE_CODES.
+- **Identical:** the same shares from the same units in the same order. The proof is CI's
+  digests against the base. Outcomes unchanged.
+- **Tests:** cargo `moving/share/tests.rs` (every unit at its place keeps the whole step;
+  one lagging three quarters of its slack halves it, one at its slack stops it; one fallen
+  behind is waited for only if no man is left behind; a leader who leaves the fallen behind
+  never waits; a unit part way through a swap is judged from its place part way there; the
+  loose and the fleeing aren't waited for and one out taking holds the frame; a drilled squad
+  has more slack) and `moving/pass/tests.rs` (the share the pass works out sets the step),
+  red on a stubbed share, then green. gdUnit `test_formation_walk.gd`: a unit lagging three
+  quarters of its slack halves its frame's step (red with FormationWalk.share stubbed, then
+  green).
+- **After it**, 8b5-x: the joins and their step-ups as data (who joins whom, the moves, the
+  lists, the command and the events in the crate; GDScript drops the joined squads).
 
 ## Open, for the implementing session to settle and record here
 

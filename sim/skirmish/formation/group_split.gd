@@ -42,9 +42,11 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 		listed.append_array([index, int(waits)])
 		var living := squad.living()
 		livings.append(living)
+		var moving := FormationShuffle.movers(squad)
+		var out_taking := squad.taking
 		for unit in living:
-			taking.append(int(squad.taking.has(unit.id)))
-			offsets.append(FormationShuffle.offset(squad, unit))
+			taking.append(int(out_taking.has(unit.id)))
+			offsets.append(FormationShuffle.offset(squad, unit, moving))
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array(
 		[tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE]

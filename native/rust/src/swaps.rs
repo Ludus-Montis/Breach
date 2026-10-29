@@ -4,12 +4,20 @@
 //! it was heading for, the squad widens to take in any now standing outside its columns
 //! (renumbering every column, the swaps still under way included, its centre shifted to
 //! match), and it closes up the gaps the move left (compact). Which moves start is
-//! `march::shuffle`'s; the swaps' list, its events and the "swapped" and "stepped_up" events
-//! stay GDScript's until the crate holds the tick's state (step 8b).
+//! `march::shuffle`'s. Since step 8b4-v the crate holds each squad's swaps under way too
+//! (`Held`, `Squads::swaps`): which units each moves and where, the ticks left, the units it
+//! passed; the "swapped" and "stepped_up" events stay GDScript's.
+
+use serde::{Deserialize, Serialize};
 
 use crate::columns::Columns;
 use crate::compact::{self, Closer, Moving};
+use crate::march::front::Cell;
+use crate::march::shuffle::Started;
 use crate::squads::Squads;
+
+/// SkirmishUnit.State's first state not standing (DEAD): those before it stand.
+const DEAD: i32 = 4;
 
 /// A unit in a swap under way: its store slot, whether it still stands, the place (rank,
 /// column) it is heading for and its footprint (width, depth).
@@ -129,3 +137,157 @@ fn widen(
 
 #[cfg(test)]
 mod tests;
+
+/// A unit in a swap the crate holds: its id and store slot, the place (rank, column) it is
+/// heading for and the one it stood in as the swap began, and its footprint (width, depth).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HeldUnit {
+    pub id: i64,
+    pub slot: usize,
+    pub to: Cell,
+    pub from: Cell,
+    pub foot: (i32, i32),
+}
+
+/// A swap under way as the crate holds it (FormationShuffle's swaps): the ticks it has left
+/// and takes in all, its units (the mover first) and the ids of the units it passed.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Held {
+    pub ticks: i64,
+    pub total: i64,
+    pub units: Vec<HeldUnit>,
+    pub passed: Vec<i64>,
+}
+
+/// A held swap that ended this tick: its mover's id (0: it had none), the ids of the units
+/// it passed, and the units that stepped up after it (their index into the squad's living
+/// units and the rank each stepped up to).
+#[derive(Debug, PartialEq)]
+pub struct Ended {
+    pub mover: i64,
+    pub passed: Vec<i64>,
+    pub stepped: Vec<(usize, i32)>,
+}
+
+/// `end` over the swaps the squad in `squad` holds, a unit standing while its state is
+/// before DEAD: those still under way are kept, counted down and moved left with the
+/// widenings; those that ended or were cancelled are dropped. Returns those that ended, in
+/// the order they did.
+pub fn end_held(
+    squads: &mut Squads,
+    columns: &mut Columns,
+    squad: usize,
+    living: &[Closer],
+    units: &[usize],
+) -> Vec<Ended> {
+    let was = std::mem::take(&mut squads.swaps[squad]);
+    let swaps: Vec<Swap> = was
+        .iter()
+        .map(|held| Swap {
+            ticks: held.ticks,
+            units: held
+                .units
+                .iter()
+                .map(|u| SwapUnit {
+                    slot: u.slot,
+                    alive: columns.state[u.slot] < DEAD,
+                    to: u.to,
+                    foot: u.foot,
+                })
+                .collect(),
+        })
+        .collect();
+    let ends = end(squads, columns, squad, living, units, &swaps);
+    squads.swaps[squad] = ends
+        .kept
+        .iter()
+        .map(|&(index, ticks)| {
+            let mut kept = was[index].clone();
+            kept.ticks = ticks;
+            for u in &mut kept.units {
+                u.to.1 -= ends.left;
+                u.from.1 -= ends.left;
+            }
+            kept
+        })
+        .collect();
+    ends.ended
+        .into_iter()
+        .map(|(index, stepped)| Ended {
+            mover: was[index].units.first().map_or(0, |u| u.id),
+            passed: was[index].passed.clone(),
+            stepped,
+        })
+        .collect()
+}
+
+/// The places the squad's held swaps claim (each unit's place it heads for and footprint, in
+/// order) and, of their units, the indices of those in `living` (store slots), in order: what
+/// `march::shuffle::start_moves` reads of the moves under way.
+pub fn claims(
+    squads: &Squads,
+    squad: usize,
+    living: &[usize],
+) -> (Vec<(Cell, i32, i32)>, Vec<usize>) {
+    let (mut claimed, mut busy) = (Vec::new(), Vec::new());
+    for u in squads.swaps[squad].iter().flat_map(|held| &held.units) {
+        claimed.push((u.to, u.foot.0, u.foot.1));
+        busy.extend(living.iter().position(|&slot| slot == u.slot));
+    }
+    (claimed, busy)
+}
+
+/// Holds the moves `started` for the squad in `squad`, each unit given by its index into
+/// `living` ([id, store slot] each), where it stands (`places`) and its footprint (`feet`).
+pub fn begin(
+    squads: &mut Squads,
+    squad: usize,
+    started: &[Started],
+    living: &[(i64, usize)],
+    places: &[Cell],
+    feet: &[(i32, i32)],
+) {
+    for one in started {
+        let units = one
+            .plan
+            .to
+            .iter()
+            .map(|&(n, to)| HeldUnit {
+                id: living[n].0,
+                slot: living[n].1,
+                to,
+                from: places[n],
+                foot: feet[n],
+            })
+            .collect();
+        let passed = one.plan.passed.iter().map(|&n| living[n].0).collect();
+        squads.swaps[squad].push(Held { ticks: one.ticks, total: one.ticks, units, passed });
+    }
+}
+
+/// How far each unit in the squad's held swaps is through its move, [ranks forward, columns
+/// across], by id: the first swap it is in.
+pub fn offsets(squads: &Squads, squad: usize) -> Vec<(i64, f32, f32)> {
+    let mut out: Vec<(i64, f32, f32)> = Vec::new();
+    for held in &squads.swaps[squad] {
+        let progress = 1.0 - held.ticks as f64 / held.total as f64;
+        for u in &held.units {
+            if out.iter().any(|&(id, _, _)| id == u.id) {
+                continue;
+            }
+            let ranks = f64::from(u.from.0 - u.to.0) * progress;
+            let across = f64::from(u.to.1 - u.from.1) * progress;
+            out.push((u.id, ranks as f32, across as f32));
+        }
+    }
+    out
+}
+
+/// The squad's held swaps' units as compact takes them (`Moving`), in order.
+pub fn moving(squads: &Squads, squad: usize) -> Vec<Moving> {
+    squads.swaps[squad]
+        .iter()
+        .flat_map(|held| &held.units)
+        .map(|u| Moving { slot: u.slot, to: u.to, foot: u.foot })
+        .collect()
+}

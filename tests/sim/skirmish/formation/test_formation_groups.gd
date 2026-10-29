@@ -67,7 +67,7 @@ func test_no_one_splits_off_if_no_man_is_left_behind() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var squad := _line(sim, 3, 40.0)
 	for unit in squad.units:
-		unit.traits["no_man_left_behind"] = 1
+		unit.set_trait("no_man_left_behind", 1)
 	var back := Vector2(BattleTuning.current().walk_lost + 4.0, 0)
 	UnitPlaces.put(squad, squad.units[2], UnitPlaces.of(squad, squad.units[2]) - back)
 
@@ -106,7 +106,7 @@ func test_a_leader_that_gathers_takes_in_a_leaderless_group() -> void:
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var led := _line(sim, 2, 40.0)
 	_lead(led)
-	led.units[0].traits["gathers"] = 1
+	led.units[0].set_trait("gathers", 1)
 	var larger := _line(sim, 4, 38.5)
 
 	var events := _form_up(sim)
@@ -124,7 +124,7 @@ func test_a_leader_that_joins_brings_its_group_into_the_others_command() -> void
 	var sim := FormationSimulation.new(4.0, 0.1)
 	var joiner := _line(sim, 3, 40.0)
 	_lead(joiner)
-	joiner.units[0].traits["joins"] = 1
+	joiner.units[0].set_trait("joins", 1)
 	var host := _line(sim, 2, 38.5)
 
 	_form_up(sim)

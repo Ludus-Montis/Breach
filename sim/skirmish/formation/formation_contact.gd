@@ -68,14 +68,15 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 				joining.slot,
 				frame,
 				SquadCompact.closers(leading),
-				SquadCompact.closers(taken),
-				SquadCompact.movers(leader)
+				SquadCompact.closers(taken)
 			)
 	)
 	SquadCompact.placed(leader, front)
 	for unit in taken:
 		FormationCommand.enlist(leader, unit)
-		leader.joined.append(unit)
+	var joined := leader.joined.duplicate()
+	joined.append_array(taken)
+	leader.joined = joined
 	joining.units.clear()
 	UnitState.regather(joining)
 	return SquadCompact.units_at(leading + taken, stepped)

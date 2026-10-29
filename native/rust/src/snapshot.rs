@@ -60,10 +60,24 @@ mod tests {
         squads.heading[0] = 0.1 + 0.2; // not a round number
         let bend = vec![V2::new(0.0, 0.0), V2::new(128.0, 0.0), V2::new(128.0, 64.0)];
         squads.route[1] = Some(crate::route::Route::new(bend, 2.0));
+        squads.taking[0] = vec![(7, 2), (5, 1)];
+        squads.faction[1] = field.lexicon.code("kingdom");
+        squads.joined[0] = vec![9, 4];
+        field.columns.sheet[2].critical = 0.1 + 0.2;
+        field.columns.sheet[2].carried_by = 11;
+        let fire = field.lexicon.code("fire");
+        field.columns.words[2].immunities = vec![fire, field.lexicon.code("cold")];
+        field.columns.words[2].traits = vec![(fire, 0.5)];
+        field.columns.objects[2].walker = Some([1.5, 2.0, 0.0, 1.0, 0.0]);
+        field.columns.objects[2].origin = 1;
         let bytes = write(40, 3, &field, &squads);
         let state = read(&bytes).unwrap();
         assert_eq!((state.tick, state.seed), (40, 3));
         assert_eq!(state.squads, squads);
+        assert_eq!(state.field.columns.sheet, field.columns.sheet);
+        assert_eq!(state.field.columns.words, field.columns.words);
+        assert_eq!(state.field.columns.objects, field.columns.objects);
+        assert_eq!(state.field.lexicon, field.lexicon);
         assert_eq!(write(state.tick, state.seed, &state.field, &state.squads), bytes);
     }
 

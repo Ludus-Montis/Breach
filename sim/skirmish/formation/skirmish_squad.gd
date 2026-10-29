@@ -15,7 +15,11 @@ const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 ## Tiles between one rank and the next: one cell (Decisions 48 and 68).
 const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
 
-var faction_id: String
+## Its faction; the crate holds it too (spec 39 step 8b5-iv), coded as a unit's.
+var faction_id: String:
+	set(value):
+		faction_id = value
+		store.field().squad_put_faction(slot, value)
 ## The route the squad follows (Decision 75); null is a straight lane along x. The crate
 ## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there.
 var route: FormationRoute = null:
@@ -32,9 +36,14 @@ var facing: int:
 		return posmod(roundi(heading / 90.0), 4)
 	set(value):
 		heading = posmod(value, 4) * 90.0
-## Its units out taking the downed (FormationTaking): unit id -> the body; the tick they
-## set out (-1: none), and the tick it gave up on them (-1: none) - it then marches on.
-var taking := {}
+## Its units out taking the downed (FormationTaking): taker's id -> its body's store slot,
+## as the crate holds it (spec 39 step 8b4-vi), read and written whole; the tick they set out
+## (-1: none), and the tick it gave up on them (-1: none) - it then marches on.
+var taking: Dictionary:
+	get:
+		return store.field().squad_taking(slot)
+	set(value):
+		store.field().put_squad_taking(slot, value)
 ## Pursuit (ScrumPursuit, Decision 109): whether it may pursue a retreating enemy (false:
 ## ordered not to); its units out chasing one on their own are `chasers` (StoredSquad).
 var pursues: bool:
@@ -71,14 +80,26 @@ var tends: String:
 		return command.tends
 	set(value):
 		command.tends = value
-## The swaps of its re-forming under way (FormationShuffle): [[mover, passed units, ticks
-## left, ticks in all], ...].
-var swaps := []
+## The swaps of its re-forming under way (FormationShuffle), as the crate holds them (spec
+## 39 step 8b4-v): each {"ticks", "total", "mover", "to", "from", "foot", "passed"}, units by
+## id. Read and written whole; FormationShuffle.swapping() and clear() ask and cancel them.
+var swaps: Array:
+	get:
+		return store.field().squad_swaps(slot)
+	set(value):
+		store.field().put_squad_swaps(slot, value)
 var units: Array[SkirmishUnit] = []
 ## Its living and downed units, kept by UnitState (Decision 147).
 var kept := UnitState.Kept.new()
-## Units that joined as reinforcements: only they spread beyond the painted columns.
-var joined: Array[SkirmishUnit] = []
+## Units that joined as reinforcements: only they spread beyond the painted columns. The
+## crate holds their ids too (spec 39 step 8b5-iv): written whole, so set it, never append.
+var joined: Array[SkirmishUnit] = []:
+	set(value):
+		joined = value
+		var ids := PackedInt64Array()
+		for unit in value:
+			ids.append(unit.id)
+		store.field().put_squad_joined(slot, ids)
 ## Whether this wave merges into a friendly squad it catches up with on the march.
 var merges: bool:
 	get:
@@ -116,7 +137,8 @@ func _init(
 	front_distance = home
 	width = maxi(formation_width, 1)
 	for unit in members:
-		unit.slot = store.admit(unit)
+		store.admit(unit)
+		UnitState.admitted(store, unit)
 		FormationCommand.enlist(self, unit)
 
 

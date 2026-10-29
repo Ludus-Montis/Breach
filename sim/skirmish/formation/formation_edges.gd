@@ -7,12 +7,10 @@ extends RefCounted
 ## Nothing hangs on list order (Decision 97): every attacker picks the nearest face it
 ## reaches from one snapshot; two reaching one edge at once, the nearer holds it.
 ## Pure over the squads it is given; FormationSimulation calls it each tick. The rules are
-## the crate's (`contact.rs`, spec 39 step 4c): this adds each lock's event and shock.
+## the crate's (`contact.rs`, spec 39 step 4c), and so are each lock's event and its shock,
+## built as data (`contact/pass.rs`, step 8b5-vi): this takes the events (CrateEvents).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-const SquadEdges = preload("res://sim/skirmish/formation/squad_edges.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 
 
 ## Free attackers whose fronts reach a hostile's side or rear lock on, all decided before
@@ -26,16 +24,8 @@ static func engage(
 		return
 	if roster == null:
 		roster = CrateRoster.of(squads)
-	var flanked: PackedInt32Array = squads[0].store.field().contact_edges(roster, tick, fight_seed)
-	for at in range(0, flanked.size(), 3):
-		var victim: SkirmishSquad = squads[flanked[at]]
-		var edge: int = flanked[at + 2]
-		var attacker: SkirmishSquad = squads[flanked[at + 1]]
-		var extra := {"by": attacker.id, "edge": edge}
-		events.append(FormationEvents.squad_event("flanked", tick, victim, extra))
-		var impact := (
-			BattleTuning.current().morale_rear_impact
-			if edge == SquadEdges.REAR
-			else BattleTuning.current().morale_side_impact
-		)
-		FormationMorale.shock(victim, impact, tick, events)
+	var tuning := BattleTuning.current()
+	var impacts := PackedInt64Array([tuning.morale_side_impact, tuning.morale_rear_impact])
+	var field: Object = squads[0].store.field()
+	field.contact_edges(roster, tick, fight_seed, impacts, BandTuning.rules())
+	events.append_array(CrateEvents.taken(field))
