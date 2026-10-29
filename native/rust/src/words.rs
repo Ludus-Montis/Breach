@@ -45,6 +45,12 @@ impl Lexicon {
         self.codes.get(word).copied()
     }
 
+    /// The level `said` (a unit's traits or attributes) gives `word`, if it names it.
+    pub fn level(&self, said: &[(u32, f64)], word: &str) -> Option<f64> {
+        let code = self.find(word)?;
+        said.iter().find(|&&(named, _)| named == code).map(|&(_, level)| level)
+    }
+
     /// Every word, by its code.
     pub fn words(&self) -> &[String] {
         &self.words

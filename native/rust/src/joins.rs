@@ -78,18 +78,25 @@ pub fn take_in(squads: &mut Squads, field: &mut Field, leader: usize, joining: u
 /// squad in `leader` and follows its command, and starts under it if it started under none;
 /// the leader's members and joined list take it in.
 fn enlist(squads: &mut Squads, field: &mut Field, leader: usize, taken: &[i32]) {
-    let command = squads.command[leader].map_or(-1, |c| c as i64);
     for &unit in taken {
-        let u = unit as usize;
-        field.columns.sheet[u].squad_id = squads.id[leader];
-        let objects = &mut field.columns.objects[u];
-        objects.command = command;
-        if objects.origin == -1 {
-            objects.origin = command;
-        }
-        squads.members[leader].push(unit);
+        enlist_one(squads, field, leader, unit);
         squads.joined[leader].push(field.unit_at(unit as u32).unwrap_or(0));
     }
+}
+
+/// FormationCommand.enlist: the unit in store slot `unit` marches in the squad in `squad`
+/// and follows its command, starting under it if it started under none; the squad's members
+/// take it in last.
+pub(crate) fn enlist_one(squads: &mut Squads, field: &mut Field, squad: usize, unit: i32) {
+    let command = squads.command[squad].map_or(-1, |c| c as i64);
+    let u = unit as usize;
+    field.columns.sheet[u].squad_id = squads.id[squad];
+    let objects = &mut field.columns.objects[u];
+    objects.command = command;
+    if objects.origin == -1 {
+        objects.origin = command;
+    }
+    squads.members[squad].push(unit);
 }
 
 /// The `units` (store slots) as a squad closes up over them (SquadCompact.closers).

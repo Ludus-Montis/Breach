@@ -394,6 +394,15 @@ events. After this step no battle phase runs in GDScript.
   pass; **8b5-xxv** recovery and strays. The rest follow, renumbered: **8b5-xxvi** morale,
   the rout and carrying; **8b5-xxvii** groups, stamina, the bodies, the shuffle and the
   march's sync; **8b5-xxviii** one `step()` binding.
+  **8b5-xxv split further** (2026-10-29, under the same leave), on its survey (recovery lands
+  states, lists and events over squads that exist, while the strays make new squads, which
+  the crate can't yet open for GDScript): **8b5-xxv** recovery as one crate pass
+  (`recovery/pass.rs`, `recovery_step`: the living and downed read in the crate, the deaths
+  of wounds, those playing dead, those coming to joining a formation or setting off alone,
+  "died_of_wounds", "playing_dead" and "came_to" in the log); **8b5-xxvi** the strays
+  (FormationStrays.adopt) made in the crate. The rest follow, renumbered: **8b5-xxvii**
+  morale, the rout and carrying; **8b5-xxviii** groups, stamina, the bodies, the shuffle and
+  the march's sync; **8b5-xxix** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
