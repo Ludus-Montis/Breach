@@ -239,7 +239,15 @@ events. After this step no battle phase runs in GDScript.
   events; **8b3** which groups look ahead and their commands' patches; **8b4** the squads'
   objects still GDScript (routes, commands, staging, the swaps under way, the painted places,
   the taking) held by the crate, with spawning and the order queue; **8b5** one `step()` call,
-  the events handed back as data. A later part may split again on its own survey.
+  the events handed back as data. A later part may split again on its own survey. **8b4
+  split further** (2026-10-28, under the same leave), on its survey: **8b4-i** the squads'
+  routes held by the crate, and the bindings that take one squad's own route read it there
+  (staging's hold, a march's end, the turn, a stray setting off); **8b4-ii** the bindings
+  that take many squads' routes (the withdrawal, the rout, the rout's blows, the split, the
+  orders, the pursuit) and the march's face and sweep read the held routes; **8b4-iii** the
+  commands (their route, home, standing options and patches) held by the crate; **8b4-iv**
+  staging, the swaps under way, the painted places and the taking held by the crate;
+  **8b4-v** spawning and the order queue.
 
 ### Step 9, the rest of `sim/`
 
@@ -1615,8 +1623,29 @@ Decision's conditions.
   group on a route looks; a group looks again only once its front has moved on, back along it
   too). Red on stubs, then green. gdUnit `test_formation_pathing.gd` and `test_route_patch.gd`
   unchanged and green, now through the crate.
-- **After it**, 8b4: the squads' objects still GDScript held by the crate, with spawning and
-  the order queue.
+- **After it**, 8b4-i: the squads' routes held by the crate.
+
+### Step 8b4-i, the squads' routes held by the crate
+
+- **The route each squad follows** is a squad column (`Squads::route`, none: a straight
+  lane), written whenever GDScript sets SkirmishSquad.route (`squad_put_route`: its points
+  and corridor's half-width), read back by `squad_route`. The snapshot carries it.
+- **Read there now:** the bindings that took one squad's own route as points: staging's
+  hold (`staging_hold`, the meeting's timing along it), a march's end (`march_end`, by the
+  squad's slot: whether it is on a route, and its units' test for a retreat), the turn
+  (`squad_turn`, its roster's only squad), and a stray setting off (`stray_set_off`, the
+  stray's route, its formation's).
+- **Identical:** the same points in each call (the route held is the one GDScript set, and no
+  rule reads a route's half-width); `march_end`'s "on a route" now true for a squad on one
+  whatever its order, which only a retreat reads, as before. The proof is CI's digests
+  against the base. Outcomes unchanged.
+- **Retired:** those four bindings' route arguments, and GDScript's points for them.
+- **Tests:** gdUnit `test_skirmish_squad.gd`: the crate holds the route a squad follows, and
+  none once it has none. Red on stubs, then green. Cargo: a state with a route read back
+  writes the same bytes (`snapshot.rs`). The battles through staging, the ends, the turn and
+  the strays unchanged, now through the held routes.
+- **After it**, 8b4-ii: the bindings that take many squads' routes, and the march's face and
+  sweep, read the held routes.
 
 ## Open, for the implementing session to settle and record here
 

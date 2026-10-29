@@ -101,7 +101,6 @@ static func _hold(
 		order,
 		codes,
 		meet,
-		squad.route.points() if squad.route != null else PackedVector2Array(),
 		PackedFloat64Array(pace),
 		UnitMover.ground(terrain),
 		float(squad.staging["at"]),

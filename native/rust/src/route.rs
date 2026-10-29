@@ -4,6 +4,7 @@
 //! length a `Vector2.distance_to`. A squad keeps its distance along its route and takes its
 //! place and heading from it. Distances are in cells.
 
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 use crate::maths::V2;
@@ -13,7 +14,7 @@ const LEAST_LEG: f64 = 0.000001;
 
 /// A path of cells across the map, and how far either side of its centre line squads may
 /// spread (the lane's combat width, halved).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Route {
     pub points: Vec<V2>,
     pub half_width: f64,
