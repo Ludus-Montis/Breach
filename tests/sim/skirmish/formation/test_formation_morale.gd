@@ -2,7 +2,8 @@ extends GdUnitTestSuite
 ## Morale, per Decision 82 and spec 27 round 3: a ceiling from courage and leadership;
 ## impact shock from side and rear hits; bands and the slower strikes of a wavering squad.
 ## Pressure, a friend's support and recovery are the crate's (`morale/tests.rs`, spec 39 step
-## 7a), and the shock of the fallen the burial's (`deaths/bury/tests.rs`, 8b5-xxii).
+## 7a; the second as one pass, `morale/pass/tests.rs`, 8b5-xxvii), and the shock of the fallen
+## the burial's (`deaths/bury/tests.rs`, 8b5-xxii).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -135,6 +136,18 @@ func test_crossing_a_band_is_an_event() -> void:
 	assert_int(events.size()).is_equal(1)
 	assert_str(events[0]["band"]).is_equal("SHAKEN")
 	assert_int(FormationMorale.band(squad)).is_equal(FormationMorale.Band.SHAKEN)
+
+
+func test_the_second_is_the_crates_and_a_recovery_into_steady_is_an_event() -> void:
+	var squad := _squad(1, [_unit(1, 0, 1)])
+	squad.morale = BattleTuning.current().morale_steady_at - 1
+	var events := []
+
+	FormationMorale.step([squad], 10, 10, events)
+
+	var told := events.map(func(e): return [e["type"], e["squad"], e["band"], e["morale"]])
+	assert_array(told).is_equal([["morale_band", 1, "STEADY", squad.morale]])
+	assert_int(squad.morale).is_greater(BattleTuning.current().morale_steady_at - 1)
 
 
 func test_a_wavering_squad_strikes_more_slowly() -> void:

@@ -410,6 +410,17 @@ events. After this step no battle phase runs in GDScript.
   which the next `open` takes). The stray's squad was numbered in GDScript only before, so
   the crate held it as squad 0 (its draws and its log): now it holds the stray's own id.
   GroupSplit numbers its groups the same way and is left to 8b5-xxviii.
+  **8b5-xxvii split further** (2026-10-29, under the same leave), on its survey (morale's
+  second, the rout and carrying are three GDScript passes, the rout alone landing hurts,
+  shocks, joins, homecomings and a single squad per rallying unit): **8b5-xxvii** morale's
+  second as one crate pass (`morale/pass.rs`, the `morale_step` binding now taking the roster,
+  the tuning, BandTuning's and the tick: each squad's morale, its best leader's leadership and
+  its ceiling read from the sheets, its morale set, "morale_band" in the log); **8b5-xxviii**
+  the rout (FormationRout.step) as one pass, its rallying unit's single squad opened in the
+  crate as the strays' are; **8b5-xxix** carrying (FormationCarry.step) as one pass. The rest
+  follow, renumbered: **8b5-xxx** groups, stamina, the bodies, the shuffle and the march's
+  sync (GroupSplit's groups made in the crate as the strays are); **8b5-xxxi** one `step()`
+  binding.
 
 ### Step 9, the rest of `sim/`
 
