@@ -33,17 +33,7 @@ static func fight(
 ) -> Array:
 	if squads.is_empty():
 		return []
-	var tuning := BattleTuning.current()
-	var front := DetMath.cos(deg_to_rad(tuning.reach_front_arc_degrees)) - 0.000001
-	var floats := PackedFloat64Array(
-		[
-			tuning.reach_contact,
-			front,
-			tuning.rout_strike_reach,
-			tuning.stamina_blow,
-			tuning.wounds_surrender,
-		]
-	)
+	var floats := rules()
 	var ints := PackedInt64Array(ticks + [int(rolls)])
 	var roster := CrateRoster.of(squads)
 	var ground: Object = terrain.core if terrain != null else null
@@ -60,3 +50,19 @@ static func fight(
 		var squad: SkirmishSquad = squads[taken[at]]
 		units.append([squad, squad.living()[taken[at + 1]]])
 	return units
+
+
+## What the fight reads of BattleTuning, in the crate's order: [reach_contact, the front's
+## least dot, rout_strike_reach, stamina_blow, wounds_surrender].
+static func rules() -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	var front := DetMath.cos(deg_to_rad(tuning.reach_front_arc_degrees)) - 0.000001
+	return PackedFloat64Array(
+		[
+			tuning.reach_contact,
+			front,
+			tuning.rout_strike_reach,
+			tuning.stamina_blow,
+			tuning.wounds_surrender,
+		]
+	)

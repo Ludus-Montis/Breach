@@ -562,6 +562,23 @@ events. After this step no battle phase runs in GDScript.
   FormationPerception.threatened is gone). Outcomes don't change, except where a pursuer
   back at its post now holds the code of the very route it held it on, not one of the same
   points (the old mirror's command's route or a new copy).
+  **8b5-xxxviii split further** (2026-10-29, under the same leave), on its survey (the fight
+  through recovery runs over one squad list that doesn't change, but the strays, the rout's
+  rallies and the groups open and drop squads partway, so the list must grow and shrink in
+  the crate): **8b5-xxxviii** the fight and its aftermath (the fight, deaths, taking, the
+  wounds' tending and recovery) as one call; **8b5-xxxix** the strays through the groups (the
+  strays, morale, the rout, carrying, the strays again and the groups) as one call, the
+  squads listed growing and shrinking in the crate; **8b5-xl** the tick's end and the one
+  `step()` binding (was 8b5-xxxix).
+  **8b5-xxxviii built** (2026-10-29): the fight and its aftermath as one crate call
+  (`aftermath::step`, binding `aftermath_step`): `fight::step`, `deaths::bury`,
+  `taking::pass`, `wounds::pass` and `recovery::pass` in that order over one roster, each
+  pass's events in the log in that order. It returns each pass's result, its count first
+  (the surrender's units now by id, not by their index in the living), and FormationAftermath
+  mirrors them in the same order (FormationDeaths.mirror, FormationWounds.mirror,
+  FormationRecovery.mirror, split out of their passes), then takes the events once.
+  FormationSimulation.step makes the one call; the per-pass bindings and `_fight` stay for
+  their tests and `tick_phases`. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
