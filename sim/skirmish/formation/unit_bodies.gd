@@ -22,16 +22,15 @@ extends RefCounted
 ## pair whose bodies lie exactly on each other parts along an angle seeded by the battle
 ## and the two units, never by a world direction or the list (Decision 97). The passes are
 ## the crate's (`parting.rs`, on the battle's BodyField: BodyParting); spec 39 step 6a
-## retired their GDScript twin. Pure over the squads it is given.
+## retired their GDScript twin, and step 8b5-xxxi made the whole step one crate pass
+## (`parting/pass.rs`). Pure over the squads it is given.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
-const BattleRolls = preload("res://sim/skirmish/formation/battle_rolls.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const BodyParting = preload("res://sim/skirmish/formation/body_parting.gd")
-const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
@@ -60,13 +59,5 @@ static func step(squads: Array, fight_seed: int, field: Object = null) -> void:
 	if field == null and not squads.is_empty():
 		field = squads[0].store.field()
 	if field != null:
-		var way := func(draw: int, other_draw: int) -> Vector2:
-			return part_way(fight_seed, draw, other_draw)
-		BodyParting.step(field, squads, fight_seed, way, NativeKernels.threaded)
+		BodyParting.step(field, squads, fight_seed, NativeKernels.threaded)
 	clock_usec += Time.get_ticks_usec() - began
-
-
-## The way two bodies lying exactly on each other part: seeded by the battle and their draws.
-static func part_way(fight_seed: int, draw: int, other_draw: int) -> Vector2:
-	var angle := TAU * BattleRolls.uniform(fight_seed, [draw, other_draw, "part"])
-	return DetMath.rotated(Vector2.RIGHT, angle)
