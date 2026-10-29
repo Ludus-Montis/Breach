@@ -7,112 +7,35 @@ extends RefCounted
 ## themselves: Decision 88), and a squad with no one left is destroyed, freeing whoever
 ## fought it. What becomes of the downed is FormationWounds'. The fallen are those on the
 ## store's fell queue (UnitHealth, Decision 145), so deaths costs per fallen unit, not per
-## army. Which die and which are downed is the crate's (`deaths.rs`, spec 39 step 6b): this
-## finds each fallen unit's squad and lands the fates, the morale and the step-ups. Pure over
-## the squads.
+## army, each buried with the squad it is in now, the squads in the lists' order and each
+## one's fallen in its own. The burial is the crate's (`deaths/bury.rs`, spec 39 step
+## 8b5-xxii): the fates, states and wounds, the morale, the step-ups, the destroyed and their
+## events; this mirrors GDScript's copies of the units' states and wounds, and takes the
+## events. Pure over the squads.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitDef = preload("res://content/definitions/unit_def.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 static func bury(squads: Array, tick: int, events: Array) -> void:
-	var by_squad := _fallen(squads)
-	if by_squad.is_empty():
+	if squads.is_empty():
 		return
-	var fates := _fates(squads, by_squad)
-	var at := 0
-	for index in range(squads.size()):
-		if not by_squad.has(index):
-			continue
-		var fallen_squad: SkirmishSquad = squads[index]
-		var fallen: Array = by_squad[index]
-		for unit in fallen:  # store: scattered (few: the tick's fallen)
-			var wounds: int = fates[at]
-			at += 1
-			if wounds < 0:
-				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DEAD)
-				events.append(FormationEvents.unit_event("died", tick, fallen_squad, unit))
-			else:
-				UnitState.put(fallen_squad, unit, SkirmishUnit.State.DOWNED)
-				unit.wounded += wounds  # lowering its condition (Decision 126)
-				events.append(FormationEvents.unit_event("downed", tick, fallen_squad, unit))
-		FormationMorale.losses(fallen_squad, fallen, tick, events)
-		# store: scattered (few: the step-ups, the units that moved up)
-		for moved in fallen_squad.compact():
-			var extra := {"rank": UnitPlace.rank(fallen_squad, moved)}
-			events.append(
-				FormationEvents.unit_event("stepped_up", tick, fallen_squad, moved, extra)
-			)
-		fallen_squad.reforming = true  # front units may close gaps (Decision 49)
-		if fallen_squad.is_destroyed() and fallen_squad.state != SkirmishSquad.State.DESTROYED:
-			fallen_squad.state = SkirmishSquad.State.DESTROYED
-			FormationLocks.release(fallen_squad, squads)
-			events.append(FormationEvents.squad_event("destroyed", tick, fallen_squad))
-
-
-## The crate's fates for the fallen, in the squads' order then their own: -1 if it dies,
-## else the wounds it takes (deaths.rs), its hp put to 0 and its time downed to be reckoned.
-static func _fates(squads: Array, by_squad: Dictionary) -> PackedInt64Array:
-	var slots := PackedInt32Array()
-	var constitutions := PackedFloat64Array()
-	for index in range(squads.size()):
-		for unit in by_squad.get(index, []):
-			slots.append(unit.slot)
-			constitutions.append(unit.attributes.get("constitution", UnitDef.AVERAGE))
+	for squad: SkirmishSquad in squads:
+		squad.living()  # its members written to the squad store, if its lists changed
+	var listed := FormationLocks.slots(squads)
 	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
-	return ColumnsLent.all(columns, func(): return field.deaths_fate(slots, constitutions))
-
-
-## The fell queue's units still living at 0 hp or below, by the index of the squad each is
-## in now, each squad's in its own list's order (Decision 145): the order the scan of every
-## squad's living met them in, never the order they fell. A unit healed above 0 again, no
-## longer living, or in no squad is left out, and one that fell twice is taken once.
-static func _fallen(squads: Array) -> Dictionary:
-	var where := {}  # squad id -> its index in squads
-	var stores := []
-	for index in range(squads.size()):
-		where[squads[index].id] = index
-		if not stores.has(squads[index].store):
-			stores.append(squads[index].store)
-	var found := {}  # squad index -> [[index in its list, unit], ...]
-	var seen := {}
-	for store: UnitStore in stores:
-		for unit_id in store.fallen.take():  # store: scattered (few: the tick's fallen)
-			if seen.has(unit_id):
-				continue
-			seen[unit_id] = true
-			var unit = store.record_of(unit_id)
-			if unit == null or store.slot_of(unit_id) < 0 or not unit.is_alive():
-				continue
-			var at := _place(unit, squads, where)
-			if at.is_empty() or UnitHealth.of_one(squads[at[0]], unit) > 0:
-				continue
-			if not found.has(at[0]):
-				found[at[0]] = []
-			found[at[0]].append([at[1], unit])
-	var out := {}
-	for index in found:
-		found[index].sort_custom(func(a, b): return a[0] < b[0])
-		out[index] = found[index].map(func(entry): return entry[1])
-	return out
-
-
-## [the index of the squad `unit` is in now, its index in that squad's list], or []. Its
-## own squad's id is looked at first; a unit moved since (joined, reinforced, split off)
-## is found by looking through the rest.
-static func _place(unit: SkirmishUnit, squads: Array, where: Dictionary) -> Array:
-	if where.has(unit.squad_id):
-		var at: int = squads[where[unit.squad_id]].units.find(unit)
-		if at >= 0:
-			return [where[unit.squad_id], at]
-	for index in range(squads.size()):
-		var at: int = squads[index].units.find(unit)
-		if at >= 0:
-			return [index, at]
-	return []
+	var buried: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.deaths_bury(listed, BandTuning.rules(), tick)
+	)
+	for at in range(0, buried.size(), 3):  # store: scattered (few: the tick's fallen)
+		var squad: SkirmishSquad = squads[buried[at]]
+		var unit: SkirmishUnit = squad.store.record_of(buried[at + 1])
+		if buried[at + 2] < 0:
+			UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
+		else:
+			UnitState.put(squad, unit, SkirmishUnit.State.DOWNED)
+			unit.wounded = buried[at + 2]  # the sheet's already; GDScript's copy follows
+	events.append_array(CrateEvents.taken(field))  # "died", "downed", ..., "destroyed"

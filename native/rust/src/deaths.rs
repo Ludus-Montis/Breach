@@ -2,8 +2,10 @@
 //! spec 39 step 6b): a unit brought to 0 hp is downed - its hp stops at 0, the excess lost,
 //! and it lies where it fell - unless the blows took it past minus its constitution, which
 //! kills it outright. A downed unit takes the wounds its last blow would add and has yet to
-//! reckon how long it lies. GDScript takes the fell queue, finds each fallen unit's squad,
-//! and keeps the units' states, wounds, the morale, the step-ups and the events.
+//! reckon how long it lies. The burial over the fell queue, with the states, wounds, morale,
+//! step-ups and events that follow, is `bury` (spec 39 step 8b5-xxii).
+
+pub mod bury;
 
 use crate::columns::Columns;
 use crate::wounds;

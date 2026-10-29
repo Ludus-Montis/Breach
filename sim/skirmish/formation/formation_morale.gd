@@ -8,7 +8,8 @@ extends RefCounted
 ##   0. Short of a rout, a formation still meets its enemy at every band (Decision 101),
 ##   but the more shaken it is the softer its blows land: a share of their damage, by band.
 ## - **Shock** drains it: impact when struck on a side or the rear; a loss for each unit of
-##   its own that falls, and per point of leadership when a leader falls.
+##   its own that falls, and per point of leadership when a leader falls (the burial's, in
+##   the crate: `deaths/bury.rs`, spec 39 step 8b5-xxii).
 ## - **Pressure**, each second, by how many sides it fights on. A side with a friendly
 ##   squad near is supported and counts one less.
 ## - **Recovery**, each second out of contact: a little plus its leadership, up to the
@@ -56,17 +57,6 @@ static func interval(squad_band: int, usual: int) -> int:
 ## Drains the squad's morale; a change of band is a "morale_band" event.
 static func shock(squad: SkirmishSquad, amount: int, tick: int, events: Array) -> void:
 	_set_morale(squad, _morale(squad) - amount, tick, events)
-
-
-## The shock of this tick's dead in a squad: each loss, and more for each leader.
-static func losses(squad: SkirmishSquad, fallen: Array, tick: int, events: Array) -> void:
-	var leaderships := PackedInt64Array()
-	for unit in fallen:
-		leaderships.append(unit.leadership)
-		if unit.leadership > 0:
-			var extra := {"unit": unit.id, "leadership": unit.leadership}
-			events.append(FormationEvents.squad_event("leader_fell", tick, squad, extra))
-	shock(squad, CrateScrum.core().morale_losses(leaderships, _rules()), tick, events)
 
 
 ## Once a second: pressure on squads fighting on several sides, recovery for those out of
