@@ -3,13 +3,16 @@ extends GdUnitTestSuite
 ## walks to the nearest open cell next to an enemy (diagonals count), so a flank wraps and
 ## the far end of a flanked line comes to meet it; blows from outside a unit's front are
 ## flank blows; a led line turns to meet a threat before contact; a fight that can't go on
-## is released rather than frozen; and when it ends units regroup and march on.
+## is released rather than frozen; and when it ends units regroup and march on. A scrum lock
+## and a stalled fight's release are reported from the crate's log as they always were
+## (spec 39 step 8b5-xi).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumReach = preload("res://sim/skirmish/formation/scrum_reach.gd")
+const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumContest = preload("res://sim/skirmish/formation/scrum_contest.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
 const UnitMotion = preload("res://sim/skirmish/formation/unit_motion.gd")
@@ -237,3 +240,33 @@ func test_a_wavering_line_still_meets_its_enemy() -> void:
 	assert_float(UnitPlaces.of(line, far).y).is_less(start.y - 2.0)
 	var blows: Array = _of(log, "hit").filter(func(e): return e["faction"] == "the_kingdom")
 	assert_bool(blows.is_empty()).is_false()  # it lands worse: BlowLanding's morale shift
+
+
+func test_a_scrum_lock_and_a_stalled_fights_release_are_reported_as_they_were() -> void:
+	var sim := FormationSimulation.new(9.0, TICK)
+	var mine := sim.spawn_squad(1, _row(_def(400, 1), 1), "player", true)
+	var theirs := sim.spawn_squad(1, _row(_def(400, 1), 1), "the_kingdom", false)
+	var near := UnitPlaces.of(mine, mine.units[0]) + Vector2(0.0, 1.2)
+	UnitPlaces.put(theirs, theirs.units[0], near)  # beside it: within reach, not front to front
+	var roster := CrateRoster.of(sim.squads())
+
+	var engaged := ScrumEngage.step(sim._field, roster, 4, sim.fight_seed)
+	var released := []
+	for tick in range(5, 1000):
+		FormationScrum._stall(sim._field, roster, {}, [tick, TICK], released)
+		if not released.is_empty():
+			break
+
+	var mine_engaged := {"type": "engaged", "tick": 4, "squad": mine.id, "faction": "player"}
+	mine_engaged["with"] = theirs.id
+	var theirs_engaged := {"type": "engaged", "tick": 4, "squad": theirs.id}
+	theirs_engaged.merge({"faction": "the_kingdom", "with": mine.id})
+	assert_array(engaged).is_equal([mine_engaged, theirs_engaged])
+	var keys := ["type", "tick", "squad", "faction", "with"]
+	assert_array(engaged.map(func(e): return e.keys())).is_equal([keys, keys])
+	var at: int = released[0]["tick"] if not released.is_empty() else -1
+	var mine_released := {"type": "disengaged", "tick": at, "squad": mine.id, "faction": "player"}
+	var theirs_released := {"type": "disengaged", "tick": at, "squad": theirs.id}
+	theirs_released["faction"] = "the_kingdom"
+	assert_array(released).is_equal([mine_released, theirs_released])
+	assert_int(mine.engaged_with).is_equal(0)

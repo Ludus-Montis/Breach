@@ -314,7 +314,17 @@ events. After this step no battle phase runs in GDScript.
   and their step-ups as data. The rest follow, renumbered: **8b5-xi** the scrum, the fight and
   deaths; **8b5-xii** taking, wounds, recovery and strays; **8b5-xiii** morale, the rout and
   carrying; **8b5-xiv** groups, stamina, the bodies, the shuffle and the march's sync;
-  **8b5-xv** one `step()` binding.
+  **8b5-xv** one `step()` binding. **8b5-xi split further** (2026-10-29, under the same
+  leave), on its survey (the scrum alone is a dozen GDScript phases, each gathering its own
+  arrays; the fight builds its events from GDScript's blows; deaths bury through GDScript's
+  lists): **8b5-xi** the scrum's engaging, manoeuvres and stall over one roster, their events
+  in the log; **8b5-xii** the scrum's preparing and stance ("faced"); **8b5-xiii** the seek,
+  the walk and the facing; **8b5-xiv** the regroup, the chasers, the withdrawal and the
+  pursuit, their events; **8b5-xv** the fight (blows, shots, their landing and hurts, "hit"
+  and "spat", the surrender and the strike's stamina); **8b5-xvi** deaths. The rest follow,
+  renumbered: **8b5-xvii** taking, wounds, recovery and strays; **8b5-xviii** morale, the
+  rout and carrying; **8b5-xix** groups, stamina, the bodies, the shuffle and the march's
+  sync; **8b5-xx** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2179,6 +2189,37 @@ Decision's conditions.
   event reads as FormationEvents made it, and GDScript drops the wave, its units the
   leader's under its command (red with FormationJoins.join stubbed, then green).
 - **After it**, 8b5-xi: the scrum, the fight and deaths.
+
+### Step 8b5-xi, the scrum's engaging, manoeuvres and stall over the roster
+
+- **One roster for the scrum:** FormationScrum.step makes the squads' roster (CrateRoster)
+  as it starts and hands it to every phase: nobody falls, joins or leaves in the scrum, so
+  it is the roster the regroup, the chasers, the withdrawal and the pursuit read before.
+- **Engaging** (`scrum::pass::engage`, `scrum_engage`): each listed squad's living units
+  read from the roster, each standing where ScrumReach.at has it (its loose point while
+  loose), its body's radius from its footprint; the locks as `engage::step` decides them;
+  each lock's "engaged" event, with its foe's id, in the log in the lists' order.
+- **Manoeuvres** (`scrum::pass::manoeuvre`, `scrum_manoeuvre`): each squad's withdrawal read
+  from its record, whether it fights from its locks, whether it skirmishes asked only where
+  neither applies (`contact::Field::skirmishing`), a narrowed squad's living units from the
+  roster; then `manoeuvre::step` as before.
+- **The stall** (`scrum::pass::stall`, `scrum_stall` now taking the roster and the tick):
+  the listed squads and their factions from the roster, each release's "disengaged" event in
+  the log, in the lists' order.
+- **Gone:** the `engage` and `manoeuvre_step` bindings; ScrumEngage's and
+  FormationManoeuvre's gathering; the stall's events built in GDScript; the scrum's second
+  roster.
+- **Identical:** the same locks, manoeuvres, releases and events, in the same order with the
+  same keys and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/pass/tests.rs` (squads whose units come within reach lock, each
+  lock its squad's "engaged" event; a loose unit engages from where it stands loose; each
+  squad takes the manoeuvre of the highest priority that applies, a narrowed one's units
+  loosened; an advancing squad of archers with a foe in its reach skirmishes; a fight quiet
+  for its ticks is released and each side's "disengaged" logged), red on stubbed passes,
+  then green. gdUnit `test_formation_scrum.gd`: a scrum lock and a stalled fight's release
+  read as FormationEvents made them (red with the GDScript's taking of the log stubbed, then
+  green).
+- **After it**, 8b5-xii: the scrum's preparing and stance ("faced" in the log).
 
 ## Open, for the implementing session to settle and record here
 
