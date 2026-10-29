@@ -1920,6 +1920,36 @@ Decision's conditions.
 - **After it**, 8b5-iv: the squads' remaining fields (their units, the joined, faction, the
   living and downed lists).
 
+### Step 8b5-iv, the squads' remaining fields held by the crate
+
+- **The fields** (`Squads::faction`, `joined`): each squad's faction, coded in the unit
+  store's lexicon (8b5-ii's), so a crate pass compares it with a unit's; and the units that
+  joined it as reinforcements (FormationContact), their ids in the order they joined. Blank
+  ("", none) for a new slot, carried by the snapshot.
+- **Its units:** its members (its units' store slots, in its order) have been the crate's
+  since step 1, listed at the squad's next read of its lists after a join or a leaving
+  (UnitState). Its **living and downed** units are not held twice: the crate reads them from
+  its members and the STATE column (8b4-v's mirror) as UnitState does (`Squads::living`,
+  `downed`; `squad_living`, `squad_downed`), standing before DEAD, downed DOWNED or CARRIED.
+- **Written:** the faction by SkirmishSquad.faction_id's setter (`squad_put_faction`); the
+  joined whole by its setter (`put_squad_joined`), set by FormationContact.reinforce, its
+  one writer. A squad moved to another store (a test's) starts them blank there, as its route and
+  command do.
+- **Read:** SkirmishSquad keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads them yet; the same values are set in the same order (the
+  reinforcements enlist, then join, where they did both a unit at a time: enlisting reads
+  nothing joined). The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `squads.rs` (a squad's living and downed are its members by state, in its
+  order; a new squad has no faction and none joined; red on stubs, then green) and
+  `snapshot.rs` (a state with a faction and joined units read back writes the same bytes).
+  gdUnit `test_squad_fields.gd`: a squad's faction is held by the crate; units that joined are
+  held by their ids in their order, and a wave that reinforces a fight is; its
+  living and downed are read from its members and their states (the first three red against
+  the library with the writes stubbed, the last, which no write feeds, red in cargo; then
+  green). `test_formation_contact.gd` runs in CI.
+- **After it**, 8b5-v: orders, engagement, pathing and the move as one crate pass, their
+  events built as data.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
