@@ -22,102 +22,115 @@ extends RefCounted
 ##   command from then on (FormationCommand.enlist).
 ## Every meeting is decided from one snapshot, nearest first; ties in size go to the
 ## groups' seeded draws, never to ids or the order they are listed in (Decision 97). Pure.
-## Which groups meet and what each meeting does are the crate's (`groups.rs`, spec 39 step
-## 5a): this hands it the groups at ease (CrateRoster), their commands and routes, and each
-## unit's leading, its traits and the command it started under, and lands each meeting in
-## the order given: a group taken in, or units going back where they started.
+## - **Splitting**, the rest: a cluster split off is cut off from the rest, all its units
+##   further from their places than walk_lost, unless no man is left behind. Each new group
+##   follows the same command and orders along the same route, its front where its foremost
+##   unit stands, its units lined up across it by where they stand, and is numbered in the
+##   order of its units' seeded draws, never by ids or lists (Decision 97).
+## Both are one crate pass (`groups/pass.rs`, spec 39 step 8b5-xxx): it splits the groups
+## off, opening each new group's squad with the battle's next id, then lands every meeting,
+## their events in its log. This hands it the squads and their routes, wraps each squad slot
+## it opened, and mirrors its unit lists.
+
+## What the crate's pass did, as it numbers it.
+enum Landed { SPLIT, TAKEN, RETURNED }
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const GroupSplit = preload("res://sim/skirmish/formation/group_split.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
-
-const AT_EASE := [
-	SkirmishSquad.State.MOVING, SkirmishSquad.State.HOLDING, SkirmishSquad.State.ARRIVED
-]
 
 
 ## One tick: groups split, then those meeting form up. New groups are numbered from
-## `next_id` and added to `squads`; returns the next free squad id.
+## `next_id` and added to `squads`, groups taken in leave it; returns the next free squad id.
 static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_id: int) -> int:
-	next_id = GroupSplit.step(squads, tick, fight_seed, events, next_id)
-	_form_up(squads, tick, fight_seed, events)
+	if squads.is_empty():
+		return next_id
+	var store: UnitStore = squads[0].store
+	var livings := []  # each squad's living units as the crate is given them
+	var routes := PackedInt64Array()
+	var codes := {}  # route (or null) -> its code
+	for squad: SkirmishSquad in squads:
+		livings.append(squad.living())
+		routes.append(codes.get_or_add(squad.route, codes.size()))
+	var tuning := BattleTuning.current()
+	var rules := PackedFloat64Array(
+		[tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE]
+	)
+	var field: Object = store.field()
+	field.put_squads_issued(next_id - 1)
+	var roster := CrateRoster.of(squads)
+	var at := PackedInt64Array([tick, fight_seed])
+	var out: PackedInt64Array = ColumnsLent.all(
+		store.columns, func(): return field.groups_step(roster, routes, rules, at)
+	)
+	next_id = _mirrored(out, squads, livings, next_id)
+	events.append_array(CrateEvents.taken(field, store))
 	return next_id
 
 
-static func _form_up(squads: Array, tick: int, fight_seed: int, events: Array) -> void:
-	var groups := squads.filter(func(s): return s.state in AT_EASE and not s.living().is_empty())
-	if groups.size() < 2:
-		return
-	var commands := {}  # command -> its code
-	var routes := {}  # route (or null) -> its code
-	var described := PackedInt32Array()
-	var followers := PackedInt32Array()
-	var livings := []  # each group's living units as the crate is given them
-	for group: SkirmishSquad in groups:
-		var command: int = commands.get_or_add(group.command, commands.size())
-		described.append_array([command, routes.get_or_add(group.route, routes.size())])
-		var living := group.living()
-		livings.append(living)
-		for unit in living:
-			var traits := int(unit.leadership > 0)
-			traits |= (
-				(2 if unit.traits.has("joins") else 0) | (4 if unit.traits.has("gathers") else 0)
-			)
-			var origin: int = (
-				-1 if unit.origin == null else commands.get_or_add(unit.origin, commands.size())
-			)
-			followers.append_array([traits, origin])
-	var out: PackedInt64Array = squads[0].store.field().group_form_up(
-		CrateRoster.of(groups), described, followers, BattleTuning.current().group_join, fight_seed
-	)
+## GDScript's lists after the crate's pass `out`: each split's group wrapped over the slot
+## opened and listed, each group taken in out of `squads`, each unit gone back moved.
+static func _mirrored(out: PackedInt64Array, squads: Array, livings: Array, next_id: int) -> int:
+	var listed := squads.duplicate()  # as the crate numbers them: the splits after the rest
 	var i := 0
 	while i < out.size():
-		if out[i] == 0:
-			var taken: SkirmishSquad = groups[out[i + 2]]
-			_take_in(groups[out[i + 1]], taken, tick, events)
-			squads.erase(taken)
+		if out[i] == Landed.TAKEN:
+			FormationContact.took_in(listed[out[i + 1]], listed[out[i + 2]])
+			squads.erase(listed[out[i + 2]])
 			i += 3
 			continue
-		var ids := Array(out.slice(i + 4, i + 4 + out[i + 3]))
-		_return_origins(groups[out[i + 1]], groups[out[i + 2]], ids, tick, events)
-		i += 4 + ids.size()
+		var count := int(out[i + 3])
+		var picked := Array(out.slice(i + 4, i + 4 + count))
+		if out[i] == Landed.SPLIT:
+			var living: Array = livings[out[i + 1]]
+			var members := picked.map(func(n): return living[n])
+			var group := _split(listed[out[i + 1]], members, int(out[i + 2]), next_id)
+			next_id += 1
+			squads.append(group)
+			listed.append(group)
+		else:
+			_returned(listed[out[i + 1]], listed[out[i + 2]], picked)
+		i += 4 + count
+	return next_id
 
 
-## The taker takes in the other group's units behind its back rank; they follow its
-## command from now on.
-static func _take_in(taker: SkirmishSquad, taken: SkirmishSquad, tick: int, events: Array):
-	events.append(FormationEvents.squad_event("merged", tick, taken, {"into": taker.id}))
-	for unit in taken.living():
-		SquadEntries.unloose(taken, unit.id)
-	FormationContact.reinforce(taker, taken)
-	taker.reforming = true
+## GDScript's squad `id` over the slot the crate opened for the units `cluster` (in the
+## order they line up), which left `squad`: the same values assigned through its setters.
+static func _split(squad: SkirmishSquad, cluster: Array, slot: int, id: int) -> SkirmishSquad:
+	var members: Array[SkirmishUnit] = []
+	for unit: SkirmishUnit in cluster:
+		squad.units.erase(unit)
+		members.append(unit)
+	UnitState.regather(squad)
+	var front: float = squad.store.squads.value(slot, SquadColumns.FRONT_DISTANCE)
+	squad.store.squads.opened = slot
+	var group := SkirmishSquad.new(
+		id,
+		squad.faction_id,
+		squad.direction,
+		squad.home_distance,
+		members.size(),
+		members,
+		squad.command,
+		squad.store
+	)
+	group.route = squad.route
+	group.front_distance = front
+	group.heading = squad.heading
+	group.order = squad.order
+	group.state = squad.state
+	group.morale = squad.morale
+	return group
 
 
-## The units of `group` with these ids, started under `home`'s command, go back to it.
-static func _return_origins(
-	group: SkirmishSquad, home: SkirmishSquad, ids: Array, tick: int, events: Array
-) -> void:
-	var back := group.living().filter(func(u): return ids.has(u.id))
+## The units of `group` with these `ids` (in its order) gone back to `home`'s command.
+static func _returned(group: SkirmishSquad, home: SkirmishSquad, ids: Array) -> void:
 	# store: scattered (few: rejoining, once as a group comes home)
-	for unit in back:
+	for id in ids:
+		var unit: SkirmishUnit = group.units.filter(func(u): return u.id == id)[0]
 		group.units.erase(unit)
-		UnitState.regather(group)
-		SquadEntries.unloose(group, unit.id)
-		home.store.columns.put(unit.slot, UnitColumns.RANK, _back_row(home))
 		FormationCommand.enlist(home, unit)
-		events.append(FormationEvents.unit_event("rejoined", tick, home, unit))
-	home.reforming = true
-
-
-static func _back_row(squad: SkirmishSquad) -> int:
-	var ranks: PackedInt32Array = UnitView.read(squad, [UnitColumns.RANK]).rank  # read once
-	var rows := 0
-	for unit in squad.living():
-		rows = maxi(rows, ranks[unit.slot] + unit.footprint_depth)
-	return rows
+	UnitState.regather(group)

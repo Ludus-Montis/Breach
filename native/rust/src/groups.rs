@@ -14,8 +14,10 @@
 //! Every meeting is decided from one snapshot, nearest first; ties in size go to the groups'
 //! seeded draws, never to ids or the order they are listed in (Decision 97). Meetings are
 //! decided in turn, each on the groups as the ones before left them. Taking a group in and
-//! sending units back (the events, the places, the commands) are GDScript's, in the order
-//! given.
+//! sending units back (the events, the places, the commands) are landed in the order given
+//! by `pass` (spec 39 step 8b5-xxx), with the splits; GDScript mirrors its lists.
+
+pub mod pass;
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
