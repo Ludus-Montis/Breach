@@ -36,6 +36,7 @@ mod grid;
 pub mod ground;
 mod groups;
 mod hurts;
+mod joins;
 mod landing;
 mod locks;
 mod lying;
@@ -3747,8 +3748,9 @@ impl BodyField {
     /// seconds a tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
     /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block, wounds_reach, walk_lost].
     /// Each squad's share of its pace is worked out here (`moving::share`, by the fight's
-    /// `seed`). Its events go to the log (`events_take`). Returns the listed squads that
-    /// advanced, in the order planned, for the joins.
+    /// `seed`). The squads that advanced then join any friend whose back rank they reached
+    /// (`joins::step`). Its events go to the log (`events_take`). Returns the joins as pairs
+    /// of listed indices, the leader's then the joining squad's, in the order joined.
     #[func]
     fn move_step(
         &mut self,
@@ -3775,8 +3777,9 @@ impl BodyField {
         let joiners = on_ground(ground, |g| {
             moving::pass::step(squads, field, &roster.roster, g, &given, events)
         });
+        let joins = joins::step(squads, field, &roster.roster, &joiners, seed, tick, events);
         self.edits += 1;
-        joiners.iter().map(|&n| n as i32).collect()
+        joins.into_iter().flat_map(|(leader, joining)| [leader as i32, joining as i32]).collect()
     }
 
     /// FormationWalk.share for `roster`'s only squad on `ground` (`moving::share`), by the
@@ -3916,27 +3919,6 @@ impl BodyField {
             roster: &roster.roster,
         };
         field.joinable(mover as usize).map_or(-1, |n| n as i64)
-    }
-
-    /// FormationJoins.join's order for `roster`'s squads `movers` (their indices): each that
-    /// has reached a friend's back rank, nearest first, a tie to the draws (`seed`), as
-    /// pairs: its friend's index, then its own.
-    #[func]
-    fn contact_joins(
-        &self,
-        roster: Gd<SquadRoster>,
-        movers: PackedInt64Array,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let field = contact::Field {
-            squads: &self.squads,
-            columns: &self.field.columns,
-            roster: &roster.roster,
-        };
-        let movers: Vec<usize> = movers.as_slice().iter().map(|&n| n as usize).collect();
-        let joins = field.joins(&movers, seed);
-        PackedInt64Array::from_iter(joins.into_iter().flat_map(|(a, b)| [a as i64, b as i64]))
     }
 
     /// ScrumTurn.begin for `roster`'s only squad, about to move `travel` (+1 or -1) along
@@ -4348,35 +4330,15 @@ impl BodyField {
     }
 
     /// FormationContact.reinforce: the squad in squad slot `joining` taken in behind the
-    /// squad in `leader`. `units`: the store slots of all the leader's units; `leader` and
-    /// `joining_living`: each squad's living units as squad_compact takes them; `movers`: the
-    /// leader's moves under way, as squad_compact takes them. Returns the indices into the
-    /// leader's living then the joining's of those that stepped up.
+    /// squad in `leader` (`joins::take_in`), each read where it lives; its living units are
+    /// enlisted in the leader. Returns the indices into the leader's living units then the
+    /// joining's (each in its order) of those that stepped up.
     #[func]
-    fn squad_reinforce(
-        &mut self,
-        leader: i64,
-        joining: i64,
-        units: PackedInt32Array,
-        leader_living: PackedInt64Array,
-        joining_living: PackedInt64Array,
-    ) -> PackedInt32Array {
-        let movers = swaps::moving(&self.squads, leader as usize);
-        let units: Vec<usize> = units.as_slice().iter().map(|&slot| slot as usize).collect();
-        let join = compact::Joining {
-            leader: leader as usize,
-            joining: joining as usize,
-            leader_units: &units,
-        };
-        let moved = compact::reinforce(
-            &mut self.squads,
-            &mut self.field.columns,
-            join,
-            &closers(&leader_living),
-            &closers(&joining_living),
-            &movers,
-        );
-        PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
+    fn squad_take_in(&mut self, leader: i64, joining: i64) -> PackedInt32Array {
+        let took =
+            joins::take_in(&mut self.squads, &mut self.field, leader as usize, joining as usize);
+        self.edits += 1;
+        PackedInt32Array::from_iter(took.stepped.into_iter().map(|n| n as i32))
     }
 
     /// FormationStrays.strand's setting off: the unit `unit_id` in store slot `slot`, alone
