@@ -3539,6 +3539,13 @@ impl BodyField {
         let s = sight.as_slice();
         self.field.put_sight(code as usize, [s[0], s[1], s[2], s[3]]);
     }
+
+    /// Keeps the marching speed of the definition coded `code` (UnitStore.definition_code),
+    /// which a bearer's pace is a share of.
+    #[func]
+    fn put_speed(&mut self, code: i64, speed: f64) {
+        self.field.put_speed(code as usize, speed);
+    }
 }
 
 #[godot_api(secondary)]
@@ -4318,31 +4325,38 @@ impl BodyField {
         PackedInt64Array::from_iter(flat)
     }
 
-    /// FormationCarry's pick-up: who picks up which downed friend. `squads`: four numbers a
-    /// squad in the lists' order, its faction (a code), whether it tends its downed now (1),
-    /// how many living units follow and then how many downed bodies lying; `ints`: six a unit,
-    /// its id, store slot, faction, then for one living whether it bears a body (1), its
-    /// strength and its "hauler", and for a body the cells it covers, 0, 0; `gear`: one a
-    /// unit, its gear's weight (0 for a body). `tuning`: as `carry_tuning`. Returns four
-    /// numbers a body picked up, in order: [its squad, its index in that squad's downed, the
-    /// bearer's squad, its index in that squad's living].
+    /// FormationCarry.step: bearing the wounded as one pass (`carry::pass::step`, spec 39
+    /// step 8b5-xxix) over the squads in slots `listed` (the lists' order): bodies whose
+    /// bearers fled home (`homes`, those units' ids this tick) come home, the borne follow or
+    /// are dropped, bearers set their loads down, then the free pick bodies up; "fled_home"
+    /// and "borne" in the log. `at`: [tick, seed]; `tuning`: as `FormationCarry.tuning()`;
+    /// `loads`: load_pace, load_tiring and load_dodge one after another. Returns three
+    /// numbers a unit, in order: [what (0 its state, carrying or load changed, 1 home out of
+    /// its squad, 2 setting off home alone with a body), its squad's listed index, its id].
     #[func]
-    fn carry_pick_up(
-        &self,
-        squads: PackedInt32Array,
-        ints: PackedInt64Array,
-        gear: PackedFloat64Array,
-        seed: i64,
+    fn carry_step(
+        &mut self,
+        listed: PackedInt32Array,
+        homes: PackedInt64Array,
+        at: PackedInt64Array,
         tuning: PackedFloat64Array,
+        loads: PackedFloat64Array,
     ) -> PackedInt64Array {
-        let squads = carrying(&squads, &ints, &gear);
-        let tuning = carry::CarryTuning::of_slice(tuning.as_slice());
-        let picked = carry::pick_up(&self.field.columns, &squads, seed, &tuning);
-        let out: Vec<i64> = picked
-            .iter()
-            .flat_map(|&(body, bearer)| [body.0, body.1, bearer.0, bearer.1].map(|n| n as i64))
-            .collect();
-        PackedInt64Array::from(out.as_slice())
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let &[tick, seed, ..] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let t = carry::CarryTuning::of_slice(tuning.as_slice());
+        let loads = carry::pass::LoadTuning::of_slice(loads.as_slice());
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let lists = (&listed[..], homes.as_slice());
+        let did = carry::pass::step(squads, field, lists, (tick, seed), (&t, &loads), log);
+        self.edits += 1;
+        let rows = [(0, &did.changed), (1, &did.home), (2, &did.strays)];
+        let flat = rows
+            .into_iter()
+            .flat_map(|(what, units)| units.iter().flat_map(move |&(n, id)| [what, n as i64, id]));
+        PackedInt64Array::from_iter(flat)
     }
 
     /// FormationTaking.step: taking the downed as one pass (`taking::pass::step`): the
@@ -4369,47 +4383,6 @@ impl BodyField {
         taking::pass::step(squads, field, lists, (tick, seconds, seed), &t, log);
         self.edits += 1;
     }
-}
-
-/// The squads as carry_pick_up is given them.
-fn carrying(
-    squads: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    gear: &PackedFloat64Array,
-) -> Vec<carry::Carrying> {
-    let (rows, _) = ints.as_slice().as_chunks::<6>();
-    let mut units = rows.iter().zip(gear.as_slice());
-    let (squad_rows, _) = squads.as_slice().as_chunks::<4>();
-    squad_rows
-        .iter()
-        .map(|s| carry::Carrying {
-            faction: s[0] as u32,
-            tending: s[1] != 0,
-            living: units
-                .by_ref()
-                .take(s[2] as usize)
-                .map(|(i, &gear_weight)| carry::Bearer {
-                    id: i[0],
-                    slot: i[1] as usize,
-                    faction: i[2] as u32,
-                    carrying: i[3] != 0,
-                    gear_weight,
-                    strength: i[4],
-                    hauler: i[5],
-                })
-                .collect(),
-            downed: units
-                .by_ref()
-                .take(s[3] as usize)
-                .map(|(i, _)| carry::Body {
-                    id: i[0],
-                    slot: i[1] as usize,
-                    faction: i[2] as u32,
-                    cells: i[3],
-                })
-                .collect(),
-        })
-        .collect()
 }
 
 /// Morale and the blows on routers (spec 39 step 7a).

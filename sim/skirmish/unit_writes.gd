@@ -45,8 +45,8 @@ static func word(field: Object, slot: int, name: StringName, value: Variant) -> 
 
 ## Writes the object `name` in `slot`, coded: a walker's fields (TerrainWalker.fields), a
 ## command's slot (FormationCommand.slot) or a definition's code (UnitStore.definition_code),
-## with the definition's sight, which a look reads (spec 39 step 8b5-vii); none is empty or
-## -1.
+## with the definition's sight, which a look reads (spec 39 step 8b5-vii), and its speed, which
+## a bearer's pace is a share of (8b5-xxix); none is empty or -1.
 static func object(store: Object, slot: int, name: StringName, value: Variant) -> void:
 	var field: Object = store.field()
 	if name == &"walker":
@@ -57,5 +57,6 @@ static func object(store: Object, slot: int, name: StringName, value: Variant) -
 		if value != null:
 			var sight := [value.sight_ahead, value.sight_side, value.sight_behind]
 			field.put_sight(code, PackedFloat64Array([value.detection_range] + sight))
+			field.put_speed(code, value.speed)
 	else:
 		field.put_object(slot, name, -1 if value == null else value.slot)
