@@ -1,9 +1,11 @@
 extends GdUnitTestSuite
 ## SquadTurn, per Decision 74 (specs/27-formations-in-2d.md): a wheel takes as long as the
 ## outer end needs to march its quarter arc; an about-face is a short pause that puts the
-## back rank in front.
+## back rank in front. Reversing the ranks is the crate's (turn/tests.rs); here, ScrumTurn's
+## part: the moves under way cancelled and the events.
 
 const SquadTurn = preload("res://sim/skirmish/formation/squad_turn.gd")
+const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
@@ -42,29 +44,25 @@ func test_an_about_face_is_a_one_second_pause() -> void:
 	assert_int(SquadTurn.about_face_ticks(2.0)).is_equal(1)
 
 
-func test_an_about_face_puts_the_back_rank_in_front_and_turns_the_columns() -> void:
-	var front := _unit(1, 0, 0)
-	var archer := _unit(2, 1, 2, 2)
-	var members: Array[SkirmishUnit] = [front, archer]
-	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 3, members, null, _places.store)
-	squad.centre_shift = 0.5
-
-	var depth := SquadTurn.reverse_ranks(squad)
-
-	assert_int(depth).is_equal(2)
-	assert_int(UnitPlace.of(squad, archer).x).is_equal(0)
-	assert_int(UnitPlace.of(squad, archer).y).is_equal(0)
-	assert_int(UnitPlace.of(squad, front).x).is_equal(1)
-	assert_int(UnitPlace.of(squad, front).y).is_equal(2)
-	assert_float(squad.centre_shift).is_equal(-0.5)
-	assert_bool(squad.reforming).is_true()
-
-
-func test_an_about_face_cancels_moves_under_way() -> void:
+func test_an_about_face_cancels_moves_under_way_and_turns_it_about() -> void:
 	var members: Array[SkirmishUnit] = [_unit(1, 0, 0), _unit(2, 1, 0)]
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, members, null, _places.store)
 	squad.swaps.append({"to": {}, "from": {}, "ticks": 3, "total": 5})
+	var events := []
 
-	SquadTurn.reverse_ranks(squad)
+	var turned := ScrumTurn.begin(squad, -1, 4, events)
 
+	assert_bool(turned).is_true()
 	assert_array(squad.swaps).is_empty()
+	assert_int(squad.direction).is_equal(-1)
+	assert_int(UnitPlace.of(squad, members[1]).x).is_equal(0)
+	assert_array(events.map(func(event): return event["type"])).is_equal(["turning", "turned"])
+
+
+func test_a_squad_already_facing_its_way_does_not_turn() -> void:
+	var members: Array[SkirmishUnit] = [_unit(1, 0, 0)]
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, members, null, _places.store)
+	var events := []
+
+	assert_bool(ScrumTurn.begin(squad, 1, 4, events)).is_false()
+	assert_array(events).is_empty()

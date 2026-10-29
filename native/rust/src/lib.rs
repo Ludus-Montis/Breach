@@ -71,6 +71,7 @@ mod steer;
 mod strays;
 mod taking;
 mod trade;
+mod turn;
 mod walk_store;
 mod walking;
 mod withdraw;
@@ -3509,6 +3510,47 @@ impl BodyField {
             roster: &roster.roster,
         };
         field.joinable(mover as usize).map_or(-1, |n| n as i64)
+    }
+
+    /// FormationJoins.join's order for `roster`'s squads `movers` (their indices): each that
+    /// has reached a friend's back rank, nearest first, a tie to the draws (`seed`), as
+    /// pairs: its friend's index, then its own.
+    #[func]
+    fn contact_joins(
+        &self,
+        roster: Gd<SquadRoster>,
+        movers: PackedInt64Array,
+        seed: i64,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let field = contact::Field {
+            squads: &self.squads,
+            columns: &self.field.columns,
+            roster: &roster.roster,
+        };
+        let movers: Vec<usize> = movers.as_slice().iter().map(|&n| n as usize).collect();
+        let joins = field.joins(&movers, seed);
+        PackedInt64Array::from_iter(joins.into_iter().flat_map(|(a, b)| [a as i64, b as i64]))
+    }
+
+    /// ScrumTurn.begin for `roster`'s only squad, about to move `travel` (+1 or -1) along
+    /// `route` (its points; none: a straight lane). Returns turn::KEPT, TURNED or ABOUT_FACED.
+    #[func]
+    fn squad_turn(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        travel: i64,
+        route: PackedVector2Array,
+    ) -> i64 {
+        let roster = roster.bind();
+        let route = (!route.is_empty()).then(|| route::Route::new(v2s(&route), 0.0));
+        turn::begin(
+            &mut self.squads,
+            &mut self.field.columns,
+            &roster.roster.listed[0],
+            travel as i32,
+            route.as_ref(),
+        )
     }
 
     /// FormationPerception.see over `roster`'s squads: per squad, in the lists' order, how
