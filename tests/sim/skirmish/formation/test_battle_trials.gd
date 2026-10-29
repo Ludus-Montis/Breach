@@ -4,7 +4,6 @@ extends GdUnitTestSuite
 ## the trials runner fights a scenario once per seed and summarises the spread.
 
 const BattleTrials = preload("res://sim/skirmish/formation/battle_trials.gd")
-const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
 
 
 func test_the_same_seed_replays_a_battle() -> void:

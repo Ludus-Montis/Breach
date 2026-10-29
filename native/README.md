@@ -333,18 +333,20 @@ positions.
 
 ### The melee blows (`tools/blows_bench.gd`, 1,024 a side, 32 wide)
 
-The fight's melee part (FormationMelee.blows, BlowLanding.land) runs its search on the
-field: `ScrumBlowsField` syncs the scrum as the fight begins (clearing each unit's target
-as it goes) and `BodyField.blows` (`blows.rs`) gives each striking unit its foe -
-ScrumBlows._pick's least [front, distance, draw], the same `facing::touching` the facing
-uses - with whether its blow falls on the foe's flank and whether a retreating unit has
-turned away. Cooldowns, the morale's interval, the blows, rolls, damage, hit points,
-events and the landing stay GDScript's, taken in ScrumBlows' order; surrender's rolls and
-stamina are the crate's (spec 39 steps 6a and 6b). For rolled
-blows, `BodyField.pressed` counts the foes pressing each target (BlowLanding._pressed) on
-the same sync (since spec 39 step 4a, a tick no squad strikes in syncs for the count when
-blows are rolled). The ranged shots stay GDScript; RoutBlows' search is the crate's
-(`rout_blows.rs`, spec 39 step 7a). A tick no squad can strike
+The fight's choice (FormationMelee.blows) is one crate pass over the squads' roster since
+spec 39 step 8b5-xvii (`fight::choose`, binding `fight_choose`): every living unit's target
+is cleared; if some squad may strike, the field is synced to the scrum (`scrum::seek::sync`)
+and `blows.rs` gives each striking unit its foe - ScrumBlows._pick's least [front,
+distance, draw], the same `facing::touching` the facing uses - with whether its blow falls
+on the foe's flank and whether a retreating unit has turned away; its target and cooldown
+are set, the cooldown starting again at its melee time, half again while its squad wavers
+(its band read from the squad's morale, `shocks::morale`). Then the blows on routers
+(`rout_blows.rs`) and the shots (`shots.rs`), each blow's damage from its striker's sheet.
+The rolls, damage, hit points, events and the landing's glue stay GDScript's for now;
+surrender's rolls and stamina are the crate's (spec 39 steps 6a and 6b). For rolled blows,
+`BodyField.pressed` counts the foes pressing each target (BlowLanding._pressed) on the same
+sync (ScrumBlowsField; a tick no squad strikes in syncs for the count when blows are
+rolled). A tick no squad can strike
 in (marching, or only a rout left) makes no sync for the search. `test_blows_field.gd`
 checked the blows (until spec 39 step 4a retired the twin),
 their landing and every target and cooldown against GDScript at four moments, with

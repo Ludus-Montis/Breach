@@ -33,7 +33,6 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
-const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
@@ -223,12 +222,14 @@ func _move(events: Array, roster: Object) -> void:
 	FormationJoins.join(_squads, joins)
 
 
-## The blows and shots chosen and landed, then their hurts landed in the crate (`hurts.rs`,
-## spec 39 step 8b2), the fallen on the fell queue; their events, from what each left.
+## The blows and shots chosen in the crate (FormationMelee, spec 39 step 8b5-xvii) and
+## landed, then their hurts landed in the crate (`hurts.rs`, step 8b2), the fallen on the
+## fell queue; their events, from what each left.
 func _fight(events: Array) -> void:
 	var interval := _attack_interval_ticks()
-	var blows := FormationMelee.blows(_squads, interval, fight_seed, _field)  # targets cleared
-	var shots := FormationCombat.ranged_blows(_squads, interval, fight_seed)
+	var chosen := FormationMelee.blows(_squads, interval, fight_seed, _field)  # targets cleared
+	var blows: Array = chosen[0]
+	var shots: Array = chosen[1]
 	var rolls := [fight_seed, _tick] if blow_rolls else []
 	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field)
 	var hurts := []  # the shots, then the blows, in the order landed: hurt in the crate
