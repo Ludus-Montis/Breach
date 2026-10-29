@@ -10,20 +10,18 @@ extends RefCounted
 ## can see - its own, or one that bore it - walking to a place at its back, and otherwise
 ## makes for home on its own, as a lone router (FormationStrays), to be caught, taken, or
 ## reach the reserve. With a foe within a few cells when it could get up, it may play dead
-## instead (Decision 127). Regeneration mends here too (`regeneration.rs`). The rules are the
-## crate's (`recovery.rs`, spec 39 step 6b): this hands it the squads' living and downed with
-## what of each it doesn't hold, and lands what it decides - the deaths, those playing dead,
-## those coming to joining a formation or setting off alone, and the events. Pure over the
-## squads it is given.
+## instead (Decision 127). Regeneration mends here too (`regeneration.rs`). The pass is the
+## crate's (`recovery/pass.rs`, spec 39 step 8b5-xxv): it reads the squads' living and downed
+## where they live, decides and lands it - the deaths, those playing dead, those coming to
+## joining a formation or setting off alone, and the events. This mirrors the states, the
+## playing dead and the squads' lists. Pure over the squads it is given.
 
-const UnitDef = preload("res://content/definitions/unit_def.gd")
 const FormationCommand = preload("res://sim/skirmish/formation/formation_command.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 
 
 ## One tick of `seconds`. Returns [[unit, its squad], ...] for those that came to apart from
@@ -31,102 +29,42 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 static func step(squads: Array, seconds: float, tick: int, fight_seed: int, events: Array) -> Array:
 	if squads.is_empty():
 		return []
-	var listed := PackedInt64Array()
-	var counts := PackedInt32Array()
-	var ints := PackedInt64Array()
-	var reals := PackedFloat64Array()
-	var downed := []  # per squad, its downed as handed in
-	var codes := {}  # faction -> its code
 	for squad: SkirmishSquad in squads:
-		var living: Array = squad.living()
-		var lying: Array = UnitState.downed(squad)
-		downed.append(lying)
-		var joinable := (
-			squad.state not in [SkirmishSquad.State.DESTROYED, SkirmishSquad.State.ROUTING]
-		)
-		listed.append_array([squad.id, int(joinable)])
-		counts.append_array([living.size(), lying.size()])
-		for unit: SkirmishUnit in living + lying:
-			(
-				ints
-				. append_array(
-					[
-						unit.id,
-						unit.slot,
-						codes.get_or_add(unit.faction_id, codes.size()),
-						unit.wounded,
-						int(unit.traits.get("hardened", 0)),
-						int(unit.traits.get("cunning", 0)),
-						_flags(unit),
-						unit.max_hp,
-					]
-				)
-			)
-			(
-				reals
-				. append_array(
-					[
-						unit.regeneration,
-						unit.attributes.get("wits", UnitDef.AVERAGE),
-						unit.attributes.get("constitution", UnitDef.AVERAGE),
-						unit.detection,
-					]
-				)
-			)
+		squad.living()  # its members written to the squad store, if its lists changed
+	var listed := FormationLocks.slots(squads)
+	var at := PackedInt64Array([tick, fight_seed])
 	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
 	var tuning := FormationWounds.tuning()
-	var decided: PackedInt64Array = ColumnsLent.all(
-		columns,
-		func(): return field.recovery_step(listed, counts, ints, reals, seconds, fight_seed, tuning)
+	var landed: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.recovery_step(listed, at, seconds, tuning)
 	)
-	var end := 1 + 3 * decided[0]
-	for at in range(1, end, 3):
-		var squad: SkirmishSquad = squads[decided[at + 1]]
-		var unit: SkirmishUnit = downed[decided[at + 1]][decided[at + 2]]
-		if decided[at] == 0:
-			UnitState.put(squad, unit, SkirmishUnit.State.DEAD)
-			events.append(FormationEvents.unit_event("died_of_wounds", tick, squad, unit))
-		else:
-			unit.playing_dead = true
-			events.append(FormationEvents.unit_event("playing_dead", tick, squad, unit))
 	var strays := []
-	for at in range(end, decided.size(), 3):  # store: scattered (few: those coming to)
-		var own: SkirmishSquad = squads[decided[at]]
-		var unit: SkirmishUnit = downed[decided[at]][decided[at + 1]]
-		var best: SkirmishSquad = squads[decided[at + 2]] if decided[at + 2] >= 0 else null
-		UnitState.put(own, unit, SkirmishUnit.State.MOVING)
-		unit.playing_dead = false
-		var extra := {"alone": best == null}
-		if best == null:
+	for n in range(0, landed.size(), 4):  # store: scattered (few: the downed it befell)
+		var own: SkirmishSquad = squads[landed[n]]
+		var unit: SkirmishUnit = own.store.record_of(landed[n + 1])
+		if landed[n + 2] == 0:
+			UnitState.put(own, unit, SkirmishUnit.State.DEAD)
+		elif landed[n + 2] == 1:
+			unit.playing_dead = true
+		elif landed[n + 3] < 0:
+			_rose(unit, own, null)
 			strays.append([unit, own])
 		else:
-			_join(unit, own, best)
-			extra["joined"] = best.id
-		events.append(FormationEvents.unit_event("came_to", tick, own, unit, extra))
+			_rose(unit, own, squads[landed[n + 3]])
+	events.append_array(CrateEvents.taken(field))  # "died_of_wounds", "came_to", ...
 	return strays
 
 
-## A unit's flags as the crate takes them: 1 it leads, 2 it mends downed, 4 it plays dead.
-static func _flags(unit: SkirmishUnit) -> int:
-	var mends := int(unit.traits.get("regenerates_downed", 0) > 0)
-	return int(unit.leadership > 0) | mends << 1 | int(unit.playing_dead) << 2
-
-
-## The unit joins `best`, walking from where it lay to a place at its back.
-static func _join(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -> void:
-	var back := 0
-	var ranks: PackedInt32Array = UnitView.read(best, [UnitColumns.RANK]).rank  # read once
-	for other in best.living():
-		if other != unit:
-			back = maxi(back, ranks[other.slot] + other.footprint_depth)
+## The unit came to and is up, joining `best` (null: none, to make for home alone): its
+## state, its move from its own squad's list to `best`'s and `best` reforming, mirrored.
+static func _rose(unit: SkirmishUnit, own: SkirmishSquad, best: SkirmishSquad) -> void:
+	UnitState.put(own, unit, SkirmishUnit.State.MOVING)
+	unit.playing_dead = false
+	if best == null:
+		return
 	if best != own:
-		SquadEntries.unloose(own, unit.id)
-		SquadEntries.unflee(own, unit.id)
 		own.units.erase(unit)
 		UnitState.regather(own)
 		FormationCommand.enlist(best, unit)
-	UnitPlace.put(best, unit, Vector2i(back, 0))
 	best.reforming = true
-	var at: Vector2 = best.store.columns.value(unit.slot, UnitColumns.POSITION)
-	SquadEntries.loosen(best, unit, at)
