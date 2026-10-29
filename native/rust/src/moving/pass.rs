@@ -25,7 +25,7 @@ use crate::reach;
 use crate::roster::{Listed, Roster};
 use crate::squads::Squads;
 use crate::staging::{self, Hold};
-use crate::turn::{self, ABOUT_FACED, KEPT};
+use crate::turn;
 use crate::withdraw;
 
 /// SkirmishUnit.Order's hold.
@@ -85,10 +85,10 @@ pub fn step(
             continue;
         }
         let travel = march::travel_sign(&along(squads, s), end);
-        if travel != squads.direction[s] && turned(squads, field, roster, listed, travel) {
-            let (facing, heading) = (facing_of(squads.heading[s]), squads.heading[s].to_bits());
-            log.squad(events::TURNING, given.tick, squads, s, &[facing, heading as i64]);
-            log.squad(events::TURNED, given.tick, squads, s, &[facing, heading as i64]);
+        let columns = &mut field.columns;
+        if travel != squads.direction[s]
+            && turn::landed(squads, columns, &roster.listed[listed], travel, given.tick, log)
+        {
             continue; // an about-face is a re-form: its units walk to their places
         }
         let lying = lying.get_or_insert_with(|| Bodies::of(squads, field, roster));
@@ -184,25 +184,6 @@ fn coordinated(field: &Field, roster: &Roster, listed: usize) -> bool {
     };
     let columns = &field.columns;
     roster.listed[listed].living.iter().any(|m| columns.words[m.slot].tactics.contains(&code))
-}
-
-/// ScrumTurn.begin: whether the squad turns where it stands to move `travel` along its route;
-/// an about-face cancels the swaps under way.
-fn turned(
-    squads: &mut Squads,
-    field: &mut Field,
-    roster: &Roster,
-    listed: usize,
-    travel: i32,
-) -> bool {
-    let s = roster.listed[listed].squad;
-    let route = squads.route[s].clone();
-    let turned =
-        turn::begin(squads, &mut field.columns, &roster.listed[listed], travel, route.as_ref());
-    if turned == ABOUT_FACED {
-        squads.swaps[s].clear();
-    }
-    turned != KEPT
 }
 
 /// FormationSimulation._step: how far the squad steps this tick (tiles), its frame swept
@@ -333,11 +314,6 @@ fn along(squads: &Squads, s: usize) -> Along {
         order: squads.order[s],
         direction: squads.direction[s],
     }
-}
-
-/// SkirmishSquad.facing: the four-way facing nearest a heading (an exact diagonal rounds up).
-fn facing_of(heading: f64) -> i64 {
-    ((heading / 90.0).round() as i64).rem_euclid(4)
 }
 
 /// The bodies lying on the field as the tick's moves find them (GroundBodies.ground): the

@@ -45,6 +45,13 @@ pub fn disorder(columns: &Columns, listed: &Listed, t: &DisciplineTuning) -> f64
     1.0 - held as f64 / t.meets_threats as f64
 }
 
+/// FormationDiscipline.reform_pace of a formation whose discipline is `held`: how fast its
+/// units walk to new places, a share of the march pace, `reform` [march_pace_at, slowest,
+/// fastest].
+pub fn reform_pace(held: i64, [at, slowest, fastest]: [f64; 3]) -> f64 {
+    (held as f64 / at).clamp(slowest, fastest)
+}
+
 /// FormationDiscipline.unit_discipline: the unit in store slot `slot`'s, bolstered by its
 /// squad's best leader, whose leadership is `leadership`.
 pub fn unit(columns: &Columns, slot: usize, leadership: i64, t: &DisciplineTuning) -> i64 {

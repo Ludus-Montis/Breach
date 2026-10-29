@@ -75,11 +75,10 @@ fn regrouper(
     let s = listed.squad;
     let loose = !squads.loose[s].is_empty();
     let held = discipline::of(&field.columns, listed, &rules.discipline);
-    let [at, slowest, fastest] = rules.reform;
     Regrouper {
         listed: n,
         drilled: loose && squads.order[s] == RETREAT && held >= rules.discipline.meets_threats,
-        reform: if loose { (held as f64 / at).clamp(slowest, fastest) } else { 0.0 },
+        reform: if loose { discipline::reform_pace(held, rules.reform) } else { 0.0 },
         withdrawing: squads.withdraw[s].is_some(),
         homes: if loose { returns(squads, field, listed, ground, rules) } else { Vec::new() },
     }

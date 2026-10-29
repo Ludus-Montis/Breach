@@ -218,16 +218,7 @@ func _after_seek(sim: Sim, scrum: Array, events: Array) -> void:
 	var scrum_events := []
 	ScrumRegroup.step(sim._field, roster, ctx)
 	_lap("scrum: regroup and chasers")
-	FormationWithdraw.step(
-		squads,
-		tick,
-		ctx["pace"],
-		sim.tick_seconds,
-		sim.fight_seed,
-		sim.terrain,
-		scrum_events,
-		roster
-	)
+	FormationWithdraw.step(sim._field, roster, ctx, scrum_events)
 	_lap("scrum: withdraw")
 	FormationPursuit.step(squads, tick, pace, sim.tick_seconds, scrum_events, roster)
 	Scrum._stall(sim._field, roster, ctx["active"], [tick, sim.tick_seconds], scrum_events)
