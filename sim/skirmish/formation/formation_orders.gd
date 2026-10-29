@@ -10,9 +10,9 @@ extends RefCounted
 ## what a retreat reads (whether a squad may pursue, its units' chances to break ranks and
 ## leashes: FormationDiscipline's rules, on their sheets), the shock and the events, built as
 ## data (`orders/pass.rs`, step 8b5-v): this hands it the squads' roster (CrateRoster),
-## takes its events (CrateEvents) and lands the routes its pursuers take on GDScript's copies
-## (the route each held its post on the crate keeps, step 8b5-xvi, and each route's code,
-## 8b5-xxxvi).
+## takes its events (CrateEvents). The routes its pursuers take, and the route each held its
+## post on, are the crate's with their codes (steps 8b5-xvi and 8b5-xxxvi), which GDScript's
+## route reads (SkirmishSquad.route, step 8b5-xxxvii).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -27,15 +27,8 @@ static func apply(
 	if pending.is_empty() or squads.is_empty():
 		return
 	var field: Object = squads[0].store.field()
-	var pursuers: PackedInt64Array = field.apply_orders(
-		CrateRoster.of(squads), rules(), BandTuning.rules(), tick, fight_seed
-	)
+	field.apply_orders(CrateRoster.of(squads), rules(), BandTuning.rules(), tick, fight_seed)
 	events.append_array(CrateEvents.taken(field))
-	for at in range(0, pursuers.size(), 4):  # its post's route the crate keeps
-		var quarry: SkirmishSquad = squads[pursuers[at]]
-		var enemy: SkirmishSquad = squads[pursuers[at + 1]]
-		if pursuers[at + 3] != 0:
-			enemy.route = quarry.route  # the route its quarry flees by (Decision 113)
 
 
 ## The tuning the pass reads: the pursuit's, then FormationDiscipline's.

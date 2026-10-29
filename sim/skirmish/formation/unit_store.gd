@@ -21,6 +21,7 @@ var columns: UnitColumns = UnitColumns.new()
 var squads: SquadColumns = SquadColumns.new()  # the squad store (spec 39 step 1)
 var records: SquadRecords  # the squads' records there (spec 39 step 4b)
 var orders: OrderRecords  # their pursuits and withdrawals (spec 39 step 7c)
+var routes: SquadRoutes  # the routes they follow (spec 39 step 8b5-xxxvii)
 var fallen: FellQueue = FellQueue.new()  # the units an hp write took to 0 or below (UnitHealth)
 var _records := {}  # unit id -> its record, kept in GDScript
 var _definitions: Array[Resource] = []  # its units' definitions, by code (spec 39 step 8b5-iii)

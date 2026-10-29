@@ -7,9 +7,9 @@ extends RefCounted
 ## seeking, rescuers and the wits beat to come), so each decides on the same picture and
 ## none searches again. A pair too far apart for either's widest sight to reach is skipped
 ## before any unit is looked at, so the gather grows with the formations near each other,
-## not with every pair. Pure. The rules are the crate's (`perception.rs`, spec 39 step 4c).
+## not with every pair. The rules are the crate's (`perception.rs`, spec 39 step 4c), which
+## keeps each one's threat (SkirmishSquad.threatened, step 8b5-xxxvii).
 
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
 
@@ -34,9 +34,3 @@ static func see(
 		at += 1 + flat[at]
 		out[squad.id] = {"seen": seen, "threat": not seen.is_empty()}
 	return out
-
-
-## True if `squad` was threatened in `perception` (FormationPerception.see), false if it
-## wasn't or isn't in it.
-static func threatened(perception: Dictionary, squad: SkirmishSquad) -> bool:
-	return perception.get(squad.id, {}).get("threat", false)

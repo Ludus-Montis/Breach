@@ -19,29 +19,24 @@ extends RefCounted
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
-const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
 ## One tick: takers whose work is done come back, then groups send free units out - none
-## from a group threatened in `perception` (FormationPerception.see), whose takers all
+## from a group threatened as the tick's perception looked (FormationPerception.see; the
+## crate keeps it, SkirmishSquad.threatened, spec 39 step 8b5-xxxvii), whose takers all
 ## come back.
-static func step(
-	squads: Array, tick: int, seconds: float, fight_seed: int, events: Array, perception := {}
-):
+static func step(squads: Array, tick: int, seconds: float, fight_seed: int, events: Array):
 	if squads.is_empty():
 		return
-	var threatened := PackedInt32Array()
 	for squad: SkirmishSquad in squads:
 		squad.living()  # its members written to the squad store, if its lists changed
-		threatened.append(int(FormationPerception.threatened(perception, squad)))
 	var listed := FormationLocks.slots(squads)
 	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
 	var tuning := PackedFloat64Array([_tuning().take_hold, _tuning().take_reach])
 	ColumnsLent.all(
-		columns,
-		func(): return field.taking_step(listed, threatened, tick, seconds, fight_seed, tuning)
+		columns, func(): return field.taking_step(listed, tick, seconds, fight_seed, tuning)
 	)
 	events.append_array(CrateEvents.taken(field))  # "sent_to_take"
 

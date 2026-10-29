@@ -37,7 +37,7 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 ## stances, the manoeuvres, the seek, walk and facing, the regroup and chasers, the
 ## withdrawal, the pursuit and the stall, over one roster (CrateRoster): nobody falls in the
 ## scrum. Each phase's class hands it its rules. The pursuers back at their posts hold their
-## own routes again in GDScript (FormationPursuit.mirror). Returns the scrum's events
+## own routes again in the crate, which GDScript's route reads. Returns the scrum's events
 ## ("engaged", "faced", "disengaged" and the rest) in the order its phases told them.
 static func step(
 	squads: Array,
@@ -57,7 +57,7 @@ static func step(
 	ctx["cells_per_second"] = cells_per_second
 	var tuning := BattleTuning.current()
 	var stall := roundi(tuning.scrum_stall_seconds / tick_seconds)
-	var back: PackedInt32Array = field.scrum_step(
+	field.scrum_step(
 		roster,
 		UnitMover.ground(terrain),
 		PackedInt64Array([tick, fight_seed, tuning.combat_contest_die, stall]),
@@ -69,10 +69,7 @@ static func step(
 		FormationPursuit.rules(cells_per_second, tick_seconds)
 	)
 	ScrumSeek.clock_usec += field.usec()  # the seek's own time, for the benches
-	var events := CrateEvents.taken(field)
-	for index in back:
-		FormationPursuit.mirror(squads[index], field)
-	return events
+	return CrateEvents.taken(field)
 
 
 static func regrouping(squad: SkirmishSquad) -> bool:
