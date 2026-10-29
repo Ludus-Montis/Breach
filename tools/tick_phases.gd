@@ -265,11 +265,10 @@ func _seek(ctx: Dictionary) -> void:
 
 
 func _scrum_events(sim: Sim, roster: Object) -> Array:
-	var squads := sim.squads()
 	var events := ScrumEngage.step(sim._field, roster, sim.tick_number(), sim.fight_seed)
-	for squad in squads:
-		Scrum._prepare(squad, sim.tick_number())
-	ScrumStance.anticipate_all(squads, sim.tick_number(), events, sim.terrain, sim.fight_seed)
+	Scrum._prepare(sim._field, roster, sim.tick_number())
+	var when := [sim.tick_number(), sim.fight_seed]
+	ScrumStance.anticipate_all(sim._field, roster, when, sim.terrain, events)
 	FormationManoeuvre.step(sim._field, roster)
 	_lap("scrum: engage, prepare, stance")
 	return events

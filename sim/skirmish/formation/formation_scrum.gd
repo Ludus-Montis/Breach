@@ -31,7 +31,6 @@ const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
-const SquadRanks = preload("res://sim/skirmish/formation/squad_ranks.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
 const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
@@ -41,8 +40,6 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 
 const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
 const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; the seek, the
@@ -62,9 +59,8 @@ static func step(
 		field = squads[0].store.field()
 	var roster := CrateRoster.of(squads, terrain)  # who is living, through the scrum
 	var events := ScrumEngage.step(field, roster, tick, fight_seed)
-	for squad in squads:
-		_prepare(squad, tick)
-	ScrumStance.anticipate_all(squads, tick, events, terrain, fight_seed)
+	_prepare(field, roster, tick)
+	ScrumStance.anticipate_all(field, roster, [tick, fight_seed], terrain, events)
 	FormationManoeuvre.step(field, roster)
 	var ctx := {
 		"squads": squads,
@@ -95,31 +91,14 @@ static func regrouping(squad: SkirmishSquad) -> bool:
 	return squad.store.field().squad_regrouping(squad.slot)
 
 
-static func _prepare(squad: SkirmishSquad, tick: int) -> void:
-	if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
-		SquadEntries.unloose_all(squad)
-		squad.stance = {}
-		squad.fight_since = -1
-		return
-	for unit_id in squad.loose.keys():
-		if not squad.loose[unit_id].is_alive():
-			SquadEntries.unloose(squad, unit_id)
-	var fighting := squad.state == SkirmishSquad.State.FIGHTING
-	if fighting and squad.fight_since < 0:
-		squad.fight_since = tick
-		squad.fought = true
-		squad.stall_ticks = 0
-	elif not fighting:
-		if squad.fight_since >= 0:
-			SquadRanks.close(squad)  # the dead leave holes: the living close up
-		squad.fight_since = -1
-	if not fighting and squad.stance.is_empty():
-		return
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	for unit in squad.living():
-		if not squad.loose.has(unit.id):
-			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, stood)
+## Readies each squad for the scrum, in the crate (`scrum::prepare::prepare`, spec 39 step
+## 8b5-xii): a routing or destroyed one lets its loose units, its stance and its fight go;
+## the fallen leave their loose entries; a fight beginning is marked (`fight_since`,
+## `fought`), and one ending closes its ranks over the dead (SquadRanks); a squad fighting,
+## or holding a stance, sends each living unit loose where it stands.
+static func _prepare(field: Object, roster: Object, tick: int) -> void:
+	if field != null:
+		field.scrum_prepare(roster, tick)
 
 
 ## Plans every fighting squad's seekers (ScrumSeek), then walks and turns its units, on the
