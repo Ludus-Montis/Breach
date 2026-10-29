@@ -3,10 +3,10 @@
 //! (`orders::pass`), each squad sees (`perception::see`), the fronts and then the edges lock
 //! (`contact::pass`), the groups find their way (`pathing::pass`, on ground only), and the
 //! squads move and join (`moving::pass`, `joins::step`), all over one roster, every pass's
-//! events in the log in that order. The routes GDScript holds are objects still, so each
-//! listed squad's route comes as a code (the same code, the same route; -1 none), and this
-//! keeps the codes as GDScript's mirrors would leave them: a pursuer that took its quarry's
-//! route holds it (and its code), and a group that re-routed holds a route of its own.
+//! events in the log in that order. Each squad's route is named by the code the crate holds
+//! (`Squads::route_code`, spec 39 step 8b5-xxxvi; the same code, the same route; -1 none): a
+//! pursuer that took its quarry's route holds it and its code, and a group that re-routed a
+//! code of its own (`pathing::pass`).
 
 use crate::bands::BandTuning;
 use crate::contact::pass::{self as contact, Impacts};
@@ -50,18 +50,18 @@ pub struct Opened {
     pub joins: Vec<(usize, usize)>,
 }
 
-/// The opening over `roster`'s squads, each listed squad's route coded in `codes`; `over`
-/// the ground and its paths (none: open ground, where no group looks).
+/// The opening over `roster`'s squads; `over` the ground and its paths (none: open ground,
+/// where no group looks).
 pub fn step(
     squads: &mut Squads,
     field: &mut Field,
     roster: &Roster,
     mut over: Option<&mut Over>,
-    (rules, mut codes): (&Rules, Vec<i64>),
+    rules: &Rules,
     log: &mut Log,
 ) -> Opened {
     let (tick, seed) = (rules.tick, rules.seed);
-    let pursuers = order(squads, field, roster, (rules, &mut codes), log);
+    let pursuers = order(squads, field, roster, rules, log);
     let ground = over.as_ref().map(|o| o.ground);
     let seen = perception::see(squads, &field.columns, roster, ground);
     contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
@@ -74,8 +74,7 @@ pub fn step(
         }
         None => Vec::new(),
     };
-    rerouted(&mut codes, roster, &followed);
-    let routes: Vec<u32> = codes.iter().map(|&code| code as u32).collect();
+    let routes = routes(squads, roster);
     let given = Given { routes: &routes, ..rules.moving };
     let ground = over.as_ref().map(|o| o.ground);
     let joiners = moving::step(squads, field, roster, ground, &given, log);
@@ -84,12 +83,12 @@ pub fn step(
 }
 
 /// The orders' pass, its routes read only when an order retreats; each pursuer that took
-/// its quarry's route holds it, and its code, as `enemy.route = quarry.route` left it.
+/// its quarry's route holds it, and its code (`took`).
 fn order(
     squads: &mut Squads,
     field: &mut Field,
     roster: &Roster,
-    (rules, codes): (&Rules, &mut [i64]),
+    rules: &Rules,
     log: &mut Log,
 ) -> Vec<[i64; 4]> {
     if squads.pending.is_empty() {
@@ -97,7 +96,7 @@ fn order(
     }
     let retreats = squads.pending.iter().any(|&(_, order)| order == locks::RETREAT);
     let given = ordering::Given {
-        routes: if retreats { coded(squads, roster, codes) } else { Vec::new() },
+        routes: if retreats { coded(squads, roster) } else { Vec::new() },
         within: rules.within,
         ragged_shock: rules.ragged_shock,
         discipline: &rules.discipline,
@@ -112,38 +111,37 @@ fn order(
             flat.push([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
         }
     }
-    for &[quarry, enemy, _, took] in &flat {
+    took(squads, roster, &flat);
+    flat
+}
+
+/// Each pursuer in `pursuers` (as `order` hands them back) that took its quarry's route
+/// holds it and its code, as `enemy.route = quarry.route` leaves GDScript's.
+pub fn took(squads: &mut Squads, roster: &Roster, pursuers: &[[i64; 4]]) {
+    for &[quarry, enemy, _, took] in pursuers {
         if took != 0 {
-            let (quarry, enemy) = (quarry as usize, enemy as usize);
-            let route = squads.route[roster.listed[quarry].squad].clone();
-            squads.route[roster.listed[enemy].squad] = route;
-            codes[enemy] = codes[quarry];
+            let quarry = roster.listed[quarry as usize].squad;
+            let enemy = roster.listed[enemy as usize].squad;
+            squads.route[enemy] = squads.route[quarry].clone();
+            squads.route_code[enemy] = squads.route_code[quarry];
         }
     }
-    flat
 }
 
 /// Each listed squad's route as a retreat reads it: its code and the route the crate holds
 /// (none for -1).
-pub fn coded(squads: &Squads, roster: &Roster, codes: &[i64]) -> Vec<Coded> {
-    let held = |n: usize| squads.route[roster.listed[n].squad].clone();
-    codes
-        .iter()
-        .enumerate()
-        .map(|(n, &code)| (code, if code >= 0 { held(n) } else { None }))
-        .collect()
+pub fn coded(squads: &Squads, roster: &Roster) -> Vec<Coded> {
+    let held = |s: usize| squads.route[s].clone();
+    let code = |s: usize| squads.route_code[s];
+    let listed = roster.listed.iter().map(|l| l.squad);
+    listed.map(|s| (code(s), if code(s) >= 0 { held(s) } else { None })).collect()
 }
 
-/// A group that re-routed holds a route of its own (FormationPathing._follow makes a new
-/// one), so each takes a code no other route has.
-fn rerouted(codes: &mut [i64], roster: &Roster, followed: &[usize]) {
-    let mut fresh = codes.len() as i64;
-    for &slot in followed {
-        if let Some(n) = roster.listed.iter().position(|l| l.squad == slot) {
-            codes[n] = fresh;
-            fresh += 1;
-        }
-    }
+/// Each listed squad's route code as the move reads it (staging's partners: the same code,
+/// the same route).
+pub fn routes(squads: &Squads, roster: &Roster) -> Vec<u32> {
+    let codes = squads.route_codes(roster.listed.iter().map(|l| l.squad));
+    codes.into_iter().map(|code| code as u32).collect()
 }
 
 #[cfg(test)]

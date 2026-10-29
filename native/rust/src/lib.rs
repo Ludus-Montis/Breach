@@ -120,6 +120,9 @@ struct BodyField {
     edits: i64,
     /// The events the passes have built and GDScript hasn't yet taken (spec 39 step 8b5-v).
     events: events::Log,
+    /// The code the crate gave each GDScript route it was handed (by the route's instance
+    /// id; spec 39 step 8b5-xxxvi): the same object, the same code (`Squads::route_code`).
+    route_objects: std::collections::HashMap<i64, i64>,
 }
 
 #[godot_api]
@@ -2738,7 +2741,8 @@ impl BodyField {
     }
 
     /// The route the squad in `squad` follows, as GDScript's SkirmishSquad.route sets it:
-    /// its `points` and corridor's `half_width`, or none if `routed` is false.
+    /// its `points` and corridor's `half_width`, or none if `routed` is false; `object` names
+    /// the route (its instance id), whose code the squad holds (`squad_route_code`).
     #[func]
     fn squad_put_route(
         &mut self,
@@ -2746,9 +2750,23 @@ impl BodyField {
         routed: bool,
         points: PackedVector2Array,
         half_width: f64,
+        object: i64,
     ) {
-        self.squads.route[squad as usize] =
-            routed.then(|| route::Route::new(v2s(&points), half_width));
+        let s = squad as usize;
+        self.squads.route[s] = routed.then(|| route::Route::new(v2s(&points), half_width));
+        self.squads.route_code[s] = if routed {
+            let squads = &mut self.squads;
+            *self.route_objects.entry(object).or_insert_with(|| squads.issue_route())
+        } else {
+            -1
+        };
+    }
+
+    /// The code naming the route the squad in `squad` follows (-1: none; the same code, the
+    /// same route).
+    #[func]
+    fn squad_route_code(&self, squad: i64) -> i64 {
+        self.squads.route_code[squad as usize]
     }
 
     /// The points of the route the squad in `squad` follows (none: a straight lane).
@@ -3282,8 +3300,9 @@ impl BodyField {
 #[godot_api(secondary)]
 impl BodyField {
     /// FormationOrders.apply over `roster`'s squads: the orders queued (`orders::queue`), in
-    /// the order given, which it takes (`orders::pass`). Per listed squad a code naming the
-    /// route it holds (-1: none, the straight lane; empty when no order retreats). `rules`:
+    /// the order given, which it takes (`orders::pass`), each squad's route as its code names
+    /// it (`squad_route_code`), and a pursuer that took its quarry's route holds its code too.
+    /// `rules`:
     /// [pursuit_tempted_within, pursuit_ragged_shock, discipline_per_leadership,
     /// discipline_meets_threats, discipline_expected_max, how many leash shares follow, the
     /// shares, the leash steps]; `bands`: morale's (`bands::BandTuning`). Its events go to the
@@ -3294,7 +3313,6 @@ impl BodyField {
     fn apply_orders(
         &mut self,
         roster: Gd<SquadRoster>,
-        routes: PackedInt64Array,
         rules: PackedFloat64Array,
         bands: PackedInt64Array,
         tick: i64,
@@ -3305,7 +3323,7 @@ impl BodyField {
         let bands = bands::BandTuning::of_slice(bands.as_slice());
         let roster = roster.bind();
         let given = orders::pass::Given {
-            routes: opening::coded(&self.squads, &roster.roster, routes.as_slice()),
+            routes: opening::coded(&self.squads, &roster.roster),
             within: r[0],
             ragged_shock: r[1] as i64,
             discipline: &discipline,
@@ -3316,13 +3334,14 @@ impl BodyField {
         let (squads, columns) = (&mut self.squads, &mut self.field.columns);
         let applied = orders::pass::pass(squads, columns, &roster.roster, given, &mut self.events);
         self.edits += 1;
-        let mut flat: Vec<i64> = Vec::new();
+        let mut pursuers = Vec::new();
         for a in applied {
             for p in a.retreat.unwrap_or_default() {
-                flat.extend([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
+                pursuers.push([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
             }
         }
-        PackedInt64Array::from(flat.as_slice())
+        opening::took(&mut self.squads, &roster.roster, &pursuers);
+        PackedInt64Array::from(pursuers.as_flattened())
     }
 
     /// The events the passes have built since last taken, flat (`events::Log`); the log is
@@ -3473,8 +3492,8 @@ impl BodyField {
         PackedFloat64Array::from(ended.as_slice())
     }
 
-    /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`): per
-    /// listed squad its route's code (`routes`, FormationStaging's); `tuning`: [TRAVEL_SCALE,
+    /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`), each
+    /// squad's route named by its code (`squad_route_code`); `tuning`: [TRAVEL_SCALE,
     /// seconds a tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
     /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block, wounds_reach, walk_lost].
     /// Each squad's share of its pace is worked out here (`moving::share`, by the fight's
@@ -3485,7 +3504,6 @@ impl BodyField {
     fn move_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        routes: PackedInt32Array,
         ground: Option<Gd<TerrainGround>>,
         tick: i64,
         seed: i64,
@@ -3493,7 +3511,7 @@ impl BodyField {
     ) -> PackedInt32Array {
         let roster = roster.bind();
         let t = tuning.as_slice();
-        let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
+        let routes = opening::routes(&self.squads, &roster.roster);
         let given = moving_given(&routes, tick, seed, t);
         let (squads, field, events) = (&mut self.squads, &mut self.field, &mut self.events);
         let joiners = on_ground(ground, |g| {
@@ -3506,8 +3524,8 @@ impl BodyField {
 
     /// FormationSimulation's opening over `roster`'s squads on `ground` (`opening::step`): the
     /// orders queued, the perception, the fronts and edges, the pathing (on ground only) and
-    /// the move with its joins, every pass's events in the log (`events_take`). `codes`: each
-    /// listed squad's route as a code (-1: none); `ints`: [tick, seed]; `orders`:
+    /// the move with its joins, every pass's events in the log (`events_take`), each squad's
+    /// route named by its code (`squad_route_code`). `ints`: [tick, seed]; `orders`:
     /// `apply_orders`' rules; `bands`: morale's; `impacts`: `contact_edges`'; `looks`:
     /// `path_step`'s; `moving`: `move_step`'s. Returns, flat: how many pursuers, four numbers
     /// each (`apply_orders`'); how many slots re-routed, then each; per listed squad how many
@@ -3517,7 +3535,6 @@ impl BodyField {
     fn opening_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        codes: PackedInt64Array,
         ground: Option<Gd<TerrainGround>>,
         ints: PackedInt64Array,
         orders: PackedFloat64Array,
@@ -3541,13 +3558,12 @@ impl BodyField {
             moving: moving_given(&[], tick, seed, moving.as_slice()),
         };
         let roster = roster.bind();
-        let codes = codes.to_vec();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let opened = match ground {
             Some(ground) => on_paths(ground, climb, |over| {
-                opening::step(squads, field, &roster.roster, Some(over), (&rules, codes), log)
+                opening::step(squads, field, &roster.roster, Some(over), &rules, log)
             }),
-            None => opening::step(squads, field, &roster.roster, None, (&rules, codes), log),
+            None => opening::step(squads, field, &roster.roster, None, &rules, log),
         };
         self.edits += 1;
         let mut flat = vec![opened.pursuers.len() as i64];
@@ -3781,8 +3797,9 @@ impl BodyField {
 impl BodyField {
     /// FormationGroups.step as one pass (`groups::pass::step`) over `roster`'s squads: the
     /// groups fallen behind split off, each opened with the battle's next id, then the groups
-    /// at ease forming up, every meeting landed, their events in the log. `routes`: a code for
-    /// each squad's route (the same code, the same route). `rules`: [walk_lost, group_join,
+    /// at ease forming up, every meeting landed, their events in the log; each squad's route
+    /// named by its code (`squad_route_code`), a split's group holding its own squad's.
+    /// `rules`: [walk_lost, group_join,
     /// cells per tile]; `at`: [tick, seed]. Returns what it did, in order: [0, the listed squad
     /// split from, the slot opened, count, its units (indices into that squad's living as
     /// listed)...] a split; [1, taker, taken] a group taken in; [2, from, home, count, unit
@@ -3792,7 +3809,6 @@ impl BodyField {
     fn groups_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        routes: PackedInt64Array,
         rules: PackedFloat64Array,
         at: PackedInt64Array,
     ) -> PackedInt64Array {
@@ -3803,8 +3819,7 @@ impl BodyField {
         };
         let rules = split::Rules { lost, join, seed, cells_per_tile };
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
-        let routes = (&roster.roster, routes.as_slice());
-        let landed = groups::pass::step(squads, field, routes, &rules, tick, log);
+        let landed = groups::pass::step(squads, field, &roster.roster, &rules, tick, log);
         self.edits += 1;
         let mut out = Vec::new();
         for done in landed {

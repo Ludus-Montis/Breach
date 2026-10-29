@@ -73,6 +73,7 @@ fn adopting(ids: &[i64]) -> (Squads, Field) {
     squads.width[0] = 4;
     squads.command[0] = Some(3);
     squads.route[0] = Some(route());
+    squads.route_code[0] = 6;
     for (n, &id) in ids.iter().enumerate() {
         let slot = field.hold(id) as usize;
         field.columns.position[slot] = V2::new(32.0 + n as f32, 1.5);
@@ -105,6 +106,7 @@ fn a_stray_leaves_its_squad_as_a_routing_squad_of_its_own_set_off_home() {
     assert_eq!((squads.state[1], squads.morale[1]), (ROUTING, 0));
     assert_eq!(squads.command[1], Some(3));
     assert_eq!(squads.route[1], Some(route()));
+    assert_eq!(squads.route_code[1], 6, "and its code");
     assert_eq!(squads.front_distance[1], 0.5); // where it stands: 32 cells along
     assert_eq!(squads.position[1], V2::new(32.0, 0.0));
     assert_eq!(squads.fleeing[1], vec![4]);

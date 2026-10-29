@@ -37,21 +37,21 @@ pub enum Landed {
     Returned { from: usize, home: usize, units: Vec<i64> },
 }
 
-/// FormationGroups.step over `roster`'s squads: `routes` holds a code for each one's route
-/// (the same code, the same route); `rules` the split's, with group_join for forming up too.
+/// FormationGroups.step over `roster`'s squads, each one's route named by its code
+/// (`Squads::route_code`: the same code, the same route); `rules` the split's, with
+/// group_join for forming up too.
 pub fn step(
     squads: &mut Squads,
     field: &mut Field,
-    (roster, routes): (&Roster, &[i64]),
+    roster: &Roster,
     rules: &Rules,
     tick: i64,
     log: &mut Log,
 ) -> Vec<Landed> {
     let mut landed = Vec::new();
     let mut listed = roster.listed.clone();
-    let mut routes = routes.to_vec();
-    split_off(squads, field, (&mut listed, &mut routes), rules, tick, log, &mut landed);
-    meet(squads, field, (&listed, &routes), rules, tick, log, &mut landed);
+    split_off(squads, field, &mut listed, rules, tick, log, &mut landed);
+    meet(squads, field, &listed, rules, tick, log, &mut landed);
     landed
 }
 
@@ -64,7 +64,7 @@ fn at_ease(squads: &Squads, s: usize) -> bool {
 fn split_off(
     squads: &mut Squads,
     field: &mut Field,
-    (listed, routes): (&mut Vec<Listed>, &mut Vec<i64>),
+    listed: &mut Vec<Listed>,
     rules: &Rules,
     tick: i64,
     log: &mut Log,
@@ -90,7 +90,6 @@ fn split_off(
         let living = s.members.iter().map(|&m| source.living[m].clone()).collect();
         let id = squads.id[slot];
         listed.push(Listed { squad: slot, id, joined: false, living, ..source.clone() });
-        routes.push(routes[from]);
         landed.push(Landed::Split { from, slot, members: s.members });
     }
 }
@@ -149,6 +148,7 @@ fn open(
     let home = squads.home_distance[group] * CELLS_PER_TILE as f64;
     squads.position[group] = turn::place(route.as_ref(), home);
     squads.route[group] = route;
+    squads.route_code[group] = squads.route_code[own];
     squads.front_distance[group] = front;
     squads.heading[group] = squads.heading[own];
     squads.order[group] = squads.order[own];
@@ -162,7 +162,7 @@ fn open(
 fn meet(
     squads: &mut Squads,
     field: &mut Field,
-    (listed, routes): (&[Listed], &[i64]),
+    listed: &[Listed],
     rules: &Rules,
     tick: i64,
     log: &mut Log,
@@ -175,8 +175,7 @@ fn meet(
         return;
     }
     let roster = Roster { listed: at.iter().map(|&n| listed[n].clone()).collect() };
-    let groups: Vec<Group> =
-        at.iter().map(|&n| group(squads, field, &listed[n], routes[n])).collect();
+    let groups: Vec<Group> = at.iter().map(|&n| group(squads, field, &listed[n])).collect();
     let meetings = form_up(squads, &field.columns, &roster, &groups, rules.join, rules.seed);
     for meeting in meetings {
         landed.push(match meeting {
@@ -197,7 +196,7 @@ fn meet(
 
 /// The listed group as forming up reads it: its command and route, and each living unit's
 /// leading, its "joins" and "gathers" traits and the command it started under.
-fn group(squads: &Squads, field: &Field, listed: &Listed, route: i64) -> Group {
+fn group(squads: &Squads, field: &Field, listed: &Listed) -> Group {
     let columns = &field.columns;
     let has =
         |slot: usize, name: &str| field.lexicon.level(&columns.words[slot].traits, name).is_some();
@@ -212,7 +211,7 @@ fn group(squads: &Squads, field: &Field, listed: &Listed, route: i64) -> Group {
         })
         .collect();
     let command = squads.command[listed.squad].map_or(u32::MAX, |c| c as u32);
-    Group { command, route: route as u32, followers }
+    Group { command, route: squads.route_code[listed.squad] as u32, followers }
 }
 
 /// FormationGroups._take_in: the squad in `taken` taken in behind the one in `taker`.
