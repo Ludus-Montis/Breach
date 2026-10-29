@@ -3732,6 +3732,39 @@ impl BodyField {
         self.edits += 1;
     }
 
+    /// FormationMarch.sync_units over the listed squads (their slots, in the lists' order;
+    /// `march::sync::step`): each living unit's distance along the route, a router on its
+    /// route, a loose one where it stood; with `timing` empty each in its frame placed,
+    /// facing the heading, else ([seconds, cells a second at speed 1]) walked a tick on
+    /// `ground` to where it makes for over the bodies lying, a fall from a climb face hurting
+    /// it. `tuning`: CrateMarch.walk_tuning, then wounds_reach.
+    #[func]
+    fn march_sync(
+        &mut self,
+        listed: PackedInt32Array,
+        timing: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let t = timing.as_slice();
+        let timing = (t.len() >= 2).then(|| [t[0], t[1]]);
+        let wounds_reach = tuning.as_slice()[9];
+        let (squads, field) = (&self.squads, &mut self.field);
+        on_ground(ground, |ground| {
+            let given = march::sync::Given {
+                ground,
+                timing,
+                seed,
+                wounds_reach,
+                tuning: walk_tuning_of(&tuning),
+            };
+            march::sync::step(squads, field, &listed, &given);
+        });
+        self.edits += 1;
+    }
+
     /// How far each unit in the squad in `squad`'s held swaps is through its move, three
     /// numbers a unit: its id, ranks forward, columns across (`swaps::offsets`).
     #[func]
