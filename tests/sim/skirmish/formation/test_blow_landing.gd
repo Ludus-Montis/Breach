@@ -2,13 +2,18 @@ extends GdUnitTestSuite
 ## BlowLanding, per Decision 118 (spec 28 part 4): with rolls on, a tick's blows are each
 ## rolled against their targets - a wavering formation's land worse, a unit fought by two
 ## foes is struck more surely - and the same seed lands them the same; with rolls off,
-## every blow is a plain hit.
+## every blow is a plain hit. Each blow lands with the arms the crate holds for its units
+## (spec 39 step 8b5-xviii).
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
+const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
+const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
+const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 
 const TICK := 0.1
 const LANDED := ["grazed", "hit", "critical"]
@@ -74,3 +79,30 @@ func test_a_unit_fought_by_two_is_struck_more_surely() -> void:
 
 func test_the_same_seed_lands_the_same_blows() -> void:
 	assert_array(_duel(1, true, -1, 300)).is_equal(_duel(1, true, -1, 300))
+
+
+## A squad of one unit of `faction` in `store`.
+func _one(unit_id: int, faction: String, store: UnitStore) -> SkirmishSquad:
+	var unit := SkirmishUnit.new()
+	unit.id = unit_id
+	unit.faction_id = faction
+	unit.max_hp = 10
+	var typed: Array[SkirmishUnit] = [unit]
+	return SkirmishSquad.new(unit_id, faction, 1, 0.0, 1, typed, null, store)
+
+
+func test_a_blow_lands_with_the_arms_the_crate_holds_for_its_units() -> void:
+	var store := NativeKernels.unit_store(null)
+	var ours := _one(1, "player", store)
+	var theirs := _one(2, "the_kingdom", store)
+	var striker: SkirmishUnit = ours.units[0]
+	var target: SkirmishUnit = theirs.units[0]
+	striker.melee_parts = [[6.0, "fire", true]]
+	target.weaknesses = ["fire"]
+	target.ward = 1
+	var blows := [[striker, target, 6, false]]
+
+	BlowLanding.land(blows, [], [ours, theirs], null, [])
+
+	var weak := BattleTuning.current().damage_weak
+	assert_array(blows[0].slice(2)).is_equal([maxi(1, roundi(6 * weak - 1)), false, "hit"])

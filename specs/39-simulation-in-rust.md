@@ -350,7 +350,16 @@ events. After this step no battle phase runs in GDScript.
   surrender and the strike's stamina. The rest follow, renumbered: **8b5-xix** deaths;
   **8b5-xx** taking, wounds, recovery and strays; **8b5-xxi** morale, the rout and carrying;
   **8b5-xxii** groups, stamina, the bodies, the shuffle and the march's sync; **8b5-xxiii**
-  one `step()` binding.
+  one `step()` binding. **8b5-xviii split further** (2026-10-29, under the same leave), on
+  its survey (the landing's arms, pressing and bands all lie in the crate, but the hurts'
+  events, the surrender and the stamina are built from GDScript's blows, and the landing's
+  own tests hand it blows of their own): **8b5-xviii** the landing read in the crate (each
+  unit's arms from its sheet and words, who presses each target, each striker's band);
+  **8b5-xix** the fight as one `fight_step` pass (choosing and landing together, the hurts,
+  "hit" and "spat" in the log, the surrender and the strike's stamina). The rest follow,
+  renumbered: **8b5-xx** deaths; **8b5-xxi** taking, wounds, recovery and strays;
+  **8b5-xxii** morale, the rout and carrying; **8b5-xxiii** groups, stamina, the bodies, the
+  shuffle and the march's sync; **8b5-xxiv** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2433,6 +2442,36 @@ Decision's conditions.
   set; a wavering formation's cooldown half again longer (red with the GDScript decoding
   stubbed, then green).
 - **After it**, 8b5-xviii: the blows' landing, hurts, "hit" and "spat", the surrender and the
+  strike's stamina.
+
+### Step 8b5-xviii, the fight's landing read in the crate
+
+- **One call** (`fight::land::land`, `fight_land(roster, blows, rolls, landing tuning,
+  reach_contact, band tuning, ground)`, from BlowLanding.land, which hands it each blow as
+  [striker slot, target slot, damage, 1 if a shot, 1 if from a flank]): each unit's arms
+  read from its sheet (skills, critical, floors, most stamina, dodging, defence, armour,
+  ward, wounding, parries) and its words (its melee and ranged parts, the damage types it
+  is weak to, resists, is immune to and that stop its regeneration, coded afresh for the
+  tick in the order first met as BlowLanding._Arms coded them, so a tick may name 64
+  whatever the lexicon holds; agility from its attributes, else UnitDef.AVERAGE). With
+  rolls on, the field as `fight_choose` synced it this tick (the BodyField keeps whether it
+  did, and `fight_land` takes it), or synced now (`scrum::seek::sync`); then
+  `blows::pressed` over every living unit's target: each striker's squad, whose morale band
+  is `shocks::morale` and `bands::band`, and the foes pressing each target. Then
+  `landing::land`. FormationMelee.blows now also returns the roster it chose over, which
+  FormationSimulation._fight hands BlowLanding.land.
+- **Gone:** the `land_blows` and `pressed` bindings and `arms_of`; BlowLanding's `_Arms`;
+  ScrumBlowsField (scrum_blows_field.gd: `mark`, `synced`, `sync`, `pressed`).
+- **Identical:** the same arms, bands, counts, codes and blows in the same order, so the
+  same rolls and damage. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `fight/tests.rs` (a blow lands with the arms its units' sheets and words
+  hold, a damage type coded past the lexicon's 64th word still found; a wavering
+  formation's blows land less often; a unit both its touching foes fight is struck more
+  surely), red on a stubbed pass, then green. gdUnit `test_blow_landing.gd`: a blow lands
+  with the arms the crate holds for its units (red with the GDScript write stubbed, then
+  green); `test_unit_view.gd`'s hold check now through BodyFieldSync.scrum.
+- **After it**, 8b5-xix: the fight as one `fight_step` pass: the hurts, "hit" and "spat" in
+  the log, the surrender (TAKEN, "surrendered", "destroyed", the locks' release) and the
   strike's stamina.
 
 ## Open, for the implementing session to settle and record here
