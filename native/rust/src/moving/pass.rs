@@ -344,13 +344,13 @@ fn facing_of(heading: f64) -> i64 {
 /// downed and the dead of every listed squad, in the lists' and its members' order, where
 /// each lies, its radius and its footprint's area.
 pub struct Bodies {
-    ats: Vec<V2>,
-    radii: Vec<f64>,
-    areas: Vec<f64>,
+    pub ats: Vec<V2>,
+    pub radii: Vec<f64>,
+    pub areas: Vec<f64>,
 }
 
 impl Bodies {
-    fn of(squads: &Squads, field: &Field, roster: &Roster) -> Bodies {
+    pub fn of(squads: &Squads, field: &Field, roster: &Roster) -> Bodies {
         let columns = &field.columns;
         let mut bodies = Bodies { ats: Vec::new(), radii: Vec::new(), areas: Vec::new() };
         for listed in &roster.listed {
