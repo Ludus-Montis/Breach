@@ -35,6 +35,8 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("pursuit_ended", &[]),
     ("spat", &["unit", "target", "dmg", "damage_type", "blow"]),
     ("hit", &["target", "dmg", "flank", "blow", "target_hp"]),
+    ("surrendered", &["unit"]),
+    ("destroyed", &[]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -60,6 +62,8 @@ pub const REGROUPING: usize = 20;
 pub const PURSUIT_ENDED: usize = 21;
 pub const SPAT: usize = 22;
 pub const HIT: usize = 23;
+pub const SURRENDERED: usize = 24;
+pub const DESTROYED: usize = 25;
 
 /// The kinds told of a unit, not a squad: their third number is the unit's id, and their
 /// faction its own ("hit").

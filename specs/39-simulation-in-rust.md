@@ -373,6 +373,19 @@ events. After this step no battle phase runs in GDScript.
   follow, renumbered: **8b5-xxi** deaths; **8b5-xxii** taking, wounds, recovery and strays;
   **8b5-xxiii** morale, the rout and carrying; **8b5-xxiv** groups, stamina, the bodies, the
   shuffle and the march's sync; **8b5-xxv** one `step()` binding.
+  **8b5-xx split further** (2026-10-29, under the same leave), on its survey (the surrender
+  follows from the pass's own blows, but retiring the test-only pieces moves six test files
+  onto the pass or the crate): **8b5-xx** the surrender in `fight_step` (routers struck for
+  damage while standing, none "never_surrenders", rolled by `wounds::surrenders`; TAKEN,
+  "surrendered", "destroyed" and the locks' release via `locks::release`, GDScript's unit
+  states mirrored); **8b5-xxi** the pieces left only to tests retired (BlowLanding.land,
+  FormationMelee.blows, UnitHealth.hurt_landed, FormationStamina.strike,
+  FormationWounds.surrender and the `fight_choose`, `fight_land`, `fight_hurts`,
+  `stamina_strike` and `wounds_surrenders` bindings, with BodyField's `fight_synced`), their
+  tests moved onto the pass or into the crate. The rest follow, renumbered: **8b5-xxii**
+  deaths; **8b5-xxiii** taking, wounds, recovery and strays; **8b5-xxiv** morale, the rout
+  and carrying; **8b5-xxv** groups, stamina, the bodies, the shuffle and the march's sync;
+  **8b5-xxvi** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2515,6 +2528,31 @@ Decision's conditions.
   `test_formation_fight.gd`: a duel's blows hurt, say "hit" as FormationEvents made it, key
   for key, and tire their strikers (red with the GDScript call stubbed, then green).
 - **After it**, 8b5-xx: the surrender in the pass, and the test-only pieces retired.
+
+### Step 8b5-xx, the surrender in the fight's pass
+
+- **In the pass** (`fight::step::step`, after the strike's stamina): each melee blow, in the
+  order chosen, whose target is a living unit of a ROUTING squad, dealt damage and doesn't
+  have "never_surrenders" is caught; `wounds::surrenders` rolls each (wounds_surrender, now
+  the fifth of `fight_step`'s floats). Each that gives up and still stands (one struck twice
+  gives up once) is TAKEN in the STATE column and "surrendered" (its squad; the unit) goes in
+  the log; a squad left with no one standing, and not yet DESTROYED, is DESTROYED, released
+  with `locks::release` over the roster's squads, and "destroyed" goes in the log. Both kinds
+  are new in `events::KINDS`.
+- **Back to GDScript:** `fight_step` returns the units taken, [listed, member] each, and
+  FormationMelee.fight hands them back; FormationSimulation._fight mirrors each through
+  UnitState.put (its own copy, the squad's kept lists) before CrateEvents takes the log.
+  The squads' states are the crate's already (StoredSquad.state).
+- **Gone:** FormationWounds.surrender's call from the tick. It, and the other pieces left
+  only to tests, stay for their tests till 8b5-xxi.
+- **Identical:** the same caught units, rolls, states, releases and events, in the same
+  order. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `fight/step/tests.rs` (a routing unit struck surrenders and says so; its
+  squad, left with no one, is destroyed and frees its foe; one with "never_surrenders"
+  doesn't), red on a stubbed pass, then green. gdUnit `test_formation_fight.gd`: a router
+  struck in the duel is TAKEN in GDScript's copy as in the crate, and "surrendered" and
+  "destroyed" come after "hit" (red with the GDScript mirror stubbed, then green).
+- **After it**, 8b5-xxi: the pieces left only to tests retired.
 
 ## Open, for the implementing session to settle and record here
 
