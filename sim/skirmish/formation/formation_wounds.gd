@@ -37,6 +37,14 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 	var landed: PackedInt64Array = ColumnsLent.all(
 		columns, func(): return field.wounds_step(listed, at, tuning, BandTuning.rules())
 	)
+	mirror(squads, landed)
+	events.append_array(CrateEvents.taken(field))  # "captured", "sent_home", "finished", ...
+
+
+## GDScript's copies of the bodies `wounds_step` took (five numbers a body: its squad's
+## listed index, its id, its state now, and for one sent home its leader's listed index and
+## id, else -1, -1): each state, and a sending leader's messengers.
+static func mirror(squads: Array, landed: PackedInt64Array) -> void:
 	for n in range(0, landed.size(), 5):  # store: scattered (few: the tick's takings)
 		var squad: SkirmishSquad = squads[landed[n]]
 		var body: SkirmishUnit = squad.store.record_of(landed[n + 1])
@@ -44,7 +52,6 @@ static func tend(squads: Array, tick: int, interval: int, fight_seed: int, event
 		if landed[n + 3] >= 0:  # sent home: its leader has one messenger fewer
 			var leader: SkirmishUnit = squads[landed[n + 3]].store.record_of(landed[n + 4])
 			leader.set_trait("messenger", leader.traits["messenger"] - 1)
-	events.append_array(CrateEvents.taken(field))  # "captured", "sent_home", "finished", ...
 
 
 ## What the downed's passes take of BattleTuning, in the order the crate reads it
