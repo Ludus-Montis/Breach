@@ -3,11 +3,12 @@
 //! faces, or re-forming after a withdrawal or a pursuit - takes its new heading at once, an
 //! about-face reversing its ranks, and its units walk from where they stand to their new
 //! places at its re-form pace. Every unit in its frame is loosened where it stands; the
-//! re-form brings it back (FormationScrum). GDScript cancels the moves under way (its swaps)
-//! after an about-face and adds the events.
+//! re-form brings it back (FormationScrum). Landed (`landed`), an about-face cancels the
+//! moves under way (its swaps) and the turn's events go to the log.
 
 use crate::columns::Columns;
 use crate::entries;
+use crate::events::{self, Log};
 use crate::geometry::{CELLS, RANK_DEPTH};
 use crate::maths::{is_equal_approx, V2};
 use crate::motion::{bearing_to, fposmod};
@@ -62,6 +63,37 @@ pub fn begin(
     } else {
         TURNED
     }
+}
+
+/// ScrumTurn.begin landed: `begin` with the route the squad holds; an about-face cancels
+/// its swaps under way, and a turn logs "turning" and "turned" (its facing, its heading's
+/// bits) on `tick`. True if it turned: its units then re-form before it moves.
+pub fn landed(
+    squads: &mut Squads,
+    columns: &mut Columns,
+    listed: &Listed,
+    travel: i32,
+    tick: i64,
+    log: &mut Log,
+) -> bool {
+    let s = listed.squad;
+    let route = squads.route[s].clone();
+    let turned = begin(squads, columns, listed, travel, route.as_ref());
+    if turned == KEPT {
+        return false;
+    }
+    if turned == ABOUT_FACED {
+        squads.swaps[s].clear();
+    }
+    let faced = [facing_of(squads.heading[s]), squads.heading[s].to_bits() as i64];
+    log.squad(events::TURNING, tick, squads, s, &faced);
+    log.squad(events::TURNED, tick, squads, s, &faced);
+    true
+}
+
+/// SkirmishSquad.facing: the four-way facing nearest a heading (an exact diagonal rounds up).
+pub fn facing_of(heading: f64) -> i64 {
+    ((heading / 90.0).round() as i64).rem_euclid(4)
 }
 
 /// StoredSquad's place: the point `cells` along its route, or along a straight lane on x.

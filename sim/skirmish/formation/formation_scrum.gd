@@ -67,9 +67,7 @@ static func step(
 	}
 	_seek(field, roster, ctx)
 	_regroup(field, roster, ctx)
-	FormationWithdraw.step(
-		squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events, roster
-	)
+	_withdraw(field, roster, ctx, events)
 	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events, roster)
 	_stall(field, roster, ctx["active"], [tick, tick_seconds], events)
 	return events
@@ -106,6 +104,13 @@ static func _seek(field: Object, roster: Object, ctx: Dictionary) -> void:
 static func _regroup(field: Object, roster: Object, ctx: Dictionary) -> void:
 	if field != null:
 		ScrumRegroup.step(field, roster, ctx)
+
+
+## Units of withdrawing squads flee, and those safe long enough re-form, in the crate over
+## the scrum's roster (FormationWithdraw, spec 39 step 8b5-xv).
+static func _withdraw(field: Object, roster: Object, ctx: Dictionary, events: Array) -> void:
+	if field != null:
+		FormationWithdraw.step(field, roster, ctx, events)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while, in

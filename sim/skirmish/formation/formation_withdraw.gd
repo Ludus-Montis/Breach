@@ -21,25 +21,17 @@ extends RefCounted
 ##   all home, with nowhere further to go, re-forms there at once, facing out the way it
 ##   will hold, and fights as any other. Its units fan out no further than a rout's, by its
 ##   disorder.
-## Squads keep `withdraw` ({"safe_ticks"}), a view of their records (OrderRecords). Pure over
-## the squads it is given. Its start is the crate's orders (FormationOrders); the flight, who
-## is engaged, whether it is safe or home, its record and its re-forming are the crate's
-## (`withdraw.rs`, spec 39 steps 4c and 7c): this hands it the squads' roster (CrateRoster),
-## each withdrawing squad's disorder and re-form pace (FormationDiscipline), its route and
-## home and its units' flight angles (RoutFlight.fan), and lands each re-form: its turn
-## (ScrumTurn) and its events.
+## Squads keep `withdraw` ({"safe_ticks"}), a view of their records (OrderRecords). Its start
+## is the crate's orders (FormationOrders); the rest is the crate's over the scrum's roster
+## (`scrum::withdraw::step`, spec 39 step 8b5-xv): each withdrawing squad's disorder and
+## re-form pace (from its units' sheets), its route and home and its units' flight angles
+## (RoutFlight.fan) read where the crate holds them, the flight, who is safe or home, its
+## record, its re-forming and its turn (ScrumTurn), and "turning", "turned", "regrouping"
+## and "returned" in the crate's log.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
-const RoutFlight = preload("res://sim/skirmish/formation/rout_flight.gd")
-const ScrumTurn = preload("res://sim/skirmish/formation/scrum_turn.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
-const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
-
-const CELLS := float(MapLayoutDef.CELLS_PER_TILE)
 
 
 ## How far from orderly the squad is, 0 (drilled) to 1 (no discipline): how wide it fans.
@@ -51,61 +43,28 @@ static func disorder(squad: SkirmishSquad) -> float:
 	)
 
 
-## One tick of withdrawals: units flee, and squads that have been safe long enough re-form.
-## `roster`: the tick's (CrateRoster), made here if none is given.
-static func step(
-	squads: Array,
-	tick: int,
-	pace: float,
-	seconds: float,
-	fight_seed: int,
-	terrain: FormationTerrain,
-	events: Array,
-	roster: Object = null
-) -> void:
-	if squads.all(func(squad): return squad.withdraw.is_empty()):
-		return
-	var listed := PackedInt32Array()
-	var orders := PackedFloat64Array()  # per squad: disorder, re-form pace, home in cells
-	var fans := PackedFloat64Array()
-	for index in squads.size():
-		var squad: SkirmishSquad = squads[index]
-		var ended: bool = (
-			squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]
-		)
-		if squad.withdraw.is_empty() or ended:
-			continue  # one routing or destroyed withdraws no more: the crate drops its record
-		listed.append(index)
-		var home: float = squad.home_distance * CELLS
-		orders.append_array([disorder(squad), FormationDiscipline.reform_pace(squad), home])
-		for unit in squad.living():
-			fans.append(RoutFlight.fan(unit, fight_seed))
-	if roster == null:
-		roster = CrateRoster.of(squads, terrain)
+## One tick of withdrawals, in the crate on `field` (NativeKernels) over the scrum's `roster`
+## (CrateRoster): units flee, and squads that have been safe long enough re-form; their
+## events are appended to `events`. `ctx`: the scrum's (tick, pace, seconds, seed, terrain).
+static func step(field: Object, roster: Object, ctx: Dictionary, events: Array) -> void:
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array(
 		[
-			pace,
-			seconds,
+			ctx["pace"],
+			ctx["seconds"],
 			tuning.reach_contact,
 			tuning.rout_enemy_near,
 			tuning.rout_fan_cells,
-			tuning.rout_rally_seconds
+			tuning.rout_rally_seconds,
+			tuning.rout_fan_degrees,
+			tuning.discipline_per_leadership,
+			tuning.discipline_meets_threats,
+			tuning.discipline_march_pace_at,
+			tuning.discipline_slowest,
+			tuning.discipline_fastest,
 		]
 	)
-	var reformed: PackedInt64Array = squads[0].store.field().withdraw(
-		roster, listed, orders, fans, UnitMover.ground(terrain), rules
-	)
-	for at in range(0, reformed.size(), 3):
-		_reformed(squads[reformed[at]], reformed[at + 1], reformed[at + 2] != 0, tick, events)
-
-
-## The crate re-formed the squad on its route facing `homeward` (and, `arrived` home, made it
-## hold there): its units walk to their places (a re-form), and it marches home on its order.
-static func _reformed(
-	squad: SkirmishSquad, homeward: int, arrived: bool, tick: int, events: Array
-) -> void:
-	ScrumTurn.begin(squad, homeward, tick, events)
-	events.append(FormationEvents.squad_event("regrouping", tick, squad))
-	if arrived:  # nowhere further to go: its retreat is done, and it holds facing out
-		events.append(FormationEvents.squad_event("returned", tick, squad))
+	var terrain: Object = ctx["terrain"]
+	var ground: Object = terrain.core if terrain != null else null
+	field.scrum_withdraw(roster, ground, rules, ctx["tick"], ctx["seed"])
+	events.append_array(CrateEvents.taken(field))
