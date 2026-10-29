@@ -86,3 +86,26 @@ func test_a_bearer_that_falls_drops_its_body() -> void:
 
 	assert_int(scene[1].state).is_equal(SkirmishUnit.State.DOWNED)
 	assert_int(scene[1].carried_by).is_equal(0)
+
+
+func test_the_pass_is_the_crates_and_what_it_did_is_gdscripts_too() -> void:
+	var scene := _scene("recover")
+	var events := []
+	FormationCarry.step(scene[0], 1, 1, events)
+	var field: Object = _places.store.field()
+	var names: PackedStringArray = field.sheet_names()
+	var sheet: PackedFloat64Array = field.sheet(scene[2].slot)
+	var bearer: SkirmishUnit = scene[2]
+
+	var told := events.map(func(e): return [e["type"], e["unit"], e["body"]])
+	assert_array(told).is_equal([["borne", 2, 1]])
+	var mine := [
+		float(bearer.carrying), float(bearer.load_stage), bearer.fresh_speed, bearer.tiring
+	]
+	var crate := ["carrying", "load_stage", "fresh_speed", "tiring"].map(
+		func(name): return sheet[names.find(name)]
+	)
+	assert_array(mine).is_equal(crate)
+	assert_array([scene[1].carried_by, scene[1].state]).is_equal([2, SkirmishUnit.State.CARRIED])
+	FormationCarry.step(scene[0], 2, 1, [{"type": "fled_home", "unit": 2}])
+	assert_array(scene[0][0].units).is_empty()  # the body came home with its bearer

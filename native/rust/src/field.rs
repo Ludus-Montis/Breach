@@ -141,6 +141,9 @@ pub struct Field {
     /// UnitStore.definition_code): [detection_range, sight_ahead, sight_side, sight_behind].
     /// A definition stays GDScript's; a look reads its sight here.
     pub sights: Vec<[f64; 4]>,
+    /// Each of its units' definitions' marching speed, by the definition's code (spec 39 step
+    /// 8b5-xxix): a bearer's pace under its load is a share of it (FormationCarry._bear).
+    pub speeds: Vec<f64>,
     /// The store's fell queue (spec 35 step 5b, Decision 145): the ids of units an hp write
     /// took from above 0 to 0 or below, in the order they fell, till deaths takes them.
     fallen: Vec<i64>,
@@ -178,6 +181,19 @@ impl Field {
             self.sights.resize(code + 1, [0.0; 4]);
         }
         self.sights[code] = sight;
+    }
+
+    /// Keeps the marching speed of the definition coded `code`.
+    pub fn put_speed(&mut self, code: usize, speed: f64) {
+        if self.speeds.len() <= code {
+            self.speeds.resize(code + 1, 0.0);
+        }
+        self.speeds[code] = speed;
+    }
+
+    /// The marching speed of the definition coded `code`, if it has one.
+    pub fn speed(&self, code: i64) -> Option<f64> {
+        usize::try_from(code).ok().and_then(|at| self.speeds.get(at).copied())
     }
 
     /// The sight of the definition coded `code`, if it has one.
