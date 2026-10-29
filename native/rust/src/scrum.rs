@@ -631,5 +631,7 @@ fn gap_to(field: &Field, foes: &Foes, at: V2, radius: f64) -> f64 {
     least.max(0.0)
 }
 
+pub mod pass;
+
 #[cfg(test)]
 mod tests;

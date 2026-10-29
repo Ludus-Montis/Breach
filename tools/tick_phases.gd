@@ -192,7 +192,9 @@ func _after(sim: Sim, events: Array) -> void:
 func _scrum(sim: Sim, events: Array) -> void:
 	var squads := sim.squads()
 	var tick := sim.tick_number()
-	events.append_array(_scrum_events(sim))
+	var roster := CrateRoster.of(squads, sim.terrain)  # who is living, through the scrum
+	_lap("scrum: roster")
+	events.append_array(_scrum_events(sim, roster))
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var ctx := {
 		"squads": squads,
@@ -209,18 +211,18 @@ func _scrum(sim: Sim, events: Array) -> void:
 	_seek(ctx)
 	_lap("scrum: seek (slot search)")
 	_walk_and_face(ctx)
-	_after_seek(sim, ctx, events)
+	_after_seek(sim, [ctx, roster], events)
 
 
-## FormationScrum.step after the seek: the roster, regroup, the chasers, withdrawal and
-## pursuit, and the stall.
-func _after_seek(sim: Sim, ctx: Dictionary, events: Array) -> void:
+## FormationScrum.step after the seek: regroup, the chasers, withdrawal and pursuit, and
+## the stall. `scrum`: the scrum's ctx and its roster.
+func _after_seek(sim: Sim, scrum: Array, events: Array) -> void:
+	var ctx: Dictionary = scrum[0]
+	var roster: Object = scrum[1]
 	var squads := sim.squads()
 	var tick := sim.tick_number()
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var scrum_events := []
-	var roster := CrateRoster.of(squads, sim.terrain)  # who is living: nobody falls from here on
-	_lap("scrum: roster")
 	ScrumRegroup.step(squads, ctx["pace"], sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
 	_lap("scrum: regroup")
 	ScrumPursuit.step(squads, tick, pace, sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
@@ -237,7 +239,7 @@ func _after_seek(sim: Sim, ctx: Dictionary, events: Array) -> void:
 	)
 	_lap("scrum: withdraw")
 	FormationPursuit.step(squads, tick, pace, sim.tick_seconds, scrum_events, roster)
-	Scrum._stall(squads, ctx["active"], tick, sim.tick_seconds, scrum_events)
+	Scrum._stall(sim._field, roster, ctx["active"], [tick, sim.tick_seconds], scrum_events)
 	events.append_array(scrum_events)
 	_lap("scrum: pursuit, stall")
 
@@ -262,13 +264,13 @@ func _seek(ctx: Dictionary) -> void:
 			_last += parts[part]  # booked here, not to the seek's own line
 
 
-func _scrum_events(sim: Sim) -> Array:
+func _scrum_events(sim: Sim, roster: Object) -> Array:
 	var squads := sim.squads()
-	var events := ScrumEngage.step(squads, sim.tick_number(), sim.fight_seed)
+	var events := ScrumEngage.step(sim._field, roster, sim.tick_number(), sim.fight_seed)
 	for squad in squads:
 		Scrum._prepare(squad, sim.tick_number())
 	ScrumStance.anticipate_all(squads, sim.tick_number(), events, sim.terrain, sim.fight_seed)
-	FormationManoeuvre.step(squads)
+	FormationManoeuvre.step(sim._field, roster)
 	_lap("scrum: engage, prepare, stance")
 	return events
 

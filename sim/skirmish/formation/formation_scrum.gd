@@ -36,9 +36,7 @@ const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdr
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
 const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
-const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
 const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
@@ -49,7 +47,8 @@ const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; the seek, the
 ## walk and the facing run on the battle's native bodies (`field`, NativeKernels; without
-## one, its squads' store's). Returns "faced" and "disengaged" events.
+## one, its squads' store's). The squads' roster (CrateRoster) is made once: nobody falls in
+## the scrum. Returns "engaged", "faced" and "disengaged" events.
 static func step(
 	squads: Array,
 	tick: int,
@@ -59,11 +58,14 @@ static func step(
 	terrain: FormationTerrain = null,
 	field: Object = null
 ) -> Array:
-	var events := ScrumEngage.step(squads, tick, fight_seed)
+	if field == null and not squads.is_empty():
+		field = squads[0].store.field()
+	var roster := CrateRoster.of(squads, terrain)  # who is living, through the scrum
+	var events := ScrumEngage.step(field, roster, tick, fight_seed)
 	for squad in squads:
 		_prepare(squad, tick)
 	ScrumStance.anticipate_all(squads, tick, events, terrain, fight_seed)
-	FormationManoeuvre.step(squads)
+	FormationManoeuvre.step(field, roster)
 	var ctx := {
 		"squads": squads,
 		"tick": tick,
@@ -73,17 +75,16 @@ static func step(
 		"terrain": terrain,
 		"lying": GroundBodies.ground(squads),
 		"active": {},
-		"field": field if field != null or squads.is_empty() else squads[0].store.field(),
+		"field": field,
 	}
 	_seek(ctx)
-	var roster := CrateRoster.of(squads, terrain)  # who is living: nobody falls from here on
 	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
 	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
 	FormationWithdraw.step(
 		squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events, roster
 	)
 	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events, roster)
-	_stall(squads, ctx["active"], tick, tick_seconds, events)
+	_stall(field, roster, ctx["active"], [tick, tick_seconds], events)
 	return events
 
 
@@ -139,21 +140,13 @@ static func _seek(ctx: Dictionary) -> void:
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while, in
-## the crate (`manoeuvre::stall`, spec 39 step 4b).
+## the crate (`scrum::pass::stall`, spec 39 step 8b5-xi), each its "disengaged" event in the
+## crate's log. `when`: the tick and the seconds a tick lasts.
 static func _stall(
-	squads: Array, active: Dictionary, tick: int, tick_seconds: float, events: Array
+	field: Object, roster: Object, active: Dictionary, when: Array, events: Array
 ) -> void:
-	if squads.is_empty():
-		return
-	var ticks := roundi(BattleTuning.current().scrum_stall_seconds / tick_seconds)
-	var stalled: PackedInt32Array = squads[0].store.field().scrum_stall(
-		FormationLocks.slots(squads),
-		FormationLocks.factions(squads),
-		PackedInt64Array(active.keys()),
-		ticks
-	)
-	var by_slot := {}
-	for squad in squads:
-		by_slot[squad.slot] = squad
-	for slot in stalled:
-		events.append(FormationEvents.squad_event("disengaged", tick, by_slot[slot]))
+	if field == null:
+		return  # no squads: nothing to release
+	var ticks := roundi(BattleTuning.current().scrum_stall_seconds / when[1])
+	field.scrum_stall(roster, PackedInt64Array(active.keys()), ticks, when[0])
+	events.append_array(CrateEvents.taken(field))

@@ -3163,95 +3163,43 @@ impl BodyField {
         PackedInt64Array::from(foes.as_slice())
     }
 
-    /// FormationManoeuvre.step over `cases`, flat: per squad its slot, whether it is
-    /// withdrawing and skirmishing, how many living units follow, and each one's id and store
-    /// slot (only for a squad that narrowed through a gap).
+    /// FormationManoeuvre.step over `roster`'s squads: each one's manoeuvre this tick
+    /// (`scrum::pass::manoeuvre`).
     #[func]
-    fn manoeuvre_step(&mut self, cases: PackedInt64Array) {
-        let flat = cases.as_slice();
-        let mut out = Vec::new();
-        let mut at = 0;
-        while at < flat.len() {
-            let count = flat[at + 3] as usize;
-            let living =
-                (0..count).map(|n| (flat[at + 4 + 2 * n], flat[at + 5 + 2 * n] as usize)).collect();
-            out.push(manoeuvre::Case {
-                squad: flat[at] as usize,
-                withdrawing: flat[at + 1] != 0,
-                skirmishing: flat[at + 2] != 0,
-                living,
-            });
-            at += 4 + 2 * count;
-        }
-        manoeuvre::step(&mut self.squads, &mut self.field.columns, &out);
+    fn scrum_manoeuvre(&mut self, roster: Gd<SquadRoster>) {
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        scrum::pass::manoeuvre(squads, columns, &roster.roster);
         self.edits += 1;
     }
 
-    /// FormationScrum._stall: counts each fighting squad of `listed` (squad slots, in the
-    /// lists' order; `factions` theirs as codes) quiet unless it or a foe is `active` (squad
-    /// ids), and releases those stalled `ticks`. Returns their slots.
+    /// FormationScrum._stall over `roster`'s squads on `tick`: counts each fighting squad
+    /// quiet unless it or a foe is `active` (squad ids), and releases those stalled `ticks`;
+    /// each release's "disengaged" event goes to the log (`scrum::pass::stall`, `events_take`).
     #[func]
     fn scrum_stall(
         &mut self,
-        listed: PackedInt32Array,
-        factions: PackedInt32Array,
+        roster: Gd<SquadRoster>,
         active: PackedInt64Array,
         ticks: i64,
-    ) -> PackedInt32Array {
-        let listed = usizes(&listed);
-        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
-        let foes: Vec<Vec<i64>> = (0..listed.len())
-            .map(|n| locks::foe_ids(&self.squads, listed[n], &listed, &factions, factions[n]))
-            .collect();
-        let stall =
-            manoeuvre::Stall { listed: &listed, foes: &foes, active: active.as_slice(), ticks };
-        let stalled = manoeuvre::stall(&mut self.squads, &stall);
+        tick: i64,
+    ) {
+        let roster = roster.bind();
+        let rules = (active.as_slice(), ticks);
+        scrum::pass::stall(&mut self.squads, &roster.roster, rules, tick, &mut self.events);
         self.edits += 1;
-        PackedInt32Array::from_iter(stalled.into_iter().map(|s| s as i32))
     }
 
-    /// ScrumEngage.step over the listed squads (`slots`, in the lists' order): each one's
-    /// faction (a code), whether units joined it on the march, and how many living units
-    /// follow in `units` (store slots), `ats` (where each stands) and `feet` (each one's
-    /// footprint, width and depth). Returns each lock as [its index in the list, the foe's
-    /// id].
+    /// ScrumEngage.step over `roster`'s squads on `tick`: free squads lock onto the nearest
+    /// hostile their units have come within `reach_engage` of; each pick's "engaged" event
+    /// goes to the log (`scrum::pass::engage`, `events_take`).
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn engage(
-        &mut self,
-        squads: PackedInt32Array,
-        factions: PackedInt32Array,
-        joined: PackedByteArray,
-        counts: PackedInt32Array,
-        units: PackedInt32Array,
-        ats: PackedVector2Array,
-        feet: PackedInt32Array,
-        reach_engage: f64,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let points = v2s(&ats);
-        let feet = feet.as_slice();
-        let mut sides = Vec::new();
-        let mut from = 0;
-        for (n, &count) in counts.as_slice().iter().enumerate() {
-            let to = from + count as usize;
-            sides.push(engage::Side {
-                squad: squads.as_slice()[n] as usize,
-                faction: factions.as_slice()[n] as u32,
-                joined: joined.as_slice()[n] != 0,
-                slots: units.as_slice()[from..to].to_vec(),
-                at: points[from..to].to_vec(),
-                radii: (from..to)
-                    .map(|u| reach::radius(feet[2 * u] as i64, feet[2 * u + 1] as i64))
-                    .collect(),
-            });
-            from = to;
-        }
-        let picks =
-            engage::step(&mut self.squads, &mut self.field.columns, &sides, reach_engage, seed);
+    fn scrum_engage(&mut self, roster: Gd<SquadRoster>, tick: i64, seed: i64, reach_engage: f64) {
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let rules = (tick, seed, reach_engage);
+        scrum::pass::engage(squads, columns, &roster.roster, rules, &mut self.events);
         self.edits += 1;
-        let flat: Vec<i64> = picks.iter().flat_map(|&(n, foe)| [n as i64, foe]).collect();
-        PackedInt64Array::from(flat.as_slice())
     }
 
     /// ScrumStance.anticipate_all over the listed squads (`slots`): each one's faction (a
