@@ -22,22 +22,6 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
-## Each unit's stamina spent on this tick's blows ([striker, ...]); `holder` holds the
-## battle's store (its squads share it).
-static func strike(holder, blows: Array) -> void:
-	if blows.is_empty():
-		return
-	var slots := PackedInt32Array()
-	var tirings := PackedFloat64Array()
-	for blow in blows:
-		slots.append(blow[0].slot)
-		tirings.append(blow[0].tiring)
-	var columns: UnitColumns = holder.store.columns
-	var field: Object = ColumnsLent.field(columns)
-	var blow := BattleTuning.current().stamina_blow
-	ColumnsLent.all(columns, func(): field.stamina_strike(slots, tirings, blow))
-
-
 ## One tick of `seconds`: runners and laden marchers tire, the rest recover after their
 ## breather, and each unit's pace follows its gait and how tired it is.
 static func step(squads: Array, seconds: float) -> void:
