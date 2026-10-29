@@ -1,10 +1,11 @@
 //! The move phase's choices (FormationSimulation._move and _march, spec 39 step 8b1): which
 //! squads march, hold or wait as the phase begins, whether one that may march holds where it
 //! stands, and every move landed together, each advancing squad stopped at contact or behind
-//! a friend as they stood at the tick's start (Decision 97). Each march itself (staging, the
-//! turn, the walk, the sweep, the pace, the drag) and the ends and joins after stay where
-//! they are; GDScript calls them between these.
+//! a friend as they stood at the tick's start (Decision 97). The pass (`pass`, spec 39 step
+//! 8b5-viii) runs each march between them (staging, the turn, the sweep, the pace, the drag)
+//! and the ends after; the walk's share and the joins are GDScript's still.
 
+pub mod pass;
 #[cfg(test)]
 mod tests;
 

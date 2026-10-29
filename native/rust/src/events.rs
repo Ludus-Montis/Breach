@@ -4,7 +4,8 @@
 //! one number per field its kind names, in that order. GDScript asks for the kinds once
 //! (`event_kinds`) and decodes each into the same dictionary it built before (CrateEvents):
 //! "type", "tick", "squad", "faction", then the fields; a field it knows as a word (an
-//! order, a band) it names from its number. Kinds are added as their passes move here.
+//! order, a band, a word coded in the lexicon) it names from its number, and a heading
+//! (degrees) is its float's bits. Kinds are added as their passes move here.
 
 use crate::squads::Squads;
 
@@ -18,6 +19,14 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("engaged", &["with"]),
     ("flanked", &["by", "edge"]),
     ("detoured", &["cells"]),
+    ("staged", &[]),
+    ("signalled", &[]),
+    ("gave_up", &["then"]),
+    ("arrived", &[]),
+    ("returned", &[]),
+    ("turning", &["facing", "heading"]),
+    ("turned", &["facing", "heading"]),
+    ("blocked", &[]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -27,6 +36,14 @@ pub const MORALE_BAND: usize = 4;
 pub const ENGAGED: usize = 5;
 pub const FLANKED: usize = 6;
 pub const DETOURED: usize = 7;
+pub const STAGED: usize = 8;
+pub const SIGNALLED: usize = 9;
+pub const GAVE_UP: usize = 10;
+pub const ARRIVED: usize = 11;
+pub const RETURNED: usize = 12;
+pub const TURNING: usize = 13;
+pub const TURNED: usize = 14;
+pub const BLOCKED: usize = 15;
 
 /// The events a pass has built and GDScript hasn't yet taken, flat, in the order built.
 #[derive(Clone, Debug, Default, PartialEq)]

@@ -2213,32 +2213,6 @@ struct GroundMarch {}
 
 #[godot_api]
 impl GroundMarch {
-    /// FormationMarch.toward, the squad `along` as [front, home, order, direction].
-    #[func]
-    fn toward(&self, along: PackedFloat64Array, delta: f64, route_end: f64) -> f64 {
-        march::toward(&along_of(&along), delta, route_end)
-    }
-
-    /// FormationMarch.travel_sign.
-    #[func]
-    fn travel_sign(&self, along: PackedFloat64Array, route_end: f64) -> i64 {
-        march::travel_sign(&along_of(&along), route_end) as i64
-    }
-
-    /// FormationMarch.pace's share, its front rank's walkers five numbers each.
-    #[func]
-    fn pace(
-        &self,
-        ground: Gd<TerrainGround>,
-        walkers: PackedFloat64Array,
-        points: PackedVector2Array,
-        heading: f64,
-    ) -> f64 {
-        let (rows, _) = walkers.as_slice().as_chunks::<5>();
-        let walkers: Vec<ground::Walker> = rows.iter().map(|r| walker_from(r)).collect();
-        march::pace(ground.bind().ground(), &walkers, &v2s(&points), heading)
-    }
-
     /// FormationSweep.rate.
     #[func]
     fn sweep_rate(&self, width: i64, cells_per_second: f64) -> f64 {
@@ -3070,13 +3044,6 @@ impl BodyField {
         march::sweep::face_held(&mut self.squads, squad as usize);
     }
 
-    /// FormationSweep.step for the squad in `squad`, marching at `cells_per_second` for
-    /// `seconds`, along the route it holds (`march::sweep::sweep_held`).
-    #[func]
-    fn march_sweep(&mut self, squad: i64, cells_per_second: f64, seconds: f64) {
-        march::sweep::sweep_held(&mut self.squads, squad as usize, cells_per_second, seconds);
-    }
-
     /// FormationCommand.new: a command calling `home` its home (tiles along its route), on
     /// no route, pursuing and taking. Returns its slot.
     #[func]
@@ -3822,34 +3789,42 @@ impl BodyField {
         PackedInt32Array::from(choices.as_slice())
     }
 
-    /// Whether `roster`'s squad `listed`, free to march, holds where it stands (`moving::hold`);
-    /// its state becomes holding or moving.
+    /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`): per
+    /// listed squad the share of its pace its units keep up with (`keeping`, FormationWalk.share)
+    /// and its route's code (`routes`, FormationStaging's); `tuning`: [TRAVEL_SCALE, seconds a
+    /// tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
+    /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block]. Its events go to the log
+    /// (`events_take`). Returns the listed squads that advanced, in the order planned, for the
+    /// joins.
     #[func]
-    fn move_holds(&mut self, roster: Gd<SquadRoster>, listed: i64) -> bool {
+    fn move_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        keeping: PackedFloat64Array,
+        routes: PackedInt32Array,
+        ground: Option<Gd<TerrainGround>>,
+        tick: i64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt32Array {
         let roster = roster.bind();
-        let (squads, columns) = (&mut self.squads, &self.field.columns);
-        moving::hold(squads, columns, &roster.roster, listed as usize)
-    }
-
-    /// FormationSimulation._march's landing (`moving::land`) of `plans`, two numbers a march:
-    /// its squad's index in `roster` and where it wants to get (tiles). Returns two a march, in
-    /// order: where its front lands, and 1 if it advances (else 0).
-    #[func]
-    fn move_land(&self, roster: Gd<SquadRoster>, plans: PackedFloat64Array) -> PackedFloat64Array {
-        let roster = roster.bind();
-        let (rows, _) = plans.as_slice().as_chunks::<2>();
-        let plans: Vec<moving::Plan> =
-            rows.iter().map(|p| moving::Plan { listed: p[0] as usize, next: p[1] }).collect();
-        let field = contact::Field {
-            squads: &self.squads,
-            columns: &self.field.columns,
-            roster: &roster.roster,
+        let t = tuning.as_slice();
+        let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
+        let given = moving::pass::Given {
+            keeping: keeping.as_slice(),
+            routes: &routes,
+            tick,
+            travel_scale: t[0],
+            seconds: t[1],
+            route_length: t[2],
+            slack: [t[3], t[4], t[5]],
+            drag: [t[6], t[7]],
         };
-        let flat: Vec<f64> = moving::land(&field, &plans)
-            .iter()
-            .flat_map(|&(front, advances)| [front, f64::from(u8::from(advances))])
-            .collect();
-        PackedFloat64Array::from(flat.as_slice())
+        let (squads, field, events) = (&mut self.squads, &mut self.field, &mut self.events);
+        let joiners = on_ground(ground, |g| {
+            moving::pass::step(squads, field, &roster.roster, g, &given, events)
+        });
+        self.edits += 1;
+        joiners.iter().map(|&n| n as i32).collect()
     }
 
     /// FormationPathing.step over the squads in `squads` (their slots, in the lists' order)
@@ -4451,35 +4426,6 @@ impl BodyField {
     fn strays_numbered(&self, ids: PackedInt64Array, seed: i64) -> PackedInt32Array {
         let order = strays::numbered(ids.as_slice(), seed);
         PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
-    }
-
-    /// FormationStaging.holds for `roster`'s squad `listed` (index), by the order it holds
-    /// (`staging::hold_staged`): `routes` each listed squad's route as a code, `slack` its
-    /// units' slack if a coordinated leader times its meeting (`coordinated`), `pace` [cells a
-    /// second at speed 1, seconds a tick]. Returns staging::Hold's code; a squad at its point
-    /// takes the HOLDING state, and its fallback counts down while it holds.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn staging_hold(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        listed: i64,
-        routes: PackedInt32Array,
-        coordinated: bool,
-        slack: f64,
-        pace: PackedFloat64Array,
-        ground: Option<Gd<TerrainGround>>,
-    ) -> i64 {
-        let roster = roster.bind();
-        let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
-        let (p, slack) = (pace.as_slice(), coordinated.then_some(slack));
-        let (squads, columns) = (&mut self.squads, &self.field.columns);
-        let held = on_ground(ground, |g| {
-            let listed = listed as usize;
-            let pace = [p[0], p[1]];
-            staging::hold_staged(squads, columns, &roster.roster, g, listed, &routes, slack, pace)
-        });
-        held.code()
     }
 
     /// The hold-until order the squad in `squad` holds, as FormationStaging reads it: {"at",

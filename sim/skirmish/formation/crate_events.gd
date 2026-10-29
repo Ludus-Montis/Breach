@@ -3,7 +3,8 @@ extends RefCounted
 ## The events a crate pass built as data (native/rust/src/events.rs, spec 39 step 8b5-v),
 ## decoded into the dictionaries FormationEvents made: "type", "tick", "squad", "faction",
 ## then the fields its kind names, in order. The kinds are the crate's, asked for once; a
-## field naming an order or a band is decoded to its name, a faction from the lexicon.
+## field naming an order or a band is decoded to its name, a faction or a staged squad's
+## "then" from the lexicon, a heading from its float's bits.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
@@ -31,7 +32,7 @@ static func taken(field: Object) -> Array:
 		}
 		at += 4
 		for name: String in kind[1]:
-			event[name] = _decoded(name, flat[at])
+			event[name] = words[flat[at]] if name == "then" else _decoded(name, flat[at])
 			at += 1
 		out.append(event)
 	return out
@@ -43,4 +44,9 @@ static func _decoded(name: String, value: int) -> Variant:
 			return SkirmishUnit.Order.keys()[value]
 		"band":
 			return FormationMorale.Band.keys()[value]
+		"heading":
+			var bits := PackedByteArray()
+			bits.resize(8)
+			bits.encode_s64(0, value)
+			return bits.decode_double(0)
 	return value
