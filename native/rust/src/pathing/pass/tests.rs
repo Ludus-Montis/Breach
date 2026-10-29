@@ -99,6 +99,7 @@ fn every_group_of_the_command_follows_the_patched_route_on_the_next_tick() {
     assert_eq!(squads.route[1].as_ref(), Some(&patched));
     assert!(patched.length() > lane().length());
     assert_eq!(squads.patched_count, vec![1, 1]);
+    assert_eq!(squads.route_code, vec![0, 1], "each re-routed group a code of its own");
     let along = squads.front_distance[1] * CELLS;
     assert_eq!(squads.position[1], patched.point_at(along));
 }

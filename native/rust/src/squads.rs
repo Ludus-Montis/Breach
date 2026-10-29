@@ -86,6 +86,11 @@ pub struct Squads {
     pub withdraw: Vec<Option<i64>>,
     /// The route each follows (none: a straight lane along x).
     pub route: Vec<Option<Route>>,
+    /// The code naming the route each follows (-1: none): the same code, the same route
+    /// (spec 39 step 8b5-xxxvi). GDScript's routes are coded as a squad is given one
+    /// (`squad_put_route`); the passes that hand a squad another squad's route hand it the
+    /// code too, and one that makes a route afresh issues it one (`issue_route`).
+    pub route_code: Vec<i64>,
     /// The route each pursuing as a whole held its post on (none: a straight lane, or none
     /// held), set as its pursuit began.
     pub post_route: Vec<Option<Route>>,
@@ -98,6 +103,8 @@ pub struct Squads {
     /// `issue_units`; spec 39 step 8b4-vii).
     pub squads_issued: i64,
     pub units_issued: i64,
+    /// How many route codes the battle has issued (`issue_route`).
+    pub routes_issued: i64,
     /// Its units out taking the downed (FormationTaking): [taker's id, its body's store
     /// slot] each, in the order they set out.
     pub taking: Vec<Vec<(i64, usize)>>,
@@ -292,6 +299,7 @@ impl Squads {
         self.pursuit.push(None);
         self.withdraw.push(None);
         self.route.push(None);
+        self.route_code.push(-1);
         self.post_route.push(None);
         self.command.push(None);
         self.staging.push(None);
@@ -321,6 +329,17 @@ impl Squads {
     pub fn issue_squad(&mut self) -> i64 {
         self.squads_issued += 1;
         self.squads_issued
+    }
+
+    /// A route code no route holds yet (codes from 0, in the order issued).
+    pub fn issue_route(&mut self) -> i64 {
+        self.routes_issued += 1;
+        self.routes_issued - 1
+    }
+
+    /// The route codes of the squads in `slots`, in their order.
+    pub fn route_codes(&self, slots: impl IntoIterator<Item = usize>) -> Vec<i64> {
+        slots.into_iter().map(|s| self.route_code[s]).collect()
     }
 
     /// The first of `count` unit ids the battle issues together (ids from 1, in order).

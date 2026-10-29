@@ -1,7 +1,7 @@
 //! The opening as one pass, on a player squad (id 1) fighting a kingdom squad (id 2) front
 //! to front, with a second kingdom squad (id 3) beside them, each of two grems: ordered to
 //! retreat, the one pass leaves the squads, the units and the log as the passes one by one,
-//! and keeps the routes' codes as GDScript's mirrors would.
+//! and keeps the routes' codes the crate holds as GDScript's mirrors would.
 
 use super::*;
 use crate::geometry::CELLS;
@@ -102,6 +102,7 @@ fn built() -> Built {
         squads.direction[s] = if faction == 0 { 1 } else { -1 };
         squads.heading[s] = if faction == 0 { 90.0 } else { 270.0 };
         squads.route[s] = Some(if s == 0 { theirs() } else { road() });
+        squads.route_code[s] = codes()[s];
         roster.listed.push(Listed { squad: s, id, faction, ..Listed::default() });
         for column in 0..2 {
             let unit = 100 * id + column as i64;
@@ -124,7 +125,7 @@ fn built() -> Built {
     Built { squads, field, roster, log: Log::default() }
 }
 
-/// Squad 1's route coded 7, the road 0.
+/// The codes the squads' routes hold: squad 1's 7, the road 0.
 fn codes() -> Vec<i64> {
     vec![7, 0, 0]
 }
@@ -136,9 +137,8 @@ impl Built {
         let (squads, field, roster, log) =
             (&mut self.squads, &mut self.field, &self.roster, &mut self.log);
         let (tick, seed) = (rules.tick, rules.seed);
-        let mut codes = codes();
         let given = ordering::Given {
-            routes: coded(squads, roster, &codes),
+            routes: coded(squads, roster),
             within: rules.within,
             ragged_shock: rules.ragged_shock,
             discipline: &rules.discipline,
@@ -149,14 +149,14 @@ impl Built {
         for a in ordering::pass(squads, &mut field.columns, roster, given, log) {
             for p in a.retreat.unwrap_or_default().into_iter().filter(|p| p.took) {
                 squads.route[p.listed] = squads.route[a.listed].clone();
-                codes[p.listed] = codes[a.listed];
+                squads.route_code[p.listed] = squads.route_code[a.listed];
             }
         }
         perception::see(squads, &field.columns, roster, None);
         contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
         let shocks = (&rules.impacts, &rules.bands);
         contact::engage_edges(squads, &mut field.columns, roster, (tick, seed), shocks, log);
-        let routes: Vec<u32> = codes.iter().map(|&c| c as u32).collect();
+        let routes = routes(squads, roster);
         let given = Given { routes: &routes, ..rules.moving };
         let joiners = moving::step(squads, field, roster, None, &given, log);
         joins::step(squads, field, roster, &joiners, seed, tick, log)
@@ -164,7 +164,7 @@ impl Built {
 
     fn whole(&mut self, rules: &Rules) -> Opened {
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.log);
-        step(squads, field, &self.roster, None, (rules, codes()), log)
+        step(squads, field, &self.roster, None, rules, log)
     }
 
     fn places(&self) -> Vec<(V2, f64)> {
@@ -191,12 +191,11 @@ fn the_one_pass_leaves_the_squads_their_units_and_the_log_as_the_passes_one_by_o
 fn a_pursuer_that_took_its_quarrys_route_holds_it_and_its_code() {
     let rules = rules();
     let mut b = built();
-    let mut codes = codes();
     let (squads, field, log) = (&mut b.squads, &mut b.field, &mut b.log);
-    let pursuers = order(squads, field, &b.roster, (&rules, &mut codes), log);
+    let pursuers = order(squads, field, &b.roster, &rules, log);
     assert_eq!(pursuers, vec![[0, 1, 1, 1]], "squad 2 pursues and takes squad 1's route");
     assert_eq!(b.squads.route[1], Some(theirs()));
-    assert_eq!(codes, vec![7, 7, 0]);
+    assert_eq!(b.squads.route_code, vec![7, 7, 0]);
 }
 
 #[test]
@@ -209,9 +208,11 @@ fn what_each_squad_sees_is_handed_back() {
 }
 
 #[test]
-fn a_group_that_re_routed_takes_a_code_no_other_route_has() {
-    let b = built();
-    let mut codes = vec![7, 0, -1];
-    rerouted(&mut codes, &b.roster, &[1, 2]);
-    assert_eq!(codes, vec![7, 3, 4]);
+fn the_move_reads_the_codes_the_routes_hold_now() {
+    let mut b = built();
+    b.squads.route_code[2] = 4;
+    assert_eq!(routes(&b.squads, &b.roster), vec![7, 0, 4]);
+    let pursuers = [[0, 2, 1, 1]];
+    took(&mut b.squads, &b.roster, &pursuers);
+    assert_eq!(routes(&b.squads, &b.roster), vec![7, 0, 7], "squad 3 took squad 1's");
 }

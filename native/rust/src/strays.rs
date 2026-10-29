@@ -85,6 +85,7 @@ pub fn adopt(
         squads.front_distance[stray] = front;
         squads.position[stray] = turn::place(Some(&route), front * CELLS_PER_TILE as f64);
         squads.route[stray] = Some(route);
+        squads.route_code[stray] = squads.route_code[own];
         opened.push((n, stray));
     }
     opened

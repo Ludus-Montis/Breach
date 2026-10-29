@@ -18,17 +18,8 @@ extends RefCounted
 ## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
 ## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii),
 ## and the order itself (step 8b4-iv: SkirmishSquad.staging is a view of it), and its
-## events (the move's pass, step 8b5-viii); the routes' codes stay here.
+## events (the move's pass, step 8b5-viii), and the routes' codes (step 8b5-xxxvi: the same
+## code, the same route; a wave on its own route is no partner for one with no partner named).
 
 const SEES_PARTNER := "sees_partner"
 const SEES_FIGHT := "sees_fight"
-
-
-## Each of `squads`' route as a code, in the lists' order: a wave on its own route is no
-## partner for one with no partner named.
-static func route_codes(squads: Array) -> PackedInt32Array:
-	var routes := {}  # route -> its code
-	var codes := PackedInt32Array()
-	for other in squads:
-		codes.append(routes.get_or_add(other.route, routes.size()))
-	return codes
