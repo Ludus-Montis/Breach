@@ -5,7 +5,7 @@ extends RefCounted
 ##   see it break take a little shock.
 ## - **Flight:** its units flee one by one back along its route towards home at full
 ##   speed, fanning out from it as they go (RoutFlight, Decision 99). They strike nothing;
-##   a hostile unit in contact strikes them from behind (RoutBlows, flank blows).
+##   a hostile unit in contact strikes them from behind (FormationMelee, flank blows).
 ## - **Crush:** a router running through a friend's cell hurts both (blunt, by its size),
 ##   and that friend's formation takes panic shock.
 ## - **Rally:** a router that reaches a friendly formation with a leader joins its rear

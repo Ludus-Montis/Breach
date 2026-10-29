@@ -15,7 +15,6 @@ extends RefCounted
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationField = preload("res://sim/skirmish/formation/formation_field.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
-const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
