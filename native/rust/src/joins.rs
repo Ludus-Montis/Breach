@@ -93,7 +93,7 @@ fn enlist(squads: &mut Squads, field: &mut Field, leader: usize, taken: &[i32]) 
 }
 
 /// The `units` (store slots) as a squad closes up over them (SquadCompact.closers).
-fn closers(field: &Field, units: &[i32]) -> Vec<Closer> {
+pub(crate) fn closers(field: &Field, units: &[i32]) -> Vec<Closer> {
     units
         .iter()
         .map(|&unit| {
