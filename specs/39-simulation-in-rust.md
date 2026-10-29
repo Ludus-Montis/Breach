@@ -1891,6 +1891,35 @@ Decision's conditions.
 - **After it**, 8b5-iii: the units' objects (the walker, the command and origin, the
   definition) coded for the crate.
 
+### Step 8b5-iii, the units' objects coded for the crate
+
+- **The objects** (`objects::Objects`, `Columns::objects`): each unit's four objects,
+  SkirmishUnit's, as codes: its walker as its fields (TerrainWalker.fields: height, swimmer,
+  climber, swims, climbs; none for a unit made without one, which crosses as a grounded one
+  of its height), the command it follows and the one it started under as their slots in the
+  squad store's commands (step 8b4-iii), and the definition it was made from as its code in
+  the unit store's own list (`UnitStore.definition_code`, the order first seen). None is -1.
+  By store slot, blank at SkirmishUnit's own defaults, carried by the snapshot. The crate
+  names them (`object_names`).
+- **The definitions stay GDScript's:** a definition is a Resource, so the unit store keeps
+  them by code (`UnitStore.definition_of`) for a later part's events to decode. A snapshot
+  carries the codes, not the definitions.
+- **Written:** whole when the store admits a unit (with its numbers and words,
+  `UnitWrites.all`, now given the store), and one at a time after by each of SkirmishUnit's
+  setters (`put_walker`, `put_object`). A unit let go writes no more.
+- **Read:** SkirmishUnit keeps the copy it sets and reads it without a call, as in 8b5-i.
+- **Identical:** nothing reads the objects yet; the same values are set in the same order.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `objects.rs` (a blank unit has none; each named code is found and reads
+  back what was set; a walker reads back its fields, and none is none; red on stubs, then
+  green) and `snapshot.rs` (a state with objects read back writes the same bytes). gdUnit
+  `test_unit_objects.gd`: every object the crate names is one of the unit's own; an admitted
+  unit has its objects in the crate, one definition one code; one set after is written
+  there; one let go writes no more to its old slot (red against the library with the writes
+  stubbed, then green). `test_unit_words.gd` and `test_unit_numbers.gd` run in CI.
+- **After it**, 8b5-iv: the squads' remaining fields (their units, the joined, faction, the
+  living and downed lists).
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

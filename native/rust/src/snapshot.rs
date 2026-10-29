@@ -66,12 +66,15 @@ mod tests {
         let fire = field.lexicon.code("fire");
         field.columns.words[2].immunities = vec![fire, field.lexicon.code("cold")];
         field.columns.words[2].traits = vec![(fire, 0.5)];
+        field.columns.objects[2].walker = Some([1.5, 2.0, 0.0, 1.0, 0.0]);
+        field.columns.objects[2].origin = 1;
         let bytes = write(40, 3, &field, &squads);
         let state = read(&bytes).unwrap();
         assert_eq!((state.tick, state.seed), (40, 3));
         assert_eq!(state.squads, squads);
         assert_eq!(state.field.columns.sheet, field.columns.sheet);
         assert_eq!(state.field.columns.words, field.columns.words);
+        assert_eq!(state.field.columns.objects, field.columns.objects);
         assert_eq!(state.field.lexicon, field.lexicon);
         assert_eq!(write(state.tick, state.seed, &state.field, &state.squads), bytes);
     }
