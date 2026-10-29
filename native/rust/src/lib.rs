@@ -1552,12 +1552,6 @@ impl ScrumRules {
         bands::held(value)
     }
 
-    /// FormationMorale.losses' shock, over the fallen's leaderships.
-    #[func]
-    fn morale_losses(&self, fallen: PackedInt64Array, tuning: PackedInt64Array) -> i64 {
-        bands::losses(fallen.as_slice(), &bands::BandTuning::of_slice(tuning.as_slice()))
-    }
-
     #[func]
     fn gap(&self, here: Vector2, radius: f64, there: Vector2, other: f64) -> f64 {
         reach::gap(v2(here), radius, v2(there), other)
