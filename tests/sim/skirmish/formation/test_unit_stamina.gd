@@ -150,3 +150,23 @@ func test_stamina_pace_and_exertion_are_the_store_s_alone() -> void:
 	assert_bool("condition" in unit).is_false()
 	assert_bool("fresh_speed" in unit).is_true()  # its pace fresh: its record's
 	assert_bool("max_stamina" in unit).is_true()
+
+
+## The pass is the crate's (spec 39 step 8b5-xxxi): a squad its command hurries runs, read
+## there, and a unit made by hand, with no fresh speed, takes its speed as fresh, in its own
+## copy as well as the crate's.
+func test_the_crate_pass_reads_the_hurry_and_gives_a_unit_made_by_hand_its_speed() -> void:
+	var store := NativeKernels.unit_store(null)
+	var runner := _unit(1)
+	var made := _unit(2)
+	var squad := _squad(1, [runner, made], store)
+	squad.state = SkirmishSquad.State.MOVING
+	squad.hurry = true
+	made.fresh_speed = 0.0
+	var columns := store.columns
+	for unit in [runner, made]:
+		columns.put(unit.slot, UnitColumns.STAMINA, 100.0)
+	columns.put(made.slot, UnitColumns.SPEED, 2.0)
+	FormationStamina.step([squad], 0.5)
+	var said := [columns.value(runner.slot, UnitColumns.STAMINA) < 100.0, made.fresh_speed]
+	assert_array(said).is_equal([true, 2.0])

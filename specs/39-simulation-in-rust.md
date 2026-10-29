@@ -456,6 +456,17 @@ events. After this step no battle phase runs in GDScript.
   group used to be opened as squad 0 and numbered only in GDScript, so the crate held it as 0;
   now it holds the real id (outcomes change, as for the strays). FormationGroups wraps the
   slots opened and mirrors its lists; GroupSplit is gone.
+  **8b5-xxxi built** (2026-10-29): stamina and the bodies' parting as crate passes.
+  `stamina/pass.rs` (the `stamina_step` binding now takes the listed squads' slots): each
+  squad's pursuit and its command's hurry, and each living unit's fresh speed, most stamina,
+  tiring, run pace, load stage, leadership, wits and constitution and its march traits, read
+  in the crate; a unit made by hand, with no fresh speed, takes its speed column's, and
+  FormationStamina mirrors it. `parting/pass.rs` (the `bodies_part` binding in place of `part`
+  and `commit_part`): the field synced to the listed squads' living units as the bodies stand
+  (a router's base its point on its squad's route), new units enrolled from their sheets, the
+  bodies parted on a way rolled in the crate from the battle's seed and their draws
+  (UnitBodies.part_way is gone), those pushed from their places made loose and the moved
+  written into the columns. BodyFieldSync.bodies stays for its tests. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

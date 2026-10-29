@@ -114,8 +114,6 @@ struct BodyField {
     squads: Squads,
     /// Microseconds of native work in the last call (the bench reads it).
     usec: i64,
-    /// The last part()'s moved bodies (flat indices), points and nexts, for commit_part().
-    parted: (Vec<i32>, Vec<V2>, Vec<V2>),
     /// How many calls have changed the squads' records (spec 39 step 4b): SquadRecords'
     /// views are taken afresh when it moves.
     edits: i64,
@@ -206,41 +204,29 @@ impl BodyField {
         ])
     }
 
-    /// UnitBodies' passes on the field. `tuning` = [passes, resist, brush]; `way.call(draw,
-    /// other draw)` gives the way two bodies on each other part. Returns [moved (flat
-    /// indices), their points (a fleeing one's offset), their nexts, loosened (flat indices,
-    /// in order), stats = [usec, passes that moved something, pairs pushed]]; commit_part()
-    /// then writes the moved into the store's columns.
+    /// UnitBodies.step as one pass (`parting::pass`, spec 39 step 8b5-xxxi) over the squads
+    /// in squad slots `listed`, in the lists' order, on the battle's `seed`: the field brought
+    /// to their living units as the bodies stand, the new ones enrolled from their sheets, the
+    /// bodies parted, those pushed from their places made loose and the moved written into
+    /// the store's columns. `tuning` = [passes, resist, brush]. Returns [usec of the parting,
+    /// passes that moved something, pairs pushed].
     #[func]
-    fn part(&mut self, tuning: PackedFloat64Array, way: Callable, threaded: bool) -> VarArray {
+    fn bodies_part(
+        &mut self,
+        listed: PackedInt32Array,
+        seed: i64,
+        tuning: PackedFloat64Array,
+        threaded: bool,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
         let t = tuning.as_slice();
         let tuning = Tuning { passes: t[0] as i64, resist: t[1], brush: t[2] };
-        let mut ask = |a: i64, b: i64| -> V2 {
-            let w: Vector2 = way.callv(&varray![a, b]).to();
-            V2::new(w.x, w.y)
-        };
         let began = Instant::now();
-        let out = field_parting::part_field(&mut self.field, &tuning, threaded, &mut ask);
+        let parts = (&tuning, threaded);
+        let out = parting::pass::step(&mut self.squads, &mut self.field, &listed, seed, parts);
         self.usec = began.elapsed().as_micros() as i64;
-        let result = varray![
-            &PackedInt32Array::from(out.moved.as_slice()),
-            &packed(&out.points),
-            &packed(&out.nexts),
-            &PackedInt32Array::from(out.loosened.as_slice()),
-            &PackedInt64Array::from(&[self.usec, out.passes, out.pairs]),
-        ];
-        self.parted = (out.moved, out.points, out.nexts);
-        result
-    }
-
-    /// Writes the last part()'s moved bodies into the unit store's columns, by how each
-    /// stands now (a fleeing one's offset, a loose one's point and next, else its position):
-    /// called once GDScript has given the bodies it made loose their entries (spec 35,
-    /// Decision 144).
-    #[func]
-    fn commit_part(&mut self) {
-        let (moved, points, nexts) = std::mem::take(&mut self.parted);
-        field_parting::commit(&mut self.field, &moved, &points, &nexts);
+        self.edits += 1;
+        PackedInt64Array::from(&[self.usec, out.passes, out.pairs])
     }
 
     /// DetMath's `op` ("sin", "cos", "asin", "acos", or "atan2" of a and b) over the
@@ -4084,25 +4070,21 @@ fn closers(living: &PackedInt64Array) -> Vec<compact::Closer> {
 /// Stamina (spec 39 step 6a).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationStamina.step: one tick of `seconds`. `squads`: two numbers a squad, its squad
-    /// slot and its flags (1 pursuing, 2 on its way back, 4 hurried); `counts`: its living
-    /// units' count; `ints`: four numbers a unit, its id, store slot, load stage and flags (1
-    /// leads, 2 "pursues_at_march", 4 "retreats_at_march"); `reals`: six a unit, its fresh
-    /// speed, most stamina, tiring, run pace, wits and constitution. `tuning`: stamina_run,
-    /// stamina_delay, stamina_recovery, run_build_seconds, run_reaction,
-    /// condition_cap, stamina_tired, stamina_spent, the three stamina_pace, then
-    /// load_march_tiring.
+    /// FormationStamina.step as one pass (`stamina::pass`, spec 39 step 8b5-xxxi): one tick
+    /// of `seconds` over the squads in squad slots `listed`, in the lists' order, each
+    /// squad's pursuit and hurry and each living unit's numbers, traits and attributes read
+    /// here. `tuning`: stamina_run, stamina_delay, stamina_recovery, run_build_seconds,
+    /// run_reaction, condition_cap, stamina_tired, stamina_spent, the three stamina_pace,
+    /// then load_march_tiring. Returns the ids of the units made by hand that took their
+    /// speed as fresh.
     #[func]
     fn stamina_step(
         &mut self,
-        squads: PackedInt64Array,
-        counts: PackedInt32Array,
-        ints: PackedInt64Array,
-        reals: PackedFloat64Array,
+        listed: PackedInt32Array,
         seconds: f64,
         tuning: PackedFloat64Array,
-    ) {
-        let listed = paced(&squads, &counts, &ints, &reals);
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
         let t = tuning.as_slice();
         let tuning = stamina::StaminaTuning {
             run: t[0],
@@ -4116,7 +4098,8 @@ impl BodyField {
             pace: t[8..11].to_vec(),
             march_tiring: t[11..].to_vec(),
         };
-        stamina::step(&self.squads, &mut self.field.columns, &listed, seconds, &tuning);
+        let made = stamina::pass::step(&self.squads, &mut self.field, &listed, seconds, &tuning);
+        PackedInt64Array::from(made.as_slice())
     }
 
     /// FormationStamina.squad_gives_up: its living units' store `slots` and most stamina.
@@ -4135,43 +4118,6 @@ impl BodyField {
             .collect();
         stamina::squad_gives_up(&self.field.columns, &living, give_up)
     }
-}
-
-/// The squads as stamina_step is given them.
-fn paced(
-    squads: &PackedInt64Array,
-    counts: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-) -> Vec<stamina::Paced> {
-    let (squad_rows, _) = squads.as_slice().as_chunks::<2>();
-    let (int_rows, _) = ints.as_slice().as_chunks::<4>();
-    let (real_rows, _) = reals.as_slice().as_chunks::<6>();
-    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| stamina::Gaited {
-        id: i[0],
-        slot: i[1] as usize,
-        load_stage: i[2],
-        leads: i[3] & 1 != 0,
-        pursues_at_march: i[3] & 2 != 0,
-        retreats_at_march: i[3] & 4 != 0,
-        fresh_speed: r[0],
-        max_stamina: r[1],
-        tiring: r[2],
-        run_pace: r[3],
-        wits: r[4],
-        constitution: r[5],
-    });
-    squad_rows
-        .iter()
-        .zip(counts.as_slice())
-        .map(|(s, &count)| stamina::Paced {
-            squad: s[0] as usize,
-            pursuing: s[1] & 1 != 0,
-            returning: s[1] & 2 != 0,
-            hurry: s[1] & 4 != 0,
-            living: units.by_ref().take(count as usize).collect(),
-        })
-        .collect()
 }
 
 /// The downed: the fallen, the takers, surrender and recovery (spec 39 step 6b).
