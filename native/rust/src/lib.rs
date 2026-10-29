@@ -4250,41 +4250,38 @@ impl BodyField {
         PackedInt64Array::from_iter(flat)
     }
 
-    /// FormationWounds.tend: this tick's takings of the downed. `counts`: two numbers a squad
-    /// in the lists' order, how many living units follow and then how many downed (not borne)
-    /// bodies; `ints`: eight a unit, its id, store slot, faction (a code), flags (1 a captor, 2
-    /// leads, 4 playing dead), messengers left, damage, "cunning" and "thorough"; `reals`:
-    /// three a unit, its wits, constitution and melee seconds. `tuning`: as `wounds_tuning`.
-    /// Returns five numbers a body taken, in order: [what (0 captured, 1 sent home, 2
-    /// finished), the body's squad, its index in that squad's downed, then the captor's or
-    /// leader's squad and its index in that squad's living, or 0, 0].
+    /// FormationWounds.tend: the wounds' tending as one pass (`wounds::pass::step`): the
+    /// listed squads' living units and bodies lying read in the crate, the takings, the
+    /// bodies taken captured, sent home (the leader's messenger spent, the body's side
+    /// shocked) or finished, their states written and "captured", "sent_home", "finished" and
+    /// "morale_band" in the log. `listed`: the squads' slots, in the lists' order; `at`: [tick,
+    /// ticks a second, seed, wounds_messenger_shock]; `tuning`: as `wounds_tuning`; `bands`:
+    /// as BandTuning.of_slice reads it. Returns five numbers a body taken, in the order
+    /// landed: [its squad's index in `listed`, its id, its state now, then for one sent home
+    /// its leader's squad's index and id, else -1, -1].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn wounds_tend(
+    fn wounds_step(
         &mut self,
-        counts: PackedInt32Array,
-        ints: PackedInt64Array,
-        reals: PackedFloat64Array,
-        interval: i64,
-        seed: i64,
+        listed: PackedInt32Array,
+        at: PackedInt64Array,
         tuning: PackedFloat64Array,
+        bands: PackedInt64Array,
     ) -> PackedInt64Array {
-        let squads = tended(&counts, &ints, &reals);
-        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
-        let tending = wounds::tend(&mut self.field.columns, &squads, interval, seed, &tuning);
-        for id in tending.fell {
-            self.field.fell(id);
-        }
-        let mut out = vec![];
-        for taken in tending.taken {
-            let (what, body, other) = match taken {
-                wounds::Taken::Captured { body, by } => (0, body, by),
-                wounds::Taken::SentHome { body, leader } => (1, body, leader),
-                wounds::Taken::Finished { body } => (2, body, (0, 0)),
-            };
-            out.extend([what, body.0 as i64, body.1 as i64, other.0 as i64, other.1 as i64]);
-        }
-        PackedInt64Array::from(out.as_slice())
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let &[tick, interval, seed, shock, ..] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let wounds = wounds::WoundsTuning::of_slice(tuning.as_slice());
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let t = wounds::pass::Tuning { wounds: &wounds, shock, bands: &bands };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let landed = wounds::pass::step(squads, field, &listed, (tick, interval, seed), &t, log);
+        self.edits += 1;
+        let flat = landed.iter().flat_map(|l| {
+            let (n, id) = l.leader.map_or((-1, -1), |(n, id)| (n as i64, id));
+            [l.listed as i64, l.id, i64::from(l.state), n, id]
+        });
+        PackedInt64Array::from_iter(flat)
     }
 
     /// FormationRecovery.step: one tick of `seconds`. `squads`: two numbers a squad in the
@@ -4419,39 +4416,6 @@ fn carrying(
                     cells: i[3],
                 })
                 .collect(),
-        })
-        .collect()
-}
-
-/// The squads as wounds_tend is given them.
-fn tended(
-    counts: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-) -> Vec<wounds::Tended> {
-    let (int_rows, _) = ints.as_slice().as_chunks::<8>();
-    let (real_rows, _) = reals.as_slice().as_chunks::<3>();
-    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| wounds::Taking {
-        id: i[0],
-        slot: i[1] as usize,
-        faction: i[2] as u32,
-        captor: i[3] & 1 != 0,
-        leads: i[3] & 2 != 0,
-        playing_dead: i[3] & 4 != 0,
-        messengers: i[4],
-        dmg: i[5],
-        cunning: i[6],
-        thorough: i[7],
-        wits: r[0],
-        constitution: r[1],
-        melee_seconds: r[2],
-    });
-    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
-    count_rows
-        .iter()
-        .map(|c| wounds::Tended {
-            living: units.by_ref().take(c[0] as usize).collect(),
-            downed: units.by_ref().take(c[1] as usize).collect(),
         })
         .collect()
 }
