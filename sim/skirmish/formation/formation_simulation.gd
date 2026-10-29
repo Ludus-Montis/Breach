@@ -220,14 +220,14 @@ func _move(events: Array, roster: Object) -> void:
 	FormationJoins.join(_squads, joins)
 
 
-## The blows and shots chosen in the crate (FormationMelee, spec 39 step 8b5-xvii) and
-## landed, then their hurts landed in the crate (`hurts.rs`, step 8b2), the fallen on the
-## fell queue; their events, from what each left.
+## The fight as one crate pass (FormationMelee.fight, spec 39 step 8b5-xix): the blows and
+## shots chosen and landed, their hurts, the fallen on the fell queue, and the surrender
+## (8b5-xx), whose takings GDScript's copies mirror; then its events.
 func _fight(events: Array) -> void:
 	var ticks := [_attack_interval_ticks(), fight_seed, _tick]  # FormationMelee.fight's order
-	var blows := FormationMelee.fight(_squads, ticks, blow_rolls, terrain, _field)
-	events.append_array(CrateEvents.taken(_field))  # "spat", then "hit"
-	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
+	for taken in FormationMelee.fight(_squads, ticks, blow_rolls, terrain, _field):
+		UnitState.put(taken[0], taken[1], SkirmishUnit.State.TAKEN)
+	events.append_array(CrateEvents.taken(_field))  # "spat", "hit", "surrendered", "destroyed"
 
 
 ## Ticks in a second: a weapon's attack interval is in seconds (Decision 120).
