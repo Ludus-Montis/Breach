@@ -1552,12 +1552,6 @@ impl ScrumRules {
         bands::held(value)
     }
 
-    /// FormationMorale.losses' shock, over the fallen's leaderships.
-    #[func]
-    fn morale_losses(&self, fallen: PackedInt64Array, tuning: PackedInt64Array) -> i64 {
-        bands::losses(fallen.as_slice(), &bands::BandTuning::of_slice(tuning.as_slice()))
-    }
-
     #[func]
     fn gap(&self, here: Vector2, radius: f64, there: Vector2, other: f64) -> f64 {
         reach::gap(v2(here), radius, v2(there), other)
@@ -4232,23 +4226,28 @@ fn paced(
 /// The downed: the fallen, the takers, surrender and recovery (spec 39 step 6b).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationDeaths.bury's fates, for the fallen in the order they are buried (`slots` and
-    /// `constitutions`, one a unit): -1 if it dies, else the wounds it takes. The downed's hp
-    /// is put to 0 and their time downed is to be reckoned.
+    /// FormationDeaths.bury over the squads in squad slots `listed`, in the lists' order
+    /// (`deaths::bury::bury`): the fell queue taken, each fallen unit still standing at 0 hp
+    /// or below dying or downed with the squad it is in now, its state and wounds written,
+    /// "died" or "downed", "leader_fell", "morale_band", "stepped_up" and "destroyed" in the
+    /// log, the losses' shock, the ranks closed up and the squads left with no one destroyed
+    /// and released. `bands` as BandTuning.of_slice reads it. Returns three numbers a unit
+    /// buried, in the order buried: [its squad's index in `listed`, its id, the wounds it
+    /// bears now if downed, else -1].
     #[func]
-    fn deaths_fate(
+    fn deaths_bury(
         &mut self,
-        slots: PackedInt32Array,
-        constitutions: PackedFloat64Array,
+        listed: PackedInt32Array,
+        bands: PackedInt64Array,
+        tick: i64,
     ) -> PackedInt64Array {
-        let fallen: Vec<(usize, f64)> = slots
-            .as_slice()
-            .iter()
-            .zip(constitutions.as_slice())
-            .map(|(&slot, &constitution)| (slot as usize, constitution))
-            .collect();
-        let fates = deaths::fate(&mut self.field.columns, &fallen);
-        fates.iter().map(|fate| fate.unwrap_or(-1)).collect()
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let t = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let buried = deaths::bury::bury(squads, field, &listed, (&t, tick), log);
+        self.edits += 1;
+        let flat = buried.iter().flat_map(|b| [b.listed as i64, b.id, b.wounded.unwrap_or(-1)]);
+        PackedInt64Array::from_iter(flat)
     }
 
     /// FormationWounds.tend: this tick's takings of the downed. `counts`: two numbers a squad

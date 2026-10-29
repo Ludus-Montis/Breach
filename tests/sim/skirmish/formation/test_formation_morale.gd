@@ -1,8 +1,8 @@
 extends GdUnitTestSuite
 ## Morale, per Decision 82 and spec 27 round 3: a ceiling from courage and leadership;
-## impact shock from side and rear hits; bands, the slower strikes of a wavering squad, and
-## the shock of a fallen leader. Pressure, a friend's support and recovery are the crate's
-## (`morale/tests.rs`, spec 39 step 7a).
+## impact shock from side and rear hits; bands and the slower strikes of a wavering squad.
+## Pressure, a friend's support and recovery are the crate's (`morale/tests.rs`, spec 39 step
+## 7a), and the shock of the fallen the burial's (`deaths/bury/tests.rs`, 8b5-xxii).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -135,21 +135,6 @@ func test_crossing_a_band_is_an_event() -> void:
 	assert_int(events.size()).is_equal(1)
 	assert_str(events[0]["band"]).is_equal("SHAKEN")
 	assert_int(FormationMorale.band(squad)).is_equal(FormationMorale.Band.SHAKEN)
-
-
-func test_a_fallen_leader_shocks_the_squad_and_lowers_its_ceiling() -> void:
-	var leader := _unit(2, 1, 2)
-	var squad := _squad(1, [_unit(1, 0), leader])
-	squad.morale = FormationMorale.ceiling(squad)
-	assert_int(squad.morale).is_equal(80)
-	UnitState.put(squad, leader, SkirmishUnit.State.DEAD)
-	var events := []
-
-	FormationMorale.losses(squad, [leader], 5, events)
-
-	assert_int(squad.morale).is_equal(80 - 4 - 20)
-	assert_bool(events.any(func(e): return e["type"] == "leader_fell")).is_true()
-	assert_int(FormationMorale.ceiling(squad)).is_equal(60)
 
 
 func test_a_wavering_squad_strikes_more_slowly() -> void:

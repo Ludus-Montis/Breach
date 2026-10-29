@@ -163,7 +163,7 @@ const NONE: i64 = -1;
 const ORDERED: i32 = 4;
 /// SkirmishUnit.State's DEAD, DOWNED and CARRIED: a state before DEAD is standing.
 pub(crate) const DEAD: i32 = 4;
-const DOWNED: i32 = 5;
+pub(crate) const DOWNED: i32 = 5;
 const CARRIED: i32 = 8;
 
 /// Every column's SquadColumns name, by its index there: the ints, the longs (from
