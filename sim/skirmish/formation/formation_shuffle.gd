@@ -16,8 +16,8 @@ extends RefCounted
 ##   keeps fighting. A death of anyone involved cancels it.
 ## A squad re-forms until no further move can start. Pure over the squad it is given. Which
 ## moves start is the crate's (native/rust/src/march/shuffle.rs and front.rs, spec 39 step
-## 3d); the swaps under way, their ends and the widening stay here until compaction ports
-## (step 5).
+## 3d), and so are the swaps' ends, the widening and the closing up after (swaps.rs, step
+## 8a2-iii), and the swaps under way themselves (step 8b4-v); the events stay here.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -30,92 +30,81 @@ const FormationEvents = preload("res://sim/skirmish/formation/formation_events.g
 static func step(
 	squad: SkirmishSquad, tick_seconds: float, travel_scale: float, tick: int
 ) -> Array:
-	var events := []
-	var within := false  # every living unit known to stand in the squad's columns
-	for index in range(squad.swaps.size() - 1, -1, -1):
-		var swap: Dictionary = squad.swaps[index]
-		if swap["to"].keys().any(func(u): return not u.is_alive()):
-			squad.swaps.remove_at(index)
-			continue
-		swap["ticks"] -= 1
-		if swap["ticks"] > 0:
-			continue
-		# store: scattered (few: a swap ending, its step-ups, a widening)
-		for unit in swap["to"]:
-			UnitPlace.put(squad, unit, swap["to"][unit])
-		squad.swaps.remove_at(index)
-		if not within or not swap["to"].keys().all(func(u): return _inside(squad, u)):
-			_widen_to_fit(squad)  # only the movers' columns have changed since it last did
-			within = true
-		var ids: Array = swap["passed"].map(func(u): return u.id)
-		events.append(
-			FormationEvents.unit_event("swapped", tick, squad, swap["mover"], {"passed": ids})
-		)
-		# store: scattered (few: a swap ending, its step-ups, a widening)
-		for moved in squad.compact():  # close the gaps the move left
-			var rank := UnitPlace.rank(squad, moved)
-			events.append(
-				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
-			)
+	var events := _end_swaps(squad, tick) if swapping(squad) else []
 	if squad.reforming and not _start_moves(squad, tick_seconds, travel_scale):
-		squad.reforming = not squad.swaps.is_empty()
+		squad.reforming = swapping(squad)
 	return events
 
 
-## True if the unit stands within the squad's columns.
-static func _inside(squad: SkirmishSquad, unit: SkirmishUnit) -> bool:
-	var column := UnitPlace.of(squad, unit).y
-	return column >= 0 and column + unit.footprint_width <= squad.width
+## The crate cancels, counts down and ends the squad's swaps under way, widens it and closes
+## it up (swaps.rs); this makes the events.
+static func _end_swaps(squad: SkirmishSquad, tick: int) -> Array:
+	var living := squad.living()
+	var columns: UnitColumns = squad.store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var front := squad.front_distance
+	var closers := SquadCompact.closers(living)
+	var slots := PackedInt32Array(squad.units.map(func(unit): return unit.slot))
+	var ends: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.squad_swaps_end(squad.slot, closers, slots)
+	)
+	SquadCompact.placed(squad, front)
+	var events := []
+	var at := 0
+	while at < ends.size():
+		var mover: int = ends[at]
+		var ids := []
+		for passed in ends.slice(at + 2, at + 2 + ends[at + 1]):
+			ids.append(passed)
+		at += 2 + ends[at + 1]
+		var extra := {"unit": mover, "passed": ids}
+		events.append(FormationEvents.squad_event("swapped", tick, squad, extra))
+		for _each in ends[at]:
+			var moved: SkirmishUnit = living[ends[at + 1]]
+			var rank: int = ends[at + 2]
+			events.append(
+				FormationEvents.unit_event("stepped_up", tick, squad, moved, {"rank": rank})
+			)
+			at += 2
+		at += 1
+	return events
 
 
-## {unit: the swap under way it moves in} for the squad, as it stands: give it to offset()
-## when asking about many of its units.
+## Whether any swap of the squad's re-forming is under way.
+static func swapping(squad: SkirmishSquad) -> bool:
+	return squad.store.field().squad_swapping(squad.slot)
+
+
+## The squad's swaps under way are cancelled.
+static func clear(squad: SkirmishSquad) -> void:
+	squad.store.field().squad_clear_swaps(squad.slot)
+
+
+## {unit id: how far it is through the swap under way it moves in} for the squad, as it
+## stands: give it to offset() when asking about many of its units.
 static func movers(squad: SkirmishSquad) -> Dictionary:
 	var out := {}
-	for swap in squad.swaps:
-		for unit in swap["to"]:
-			if not out.has(unit):
-				out[unit] = swap
+	var flat: PackedFloat64Array = squad.store.field().squad_swap_offsets(squad.slot)
+	for at in range(0, flat.size(), 3):
+		out[int(flat[at])] = Vector2(flat[at + 1], flat[at + 2])
 	return out
 
 
 ## How far a unit is through a move: Vector2(ranks forward, columns across). `moving` is
 ## movers() for the squad as it stands, if the caller has it.
 static func offset(squad: SkirmishSquad, unit: SkirmishUnit, moving = null) -> Vector2:
-	if squad.swaps.is_empty():
-		return Vector2.ZERO
-	if moving != null:
-		var swap = moving.get(unit)
-		return Vector2.ZERO if swap == null else _progress(swap, unit)
-	for swap in squad.swaps:
-		if swap["to"].has(unit):
-			return _progress(swap, unit)
-	return Vector2.ZERO
-
-
-## How far `unit` is through `swap`.
-static func _progress(swap: Dictionary, unit: SkirmishUnit) -> Vector2:
-	var progress := 1.0 - float(swap["ticks"]) / float(swap["total"])
-	var from: Vector2i = swap["from"][unit]
-	var to: Vector2i = swap["to"][unit]
-	return Vector2((from.x - to.x) * progress, (to.y - from.y) * progress)
+	if moving == null:
+		if not swapping(squad):
+			return Vector2.ZERO
+		moving = movers(squad)
+	return moving.get(unit.id, Vector2.ZERO)
 
 
 static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale: float) -> bool:
 	var living := squad.living()
-	var index_of := {}  # unit -> where it comes in the squad's living units
-	for index in living.size():
-		index_of[living[index]] = index
-	var swaps := PackedInt32Array()  # where each unit of a move under way goes
-	var busy := PackedInt32Array()
-	for swap in squad.swaps:
-		for unit in swap["to"]:
-			var to: Vector2i = swap["to"][unit]
-			swaps.append_array(
-				PackedInt32Array([to.x, to.y, unit.footprint_width, unit.footprint_depth])
-			)
-			if index_of.has(unit):
-				busy.append(index_of[unit])
+	var listed := PackedInt64Array()  # [id, store slot] each living unit
+	for unit in living:
+		listed.append_array([unit.id, unit.slot])
 	var table := UnitView.read(squad, UnitView.PLACES)  # no one moves while moves are planned
 	var ranks: PackedInt32Array = table.rank
 	var files: PackedInt32Array = table.column
@@ -134,51 +123,4 @@ static func _start_moves(squad: SkirmishSquad, tick_seconds: float, travel_scale
 	var pace := PackedFloat64Array(
 		[tick_seconds, travel_scale, BattleTuning.current().scrum_crowding]
 	)
-	var moves: PackedInt64Array = CrateMarch.core().start_moves(
-		shape, units, speeds, swaps, busy, pace
-	)
-	var at := 0
-	while at < moves.size():
-		var ticks: int = moves[at]
-		var plan := {"distance": moves[at + 1], "to": {}, "from": {}}
-		var count: int = moves[at + 2]
-		at += 3
-		for _each in count:
-			var unit: SkirmishUnit = living[moves[at]]
-			plan["to"][unit] = Vector2i(moves[at + 1], moves[at + 2])
-			plan["from"][unit] = Vector2i(ranks[unit.slot], files[unit.slot])
-			at += 3
-		plan["mover"] = plan["to"].keys()[0]
-		var passed := []
-		for _each in moves[at]:
-			at += 1
-			passed.append(living[moves[at]])
-		at += 1
-		plan["passed"] = passed
-		plan.merge({"ticks": ticks, "total": ticks})
-		squad.swaps.append(plan)
-	return not moves.is_empty()
-
-
-## A front-preferring unit's move to the nearest free place in the front rank; {} if none.
-## Takes in any columns units now stand in outside 0..width (a spread, Decision 51):
-## renumbers every column, swaps under way included, and shifts the centre to match.
-static func _widen_to_fit(squad: SkirmishSquad) -> void:
-	var left := 0
-	var right := squad.width
-	var files: PackedInt32Array = UnitView.read(squad, [UnitColumns.COLUMN]).column  # read once
-	for unit in squad.living():
-		var column: int = files[unit.slot]
-		left = mini(left, column)
-		right = maxi(right, column + unit.footprint_width)
-	if left == 0 and right == squad.width:
-		return
-	squad.centre_shift += left + (right - left - squad.width) / 2.0
-	# store: scattered (few: a swap ending, its step-ups, a widening)
-	for unit in squad.units:
-		UnitPlace.put(squad, unit, UnitPlace.of(squad, unit) - Vector2i(0, left))
-	for swap in squad.swaps:
-		for key in ["from", "to"]:
-			for unit in swap[key]:
-				swap[key][unit] -= Vector2i(0, left)
-	squad.width = right - left
+	return squad.store.field().squad_start_moves(squad.slot, listed, shape, units, speeds, pace)

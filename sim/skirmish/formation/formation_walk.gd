@@ -11,14 +11,14 @@ extends RefCounted
 ## left behind" waits for it; under "fall behind, left behind" it never waits. Placing a
 ## squad sets its units on their places (FormationMarch.sync_units). Pure. A view over the
 ## crate's (native/rust/src/march/walk.rs and modes.rs, spec 39 step 3d): the walk, its
-## climbing and swimming (modes.rs, once WalkModes), the share, the slack and the rule.
+## climbing and swimming (modes.rs, once WalkModes), the slack and the rule; the share is
+## the move pass's (native/rust/src/moving/share.rs, spec 39 step 8b5-ix).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationDiscipline = preload("res://sim/skirmish/formation/formation_discipline.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
@@ -35,8 +35,6 @@ const WALKS := [
 	UnitColumns.BEARING,
 	UnitColumns.SPEED,
 ]
-## rule_of's traits by the crate's codes.
-const RULE_CODES := {"": 0, "fall_behind_left_behind": 1, "no_man_left_behind": 2}
 
 
 ## Walks `unit` of `squad` a tick towards `place`; `timing` is [seconds, cells a second
@@ -136,29 +134,23 @@ static func place_of_one(squad: SkirmishSquad, unit: SkirmishUnit, moving = null
 ## behind their places: all of it while every unit is within half its slack, easing to
 ## none as the furthest nears the slack itself, so a wheel slows to what its outer file
 ## can walk rather than halting; one fallen behind (walk_lost) is waited for only if no
-## man is left behind.
+## man is left behind. The crate's (`moving::share`, spec 39 step 8b5-ix), each unit read
+## where it lives.
 static func share(
 	squad: SkirmishSquad, terrain: FormationTerrain = null, fight_seed: int = 0
 ) -> float:
-	if not squad.taking.is_empty():
-		return 0.0  # it holds while its units are out taking the downed (FormationTaking)
-	var rule: int = RULE_CODES[rule_of(squad)]
-	if rule == 1:
-		return 1.0
-	var framed := squad.living().filter(
-		func(u): return not squad.loose.has(u.id) and not squad.fleeing.has(u.id)
+	var tuning := _tuning()
+	var rules := PackedFloat64Array(
+		[
+			tuning.discipline_per_leadership,
+			tuning.walk_slack_loose,
+			tuning.walk_slack_drilled,
+			tuning.wounds_reach,
+			tuning.walk_lost,
+		]
 	)
-	var moving := FormationShuffle.movers(squad)
-	return CrateMarch.core().share(
-		UnitMover.ground(terrain),
-		CrateMarch.frame(squad),
-		CrateMarch.pourers(squad, framed, moving),
-		fight_seed,
-		_tuning().wounds_reach,
-		rule,
-		slack_of(squad),
-		_tuning().walk_lost
-	)
+	var roster := CrateRoster.of([squad])
+	return squad.store.field().walk_share(roster, UnitMover.ground(terrain), fight_seed, rules)
 
 
 ## Where `unit` makes for (FormationPour.targets): its place, or where its place is barred,

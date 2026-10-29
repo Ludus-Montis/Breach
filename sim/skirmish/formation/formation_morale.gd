@@ -14,8 +14,9 @@ extends RefCounted
 ## - **Recovery**, each second out of contact: a little plus its leadership, up to the
 ##   ceiling.
 ## Pure over the squads it is given; the simulation calls it. Its pressure and recovery
-## are the crate's (`morale.rs`); the ceiling, the bands and the shocks stay here, read and
-## dealt by the passes that land what the crate decides.
+## are the crate's (`morale.rs`), and its ceiling, bands and shocks (`bands.rs`, spec 39 step
+## 8a2-iv): this hands it the living's courage and leadership and each squad's morale, keeps
+## each squad's morale, and makes the events.
 
 enum Band { STEADY, SHAKEN, WAVERING, ROUTING }
 
@@ -26,39 +27,30 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 
 
 static func ceiling(squad: SkirmishSquad) -> int:
-	var living := squad.living()
-	if living.is_empty():
-		return 0
-	var courage := 0
-	for unit in living:
-		courage += unit.courage
-	return mini(
-		100,
-		roundi(float(courage) / living.size()) + _tuning().morale_per_leadership * leadership(squad)
-	)
+	var courage := PackedInt64Array()
+	var leaderships := PackedInt64Array()
+	for unit in squad.living():
+		courage.append(unit.courage)
+		leaderships.append(unit.leadership)
+	return CrateScrum.core().morale_ceiling(courage, leaderships, _rules())
 
 
 ## The best living leader's leadership (Decision 81).
 static func leadership(squad: SkirmishSquad) -> int:
-	var best := 0
+	var leaderships := PackedInt64Array()
 	for unit in squad.living():
-		best = maxi(best, unit.leadership)
-	return best
+		leaderships.append(unit.leadership)
+	return CrateScrum.core().morale_leadership(leaderships)
 
 
 static func band(squad: SkirmishSquad) -> Band:
-	var morale := _morale(squad)
-	if morale >= _tuning().morale_steady_at:
-		return Band.STEADY
-	if morale >= _tuning().morale_shaken_at:
-		return Band.SHAKEN
-	return Band.WAVERING if morale > 0 else Band.ROUTING
+	return CrateScrum.core().morale_band(_morale(squad), _rules()) as Band
 
 
 ## The attack interval for the units of a squad in `squad_band` (its `band`, read once a
 ## pass: Decision 144): half again as long while it wavers.
 static func interval(squad_band: int, usual: int) -> int:
-	return roundi(usual * 1.5) if squad_band == Band.WAVERING else usual
+	return CrateScrum.core().morale_interval(squad_band, usual)
 
 
 ## Drains the squad's morale; a change of band is a "morale_band" event.
@@ -68,13 +60,13 @@ static func shock(squad: SkirmishSquad, amount: int, tick: int, events: Array) -
 
 ## The shock of this tick's dead in a squad: each loss, and more for each leader.
 static func losses(squad: SkirmishSquad, fallen: Array, tick: int, events: Array) -> void:
-	var amount := _tuning().morale_loss * fallen.size()
+	var leaderships := PackedInt64Array()
 	for unit in fallen:
+		leaderships.append(unit.leadership)
 		if unit.leadership > 0:
-			amount += _tuning().morale_leader_loss * unit.leadership
 			var extra := {"unit": unit.id, "leadership": unit.leadership}
 			events.append(FormationEvents.squad_event("leader_fell", tick, squad, extra))
-	shock(squad, amount, tick, events)
+	shock(squad, CrateScrum.core().morale_losses(leaderships, _rules()), tick, events)
 
 
 ## Once a second: pressure on squads fighting on several sides, recovery for those out of
@@ -117,7 +109,7 @@ static func _morale(squad: SkirmishSquad) -> int:
 
 static func _set_morale(squad: SkirmishSquad, value: int, tick: int, events: Array) -> void:
 	var before := band(squad)
-	squad.morale = clampi(value, 0, 100)
+	squad.morale = CrateScrum.core().morale_held(value)
 	var after := band(squad)
 	if after != before:
 		var extra := {"band": Band.keys()[after], "morale": squad.morale}
@@ -126,3 +118,8 @@ static func _set_morale(squad: SkirmishSquad, value: int, tick: int, events: Arr
 
 static func _tuning() -> BattleTuning:
 	return BattleTuning.current()
+
+
+## The tuning the crate's rules read (BandTuning).
+static func _rules() -> PackedInt64Array:
+	return BandTuning.rules()

@@ -1,8 +1,9 @@
 class_name CrateScrum
 extends RefCounted
 ## The crate's contest and reach in the scrum (`ScrumRules`, native/rust/src/contest.rs and
-## reach.rs; spec 39 step 4a), which ScrumContest and ScrumReach are views over. Stateless,
-## so one is shared.
+## reach.rs; spec 39 step 4a), which ScrumContest and ScrumReach are views over, and
+## FormationMorale over its ceiling, bands and shocks (bands.rs, step 8a2-iv). Stateless, so
+## one is shared.
 
 const RULES_CLASS := "ScrumRules"
 

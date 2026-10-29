@@ -16,89 +16,19 @@ extends RefCounted
 ## cells along its route, "trigger", "partner": squad id or 0, "fallback": ticks, "then":
 ## "go" or "back", optionally "meet": the meeting point and "meet_cells": how far along its
 ## own route that is}. Pure. Whether the trigger has fired and it is time to go are the
-## crate's (`staging.rs`, spec 39 step 5b); holding, the fallback and the events stay here
-## with the orders (step 7).
-
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
-const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
+## crate's (`staging.rs`, spec 39 step 5b), and holding and the fallback too (step 8a2-ii),
+## and the order itself (step 8b4-iv: SkirmishSquad.staging is a view of it), and its
+## events (the move's pass, step 8b5-viii); the routes' codes stay here.
 
 const SEES_PARTNER := "sees_partner"
 const SEES_FIGHT := "sees_fight"
 
 
-## True if the squad holds this tick: it is at its staging point and its trigger hasn't
-## fired. Emits "staged" when it first holds, then "signalled" or "gave_up".
-## `pace` = [cells a second at speed 1, seconds a tick].
-## `terrain`, if given, can block sight. `roster`: the tick's (CrateRoster) of `squads`, made
-## here if none is given.
-static func holds(
-	squad: SkirmishSquad,
-	squads: Array,
-	tick: int,
-	events: Array,
-	pace: Array = [8.0, 0.1],
-	terrain: FormationTerrain = null,
-	roster: Object = null
-) -> bool:
-	if squad.staging.is_empty() or squad.order != SkirmishUnit.Order.ADVANCE:
-		return false
-	if _signalled(squad, squads, pace, terrain, roster):
-		squad.staging = {}
-		events.append(FormationEvents.squad_event("signalled", tick, squad))
-		return false
-	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	if absf(cells - squad.home_distance * MapLayoutDef.CELLS_PER_TILE) < squad.staging["at"]:
-		return false  # still on its way
-	if squad.state != SkirmishSquad.State.HOLDING:
-		squad.state = SkirmishSquad.State.HOLDING
-		events.append(FormationEvents.squad_event("staged", tick, squad))
-	squad.staging["fallback"] -= 1
-	if squad.staging["fallback"] > 0:
-		return true
-	var then: String = squad.staging.get("then", "go")
-	squad.staging = {}
-	events.append(FormationEvents.squad_event("gave_up", tick, squad, {"then": then}))
-	if then == "back":
-		squad.order = SkirmishUnit.Order.RETREAT
-	return false
-
-
-## True if the trigger has fired and it is time to go: a friend it detects fires it and, led
-## by a coordinated leader with a meeting point, it would arrive no earlier than any of them.
-static func _signalled(
-	squad: SkirmishSquad, squads: Array, pace: Array, terrain: FormationTerrain, roster: Object
-) -> bool:
-	if roster == null:
-		roster = CrateRoster.of(squads)
+## Each of `squads`' route as a code, in the lists' order: a wave on its own route is no
+## partner for one with no partner named.
+static func route_codes(squads: Array) -> PackedInt32Array:
 	var routes := {}  # route -> its code
 	var codes := PackedInt32Array()
 	for other in squads:
 		codes.append(routes.get_or_add(other.route, routes.size()))
-	var order := PackedInt64Array(
-		[int(squad.staging["trigger"] != SEES_PARTNER), squad.staging.get("partner", 0)]
-	)
-	var meet := PackedFloat64Array()
-	if squad.staging.has("meet") and _coordinated(squad):
-		var at: Vector2 = squad.staging["meet"]
-		meet = PackedFloat64Array(
-			[at.x, at.y, squad.staging["meet_cells"], FormationWalk.slack_of(squad)]
-		)
-	return squad.store.field().staging_signalled(
-		roster,
-		squads.find(squad),
-		order,
-		codes,
-		meet,
-		squad.route.points() if squad.route != null else PackedVector2Array(),
-		PackedFloat64Array(pace),
-		UnitMover.ground(terrain)
-	)
-
-
-static func _coordinated(squad: SkirmishSquad) -> bool:
-	return squad.living().any(func(u): return u.tactics.has("coordinated"))
+	return codes

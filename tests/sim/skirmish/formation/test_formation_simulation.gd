@@ -191,3 +191,23 @@ func test_the_same_inputs_replay_to_the_same_events() -> void:
 		runs.append(JSON.stringify(log))
 
 	assert_str(runs[0]).is_equal(runs[1])
+
+
+func test_the_crate_issues_the_ids_and_queues_the_orders() -> void:
+	var sim := FormationSimulation.new(ROUTE, TICK)
+	var two := [[_grem(), Vector2i(0, 0)], [_grem(), Vector2i(0, 1)]]
+	var first := sim.spawn_squad(2, two, "player", true)
+	var second := sim.spawn_squad(1, [[_grem(), Vector2i(0, 0)]], "the_kingdom", false)
+	assert_array([first.id, second.id]).is_equal([1, 2])
+	var ids := (first.units + second.units).map(func(unit): return unit.id)
+	assert_array(ids).is_equal([1, 2, 3])
+	sim.order(second.id, SkirmishUnit.Order.HOLD)
+	sim.order(first.id, SkirmishUnit.Order.HOLD)
+	sim.order(second.id, SkirmishUnit.Order.RETREAT)
+	var queued: PackedInt64Array = sim.store.field().orders_pending()
+	assert_array(Array(queued)).is_equal(
+		[2, SkirmishUnit.Order.RETREAT, 1, SkirmishUnit.Order.HOLD]
+	)
+	sim.step()
+	assert_bool(sim.store.field().orders_pending().is_empty()).is_true()
+	assert_int(first.order).is_equal(SkirmishUnit.Order.HOLD)

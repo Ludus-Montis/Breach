@@ -19,6 +19,7 @@ const INTS := {
 	WAS_RUNNING: true,
 	LAST_WOUNDING: true,
 	ON_FACE: true,
+	STATE: true,
 }
 const LONGS := {GOAL_FOE: true, GOAL_SLOT: true, CAUGHT: true, HELD_BY: true, TARGET_ID: true}
 const REALS := {

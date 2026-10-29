@@ -12,7 +12,9 @@ extends RefCounted
 ## units' and bodies' seeded draws, never by ids or lists (Decision 97). A group that is
 ## threatened - it sees a standing foe (FormationPerception, Decision 134) - fights first:
 ## it sends no takers, calls back those out and doesn't hold for them. Who goes out to
-## which body is the crate's (`taking.rs`, spec 39 step 6c). Pure.
+## which body is the crate's (`taking.rs`, spec 39 step 6c), and it holds who is out taking
+## which body (step 8b4-vi: SkirmishSquad.taking, {taker's id: its body's store slot}, read
+## and written whole); a body's state is read from the store, as UnitState mirrors it.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -66,20 +68,23 @@ static func _takes(squad: SkirmishSquad) -> bool:
 static func _recall(squad: SkirmishSquad, tick: int, seconds: float, threatened: bool) -> void:
 	if squad.state == SkirmishSquad.State.FIGHTING:
 		squad.took_until = -1  # a new fight: its downed foes are worth taking again
-	if squad.taking.is_empty():
+	var taking := squad.taking
+	if taking.is_empty():
 		return
 	var held := (tick - squad.taking_since) * seconds
 	var lasting := FormationWalk.rule_of(squad) == "no_man_left_behind"
 	var out_of_time: bool = not lasting and held >= BattleTuning.current().take_hold
 	var at_ease: bool = squad.state in AT_EASE  # read once (Decision 144)
-	for unit_id in squad.taking.keys():
-		var body: SkirmishUnit = squad.taking[unit_id]
+	var columns: UnitColumns = squad.store.columns
+	for unit_id in taking.keys():  # store: scattered (few: its takers out, a handful)
+		var body_state: int = columns.value(taking[unit_id], UnitColumns.STATE)
 		var taker = squad.units.filter(func(u): return u.id == unit_id)
-		if out_of_time or body.state != SkirmishUnit.State.DOWNED or taker.is_empty():
-			squad.taking.erase(unit_id)
+		if out_of_time or body_state != SkirmishUnit.State.DOWNED or taker.is_empty():
+			taking.erase(unit_id)
 		elif threatened or not taker[0].is_alive() or not at_ease:
-			squad.taking.erase(unit_id)
-	if squad.taking.is_empty():
+			taking.erase(unit_id)
+	squad.taking = taking
+	if taking.is_empty():
 		squad.taking_since = -1
 		squad.took_until = tick if out_of_time else -1
 
@@ -89,10 +94,10 @@ static func _recall(squad: SkirmishSquad, tick: int, seconds: float, threatened:
 ## this lands it - the takings, the hold's start and the events.
 static func _send(sending: Array, downed: Array, tick: int, fight_seed: int, events: Array) -> void:
 	var codes := {}  # faction -> its code
-	var index := {}  # body -> its index in `downed`
+	var index := {}  # body's store slot -> its index in `downed`
 	var lying := PackedInt64Array()
 	for body: SkirmishUnit in downed:
-		index[body] = index.size()
+		index[body.slot] = index.size()
 		lying.append_array([body.id, body.slot, codes.get_or_add(body.faction_id, codes.size())])
 	var counts := PackedInt32Array()
 	var takers := PackedInt64Array()
@@ -100,16 +105,15 @@ static func _send(sending: Array, downed: Array, tick: int, fight_seed: int, eve
 	var claimed := PackedInt32Array()
 	var listed := []  # per squad, its free units as handed in
 	for squad: SkirmishSquad in sending:
+		var taking := squad.taking
 		var free := squad.living().filter(
 			func(unit):
 				return not (
-					squad.loose.has(unit.id)
-					or squad.fleeing.has(unit.id)
-					or squad.taking.has(unit.id)
+					squad.loose.has(unit.id) or squad.fleeing.has(unit.id) or taking.has(unit.id)
 				)
 		)
 		listed.append(free)
-		var claims := squad.taking.values().filter(func(body): return index.has(body))
+		var claims := taking.values().filter(func(body): return index.has(body))
 		counts.append_array([free.size(), claims.size()])
 		for unit: SkirmishUnit in free:
 			var code: int = codes.get_or_add(unit.faction_id, codes.size())
@@ -128,7 +132,9 @@ static func _send(sending: Array, downed: Array, tick: int, fight_seed: int, eve
 	for at in range(0, sent.size(), 3):
 		var squad: SkirmishSquad = sending[sent[at]]
 		var unit: SkirmishUnit = listed[sent[at]][sent[at + 1]]
-		squad.taking[unit.id] = downed[sent[at + 2]]
+		var taking := squad.taking
+		taking[unit.id] = downed[sent[at + 2]].slot
+		squad.taking = taking
 		if squad.taking_since < 0:
 			squad.taking_since = tick
 		events.append(FormationEvents.unit_event("sent_to_take", tick, squad, unit))

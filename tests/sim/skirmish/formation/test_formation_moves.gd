@@ -105,3 +105,23 @@ func test_a_passing_move_takes_longer_the_further_units_travel() -> void:
 
 	assert_int(squad.swaps.size()).is_equal(1)
 	assert_int(squad.swaps[0]["total"]).is_greater_equal(2)  # 0.06 cells at 0.5 cells/s
+
+
+func test_the_crate_holds_a_move_under_way_by_its_units_ids() -> void:
+	var sim := FormationSimulation.new(9.0, 0.1)
+	var placements := [
+		[_grem, Vector2i(0, 0)], [_wide_cart, Vector2i(0, 1)], [_grem, Vector2i(1, 1)]
+	]
+	var squad := sim.spawn_squad(3, placements, "player", true)
+	sim.order(squad.id, SkirmishUnit.Order.HOLD)
+	squad.reforming = true
+	sim.step()
+
+	var swap: Dictionary = squad.swaps[0]
+	var ids := squad.units.map(func(unit): return unit.id)
+	assert_bool(swap["to"].has(swap["mover"])).is_true()
+	assert_array(swap["to"].keys().filter(func(id): return not ids.has(id))).is_empty()
+	assert_array(swap["from"].keys()).is_equal(swap["to"].keys())
+	assert_bool(FormationShuffle.swapping(squad)).is_true()
+	FormationShuffle.clear(squad)
+	assert_bool(FormationShuffle.swapping(squad)).is_false()

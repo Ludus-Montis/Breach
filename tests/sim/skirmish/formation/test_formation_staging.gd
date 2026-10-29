@@ -59,8 +59,9 @@ func _staged(sim: FormationSimulation, at: float, staging: Dictionary) -> Skirmi
 	var wave := sim.spawn_squad(
 		4, _line(_def(), 4), "player", true, 0, _route([Vector2(0, 20), Vector2(100, 20)])
 	)
-	wave.staging = staging.duplicate()
-	wave.staging["at"] = at
+	var order := staging.duplicate()
+	order["at"] = at
+	wave.staging = order  # the crate holds it: written whole
 	return wave
 
 
@@ -111,7 +112,9 @@ func test_it_goes_when_it_sees_its_partner() -> void:
 	var partner := sim.spawn_squad(
 		4, _line(_def(), 4), "player", true, 0, _route([Vector2(-80, 0), Vector2(100, 0)])
 	)
-	wave.staging["partner"] = partner.id
+	var order := wave.staging
+	order["partner"] = partner.id
+	wave.staging = order
 
 	var log := _run(sim, 200)
 
@@ -133,3 +136,44 @@ func test_when_the_fallback_runs_out_it_goes_or_turns_back() -> void:
 			assert_float(wave.position.x).is_greater(12.0)
 		else:
 			assert_int(_of(log, "returned").size()).is_equal(1)  # it turned back home
+
+
+## The move's events are built in the crate (spec 39 step 8b5-viii) and read as
+## FormationEvents made them: giving up names what its order said, and the turn back home
+## its facing and heading.
+func test_the_move_s_events_read_as_formation_events_made_them() -> void:
+	var sim := FormationSimulation.new(2.0, TICK)
+	var wave := _staged(
+		sim, 10.0, {"trigger": FormationStaging.SEES_FIGHT, "fallback": 3, "then": "back"}
+	)
+
+	var log := _run(sim, 40)
+
+	var gave_up: Dictionary = _of(log, "gave_up")[0]
+	assert_that(gave_up.keys()).is_equal(["type", "tick", "squad", "faction", "then"])
+	assert_str(gave_up["then"]).is_equal("back")
+	assert_int(gave_up["squad"]).is_equal(wave.id)
+	assert_str(gave_up["faction"]).is_equal("player")
+	var turned: Dictionary = _of(log, "turned")[0]
+	assert_that(turned.keys()).is_equal(["type", "tick", "squad", "faction", "facing", "heading"])
+	assert_int(turned["facing"]).is_equal(3)  # west, home
+	assert_float(turned["heading"]).is_equal_approx(270.0, 0.001)
+	assert_that(_of(log, "turning")[0]).is_equal(turned.merged({"type": "turning"}, true))
+
+
+func test_the_crate_holds_a_squad_s_staging_order() -> void:
+	var sim := FormationSimulation.new(2.0, TICK)
+	var wave := _staged(sim, 10.0, {"trigger": FormationStaging.SEES_FIGHT, "fallback": 30})
+	var order := {
+		"at": 12.5,
+		"trigger": FormationStaging.SEES_PARTNER,
+		"partner": 7,
+		"fallback": 40,
+		"then": "back",
+		"meet": Vector2(80, 4),
+		"meet_cells": 40.0,
+	}
+	wave.staging = order
+	assert_dict(wave.staging).is_equal(order)
+	wave.staging = {}
+	assert_bool(wave.staging.is_empty()).is_true()

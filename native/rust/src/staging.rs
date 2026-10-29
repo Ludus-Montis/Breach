@@ -4,13 +4,16 @@
 //! coordinated leader (Decision 81) with a meeting point, it times its departure: from each
 //! such friend's distance to the point and its pace, as seen, against its own predicted march
 //! (FormationRendezvous), it goes when it would arrive no earlier than every one of them, so
-//! none is singled out by the order squads are listed in (Decision 97). Holding at the
-//! staging point, the fallback and the events are the order's, GDScript's (step 7).
+//! none is singled out by the order squads are listed in (Decision 97). Until then it holds
+//! at its staging point while its fallback lasts, then goes on or turns back (`hold`, spec
+//! 39 step 8a2-ii); the staging order itself and the events stay GDScript's.
+
+use serde::{Deserialize, Serialize};
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
 use crate::ground::Ground;
-use crate::locks::FIGHTING;
+use crate::locks::{FIGHTING, HOLDING};
 use crate::maths::{minf, V2};
 use crate::perception;
 use crate::rendezvous::{self, March};
@@ -20,6 +23,21 @@ use crate::squads::Squads;
 
 /// A coordinated leader leaves this many ticks early at most.
 const SLACK_TICKS: f64 = 2.0;
+
+/// A squad's hold-until order as given (FormationStaging's `staging`, held by the crate since
+/// step 8b4-iv): its staging point (cells along its route from home), whether it waits to
+/// see a fight (else its partner), its partner's squad id (0: none named), the ticks its
+/// fallback has left, what it does then ("go" or "back"; none: go), and the meeting point
+/// with how far along its own route that is (cells), if it has one.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct Stage {
+    pub at: f64,
+    pub sees_fight: bool,
+    pub partner: i64,
+    pub fallback: i64,
+    pub then: Option<String>,
+    pub meet: Option<(V2, f64)>,
+}
 
 /// A staged squad's order: its index in the roster, whether it waits to see a fight (else
 /// to see its partner), its partner's squad id (0: none named), each listed squad's route
@@ -55,6 +73,48 @@ pub fn signalled(
     let partners = triggered(squads, columns, roster, ground, staged);
     !partners.is_empty()
         && partners.iter().all(|&n| time_to_go(squads, columns, roster, ground, staged, n))
+}
+
+/// What a staged squad does this tick (FormationStaging.holds).
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Hold {
+    /// Its trigger fired: it goes.
+    Signalled,
+    /// Not yet at its staging point: it marches on.
+    OnItsWay,
+    /// It holds there; `staged` if it first did this tick.
+    Holds { staged: bool },
+    /// Its fallback ran out: it goes on or turns back, as its order says; `staged` as above.
+    GivesUp { staged: bool },
+}
+
+/// FormationStaging.holds for the staged squad: signalled first; else, at `at` cells along
+/// its route from home, it holds (taking the HOLDING state) while `fallback`, the ticks it
+/// had left, lasts past this one.
+pub fn hold(
+    squads: &mut Squads,
+    columns: &Columns,
+    roster: &Roster,
+    ground: Option<&Ground>,
+    staged: &Staged,
+    at: f64,
+    fallback: i64,
+) -> Hold {
+    if signalled(squads, columns, roster, ground, staged) {
+        return Hold::Signalled;
+    }
+    let squad = roster.listed[staged.listed].squad;
+    let cells = squads.front_distance[squad] * CELLS_PER_TILE as f64;
+    if (cells - squads.home_distance[squad] * CELLS_PER_TILE as f64).abs() < at {
+        return Hold::OnItsWay;
+    }
+    let staged = squads.state[squad] != HOLDING;
+    squads.state[squad] = HOLDING;
+    if fallback - 1 > 0 {
+        Hold::Holds { staged }
+    } else {
+        Hold::GivesUp { staged }
+    }
 }
 
 /// The listed friends whose sight fires the trigger, in the lists' order.
@@ -120,7 +180,7 @@ fn time_to_go(
 }
 
 /// Its slowest living unit's pace this tick (SkirmishSquad.speed): 0 with none living.
-fn speed(columns: &Columns, listed: &Listed) -> f64 {
+pub(crate) fn speed(columns: &Columns, listed: &Listed) -> f64 {
     let slowest =
         listed.living.iter().fold(f64::INFINITY, |least, m| minf(least, columns.speed[m.slot]));
     if slowest == f64::INFINITY {
@@ -132,3 +192,35 @@ fn speed(columns: &Columns, listed: &Listed) -> f64 {
 
 #[cfg(test)]
 mod tests;
+
+/// FormationStaging.holds' hold for `roster`'s squad `listed` by the order it holds
+/// (`Squads::staging`), each listed squad's route a code in `routes`; `slack` its units'
+/// slack (FormationWalk) if a coordinated leader leads it, else none; `pace` as Staged's.
+/// Its fallback counts down while it holds.
+#[allow(clippy::too_many_arguments)]
+pub fn hold_staged(
+    squads: &mut Squads,
+    columns: &Columns,
+    roster: &Roster,
+    ground: Option<&Ground>,
+    listed: usize,
+    routes: &[u32],
+    slack: Option<f64>,
+    pace: [f64; 2],
+) -> Hold {
+    let squad = roster.listed[listed].squad;
+    let order = squads.staging[squad].clone().expect("a staged squad holds an order");
+    let meet = order.meet.zip(slack).map(|((at, cells), slack)| Meeting {
+        at,
+        cells,
+        route: squads.route[squad].clone().unwrap_or_else(|| Route::new(Vec::new(), 0.0)),
+        slack,
+    });
+    let staged =
+        Staged { listed, sees_fight: order.sees_fight, partner: order.partner, routes, meet, pace };
+    let held = hold(squads, columns, roster, ground, &staged, order.at, order.fallback);
+    if let (Hold::Holds { .. }, Some(order)) = (held, squads.staging[squad].as_mut()) {
+        order.fallback -= 1;
+    }
+    held
+}

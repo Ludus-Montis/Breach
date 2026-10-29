@@ -22,17 +22,14 @@ const ABOUT_FACED := 2
 ## route's heading there. True if it turned; its units then re-form before it moves. (On
 ## the march a squad doesn't come here for a bend: its frame sweeps round it, FormationSweep.)
 static func begin(squad: SkirmishSquad, travel_sign: int, tick: int, events: Array) -> bool:
-	var route := PackedVector2Array() if squad.route == null else squad.route.points()
 	var columns: UnitColumns = squad.store.columns
 	var field: Object = ColumnsLent.field(columns)
 	var roster := CrateRoster.of([squad])
-	var turned: int = ColumnsLent.all(
-		columns, func(): return field.squad_turn(roster, travel_sign, route)
-	)
+	var turned: int = ColumnsLent.all(columns, func(): return field.squad_turn(roster, travel_sign))
 	if turned == KEPT:
 		return false
 	if turned == ABOUT_FACED:
-		squad.swaps.clear()  # moves under way are cancelled: it re-forms
+		FormationShuffle.clear(squad)  # moves under way are cancelled: it re-forms
 	var faced := {"facing": squad.facing, "heading": squad.heading}
 	events.append(FormationEvents.squad_event("turning", tick, squad, faced))
 	events.append(FormationEvents.squad_event("turned", tick, squad, faced))

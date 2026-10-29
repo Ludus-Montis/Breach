@@ -1,12 +1,13 @@
 class_name UnitHealth
 extends RefCounted
 ## A unit's hp in the unit store's HP column (spec 35 step 5b, Decision 145), and its one
-## writer: every change to a unit's hp goes through `hurt`, `heal` or `put`, or their
-## scattered forms (check_one_health.py holds that). A write that takes a unit from above 0
-## to 0 or below puts it on the store's fell queue, which FormationDeaths.bury drains;
-## whether it died or is downed is decided there, from its hp at the end of the tick's blows.
+## writer: every change to a unit's hp goes through `hurt` or `put`, their scattered forms,
+## or `hurt_landed`, the fight's, in the crate (check_one_health.py holds that). A write that
+## takes a unit from above 0 to 0 or below puts it on the store's fell queue, which
+## FormationDeaths.bury drains; whether it died or is downed is decided there, from its hp at
+## the end of the tick's blows.
 ##
-## `hurt`, `heal`, `put` and `of` take a pass's view (UnitView, Decision 146) holding HP and
+## `hurt`, `put` and `of` take a pass's view (UnitView, Decision 146) holding HP and
 ## write `view.hp` in place: an index, not a call. Their scattered forms, `*_one`, take
 ## anything holding the store (a squad, the simulation), for an event's few units: under Rust
 ## each is a call into the field (check_store_reads.py flags them in a loop).
@@ -22,11 +23,6 @@ static func of(view: UnitView, unit) -> int:
 ## Takes `amount` from the unit's hp, in the view.
 static func hurt(view: UnitView, unit, amount: int) -> void:
 	put(view, unit, of(view, unit) - amount)
-
-
-## Adds `amount` to the unit's hp, in the view.
-static func heal(view: UnitView, unit, amount: int) -> void:
-	put(view, unit, of(view, unit) + amount)
 
 
 ## Sets the unit's hp to `value` in the view, which holds HP (UnitView.hold); a unit taken
@@ -56,3 +52,17 @@ static func put_one(source, unit, value: int) -> void:
 	source.store.columns.put(unit.slot, UnitColumns.HP, value)
 	if was > 0 and value <= 0:
 		source.store.fallen.push(unit.id)
+
+
+## `hurt` for each of the fight's hurts ([unit, amount], in the order landed) in
+## `source`'s store, at once: landed in the crate (`hurts.rs`, spec 39 step 8b2), the fallen
+## on the fell queue in the order they fell. Returns each one's unit's hp after it.
+static func hurt_landed(source, hurts: Array) -> PackedInt32Array:
+	if hurts.is_empty():
+		return PackedInt32Array()
+	var flat := PackedInt64Array()
+	for each in hurts:
+		flat.append_array([each[0].slot, each[0].id, each[1]])
+	var columns: UnitColumns = source.store.columns
+	var native: Object = ColumnsLent.field(columns)
+	return ColumnsLent.all(columns, func(): return native.fight_hurts(flat))

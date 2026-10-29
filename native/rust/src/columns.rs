@@ -17,12 +17,19 @@
 //! `regeneration_halt`, `wake_left`, `drain_carry`, `last_wounding`, step 7b), and the rest:
 //! the unit it fights, how far along its route it stands, the last place it could stand,
 //! whether it is on a climb face or in deep water, and the climb still above it (`target_id`,
-//! `distance`, `foothold`, `on_face`, `climb_left`, step 7c). The field holds them so its passes read them where they live. A slot newly given starts blank, each
-//! column at the value a missing key reads as. Columns are found by their UnitColumns name.
+//! `distance`, `foothold`, `on_face`, `climb_left`, step 7c), and its numbers (`sheet`, spec
+//! 39 step 8b5-i: SkirmishUnit's, written by its setters) and its words and lists (`words`,
+//! step 8b5-ii, coded by the field's `lexicon`) and its objects (`objects`, step 8b5-iii:
+//! its walker's fields and its command's, origin's and definition's codes). The field holds them so its passes read
+//! them where they live. A slot newly given starts blank, each column at the
+//! value a missing key reads as. Columns are found by their UnitColumns name.
 
 use serde::{Deserialize, Serialize};
 
 use crate::maths::V2;
+use crate::objects::Objects;
+use crate::sheet::Sheet;
+use crate::words::Words;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Columns {
@@ -44,6 +51,8 @@ pub struct Columns {
     pub was_running: Vec<i32>,
     pub last_wounding: Vec<i32>,
     pub on_face: Vec<i32>,
+    /// Its state (SkirmishUnit.State; UnitState's one writer mirrors it here, step 8b4-v).
+    pub state: Vec<i32>,
     pub goal_foe: Vec<i64>,
     pub goal_slot: Vec<i64>,
     pub caught: Vec<i64>,
@@ -66,6 +75,12 @@ pub struct Columns {
     pub drain_carry: Vec<f64>,
     pub distance: Vec<f64>,
     pub climb_left: Vec<f64>,
+    /// Its numbers (SkirmishUnit's sheet, step 8b5-i).
+    pub sheet: Vec<Sheet>,
+    /// Its words and lists (SkirmishUnit's, step 8b5-ii), coded by the field's lexicon.
+    pub words: Vec<Words>,
+    /// Its objects (SkirmishUnit's walker, command, origin and definition, step 8b5-iii).
+    pub objects: Vec<Objects>,
 }
 
 /// No goal (`goal_slot`).
@@ -107,6 +122,7 @@ impl Columns {
             "was_running" => Some(&mut self.was_running),
             "last_wounding" => Some(&mut self.last_wounding),
             "on_face" => Some(&mut self.on_face),
+            "state" => Some(&mut self.state),
             _ => None,
         }
     }
@@ -172,6 +188,7 @@ impl Columns {
             &mut self.was_running,
             &mut self.last_wounding,
             &mut self.on_face,
+            &mut self.state,
         ] {
             column.push(0);
         }
@@ -201,6 +218,9 @@ impl Columns {
         self.stamina.push(FRESH);
         self.condition.push(AS_THINGS_STAND);
         self.wake_left.push(NOT_RECKONED);
+        self.sheet.push(Sheet::default());
+        self.words.push(Words::default());
+        self.objects.push(Objects::default());
     }
 
     /// Every column blank in `slot`.
@@ -228,6 +248,7 @@ impl Columns {
             &mut self.was_running,
             &mut self.last_wounding,
             &mut self.on_face,
+            &mut self.state,
         ] {
             column[slot] = 0;
         }
@@ -257,6 +278,9 @@ impl Columns {
         self.stamina[slot] = FRESH;
         self.condition[slot] = AS_THINGS_STAND;
         self.wake_left[slot] = NOT_RECKONED;
+        self.sheet[slot] = Sheet::default();
+        self.words[slot] = Words::default();
+        self.objects[slot] = Objects::default();
     }
 }
 
@@ -341,6 +365,7 @@ mod tests {
             "was_running",
             "last_wounding",
             "on_face",
+            "state",
         ] {
             assert!(columns.ints(name).is_some(), "{name}");
         }

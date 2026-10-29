@@ -1,8 +1,8 @@
 //! A squad's march along its route (FormationMarch, Decisions 74, 75 and 85; spec 39 step
-//! 3d): where its front gets along its route, which way its order takes it, the pace the
-//! ground under its front rank allows, and its units walking to their places (`walk`),
-//! pouring through a gap (`pour`), sweeping round bends (`sweep`), climbing and swimming
-//! (`modes`) and re-forming (`shuffle`, `front`). The maths is the GDScript's, operation for
+//! 3d): where its front gets along its route, which way its order takes it, reaching either
+//! end (`end`, step 8a2-v), the pace the ground under its front rank allows, and its units
+//! walking to their places (`walk`), pouring through a gap (`pour`), sweeping round bends
+//! (`sweep`), climbing and swimming (`modes`) and re-forming (`shuffle`, `front`). The maths is the GDScript's, operation for
 //! operation (`maths`): points in f32, the rest in f64.
 //! Distances along a route are in tiles, the rest in cells.
 
@@ -68,6 +68,34 @@ pub fn travel_sign(along: &Along, route_end: f64) -> i32 {
         1
     } else {
         -1
+    }
+}
+
+/// How a squad's march ends this tick (FormationMarch.check_ends).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum End {
+    /// Not at either end: it marches on.
+    Under,
+    /// Advancing, its front at the enemy's end (tiles): it arrives there.
+    Arrived(f64),
+    /// Retreating, its front home or every unit of it home: it holds at home (tiles).
+    Returned(f64),
+}
+
+/// FormationMarch.check_ends: an advancing squad whose front is at the enemy's end of its
+/// route of `route_end` tiles arrives; a retreating one whose front is home, or (on a route)
+/// whose units are all home wherever its front stands (`all_home`, asked only then), returns
+/// and holds there as it faces, rather than about-face to march back to home.
+pub fn end(along: &Along, route_end: f64, on_route: bool, all_home: impl FnOnce() -> bool) -> End {
+    let enemy_end = along.enemy_end(route_end);
+    if along.order == ADVANCE && is_equal_approx(along.front, enemy_end) {
+        End::Arrived(enemy_end)
+    } else if along.order == RETREAT
+        && (is_equal_approx(along.front, along.home) || (on_route && all_home()))
+    {
+        End::Returned(along.home)
+    } else {
+        End::Under
     }
 }
 

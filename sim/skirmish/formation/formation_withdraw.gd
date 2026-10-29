@@ -67,8 +67,6 @@ static func step(
 		return
 	var listed := PackedInt32Array()
 	var orders := PackedFloat64Array()  # per squad: disorder, re-form pace, home in cells
-	var counts := PackedInt32Array()
-	var points := PackedVector2Array()
 	var fans := PackedFloat64Array()
 	for index in squads.size():
 		var squad: SkirmishSquad = squads[index]
@@ -80,9 +78,6 @@ static func step(
 		listed.append(index)
 		var home: float = squad.home_distance * CELLS
 		orders.append_array([disorder(squad), FormationDiscipline.reform_pace(squad), home])
-		var route_points: PackedVector2Array = squad.route.points()
-		counts.append(route_points.size())
-		points.append_array(route_points)
 		for unit in squad.living():
 			fans.append(RoutFlight.fan(unit, fight_seed))
 	if roster == null:
@@ -99,18 +94,10 @@ static func step(
 		]
 	)
 	var reformed: PackedInt64Array = squads[0].store.field().withdraw(
-		roster, listed, orders, counts, points, fans, UnitMover.ground(terrain), rules
+		roster, listed, orders, fans, UnitMover.ground(terrain), rules
 	)
 	for at in range(0, reformed.size(), 3):
 		_reformed(squads[reformed[at]], reformed[at + 1], reformed[at + 2] != 0, tick, events)
-
-
-## True if all its units are home: it has nowhere further to go. The crate's
-## (`withdraw::home`).
-static func _home(squad: SkirmishSquad) -> bool:
-	var home: float = squad.home_distance * CELLS
-	var roster := CrateRoster.of([squad])
-	return squad.store.field().withdraw_home(roster, 0, squad.route.points(), home)
 
 
 ## The crate re-formed the squad on its route facing `homeward` (and, `arrived` home, made it

@@ -6,9 +6,8 @@ extends RefCounted
 ## first. A free foe that picked no one locks onto the nearest of the squads that picked it
 ## - unless it is getting away, retreating or routing: it may be engaged, but doesn't turn
 ## to fight (Decision 111). Pure over the squads it is given. The rules are the crate's
-## (`contact.rs`, spec 39 step 4c).
-
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
+## (`contact.rs`, spec 39 step 4c), and so are the events, built as data (`contact/pass.rs`,
+## step 8b5-vi): this takes them (CrateEvents).
 
 
 ## Locks free squads onto the hostile fronts they reach. Adds "engaged" events. `roster`:
@@ -20,9 +19,6 @@ static func engage(
 		return
 	if roster == null:
 		roster = CrateRoster.of(squads)
-	var picks: PackedInt32Array = squads[0].store.field().contact_fronts(roster, fight_seed)
-	for at in range(0, picks.size(), 2):
-		var foe: SkirmishSquad = squads[picks[at + 1]]
-		events.append(
-			FormationEvents.squad_event("engaged", tick, squads[picks[at]], {"with": foe.id})
-		)
+	var field: Object = squads[0].store.field()
+	field.contact_fronts(roster, tick, fight_seed)
+	events.append_array(CrateEvents.taken(field))

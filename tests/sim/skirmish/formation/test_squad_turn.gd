@@ -47,7 +47,7 @@ func test_an_about_face_is_a_one_second_pause() -> void:
 func test_an_about_face_cancels_moves_under_way_and_turns_it_about() -> void:
 	var members: Array[SkirmishUnit] = [_unit(1, 0, 0), _unit(2, 1, 0)]
 	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 1, members, null, _places.store)
-	squad.swaps.append({"to": {}, "from": {}, "ticks": 3, "total": 5})
+	squad.swaps = [{"to": {}, "from": {}, "ticks": 3, "total": 5}]
 	var events := []
 
 	var turned := ScrumTurn.begin(squad, -1, 4, events)

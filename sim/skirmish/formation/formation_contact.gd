@@ -4,7 +4,8 @@ extends RefCounted
 ## 44). Covers:
 ## - who can fight, and which hostile front is within melee reach
 ## - where an advancing squad must stop: at reach of a hostile front, or behind the back
-##   rank of a friendly squad ahead (squads never pass through their own side)
+##   rank of a friendly squad ahead (squads never pass through their own side); judged with
+##   every move's landing (`moving::land`, spec 39 step 8b1)
 ## - how a wave that reaches a friendly squad in combat joins it from the back, as rear
 ##   ranks that step up as the front falls; a wave that merges (Decision 51) joins a
 ##   friendly squad on the march the same way
@@ -25,24 +26,6 @@ const MELEE_REACH := 0.0175
 ## The crate's rule (`locks::can_engage`, spec 39 step 4b).
 static func can_engage(candidate: SkirmishSquad) -> bool:
 	return candidate.store.field().squad_can_engage(candidate.slot)
-
-
-## The furthest an advancing squad may get this tick, wanting to reach `next`, judged
-## from where everyone stood as the tick began: all squads move together (Decision 97).
-## `marching` (squad id -> true) holds the squads advancing this tick; two hostiles
-## marching at each other each close at most half the gap that stood between them.
-## `roster`: the tick's (CrateRoster) of `squads`, made here if none is given.
-static func limit(
-	mover: SkirmishSquad,
-	squads: Array,
-	next: float,
-	marching: Dictionary = {},
-	roster: Object = null
-) -> float:
-	if roster == null:
-		roster = CrateRoster.of(squads)
-	var field: Object = mover.store.field()
-	return field.contact_limit(roster, squads.find(mover), next, PackedInt64Array(marching.keys()))
 
 
 ## True if an advancing squad with no front-preferring units has an enemy within its
@@ -85,14 +68,15 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 				joining.slot,
 				frame,
 				SquadCompact.closers(leading),
-				SquadCompact.closers(taken),
-				SquadCompact.movers(leader)
+				SquadCompact.closers(taken)
 			)
 	)
 	SquadCompact.placed(leader, front)
 	for unit in taken:
 		FormationCommand.enlist(leader, unit)
-		leader.joined.append(unit)
+	var joined := leader.joined.duplicate()
+	joined.append_array(taken)
+	leader.joined = joined
 	joining.units.clear()
 	UnitState.regather(joining)
 	return SquadCompact.units_at(leading + taken, stepped)

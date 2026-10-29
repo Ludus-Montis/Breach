@@ -6,9 +6,11 @@
 //! or much slower than a way round (path_detour_gain), it plans the way round
 //! (`paths::plan`) and gives it back for the command to keep as a patch to the route.
 //!
-//! Which groups look, and the patches their commands keep, are FormationPathing's in
-//! GDScript until the tick ports (step 8): a squad's route and its command's patches are
-//! not in the crate's store yet.
+//! Which groups follow their commands' patches and which look are `detours`' (step 8b3),
+//! and the pass over them, its "detoured" events and what a look reads of each unit are
+//! `pass`' (step 8b5-vii).
+
+pub mod pass;
 
 use crate::contest;
 use crate::ground::Walker;
@@ -191,7 +193,7 @@ mod tests {
     }
 
     /// Deep water across an east-west lane at x 30-33, open round its north end.
-    fn pond(painted: bool) -> (Ground, LookTuning, PathTuning) {
+    pub(super) fn pond(painted: bool) -> (Ground, LookTuning, PathTuning) {
         let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
         let t = &content.tuning;
         let mut ground = Ground::new(80, 40, GroundTuning::of(t));

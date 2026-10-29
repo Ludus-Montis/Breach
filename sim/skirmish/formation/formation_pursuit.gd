@@ -49,9 +49,9 @@ static func step(
 		listed.append(index)
 		posts[index] = held["route"]
 		leashes.append(FormationDiscipline.pursuit_leash(squad))
-		for route in [squad.route, held["route"]]:
-			counts.append(-1 if route == null else route.points().size())
-			points.append_array(PackedVector2Array() if route == null else route.points())
+		var post: FormationRoute = held["route"]  # its post's; the crate holds the one it is on
+		counts.append(-1 if post == null else post.points().size())
+		points.append_array(PackedVector2Array() if post == null else post.points())
 	if listed.is_empty():
 		return
 	if roster == null:

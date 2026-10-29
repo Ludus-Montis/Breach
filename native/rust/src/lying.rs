@@ -2,11 +2,15 @@
 //! dead lie where they fell, obstacles a walker steps over - slowed by the weight of what
 //! it crosses against its own (bodies_ground_drag), blocked by one bodies_ground_block
 //! times its mass. Every unit walking to its place, or loose in a fight, is slowed the same
-//! way (`underfoot`). The footing is a least over the bodies lying near, so the grid's
+//! way (`underfoot`), and a marching front by what its front rank steps onto (`drag`, spec
+//! 39 step 8a2-ii). The footing is a least over the bodies lying near, so the grid's
 //! visiting order can't matter.
 
+use crate::columns::Columns;
 use crate::grid::{Grid, MARGIN};
-use crate::maths::V2;
+use crate::maths::{bearing_vector, minf, V2};
+use crate::roster::Listed;
+use crate::squads::Squads;
 
 /// The bodies lying on the ground, indexed: where each lies, its radius and its
 /// footprint's area.
@@ -53,4 +57,30 @@ impl<'a> Lying<'a> {
             worst
         }
     }
+
+    /// GroundBodies.drag: the share (0 to 1) of its pace `squad` keeps this tick for the
+    /// bodies its front rank steps onto, half a cell ahead along its heading.
+    pub fn drag(
+        &self,
+        squads: &Squads,
+        columns: &Columns,
+        squad: &Listed,
+        drag: f64,
+        block: f64,
+    ) -> f64 {
+        if self.ats.is_empty() {
+            return 1.0;
+        }
+        let ahead = bearing_vector(squads.heading[squad.squad]).scale(0.5);
+        let mut worst = 1.0f64;
+        for walker in squad.living.iter().filter(|m| columns.rank[m.slot] == 0) {
+            let area = (walker.foot.0 * walker.foot.1) as f64;
+            let step = columns.position[walker.slot].add(ahead);
+            worst = minf(worst, self.underfoot(walker.radius(), area, step, drag, block));
+        }
+        worst
+    }
 }
+
+#[cfg(test)]
+mod tests;

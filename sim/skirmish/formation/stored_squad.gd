@@ -152,7 +152,7 @@ var rally_ticks: int:
 		return store.squads.value(slot, SquadColumns.RALLY_TICKS)
 	set(value):
 		store.squads.put(slot, SquadColumns.RALLY_TICKS, value)
-## Halted by ground it can't cross (FormationMarch.pace); reported once.
+## Halted by ground it can't cross (the move's pace, `moving::pass`); reported once.
 var blocked: bool:
 	get:
 		return store.squads.value(slot, SquadColumns.BLOCKED) != 0

@@ -5,22 +5,20 @@ extends RefCounted
 ## views - along the route (`distance`, for the one-lane scene) and in cells (`position`).
 ## Pure over the squads it is given; FormationSimulation calls it each tick. Where its front
 ## gets, which way it goes, its pace and its facing, and its units' walk, are the crate's
-## (native/rust/src/march/, spec 39 step 3d); its arrival, the units' placing and the routers'
-## and the loose stay here until the rout (step 7) and the tick (step 8) port.
+## (native/rust/src/march/, spec 39 step 3d), and so are its ends (step 8a2-v), each march
+## and its events (the move's pass, step 8b5-viii); the units' placing and the routers' and
+## the loose stay here until the tick (step 8b) ports.
 
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const SquadFrame = preload("res://sim/skirmish/formation/squad_frame.gd")
-const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
-const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
-const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 ## The columns the walk to places sets and steps, held for each squad's pass (UnitView):
@@ -38,83 +36,39 @@ const WALKED := [
 	UnitColumns.CLIMB_LEFT,
 ]
 
+## How a march ends (`march_end`'s first number): it marches on, it arrived, it returned.
+const ENDED_NOT := 0.0
+const ENDED_ARRIVED := 1.0
+
 ## What sync_units holds: WALKED, and the places, loose points and routes it reads.
 const SYNCED := WALKED + UnitView.PLACES + [UnitColumns.LOOSE_AT] + FormationRout.ROUTE
-
-
-## The squad's route length in tiles (`fallback` for a squad without a route).
-static func length(squad: SkirmishSquad, fallback: float) -> float:
-	if squad.route == null:
-		return fallback
-	return squad.route.length_cells() / MapLayoutDef.CELLS_PER_TILE
-
-
-## How far the squad moves this tick on `terrain` (Decision 85): `step` at the pace of the
-## worst cell its front rank steps into that it can cross - a unit whose way is barred
-## squeezes in and pours through (FormationWalk.target_of, spec 30 round 3). Where none of
-## its front can go it halts, reported once as "blocked".
-static func pace(
-	squad: SkirmishSquad, terrain: FormationTerrain, step: float, tick: int, events: Array
-) -> float:
-	if terrain == null:
-		return step
-	var points: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	var walkers := PackedFloat64Array()
-	var at := PackedVector2Array()
-	for unit in squad.fighters():
-		walkers.append_array(TerrainWalker.of_unit(unit).fields())
-		at.append(points[unit.slot])
-	var worst: float = CrateMarch.core().pace(terrain.core, walkers, at, squad.heading)
-	if worst <= 0.0 and not squad.blocked:
-		events.append(FormationEvents.squad_event("blocked", tick, squad))
-	squad.blocked = worst <= 0.0
-	return step * worst
-
-
-## Where the squad's front gets moving `delta` tiles along its route of `route_end` tiles:
-## never past either end, nor past the point its order takes it to.
-static func toward(squad: SkirmishSquad, delta: float, route_end: float) -> float:
-	return CrateMarch.core().toward(_along(squad), delta, route_end)
-
-
-## Which way the squad's order takes it along its route: +1 up it, -1 down it. Advancing
-## heads for the end away from home, retreating for home.
-static func travel_sign(squad: SkirmishSquad, route_end: float) -> int:
-	return CrateMarch.core().travel_sign(_along(squad), route_end)
 
 
 ## Turns the squad's frame at once to its route's heading at its front: where it is placed
 ## (on the march it sweeps round bends: FormationSweep).
 static func face(squad: SkirmishSquad) -> void:
-	if squad.route == null:
-		return
-	var cells := squad.front_distance * MapLayoutDef.CELLS_PER_TILE
-	squad.heading = CrateMarch.core().face(
-		squad.route.points(), cells, squad.direction, squad.heading
-	)
+	squad.store.field().march_face(squad.slot)  # along the route the crate holds
 
 
 ## Arrival at the enemy's end (the fort is immune in the feel test), or a retreat home: its
 ## front there, or every unit of it home (FormationWithdraw's test, within HOME_CELLS)
 ## wherever its front stands - it holds as it faces, rather than about-face to march a
-## rank's length back to home and about-face again.
+## rank's length back to home and about-face again. Which, if either, is the crate's
+## (`march::end`, spec 39 step 8a2-v); a retreat hands it its roster for the units' test.
 static func check_ends(mover: SkirmishSquad, route_end: float, tick: int, events: Array) -> void:
-	var enemy_end := route_end if is_zero_approx(mover.home_distance) else 0.0
-	if (
-		mover.order == SkirmishUnit.Order.ADVANCE
-		and is_equal_approx(mover.front_distance, enemy_end)
-	):
-		mover.front_distance = enemy_end
+	var roster: Object = null
+	if mover.order == SkirmishUnit.Order.RETREAT:
+		roster = CrateRoster.of([mover])
+	var ended: PackedFloat64Array = mover.store.field().march_end(
+		_along(mover), route_end, mover.slot, roster, 0
+	)
+	if ended[0] == ENDED_NOT:
+		return
+	mover.front_distance = ended[1]
+	if ended[0] == ENDED_ARRIVED:
 		mover.state = SkirmishSquad.State.ARRIVED
 		events.append(FormationEvents.squad_event("arrived", tick, mover))
-	elif (
-		mover.order == SkirmishUnit.Order.RETREAT
-		and (
-			is_equal_approx(mover.front_distance, mover.home_distance)
-			or (mover.route != null and FormationWithdraw._home(mover))
-		)
-	):
-		mover.front_distance = mover.home_distance
+	else:
 		mover.order = SkirmishUnit.Order.HOLD
 		mover.state = SkirmishSquad.State.HOLDING
 		events.append(FormationEvents.squad_event("returned", tick, mover))

@@ -37,9 +37,8 @@ static func strand(unit: SkirmishUnit, squad: SkirmishSquad) -> SkirmishSquad:
 	stray.morale = 0
 	var columns: UnitColumns = squad.store.columns
 	var field: Object = ColumnsLent.field(columns)
-	var points: PackedVector2Array = squad.route.points()
 	stray.front_distance = ColumnsLent.all(
-		columns, func(): return field.stray_set_off(stray.slot, unit.id, unit.slot, points)
+		columns, func(): return field.stray_set_off(stray.slot, unit.id, unit.slot)
 	)
 	return stray
 

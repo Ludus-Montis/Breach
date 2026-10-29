@@ -19,11 +19,22 @@
 //! (`stance`), the foes on its other edges (`flanks`, in the order each began) and its units
 //! out chasing (`chasers`, in the order each set out). Since spec 39 step 7c, also its
 //! pursuit as a whole (`pursuit`) and its withdrawal (`withdraw`, the ticks it has felt
-//! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port.
+//! safe); a pursuit's own route stays GDScript's (SquadRecords) until routes port. Since
+//! step 8b4-i, also the route each follows (`route`, none: a straight lane), as
+//! SkirmishSquad.route sets it. Since step 8b4-iii, also the command each follows
+//! (`command`) and the commands themselves (`commands`); since 8b4-iv, its hold-until
+//! order (`staging`); since 8b4-v, its swaps under way (`swaps`); since 8b4-vi, its units out
+//! taking the downed (`taking`); since 8b4-vii, the orders given for the next tick (`pending`)
+//! and the ids issued (`squads_issued`, `units_issued`). Since 8b5-iv, its faction (`faction`,
+//! coded in the unit store's lexicon, so it compares with a unit's) and the units that joined
+//! it as reinforcements (`joined`, their ids); its living and downed units are read from its
+//! members and the unit store's STATE column (`living`, `downed`).
 
 use serde::{Deserialize, Serialize};
 
+use crate::commands::Commands;
 use crate::maths::V2;
+use crate::route::Route;
 
 #[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Squads {
@@ -73,6 +84,31 @@ pub struct Squads {
     pub pursuit: Vec<Option<Pursuit>>,
     /// Its withdrawal under way (FormationWithdraw, Decision 99): the ticks it has felt safe.
     pub withdraw: Vec<Option<i64>>,
+    /// The route each follows (none: a straight lane along x).
+    pub route: Vec<Option<Route>>,
+    /// The command each follows (a slot in `commands`; none till it is given one).
+    pub command: Vec<Option<usize>>,
+    /// Orders given for the next tick (FormationSimulation.order): [squad id, order], in
+    /// the order first given (`orders::queue`).
+    pub pending: Vec<(i64, i32)>,
+    /// How many squad ids and unit ids the battle has issued (spawning: `issue_squad`,
+    /// `issue_units`; spec 39 step 8b4-vii).
+    pub squads_issued: i64,
+    pub units_issued: i64,
+    /// Its units out taking the downed (FormationTaking): [taker's id, its body's store
+    /// slot] each, in the order they set out.
+    pub taking: Vec<Vec<(i64, usize)>>,
+    /// Its faction, as the unit store's lexicon codes a unit's (`words::Lexicon`; 0: "").
+    pub faction: Vec<u32>,
+    /// The units that joined it as reinforcements (FormationContact): their ids, in the
+    /// order they joined. Only they spread beyond its painted columns.
+    pub joined: Vec<Vec<i64>>,
+    /// The swaps under way of each re-forming (FormationShuffle), in the order they began.
+    pub swaps: Vec<Vec<crate::swaps::Held>>,
+    /// The hold-until order each holds (FormationStaging; none: none).
+    pub staging: Vec<Option<crate::staging::Stage>>,
+    /// The commands the squads follow (spec 39 step 8b4-iii).
+    pub commands: Commands,
 }
 
 /// A pursuit as a whole: the squad it pursues, the post it left (tiles along its own route,
@@ -122,6 +158,10 @@ const EAST: f64 = 90.0;
 const NONE: i64 = -1;
 /// It marches on the player's order (`manoeuvre`: FormationManoeuvre.Kind's 4).
 const ORDERED: i32 = 4;
+/// SkirmishUnit.State's DEAD, DOWNED and CARRIED: a state before DEAD is standing.
+const DEAD: i32 = 4;
+const DOWNED: i32 = 5;
+const CARRIED: i32 = 8;
 
 /// Every column's SquadColumns name, by its index there: the ints, the longs (from
 /// `LONGS`), the reals (from `REALS`) and the points (from `POINTS`).
@@ -248,7 +288,42 @@ impl Squads {
         self.chasers.push(Vec::new());
         self.pursuit.push(None);
         self.withdraw.push(None);
+        self.route.push(None);
+        self.command.push(None);
+        self.staging.push(None);
+        self.swaps.push(Vec::new());
+        self.taking.push(Vec::new());
+        self.faction.push(0);
+        self.joined.push(Vec::new());
         slot
+    }
+
+    /// The squad in `slot`'s standing units, their unit-store slots in its members' order:
+    /// those whose state (`states`, the unit store's STATE column) is before DEAD
+    /// (UnitState.living).
+    pub fn living(&self, slot: usize, states: &[i32]) -> Vec<i32> {
+        let members = self.members[slot].iter();
+        members.copied().filter(|&unit| states[unit as usize] < DEAD).collect()
+    }
+
+    /// The squad in `slot`'s downed units, DOWNED or CARRIED, as `living` reads them
+    /// (UnitState.downed).
+    pub fn downed(&self, slot: usize, states: &[i32]) -> Vec<i32> {
+        let members = self.members[slot].iter();
+        members.copied().filter(|&unit| matches!(states[unit as usize], DOWNED | CARRIED)).collect()
+    }
+
+    /// The next squad id the battle issues (ids from 1, in the order issued).
+    pub fn issue_squad(&mut self) -> i64 {
+        self.squads_issued += 1;
+        self.squads_issued
+    }
+
+    /// The first of `count` unit ids the battle issues together (ids from 1, in order).
+    pub fn issue_units(&mut self, count: i64) -> i64 {
+        let first = self.units_issued + 1;
+        self.units_issued += count;
+        first
     }
 
     /// Sets the foe on `edge` of the squad in `slot`: an edge it already had keeps its
@@ -347,6 +422,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn its_living_and_downed_are_its_members_by_state_in_its_order() {
+        let mut squads = Squads::default();
+        squads.open(1);
+        squads.open(2);
+        // states by unit slot: MOVING, DEAD, DOWNED, FIGHTING, CARRIED, TAKEN, ARRIVED
+        let states = [0, DEAD, DOWNED, 2, CARRIED, 6, 3];
+        squads.members[1] = vec![6, 4, 0, 1, 2, 5, 3];
+        assert_eq!(squads.living(1, &states), vec![6, 0, 3]);
+        assert_eq!(squads.downed(1, &states), vec![4, 2]);
+        assert!(squads.living(0, &states).is_empty(), "a squad with no members");
+    }
+
+    #[test]
+    fn ids_are_issued_from_1_in_order_squads_and_units_apart() {
+        let mut squads = Squads::default();
+        assert_eq!(squads.issue_squad(), 1);
+        assert_eq!(squads.issue_units(3), 1);
+        assert_eq!(squads.issue_squad(), 2);
+        assert_eq!(squads.issue_units(2), 4);
+        assert_eq!(squads.issue_units(0), 6);
+        assert_eq!(squads.issue_units(1), 6);
+    }
+
+    #[test]
     fn a_new_squad_takes_the_next_slot_and_starts_as_skirmish_squad_does() {
         let mut squads = Squads::default();
         assert_eq!(squads.open(7), 0);
@@ -364,6 +463,8 @@ mod tests {
         assert_eq!(squads.morale[1], -1);
         assert_eq!(squads.position[1], V2::ZERO);
         assert!(squads.members[1].is_empty());
+        assert_eq!(squads.faction[1], 0); // ""
+        assert!(squads.joined[1].is_empty());
     }
 
     #[test]

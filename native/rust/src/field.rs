@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::columns::Columns;
 use crate::maths::V2;
 use crate::ordered;
+use crate::words::Lexicon;
 
 /// A body is loose (in its squad's `loose`).
 pub const LOOSE: u8 = 1;
@@ -134,6 +135,12 @@ pub struct Field {
     free: BinaryHeap<Reverse<u32>>,
     /// The unit store's columns, by slot.
     pub columns: Columns,
+    /// The words its units' words are coded by (spec 39 step 8b5-ii, `words`).
+    pub lexicon: Lexicon,
+    /// Each of its units' definitions' sight, by the definition's code (spec 39 step 8b5-vii,
+    /// UnitStore.definition_code): [detection_range, sight_ahead, sight_side, sight_behind].
+    /// A definition stays GDScript's; a look reads its sight here.
+    pub sights: Vec<[f64; 4]>,
     /// The store's fell queue (spec 35 step 5b, Decision 145): the ids of units an hp write
     /// took from above 0 to 0 or below, in the order they fell, till deaths takes them.
     fallen: Vec<i64>,
@@ -163,6 +170,19 @@ impl Field {
     /// The store's slot of a unit, if it holds it.
     pub fn slot_of(&self, unit_id: i64) -> Option<u32> {
         self.held.get(&unit_id).copied()
+    }
+
+    /// Keeps the sight of the definition coded `code`.
+    pub fn put_sight(&mut self, code: usize, sight: [f64; 4]) {
+        if self.sights.len() <= code {
+            self.sights.resize(code + 1, [0.0; 4]);
+        }
+        self.sights[code] = sight;
+    }
+
+    /// The sight of the definition coded `code`, if it has one.
+    pub fn sight(&self, code: i64) -> Option<[f64; 4]> {
+        usize::try_from(code).ok().and_then(|at| self.sights.get(at).copied())
     }
 
     /// The unit the store holds in a slot, if any.
