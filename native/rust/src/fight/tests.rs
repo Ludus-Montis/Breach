@@ -32,7 +32,7 @@ fn grem(id: i64, slot: usize) -> Member {
     }
 }
 
-fn rules() -> Rules {
+pub(super) fn rules() -> Rules {
     Rules {
         interval: 4,
         seed: 3,
@@ -49,15 +49,15 @@ fn rules() -> Rules {
     }
 }
 
-struct Built {
-    squads: Squads,
-    field: Field,
-    roster: Roster,
+pub(super) struct Built {
+    pub(super) squads: Squads,
+    pub(super) field: Field,
+    pub(super) roster: Roster,
 }
 
 /// The two squads, both in `state` and locked on each other, every unit's cooldown 1 (it
 /// strikes this tick), its melee damage 7 and its ranged damage 5, morale 80 (steady).
-fn built(gap: f32, state: i32) -> Built {
+pub(super) fn built(gap: f32, state: i32) -> Built {
     let (mut squads, mut field, mut roster) =
         (Squads::default(), Field::default(), Roster::default());
     for (s, (x, heading)) in [(0.0, EAST), (gap, WEST)].into_iter().enumerate() {
@@ -100,7 +100,7 @@ impl Built {
         choose(&mut self.squads, &mut self.field, &self.roster, &rules())
     }
 
-    fn slot(&self, id: i64) -> usize {
+    pub(super) fn slot(&self, id: i64) -> usize {
         self.field.slot_of(id).unwrap() as usize
     }
 
@@ -203,7 +203,7 @@ fn a_ranged_unit_shoots_the_nearest_enemy_in_its_range_for_its_ranged_damage() {
 }
 
 /// The landing's rules on the repo's tuning, with `rolls`.
-fn landing(rolls: Option<(i64, i64)>) -> land::Rules {
+pub(super) fn landing(rolls: Option<(i64, i64)>) -> land::Rules {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
     let tuning = LandingTuning::of(&content.tuning);
     land::Rules { tuning, rolls, reach: 1.5, bands: rules().bands }

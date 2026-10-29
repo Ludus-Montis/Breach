@@ -3290,14 +3290,17 @@ impl BodyField {
         PackedInt64Array::from(self.events.take().as_slice())
     }
 
-    /// Each event kind, by its index: [its type, its fields' names] (`events::KINDS`).
+    /// Each event kind, by its index: [its type, its fields' names, whether it is told of a
+    /// unit] (`events::KINDS`, `events::UNIT_LED`).
     #[func]
     fn event_kinds(&self) -> Array<Variant> {
         events::KINDS
             .iter()
-            .map(|(kind, fields)| {
+            .enumerate()
+            .map(|(n, (kind, fields))| {
                 let names: PackedStringArray = fields.iter().map(|&f| GString::from(f)).collect();
-                varray![&GString::from(*kind), &names].to_variant()
+                let unit = events::UNIT_LED.contains(&n);
+                varray![&GString::from(*kind), &names, unit].to_variant()
             })
             .collect()
     }
@@ -4855,6 +4858,58 @@ impl BodyField {
         let flat: Vec<i64> =
             out.iter().flat_map(|&(dealt, landed)| [dealt, landed as i64]).collect();
         PackedInt64Array::from(flat.as_slice())
+    }
+
+    /// FormationSimulation._fight over `roster`'s squads (`fight::step::step`): the blows
+    /// and shots chosen as `fight_choose` chooses them, landed as `fight_land` lands them,
+    /// the hurts as `fight_hurts` lands them, "spat" and "hit" in the log, and each striker's
+    /// stamina spent as `stamina_strike` spends it. `ints` = [the ticks a second's strike
+    /// takes, seed, tick, 1 if blows roll]; `floats` = [reach_contact, the front's least dot,
+    /// rout_strike_reach, stamina_blow]; `bands` as BandTuning.of_slice reads it, `tuning`
+    /// as LandingTuning.of_slice. Returns five numbers a melee blow: [the striker's squad's
+    /// index in the roster, its index in that one's living, the target's two, the damage it
+    /// dealt].
+    #[func]
+    fn fight_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        bands: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let (i, f) = (ints.as_slice(), floats.as_slice());
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let rules = fight::step::Rules {
+            choose: fight::Rules {
+                interval: i[0],
+                seed: i[1],
+                reach: f[0],
+                front: f[1],
+                rout_reach: f[2],
+                bands,
+            },
+            land: fight::land::Rules {
+                tuning: landing::LandingTuning::of_slice(tuning.as_slice()),
+                rolls: (i[3] != 0).then_some((i[1], i[2])),
+                reach: f[0],
+                bands,
+            },
+            tick: i[2],
+            blow: f[3],
+        };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let melee =
+            on_ground(ground, |g| fight::step::step(squads, field, &roster.roster, &rules, g, log));
+        self.edits += 1;
+        let mut out = Vec::with_capacity(5 * melee.len());
+        for blow in &melee {
+            let (s, t) = (blow.striker, blow.target);
+            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, blow.damage]);
+        }
+        PackedInt64Array::from(out.as_slice())
     }
 
     /// FormationSimulation._fight's hurts (`hurts::land`), three numbers a hurt in the order

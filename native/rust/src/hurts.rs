@@ -2,8 +2,7 @@
 //! each blow, in the order landed (BlowLanding), takes what it dealt from its target's hp
 //! (UnitHealth.hurt); a unit taken from above 0 to 0 or below falls, onto the fell queue in
 //! that order, for deaths to take. Each hurt's answer is its target's hp after it, which the
-//! "hit" event reports. The events themselves are GDScript's till the tick hands them back as
-//! data (step 8b5).
+//! "hit" event reports; the fight's pass (`fight::step`, step 8b5-xix) logs it.
 
 #[cfg(test)]
 mod tests;

@@ -33,6 +33,8 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("faced", &["heading", "facing"]),
     ("regrouping", &[]),
     ("pursuit_ended", &[]),
+    ("spat", &["unit", "target", "dmg", "damage_type", "blow"]),
+    ("hit", &["target", "dmg", "flank", "blow", "target_hp"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -56,6 +58,12 @@ pub const STEPPED_UP: usize = 18;
 pub const FACED: usize = 19;
 pub const REGROUPING: usize = 20;
 pub const PURSUIT_ENDED: usize = 21;
+pub const SPAT: usize = 22;
+pub const HIT: usize = 23;
+
+/// The kinds told of a unit, not a squad: their third number is the unit's id, and their
+/// faction its own ("hit").
+pub const UNIT_LED: &[usize] = &[HIT];
 
 /// The events a pass has built and GDScript hasn't yet taken, flat, in the order built.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -69,6 +77,15 @@ impl Log {
     pub fn squad(&mut self, kind: usize, tick: i64, squads: &Squads, s: usize, values: &[i64]) {
         debug_assert_eq!(values.len(), KINDS[kind].1.len());
         self.flat.extend([kind as i64, tick, squads.id[s], i64::from(squads.faction[s])]);
+        self.flat.extend_from_slice(values);
+    }
+
+    /// An event of `kind` (one of `UNIT_LED`) on `tick` for the unit `unit` of `faction` (a
+    /// lexicon code), with its kind's fields' `values`, in order.
+    pub fn unit(&mut self, kind: usize, tick: i64, unit: i64, faction: u32, values: &[i64]) {
+        debug_assert!(UNIT_LED.contains(&kind));
+        debug_assert_eq!(values.len(), KINDS[kind].1.len());
+        self.flat.extend([kind as i64, tick, unit, i64::from(faction)]);
         self.flat.extend_from_slice(values);
     }
 
@@ -93,6 +110,13 @@ mod tests {
         log.squad(DISENGAGED, 4, &squads, 0, &[]);
         assert_eq!(log.take(), vec![3, 4, 9, 3, 7, 1, 4, 7, 0]);
         assert!(log.take().is_empty());
+    }
+
+    #[test]
+    fn a_unit_led_event_carries_its_units_id_and_faction_in_place_of_a_squads() {
+        let mut log = Log::default();
+        log.unit(HIT, 4, 101, 2, &[200, 7, 0, 3, 13]);
+        assert_eq!(log.take(), vec![HIT as i64, 4, 101, 2, 200, 7, 0, 3, 13]);
     }
 
     #[test]
