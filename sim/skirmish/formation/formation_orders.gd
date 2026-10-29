@@ -33,7 +33,7 @@ static func apply(
 		CrateRoster.of(squads),
 		_routes(squads) if retreats else PackedInt64Array(),
 		_rules(),
-		_bands(),
+		BandTuning.rules(),
 		tick,
 		fight_seed
 	)
@@ -76,17 +76,3 @@ static func _rules() -> PackedFloat64Array:
 	rules.append_array(PackedFloat64Array(tuning.discipline_leash_shares))
 	rules.append_array(PackedFloat64Array(tuning.discipline_leash_steps))
 	return rules
-
-
-## Morale's tuning, as FormationMorale hands it the crate (`bands::BandTuning`).
-static func _bands() -> PackedInt64Array:
-	var tuning := BattleTuning.current()
-	return PackedInt64Array(
-		[
-			tuning.morale_per_leadership,
-			tuning.morale_steady_at,
-			tuning.morale_shaken_at,
-			tuning.morale_loss,
-			tuning.morale_leader_loss,
-		]
-	)

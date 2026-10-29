@@ -107,6 +107,25 @@ func test_a_rear_hit_is_a_bigger_shock() -> void:
 	assert_int(line.morale).is_equal(60 - BattleTuning.current().morale_rear_impact)
 
 
+func test_a_rear_hit_is_reported_then_the_band_it_shocks_the_line_into() -> void:
+	var setup := _raid([Vector2(90, 32), Vector2(0, 32)])
+	var line: SkirmishSquad = setup[1]
+	var raider: SkirmishSquad = setup[0].squads().filter(func(s): return s != line)[0]
+
+	var log := _until(setup[0], "flanked")
+
+	var at := log.find_custom(func(e): return e["type"] == "flanked")
+	var flanked: Dictionary = log[at]
+	assert_array(flanked.keys()).is_equal(["type", "tick", "squad", "faction", "by", "edge"])
+	assert_array([flanked["squad"], flanked["faction"]]).is_equal([line.id, "the_kingdom"])
+	assert_array([flanked["by"], flanked["edge"]]).is_equal([raider.id, 2])  # SquadEdges.REAR
+	var band: Dictionary = log[at + 1]
+	assert_array(band.keys()).is_equal(["type", "tick", "squad", "faction", "band", "morale"])
+	assert_array([band["type"], band["band"], band["morale"]]).is_equal(
+		["morale_band", "SHAKEN", 60 - BattleTuning.current().morale_rear_impact]
+	)
+
+
 func test_crossing_a_band_is_an_event() -> void:
 	var squad := _squad(1, [_unit(1, 0)])
 	var events := []

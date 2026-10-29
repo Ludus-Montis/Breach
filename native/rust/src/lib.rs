@@ -3894,26 +3894,50 @@ impl BodyField {
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationFronts.engage over `roster`'s squads: returns each pick's lock as [the
-    /// attacker's index in the roster, its foe's], in the lists' order.
+    /// FormationFronts.engage over `roster`'s squads on `tick`: each pick's "engaged" event
+    /// goes to the log (`contact::pass`, `events_take`).
     #[func]
-    fn contact_fronts(&mut self, roster: Gd<SquadRoster>, seed: i64) -> PackedInt32Array {
+    fn contact_fronts(&mut self, roster: Gd<SquadRoster>, tick: i64, seed: i64) {
         let roster = roster.bind();
-        let picks =
-            contact::fronts(&mut self.squads, &mut self.field.columns, &roster.roster, seed);
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        contact::pass::engage_fronts(
+            squads,
+            columns,
+            &roster.roster,
+            (tick, seed),
+            &mut self.events,
+        );
         self.edits += 1;
-        picks.iter().flat_map(|&(a, f)| [a as i32, f as i32]).collect()
     }
 
-    /// FormationEdges.engage over `roster`'s squads at `tick`: returns each flank lock as
-    /// [the victim's index in the roster, the attacker's, the edge], in the order they landed.
+    /// FormationEdges.engage over `roster`'s squads on `tick`: each flank lock's "flanked"
+    /// event and its victim's shock go to the log (`contact::pass`, `events_take`).
+    /// `impacts`: [morale_side_impact, morale_rear_impact]; `bands`: morale's
+    /// (`bands::BandTuning`).
     #[func]
-    fn contact_edges(&mut self, roster: Gd<SquadRoster>, tick: i64, seed: i64) -> PackedInt32Array {
+    fn contact_edges(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        tick: i64,
+        seed: i64,
+        impacts: PackedInt64Array,
+        bands: PackedInt64Array,
+    ) {
         let roster = roster.bind();
-        let flanked =
-            contact::edges(&mut self.squads, &mut self.field.columns, &roster.roster, tick, seed);
+        let impacts = contact::pass::Impacts { side: impacts[0], rear: impacts[1] };
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let shocks = (&impacts, &bands);
+        let given = (tick, seed);
+        contact::pass::engage_edges(
+            squads,
+            columns,
+            &roster.roster,
+            given,
+            shocks,
+            &mut self.events,
+        );
         self.edits += 1;
-        flanked.iter().flat_map(|f| [f.victim as i32, f.attacker as i32, f.edge]).collect()
     }
 
     /// FormationContact.skirmishing for `roster`'s squad `mover`.
