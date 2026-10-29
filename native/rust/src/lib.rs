@@ -5,6 +5,7 @@
 //! (FormationScrum._faces, UnitShuffle, UnitMotion). GDScript keeps the rules and stays the
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
+mod bands;
 mod blows;
 #[cfg(test)]
 mod build;
@@ -1515,7 +1516,8 @@ impl TerrainGround {
 }
 
 /// The scrum's contest and reach (spec 39 step 4a; `contest`, `reach`): ScrumContest and
-/// ScrumReach are views over it. Stateless: one is shared.
+/// ScrumReach are views over it, and FormationMorale over its ceiling, bands and shocks
+/// (`bands`, step 8a2-iv). Stateless: one is shared.
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct ScrumRules {}
@@ -1547,6 +1549,49 @@ impl ScrumRules {
     #[func]
     fn stamina_stage(&self, stamina: f64, most: f64, tired: f64, spent: f64) -> i64 {
         stamina::stage_of(stamina, most, tired, spent) as i64
+    }
+
+    /// FormationMorale.leadership, over the living's leaderships.
+    #[func]
+    fn morale_leadership(&self, leaderships: PackedInt64Array) -> i64 {
+        bands::leadership(leaderships.as_slice())
+    }
+
+    /// FormationMorale.ceiling, over the living's courage and leaderships; `tuning` [per
+    /// leadership, steady at, shaken at, loss, leader loss] (`bands::BandTuning`).
+    #[func]
+    fn morale_ceiling(
+        &self,
+        courage: PackedInt64Array,
+        leaderships: PackedInt64Array,
+        tuning: PackedInt64Array,
+    ) -> i64 {
+        let t = bands::BandTuning::of_slice(tuning.as_slice());
+        bands::ceiling(courage.as_slice(), leaderships.as_slice(), &t)
+    }
+
+    /// FormationMorale.band at `morale`: 0 steady, 1 shaken, 2 wavering, 3 routing.
+    #[func]
+    fn morale_band(&self, morale: i64, tuning: PackedInt64Array) -> i64 {
+        bands::band(morale, &bands::BandTuning::of_slice(tuning.as_slice()))
+    }
+
+    /// FormationMorale.interval.
+    #[func]
+    fn morale_interval(&self, band: i64, usual: i64) -> i64 {
+        bands::interval(band, usual)
+    }
+
+    /// The morale `value` comes to, held to 0..100.
+    #[func]
+    fn morale_held(&self, value: i64) -> i64 {
+        bands::held(value)
+    }
+
+    /// FormationMorale.losses' shock, over the fallen's leaderships.
+    #[func]
+    fn morale_losses(&self, fallen: PackedInt64Array, tuning: PackedInt64Array) -> i64 {
+        bands::losses(fallen.as_slice(), &bands::BandTuning::of_slice(tuning.as_slice()))
     }
 
     #[func]

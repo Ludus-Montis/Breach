@@ -229,7 +229,11 @@ events. After this step no battle phase runs in GDScript.
   and the widening, and whatever else the tick still decides in GDScript. **8a2-iii split
   further** (2026-10-28, under the same leave): **8a2-iii** the shuffle's swaps' ends, the
   widening and the closing up after; **8a2-iv** whatever else the tick still decides in
-  GDScript (surveyed by its session).
+  GDScript (surveyed by its session). **8a2-iv split further** (2026-10-28, under the same
+  leave), on its survey: **8a2-iv** morale's ceiling, bands and shocks; **8a2-v** the march's
+  ends (an arrival, a retreat's return home) and who may shoot (8a1's kept). What else the
+  tick decides in GDScript is the tick itself, 8b's: which squads march, hold or wait, which
+  groups look ahead and their commands' patches, landing the hurts, and the events.
 
 ### Step 9, the rest of `sim/`
 
@@ -1460,6 +1464,33 @@ Decision's conditions.
   later-ending swap's too; a widening on the right keeps the columns while a swap under way
   counts down). Red on a stub, then green. gdUnit: test_formation_moves.gd and
   test_formation_spread.gd unchanged, now through the crate.
+
+### Step 8a2-iv, morale's ceiling, bands and shocks in the crate
+
+- **The survey** (what the tick still decided in GDScript after 8a2-iii): morale's ceiling,
+  bands and shocks (here); the march's ends and who may shoot (8a2-v); and the tick's own
+  choices, 8b's (the split bullet in step 8).
+- **Morale's rules** (`bands.rs`, on `ScrumRules`; FormationMorale): a formation's ceiling
+  is its living's mean courage, rounded, plus `morale_per_leadership` for each point of its
+  best living leader's leadership, at most 100, and 0 with none living; its band is steady
+  from `morale_steady_at`, shaken from `morale_shaken_at`, wavering above 0 and routing at 0;
+  a wavering one's attack interval is half again as long; a shock's morale is held to 0..100;
+  the tick's dead shock it by `morale_loss` each and `morale_leader_loss` per point of each
+  fallen leader's leadership. GDScript hands in the living's courage and leadership, the
+  morale and the tuning (`_rules`: [per leadership, steady at, shaken at, loss, leader
+  loss]); it keeps each squad's morale (first read at its ceiling), and makes the
+  "morale_band" and "leader_fell" events.
+- **Identical:** the same operations in the same order: the courage summed as ints and
+  divided in f64, rounded half away from zero (`roundi`, `f64::round`), `mini(100, ...)`;
+  the bands' comparisons; `roundi(usual * 1.5)`; `clampi(value, 0, 100)`; the losses' sum.
+  The proof is CI's digests against the base. Outcomes unchanged.
+- **Retired:** FormationMorale's own arithmetic.
+- **Tests:** cargo: `bands/tests.rs` (the ceiling is the mean courage rounded plus the best
+  leader's steps; at most 100 and 0 with none living; the best living leader leads; the
+  bands fall by morale, routing only at 0; a wavering formation strikes half again more
+  slowly; morale is held to 0..100; the dead shock by each loss and each leader's
+  leadership). Red on stubs, then green. gdUnit: test_formation_morale.gd unchanged, now
+  through the crate.
 
 ## Open, for the implementing session to settle and record here
 

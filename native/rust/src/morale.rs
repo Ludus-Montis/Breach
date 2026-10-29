@@ -4,8 +4,8 @@
 //! right edge with a friendly formation near beyond it counting one less; or, out of contact,
 //! it recovers a little by its units' mean condition (Decision 125), plus its best leader's
 //! leadership; either way up to its ceiling. GDScript hands in each one's morale, leadership
-//! and ceiling (its units' courage and leaders), and sets what this returns: the bands, the
-//! shocks and their events are GDScript's. Nothing here reads another formation's morale, so
+//! and ceiling (`bands.rs`, over its units' courage and leaders), and sets what this returns,
+//! held as `bands.rs` holds it, with its events. Nothing here reads another formation's morale, so
 //! no formation's result hangs on the lists' order (Decision 97).
 
 use crate::columns::Columns;
