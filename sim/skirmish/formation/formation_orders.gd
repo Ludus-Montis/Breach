@@ -31,8 +31,8 @@ static func apply(
 	var field: Object = squads[0].store.field()
 	var pursuers: PackedInt64Array = field.apply_orders(
 		CrateRoster.of(squads),
-		_routes(squads) if retreats else PackedInt64Array(),
-		_rules(),
+		route_codes(squads) if retreats else PackedInt64Array(),
+		rules(),
 		BandTuning.rules(),
 		tick,
 		fight_seed
@@ -46,7 +46,7 @@ static func apply(
 
 
 ## A code naming each squad's route, in the lists' order (-1: none); the crate holds them.
-static func _routes(squads: Array) -> PackedInt64Array:
+static func route_codes(squads: Array) -> PackedInt64Array:
 	var codes := {}  # route -> its code
 	var routes := PackedInt64Array()
 	for squad: SkirmishSquad in squads:
@@ -55,7 +55,7 @@ static func _routes(squads: Array) -> PackedInt64Array:
 
 
 ## The tuning the pass reads: the pursuit's, then FormationDiscipline's.
-static func _rules() -> PackedFloat64Array:
+static func rules() -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array([tuning.pursuit_tempted_within, tuning.pursuit_ragged_shock])
 	(
