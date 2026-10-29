@@ -13,6 +13,7 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 const EntryKeys = preload("res://sim/skirmish/formation/entry_keys.gd")
+const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
 
 var _places := UnitPlaces.new()
 
@@ -91,20 +92,28 @@ func _bytes(squads: Array) -> PackedByteArray:
 
 
 ## The crowd parted for four ticks while a unit dies and another changes squad (after the
-## second): on one field kept across them (`kept`), or on a new one each tick.
+## second): on one field whose roster is kept across them (`kept`), or emptied each tick as
+## a new field's is. The squads' records live on the field (spec 39 step 8b5-xxxi), so each
+## run builds its squads on its own field and store: no bit of another run's state.
 func _crowd_parted(reversed: bool, kept: bool) -> PackedByteArray:
-	_places = UnitPlaces.new()  # each run its own store: no bit of another run's state
-	var squads := _crowd(reversed)
 	var field := NativeKernels.body_field()
-	UnitPlaces.onto(field, squads)
+	_places = UnitPlaces.new(field)
+	var squads := _crowd(reversed)
 	for tick in range(4):
 		if tick == 2:
 			_churn(squads)
 		if not kept:
-			field = NativeKernels.body_field()
-			UnitPlaces.onto(field, squads)
+			_forget(field, 9 + tick)
 		UnitBodies.step(squads, 9 + tick, field)
 	return _bytes(squads)
+
+
+## Empties the field's roster, as a new field's is; the squads' records stay.
+func _forget(field: Object, fight_seed: int) -> void:
+	var none := PackedInt64Array()
+	var bodies := BodyFieldSync.BODIES
+	var counts := PackedInt32Array()
+	field.sync(fight_seed, none, PackedStringArray(), PackedByteArray(), counts, none, bodies, [])
 
 
 ## Unit 3 dies; unit 5 leaves its squad for the line (squad 1), its entries in its old
@@ -131,6 +140,20 @@ func _churn(squads: Array) -> void:
 func test_a_field_kept_across_ticks_parts_as_a_new_one_does_as_units_die_and_move() -> void:
 	var fresh := _crowd_parted(false, false)
 	assert_array(Array(_crowd_parted(false, true))).is_equal(Array(fresh))
+
+
+## The step is one crate pass (spec 39 step 8b5-xxxi): a unit in its frame its own loose
+## one pushes leaves its place, made loose where it stood, read and written in the crate.
+func test_the_crate_pass_loosens_a_unit_its_own_loose_one_pushes() -> void:
+	var framed := _unit(1)
+	var shover := _unit(2)
+	var units: Array[SkirmishUnit] = [framed, shover]
+	var squad := SkirmishSquad.new(1, "player", 1, 0.0, 2, units, null, _places.store)
+	_places.stand(framed, Vector2(5, 5))
+	_places.stand(shover, Vector2(5.5, 5))
+	SquadEntries.loosen(squad, shover, Vector2(5.5, 5))
+	UnitBodies.step([squad], 9)
+	assert_array(squad.loose.keys()).is_equal([2, 1])
 
 
 func test_a_battle_has_a_field() -> void:
