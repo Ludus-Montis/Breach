@@ -40,6 +40,7 @@ static func pourers(squad, units: Array, moving) -> PackedFloat64Array:
 	var places := UnitView.read(squad, UnitView.PLACES)  # read once a pass (Decision 146)
 	var ranks: PackedInt32Array = places.rank
 	var files: PackedInt32Array = places.column
+	var taking: Dictionary = squad.taking  # taker's id -> its body's store slot
 	var out := PackedFloat64Array()
 	for unit in units:
 		var here := at[unit.slot]
@@ -48,8 +49,8 @@ static func pourers(squad, units: Array, moving) -> PackedFloat64Array:
 		var shape := [unit.footprint_width, unit.footprint_depth, swapping.x, swapping.y]
 		out.append_array(PackedFloat64Array([unit.id, here.x, here.y] + place + shape))
 		out.append_array(TerrainWalker.of_unit(unit).fields())
-		if squad.taking.has(unit.id):
-			var body: Vector2 = at[squad.taking[unit.id].slot]
+		if taking.has(unit.id):
+			var body: Vector2 = at[taking[unit.id]]
 			out.append_array(PackedFloat64Array([1.0, body.x, body.y]))
 		else:
 			out.append_array(PackedFloat64Array([0.0, 0.0, 0.0]))
