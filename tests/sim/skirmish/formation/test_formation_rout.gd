@@ -173,3 +173,23 @@ func test_a_rout_replays_the_same() -> void:
 		logs.append(_run(setup[0], 40).map(func(e): return [e["type"], e["tick"]]))
 
 	assert_array(logs[1]).is_equal(logs[0])
+
+
+func test_the_rout_is_the_crates_and_a_rallied_router_is_the_friends_in_gdscript_too() -> void:
+	var setup := _fight()
+	var sim: FormationSimulation = setup[0]
+	var mine: SkirmishSquad = setup[1]
+	var led := sim.spawn_squad(2, _line(_def(100, 2, 1.0, 2), 2), "player", true)
+	led.front_distance = 15.0 / 64.0
+	sim.order(led.id, SkirmishUnit.Order.HOLD)
+	_run(sim, 1)
+	mine.morale = 0
+
+	var rallied := _of(_run(sim, 30), "rallied")
+
+	var ids: Array = rallied.map(func(e): return e["unit"])
+	assert_bool(ids.is_empty()).is_false()
+	assert_array(rallied.filter(func(e): return e["into"] != led.id)).is_empty()
+	assert_array(led.joined.map(func(u): return u.id)).is_equal(ids)
+	assert_array(led.units.slice(2).map(func(u): return u.id)).is_equal(ids)
+	assert_array(mine.units.filter(func(u): return u.id in ids)).is_empty()

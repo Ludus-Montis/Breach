@@ -6,7 +6,8 @@ extends RefCounted
 ## place of "squad", and its unit's faction. The kinds are the crate's, asked for once; a
 ## field naming an order, a band or how a blow landed is decoded to its name, a faction, a
 ## staged squad's "then" or a damage type from the lexicon, a flank or "alone" to a bool, a
-## heading from its float's bits; a "joined" of -1 (none) is left out.
+## heading from its float's bits, a "definition" to the Resource the unit store codes it as
+## (given the store); a "joined" of -1 (none) is left out.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
@@ -20,8 +21,9 @@ const UNSET := ["joined"]
 static var _kinds := []
 
 
-## The events the crate of `field` built since last taken, in the order built.
-static func taken(field: Object) -> Array:
+## The events the crate of `field` built since last taken, in the order built; `store` names a
+## "definition".
+static func taken(field: Object, store: UnitStore = null) -> Array:
 	var flat: PackedInt64Array = field.events_take()
 	if flat.is_empty():
 		return []
@@ -37,7 +39,9 @@ static func taken(field: Object) -> Array:
 		event["faction"] = words[flat[at + 3]]
 		at += 4
 		for name: String in kind[1]:
-			if not (name in UNSET and flat[at] == -1):
+			if name == "definition":
+				event[name] = store.definition_of(flat[at])
+			elif not (name in UNSET and flat[at] == -1):
 				event[name] = words[flat[at]] if name in WORDS else _decoded(name, flat[at])
 			at += 1
 		out.append(event)

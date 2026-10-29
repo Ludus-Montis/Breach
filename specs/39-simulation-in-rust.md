@@ -421,6 +421,14 @@ events. After this step no battle phase runs in GDScript.
   follow, renumbered: **8b5-xxx** groups, stamina, the bodies, the shuffle and the march's
   sync (GroupSplit's groups made in the crate as the strays are); **8b5-xxxi** one `step()`
   binding.
+  **8b5-xxviii built** (2026-10-29): the rout as one crate pass (`rout/pass.rs`, the
+  `rout_step` binding in place of `rout_flee`, `rout_rallies`, `rout_regroup` and
+  `rout_break`): the flight's crushes hurt and panic in the crate, a router home leaves its
+  squad's members ("fled_home" with its definition's code, which CrateEvents decodes given
+  the store), and each rally's join goes through a single squad and command the crate opens
+  for it, as FormationRout's did, so outcomes are unchanged; "crushed", "fled_home",
+  "scattered", "rallied", "reformed" and "routed" are logged. FormationRout mirrors only its
+  unit lists and the friends' `joined`.
 
 ### Step 9, the rest of `sim/`
 

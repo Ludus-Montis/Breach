@@ -14,9 +14,9 @@
 //!   `enemy_near` for `rally_seconds`, re-forms where its best leader stands and holds.
 //! - **Home:** routers that reach home leave the field; a formation left with none scatters.
 //!
-//! GDScript lands the bands and the shocks (`bands.rs`), and keeps the hurts, who is living
-//! and the joins themselves (FormationContact.reinforce): each call here returns what it
-//! decided, and GDScript lands it in its order. The searches are `friends.rs`'s.
+//! Each function here decides one phase; the pass (`pass.rs`, spec 39 step 8b5-xxviii) runs
+//! them in order over the tick and lands what each decided: the hurts, the shocks, the joins
+//! and the events. The searches are `friends.rs`'s.
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
@@ -33,6 +33,7 @@ use crate::squads::Squads;
 
 pub mod flight;
 pub mod friends;
+pub mod pass;
 
 use flight::Flight;
 use friends::Friends;
