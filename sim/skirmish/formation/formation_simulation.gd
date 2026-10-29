@@ -33,7 +33,6 @@ const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const FormationUnits = preload("res://sim/skirmish/formation/formation_units.gd")
@@ -50,7 +49,6 @@ const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd"
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
 const FormationStaging = preload("res://sim/skirmish/formation/formation_staging.gd")
 const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd")
-const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
@@ -226,24 +224,10 @@ func _move(events: Array, roster: Object) -> void:
 ## landed, then their hurts landed in the crate (`hurts.rs`, step 8b2), the fallen on the
 ## fell queue; their events, from what each left.
 func _fight(events: Array) -> void:
-	var interval := _attack_interval_ticks()
-	var chosen := FormationMelee.blows(_squads, interval, fight_seed, _field)  # targets cleared
-	var blows: Array = chosen[0]
-	var shots: Array = chosen[1]
-	var rolls := [fight_seed, _tick] if blow_rolls else []
-	BlowLanding.land(blows, shots, _squads, terrain, rolls, _field, chosen[2])
-	var hurts := []  # the shots, then the blows, in the order landed: hurt in the crate
-	for each in shots + blows:
-		hurts.append([each[1], each[2]])
-	var left := UnitHealth.hurt_landed(self, hurts)
-	for shot in shots:
-		var spat := {"target": shot[1].id, "dmg": shot[2], "damage_type": shot[0].damage_type}
-		spat["blow"] = shot[4]  # in the event after its damage type, as always
-		events.append(FormationEvents.unit_event("spat", _tick, shot[3], shot[0], spat))
-	for index in blows.size():
-		events.append(FormationEvents.hit(_tick, blows[index], left[shots.size() + index]))
+	var ticks := [_attack_interval_ticks(), fight_seed, _tick]  # FormationMelee.fight's order
+	var blows := FormationMelee.fight(_squads, ticks, blow_rolls, terrain, _field)
+	events.append_array(CrateEvents.taken(_field))  # "spat", then "hit"
 	FormationWounds.surrender(blows, _squads, fight_seed, _tick, events)
-	FormationStamina.strike(self, blows + shots)
 
 
 ## Ticks in a second: a weapon's attack interval is in seconds (Decision 120).
