@@ -2144,6 +2144,42 @@ Decision's conditions.
 - **After it**, 8b5-x: the joins and their step-ups as data (who joins whom, the moves, the
   lists, the command and the events in the crate; GDScript drops the joined squads).
 
+### Step 8b5-x, the joins and their step-ups as data
+
+- **The joins** (`joins::step`, from `move_step` after the move lands): each squad that
+  advanced and has reached a friend's back rank joins it, nearest first, a tie to the
+  squads' draws (`contact::Field::joins`, as before). For each, in that order: "reinforced"
+  (the leader fighting) or "merged", on the joining squad, `into` the leader; the joining
+  squad taken in (`joins::take_in`); "stepped_up" on the leader for each unit that stepped
+  up, with its unit's id and its rank once all have moved; the leader reforming. The events
+  go to the log as FormationEvents made them (`events::KINDS` gains the three kinds).
+- **Taking in** (`joins::take_in`, FormationContact.reinforce): each squad read where it
+  lives: the leader's members shift with its frame (`compact::reinforce`), each living
+  unit's id from the store, its footprint and band from its sheet, the leader's moves under
+  way from its swaps. The joining units then follow the leader (FormationCommand.enlist):
+  their sheet's `squad_id`, their command the leader's, their origin too if they started
+  under none; the leader's members and joined list take them in, in the joining squad's
+  order; the joining squad's members are emptied. FormationContact.reinforce, for the rout's
+  rejoining and the groups' taking, calls the same (`squad_take_in`).
+- **GDScript** keeps its own lists, which mirror the crate's till they go: `move_step`
+  returns the joins (leader, joining, as listed indices), and FormationJoins.join hands each
+  to FormationContact.took_in (the units enlisted in GDScript's copies, the joined list, the
+  joining squad's units cleared) and drops the joining squad from the list.
+- **Gone:** the `contact_joins` and `squad_reinforce` bindings; FormationJoins' events and
+  its call to the crate's order.
+- **Identical:** the same joins, moves, lists, commands and events, in the same order with
+  the same keys and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `joins/tests.rs` (a wave reaching a fighting friend's back rank is taken
+  in behind it, enlisted under its command, the friend's members and joined list taking it
+  in and its own emptied, and "reinforced" logged; a merging wave steps up where the
+  friend's front has fallen, "merged" and "stepped_up" with the rank logged; a joining unit
+  keeps the command it started under; a wave short of its friend, or one not merging with a
+  marching friend, joins nobody; taking in hands back the living closed up and which stepped
+  up), red on a stubbed pass, then green. gdUnit `test_formation_contact.gd`: a joined wave's
+  event reads as FormationEvents made it, and GDScript drops the wave, its units the
+  leader's under its command (red with FormationJoins.join stubbed, then green).
+- **After it**, 8b5-xi: the scrum, the fight and deaths.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
