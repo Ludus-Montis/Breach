@@ -91,35 +91,26 @@ BodyFieldSync.scrum / .bodies  --sync------->     per body: radius, area, initia
                                                passes on the field
 BodyParting.step --------- part(tuning, way) -> parting (spike kernel, draw order)
   <- moved bodies (flat), points, nexts, loosened in order, stats
-ScrumSeekField.plan ------ seek(rules' say) ---> seek (seeking.rs, scrum.rs): who may
-  per fighting squad: its foes' squad ids,         seek and its place (SquadFrame.place_in
-  may it seek, its frame, its chasers;             from the store's rank and column), its
-  per unit: speed                                  goal from the columns; touch, contest
-                                                   order, kept slots, rings, picks, presses;
-                                                   the outcome written into the columns
-  <- planned units (flat), codes, nexts, foe_ats, active squads (for the walk and facing)
-  within(unit, point) <- asked only on terrain
-ScrumFaceField.face ------ face(after the walk) -> facing (face_store.rs, facing.rs): where
-  the seek's units, their squads' foes,            each stands, faces and makes for (next,
-  their speeds                                     foe_at, toward) from the columns, its
-                                                   turn rate and backward pace from its
-                                                   record; the touching foe (front, distance,
-                                                   draw), UnitShuffle.look, bearing_to, the
-                                                   turn at its rate (motion.rs, DetMath's
-                                                   atan2 and acos); the bearing written into
-                                                   the column
-  <- every unit's bearing after its turn (tests)
-ScrumWalkField.walk ------ walk(after seek) ----> walk (walk_store.rs, walking.rs): each
-  the seek's units and answer (codes, nexts),      unit's bearing, rank and column from the
-  speeds, a frame and pace per squad, the lying    columns, turn rate, backward pace and
-                                                   footprint from its record;
-                                                   SquadFrame.place, UnitShuffle.look,
-                                                   UnitSteer (the body in the way, least by
-                                                   [along, draw]; _round), UnitMotion.move,
-                                                   GroundBodies.underfoot over a grid of the
-                                                   lying; where each ends and looks written
-                                                   into the columns
-  <- where each stands after its step, its look (tests)
+ScrumSeek.step ----------- scrum_seek(roster) -> scrum::seek::step (spec 39 step 8b5-xiii):
+  the scrum's roster, the ground, the tuning       the sync and enrolment from the roster;
+                                                   each fighting squad's say read in the
+                                                   crate (foes, may it seek, its frame, its
+                                                   chasers, speeds); then, in order:
+                                                 seek (seeking.rs, scrum.rs): who may seek
+                                                   and its place (SquadFrame.place_in), its
+                                                   goal; touch, contest order, kept slots,
+                                                   rings, picks, presses; on terrain, where
+                                                   it may stand (Ground::crossing)
+                                                 walk (walk_store.rs, walking.rs): a frame
+                                                   and pace per squad, the bodies lying;
+                                                   UnitSteer, UnitMotion.move,
+                                                   GroundBodies.underfoot; on terrain each
+                                                   step paid for the ground (mover::pay)
+                                                 facing (face_store.rs, facing.rs): the
+                                                   touching foe, UnitShuffle.look, the turn
+                                                   at its rate (DetMath's atan2 and acos)
+                                                 every outcome written into the columns
+  <- the fighting squads active this tick (for the stall)
 ```
 
 **What the field owns.** Everything about a body that doesn't change tick to tick:
@@ -262,7 +253,8 @@ Linux x86_64, Godot 4.7.2 official, release build, 4 cores shared with another j
 whole ticks carry a few % of noise. FormationBench's clash (grems v militia, seed 1),
 mid-fight: 10 ticks after 10 ticks of contact. Figures are ms a tick, the median of 3
 runs. They predate spec 39 step 4a, which retired the facing, walk and blows benches with
-the GDScript twins they compared against.
+the GDScript twins they compared against, and spec 39 step 8b5-xiii, after which the bench
+times the seek, the walk and the facing together as one call (ScrumSeek.step).
 
 ### The two ported passes (`tools/native_bench.gd`)
 

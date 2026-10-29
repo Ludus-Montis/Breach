@@ -61,7 +61,7 @@ impl Key {
     }
 
     /// `keys`' bit: the entry holds the key.
-    fn bit(self) -> i32 {
+    pub fn bit(self) -> i32 {
         match self {
             Key::FoeAt => 1,
             Key::Touch => 2,
@@ -75,7 +75,7 @@ impl Key {
     }
 
     /// `keys`' bit: the key holds a value, not none (0 for the keys that always do).
-    fn valued(self) -> i32 {
+    pub fn valued(self) -> i32 {
         match self {
             Key::Toward => 8,
             Key::HeldBy => 256,
