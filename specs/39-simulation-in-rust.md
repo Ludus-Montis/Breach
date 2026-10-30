@@ -652,6 +652,32 @@ events. After this step no battle phase runs in GDScript.
   carrying stays CARRIED). The events are decoded once (`CrateEvents.taken(field, store)`),
   then `orders_clear` and `store.settle`. The per-pass GDScript classes and bindings stay
   for their tests and the tools. Outcomes don't change.
+- **8c split further** (2026-10-30, under the user's standing leave to split): a cargo binary
+  can only play a battle the crate can set up, order and step with nothing from GDScript.
+  **8c-i** the tick's rules read in the crate: each pass's rules built from the battle's
+  tuning the crate loaded, so FormationTick hands the call only the tick's own numbers.
+  **8c-ii** a battle set up in the crate: a squad spawned from its units' definitions, the
+  ground made from a map, and the digest's battles (BattleTrials' mirrors,
+  FormationBench.clash, the field logs' fields) made in Rust; the binding's rule parsers moved
+  off Godot's arrays so a cargo binary can use them. **8c-iii** a battle run end to end in
+  the crate: the rest of FormationSimulation.step and the field's actions (the field logs'
+  orders by tick), the digest's stop rules (a side broken, TAIL ticks, ticks past contact).
+  **8c-iv** the digest as a cargo binary: each tick's events and squads' and units' state
+  hashed as `formation_digest.gd` hashes them (Godot's `var_to_bytes`, SHA-256), its output
+  compared with the Godot digest's in CI; the Godot digest retired once they match on
+  `main`. **8c-v** the trials and `scaling_check` as cargo binaries. **8c-vi** the benches,
+  `tick_phases` among them with spec 38 step 2's series, `terrain=mixed` and per-pass
+  changed counts.
+  **8c-i built** (2026-10-30): `tick::given` (`tick::given::of(tuning, At, Paces)`) builds
+  every pass's arguments past the roster and the ground from the battle's tuning
+  (`content::BattleTuning`) and the tick's numbers, value for value as FormationOpening,
+  FormationScrum, FormationAftermath, FormationMustering and FormationEnding's `args` build
+  them. The binding `tick_run(content, roster, ground, [tick, seed, ticks a second, 1 if
+  blows roll, 1 if threaded], [travel scale, seconds, route length, cells a second])` reads
+  the tuning from the ContentStore (`CrateContent.store()`, which replaces
+  `CrateContent.defaults()`) and runs `tick_step` on them; `tick_given` returns them for the
+  test that holds them equal to GDScript's. FormationTick.step makes that call;
+  `FormationTick._args` is removed. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

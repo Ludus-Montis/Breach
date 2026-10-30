@@ -1,11 +1,12 @@
 class_name FormationTick
 extends RefCounted
-## The whole tick as one crate call (`tick_step`, spec 39 step 8b5-xlii): the opening
+## The whole tick as one crate call (`tick_run`, spec 39 step 8b5-xlii): the opening
 ## (FormationOpening), the scrum (FormationScrum), the fight and its aftermath
 ## (FormationAftermath), the strays through the groups (FormationMustering) and the end
 ## (FormationEnding), in that order over one roster of every unit the squads hold, every
-## pass's events in the crate's log in that order. Each pass hands the call its arguments as
-## its own binding takes them. Then each pass's result is mirrored into GDScript's copies in
+## pass's events in the crate's log in that order. The crate builds each pass's rules from the
+## battle's tuning it loaded (CrateContent.store, spec 39 step 8c-i), as each pass's own `args`
+## builds them for its binding. Then each pass's result is mirrored into GDScript's copies in
 ## the same order, while CrateMirroring is on: a mirror runs after every later pass in the
 ## call, so the crate's values are the tick's, and none of its writes may land over them.
 ## Then the events are decoded once.
@@ -17,7 +18,6 @@ const FormationAftermath = preload("res://sim/skirmish/formation/formation_after
 const FormationEnding = preload("res://sim/skirmish/formation/formation_ending.gd")
 const FormationMustering = preload("res://sim/skirmish/formation/formation_mustering.gd")
 const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
-const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
 const UnitMover = preload("res://sim/skirmish/formation/unit_mover.gd")
@@ -36,10 +36,11 @@ static func step(
 	var store: UnitStore = squads[0].store
 	var field: Object = ColumnsLent.field(store.columns)
 	var next_id: int = at[3]
-	var given := [CrateRoster.of(squads, terrain, true), UnitMover.ground(terrain)]
-	given.append_array(_args(at, paces, rolls))
+	var ticks := PackedInt64Array([at[0], at[1], at[2], int(rolls), int(NativeKernels.threaded)])
+	var given := [CrateContent.store(), CrateRoster.of(squads, terrain, true)]
+	given.append_array([UnitMover.ground(terrain), ticks, PackedFloat64Array(paces)])
 	var flat: PackedInt64Array = ColumnsLent.all(
-		store.columns, func(): return field.callv(&"tick_step", given)
+		store.columns, func(): return field.callv(&"tick_run", given)
 	)
 	var parts := _parts(flat)
 	var perception: Dictionary = CrateMirroring.run(
@@ -53,22 +54,6 @@ static func step(
 	)
 	events.append_array(CrateEvents.taken(field, store))  # every pass's, in order
 	return perception
-
-
-## Each pass's arguments past the roster and the ground, as `step` is given `at`, `paces`
-## and `rolls`.
-static func _args(at: Array, paces: Array, rolls: bool) -> Array:
-	var tick: int = at[0]
-	var seed: int = at[1]
-	var seconds: float = paces[1]
-	var cells: float = paces[3]
-	return [
-		FormationOpening.args([tick, seed], [paces[0], seconds, paces[2]]),
-		FormationScrum.args(tick, cells, seconds, seed),
-		FormationAftermath.args([at[2], seed, tick], seconds, rolls),
-		FormationMustering.args([tick, at[2], seed], [cells, seconds]),
-		FormationEnding.args([tick, seed], [seconds, paces[0], cells]),
-	]
 
 
 ## The crate's `flat` result cut into the passes' parts, each its length first.

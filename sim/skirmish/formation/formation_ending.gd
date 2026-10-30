@@ -38,8 +38,9 @@ static func step(squads: Array, at: Array, paces: Array, terrain: FormationTerra
 	return CrateEvents.taken(field)  # the shuffle's "swapped", "stepped_up"
 
 
-## The end's arguments past the squads listed and before the ground (`ending_step`'s, and
-## the whole tick's part, `tick_step`): `at` and `paces` as `step` takes them.
+## The end's arguments past the squads listed and before the ground (`ending_step`'s; the
+## crate's `tick::given` builds the same for the whole tick): `at` and `paces` as `step`
+## takes them.
 static func args(at: Array, paces: Array) -> Array:
 	var tuning := BattleTuning.current()
 	var ints := PackedInt64Array(at + [int(NativeKernels.threaded)])

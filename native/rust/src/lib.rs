@@ -4895,6 +4895,77 @@ impl BodyField {
         }
         PackedInt64Array::from(out.as_slice())
     }
+
+    /// The tick's rules as the crate builds them from `content`'s battle tuning (spec 39 step
+    /// 8c-i, `tick::given`): each pass's arguments past the roster and the ground, as
+    /// `tick_step` takes them. `at` = [tick, seed, ticks a second, 1 if blows roll, 1 if
+    /// threaded]; `paces` = [travel scale, the tick's seconds, the lane's length, cells a
+    /// second at speed 1]. Empty if the content isn't loaded.
+    #[func]
+    fn tick_given(
+        &self,
+        content: Gd<ContentStore>,
+        at: PackedInt64Array,
+        paces: PackedFloat64Array,
+    ) -> VarArray {
+        given_args(&content, &at, &paces).map_or_else(VarArray::new, |passes| {
+            passes.into_iter().map(|args| args.to_variant()).collect()
+        })
+    }
+
+    /// The whole tick (`tick_step`), its rules built in the crate from `content`'s battle
+    /// tuning (`tick_given`'s `at` and `paces`).
+    #[func]
+    fn tick_run(
+        &mut self,
+        content: Gd<ContentStore>,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        at: PackedInt64Array,
+        paces: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let Some([opening, scrum, aftermath, mustering, ending]) =
+            given_args(&content, &at, &paces)
+        else {
+            return PackedInt64Array::new();
+        };
+        self.tick_step(roster, ground, opening, scrum, aftermath, mustering, ending)
+    }
+}
+
+/// Each pass's arguments as `tick_step` takes them, built from `content`'s battle tuning
+/// (`tick::given`); None if the content isn't loaded or `at` or `paces` is short.
+fn given_args(
+    content: &Gd<ContentStore>,
+    at: &PackedInt64Array,
+    paces: &PackedFloat64Array,
+) -> Option<[VarArray; 5]> {
+    let store = content.bind();
+    let tuning = &store.content.as_ref()?.tuning;
+    let [tick, seed, ticks_a_second, rolls, threaded]: [i64; 5] = at.as_slice().try_into().ok()?;
+    let [travel_scale, seconds, route_length, cells_a_second]: [f64; 4] =
+        paces.as_slice().try_into().ok()?;
+    let at =
+        tick::given::At { tick, seed, ticks_a_second, rolls: rolls != 0, threaded: threaded != 0 };
+    let paces = tick::given::Paces { travel_scale, seconds, route_length, cells_a_second };
+    let given = tick::given::of(tuning, &at, &paces);
+    let passes = [given.opening, given.scrum, given.aftermath, given.mustering, given.ending];
+    Some(passes.map(|args| args.iter().map(given_arg).collect()))
+}
+
+/// One of a pass's arguments as its binding takes it.
+fn given_arg(arg: &tick::given::Arg) -> Variant {
+    use tick::given::Arg;
+    match arg {
+        Arg::Ints(n) => PackedInt64Array::from(n.as_slice()).to_variant(),
+        Arg::Floats(x) => PackedFloat64Array::from(x.as_slice()).to_variant(),
+        Arg::Real(x) => x.to_variant(),
+        Arg::Lists(lists) => {
+            let lists: VarArray =
+                lists.iter().map(|x| PackedFloat64Array::from(x.as_slice()).to_variant()).collect();
+            lists.to_variant()
+        }
+    }
 }
 
 /// The `n`th of a binding's arguments handed over in `args`, or its default if missing.
