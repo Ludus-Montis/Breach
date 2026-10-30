@@ -6,6 +6,7 @@ use super::super::tests::{content, fresh, played};
 use super::*;
 use crate::commands::HURRY;
 use crate::record::{command, parse};
+use crate::rehearsal::LIMIT_TICKS;
 
 #[test]
 fn the_kingdom_has_its_line_and_reserve_pursue_or_not() {
@@ -145,12 +146,32 @@ fn a_record_is_replayed_to_its_last_command_and_on() {
 }
 
 #[test]
-fn a_record_sending_the_waves_together_is_not_yet_replayed() {
+fn the_waves_sent_together_wait_as_their_rehearsals_say_so_both_arrive_at_once() {
+    let content = content();
+    let (mut squads, mut field, mut play) = fresh(&content);
+    played((&mut squads, &mut field, &mut play), &content, 158);
+    let rehearsed = [A, B].map(|w| play.rehearsed(w, &content));
+    assert!(rehearsed.iter().all(|&t| t > 0 && t < LIMIT_TICKS), "{rehearsed:?}");
+    assert_ne!(rehearsed[A], rehearsed[B], "B's route is the longer");
+
+    let together = command(158, PLAYER, "send", "A+B", "");
+    assert!(play.apply(&together, (&mut squads, &mut field), &content));
+
+    let [a, b] = [play.play.listed[2], play.play.listed[3]];
+    let longest = rehearsed[A].max(rehearsed[B]);
+    let waits = [squads.wait_ticks[a], squads.wait_ticks[b]].map(i64::from);
+    assert_eq!(waits, [longest - rehearsed[A], longest - rehearsed[B]]);
+    assert!(play.waves.iter().all(|w| w.built() == 0), "both waves emptied");
+}
+
+#[test]
+fn a_record_sending_the_waves_together_is_replayed() {
     let content = content();
     let (mut squads, mut field) = (Squads::default(), Field::default());
     let record = parse("seed 492625 captain off\n96 via_c on\n158 send A+B").unwrap();
     let mut log = Log::default();
     let crate_ = (&mut squads, &mut field);
-    assert_eq!(replay(&record, 20, crate_, &content, (true, false), &mut log), None);
-    assert!(squads.id.is_empty(), "nothing set up");
+    let played = replay(&record, 20, crate_, &content, (true, false), &mut log);
+    assert_eq!(played.map(|p| p.0), Some(178));
+    assert_eq!(squads.id.iter().filter(|&&id| id > 0).count(), 4, "the line, the reserve, A, B");
 }

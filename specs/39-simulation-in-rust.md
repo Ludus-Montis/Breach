@@ -818,6 +818,16 @@ events. After this step no battle phase runs in GDScript.
   production events, or [-1]; the gdUnit test holds the crate's whole state equal, byte for
   byte, to GDScript's replay of the digest's field logs 1, 2 and 4. Nothing calls it yet.
   Outcomes don't change.
+  **8c-x built** (2026-10-30): `rehearsal::ticks_to` is FormationRehearsal.ticks_to: a
+  wave's filled places (front-first, as its preview lists them) spawned eight wide on its
+  route in a battle of their own (`Play::open`, a FormationSimulation.new with nothing set up:
+  unseeded, blows unrolled, no combat width, on the field's map), played a tick at a time till
+  the front is its contact cells along (A 79, B 88: `field_play::CONTACT`), or LIMIT_TICKS.
+  `FieldPlay::send_together` is FormationField.send_together: each wave rehearsed, the waits
+  from `rendezvous::waits`, each wave sent with its wait. `FieldPlay::apply` gives `send A+B`
+  through it, and `replay` no longer refuses such a record, so all five of the digest's field
+  logs play in the crate; the gdUnit test holds each equal, byte for byte, to GDScript's
+  replay. Nothing calls it yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

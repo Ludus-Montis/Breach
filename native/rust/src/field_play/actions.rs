@@ -3,12 +3,12 @@
 //! squad on a wave's route, makes a wave depart when full or not, makes B's waves wait in the
 //! wood, sets what a route's waves do with their downed, hurries them and puts a wave on
 //! another route; the kingdom has its line and reserve pursue or not. `replay` plays a record
-//! as the digest plays a field log. The waves sent together (`send A+B`) are 8c-x's.
+//! as the digest plays a field log, the waves sent together (`send A+B`) included.
 
 #[cfg(test)]
 mod tests;
 
-use super::{FieldPlay, A, B, C};
+use super::{FieldPlay, A, B, C, CONTACT};
 use crate::commands::PURSUES;
 use crate::content::Content;
 use crate::events::Log;
@@ -24,11 +24,7 @@ use crate::staging::Stage;
 const STAGING_AT: f64 = 56.0;
 /// How long a waiting wave holds before going anyway, in seconds.
 const WAIT_SECONDS: f64 = 60.0;
-/// FormationField.contact_cells: how far along A a wave's front meets the line, and along B
-/// the line's north side.
-const CONTACT_A: f64 = 79.0;
-const CONTACT_B: f64 = 88.0;
-/// A sending both waves at once: not yet given in the crate.
+/// Both waves sent at once (FormationField.send_together).
 const TOGETHER: &str = "A+B";
 /// What a route's waves may do with their downed (FormationFieldActions.apply's "tend").
 const TENDS: [&str; 3] = ["leave", "recover", "carry"];
@@ -49,7 +45,7 @@ fn route_of(key: &str) -> Option<usize> {
 
 impl FieldPlay {
     /// FormationFieldActions.apply: `given` given to the field; false if it isn't one the
-    /// field takes from that side (or is the waves sent together, not yet the crate's).
+    /// field takes from that side.
     pub fn apply(
         &mut self,
         given: &Command,
@@ -75,6 +71,9 @@ impl FieldPlay {
         match (given.order.as_str(), wave) {
             ("send", Some(w)) => {
                 self.send(w, 0, (squads, field), content);
+            }
+            ("send", None) if given.target == TOGETHER => {
+                self.send_together(&[A, B], (squads, field), content);
             }
             ("retreat", Some(w)) => self.retreat(w, squads, field),
             ("auto", Some(w)) => self.waves[w].auto = on,
@@ -118,7 +117,7 @@ impl FieldPlay {
             partner: 0,
             fallback,
             then: Some("go".to_string()),
-            meet: Some((V2::new(CONTACT_A as f32, 32.0), CONTACT_B)),
+            meet: Some((V2::new(CONTACT[A] as f32, 32.0), CONTACT[B])),
         });
     }
 }
@@ -127,7 +126,7 @@ impl FieldPlay {
 /// on `squads` and `field`, its blows rolled if `rolls`, each tick's commands given and the
 /// tick played (its events taken from `log` and dropped) till `extra` ticks past the last
 /// command. The ticks played and the builders' and waves' events in all; None, with nothing
-/// played, if the field can't be set up or the record sends the waves together.
+/// played, if the field can't be set up.
 pub fn replay(
     record: &Record,
     extra: i64,
@@ -136,9 +135,6 @@ pub fn replay(
     (rolls, threaded): (bool, bool),
     log: &mut Log,
 ) -> Option<(i64, i64)> {
-    if record.commands.iter().any(|c| c.order == "send" && c.target == TOGETHER) {
-        return None;
-    }
     let at = (record.seed, rolls, threaded);
     let mut played = FieldPlay::new(record.captained, (squads, field), content, at)?;
     let last = record.commands.last().map_or(0, |c| c.tick);

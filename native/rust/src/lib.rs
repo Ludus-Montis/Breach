@@ -73,6 +73,7 @@ mod recovery;
 mod rect;
 mod regeneration;
 mod regroup;
+mod rehearsal;
 mod rendezvous;
 mod roster;
 mod rout;
