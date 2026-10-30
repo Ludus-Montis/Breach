@@ -188,21 +188,26 @@ fn ending(t: &BattleTuning, at: &At, p: &Paces) -> Vec<Arg> {
     stamina.extend(&t.stamina_pace);
     stamina.extend(&t.load_march_tiring);
     let bodies = vec![t.bodies_passes as f64, t.bodies_resist, t.bodies_brush];
-    let mut walk = vec![t.walk_face_travel, t.bodies_ground_drag, t.bodies_ground_block];
-    walk.extend([t.stamina_climb, t.stamina_swim, t.stamina_spent]);
-    walk.extend([t.ground_cliff_quarters as f64, t.fall_damage_per_cell, t.fall_mass_power]);
-    walk.push(t.wounds_reach);
     vec![
         Arg::Ints(vec![at.tick, at.seed, at.threaded as i64]),
         Arg::Floats(floats),
         Arg::Floats(stamina),
         Arg::Floats(bodies),
-        Arg::Floats(walk),
+        Arg::Floats(walk(t)),
     ]
 }
 
+/// The walk's tuning as the march's sync takes it: CrateMarch.walk_tuning, then wounds_reach.
+pub(crate) fn walk(t: &BattleTuning) -> Vec<f64> {
+    let mut walk = vec![t.walk_face_travel, t.bodies_ground_drag, t.bodies_ground_block];
+    walk.extend([t.stamina_climb, t.stamina_swim, t.stamina_spent]);
+    walk.extend([t.ground_cliff_quarters as f64, t.fall_damage_per_cell, t.fall_mass_power]);
+    walk.push(t.wounds_reach);
+    walk
+}
+
 /// BandTuning.rules: the ceiling's rise per leadership, the bands' floors and the losses.
-fn bands(t: &BattleTuning) -> Vec<i64> {
+pub(crate) fn bands(t: &BattleTuning) -> Vec<i64> {
     vec![
         t.morale_per_leadership,
         t.morale_steady_at,

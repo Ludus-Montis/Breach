@@ -80,6 +80,7 @@ mod sheet;
 mod shocks;
 mod shots;
 mod snapshot;
+mod spawn;
 mod split;
 mod squads;
 mod staging;
@@ -4619,6 +4620,60 @@ impl BodyField {
             return PackedInt64Array::new();
         };
         self.ticked(roster, ground, climb, &rules)
+    }
+
+    /// FormationSimulation.spawn_squad in the crate (`spawn::squad`, spec 39 step 8c-iv): a
+    /// squad of the definitions `units` (ids in `content`), coded `codes`
+    /// (UnitStore.definition_code), at `places` ([rank, column] each), of `faction`; `ints` =
+    /// [width, 1 if at the player's end, wait ticks, combat width]; on the route through
+    /// `points` with corridor `half_width`, which GDScript's route `object` names (its
+    /// instance id; 0 for a route of its own), as `squad_put_route` codes it. Returns the
+    /// squad's slot, or -1 (and nothing spawned) for a definition `content` doesn't hold.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn spawn_squad(
+        &mut self,
+        content: Gd<ContentStore>,
+        units: PackedStringArray,
+        codes: PackedInt64Array,
+        places: PackedInt32Array,
+        faction: GString,
+        ints: PackedInt64Array,
+        points: PackedVector2Array,
+        half_width: f64,
+        object: i64,
+    ) -> i64 {
+        let store = content.bind();
+        let Some(content) = store.content.as_ref() else {
+            return -1;
+        };
+        let (codes, places, i) = (codes.as_slice(), places.as_slice(), ints.as_slice());
+        let mut placed = Vec::with_capacity(units.len());
+        for (k, id) in units.as_slice().iter().enumerate() {
+            let Some(unit) = content.units.get(&id.to_string()) else {
+                return -1;
+            };
+            let place = (places[2 * k], places[2 * k + 1]);
+            placed.push(spawn::Placed { unit, code: codes[k], place });
+        }
+        let route = route::Route::new(v2s(&points), half_width);
+        let squads = &mut self.squads;
+        let route_code = (object != 0)
+            .then(|| *self.route_objects.entry(object).or_insert_with(|| squads.issue_route()));
+        let faction = faction.to_string();
+        let spawn = spawn::Spawn {
+            width: i[0],
+            placed: &placed,
+            faction: &faction,
+            at_player_end: i[1] != 0,
+            wait_ticks: i[2],
+            route: &route,
+            route_code,
+            combat_width: i[3],
+        };
+        let s = spawn::squad(&mut self.squads, &mut self.field, content, &spawn);
+        self.edits += 1;
+        s as i64
     }
 }
 
