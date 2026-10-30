@@ -678,6 +678,16 @@ events. After this step no battle phase runs in GDScript.
   `CrateContent.defaults()`) and runs `tick_step` on them; `tick_given` returns them for the
   test that holds them equal to GDScript's. FormationTick.step makes that call;
   `FormationTick._args` is removed. Outcomes don't change.
+  **8c-ii split further** (2026-10-30, under the same leave): **8c-ii** the tick's rules
+  parsed in the crate: lib.rs's rule parsers (`opening_rules`, `scrum_rules`,
+  `aftermath_rules`, `mustering_rules`, `ending_rules`, `fight_rules` and the rest) moved off
+  Godot's Packed arrays and VarArrays into `tick::rules`, so `tick::rules::of(&Given)` gives
+  `tick::step` its rules with nothing from Godot; **8c-iii** a squad spawned in the crate from
+  its units' definitions; **8c-iv** the ground made in the crate from a map; **8c-v** the
+  digest's battles (BattleTrials' mirrors, FormationBench.clash, the field logs' fields) made
+  in Rust. The rest renumber: **8c-vi** a battle run end to end in the crate (was 8c-iii),
+  **8c-vii** the digest as a cargo binary (was 8c-iv), **8c-viii** the trials and
+  `scaling_check` (was 8c-v), **8c-ix** the benches (was 8c-vi).
 
 ### Step 9, the rest of `sim/`
 
