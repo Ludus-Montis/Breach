@@ -828,6 +828,29 @@ events. After this step no battle phase runs in GDScript.
   through it, and `replay` no longer refuses such a record, so all five of the digest's field
   logs play in the crate; the gdUnit test holds each equal, byte for byte, to GDScript's
   replay. Nothing calls it yet. Outcomes don't change.
+- **8c-xi split further** (2026-10-30, under the user's standing leave to split): the digest
+  hashes, each tick, `var_to_bytes([events, state])`, and both halves are Godot's values,
+  which a cargo binary must write byte for byte before it can hash. **8c-xi** the digest's
+  state in the crate: Godot's `var_to_bytes` for the plain values DigestState gives, and
+  DigestState.state read from the crate, held equal to GDScript's every tick of digest
+  battles. **8c-xii** the digest's events in the crate: each tick's events (the crate's log
+  as CrateEvents decodes it, and the field's production events) as DigestState.plain gives
+  them. **8c-xiii** the digest as a cargo binary: every run's hash chained (SHA-256) and
+  printed as `formation_digest.gd` prints it, `out=` lines too, compared with the Godot
+  digest's in CI. The rest renumber: **8c-xiv** the trials and `scaling_check` (was
+  8c-xii), **8c-xv** the benches (was 8c-xiii).
+  **8c-xi built** (2026-10-30): `digest::Plain` is a plain value (nil, bool, int, float,
+  string, point, list) and `Plain::bytes` writes it as Godot's `var_to_bytes` does: an int
+  past i32 and a float an f32 doesn't hold exactly in 64 bits, a string padded to 4.
+  `Plain::dict` is DigestState.plain's dictionary: its size and its pairs ordered by each
+  key as `var_to_str` writes it. `digest::state::state(squads, field, listed)` is
+  DigestState.state read from the crate: each listed squad's fields, its records (flank
+  contacts, stance, pursuit, withdrawal) as SquadRecords and OrderRecords make them, and each
+  member's fields with its loose, fleeing and chasing entries as EntryKeys and SquadRecords
+  make them, each value the type GDScript reads. The binding `BodyField.digest_state(slots)`
+  returns the bytes; the gdUnit test holds them equal to `var_to_bytes(DigestState.state(..))`
+  every tick of both mirrors, field logs 3 and 4 and the 40-a-side clash. Nothing calls it
+  yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
