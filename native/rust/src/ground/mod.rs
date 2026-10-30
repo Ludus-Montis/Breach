@@ -18,6 +18,7 @@
 //! the shares in f64 (GDScript floats). The map's surface, before it is a grid, is
 //! `surface` (GroundSurface).
 
+pub mod map;
 pub mod sight;
 pub mod surface;
 #[cfg(test)]
