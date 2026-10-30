@@ -773,6 +773,36 @@ events. After this step no battle phase runs in GDScript.
   GDScript's run of the same battle (a mirror head-on and one flanked and swapped to a side
   broken and the tail, a clash to 30 ticks past contact, the captained field to its limit).
   Nothing calls it yet. Outcomes don't change.
+  **8c-viii split further** (2026-10-30, under the same leave): the field's actions are three
+  systems: the waves built and sent (DomainProduction's builders, FormationProduction's
+  templates and sends) with FormationField.step's tick; the record's commands
+  (FormationFieldActions.apply and FormationRecord.parse: retreat, auto, wait with B's staging,
+  tend, hurry, route, the kingdom's pursue); and the rendezvous sent together (`send A+B`:
+  FormationRehearsal's private march and FormationRendezvous' waits). **8c-viii** the field's
+  waves in the crate: the builders and waves and FormationField.step, a wave sent by hand;
+  **8c-ix** the record's commands but `send A+B`, so field logs 1, 2 and 4 play in the crate;
+  **8c-x** the waves sent together, so all five do. The rest renumber: **8c-xi** the digest as
+  a cargo binary (was 8c-ix), **8c-xii** the trials and `scaling_check` (was 8c-x),
+  **8c-xiii** the benches (was 8c-xi).
+  **8c-viii built** (2026-10-30): `waves` holds a lane's wave as GDScript does: `Template`
+  (WaveTemplate's painting, front-first order and layout; `Template::line` is
+  WavePresets.line), `Wave` (its places filled front-first, announced full once, departing when
+  full if `auto`) and `Builders` (DomainProduction: builders by type in the order set, each
+  claiming a lane by the sharing rule or the reserve under its cap, the reserve filling the
+  lanes first, `Produced` telling what each did as GDScript's events do). `field_play`'s
+  `FieldPlay` sets the field up (`Play`, `Battle::Field`; `battles::set_up_coded` keeps the
+  definitions' codes for the waves' units) with FormationField's routes (A coded as the
+  kingdom's, B and C as first used), its waves and its builders, and `step` is
+  FormationField.step: the player's squads hurried and tending by their routes' waves, the
+  builders, each wave announced (and sent, if automatic), the battle's tick (`Play::step`), and
+  the player's "fled_home" units banked (`play::starts` walks the log `Log::since` gives from a
+  `Log::mark`). `FieldPlay::send` is FormationProduction.send: `spawn::squad`, a partial wave
+  as wide as its front band and closed up (`ranks::close`, its swaps cleared), centred, and
+  stood on its places (`spawn::stand`, split out of `spawn::squad`). The binding
+  `BodyField.field_play(content, [captained], [seed, rolls, threaded, ticks], sends)` returns
+  the ticks and how many production events there were; the gdUnit test holds both and the
+  crate's whole state equal, byte for byte, to GDScript's field sent the same waves on the
+  same ticks. Nothing calls it yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

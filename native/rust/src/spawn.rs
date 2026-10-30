@@ -74,6 +74,13 @@ pub fn squad(squads: &mut Squads, field: &mut Field, content: &Content, spawn: &
     squads.morale[s] = ceiling(field, &members, content) as i32;
     squads.members[s] = members;
     squads.combat_width[s] = spawn.combat_width as i32;
+    stand(squads, field, content, s);
+    s
+}
+
+/// FormationMarch.sync_units([squad]): the units of the squad in slot `s` stood on their
+/// places.
+pub fn stand(squads: &Squads, field: &mut Field, content: &Content, s: usize) {
     let walk = given::walk(&content.tuning);
     let given = march::sync::Given {
         ground: None,
@@ -83,7 +90,6 @@ pub fn squad(squads: &mut Squads, field: &mut Field, content: &Content, spawn: &
         tuning: rules::walk_tuning_of(&walk),
     };
     march::sync::step(squads, field, &[s], &given);
-    s
 }
 
 /// The unit `ids` = (its id, its squad's) admitted (UnitStore.admit, then
