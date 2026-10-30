@@ -14,7 +14,7 @@ mod tests;
 
 use std::collections::HashSet;
 
-use crate::battles::{self, Battle, Set};
+use crate::battles::{self, Battle, Codes, Set};
 use crate::commands::MERGES;
 use crate::content::Content;
 use crate::events::{Log, ENGAGED, KINDS, LISTS};
@@ -46,6 +46,8 @@ pub struct Play {
     pub seed: i64,
     pub rolls: bool,
     pub threaded: bool,
+    /// The codes the set-up gave, for what is spawned later.
+    pub(crate) codes: Codes,
     ground: Option<(Ground, Cache)>,
 }
 
@@ -59,12 +61,12 @@ impl Play {
         (seed, rolls, threaded): (i64, bool, bool),
     ) -> Option<Play> {
         let first = squads.count();
-        let set = battles::set_up(battle, squads, field, content)?;
+        let (set, codes) = battles::set_up_coded(battle, squads, field, content)?;
         let listed = (first..squads.count()).collect();
         let made = set.map.and_then(|name| crate::ground::map::of(name, &content.tuning));
         let ground =
             made.map(|map| (map.ground(GroundTuning::of(&content.tuning)), Cache::default()));
-        Some(Play { set, listed, tick: 0, seed, rolls, threaded, ground })
+        Some(Play { set, listed, tick: 0, seed, rolls, threaded, codes, ground })
     }
 
     /// One tick (FormationSimulation.step), its events in `log`; None, with nothing done but
@@ -174,18 +176,24 @@ fn settle(squads: &Squads, field: &mut Field, listed: &[usize]) {
 
 /// Whether the flat log tells of an event of `kind`.
 pub fn told(flat: &[i64], kind: usize) -> bool {
+    starts(flat).any(|at| flat[at] as usize == kind)
+}
+
+/// Where each event in the flat log starts (its kind; then its tick, squad, faction and
+/// fields).
+pub fn starts(flat: &[i64]) -> impl Iterator<Item = usize> + '_ {
     let mut at = 0;
-    while at < flat.len() {
-        let found = flat[at] as usize;
-        if found == kind {
-            return true;
+    std::iter::from_fn(move || {
+        if at >= flat.len() {
+            return None;
         }
+        let start = at;
         at += 4;
-        for name in KINDS[found].1 {
+        for name in KINDS[flat[start] as usize].1 {
             at += if LISTS.contains(name) { 1 + flat[at] as usize } else { 1 };
         }
-    }
-    false
+        Some(start)
+    })
 }
 
 /// The digest's stop rules (formation_digest.gd's `_run`): `limit` ticks; `after` ticks past

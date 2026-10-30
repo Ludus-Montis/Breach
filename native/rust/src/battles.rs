@@ -3,7 +3,7 @@
 //! kingdom line and reserve), each spawned by `spawn::squad` with every write GDScript's set-up
 //! makes: its definitions coded in the order first met (UnitStore.definition_code), its
 //! routes coded as first used, its holds queued and, on the field, each kingdom squad's front
-//! set where it holds. The field's waves are its actions, built and sent tick by tick (8c-vii).
+//! set where it holds. The field's waves are built and sent by `field_play` (8c-viii).
 
 use crate::content::Content;
 use crate::field::Field;
@@ -81,13 +81,14 @@ struct Side {
 
 /// The codes the battle gives: definitions in the order first met, routes as first used.
 #[derive(Default)]
-struct Codes {
-    definitions: Vec<&'static str>,
+pub(crate) struct Codes {
+    pub(crate) definitions: Vec<&'static str>,
     routes: Vec<(usize, i64)>,
 }
 
 impl Codes {
-    fn definition(&mut self, id: &'static str) -> i64 {
+    /// The code `id` goes by, given it now if it is met for the first time.
+    pub(crate) fn definition(&mut self, id: &'static str) -> i64 {
         let found = self.definitions.iter().position(|&d| d == id);
         found.unwrap_or_else(|| {
             self.definitions.push(id);
@@ -113,6 +114,16 @@ pub fn set_up(
     field: &mut Field,
     content: &Content,
 ) -> Option<Set> {
+    set_up_coded(battle, squads, field, content).map(|(set, _)| set)
+}
+
+/// `set_up`, with the codes it gave, for what is spawned later in the battle.
+pub(crate) fn set_up_coded(
+    battle: &Battle,
+    squads: &mut Squads,
+    field: &mut Field,
+    content: &Content,
+) -> Option<(Set, Codes)> {
     let (set, routes, sides) = match battle {
         Battle::Mirror { flank, swap } => mirror(*flank, *swap),
         Battle::Clash { per_side, width, archers } => clash(*per_side, *width, *archers),
@@ -153,7 +164,7 @@ pub fn set_up(
             orders::queue(squads, squads.id[s], HOLD);
         }
     }
-    Some(set)
+    Some((set, codes))
 }
 
 /// What is done with a squad once it is spawned: its front set (tiles), and a hold ordered.
