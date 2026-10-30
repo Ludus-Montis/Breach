@@ -688,6 +688,26 @@ events. After this step no battle phase runs in GDScript.
   in Rust. The rest renumber: **8c-vi** a battle run end to end in the crate (was 8c-iii),
   **8c-vii** the digest as a cargo binary (was 8c-iv), **8c-viii** the trials and
   `scaling_check` (was 8c-v), **8c-ix** the benches (was 8c-vi).
+  **8c-iii split further** (2026-10-30, under the same leave): a squad spawned from its units'
+  definitions first needs each unit made from its definition, and none of FormationUnits.make,
+  UnitArms or TerrainWalker.of was in the crate. **8c-iii** a unit made in the crate from its
+  definition; **8c-iv** a squad spawned in the crate from those units (its squad and command
+  opened, the units admitted with their words coded and objects set, placed, at full hp,
+  regeneration, stamina and pace, on its route, facing along it, at its morale's ceiling, and
+  stood on their places). The rest renumber: **8c-v** the ground made from a map (was 8c-iv),
+  **8c-vi** the digest's battles made in Rust (was 8c-v), **8c-vii** a battle run end to end
+  in the crate (was 8c-vi), **8c-viii** the digest as a cargo binary (was 8c-vii), **8c-ix**
+  the trials and `scaling_check` (was 8c-viii), **8c-x** the benches (was 8c-ix).
+  **8c-iii built** (2026-10-30): `arms` (`Arms::of(content, unit)`) reads what a unit strikes
+  with and wears from its definition in the crate's content, as UnitArms and UnitDef do: the
+  weapons it can use (innate ones only where no carried item holds their body parts), its
+  best ranged weapon, its parts, floor shares and skills, its melee interval, whether it
+  parries, its armour and ward, its load stage and the traits its items grant. `made::unit`
+  makes a unit's sheet, words (coded in the field's lexicon in UnitWrites.all's order) and
+  walker from those, as FormationUnits.make and TerrainWalker.of do. The binding
+  `ContentStore.made(id, faction, direction)` returns them for the gdUnit test that holds every
+  unit in `content/units/` equal to FormationUnits.make's. Nothing in the tick calls them yet.
+  Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
