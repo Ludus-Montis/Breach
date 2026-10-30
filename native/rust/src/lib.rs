@@ -8,6 +8,7 @@
 mod aftermath;
 mod arms;
 mod bands;
+mod battles;
 mod blows;
 #[cfg(test)]
 mod build;
@@ -4699,6 +4700,36 @@ impl BodyField {
         let s = spawn::squad(&mut self.squads, &mut self.field, content, &spawn);
         self.edits += 1;
         s as i64
+    }
+
+    /// Sets up the digest's battle `name` with its `numbers` (`battles::named`) from
+    /// `content`'s definitions (spec 39 step 8c-vi): {"route_tiles", "tick_seconds",
+    /// "combat_width", "map" ("" for open ground)} the simulation is made with, or an empty
+    /// dictionary, with nothing written, for an unknown battle or definition. Its routes'
+    /// codes are its own, not in `route_objects`.
+    #[func]
+    fn battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+    ) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let store = content.bind();
+        let (Some(content), Some(battle)) =
+            (store.content.as_ref(), battles::named(&name.to_string(), numbers.as_slice()))
+        else {
+            return out;
+        };
+        let Some(set) = battles::set_up(&battle, &mut self.squads, &mut self.field, content) else {
+            return out;
+        };
+        self.edits += 1;
+        out.set("route_tiles", set.route_tiles);
+        out.set("tick_seconds", set.tick_seconds);
+        out.set("combat_width", set.combat_width);
+        out.set("map", &GString::from(set.map.unwrap_or("")).to_variant());
+        out
     }
 }
 
