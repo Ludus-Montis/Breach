@@ -803,6 +803,21 @@ events. After this step no battle phase runs in GDScript.
   the ticks and how many production events there were; the gdUnit test holds both and the
   crate's whole state equal, byte for byte, to GDScript's field sent the same waves on the
   same ticks. Nothing calls it yet. Outcomes don't change.
+  **8c-ix built** (2026-10-30): `record::parse` is FormationRecord.parse (each version's
+  header, the commands in order, a version 0 log's words through `record::from_words`, lines
+  that aren't commands skipped). `FieldPlay::apply` (`field_play/actions.rs`) is
+  FormationFieldActions.apply: the kingdom's pursue on its line and reserve (`FieldPlay`'s
+  `kingdom`, kept from the set-up), a wave sent, a retreat queued for each player squad
+  listed on the wave's route (matched by route code), auto, hurry and tend as FormationField
+  holds them, a wave put on route A, B or C, and wait (`FieldPlay::set_wait`: B's `Wave`
+  `staging`, the `staging::Stage` FormationField.set_wait gives, which `send` sets on the
+  squad). `field_play::actions::replay` plays a record as the digest's `_field` does: each
+  tick's commands, then the tick, for `extra` ticks past the last command; a record sending
+  the waves together (`send A+B`) isn't replayed yet (8c-x). The binding
+  `BodyField.field_replay(content, log, [rolls, threaded, extra])` returns the ticks and the
+  production events, or [-1]; the gdUnit test holds the crate's whole state equal, byte for
+  byte, to GDScript's replay of the digest's field logs 1, 2 and 4. Nothing calls it yet.
+  Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
