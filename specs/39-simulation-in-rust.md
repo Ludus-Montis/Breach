@@ -746,6 +746,33 @@ events. After this step no battle phase runs in GDScript.
   `BodyField.battle(content, name, numbers)` sets one up; the gdUnit test holds the crate's
   whole state after each digest battle's set-up equal, byte for byte, to GDScript's. Nothing
   calls it yet. Outcomes don't change.
+  **8c-vii split further** (2026-10-30, under the same leave): the field's actions are a
+  system of their own (DomainProduction's builders, FormationProduction's waves with their
+  templates, staging and departures, FormationRehearsal's timed marches for a rendezvous, and
+  the record's commands: send, retreat, auto, wait, tend, hurry, route, pursue, and the routers
+  home banked), while the mirrors and the clash need none of it. **8c-vii** a digest battle
+  without the field's actions played end to end in the crate: the rest of
+  FormationSimulation.step and the digest's stop rules; **8c-viii** the field's actions in the
+  crate (the waves built and sent tick by tick, and the field logs' commands by tick). The
+  rest renumber: **8c-ix** the digest as a cargo binary (was 8c-viii), **8c-x** the trials and
+  `scaling_check` (was 8c-ix), **8c-xi** the benches (was 8c-x).
+  **8c-vii built** (2026-10-30): `play` plays a digest battle in the crate. `Play::new` sets
+  it up (`battles::set_up`) on its map's ground, if any, and `Play::step` is
+  FormationSimulation.step: the tick counted; the squads listed with every unit each holds as
+  CrateRoster.of(squads, terrain, true) lists them (`play::listed`: each unit's id, footprint,
+  band, reach, turn rate, backward pace, detection and most stamina from its sheet, its kind
+  its definition's code, its walker from its objects on ground and the open ground's
+  otherwise); the whole tick (`tick::step`) on the rules `tick::given` and `tick::rules` build
+  from the battle's tuning, on the ground with the paths' cache the play keeps; the orders
+  queued cleared; the squads listed as the tick leaves them (`Ticked::listed`, the end's
+  listing); and the units no listed squad holds let go (UnitStore.settle). `play::Watch` holds
+  the digest's stop rules (`_run`: the limit, ticks past first contact, TAIL ticks after a
+  side no longer stands) and `play::run` plays to them. The binding `BodyField.battle_play(
+  content, name, numbers, [seed, rolls, threaded, limit, after])` returns the ticks played;
+  the gdUnit test holds the ticks and the crate's whole state equal, byte for byte, to
+  GDScript's run of the same battle (a mirror head-on and one flanked and swapped to a side
+  broken and the tail, a clash to 30 ticks past contact, the captained field to its limit).
+  Nothing calls it yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
