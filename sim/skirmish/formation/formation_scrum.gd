@@ -52,24 +52,29 @@ static func step(
 		field = squads[0].store.field()
 	if field == null:
 		return []  # no squads: no scrum
-	var roster := CrateRoster.of(squads, terrain)  # who is living, through the scrum
+	var given := [CrateRoster.of(squads, terrain), UnitMover.ground(terrain)]  # who is living
+	field.callv(&"scrum_step", given + args(tick, cells_per_second, tick_seconds, fight_seed))
+	ScrumSeek.clock_usec += field.usec()  # the seek's own time, for the benches
+	return CrateEvents.taken(field)
+
+
+## The scrum's arguments past the roster and the ground (`scrum_step`'s, and the whole
+## tick's part, `tick_step`): `tick`, `cells_per_second`, `tick_seconds` and `fight_seed`
+## as `step` takes them.
+static func args(tick: int, cells_per_second: float, tick_seconds: float, fight_seed: int) -> Array:
 	var ctx := {"seconds": tick_seconds, "pace": cells_per_second * tick_seconds}
 	ctx["cells_per_second"] = cells_per_second
 	var tuning := BattleTuning.current()
 	var stall := roundi(tuning.scrum_stall_seconds / tick_seconds)
-	field.scrum_step(
-		roster,
-		UnitMover.ground(terrain),
+	return [
 		PackedInt64Array([tick, fight_seed, tuning.combat_contest_die, stall]),
 		tuning.reach_engage,
 		ScrumStance.rules(),
 		ScrumSeek.rules(ctx),
 		ScrumRegroup.rules(ctx),
 		FormationWithdraw.rules(ctx),
-		FormationPursuit.rules(cells_per_second, tick_seconds)
-	)
-	ScrumSeek.clock_usec += field.usec()  # the seek's own time, for the benches
-	return CrateEvents.taken(field)
+		FormationPursuit.rules(cells_per_second, tick_seconds),
+	]
 
 
 static func regrouping(squad: SkirmishSquad) -> bool:

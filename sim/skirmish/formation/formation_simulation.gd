@@ -58,6 +58,7 @@ const FormationFronts = preload("res://sim/skirmish/formation/formation_fronts.g
 const FormationJoins = preload("res://sim/skirmish/formation/formation_joins.gd")
 const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
 const FormationEnding = preload("res://sim/skirmish/formation/formation_ending.gd")
+const FormationTick = preload("res://sim/skirmish/formation/formation_tick.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
@@ -150,21 +151,16 @@ func tick_number() -> int:
 	return _tick
 
 
+## One tick as one crate call (FormationTick, spec 39 step 8b5-xlii): every pass above in
+## the crate, GDScript's copies mirrored after it and its events decoded once; returns them.
 func step() -> Array:
 	_tick += 1
 	var events := []
-	_open(events)
+	var at := [_tick, fight_seed, _attack_interval_ticks(), _next_squad_id]
 	var pace := TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE
-	events.append_array(
-		FormationScrum.step(_squads, _tick, pace, tick_seconds, fight_seed, terrain, _field)
-	)
-	var ticks := [_attack_interval_ticks(), fight_seed, _tick]  # the fight through recovery
-	var strays := FormationAftermath.step(_squads, ticks, tick_seconds, blow_rolls, terrain, events)
-	var at := [_tick, _attack_interval_ticks(), fight_seed, _next_squad_id]  # strays to groups
-	var paces := [pace, tick_seconds]
-	_next_squad_id = FormationMustering.step(_squads, strays, at, paces, terrain, events)
-	var end := [tick_seconds, TRAVEL_SCALE, pace]  # stamina, the bodies, the shuffle, the sync
-	events.append_array(FormationEnding.step(_squads, [_tick, fight_seed], end, terrain))
+	var paces := [TRAVEL_SCALE, tick_seconds, route_length, pace]
+	perception = FormationTick.step(_squads, terrain, at, paces, blow_rolls, events)
+	_field.orders_clear()  # taken, or nobody was left to take them
 	store.settle(_squads)  # the units no list holds any more give up their slots
 	return events
 

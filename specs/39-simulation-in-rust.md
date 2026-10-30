@@ -638,6 +638,20 @@ events. After this step no battle phase runs in GDScript.
   `opening_rules`/`opened_flat`, `scrum_rules`, `aftermath_rules`/`aftermath_flat`,
   `mustering_rules`/`mustered_flat`, `ending_rules`/`ended_flat`). GDScript doesn't call it
   yet. Outcomes don't change.
+  **8b5-xlii built** (2026-10-30): FormationSimulation.step is one crate call
+  (FormationTick.step, `tick_step`) over `CrateRoster.of(squads, terrain, true)` (every unit
+  of `squad.units`, after `squad.living()` freshens the members). Each pass's GDScript class
+  hands its part of the arguments (`args`: FormationOpening, FormationScrum,
+  FormationAftermath, FormationMustering, FormationEnding, whose own `step` uses them too)
+  and mirrors its part of the result (`mirror`) in the passes' order. The mirrors run under
+  CrateMirroring: while it is on, `UnitState.put` gives the unit the crate's STATE and
+  writes nothing, a unit's number setter takes the crate's sheet value (`UnitWrites.number`),
+  and its words and objects, a squad's columns, route, faction, command and joined list,
+  and an admitted unit's sheet and state are left as the crate holds them. So no mirror
+  writes over what a later pass in the call did (a body downed by the deaths and borne by
+  carrying stays CARRIED). The events are decoded once (`CrateEvents.taken(field, store)`),
+  then `orders_clear` and `store.settle`. The per-pass GDScript classes and bindings stay
+  for their tests and the tools. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

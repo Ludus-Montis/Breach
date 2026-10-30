@@ -38,31 +38,39 @@ static func step(
 ) -> Array:
 	if squads.is_empty():
 		return []
+	var given := [CrateRoster.of(squads), UnitMover.ground(terrain)]  # each squad's living
+	var columns: UnitColumns = squads[0].store.columns
+	var field: Object = ColumnsLent.field(columns)
+	var made := args(ticks, seconds, rolls)
+	var flat: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.callv(&"aftermath_step", [given[0]] + made + [given[1]])
+	)
+	var strays := mirror(squads, flat)
+	events.append_array(CrateEvents.taken(field))  # the five passes' events, in order
+	return strays
+
+
+## The aftermath's arguments past the roster and before the ground (`aftermath_step`'s,
+## and the whole tick's part, `tick_step`): `ticks`, `seconds` and `rolls` as `step` takes
+## them.
+static func args(ticks: Array, seconds: float, rolls: bool) -> Array:
 	var tuning := BattleTuning.current()
 	var ints := PackedInt64Array(ticks + [int(rolls), tuning.wounds_messenger_shock])
 	var floats := FormationMelee.rules()
 	floats.append_array([seconds, tuning.take_hold, tuning.take_reach])
-	var roster := CrateRoster.of(squads)  # each squad's living, fresh
-	var ground: Object = UnitMover.ground(terrain)
-	var columns: UnitColumns = squads[0].store.columns
-	var field: Object = ColumnsLent.field(columns)
-	var wounds := FormationWounds.tuning()
-	var flat: PackedInt64Array = ColumnsLent.all(
-		columns,
-		func():
-			return field.aftermath_step(
-				roster, ints, floats, BandTuning.rules(), BlowLanding.tuning(), wounds, ground
-			)
-	)
+	return [ints, floats, BandTuning.rules(), BlowLanding.tuning(), FormationWounds.tuning()]
+
+
+## GDScript's copies after the aftermath's `flat` result, each pass's in order; returns the
+## strays recovery set off alone.
+static func mirror(squads: Array, flat: PackedInt64Array) -> Array:
 	var at := 1 + TAKEN * flat[0]
 	_taken(squads, flat.slice(1, at))
 	var end := at + 1 + BURIED * flat[at]
 	FormationDeaths.mirror(squads, flat.slice(at + 1, end))
 	at = end + 1 + TENDED * flat[end]
 	FormationWounds.mirror(squads, flat.slice(end + 1, at))
-	var strays := FormationRecovery.mirror(squads, flat.slice(at))
-	events.append_array(CrateEvents.taken(field))  # the five passes' events, in order
-	return strays
+	return FormationRecovery.mirror(squads, flat.slice(at))
 
 
 ## The units the surrender took, [its squad's listed index, its id] each: TAKEN.

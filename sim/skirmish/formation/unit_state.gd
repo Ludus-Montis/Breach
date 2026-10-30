@@ -27,16 +27,22 @@ class Kept:
 
 
 ## Sets the unit's state; `squad` is the one whose units it is in. The store's STATE column
-## mirrors it, for the crate (spec 39 step 8b4-v).
+## mirrors it, for the crate (spec 39 step 8b4-v). While CrateMirroring is on, the unit
+## takes the column's state instead (the tick's last; spec 39 step 8b5-xlii).
 static func put(squad, unit: SkirmishUnit, state: SkirmishUnit.State) -> void:
-	unit.state = state
 	squad.kept.stale = true
+	if CrateMirroring.on:
+		unit.state = squad.store.columns.value(unit.slot, UnitColumns.STATE)
+		return
+	unit.state = state
 	squad.store.columns.put(unit.slot, UnitColumns.STATE, state)
 
 
-## The unit was just given its slot in `store`: its STATE column takes its state.
+## The unit was just given its slot in `store`: its STATE column takes its state (none
+## while CrateMirroring is on: the crate's is the tick's).
 static func admitted(store, unit: SkirmishUnit) -> void:
-	store.columns.put(unit.slot, UnitColumns.STATE, unit.state)
+	if not CrateMirroring.on:
+		store.columns.put(unit.slot, UnitColumns.STATE, unit.state)
 
 
 ## Sets the state of a unit no squad lists yet (one being made, or a test's lone body):
