@@ -1361,6 +1361,31 @@ impl TerrainGround {
         self.ground = Some(ground::Ground::new(size.x, size.y, tuning));
     }
 
+    /// The ground of the map named `map` ("field": FormationField's), made on the content's
+    /// tuning (spec 39 step 8c-v, `ground::map`): true, else false with the ground as it was
+    /// (an unknown map, or the content not loaded).
+    #[func]
+    fn map(&mut self, content: Gd<ContentStore>, map: GString) -> bool {
+        let store = content.bind();
+        let Some(tuning) = store.content.as_ref().map(|c| &c.tuning) else {
+            return false;
+        };
+        let Some(map) = ground::map::of(&map.to_string(), tuning) else {
+            return false;
+        };
+        self.shares.clear();
+        self.ground = Some(map.ground(ground::GroundTuning::of(tuning)));
+        true
+    }
+
+    /// The ground's cells and rules, in bincode's binary (`snapshot`): two grounds alike
+    /// are alike byte for byte.
+    #[func]
+    fn snapshot(&self) -> PackedByteArray {
+        let bytes = bincode::serialize(self.ground()).expect("the ground serialises");
+        PackedByteArray::from(bytes.as_slice())
+    }
+
     /// Sets the cells of `area`: any of "cost", "height" (quarters), "depth" (cells),
     /// "flows", "climb", "obscurance" and "blocks_sight", as GDScript's packed arrays took
     /// them (a float into an int column truncated).
