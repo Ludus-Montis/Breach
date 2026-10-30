@@ -50,8 +50,8 @@ static func step(
 
 
 ## The mustering's arguments past the roster and its strays and before the ground
-## (`mustering_step`'s, and the whole tick's part, `tick_step`): `at` and `pace` as `step`
-## takes them.
+## (`mustering_step`'s; the crate's `tick::given` builds the same for the whole tick): `at`
+## and `pace` as `step` takes them.
 static func args(at: Array, pace: Array) -> Array:
 	var ints := PackedInt64Array([at[0], at[2], int(at[0] % maxi(1, at[1]) == 0)])
 	var tunings := [

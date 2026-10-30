@@ -9,6 +9,7 @@
 //! to the mustering, and the squads it opened (and took in) are listed (or dropped) for the
 //! end as GDScript's mirrors list them (`ended_listing`).
 
+pub mod given;
 #[cfg(test)]
 mod tests;
 
