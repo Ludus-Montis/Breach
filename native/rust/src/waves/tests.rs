@@ -98,10 +98,7 @@ fn with_no_lane_wanting_them_builders_build_for_the_reserve_up_to_its_cap() {
     builders.step(&mut lanes, 0.1, 0, &mut out);
     let claims: Vec<Claim> = builders.kinds[0].2.iter().map(|b| b.claim).collect();
     assert_eq!(claims, vec![Claim::Idle; 3], "each finished at once");
-    assert_eq!(
-        out,
-        vec![Produced::Built { tick: 0, lane: 0 }, Produced::ToReserve { tick: 0 }]
-    );
+    assert_eq!(out, vec![Produced::Built { tick: 0, lane: 0 }, Produced::ToReserve { tick: 0 }]);
     assert_eq!(builders.reserve, vec!["grem"]);
 }
 

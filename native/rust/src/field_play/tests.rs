@@ -40,8 +40,7 @@ fn the_field_has_a_line_of_grems_on_a_and_b_led_by_a_chieftain() {
     assert_eq!(b.last().map(|p| (p.id, p.at)), Some(("grem_chieftain", (1, 4))));
     assert_eq!(play.routes[A].1, Some(squads.route_code[0]));
     assert_eq!(play.routes[B].1, None, "coded when first used");
-    let kinds: Vec<(&str, usize)> =
-        play.builders.kinds.iter().map(|k| (k.0, k.2.len())).collect();
+    let kinds: Vec<(&str, usize)> = play.builders.kinds.iter().map(|k| (k.0, k.2.len())).collect();
     assert_eq!(kinds, vec![("grem", BUILDERS), ("grem_chieftain", 1)]);
     assert!(play.builders.round_robin);
 }

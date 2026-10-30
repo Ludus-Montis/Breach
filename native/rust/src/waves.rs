@@ -81,7 +81,8 @@ impl Template {
         }
         let first = self.painted.iter().map(|p| p.at.1).min().unwrap_or(0).min(self.max_width);
         let last = self.painted.iter().map(|p| p.at.1 + p.foot.1).max().unwrap_or(0).max(0);
-        let shifted = self.ordered().into_iter().map(|p| Painted { at: (p.at.0, p.at.1 - first), ..p });
+        let shifted =
+            self.ordered().into_iter().map(|p| Painted { at: (p.at.0, p.at.1 - first), ..p });
         (last - first, shifted.collect())
     }
 }
@@ -205,7 +206,7 @@ impl Builders {
         let list = &mut self.kinds[at].2;
         list.resize(list.len().max(count), IDLE);
         if list.len() > count {
-            list.sort_by(|a, b| b.ticks.cmp(&a.ticks));
+            list.sort_by_key(|b| std::cmp::Reverse(b.ticks));
             list.truncate(count);
         }
     }

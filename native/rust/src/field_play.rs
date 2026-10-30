@@ -79,7 +79,8 @@ impl FieldPlay {
         let battle = Battle::Field { captained };
         let play = Play::new(&battle, (squads, field), content, (seed, rolls, threaded))?;
         let line = play.listed.first().map(|&s| squads.route_code[s]);
-        let mut routes: Vec<(Route, Option<i64>)> = routes().into_iter().map(|r| (r, None)).collect();
+        let mut routes: Vec<(Route, Option<i64>)> =
+            routes().into_iter().map(|r| (r, None)).collect();
         routes[A].1 = line; // the kingdom holds on route A
         let foot = |unit: &crate::content::Unit| {
             (unit.footprint_depth as i32, unit.footprint_width as i32)
@@ -183,7 +184,11 @@ impl FieldPlay {
             .iter()
             .zip(&wave.filled)
             .filter(|(_, &filled)| filled)
-            .map(|(p, _)| Placed { unit: &content.units[p.id], code: codes.definition(p.id), place: p.at })
+            .map(|(p, _)| Placed {
+                unit: &content.units[p.id],
+                code: codes.definition(p.id),
+                place: p.at,
+            })
             .collect();
         let (route, code) = &self.routes[wave.route];
         let spawn = Spawn {
