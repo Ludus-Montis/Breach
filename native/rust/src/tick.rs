@@ -10,6 +10,7 @@
 //! end as GDScript's mirrors list them (`ended_listing`).
 
 pub mod given;
+pub mod rules;
 #[cfg(test)]
 mod tests;
 
