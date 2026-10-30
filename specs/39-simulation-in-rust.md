@@ -733,6 +733,19 @@ events. After this step no battle phase runs in GDScript.
   byte for byte, to the one FormationField paints. The trials' grounds (PathTrials' crag,
   SightTrials' wall) are added as maps with the trials (8c-ix). Nothing in the tick calls it
   yet. Outcomes don't change.
+  **8c-vi built** (2026-10-30): `battles` sets up the digest's battles in the crate, every
+  write GDScript's set-up makes: BattleTrials' mirrors (head-on, and on a flank with the
+  line's hold queued; its sides swapped if asked), FormationBench.clash (its back ranks
+  spitters if asked) and the field the field logs play on (FormationField's kingdom line,
+  captained or not, and its reserve, each holding with its front set where it stands on
+  route A). Each squad is spawned by `spawn::squad`, its definitions coded in the order
+  first met and its routes as first used. `battles::named(name, numbers)` names them as the
+  digest does ("mirror_headon", "mirror_flank", "clash", "field"), and `set_up` returns
+  what the simulation is made with (its route's length, tick, combat width and map). The
+  field's waves are its actions, built and sent tick by tick (8c-vii). The binding
+  `BodyField.battle(content, name, numbers)` sets one up; the gdUnit test holds the crate's
+  whole state after each digest battle's set-up equal, byte for byte, to GDScript's. Nothing
+  calls it yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
