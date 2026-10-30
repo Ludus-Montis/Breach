@@ -282,7 +282,7 @@ func is_hostile_to(other: SkirmishUnit) -> bool:
 ## A number just set (returned), written to the crate's sheet while a store holds it.
 func _held(name: StringName, value: Variant) -> Variant:
 	if _sheet_field != null:
-		UnitWrites.number(_sheet_field, slot, name, value)
+		return UnitWrites.number(_sheet_field, slot, name, value)
 	return value
 
 

@@ -11,8 +11,10 @@ extends RefCounted
 const ROSTER_CLASS := "SquadRoster"
 
 
-## The roster of `squads` on `terrain` (null: open ground, no walkers).
-static func of(squads: Array, terrain: FormationTerrain = null) -> Object:
+## The roster of `squads` on `terrain` (null: open ground, no walkers). With `every`, each
+## squad lists every unit it holds, living or not (the whole tick, `tick_step`, which reads
+## who is living from the members as each pass begins; spec 39 step 8b5-xlii).
+static func of(squads: Array, terrain: FormationTerrain = null, every := false) -> Object:
 	NativeLibrary.load_for(ROSTER_CLASS)
 	var roster: Object = ClassDB.instantiate(ROSTER_CLASS)
 	var ids := PackedInt64Array()
@@ -23,7 +25,9 @@ static func of(squads: Array, terrain: FormationTerrain = null) -> Object:
 	var reals := PackedFloat64Array()
 	var kinds := {}  # definition -> its code
 	for squad in squads:
-		var living: Array = squad.living()
+		var living: Array = squad.living()  # its members written fresh, if its lists changed
+		if every:
+			living = squad.units
 		ids.append(squad.id)
 		flags.append(int(not squad.joined.is_empty()) | (2 if squad.merges else 0))
 		counts.append(living.size())
