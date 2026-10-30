@@ -6,18 +6,18 @@ use super::*;
 use crate::content::tests::repo_content;
 use crate::events::KINDS;
 
-fn content() -> Content {
+pub(super) fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
 }
 
-fn fresh(content: &Content) -> (Squads, Field, FieldPlay) {
+pub(super) fn fresh(content: &Content) -> (Squads, Field, FieldPlay) {
     let (mut squads, mut field) = (Squads::default(), Field::default());
     let play = FieldPlay::new(false, (&mut squads, &mut field), content, (1, true, false));
     (squads, field, play.expect("the field sets up"))
 }
 
 /// Plays `ticks` ticks, dropping the battle's events; what the builders and waves did.
-fn played(
+pub(super) fn played(
     (squads, field, play): (&mut Squads, &mut Field, &mut FieldPlay),
     content: &Content,
     ticks: usize,
