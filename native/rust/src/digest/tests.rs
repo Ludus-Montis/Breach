@@ -57,3 +57,11 @@ fn a_dictionary_is_its_size_and_its_pairs_in_the_order_of_their_written_keys() {
 fn an_object_is_named_by_its_id() {
     assert_eq!(Plain::object(5), Plain::List(vec![Plain::str("obj"), Plain::Int(5)]));
 }
+
+#[test]
+fn a_ticks_record_is_its_events_then_its_state_as_one_list() {
+    let events = vec![Plain::str("e")];
+    let state = Plain::List(vec![Plain::Int(3)]);
+    let whole = Plain::List(vec![Plain::List(events.clone()), state.clone()]);
+    assert_eq!(recorded(events, state), whole.bytes());
+}
