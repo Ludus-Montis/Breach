@@ -597,6 +597,20 @@ events. After this step no battle phase runs in GDScript.
   FormationGroups.mirror) names a split's units by id, not by their index in the living.
   FormationSimulation.step makes the one call; the per-pass bindings stay for their tests
   and `tick_phases`. Outcomes don't change.
+  **8b5-xl split further** (2026-10-29, under the same leave): **8b5-xl** the tick's end
+  (stamina, the bodies' parting, the shuffle and the march's sync) as one call; **8b5-xli**
+  the one `step()` binding running the opening, the scrum, the aftermath, the mustering and
+  the end, FormationSimulation.step that one call, GDScript's copies mirrored after it and
+  the events decoded from its data.
+  **8b5-xl built** (2026-10-29): the tick's end as one crate call (`ending::step`, binding
+  `ending_step`): `stamina::pass`, `parting::pass`, `swaps::pass` and `march::sync` in that
+  order over the squads listed, the shuffle's events in the log. No mirror between them fed
+  the next pass, and none changes the list. It returns the parting's [usec, passes, pairs],
+  then the ids of the units made by hand that took their speed as fresh;
+  FormationEnding.step mirrors those (FormationStamina.mirror, split out of its pass) and
+  takes the events. FormationSimulation.step makes the one call; the per-pass bindings and
+  GDScript passes stay for their tests, `tick_phases` and `native_bench`. Outcomes don't
+  change.
 
 ### Step 9, the rest of `sim/`
 

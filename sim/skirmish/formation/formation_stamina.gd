@@ -33,12 +33,19 @@ static func step(squads: Array, seconds: float) -> void:
 	var store: UnitStore = squads[0].store
 	var field: Object = ColumnsLent.field(store.columns)
 	var listed := FormationLocks.slots(squads)
-	var tuning := _tuning()
+	var rules := tuning()
 	var made: PackedInt64Array = ColumnsLent.all(
-		store.columns, func(): return field.stamina_step(listed, seconds, tuning)
+		store.columns, func(): return field.stamina_step(listed, seconds, rules)
 	)
+	mirror(store, made)
+
+
+## The units made by hand that took their speed as fresh in the crate (their ids, as
+## `stamina_step` returns them): GDScript's copy of the fresh speed set from the sheet.
+static func mirror(store: UnitStore, made: PackedInt64Array) -> void:
 	if made.is_empty():
 		return
+	var field: Object = ColumnsLent.field(store.columns)
 	var fresh: int = field.sheet_names().find("fresh_speed")
 	for id in made:  # store: scattered (few: a unit made by hand, once)
 		var unit: SkirmishUnit = store.record_of(id)
@@ -73,20 +80,20 @@ static func squad_gives_up(squad: SkirmishSquad) -> bool:
 
 
 ## The tuning stamina_step takes.
-static func _tuning() -> PackedFloat64Array:
-	var tuning := BattleTuning.current()
+static func tuning() -> PackedFloat64Array:
+	var battle := BattleTuning.current()
 	var out := PackedFloat64Array(
 		[
-			tuning.stamina_run,
-			tuning.stamina_delay,
-			tuning.stamina_recovery,
-			tuning.run_build_seconds,
-			tuning.run_reaction,
-			tuning.condition_cap,
-			tuning.stamina_tired,
-			tuning.stamina_spent,
+			battle.stamina_run,
+			battle.stamina_delay,
+			battle.stamina_recovery,
+			battle.run_build_seconds,
+			battle.run_reaction,
+			battle.condition_cap,
+			battle.stamina_tired,
+			battle.stamina_spent,
 		]
 	)
-	out.append_array(tuning.stamina_pace)
-	out.append_array(tuning.load_march_tiring)
+	out.append_array(battle.stamina_pace)
+	out.append_array(battle.load_march_tiring)
 	return out

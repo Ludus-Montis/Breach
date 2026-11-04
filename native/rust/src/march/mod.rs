@@ -13,7 +13,7 @@ pub mod shuffle;
 pub mod sweep;
 pub mod sync;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 pub mod walk;
 
 use crate::ground::{Ground, Walker};

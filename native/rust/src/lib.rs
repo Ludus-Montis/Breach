@@ -23,6 +23,7 @@ mod det_math;
 mod det_pow;
 mod detours;
 mod discipline;
+mod ending;
 mod engage;
 mod entries;
 mod events;
@@ -4221,19 +4222,7 @@ impl BodyField {
         tuning: PackedFloat64Array,
     ) -> PackedInt64Array {
         let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
-        let t = tuning.as_slice();
-        let tuning = stamina::StaminaTuning {
-            run: t[0],
-            delay: t[1],
-            recovery: t[2],
-            run_build_seconds: t[3],
-            run_reaction: t[4],
-            condition_cap: t[5],
-            tired: t[6],
-            spent: t[7],
-            pace: t[8..11].to_vec(),
-            march_tiring: t[11..].to_vec(),
-        };
+        let tuning = stamina_tuning(tuning.as_slice());
         let made = stamina::pass::step(&self.squads, &mut self.field, &listed, seconds, &tuning);
         PackedInt64Array::from(made.as_slice())
     }
@@ -4695,4 +4684,71 @@ fn recovered_flat(landed: &[recovery::pass::Landed]) -> impl Iterator<Item = i64
         };
         [l.listed as i64, l.id, what, joins]
     })
+}
+
+/// FormationStamina.tuning as `stamina_step` takes it: stamina_run, stamina_delay,
+/// stamina_recovery, run_build_seconds, run_reaction, condition_cap, stamina_tired,
+/// stamina_spent, the three stamina_pace, then load_march_tiring.
+fn stamina_tuning(t: &[f64]) -> stamina::StaminaTuning {
+    stamina::StaminaTuning {
+        run: t[0],
+        delay: t[1],
+        recovery: t[2],
+        run_build_seconds: t[3],
+        run_reaction: t[4],
+        condition_cap: t[5],
+        tired: t[6],
+        spent: t[7],
+        pace: t[8..11].to_vec(),
+        march_tiring: t[11..].to_vec(),
+    }
+}
+
+/// The tick's end as one call (spec 39 step 8b5-xl).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationEnding.step (`ending::step`) over the squads in squad slots `listed`, in the
+    /// lists' order: stamina (as `stamina_step`), the bodies parted (as `bodies_part`), the
+    /// shuffle (as `shuffle_step`, its events in the log) and the march's sync (as
+    /// `march_sync`, a tick's walk on `ground`), in that order. `ints` = [tick, seed, 1 if
+    /// the parting runs threaded]; `floats` = [the tick's seconds, cells a second at speed 1
+    /// for the shuffle (the travel scale), scrum_crowding, cells a second at speed 1 for the
+    /// march]; `stamina` as `stamina_step` takes it; `bodies` = [passes, resist, brush];
+    /// `walk` as `march_sync`'s tuning (CrateMarch.walk_tuning, then wounds_reach). Returns
+    /// [usec of the parting, passes that moved something, pairs pushed], then the ids of the
+    /// units made by hand that took their speed as fresh (as `stamina_step`).
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn ending_step(
+        &mut self,
+        listed: PackedInt32Array,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        stamina: PackedFloat64Array,
+        bodies: PackedFloat64Array,
+        walk: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let (i, f, b) = (ints.as_slice(), floats.as_slice(), bodies.as_slice());
+        let rules = ending::Rules {
+            tick: i[0],
+            seconds: f[0],
+            seed: i[1],
+            stamina: stamina_tuning(stamina.as_slice()),
+            parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
+            threaded: i[2] != 0,
+            shuffle: [f[0], f[1], f[2]],
+            timing: [f[0], f[3]],
+            walk: walk_tuning_of(&walk),
+            wounds_reach: walk.as_slice()[9],
+        };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let ended = on_ground(ground, |g| ending::step(squads, field, &listed, g, &rules, log));
+        self.usec = ended.parting_usec;
+        self.edits += 1;
+        let mut out = vec![ended.parting_usec, ended.passes, ended.pairs];
+        out.extend(ended.made);
+        PackedInt64Array::from(out.as_slice())
+    }
 }
