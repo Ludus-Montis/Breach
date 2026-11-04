@@ -25,7 +25,7 @@ const SHOT := 5
 ## the battle's native bodies (`field`, NativeKernels; without one, its squads' store's).
 static func blows(squads: Array, interval: int, fight_seed: int, field: Object = null) -> Array:
 	if squads.is_empty():
-		return [[], []]
+		return [[], [], null]  # no squads: no roster either
 	if field == null:
 		field = squads[0].store.field()
 	var tuning := BattleTuning.current()
