@@ -76,6 +76,6 @@ How sessions work together is `principles/agent-sessions.md`.
 | Specs, one per feature or round | `specs/NN-*.md`, the source. `github-sync` makes each spec's steps issues under `Spec NN: <title>`, one per `### Step <id>`; a step's PR closes its issue |
 | Open questions and the user's "remind me when…" | Issues labelled `question` (Decision 148); check those whose `raise-when:` label or **Raise when** matches your work. `OPEN_QUESTIONS.md` says how to raise one and keeps the closed archive |
 | README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
-| A cascade (steps run back to back) | Its issue labelled `cascade`, edited in place (`/cascade`, `AI_First_Development_Kit/principles/agent-sessions.md` rule 8) |
+| A cascade (steps run back to back) | Its issue labelled `cascade`, edited in place (`/cascade`, Decision 158) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
 | CI and checks | `ci/godot/`, with known environment problems listed in `ci/godot/README.md` |

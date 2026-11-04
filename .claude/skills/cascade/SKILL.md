@@ -6,7 +6,7 @@ description: "Run a series of Breach spec steps back to back, one fresh cloud se
 # Running a cascade of steps
 
 The process and its reasons are `AI_First_Development_Kit/principles/agent-sessions.md`,
-rule 8. In short:
+rule 8, and Decision 158. In short:
 - **one record, edited in place:** the cascade's issue, from
   `AI_First_Development_Kit/templates/cascade-issue.md`;
 - **a coordinator** that starts every step session itself, so the depth of sessions
