@@ -3,7 +3,7 @@ extends Resource
 ## One unit's assignment at a node, per specs/13-faction-def-and-garrison-unit.md.
 ## Deliberately minimal: affiliation/behavior fields only, not combat stats -
 ## NodeDef.garrison/garrison_hp/garrison_dmg (pre-existing, Decision 11, already read
-## live by sim/lane_simulation.gd) stay pooled on the node for now. A full "structure
+## live by the lane, native/rust/src/lane.rs) stay pooled on the node for now. A full "structure
 ## is just an immobile unit" unification would mean adopting the combat addendum's
 ## whole Combatant/Encounter model (which also subsumes UnitDef/ResponseUnitDef) -
 ## large, separate, future work, not this stub.

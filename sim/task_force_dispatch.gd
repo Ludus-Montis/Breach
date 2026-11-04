@@ -12,7 +12,7 @@ extends RefCounted
 ## just clear the active dispatch. The distinction becomes meaningful once a real
 ## roster exists to observe it.
 
-var _lane: LaneSimulation
+var _lane: Object
 var _spawn_index: int
 var _spawn_direction: int
 var _tier_to_unit_stats: Dictionary
@@ -20,7 +20,7 @@ var _dispatched: Array = []
 
 
 func _init(
-	lane: LaneSimulation, spawn_index: int, spawn_direction: int, tier_to_unit_stats: Dictionary
+	lane: Object, spawn_index: int, spawn_direction: int, tier_to_unit_stats: Dictionary
 ) -> void:
 	_lane = lane
 	_spawn_index = spawn_index
@@ -36,7 +36,7 @@ func on_tier_entered(tier: int) -> void:
 	if not _tier_to_unit_stats.has(tier):
 		return
 	var blocker: Dictionary = _tier_to_unit_stats[tier]
-	var task_force := _lane.spawn_moving_blocker(
+	var task_force: Dictionary = _lane.spawn_moving_blocker(
 		"defender", blocker, _spawn_index, _spawn_direction
 	)
 	_dispatched.append(task_force)

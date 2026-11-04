@@ -5,7 +5,6 @@ extends Node2D
 ## no automated coverage of this file itself, per specs/08's own Notes; verified by
 ## the scripted headless run recorded in specs/06 and by manual playtest.
 
-const LaneSimulation = preload("res://sim/lane_simulation.gd")
 const EconomySystem = preload("res://sim/economy_system.gd")
 const CaptureResolution = preload("res://sim/capture_resolution.gd")
 const SuspicionSystem = preload("res://sim/suspicion_system.gd")
@@ -21,9 +20,10 @@ const WaveFormPanel = preload("res://presentation/wave_form_panel.gd")
 const CaptureChoicePanel = preload("res://presentation/capture_choice_panel.gd")
 const NarrativeLog = preload("res://presentation/narrative_log.gd")
 const TickProgressIndicator = preload("res://presentation/tick_progress_indicator.gd")
-const PlayerRoster = preload("res://sim/player_roster.gd")
 const HERO_PARTY_DEF: ResponseUnitDef = preload("res://content/response_units/hero_party.tres")
 
+## The lane, held by the crate (`LaneState`, native/rust/src/lane/, spec 39 step 9b-i).
+const LANE_CLASS := "LaneState"
 const P := 0
 const FARM := 1
 const FORT := 2
@@ -33,7 +33,7 @@ const FORT_ENGAGE_SPIKE := 50.0
 const FORT_CAPTURE_SPIKE := 25.0
 
 var _map: MapDef = CrateContent.map("p_f_F_c")
-var _lane: LaneSimulation
+var _lane: Object
 var _economy: EconomySystem
 var _capture: CaptureResolution
 var _suspicion: SuspicionSystem
@@ -41,7 +41,6 @@ var _dispatch: TaskForceDispatch
 var _watcher: ScriptedBeatWatcher
 var _clock: SimulationClock
 var _queue: CommandQueue
-var _roster: PlayerRoster
 
 var _wave_form: WaveFormPanel
 var _capture_choice: CaptureChoicePanel
@@ -80,7 +79,8 @@ func _process(delta: float) -> void:
 
 
 func _build_simulation() -> void:
-	_lane = LaneSimulation.new(_map.lanes[0].nodes)
+	_lane = NativeLibrary.made(LANE_CLASS)
+	_lane.start(_map.lanes[0].nodes)
 	_economy = EconomySystem.new()
 	_capture = CaptureResolution.new(_economy)
 	_suspicion = SuspicionSystem.new(_map.suspicion_tier_thresholds, _map.suspicion_decay_per_tick)
@@ -95,7 +95,6 @@ func _build_simulation() -> void:
 	_clock.tick_duration_seconds = _map.tick_duration_seconds
 	_clock.auto_pause_each_tick = true
 	_queue = CommandQueue.new()
-	_roster = PlayerRoster.new()
 
 
 func _build_presentation() -> void:
@@ -230,8 +229,8 @@ func _on_tick_advanced(tick_number: int) -> void:
 	_queue.on_tick_advanced(tick_number)
 	_capture.on_tick_advanced(tick_number)
 	_suspicion.on_tick_advanced(tick_number)
-	var pre_movers := _lane.moving_blockers().size()
-	_lane.advance_positions()
+	var pre_movers: int = _lane.moving_blockers().size()
+	_lane.advance_positions(SimEvents)
 	if _dispatch.dispatched().size() > 0 and _lane.moving_blockers().size() < pre_movers:
 		_dispatch.mark_consumed(_dispatch.dispatched()[0])
 	_watcher.on_player_unit_count_changed(_player_unit_count())
@@ -239,11 +238,7 @@ func _on_tick_advanced(tick_number: int) -> void:
 
 
 func _player_unit_count() -> int:
-	var marching := 0
-	for wave in _lane.waves():
-		if wave["owner"] == "player":
-			marching += wave["units"].size()
-	return _roster.total(marching)
+	return _lane.units_of("player")
 
 
 func _update_choice_button_visibility() -> void:
@@ -255,17 +250,10 @@ func _update_choice_button_visibility() -> void:
 func _on_node_captured(node_index: int) -> void:
 	_capture.on_node_captured(node_index, _map.lanes[0].nodes[node_index])
 	if node_index == FARM:
-		_despawn_player_wave_at(FARM)
+		_lane.harvest(FARM, "player")
 	if node_index == FORT:
 		_suspicion.add_suspicion(FORT_CAPTURE_SPIKE)
 	_watcher.on_node_captured(node_index)
-
-
-func _despawn_player_wave_at(index: int) -> void:
-	for wave in _lane.waves().duplicate():
-		if wave["position"] == index and wave["owner"] == "player":
-			_roster.mark_harvesting(wave["units"].size())
-			_lane.despawn_wave(wave)
 
 
 func _on_combat_resolved(node_index: int, _outcome: Dictionary) -> void:

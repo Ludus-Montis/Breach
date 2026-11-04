@@ -7,7 +7,6 @@ extends GdUnitTestSuite
 
 const LaneView = preload("res://presentation/lane_view.gd")
 const TickInterpolation = preload("res://presentation/tick_interpolation.gd")
-const LaneSimulation = preload("res://sim/lane_simulation.gd")
 const NodeDef = preload("res://content/definitions/node_def.gd")
 
 
@@ -21,7 +20,8 @@ func test_snapshot_positions_reflects_the_lane_state() -> void:
 	var node := NodeDef.new()
 	node.node_type = NodeDef.NodeType.ORIGIN
 	var nodes: Array[NodeDef] = [node, node]
-	var lane := LaneSimulation.new(nodes)
+	var lane: Object = NativeLibrary.made("LaneState")
+	lane.start(nodes)
 	lane.spawn_wave("player", [{"hp": 10, "dmg": 2}], 0, 1)
 
 	var view: LaneView = auto_free(LaneView.new())

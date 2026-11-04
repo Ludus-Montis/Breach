@@ -17,7 +17,7 @@ extends RefCounted
 ## hero_party_defeated()/on_hero_party_defeated() were removed (Decision 16, found
 ## via manual playtest): the win condition no longer depends on the Hero Party at
 ## all - it remains a real, defeatable obstacle a wave can collide with en route
-## (ordinary LaneSimulation combat, unchanged), but its defeat is no longer a
+## (ordinary lane combat, unchanged), but its defeat is no longer a
 ## prerequisite for winning via the Core specifically.
 
 var _core_node_index: int
