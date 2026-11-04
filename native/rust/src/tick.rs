@@ -10,6 +10,7 @@
 //! end as GDScript's mirrors list them (`ended_listing`).
 
 pub mod given;
+pub mod rules;
 #[cfg(test)]
 mod tests;
 
@@ -20,6 +21,7 @@ use crate::ending::{self, Ended};
 use crate::events::Log;
 use crate::field::Field;
 use crate::groups::pass::Landed;
+use crate::laps::lap;
 use crate::mustering::{self, Mustered};
 use crate::opening::{self, Opened};
 use crate::paths::Over;
@@ -47,6 +49,8 @@ pub struct Ticked {
     pub after: Aftermath,
     pub mustered: Mustered,
     pub ended: Ended,
+    /// The squads listed as the tick leaves them, as GDScript's mirrors leave its lists.
+    pub listed: Vec<usize>,
 }
 
 /// One tick over the squads of `roster` (every unit each holds, living or not), on `over`'s
@@ -61,23 +65,27 @@ pub fn step(
 ) -> Ticked {
     let known = known(roster);
     let roster = relisted(roster, squads, field, &known, &[], &[]);
+    lap("roster", field, squads);
     let opened = opening::step(squads, field, &roster, over.as_deref_mut(), &rules.opening, log);
     let joining: Vec<usize> = opened.joins.iter().map(|&(_, j)| j).collect();
     let roster = relisted(&roster, squads, field, &known, &joining, &[]);
+    lap("roster", field, squads);
     let ground = over.as_ref().map(|o| o.ground);
     let scrummed = scrum::step::step(squads, field, &roster, ground, &rules.scrum, log);
     let roster = relisted(&roster, squads, field, &known, &[], &[]);
+    lap("roster", field, squads);
     let after = aftermath::step(squads, field, &roster, ground, &rules.aftermath, log);
     let alone = after.recovered.iter().filter(|l| matches!(l.came, Came::Alone));
     let slot = |id| field.slot_of(id).map_or(usize::MAX, |s| s as usize);
     let strays: Vec<(usize, usize)> =
         alone.map(|l| (roster.listed[l.listed].squad, slot(l.id))).collect();
     let roster = relisted(&roster, squads, field, &known, &[], &[]);
+    lap("roster", field, squads);
     let mustered = mustering::step(squads, field, &roster, &strays, ground, &rules.mustering, log);
     let listed = ended_listing(&roster, &mustered);
     let ended = ending::step(squads, field, &listed, ground, &rules.ending, log);
     let (back, seek_usec) = (scrummed.back, scrummed.seek_usec);
-    Ticked { opened, back, seek_usec, after, mustered, ended }
+    Ticked { opened, back, seek_usec, after, mustered, ended, listed }
 }
 
 /// Every unit of `roster`, by its store slot.

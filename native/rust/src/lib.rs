@@ -6,7 +6,9 @@
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
 mod aftermath;
+mod arms;
 mod bands;
+mod battles;
 mod blows;
 #[cfg(test)]
 mod build;
@@ -17,11 +19,15 @@ mod compact;
 mod contact;
 pub mod content;
 mod contest;
+pub mod cuts;
 mod deaths;
 pub mod designer;
 mod det_math;
 mod det_pow;
 mod detours;
+mod digest;
+/// The digest's runs, for the digest binary (src/bin/digest.rs).
+pub use digest::runs as digest_runs;
 mod discipline;
 mod ending;
 mod engage;
@@ -31,6 +37,7 @@ mod face_store;
 mod facing;
 mod field;
 mod field_parting;
+mod field_play;
 mod fight;
 mod frame;
 mod geometry;
@@ -41,8 +48,10 @@ mod groups;
 mod hurts;
 mod joins;
 mod landing;
+mod laps;
 mod locks;
 mod lying;
+mod made;
 mod manoeuvre;
 mod march;
 mod maths;
@@ -51,6 +60,7 @@ mod motion;
 mod mover;
 mod moving;
 mod mustering;
+pub mod native_bench;
 mod near;
 mod objects;
 mod opening;
@@ -60,24 +70,31 @@ mod parting;
 mod pathing;
 mod paths;
 mod perception;
+pub mod phases;
+mod play;
 mod pursuit;
 mod ranks;
 mod reach;
+mod record;
 mod recovery;
 mod rect;
 mod regeneration;
 mod regroup;
+mod rehearsal;
 mod rendezvous;
 mod roster;
 mod rout;
+pub mod rout_bench;
 mod rout_blows;
 mod route;
+pub mod scaling;
 mod scrum;
 mod seeking;
 mod sheet;
 mod shocks;
 mod shots;
 mod snapshot;
+mod spawn;
 mod split;
 mod squads;
 mod staging;
@@ -89,9 +106,11 @@ mod swaps;
 mod taking;
 mod tick;
 mod trade;
+pub mod trials;
 mod turn;
 mod walk_store;
 mod walking;
+mod waves;
 mod withdraw;
 mod words;
 mod wounds;
@@ -104,6 +123,12 @@ use field::{Enrol, Field, SyncIn};
 use maths::V2;
 use parting::Tuning;
 use squads::Squads;
+use tick::given::{Arg, Given};
+use tick::rules::{
+    aftermath_rules, ending_rules, fight_rules, looks_of, moving_given, mustering_rules,
+    opening_rules, orders_discipline, pursue_rules, regroup_rules, scrum_rules, seek_rules,
+    share_tuning, stamina_tuning, stance_rules, walk_tuning_of, withdraw_rules,
+};
 
 struct BreachNative;
 
@@ -312,6 +337,15 @@ impl BodyField {
     #[func]
     fn snapshot(&self, tick: i64, seed: i64) -> PackedByteArray {
         PackedByteArray::from(snapshot::write(tick, seed, &self.field, &self.squads).as_slice())
+    }
+
+    /// The digest's state of the squads in `slots` (the battle's listing, in its order): the
+    /// bytes Godot's `var_to_bytes` gives DigestState.state (spec 39 step 8c-xi).
+    #[func]
+    fn digest_state(&self, slots: PackedInt64Array) -> PackedByteArray {
+        let listed: Vec<usize> = slots.as_slice().iter().map(|&s| s as usize).collect();
+        let state = digest::state::state(&self.squads, &self.field, &listed);
+        PackedByteArray::from(state.bytes().as_slice())
     }
 
     /// Squads the squad store holds.
@@ -636,34 +670,7 @@ impl BodyField {
     /// A slot's words and lists, by name, read back as SkirmishUnit holds them.
     #[func]
     fn words(&self, slot: i64) -> VarDictionary {
-        let lexicon = &self.field.lexicon;
-        let mut held = self.field.columns.words[slot as usize].clone();
-        let mut out = VarDictionary::new();
-        for name in words::WORDS {
-            let code = *held.word(name).unwrap();
-            out.set(*name, &GString::from(lexicon.word(code)).to_variant());
-        }
-        for name in words::LISTS {
-            let list: PackedStringArray =
-                held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
-            out.set(*name, &list.to_variant());
-        }
-        for name in words::LEVELS {
-            let mut levels = VarDictionary::new();
-            for &(code, level) in held.levels(name).unwrap().iter() {
-                levels.set(lexicon.word(code), level);
-            }
-            out.set(*name, &levels.to_variant());
-        }
-        for name in words::PARTS {
-            let mut parts = VarArray::new();
-            for part in held.parts(name).unwrap().iter() {
-                let kind = GString::from(lexicon.word(part.kind));
-                parts.push(&varray![part.damage, &kind, part.magical].to_variant());
-            }
-            out.set(*name, &parts.to_variant());
-        }
-        out
+        said(&self.field.lexicon, &self.field.columns.words[slot as usize])
     }
 
     /// A unit's objects' names (SkirmishUnit's properties): its walker, then its codes
@@ -839,6 +846,29 @@ impl ContentStore {
         let made = map_object(map);
         self.made.insert(key, made.clone());
         made.to_variant()
+    }
+
+    /// A unit of `faction` made in the crate from the definition `id`, advancing in
+    /// `direction` (spec 39 step 8c-iii, `made::unit`), for the test that holds it equal to
+    /// FormationUnits.make's: {"sheet": its numbers by `sheet_names`, "words": its words and
+    /// lists by name, "walker": its walker's fields}. Empty if there is no such unit.
+    #[func]
+    fn made(&self, id: GString, faction: GString, direction: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(content) = self.content.as_ref() else {
+            return out;
+        };
+        let Some(unit) = content.units.get(&id.to_string()) else {
+            return out;
+        };
+        let mut lexicon = words::Lexicon::default();
+        let made = made::unit(content, unit, &faction.to_string(), direction, &mut lexicon);
+        let sheet: PackedFloat64Array =
+            (0..sheet::NAMES.len()).map(|n| made.sheet.get(n)).collect();
+        out.set("sheet", &sheet.to_variant());
+        out.set("words", &said(&lexicon, &made.words).to_variant());
+        out.set("walker", &PackedFloat64Array::from(made.walker.as_slice()).to_variant());
+        out
     }
 
     /// A fresh definition of each kind filled with the crate's defaults, for the test that
@@ -1354,6 +1384,31 @@ impl TerrainGround {
             climb_demand: t[6] as i64,
         };
         self.ground = Some(ground::Ground::new(size.x, size.y, tuning));
+    }
+
+    /// The ground of the map named `map` ("field": FormationField's), made on the content's
+    /// tuning (spec 39 step 8c-v, `ground::map`): true, else false with the ground as it was
+    /// (an unknown map, or the content not loaded).
+    #[func]
+    fn map(&mut self, content: Gd<ContentStore>, map: GString) -> bool {
+        let store = content.bind();
+        let Some(tuning) = store.content.as_ref().map(|c| &c.tuning) else {
+            return false;
+        };
+        let Some(map) = ground::map::of(&map.to_string(), tuning) else {
+            return false;
+        };
+        self.shares.clear();
+        self.ground = Some(map.ground(ground::GroundTuning::of(tuning)));
+        true
+    }
+
+    /// The ground's cells and rules, in bincode's binary (`snapshot`): two grounds alike
+    /// are alike byte for byte.
+    #[func]
+    fn snapshot(&self) -> PackedByteArray {
+        let bytes = bincode::serialize(self.ground()).expect("the ground serialises");
+        PackedByteArray::from(bytes.as_slice())
     }
 
     /// Sets the cells of `area`: any of "cost", "height" (quarters), "depth" (cells),
@@ -2000,7 +2055,7 @@ impl GroundMarch {
         let (units, _) = units.as_slice().as_chunks::<11>();
         let (states, _) = states.as_slice().as_chunks::<9>();
         let places = v2s(&places);
-        let tuning = walk_tuning_of(&tuning);
+        let tuning = walk_tuning_of(tuning.as_slice());
         let mut out = Vec::with_capacity(states.len() * 10);
         on_ground(ground, |ground| {
             let on = march::walk::Walking {
@@ -2157,25 +2212,6 @@ fn walker_from(w: &[f64]) -> ground::Walker {
     }
 }
 
-/// [walk_face_travel, bodies_ground_drag, bodies_ground_block, stamina_climb, stamina_swim,
-/// stamina_spent, ground_cliff_quarters, fall_damage_per_cell, fall_mass_power].
-fn walk_tuning_of(tuning: &PackedFloat64Array) -> march::walk::WalkTuning {
-    let t = tuning.as_slice();
-    march::walk::WalkTuning {
-        face_travel: t[0],
-        drag: t[1],
-        block: t[2],
-        modes: march::modes::ModeTuning {
-            climb_rate: t[3],
-            swim_rate: t[4],
-            spent: t[5],
-            cliff_quarters: t[6] as i64,
-            fall_per_cell: t[7],
-            fall_mass_power: t[8],
-        },
-    }
-}
-
 fn marcher_of(u: &[f64; 11]) -> march::walk::Marcher {
     march::walk::Marcher {
         climber: march::modes::Climber {
@@ -2231,17 +2267,6 @@ fn pourers_of(rows: &PackedFloat64Array) -> Vec<march::pour::Pourer> {
             taking: (r[14] != 0.0).then(|| V2::new(r[15] as f32, r[16] as f32)),
         })
         .collect()
-}
-
-/// The share's tuning: the fight's `seed`, [discipline_per_leadership, walk_slack_loose,
-/// walk_slack_drilled] and [wounds_reach, walk_lost].
-fn share_tuning(seed: i64, slack: &[f64], reach: &[f64]) -> moving::share::ShareTuning {
-    moving::share::ShareTuning {
-        seed,
-        wounds_reach: reach[0],
-        lost: reach[1],
-        slack: [slack[0], slack[1], slack[2]],
-    }
 }
 
 /// `run` over the ground and its cache of shares.
@@ -3103,130 +3128,6 @@ impl BodyField {
     }
 }
 
-/// `scrum_step`'s `ints`, reach_engage and its phases' rules ([stance, seek, regroup,
-/// withdraw, pursue]) as the scrum's rules.
-fn scrum_rules(i: &[i64], reach_engage: f64, phases: [&[f64]; 5]) -> scrum::step::Rules {
-    let (tick, seed) = (i[0], i[1]);
-    let [stance, seek, regroup, withdraw, pursue] = phases;
-    let (anticipate, stance) = stance_rules(stance);
-    scrum::step::Rules {
-        tick,
-        seed,
-        reach_engage,
-        anticipate,
-        stance,
-        seek: seek_rules(&i[..3], seek),
-        regroup: regroup_rules(regroup, seed),
-        withdraw: withdraw_rules(withdraw, tick, seed),
-        pursue: pursue_rules(pursue, tick),
-        stall_ticks: i[3],
-    }
-}
-
-/// ScrumStance.anticipate_all's `rules` ([scrum_anticipate, discipline_per_leadership,
-/// discipline_meets_threats]) as the anticipation and the discipline it reads.
-fn stance_rules(r: &[f64]) -> (f64, discipline::DisciplineTuning) {
-    let discipline = discipline::DisciplineTuning {
-        per_leadership: r[1] as i64,
-        meets_threats: r[2] as i64,
-        ..discipline::DisciplineTuning::default()
-    };
-    (r[0], discipline)
-}
-
-/// `scrum_seek`'s `ints` and `floats` as the seek's rules.
-fn seek_rules(i: &[i64], f: &[f64]) -> scrum::seek::Rules {
-    scrum::seek::Rules {
-        tick: i[0],
-        seed: i[1],
-        die: i[2],
-        reach: f[0],
-        leash: f[1],
-        seconds: f[2],
-        pace: f[3],
-        crowding: f[4],
-        look: f[5],
-        clear: f[6],
-        drag: f[7],
-        block: f[8],
-        front: f[9],
-    }
-}
-
-/// `scrum_regroup`'s `rules` as the regroup's.
-fn regroup_rules(r: &[f64], seed: i64) -> scrum::regroup::Rules {
-    scrum::regroup::Rules {
-        regroup: regroup::Rules {
-            pace: r[0],
-            seconds: r[1],
-            seed,
-            reach: r[2],
-            arc: r[3],
-            look: r[4],
-            clear: r[5],
-            trade_seconds: r[6],
-        },
-        chase: pursuit::Rules {
-            cells_per_second: r[7],
-            seconds: r[1],
-            give_up: r[8],
-            steering: near::Steering { look: r[4], clear: r[5], seed },
-        },
-        discipline: discipline::DisciplineTuning {
-            per_leadership: r[9] as i64,
-            meets_threats: r[10] as i64,
-            ..discipline::DisciplineTuning::default()
-        },
-        reform: [r[11], r[12], r[13]],
-        seed,
-        wounds_reach: r[14],
-    }
-}
-
-/// `scrum_withdraw`'s `rules` as the withdrawal's.
-fn withdraw_rules(r: &[f64], tick: i64, seed: i64) -> scrum::withdraw::Rules {
-    scrum::withdraw::Rules {
-        flight: withdraw::Rules {
-            pace: r[0],
-            seconds: r[1],
-            reach: r[2],
-            near: r[3],
-            fan_cells: r[4],
-        },
-        rally_seconds: r[5],
-        fan_degrees: r[6],
-        discipline: discipline::DisciplineTuning {
-            per_leadership: r[7] as i64,
-            meets_threats: r[8] as i64,
-            ..discipline::DisciplineTuning::default()
-        },
-        reform: [r[9], r[10], r[11]],
-        seed,
-        tick,
-    }
-}
-
-/// `scrum_pursue`'s `rules` as the pursuit's.
-fn pursue_rules(r: &[f64], tick: i64) -> scrum::pursue::Rules {
-    let shares = r[6] as usize;
-    scrum::pursue::Rules {
-        whole: pursuit::whole::Rules {
-            cells_per_second: r[0],
-            seconds: r[1],
-            give_up: r[2],
-            lag: r[3],
-        },
-        discipline: discipline::DisciplineTuning {
-            per_leadership: r[4] as i64,
-            expected_max: r[5],
-            leash_shares: r[7..7 + shares].to_vec(),
-            leash_steps: r[7 + shares..].to_vec(),
-            ..discipline::DisciplineTuning::default()
-        },
-        tick,
-    }
-}
-
 fn usizes(values: &PackedInt32Array) -> Vec<usize> {
     values.as_slice().iter().map(|&v| v as usize).collect()
 }
@@ -3437,55 +3338,6 @@ impl BodyField {
     }
 }
 
-/// Each listed squad's route as [its code, the route it holds]: `codes` one a squad in
-/// `roster` (-1 for none).
-/// FormationOrders' `rules` past its first two as the discipline a retreat reads: [
-/// discipline_per_leadership, discipline_meets_threats, discipline_expected_max, how many
-/// leash shares follow, the shares, the leash steps].
-fn orders_discipline(r: &[f64]) -> discipline::DisciplineTuning {
-    let shares = r[5] as usize;
-    discipline::DisciplineTuning {
-        per_leadership: r[2] as i64,
-        meets_threats: r[3] as i64,
-        expected_max: r[4],
-        leash_shares: r[6..6 + shares].to_vec(),
-        leash_steps: r[6 + shares..].to_vec(),
-    }
-}
-
-/// FormationPathing's seven: [path_relook, path_look, path_detour_gain, sight_budget,
-/// ground_cliff_quarters, stamina_climb, stamina_swim] as the climb and the looks.
-fn looks_of(t: &[f64]) -> (paths::PathTuning, pathing::pass::Looks) {
-    let climb =
-        paths::PathTuning { cliff_quarters: t[4] as i64, stamina_climb: t[5], stamina_swim: t[6] };
-    let look = pathing::LookTuning { look: t[1], detour_gain: t[2], sight_budget: t[3] };
-    (climb, pathing::pass::Looks { relook: t[0], look })
-}
-
-/// `opening_step`'s rules ([ints, bands, impacts] and [orders, looks, moving]) as the climb
-/// its paths take and the opening's rules.
-fn opening_rules(
-    ints: [&PackedInt64Array; 3],
-    floats: [&PackedFloat64Array; 3],
-) -> (paths::PathTuning, opening::Rules<'static>) {
-    let [ints, bands, impacts] = ints.map(|p| p.as_slice());
-    let [o, looks, moving] = floats.map(|p| p.as_slice());
-    let (tick, seed) = (ints[0], ints[1]);
-    let (climb, looks) = looks_of(looks);
-    let rules = opening::Rules {
-        tick,
-        seed,
-        within: o[0],
-        ragged_shock: o[1] as i64,
-        discipline: orders_discipline(o),
-        bands: bands::BandTuning::of_slice(bands),
-        impacts: contact::pass::Impacts { side: impacts[0], rear: impacts[1] },
-        looks,
-        moving: moving_given(&[], tick, seed, moving),
-    };
-    (climb, rules)
-}
-
 /// What the opening did, flat as `opening_step` returns it.
 fn opened_flat(opened: &opening::Opened) -> Vec<i64> {
     let mut flat = vec![opened.pursuers.len() as i64];
@@ -3498,19 +3350,6 @@ fn opened_flat(opened: &opening::Opened) -> Vec<i64> {
     }
     flat.extend(opened.joins.iter().flat_map(|&(l, j)| [l as i64, j as i64]));
     flat
-}
-
-/// `move_step`'s ten as the move's tuning, over `routes`.
-fn moving_given<'a>(routes: &'a [u32], tick: i64, seed: i64, t: &[f64]) -> moving::pass::Given<'a> {
-    moving::pass::Given {
-        routes,
-        tick,
-        travel_scale: t[0],
-        seconds: t[1],
-        route_length: t[2],
-        share: share_tuning(seed, &t[3..6], &t[8..10]),
-        drag: [t[6], t[7]],
-    }
 }
 
 #[godot_api(secondary)]
@@ -3622,7 +3461,10 @@ impl BodyField {
         looks: PackedFloat64Array,
         moving: PackedFloat64Array,
     ) -> PackedInt64Array {
-        let (climb, rules) = opening_rules([&ints, &bands, &impacts], [&orders, &looks, &moving]);
+        let (climb, rules) = opening_rules(
+            [&ints, &bands, &impacts].map(|p| p.as_slice()),
+            [&orders, &looks, &moving].map(|p| p.as_slice()),
+        );
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let opened = match ground {
@@ -3969,7 +3811,7 @@ impl BodyField {
                 timing,
                 seed,
                 wounds_reach,
-                tuning: walk_tuning_of(&tuning),
+                tuning: walk_tuning_of(tuning.as_slice()),
             };
             march::sync::step(squads, field, &listed, &given);
         });
@@ -4509,7 +4351,8 @@ impl BodyField {
         tuning: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let rules = fight_rules(ints.as_slice(), floats.as_slice(), &bands, &tuning);
+        let rules =
+            fight_rules(ints.as_slice(), floats.as_slice(), bands.as_slice(), tuning.as_slice());
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let fought =
@@ -4542,32 +4385,19 @@ impl BodyField {
         wounds: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let rules = aftermath_rules(&ints, &floats, &bands, &tuning, &wounds);
+        let rules = aftermath_rules(
+            ints.as_slice(),
+            floats.as_slice(),
+            bands.as_slice(),
+            tuning.as_slice(),
+            wounds.as_slice(),
+        );
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let after =
             on_ground(ground, |g| aftermath::step(squads, field, &roster.roster, g, &rules, log));
         self.edits += 1;
         PackedInt64Array::from(aftermath_flat(&after).as_slice())
-    }
-}
-
-/// `aftermath_step`'s rules as the aftermath's.
-fn aftermath_rules(
-    ints: &PackedInt64Array,
-    floats: &PackedFloat64Array,
-    bands: &PackedInt64Array,
-    tuning: &PackedFloat64Array,
-    wounds: &PackedFloat64Array,
-) -> aftermath::Rules {
-    let (i, f) = (ints.as_slice(), floats.as_slice());
-    aftermath::Rules {
-        fight: fight_rules(i, f, bands, tuning),
-        seconds: f[5],
-        taking: taking::pass::TakingTuning { hold: f[6], reach: f[7] },
-        wounds: wounds::WoundsTuning::of_slice(wounds.as_slice()),
-        messenger_shock: i[4],
-        bands: bands::BandTuning::of_slice(bands.as_slice()),
     }
 }
 
@@ -4608,7 +4438,9 @@ impl BodyField {
         bands: PackedInt64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let Some(rules) = mustering_rules(&ints, &tunings, &bands) else {
+        let tunings: [PackedFloat64Array; 5] = std::array::from_fn(|n| arg(&tunings, n));
+        let tunings = tunings.each_ref().map(|t| t.as_slice());
+        let Some(rules) = mustering_rules(ints.as_slice(), tunings, bands.as_slice()) else {
             return PackedInt64Array::new();
         };
         let (rows, _) = strays.as_slice().as_chunks::<2>();
@@ -4622,40 +4454,6 @@ impl BodyField {
         self.edits += 1;
         PackedInt64Array::from(mustered_flat(&done).as_slice())
     }
-}
-
-/// `mustering_step`'s `ints`, `tunings` and `bands` as the mustering's rules; None if one is
-/// short.
-fn mustering_rules(
-    ints: &PackedInt64Array,
-    tunings: &VarArray,
-    bands: &PackedInt64Array,
-) -> Option<mustering::Rules> {
-    let tuning = |n: usize| {
-        tunings.get(n).map_or_else(PackedFloat64Array::new, |t| t.to::<PackedFloat64Array>())
-    };
-    let (morale, rout, carrying, loads, grouping) =
-        (tuning(0), tuning(1), tuning(2), tuning(3), tuning(4));
-    let (&[tick, seed, second], (r, &[crush, panic, seen]), &[lost, join, cells_per_tile]) =
-        (ints.as_slice(), rout.as_slice().split_at_checked(10)?, grouping.as_slice())
-    else {
-        return None;
-    };
-    Some(mustering::Rules {
-        morale: (second != 0).then(|| morale::MoraleTuning::of_slice(morale.as_slice())),
-        rout: rout::RoutTuning::of_slice(r),
-        shocks: rout::pass::RoutShocks {
-            crush: crush as i64,
-            panic: panic as i64,
-            seen: seen as i64,
-        },
-        bands: bands::BandTuning::of_slice(bands.as_slice()),
-        carry: carry::CarryTuning::of_slice(carrying.as_slice()),
-        loads: carry::pass::LoadTuning::of_slice(loads.as_slice()),
-        groups: split::Rules { lost, join, seed, cells_per_tile },
-        tick,
-        seed,
-    })
 }
 
 /// What the mustering did, flat as `mustering_step` returns it.
@@ -4686,37 +4484,6 @@ fn carried_flat(did: &carry::pass::Carried) -> Vec<i64> {
         .collect()
 }
 
-/// The fight's rules as `fight_step` is given them: `i` = [the ticks a second's strike takes,
-/// seed, tick, 1 if blows roll], `f` = [reach_contact, the front's least dot,
-/// rout_strike_reach, stamina_blow, wounds_surrender].
-fn fight_rules(
-    i: &[i64],
-    f: &[f64],
-    bands: &PackedInt64Array,
-    tuning: &PackedFloat64Array,
-) -> fight::step::Rules {
-    let bands = bands::BandTuning::of_slice(bands.as_slice());
-    fight::step::Rules {
-        choose: fight::Rules {
-            interval: i[0],
-            seed: i[1],
-            reach: f[0],
-            front: f[1],
-            rout_reach: f[2],
-            bands,
-        },
-        land: fight::land::Rules {
-            tuning: landing::LandingTuning::of_slice(tuning.as_slice()),
-            rolls: (i[3] != 0).then_some((i[1], i[2])),
-            reach: f[0],
-            bands,
-        },
-        tick: i[2],
-        blow: f[3],
-        surrender: f[4],
-    }
-}
-
 /// The units buried, three numbers each, as `deaths_bury` returns them.
 fn buried_flat(buried: &[deaths::bury::Buried]) -> impl Iterator<Item = i64> + '_ {
     buried.iter().flat_map(|b| [b.listed as i64, b.id, b.wounded.unwrap_or(-1)])
@@ -4741,24 +4508,6 @@ fn recovered_flat(landed: &[recovery::pass::Landed]) -> impl Iterator<Item = i64
         };
         [l.listed as i64, l.id, what, joins]
     })
-}
-
-/// FormationStamina.tuning as `stamina_step` takes it: stamina_run, stamina_delay,
-/// stamina_recovery, run_build_seconds, run_reaction, condition_cap, stamina_tired,
-/// stamina_spent, the three stamina_pace, then load_march_tiring.
-fn stamina_tuning(t: &[f64]) -> stamina::StaminaTuning {
-    stamina::StaminaTuning {
-        run: t[0],
-        delay: t[1],
-        recovery: t[2],
-        run_build_seconds: t[3],
-        run_reaction: t[4],
-        condition_cap: t[5],
-        tired: t[6],
-        spent: t[7],
-        pace: t[8..11].to_vec(),
-        march_tiring: t[11..].to_vec(),
-    }
 }
 
 /// The tick's end as one call (spec 39 step 8b5-xl).
@@ -4787,30 +4536,15 @@ impl BodyField {
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
         let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
-        let rules = ending_rules(&ints, [&floats, &stamina, &bodies, &walk]);
+        let rules = ending_rules(
+            ints.as_slice(),
+            [&floats, &stamina, &bodies, &walk].map(|p| p.as_slice()),
+        );
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let ended = on_ground(ground, |g| ending::step(squads, field, &listed, g, &rules, log));
         self.usec = ended.parting_usec;
         self.edits += 1;
         PackedInt64Array::from(ended_flat(&ended).as_slice())
-    }
-}
-
-/// `ending_step`'s `ints` and [floats, stamina, bodies, walk] as the end's rules.
-fn ending_rules(ints: &PackedInt64Array, floats: [&PackedFloat64Array; 4]) -> ending::Rules {
-    let [f, stamina, b, walk] = floats;
-    let (i, f, b) = (ints.as_slice(), f.as_slice(), b.as_slice());
-    ending::Rules {
-        tick: i[0],
-        seconds: f[0],
-        seed: i[1],
-        stamina: stamina_tuning(stamina.as_slice()),
-        parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
-        threaded: i[2] != 0,
-        shuffle: [f[0], f[1], f[2]],
-        timing: [f[0], f[3]],
-        walk: walk_tuning_of(walk),
-        wounds_reach: walk.as_slice()[9],
     }
 }
 
@@ -4850,34 +4584,35 @@ impl BodyField {
         mustering: VarArray,
         ending: VarArray,
     ) -> PackedInt64Array {
-        let ints = |a: &VarArray, n: usize| arg::<PackedInt64Array>(a, n);
-        let floats = |a: &VarArray, n: usize| arg::<PackedFloat64Array>(a, n);
-        let (o, s, a, e) = (&opening, &scrum, &aftermath, &ending);
-        let (climb, opening) = opening_rules(
-            [&ints(o, 0), &ints(o, 2), &ints(o, 3)],
-            [&floats(o, 1), &floats(o, 4), &floats(o, 5)],
-        );
-        let phases = [2, 3, 4, 5, 6].map(|n| floats(s, n));
-        let scrum = scrum_rules(
-            ints(s, 0).as_slice(),
-            arg::<f64>(s, 1),
-            phases.each_ref().map(|p| p.as_slice()),
-        );
-        let aftermath =
-            aftermath_rules(&ints(a, 0), &floats(a, 1), &ints(a, 2), &floats(a, 3), &floats(a, 4));
-        let musters = (ints(&mustering, 0), arg::<VarArray>(&mustering, 1), ints(&mustering, 2));
-        let Some(mustering) = mustering_rules(&musters.0, &musters.1, &musters.2) else {
+        let given = Given {
+            opening: var_args(&opening, "ifiiff"),
+            scrum: var_args(&scrum, "irfffff"),
+            aftermath: var_args(&aftermath, "ififf"),
+            mustering: var_args(&mustering, "ili"),
+            ending: var_args(&ending, "iffff"),
+        };
+        let Some((climb, rules)) = tick::rules::of(&given) else {
             return PackedInt64Array::new();
         };
-        let ending = ending_rules(&ints(e, 0), [1, 2, 3, 4].map(|n| floats(e, n)).each_ref());
-        let rules = tick::Rules { opening, scrum, aftermath, mustering, ending };
+        self.ticked(roster, ground, climb, &rules)
+    }
+
+    /// The whole tick on `rules` (`tick::step`), each pass's result flat as `tick_step`
+    /// returns it.
+    fn ticked(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        climb: paths::PathTuning,
+        rules: &tick::Rules,
+    ) -> PackedInt64Array {
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let ticked = match ground {
             Some(ground) => on_paths(ground, climb, |over| {
-                tick::step(squads, field, &roster.roster, Some(over), &rules, log)
+                tick::step(squads, field, &roster.roster, Some(over), rules, log)
             }),
-            None => tick::step(squads, field, &roster.roster, None, &rules, log),
+            None => tick::step(squads, field, &roster.roster, None, rules, log),
         };
         self.edits += 1;
         let back = ticked.back.iter().map(|&n| n as i64);
@@ -4908,8 +4643,13 @@ impl BodyField {
         at: PackedInt64Array,
         paces: PackedFloat64Array,
     ) -> VarArray {
-        given_args(&content, &at, &paces).map_or_else(VarArray::new, |passes| {
-            passes.into_iter().map(|args| args.to_variant()).collect()
+        given_of(&content, &at, &paces).map_or_else(VarArray::new, |given| {
+            let passes =
+                [given.opening, given.scrum, given.aftermath, given.mustering, given.ending];
+            passes
+                .iter()
+                .map(|args| args.iter().map(given_arg).collect::<VarArray>().to_variant())
+                .collect()
         })
     }
 
@@ -4924,22 +4664,312 @@ impl BodyField {
         at: PackedInt64Array,
         paces: PackedFloat64Array,
     ) -> PackedInt64Array {
-        let Some([opening, scrum, aftermath, mustering, ending]) =
-            given_args(&content, &at, &paces)
+        let Some((climb, rules)) =
+            given_of(&content, &at, &paces).and_then(|given| tick::rules::of(&given))
         else {
             return PackedInt64Array::new();
         };
-        self.tick_step(roster, ground, opening, scrum, aftermath, mustering, ending)
+        self.ticked(roster, ground, climb, &rules)
+    }
+
+    /// FormationSimulation.spawn_squad in the crate (`spawn::squad`, spec 39 step 8c-iv): a
+    /// squad of the definitions `units` (ids in `content`), coded `codes`
+    /// (UnitStore.definition_code), at `places` ([rank, column] each), of `faction`; `ints` =
+    /// [width, 1 if at the player's end, wait ticks, combat width]; on the route through
+    /// `points` with corridor `half_width`, which GDScript's route `object` names (its
+    /// instance id; 0 for a route of its own), as `squad_put_route` codes it. Returns the
+    /// squad's slot, or -1 (and nothing spawned) for a definition `content` doesn't hold.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn spawn_squad(
+        &mut self,
+        content: Gd<ContentStore>,
+        units: PackedStringArray,
+        codes: PackedInt64Array,
+        places: PackedInt32Array,
+        faction: GString,
+        ints: PackedInt64Array,
+        points: PackedVector2Array,
+        half_width: f64,
+        object: i64,
+    ) -> i64 {
+        let store = content.bind();
+        let Some(content) = store.content.as_ref() else {
+            return -1;
+        };
+        let (codes, places, i) = (codes.as_slice(), places.as_slice(), ints.as_slice());
+        let mut placed = Vec::with_capacity(units.len());
+        for (k, id) in units.as_slice().iter().enumerate() {
+            let Some(unit) = content.units.get(&id.to_string()) else {
+                return -1;
+            };
+            let place = (places[2 * k], places[2 * k + 1]);
+            placed.push(spawn::Placed { unit, code: codes[k], place });
+        }
+        let route = route::Route::new(v2s(&points), half_width);
+        let squads = &mut self.squads;
+        let route_code = (object != 0)
+            .then(|| *self.route_objects.entry(object).or_insert_with(|| squads.issue_route()));
+        let faction = faction.to_string();
+        let spawn = spawn::Spawn {
+            width: i[0],
+            placed: &placed,
+            faction: &faction,
+            at_player_end: i[1] != 0,
+            wait_ticks: i[2],
+            route: &route,
+            route_code,
+            combat_width: i[3],
+        };
+        let s = spawn::squad(&mut self.squads, &mut self.field, content, &spawn);
+        self.edits += 1;
+        s as i64
+    }
+
+    /// Sets up the digest's battle `name` with its `numbers` (`battles::named`) from
+    /// `content`'s definitions (spec 39 step 8c-vi): {"route_tiles", "tick_seconds",
+    /// "combat_width", "map" ("" for open ground)} the simulation is made with, or an empty
+    /// dictionary, with nothing written, for an unknown battle or definition. Its routes'
+    /// codes are its own, not in `route_objects`.
+    #[func]
+    fn battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+    ) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let store = content.bind();
+        let (Some(content), Some(battle)) =
+            (store.content.as_ref(), battles::named(&name.to_string(), numbers.as_slice()))
+        else {
+            return out;
+        };
+        let Some(set) = battles::set_up(&battle, &mut self.squads, &mut self.field, content) else {
+            return out;
+        };
+        self.edits += 1;
+        out.set("route_tiles", set.route_tiles);
+        out.set("tick_seconds", set.tick_seconds);
+        out.set("combat_width", set.combat_width);
+        out.set("map", &GString::from(set.map.unwrap_or("")).to_variant());
+        out
+    }
+
+    /// Plays the digest's battle `name` with its `numbers` end to end in the crate (spec 39
+    /// step 8c-vii, `play`): set up as `battle` sets it up, then tick by tick as
+    /// FormationSimulation.step plays it, each tick's events taken and dropped, until the
+    /// digest's rules stop it. `at` = [seed, 1 if blows roll, 1 if threaded, the limit, ticks
+    /// past first contact (-1: no such stop)]. Returns the ticks played, or -1, with nothing
+    /// written, for an unknown battle or definition.
+    #[func]
+    fn battle_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> i64 {
+        let store = content.bind();
+        let Some(content) = store.content.as_ref() else { return -1 };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
+            return -1;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let ticks = play::run(&mut play, crate_, content, &mut self.events, &mut watch);
+        self.edits += 1;
+        ticks
+    }
+
+    /// The digest's battle `name` with its `numbers` played in the crate as `battle_play`
+    /// plays it, `at` the same, and each tick's record as formation_digest.gd's `_record`
+    /// hashes it (spec 39 step 8c-xii, `digest::battle`): the bytes of `var_to_bytes([events,
+    /// state])`, a tick each. Empty, with nothing written, for an unknown battle or definition.
+    #[func]
+    fn digest_battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
+            return records;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        digest::battle(&mut play, crate_, content, &mut self.events, &mut watch, &mut out);
+        self.edits += 1;
+        records
+    }
+
+    /// FormationField played in the crate (`field_play`): its line `captained` or not
+    /// (`numbers` [1 if captained]), seeded and rolled as `at` = [seed, 1 if blows roll, 1 if
+    /// threaded, ticks], each tick as FormationField.step plays it, each tick's events taken
+    /// and dropped. `sends` = [tick, wave (0: A, 1: B)] each: that wave is sent before that
+    /// tick (FormationField.send). Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content.
+    #[func]
+    fn field_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+        sends: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([seed, rolls, threaded, ticks]) = <[i64; 4]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let captained = numbers.as_slice().first().is_some_and(|&n| n != 0);
+        let crate_ = (&mut self.squads, &mut self.field);
+        let at = (seed, rolls != 0, threaded != 0);
+        let Some(mut played) = field_play::FieldPlay::new(captained, crate_, content, at) else {
+            return failed;
+        };
+        let mut produced = 0;
+        for tick in 0..ticks {
+            let (given, _) = sends.as_slice().as_chunks::<2>();
+            for &[_, wave] in given.iter().filter(|send| send[0] == tick) {
+                if (0..played.waves.len() as i64).contains(&wave) {
+                    let crate_ = (&mut self.squads, &mut self.field);
+                    played.send(wave as usize, 0, crate_, content);
+                }
+            }
+            let (made, _) =
+                played.step(&mut self.squads, &mut self.field, content, &mut self.events);
+            produced += made.len() as i64;
+            self.events.take();
+        }
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
+    }
+
+    /// A field log (FormationRecord) replayed in the crate as the digest plays it
+    /// (`field_play::actions::replay`): the field its header names, each tick's commands given
+    /// as FormationFieldActions.apply gives them and the tick played, each tick's events taken
+    /// and dropped, till `at`'s extra ticks past its last command. `at` = [1 if blows roll, 1
+    /// if threaded, extra ticks]. Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content, a log that isn't a record
+    /// or one sending the waves together (`send A+B`, not yet the crate's).
+    #[func]
+    fn field_replay(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return failed };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let played =
+            field_play::actions::replay(&record, extra, crate_, content, how, &mut self.events);
+        let Some((ticks, produced)) = played else { return failed };
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
+    }
+
+    /// A field log replayed in the crate as `field_replay` replays it, `at` the same, and each
+    /// tick's record as formation_digest.gd's `_record` hashes it (spec 39 step 8c-xii,
+    /// `digest::field`): the bytes of `var_to_bytes([events, state])`, a tick each, the
+    /// builders' and waves' events before the battle's. Empty, with nothing written, for
+    /// unloaded content or a log that isn't a record.
+    #[func]
+    fn digest_field(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return records;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        let played =
+            digest::field(&record, extra, crate_, content, how, &mut self.events, &mut out);
+        if played.is_some() {
+            self.edits += 1;
+        }
+        records
     }
 }
 
-/// Each pass's arguments as `tick_step` takes them, built from `content`'s battle tuning
-/// (`tick::given`); None if the content isn't loaded or `at` or `paces` is short.
-fn given_args(
+/// The digest's battle `name` with its `numbers` set up on the crate to play as `at` = [seed,
+/// 1 if blows roll, 1 if threaded, the limit, ticks past first contact (-1: no such stop)]
+/// says, and the watch that stops it; None, with nothing written, for an unknown battle or
+/// definition.
+fn battle_set(
+    crate_: (&mut squads::Squads, &mut field::Field),
+    content: &content::Content,
+    name: &GString,
+    numbers: &PackedInt64Array,
+    at: &PackedInt64Array,
+) -> Option<(play::Play, play::Watch)> {
+    let battle = battles::named(&name.to_string(), numbers.as_slice())?;
+    let [seed, rolls, threaded, limit, after] = <[i64; 5]>::try_from(at.as_slice()).ok()?;
+    let play = play::Play::new(&battle, crate_, content, (seed, rolls != 0, threaded != 0))?;
+    Some((play, play::Watch::new(limit, (after >= 0).then_some(after))))
+}
+
+/// `of`'s words and lists by name, decoded through `lexicon`, as SkirmishUnit holds them.
+fn said(lexicon: &words::Lexicon, of: &words::Words) -> VarDictionary {
+    let mut held = of.clone();
+    let mut out = VarDictionary::new();
+    for name in words::WORDS {
+        let code = *held.word(name).unwrap();
+        out.set(*name, &GString::from(lexicon.word(code)).to_variant());
+    }
+    for name in words::LISTS {
+        let list: PackedStringArray =
+            held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
+        out.set(*name, &list.to_variant());
+    }
+    for name in words::LEVELS {
+        let mut levels = VarDictionary::new();
+        for &(code, level) in held.levels(name).unwrap().iter() {
+            levels.set(lexicon.word(code), level);
+        }
+        out.set(*name, &levels.to_variant());
+    }
+    for name in words::PARTS {
+        let mut parts = VarArray::new();
+        for part in held.parts(name).unwrap().iter() {
+            let kind = GString::from(lexicon.word(part.kind));
+            parts.push(&varray![part.damage, &kind, part.magical].to_variant());
+        }
+        out.set(*name, &parts.to_variant());
+    }
+    out
+}
+
+/// Each pass's arguments, built from `content`'s battle tuning (`tick::given`); None if the
+/// content isn't loaded or `at` or `paces` is short.
+fn given_of(
     content: &Gd<ContentStore>,
     at: &PackedInt64Array,
     paces: &PackedFloat64Array,
-) -> Option<[VarArray; 5]> {
+) -> Option<Given> {
     let store = content.bind();
     let tuning = &store.content.as_ref()?.tuning;
     let [tick, seed, ticks_a_second, rolls, threaded]: [i64; 5] = at.as_slice().try_into().ok()?;
@@ -4948,14 +4978,29 @@ fn given_args(
     let at =
         tick::given::At { tick, seed, ticks_a_second, rolls: rolls != 0, threaded: threaded != 0 };
     let paces = tick::given::Paces { travel_scale, seconds, route_length, cells_a_second };
-    let given = tick::given::of(tuning, &at, &paces);
-    let passes = [given.opening, given.scrum, given.aftermath, given.mustering, given.ending];
-    Some(passes.map(|args| args.iter().map(given_arg).collect()))
+    Some(tick::given::of(tuning, &at, &paces))
+}
+
+/// A pass's arguments handed over in `args` as `tick::rules` reads them, each by its `kinds`
+/// letter: `i` ints, `f` floats, `r` a real, `l` a list of float lists.
+fn var_args(args: &VarArray, kinds: &str) -> Vec<Arg> {
+    let floats = |p: PackedFloat64Array| p.as_slice().to_vec();
+    kinds
+        .chars()
+        .enumerate()
+        .map(|(n, kind)| match kind {
+            'i' => Arg::Ints(arg::<PackedInt64Array>(args, n).as_slice().to_vec()),
+            'f' => Arg::Floats(floats(arg(args, n))),
+            'r' => Arg::Real(arg(args, n)),
+            _ => {
+                Arg::Lists(arg::<VarArray>(args, n).iter_shared().map(|t| floats(t.to())).collect())
+            }
+        })
+        .collect()
 }
 
 /// One of a pass's arguments as its binding takes it.
-fn given_arg(arg: &tick::given::Arg) -> Variant {
-    use tick::given::Arg;
+fn given_arg(arg: &Arg) -> Variant {
     match arg {
         Arg::Ints(n) => PackedInt64Array::from(n.as_slice()).to_variant(),
         Arg::Floats(x) => PackedFloat64Array::from(x.as_slice()).to_variant(),

@@ -13,6 +13,7 @@ use std::time::Instant;
 use crate::events::Log;
 use crate::field::Field;
 use crate::ground::Ground;
+use crate::laps::lap;
 use crate::march::sync::{self, Given};
 use crate::march::walk::WalkTuning;
 use crate::parting::{self, Tuning as PartingTuning};
@@ -58,11 +59,14 @@ pub fn step(
     log: &mut Log,
 ) -> Ended {
     let made = stamina::pass::step(squads, field, listed, rules.seconds, &rules.stamina);
+    lap("stamina", field, squads);
     let began = Instant::now();
     let parts = (&rules.parting, rules.threaded);
     let parted = parting::pass::step(squads, field, listed, rules.seed, parts);
     let parting_usec = began.elapsed().as_micros() as i64;
+    lap("bodies (parting)", field, squads);
     swaps::pass::step(squads, field, listed, (rules.shuffle, rules.tick), log);
+    lap("shuffle (re-form)", field, squads);
     let given = Given {
         ground,
         timing: Some(rules.timing),
@@ -71,5 +75,6 @@ pub fn step(
         tuning: rules.walk,
     };
     sync::step(squads, field, listed, &given);
+    lap("units walk to places", field, squads);
     Ended { made, parting_usec, passes: parted.passes, pairs: parted.pairs }
 }
