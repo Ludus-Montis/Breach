@@ -6,6 +6,7 @@
 //! till a side no longer stands; the field's scenarios are `field_play::FieldPlay`, its waves
 //! built (by BattleTrials' eight grem builders), then sent as the scenario sends them, played till the kingdom's line breaks.
 
+pub mod fatigue;
 #[cfg(test)]
 mod tests;
 

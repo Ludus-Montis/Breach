@@ -899,6 +899,25 @@ events. After this step no battle phase runs in GDScript.
   fails unless the mirror lines, and every scenario's lines over 10 runs, equal Godot's.
   Checked by hand: every scenario over 4 runs, and over 3 with swap and rolls off, captain
   and seed 7, and mirror_flank swapped from seed 11, all equal. Outcomes don't change.
+- **8c-xv split further** (2026-11-04, under the user's standing leave to split): the
+  fatigue trials play a battle, but the path and sight trials search the ground (TerrainPaths,
+  PathSearch, PathSight, PathMemory) and time each search, so their tables can't be equal byte
+  for byte. **8c-xv** the fatigue trials (FatigueTrials) in `breach_trials`; **8c-xvi** the
+  path and sight trials (PathTrials, SightTrials: their cells, legs, reaches, seconds, searched
+  and drawings compared with Godot's, the timings left out); **8c-xvii** `scaling_check`;
+  **8c-xviii** the benches. **8c-xv built** (2026-11-04): `src/trials/fatigue.rs`
+  (`breach_native::trials::fatigue`) is FatigueTrials: `battle(contact, seed, threaded,
+  content)` spawns the wave (player) and the line (the kingdom, ordered to hold) of eight grems
+  each at 100000 hp on the simulation's own 2-tile lane (one route code), and plays it through
+  `Play` with blows rolled: at the first "engaged" the contact starts, after `contact / 0.1`
+  ticks more the line's stamina share is read, the wave's command hurries and it is ordered to
+  retreat; each tick the line pursues (not returning) counts and its furthest distance from the
+  post is kept; on the line's "pursuit_ended", whether it gives up (`stamina::squad_gives_up`),
+  or 3000 ticks. `run` sums the runs as FatigueTrials.run does, and `columns`/`row` print
+  formation_trials.gd's `_fatigue` lines. `breach_trials scenario=fatigue [runs=50]
+  [first_seed=1]` prints them; `paths` still exits 2. CI's `trials` job diffs them against
+  Godot's over 10 runs. Checked by hand: 2 and 10 runs, and 4 from seed 7, equal. Outcomes
+  don't change.
 
 ### Step 9, the rest of `sim/`
 
