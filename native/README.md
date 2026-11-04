@@ -243,6 +243,19 @@ than `limit` times as much. CI's `scaling` jobs run it on each stage after Godot
 runner: its own verdict gates it, and its stage, size and "a side"/"stacks" columns must
 equal Godot's (the timings are each side's own).
 
+### Tick phases (`tools/tick_phases.gd`, where a tick's time goes)
+
+`native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
+[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false]` brings
+the same battle to its fight as tick_phases.gd does and times `fight` of the crate's own ticks
+pass by pass, with no Godot (spec 39 step 8c-xviii). Each pass of the tick ends a lap
+(`src/laps.rs`), counted only while the bench times it, and the lines are printed as
+tick_phases.gd prints them, so the `bench` workflow runs it with `tool=breach_tick_phases` and
+`bench_compare.py` reads it. Its phases are the crate's passes, named as tick_phases.gd names
+the GDScript passes they ported where they match. A second battle steps untimed beside the
+timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
+copies no columns across the Godot boundary.
+
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
 
@@ -460,7 +473,8 @@ in the crate, `native/bin/breach_trials[.exe]` (`src/bin/trials.rs`, `src/trials
 step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
 `src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
 `native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
-8c-xvii). They are git-ignored, as
+8c-xvii), and tick_phases timed on the crate's tick, `native/bin/breach_tick_phases[.exe]`
+(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it
