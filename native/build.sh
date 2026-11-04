@@ -34,4 +34,6 @@ cp "$here/rust/target/$dir/digest$exe" "$here/bin/breach_digest$exe"
 cp "$here/rust/target/$dir/trials$exe" "$here/bin/breach_trials$exe"
 # scaling_check played in the crate (src/bin/scaling.rs): native/bin/breach_scaling.
 cp "$here/rust/target/$dir/scaling$exe" "$here/bin/breach_scaling$exe"
+# tick_phases played in the crate (src/bin/tick_phases.rs): native/bin/breach_tick_phases.
+cp "$here/rust/target/$dir/tick_phases$exe" "$here/bin/breach_tick_phases$exe"
 ls -l "$here/bin"

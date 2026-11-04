@@ -21,6 +21,7 @@ use crate::events::Log;
 use crate::field::Field;
 use crate::ground::Ground;
 use crate::groups::pass::{self as groups, Landed};
+use crate::laps::lap;
 use crate::locks::ROUTING;
 use crate::morale::{pass as morale, MoraleTuning};
 use crate::roster::{Listed, Member, Roster};
@@ -75,9 +76,11 @@ pub fn step(
     let adopted = strays::adopt(squads, field, strays, seed);
     let opened: Vec<usize> = adopted.iter().map(|&(_, s)| s).collect();
     let mut roster = listing(roster, squads, field, &known, &opened);
+    lap("strays");
     if let Some(t) = &rules.morale {
         morale::step((squads, &field.columns), &roster, (t, &rules.bands), tick, log);
     }
+    lap("morale");
     let routs = roster.listed.iter().any(|l| {
         let s = l.squad;
         squads.state[s] == ROUTING || squads.morale[s] == 0
@@ -88,10 +91,12 @@ pub fn step(
         routed = rout::step(squads, field, &roster, tuning, (tick, seed), ground, log);
         roster = listing(&roster, squads, field, &known, &[]);
     }
+    lap("rout");
     let homes: Vec<i64> = routed.iter().filter(|m| m.into.is_none()).map(|m| m.id).collect();
     let listed: Vec<usize> = roster.listed.iter().map(|l| l.squad).collect();
     let tuning = (&rules.carry, &rules.loads);
     let carried = carry::step(squads, field, (&listed, &homes), (tick, seed), tuning, log);
+    lap("carry");
     let setting_off: Vec<(usize, usize)> = carried
         .strays
         .iter()
@@ -100,8 +105,10 @@ pub fn step(
     let bearers = strays::adopt(squads, field, &setting_off, seed);
     let opened: Vec<usize> = bearers.iter().map(|&(_, s)| s).collect();
     let roster = listing(&roster, squads, field, &known, &opened);
+    lap("carry: strays");
     let grouped = groups::step(squads, field, &roster, &rules.groups, tick, log);
     let split = groups::split_ids(&grouped, &roster);
+    lap("groups (form up, split)");
     Mustered { adopted, routed, carried, bearers, grouped, split }
 }
 

@@ -14,6 +14,7 @@ use crate::discipline::DisciplineTuning;
 use crate::events::Log;
 use crate::field::Field;
 use crate::joins;
+use crate::laps::lap;
 use crate::locks;
 use crate::moving::pass::{self as moving, Given};
 use crate::orders::{pass as ordering, Coded};
@@ -62,12 +63,16 @@ pub fn step(
 ) -> Opened {
     let (tick, seed) = (rules.tick, rules.seed);
     let pursuers = order(squads, field, roster, rules, log);
+    lap("orders");
     let ground = over.as_ref().map(|o| o.ground);
     let seen = perception::see(squads, &field.columns, roster, ground);
     perception::keep(squads, roster, &seen);
+    lap("perception");
     contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
+    lap("engage: fronts");
     let shocks = (&rules.impacts, &rules.bands);
     contact::engage_edges(squads, &mut field.columns, roster, (tick, seed), shocks, log);
+    lap("engage: edges");
     let followed = match over.as_deref_mut() {
         Some(over) => {
             let listed: Vec<usize> = roster.listed.iter().map(|l| l.squad).collect();
@@ -75,11 +80,14 @@ pub fn step(
         }
         None => Vec::new(),
     };
+    lap("pathing");
     let routes = routes(squads, roster);
     let given = Given { routes: &routes, ..rules.moving };
     let ground = over.as_ref().map(|o| o.ground);
     let joiners = moving::step(squads, field, roster, ground, &given, log);
+    lap("march (squads move)");
     let joins = joins::step(squads, field, roster, &joiners, seed, tick, log);
+    lap("joins");
     Opened { pursuers, followed, seen, joins }
 }
 

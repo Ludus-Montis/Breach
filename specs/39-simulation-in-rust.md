@@ -956,6 +956,37 @@ events. After this step no battle phase runs in GDScript.
   stage at two sizes and two seeds, its tick and the events of its six timed ticks as Godot
   gives them. Equal first time. The crate's run at the defaults takes about 5 s. Outcomes
   don't change.
+- **8c-xviii split further** (2026-11-04, under the user's standing leave to split): the
+  benches are three tools with different needs. **8c-xviii** `tick_phases` timed on the crate's
+  tick (`breach_tick_phases`), and the `bench` workflow able to run a crate binary; **8c-xix**
+  `rout_bench` (FormationRout.step alone on its own set-up of many friendly formations) and
+  `native_bench`'s columns (the tick on one thread and on the pool, the bodies' parting and the
+  seek; its sync, call and write columns time the Godot boundary, which the crate doesn't
+  cross); **8c-xx** spec 38 step 2's `series`, `terrain=mixed` (its layout settled and recorded
+  in spec 38) and per-pass changed counts (`counts`) on `breach_tick_phases`.
+  **8c-xviii built** (2026-11-04): `src/laps.rs` is the tick's laps: each pass of the tick
+  ends a lap where it ends (`laps::lap(phase)`: `Play::step`'s rules, roster and store settles,
+  `tick::step`'s relisting as "roster", and each of the five passes' parts), and a lap counts
+  only inside `laps::timed` on that thread (a thread-local; otherwise it returns at once), so it
+  times nothing the simulation reads. `src/phases.rs` (`breach_native::phases`) is
+  tick_phases.gd: `settled(options, content)` its `_settled` (FormationBench.lanes, `squads`
+  lanes of `side / squads`, or its clash, `archers` a squad; the march `settle` ticks from the
+  start; the fight to its first "engaged" or CONTACT_LIMIT, then `settle` ticks, then the
+  `retreat` order queued), `timed` each phase's time over `fight` ticks, `lines` its printing
+  (the battle's ms a tick, then each phase's, largest first) and `machine` its machine line.
+  The phases are the crate's passes, named as tick_phases.gd names the GDScript passes they
+  ported where they match ("recovery" and "strays" apart, as the crate runs them; "joins",
+  "rules", "roster" and "carry: strays" its own). `src/bin/tick_phases.rs`, copied by
+  `native/build.sh` to `native/bin/breach_tick_phases`, takes tick_phases.gd's arguments, plus
+  `threaded=` and `repo=`; `copies` exits 2 (the crate's tick crosses no Godot boundary). It
+  steps an untimed battle beside the timed one and prints a WARNING if they end apart, as
+  tick_phases.gd checks its mirror. **The bench workflow:** a `tool` named `breach_<name>`
+  runs `native/bin/breach_<name>` with the same `args`, so `bench_compare.py` compares crate
+  runs as it does Godot's. **How it is held to Godot:** the timings can't be, so the set-ups
+  are: the cargo test `phases::tests::each_battle_is_settled_on_the_tick_godot_s_is_and_tells_of_as_much`
+  holds five of tick_phases.gd's `_settled` battles (side 64, width 8; the clash, two lanes,
+  archers, a retreat, the march) to Godot's tick and event counts over six ticks. Equal first
+  time. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
