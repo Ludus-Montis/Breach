@@ -48,6 +48,7 @@ pub mod ground;
 mod groups;
 mod hurts;
 mod joins;
+mod kingdom;
 mod landing;
 mod lane;
 mod laps;

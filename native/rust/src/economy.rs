@@ -17,6 +17,7 @@ mod captures;
 
 use std::collections::BTreeMap;
 
+pub(crate) use binding::{node_of, EconomyState};
 pub use captures::{Captures, Choice};
 
 /// The pools' names, in the resource bar's order.

@@ -1,6 +1,7 @@
 //! `EconomyState`, the economy held by the crate (spec 39 step 9b-ii), as Godot reads it:
 //! main.gd, the resource bar, the wave form and the capture choice. EconomySystem's and
-//! CaptureResolution's methods in one object, as main.gd held the two together.
+//! CaptureResolution's methods in one object, as main.gd held the two together. The lane's
+//! binding (`LaneState`) holds one and gives it each capture on the lane (step 9b-iii).
 
 use godot::prelude::*;
 
@@ -9,7 +10,7 @@ use crate::content::{Node, NodeType};
 
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
-struct EconomyState {
+pub(crate) struct EconomyState {
     economy: Economy,
     captures: Captures,
 }
@@ -59,12 +60,24 @@ impl EconomyState {
     /// A tick: each harvesting node adds its yield.
     #[func]
     fn on_tick_advanced(&mut self, _tick_number: i64) {
+        self.tick();
+    }
+}
+
+impl EconomyState {
+    /// Node `index` captured, `node` its fields.
+    pub(crate) fn captured(&mut self, index: i64, node: &Node) {
+        self.captures.captured(index, node);
+    }
+
+    /// A tick's harvests.
+    pub(crate) fn tick(&mut self) {
         self.captures.tick(&mut self.economy);
     }
 }
 
 /// The capture's fields of a NodeDef (its `node_type` NodeDef.NodeType's number).
-fn node_of(node: &Gd<Object>) -> Node {
+pub(crate) fn node_of(node: &Gd<Object>) -> Node {
     let field = |name: &str| node.get(name).try_to::<i64>().unwrap_or(0);
     let node_type = match field("node_type") {
         1 => NodeType::Resource,
