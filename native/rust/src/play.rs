@@ -107,9 +107,9 @@ impl Play {
             cells_a_second: TRAVEL_SCALE * CELLS,
         };
         let (climb, rules) = tick::rules::of(&given::of(&content.tuning, &at, &paces))?;
-        lap("rules");
+        lap("rules", field);
         let roster = listed(squads, field, &self.listed, self.ground.is_some());
-        lap("roster");
+        lap("roster", field);
         let ticked = match self.ground.as_mut() {
             Some((ground, cache)) => {
                 let mut over = Over { ground, cache, tuning: climb };
@@ -120,7 +120,7 @@ impl Play {
         self.listed.clone_from(&ticked.listed);
         squads.pending.clear(); // taken, or nobody was left to take them
         settle(squads, field, &self.listed);
-        lap("store settles");
+        lap("store settles", field);
         Some(ticked)
     }
 

@@ -483,6 +483,20 @@ Decision's conditions.
   `squads` above 1 the bin refuses it (exit 2). The crate's battle is held to Godot's on the same
   ground by `phases::tests::GODOT_MIXED`: the same events, and the same DigestState.state
   at ticks 130 and 400.
+- **`counts=1` built** (spec 39 step 8c-xxii, 2026-11-04) on `breach_tick_phases`, not
+  tick_phases.gd: `src/phases/counts.rs`. Each lap of the tick (`laps::lap`, which now takes
+  the field) shows the field to a watcher while `laps::watched` runs; the watcher copies the
+  unit store's columns and counts a slot as changed by the pass that just ended when any of
+  its columns (every one, named so a new column must be added) differs from the copy taken as
+  the pass began, a slot only one copy has included. The living are the slots the store holds
+  whose state is before DEAD, as the pass began. After the times, a `counts:` line, then each
+  pass in the tick's order: changed and living a lap, and the share changed. The bin counts
+  the untimed battle that steps beside the timed one, so the times are as without
+  `counts=1`, and the two still must end equal (no WARNING); the watcher's time is left out of
+  the laps in any case. The count lines end with `%`, so `bench_compare.py` reads a counted
+  run's times unchanged. `phases::counts::tests` holds the small clash's counts over three
+  ticks from contact: the seek, stamina, the parting and the walk to places change every
+  living unit, the fight 46 of 384 slot-laps, every other pass none.
 - **The three recorded `bench` runs on `main`** wait until the spec 39 chain is merged, when
   `breach_tick_phases` is on `main`.
 

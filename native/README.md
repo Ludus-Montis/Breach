@@ -264,6 +264,14 @@ times every tick from contact (`settle` is 0 unless given) until one side no lon
 before and, when every round has a series, also compares each phase's 95th and 99th by
 their medians, so the `bench` workflow needs only `series=1` in `args`.
 
+`terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
+in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
+follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
+slots it changed and the living units as it began, a lap, and the share changed. Each lap
+shows the field to a watcher (`laps::watched`), which copies the store's columns; it runs only
+under `counts=1`, on the untimed battle, so the timed one is timed as without it. The count
+lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
+
 ### Rout and native benches (`tools/rout_bench.gd`, `tools/native_bench.gd`)
 
 `native/bin/breach_rout_bench [side=1024] [squads=16] [width=16] [ticks=20]` sets up

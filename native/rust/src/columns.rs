@@ -31,7 +31,7 @@ use crate::objects::Objects;
 use crate::sheet::Sheet;
 use crate::words::Words;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Columns {
     pub position: Vec<V2>,
     pub loose_at: Vec<V2>,
