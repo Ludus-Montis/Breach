@@ -4862,13 +4862,14 @@ impl BodyField {
 
     /// FormationSimulation._fight over `roster`'s squads (`fight::step::step`): the blows
     /// and shots chosen as `fight_choose` chooses them, landed as `fight_land` lands them,
-    /// the hurts as `fight_hurts` lands them, "spat" and "hit" in the log, and each striker's
-    /// stamina spent as `stamina_strike` spends it. `ints` = [the ticks a second's strike
+    /// the hurts as `fight_hurts` lands them, "spat" and "hit" in the log, each striker's
+    /// stamina spent as `stamina_strike` spends it, then the surrender (`fight::surrender`:
+    /// "surrendered" and "destroyed" in the log). `ints` = [the ticks a second's strike
     /// takes, seed, tick, 1 if blows roll]; `floats` = [reach_contact, the front's least dot,
-    /// rout_strike_reach, stamina_blow]; `bands` as BandTuning.of_slice reads it, `tuning`
-    /// as LandingTuning.of_slice. Returns five numbers a melee blow: [the striker's squad's
-    /// index in the roster, its index in that one's living, the target's two, the damage it
-    /// dealt].
+    /// rout_strike_reach, stamina_blow, wounds_surrender]; `bands` as BandTuning.of_slice
+    /// reads it, `tuning` as LandingTuning.of_slice. Returns two numbers a unit the surrender
+    /// took, in the order they gave up: [its squad's index in the roster, its index in that
+    /// one's living].
     #[func]
     fn fight_step(
         &mut self,
@@ -4898,17 +4899,14 @@ impl BodyField {
             },
             tick: i[2],
             blow: f[3],
+            surrender: f[4],
         };
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
-        let melee =
+        let fought =
             on_ground(ground, |g| fight::step::step(squads, field, &roster.roster, &rules, g, log));
         self.edits += 1;
-        let mut out = Vec::with_capacity(5 * melee.len());
-        for blow in &melee {
-            let (s, t) = (blow.striker, blow.target);
-            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, blow.damage]);
-        }
+        let out: Vec<i64> = fought.taken.iter().flat_map(|&(n, m)| [n as i64, m as i64]).collect();
         PackedInt64Array::from(out.as_slice())
     }
 

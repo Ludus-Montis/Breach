@@ -162,7 +162,7 @@ const NONE: i64 = -1;
 /// It marches on the player's order (`manoeuvre`: FormationManoeuvre.Kind's 4).
 const ORDERED: i32 = 4;
 /// SkirmishUnit.State's DEAD, DOWNED and CARRIED: a state before DEAD is standing.
-const DEAD: i32 = 4;
+pub(crate) const DEAD: i32 = 4;
 const DOWNED: i32 = 5;
 const CARRIED: i32 = 8;
 

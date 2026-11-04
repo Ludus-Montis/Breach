@@ -156,7 +156,8 @@ static func _land(what: int, taking: Array, squads: Array, tick: int, events: Ar
 
 
 ## Routing units struck by this tick's `blows` ([striker, target, damage, ...]) that
-## surrender.
+## surrender. The tick's surrender is the fight's crate pass (`fight::surrender`, spec 39
+## step 8b5-xx); this stays for its tests till 8b5-xxi.
 static func surrender(
 	blows: Array, squads: Array, fight_seed: int, tick: int, events: Array
 ) -> void:
