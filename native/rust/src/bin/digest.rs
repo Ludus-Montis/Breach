@@ -11,7 +11,8 @@
 //! `out` and `only` are the Godot digest's; `trace` and `snapshot` are still only Godot's.
 //! `cuts` writes the snapshot tests' cuts (spec 39 step 8d, `breach_native::cuts::CUTS`) to
 //! `<dir>` instead: each one's state (`<name>.state`) and its run, tick, squads listed and
-//! each lap's print (`<name>.txt`). Its tests read them from `native/rust/cuts`.
+//! each lap's print (`<name>.txt`), and a field log's own state (`<name>.field`). Its tests
+//! read them from `native/rust/cuts`.
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
 use std::collections::HashMap;
@@ -104,7 +105,7 @@ fn main() -> ExitCode {
 
 const KNOWN: [&str; 6] = ["set", "out", "only", "threaded", "repo", "cuts"];
 
-/// Writes every cut of `CUTS` to `dir`: its state and its text.
+/// Writes every cut of `CUTS` to `dir`: its state, its text and a field log's own state.
 fn write_cuts(dir: &Path, content: &Content) -> ExitCode {
     for (label, tick) in cuts::CUTS {
         let Some((cut, prints)) =
@@ -118,6 +119,10 @@ fn write_cuts(dir: &Path, content: &Content) -> ExitCode {
             .and_then(|()| std::fs::write(dir.join(format!("{name}.state")), &cut.bytes))
             .and_then(|()| {
                 std::fs::write(dir.join(format!("{name}.txt")), cuts::written(&cut, &prints))
+            })
+            .and_then(|()| match cut.carried.is_empty() {
+                true => Ok(()),
+                false => std::fs::write(dir.join(format!("{name}.field")), &cut.carried),
             });
         if let Err(why) = wrote {
             eprintln!("breach_digest: can't write {name}: {why}");

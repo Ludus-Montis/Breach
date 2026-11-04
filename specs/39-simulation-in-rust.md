@@ -1078,6 +1078,29 @@ events. After this step no battle phase runs in GDScript.
   `UNCHANGED` names changes the state in some cut. After an intended outcome change the
   second fails, and `breach_digest cuts=native/rust/cuts` rewrites only the cuts whose
   battles changed. Outcomes don't change.
+  **8d-ii built** (2026-11-04): the field logs' cuts. A field log's cut carries FieldPlay's
+  own state beside the snapshot (`field_play::carried`, `Carried`: the squads listed, the
+  definitions coded as first met, each route's code, each wave's places filled, announced,
+  auto, route and staging, each builder's work, the reserve and the sharing's turn, hurry and
+  tending), written by bincode to `<name>.field` (binary in `.gitattributes`). What the
+  field's set-up fixes (the battle, the routes' points, the templates, the builders' kinds,
+  the kingdom's squads) isn't carried: `FieldPlay::carrying(record, carried, (tick, rolls),
+  content)` sets the field up again from its record on a scratch crate and lays the carried
+  state over it, refusing one that doesn't fit (a definition it doesn't know; the waves,
+  routes or builders' kinds counted otherwise). The commands aren't carried either: the
+  record's commands for the tick are given before it is stepped, as the digest's replay gives
+  them. `cuts::played::Played` is what a cut is taken from and stepped on, a battle's `Play`
+  or a field's FieldPlay with its record. **The field cuts** (by the same probe):
+  `field1 rtrue` at 120 (the pathing, the tick B is sent), `field2 rtrue` at 229 (the
+  withdrawal, the tick A retreats) and `field3 rtrue` at 470 (the carrying and its strays),
+  about 100 KB more. `pathing`, `scrum: withdraw`, `carry` and `carry: strays` left
+  `UNCHANGED`. A field cut's first lap is measured from itself: the field's commands,
+  builders and waves act before the tick's first lap. Cargo tests in `field_play/carried/
+  tests.rs` (a field carried and read back steps on as played on, for 140 ticks from two
+  cuts of field4; a carried state that doesn't fit is refused; red against a `// RED-STUB`
+  that laid nothing over the set-up), and `cuts/tests.rs`' resumed test now covers two field
+  cuts (red against a stub that didn't lay the carried state). The battles' cuts didn't
+  change. Outcomes don't change. Step 8 is done.
 
 ### Step 9, the rest of `sim/`
 
@@ -3252,7 +3275,8 @@ Decision's conditions.
   "Built", step 1.
 - ~~The snapshot's on-disk format and where snapshots live (step 1, used in step 8).~~ The
   format is settled in "Built", step 1. Which snapshots are committed, and their size, is
-  step 8's. Settled in "Built", 8d-i: eight cuts from the digest's battles, about 390 KB.
+  step 8's. Settled in "Built", 8d-i: eight cuts from the digest's battles, about 390 KB; 8d-ii
+  added three from the field logs, about 100 KB.
 - A chunk's boundary may move when a dependency demands it. The session records the move here.
 - **Step 4c's boundary moved** (2026-10-24): the squads' `pursuit` and `withdraw` records,
   and the order handling around them (a retreat's start, a pursuit's giving up, going back
