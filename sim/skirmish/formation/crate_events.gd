@@ -7,7 +7,8 @@ extends RefCounted
 ## field naming an order, a band or how a blow landed is decoded to its name, a faction, a
 ## staged squad's "then" or a damage type from the lexicon, a flank or "alone" to a bool, a
 ## heading from its float's bits, a "definition" to the Resource the unit store codes it as
-## (given the store); a "joined" of -1 (none) is left out.
+## (given the store); a "joined" of -1 (none) is left out; a list ("passed") is how many,
+## then each.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
@@ -17,6 +18,8 @@ const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 const WORDS := ["then", "damage_type"]
 ## The fields left out when -1 (none).
 const UNSET := ["joined"]
+## The fields that are lists (the crate's `events::LISTS`).
+const LISTS := ["passed"]
 
 static var _kinds := []
 
@@ -41,6 +44,9 @@ static func taken(field: Object, store: UnitStore = null) -> Array:
 		for name: String in kind[1]:
 			if name == "definition":
 				event[name] = store.definition_of(flat[at])
+			elif name in LISTS:
+				event[name] = Array(flat.slice(at + 1, at + 1 + flat[at]))
+				at += flat[at]
 			elif not (name in UNSET and flat[at] == -1):
 				event[name] = words[flat[at]] if name in WORDS else _decoded(name, flat[at])
 			at += 1

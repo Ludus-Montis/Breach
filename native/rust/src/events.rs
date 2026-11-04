@@ -5,7 +5,8 @@
 //! (`event_kinds`) and decodes each into the same dictionary it built before (CrateEvents):
 //! "type", "tick", "squad", "faction", then the fields; a field it knows as a word (an
 //! order, a band, a word coded in the lexicon) it names from its number, and a heading
-//! (degrees) is its float's bits. Kinds are added as their passes move here.
+//! (degrees) is its float's bits. A field named in `LISTS` is a list: how many, then each
+//! (`Log::squad_listed`). Kinds are added as their passes move here.
 
 use crate::squads::Squads;
 
@@ -56,6 +57,7 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("borne", &["unit", "body"]),
     ("split", &["from"]),
     ("rejoined", &["unit"]),
+    ("swapped", &["unit", "passed"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -102,6 +104,10 @@ pub const ROUTED: usize = 41;
 pub const BORNE: usize = 42;
 pub const SPLIT: usize = 43;
 pub const REJOINED: usize = 44;
+pub const SWAPPED: usize = 45;
+
+/// The fields that are lists: how many, then each ("swapped"'s units passed).
+pub const LISTS: &[&str] = &["passed"];
 
 /// The kinds told of a unit, not a squad: their third number is the unit's id, and their
 /// faction its own ("hit").
@@ -120,6 +126,25 @@ impl Log {
         debug_assert_eq!(values.len(), KINDS[kind].1.len());
         self.flat.extend([kind as i64, tick, squads.id[s], i64::from(squads.faction[s])]);
         self.flat.extend_from_slice(values);
+    }
+
+    /// An event of `kind` on `tick` for the squad in slot `s`, whose last field is a list
+    /// (one of `LISTS`): the other fields' `values`, in order, then how many in `list` and
+    /// each.
+    pub fn squad_listed(
+        &mut self,
+        kind: usize,
+        (tick, squads, s): (i64, &Squads, usize),
+        values: &[i64],
+        list: &[i64],
+    ) {
+        let fields = KINDS[kind].1;
+        debug_assert_eq!(values.len() + 1, fields.len());
+        debug_assert!(fields.last().is_some_and(|last| LISTS.contains(last)));
+        self.flat.extend([kind as i64, tick, squads.id[s], i64::from(squads.faction[s])]);
+        self.flat.extend_from_slice(values);
+        self.flat.push(list.len() as i64);
+        self.flat.extend_from_slice(list);
     }
 
     /// An event of `kind` (one of `UNIT_LED`) on `tick` for the unit `unit` of `faction` (a
@@ -159,6 +184,15 @@ mod tests {
         let mut log = Log::default();
         log.unit(HIT, 4, 101, 2, &[200, 7, 0, 3, 13]);
         assert_eq!(log.take(), vec![HIT as i64, 4, 101, 2, 200, 7, 0, 3, 13]);
+    }
+
+    #[test]
+    fn a_listed_field_is_how_many_then_each() {
+        let mut squads = Squads::default();
+        squads.open(7);
+        let mut log = Log::default();
+        log.squad_listed(SWAPPED, (4, &squads, 0), &[101], &[102, 103]);
+        assert_eq!(log.take(), vec![SWAPPED as i64, 4, 7, 0, 101, 2, 102, 103]);
     }
 
     #[test]
