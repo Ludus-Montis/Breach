@@ -256,6 +256,14 @@ the GDScript passes they ported where they match. A second battle steps untimed 
 timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
 copies no columns across the Godot boundary.
 
+`series=1 [limit=600]` (spec 38 step 2, built in spec 39 step 8c-xx, `src/phases/series.rs`)
+times every tick from contact (`settle` is 0 unless given) until one side no longer stands or
+`limit` ticks, instead of `fight` ticks. The phase lines then carry the series' means, and a
+`series:` line follows with the tick's and each phase's mean, 95th and 99th percentiles
+(nearest rank), worst and the tick that was worst. `bench_compare.py` reads the means as
+before and, when every round has a series, also compares each phase's 95th and 99th by
+their medians, so the `bench` workflow needs only `series=1` in `args`.
+
 ### Rout and native benches (`tools/rout_bench.gd`, `tools/native_bench.gd`)
 
 `native/bin/breach_rout_bench [side=1024] [squads=16] [width=16] [ticks=20]` sets up
@@ -490,7 +498,8 @@ step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
 `src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
 `native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
 8c-xvii), and tick_phases timed on the crate's tick, `native/bin/breach_tick_phases[.exe]`
-(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii), and
+(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii;
+`src/phases/series.rs`, step 8c-xx), and
 rout_bench and native_bench, `native/bin/breach_rout_bench[.exe]` and
 `native/bin/breach_native_bench[.exe]` (`src/bin/rout_bench.rs`, `src/rout_bench.rs`,
 `src/bin/native_bench.rs`, `src/native_bench.rs`, spec 39 step 8c-xix). They are git-ignored, as

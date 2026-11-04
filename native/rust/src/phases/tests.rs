@@ -1,7 +1,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 
-fn content() -> Content {
+pub(crate) fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
 }
 
@@ -11,7 +11,7 @@ fn small() -> Options {
 
 /// The phases a tick laps, in the order first lapped: the crate's passes, as tick.rs and its
 /// five passes run them.
-const PHASES: &[&str] = &[
+pub(crate) const PHASES: &[&str] = &[
     "rules",
     "roster",
     "orders",
@@ -77,7 +77,7 @@ fn the_lines_put_the_battle_first_and_the_phases_largest_first() {
         "  c                                    2.00",
         "  a                                    1.00",
     ];
-    assert_eq!(lines(&options, &spent), expected);
+    assert_eq!(lines(&options, 2, &spent), expected);
 }
 
 /// tools/tick_phases.gd's `_settled` in Godot (side 64, width 8): each case's settle, squads,

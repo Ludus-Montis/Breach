@@ -1,9 +1,9 @@
 """Tests for bench_compare.py: tick_phases outputs from alternating rounds are read per
 phase, and each phase's medians, change and spread are compared, marked where the two
-sides' ranges don't overlap."""
+sides' ranges don't overlap. A `series=1` run's percentiles are read and compared too."""
 import unittest
 
-from bench_compare import compare, phases, report
+from bench_compare import compare, compare_spreads, phases, report, report_spreads, spreads
 
 RUN = """machine: AMD EPYC 7763 64-Core Processor, 4 threads, Linux
 rust, 4096 a side, 32 wide: {tick} ms a tick
@@ -16,8 +16,23 @@ copies a tick (column + commit: calls, slots; value, put):
 """
 
 
+SERIES = """machine: AMD EPYC 7763 64-Core Processor, 4 threads, Linux
+1024 a side, 32 wide: {tick} ms a tick
+  deaths (bury)                        {deaths}
+  morale                                   0.40
+series: 50 ticks from tick 212 (ms)       mean     95th     99th    worst  at tick
+  tick                                 {tick}    {p95}     9.00    11.00      230
+  deaths (bury)                        {deaths}     4.00     5.00     6.50      214
+  morale                                   0.40     0.60     0.70     0.90      250
+"""
+
+
 def run(tick, deaths, seek):
     return RUN.format(tick=tick, deaths=deaths, seek=seek)
+
+
+def series(tick, deaths, p95):
+    return SERIES.format(tick=tick, deaths=deaths, p95=p95)
 
 
 class BenchCompareTest(unittest.TestCase):
@@ -69,6 +84,38 @@ class BenchCompareTest(unittest.TestCase):
         self.assertTrue(deaths.rstrip().endswith("*"), deaths)
         self.assertFalse(seek.rstrip().endswith("*"), seek)
         self.assertIn("2 rounds", lines[0])
+
+    def test_a_series_run_s_means_are_its_phases(self):
+        read = phases(series("3.10", "2.25", "7.00"))
+        self.assertEqual(read, {"tick": 3.1, "deaths (bury)": 2.25, "morale": 0.4})
+
+    def test_a_series_run_s_percentiles_are_read_per_phase(self):
+        read = spreads(series("3.10", "2.25", "7.00"))
+        self.assertEqual(read, {
+            "tick": (7.0, 9.0),
+            "deaths (bury)": (4.0, 5.0),
+            "morale": (0.6, 0.7),
+        })
+
+    def test_a_run_without_a_series_has_no_percentiles(self):
+        self.assertEqual(spreads(run("314.3", "25.18", "31.65")), {})
+
+    def test_each_phase_s_percentiles_compare_by_their_medians(self):
+        head = [spreads(series("3.10", "2.25", p)) for p in ("7.00", "6.00", "8.00")]
+        base = [spreads(series("3.10", "2.25", p)) for p in ("9.00", "9.50", "8.50")]
+        rows = {row["phase"]: row for row in compare_spreads(head, base)}
+        self.assertEqual(rows["tick"]["head"], (7.0, 9.0))
+        self.assertEqual(rows["tick"]["base"], (9.0, 9.0))
+        self.assertEqual(rows["morale"]["head"], (0.6, 0.7))
+        self.assertEqual([row["phase"] for row in compare_spreads(head, base)][0], "tick")
+
+    def test_the_percentiles_report_shows_both_sides(self):
+        head = [spreads(series("3.10", "2.25", "7.00"))]
+        base = [spreads(series("3.10", "2.25", "9.00"))]
+        lines = report_spreads(compare_spreads(head, base))
+        tick = next(line for line in lines if line.lstrip().startswith("tick"))
+        self.assertEqual(tick.split()[1:], ["9.00", "7.00", "9.00", "9.00"])
+        self.assertIn("95th", lines[0])
 
 
 if __name__ == "__main__":
