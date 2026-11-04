@@ -256,6 +256,22 @@ the GDScript passes they ported where they match. A second battle steps untimed 
 timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
 copies no columns across the Godot boundary.
 
+### Rout and native benches (`tools/rout_bench.gd`, `tools/native_bench.gd`)
+
+`native/bin/breach_rout_bench [side=1024] [squads=16] [width=16] [ticks=20]` sets up
+rout_bench.gd's battle in the crate (the player's side in `squads` formations along one long
+lane, the front half breaking and routing back through the rear half, a kingdom formation
+beyond) and times the rout's pass alone, as FormationRout.step runs it, printing
+rout_bench.gd's line (spec 39 step 8c-xix). `native/bin/breach_native_bench
+[engines=rust,rust_threads] [sizes=160:10,512:32,1024:32] [runs=3] [settle=10] [fight=10]
+[seed=1]` brings FormationBench's clash to its fight as native_bench.gd does and times the
+crate's tick on one thread (`rust`) and on the pool (`rust_threads`), with the bodies' parting
+and the scrum's seek inside it. It prints `tick`, `rest`, `bodies` and `seek`: native_bench.gd's
+`b.sync`, `b.call` and `b.write` time the Godot boundary, which the crate's tick doesn't cross,
+and its `b.core` is the crate's whole parting. Cargo tests hold both battles to Godot's events
+and digest state; the `bench` workflow runs either as `tool=breach_rout_bench` or
+`tool=breach_native_bench`.
+
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
 
@@ -474,7 +490,10 @@ step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
 `src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
 `native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
 8c-xvii), and tick_phases timed on the crate's tick, `native/bin/breach_tick_phases[.exe]`
-(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii). They are git-ignored, as
+(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii), and
+rout_bench and native_bench, `native/bin/breach_rout_bench[.exe]` and
+`native/bin/breach_native_bench[.exe]` (`src/bin/rout_bench.rs`, `src/rout_bench.rs`,
+`src/bin/native_bench.rs`, `src/native_bench.rs`, spec 39 step 8c-xix). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it

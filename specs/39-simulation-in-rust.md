@@ -987,6 +987,27 @@ events. After this step no battle phase runs in GDScript.
   holds five of tick_phases.gd's `_settled` battles (side 64, width 8; the clash, two lanes,
   archers, a retreat, the march) to Godot's tick and event counts over six ticks. Equal first
   time. Outcomes don't change.
+  **8c-xix built** (2026-11-04): `src/rout_bench.rs` (`breach_native::rout_bench`) is
+  rout_bench.gd: `set_up(options, content)` its `_field` (the player's `side` grems in
+  `squads` formations `width` wide along a lane `ceil((squads * gap + 80) / CELLS)` tiles long,
+  each front set through StoredSquad's setter, HOLDING, the front half at morale 0; `width * 2`
+  militia beyond; all stood by `march::sync` placing), `Routs::step(tick)` FormationRout.step
+  (its gate, a roster of the living as CrateRoster.of lists it via `play::listed` and
+  `tick::relisted`, then `rout::pass::step` on the open ground, seed 1; the events it told of),
+  `line` its printing. `src/native_bench.rs` (`breach_native::native_bench`) is
+  native_bench.gd: `settled` the clash brought to its fight by `phases::settled`, `measure`
+  `fight` ticks timed with the parting's and the seek's microseconds from the tick's own
+  results (`Ticked::ended.parting_usec`, `Ticked::seek_usec`), `pick`, `heading`, `line`. Its
+  columns are `tick`, `rest`, `bodies` and `seek`: native_bench.gd's `b.sync`, `b.call` and
+  `b.write` time the Godot boundary, which the crate's tick doesn't cross, and `b.core` is the
+  crate's whole parting, so they are left out. `src/bin/rout_bench.rs` and
+  `src/bin/native_bench.rs`, copied by `native/build.sh` to `native/bin/breach_rout_bench` and
+  `native/bin/breach_native_bench`, take the tools' arguments plus `repo=`; the `bench`
+  workflow runs them as any `breach_<name>`. **How they are held to Godot:** cargo tests hold
+  three rout battles' events each tick, routing count and final digest state (SHA-256), and two
+  measured clashes' final tick and digest state on one thread and on the pool, to a throwaway
+  Godot probe's. Equal first time; the default rout line's counts (223 events, 9 routing) are
+  Godot's too. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
