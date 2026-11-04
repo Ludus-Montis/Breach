@@ -102,6 +102,7 @@ mod stamina;
 mod stance;
 mod steer;
 mod strays;
+pub mod structure;
 mod swaps;
 mod taking;
 mod tick;

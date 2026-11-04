@@ -1,6 +1,6 @@
 // The designer's load_paths.js against the shared load-path cases (spec 24, round 2): the
-// same cases (tests/fixtures/structure/load_cases.json) run against Godot's LoadPaths in
-// tests/sim/structure/test_load_cases.gd, so the designer's overlay and the game apply one
+// same cases (tests/fixtures/structure/load_cases.json) run against the crate's load paths
+// in native/rust/src/structure/tests.rs, so the designer's overlay and the game apply one
 // rule. Run: node --test "tools/designer/test/*.test.js"
 'use strict';
 const test = require('node:test');
