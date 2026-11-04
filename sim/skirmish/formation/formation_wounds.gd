@@ -8,7 +8,8 @@ extends RefCounted
 ## formation's leader can send a messenger (its "messenger" trait, one a level) lets it go,
 ## to carry word home - a morale blow to every standing formation of its side. A routing
 ## unit struck may surrender in place, by a seeded chance from its want of courage (none
-## for one with "never_surrenders"). What the downed come to, and regeneration, are
+## for one with "never_surrenders"): the fight's crate pass (`fight/surrender.rs`, spec 39
+## step 8b5-xx). What the downed come to, and regeneration, are
 ## FormationRecovery's. Decided from one snapshot, then applied (Decision 97). The takings
 ## and the rolls are the crate's (`wounds.rs`, spec 39 step 6b): this hands it the squads'
 ## living and downed with what of each it doesn't hold, and lands what it decides - the
@@ -23,7 +24,6 @@ const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
@@ -153,56 +153,3 @@ static func _land(what: int, taking: Array, squads: Array, tick: int, events: Ar
 		Taken.FINISHED:
 			UnitState.put(squad, body, SkirmishUnit.State.DEAD)
 			events.append(FormationEvents.unit_event("finished", tick, squad, body))
-
-
-## Routing units struck by this tick's `blows` ([striker, target, damage, ...]) that
-## surrender. The tick's surrender is the fight's crate pass (`fight::surrender`, spec 39
-## step 8b5-xx); this stays for its tests till 8b5-xxi.
-static func surrender(
-	blows: Array, squads: Array, fight_seed: int, tick: int, events: Array
-) -> void:
-	var routing := {}  # unit id -> its squad
-	for squad in squads:
-		if squad.state == SkirmishSquad.State.ROUTING:
-			for unit in squad.living():
-				routing[unit.id] = squad
-	if routing.is_empty():
-		return
-	var caught := []
-	var slots := PackedInt32Array()
-	var ids := PackedInt64Array()
-	var courages := PackedFloat64Array()
-	for blow in blows:
-		var unit: SkirmishUnit = blow[1]
-		if not routing.has(unit.id) or blow[2] <= 0 or not unit.is_alive():
-			continue
-		if unit.traits.get("never_surrenders", 0) > 0:
-			continue
-		caught.append(unit)
-		slots.append(unit.slot)
-		ids.append(unit.id)
-		courages.append(unit.courage)
-	if caught.is_empty():
-		return
-	var columns: UnitColumns = squads[0].store.columns
-	var field: Object = ColumnsLent.field(columns)
-	var chance := BattleTuning.current().wounds_surrender
-	var gives: PackedByteArray = ColumnsLent.all(
-		columns,
-		func(): return field.wounds_surrenders(slots, ids, courages, tick, fight_seed, chance)
-	)
-	for index in caught.size():
-		var unit: SkirmishUnit = caught[index]
-		if gives[index] == 0 or not unit.is_alive():  # struck twice: it gave up once
-			continue
-		UnitState.put(routing[unit.id], unit, SkirmishUnit.State.TAKEN)
-		events.append(FormationEvents.unit_event("surrendered", tick, routing[unit.id], unit))
-		_retire(routing[unit.id], squads, tick, events)
-
-
-## A squad left with no one standing is destroyed, freeing whoever fought it.
-static func _retire(squad: SkirmishSquad, squads: Array, tick: int, events: Array) -> void:
-	if squad.is_destroyed() and squad.state != SkirmishSquad.State.DESTROYED:
-		squad.state = SkirmishSquad.State.DESTROYED
-		FormationLocks.release(squad, squads)
-		events.append(FormationEvents.squad_event("destroyed", tick, squad))

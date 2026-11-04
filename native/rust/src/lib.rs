@@ -121,9 +121,6 @@ struct BodyField {
     edits: i64,
     /// The events the passes have built and GDScript hasn't yet taken (spec 39 step 8b5-v).
     events: events::Log,
-    /// Whether this tick's `fight_choose` synced the field to the scrum, for `fight_land` to
-    /// count on (it takes it).
-    fight_synced: bool,
 }
 
 #[godot_api]
@@ -4177,19 +4174,6 @@ impl BodyField {
         stamina::step(&self.squads, &mut self.field.columns, &listed, seconds, &tuning);
     }
 
-    /// FormationStamina.strike: `blow` stamina times each striker's tiring spent, in the
-    /// blows' order (`slots` and `tirings`, one a blow).
-    #[func]
-    fn stamina_strike(&mut self, slots: PackedInt32Array, tirings: PackedFloat64Array, blow: f64) {
-        let strikers: Vec<(usize, f64)> = slots
-            .as_slice()
-            .iter()
-            .zip(tirings.as_slice())
-            .map(|(&slot, &tiring)| (slot as usize, tiring))
-            .collect();
-        stamina::strike(&mut self.field.columns, &strikers, blow);
-    }
-
     /// FormationStamina.squad_gives_up: its living units' store `slots` and most stamina.
     #[func]
     fn stamina_gives_up(
@@ -4302,29 +4286,6 @@ impl BodyField {
             out.extend([what, body.0 as i64, body.1 as i64, other.0 as i64, other.1 as i64]);
         }
         PackedInt64Array::from(out.as_slice())
-    }
-
-    /// FormationWounds.surrender's rolls: which struck routers (`slots`, `ids` and `courages`,
-    /// one a unit; still standing, none "never_surrenders") surrender, 1 or 0 each.
-    #[func]
-    fn wounds_surrenders(
-        &self,
-        slots: PackedInt32Array,
-        ids: PackedInt64Array,
-        courages: PackedFloat64Array,
-        tick: i64,
-        seed: i64,
-        chance: f64,
-    ) -> PackedByteArray {
-        let caught: Vec<wounds::Caught> = (0..slots.len())
-            .map(|n| wounds::Caught {
-                id: ids.as_slice()[n],
-                slot: slots.as_slice()[n] as usize,
-                courage: courages.as_slice()[n],
-            })
-            .collect();
-        let taken = wounds::surrenders(&self.field.columns, &caught, tick, seed, chance);
-        taken.iter().map(|&t| t as u8).collect()
     }
 
     /// FormationRecovery.step: one tick of `seconds`. `squads`: two numbers a squad in the
@@ -4766,104 +4727,16 @@ impl BodyField {
     }
 }
 
-/// The ranged picks and the blows' landing (spec 39 step 8a1).
+/// The fight as one pass (spec 39 steps 8a1 and 8b5-xix).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationMelee.blows over `roster`'s squads (`fight::choose`): every living unit's
-    /// target cleared, then the scrum's blows (the field synced to the scrum if some squad
-    /// may strike), the blows on routers and the shots, each striker's target and cooldown
-    /// set. `ints` = [the ticks a second's strike takes, seed]; `floats` = [reach_contact,
-    /// the front's least dot (ScrumReach.in_front), rout_strike_reach]; `bands` as
-    /// BandTuning.of_slice reads it. Returns [1 if the field was synced, how many melee
-    /// blows, then six numbers a blow: the striker's squad's index in the roster, its index
-    /// in that one's living, the target's two, its damage, 1 if from a flank; then five a
-    /// shot: the shooter's two, the target's two, its damage].
-    #[func]
-    fn fight_choose(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        ints: PackedInt64Array,
-        floats: PackedFloat64Array,
-        bands: PackedInt64Array,
-    ) -> PackedInt64Array {
-        let (i, f) = (ints.as_slice(), floats.as_slice());
-        let rules = fight::Rules {
-            interval: i[0],
-            seed: i[1],
-            reach: f[0],
-            front: f[1],
-            rout_reach: f[2],
-            bands: bands::BandTuning::of_slice(bands.as_slice()),
-        };
-        let roster = roster.bind();
-        let chosen = fight::choose(&mut self.squads, &mut self.field, &roster.roster, &rules);
-        self.fight_synced = chosen.synced;
-        self.edits += 1;
-        let mut out = vec![chosen.synced as i64, chosen.melee.len() as i64];
-        for blow in &chosen.melee {
-            let (s, t) = (blow.striker, blow.target);
-            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, blow.damage]);
-            out.push(blow.flank as i64);
-        }
-        for shot in &chosen.shots {
-            let (s, t) = (shot.striker, shot.target);
-            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, shot.damage]);
-        }
-        PackedInt64Array::from(out.as_slice())
-    }
-
-    /// BlowLanding.land over `roster`'s squads (`fight::land`): each unit's arms read from
-    /// its sheet and words; with rolls, each striker's formation's morale band and the foes
-    /// pressing each target counted on the field as `fight_choose` synced it this tick, or
-    /// synced now. `blows`, five a blow: [the striker's store slot, the target's, its damage,
-    /// 1 if a shot, 1 if from a flank]. `rolls` [battle seed, tick], or empty for none;
-    /// `tuning` as LandingTuning.of_slice reads it; `reach` reach_contact; `bands` as
-    /// BandTuning.of_slice reads it. Returns two numbers a blow: [the damage it deals, how it
-    /// landed].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn fight_land(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        blows: PackedInt64Array,
-        rolls: PackedInt64Array,
-        tuning: PackedFloat64Array,
-        reach: f64,
-        bands: PackedInt64Array,
-        ground: Option<Gd<TerrainGround>>,
-    ) -> PackedInt64Array {
-        let (rows, _) = blows.as_slice().as_chunks::<5>();
-        let struck: Vec<fight::land::Struck> = rows
-            .iter()
-            .map(|b| fight::land::Struck {
-                striker: b[0] as usize,
-                target: b[1] as usize,
-                damage: b[2],
-                ranged: b[3] != 0,
-                flank: b[4] != 0,
-            })
-            .collect();
-        let rules = fight::land::Rules {
-            tuning: landing::LandingTuning::of_slice(tuning.as_slice()),
-            rolls: (rolls.len() == 2).then(|| (rolls[0], rolls[1])),
-            reach,
-            bands: bands::BandTuning::of_slice(bands.as_slice()),
-        };
-        let synced = std::mem::take(&mut self.fight_synced);
-        let roster = roster.bind();
-        let (squads, field) = (&mut self.squads, &mut self.field);
-        let out = on_ground(ground, |g| {
-            fight::land::land(squads, field, &roster.roster, &struck, &rules, synced, g)
-        });
-        let flat: Vec<i64> =
-            out.iter().flat_map(|&(dealt, landed)| [dealt, landed as i64]).collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// FormationSimulation._fight over `roster`'s squads (`fight::step::step`): the blows
-    /// and shots chosen as `fight_choose` chooses them, landed as `fight_land` lands them,
-    /// the hurts as `fight_hurts` lands them, "spat" and "hit" in the log, each striker's
-    /// stamina spent as `stamina_strike` spends it, then the surrender (`fight::surrender`:
+    /// FormationSimulation._fight over `roster`'s squads (`fight::step::step`): every living
+    /// unit's target cleared, then the blows and shots chosen (`fight::choose`: the field
+    /// synced to the scrum if some squad may strike), each striker's target and cooldown set;
+    /// each landed (`fight::land`: each unit's arms from its sheet and words, with rolls its
+    /// band and the foes pressing each target), the hurts (`hurts::land`, the fallen on the
+    /// fell queue), "spat" and "hit" in the log, each striker's stamina spent, then the
+    /// surrender (`fight::surrender`:
     /// "surrendered" and "destroyed" in the log). `ints` = [the ticks a second's strike
     /// takes, seed, tick, 1 if blows roll]; `floats` = [reach_contact, the front's least dot,
     /// rout_strike_reach, stamina_blow, wounds_surrender]; `bands` as BandTuning.of_slice
@@ -4908,23 +4781,5 @@ impl BodyField {
         self.edits += 1;
         let out: Vec<i64> = fought.taken.iter().flat_map(|&(n, m)| [n as i64, m as i64]).collect();
         PackedInt64Array::from(out.as_slice())
-    }
-
-    /// FormationSimulation._fight's hurts (`hurts::land`), three numbers a hurt in the order
-    /// landed: [its target's store slot, its id, the damage it dealt]. The fallen go on the
-    /// fell queue. Returns each one's target's hp after it.
-    #[func]
-    fn fight_hurts(&mut self, hurts: PackedInt64Array) -> PackedInt32Array {
-        let (rows, _) = hurts.as_slice().as_chunks::<3>();
-        let hurts: Vec<hurts::Hurt> = rows
-            .iter()
-            .map(|h| hurts::Hurt { slot: h[0] as usize, id: h[1], damage: h[2] })
-            .collect();
-        let mut fell = vec![];
-        let left = hurts::land(&mut self.field.columns, &hurts, &mut fell);
-        for id in fell {
-            self.field.fell(id);
-        }
-        PackedInt32Array::from(left.as_slice())
     }
 }
