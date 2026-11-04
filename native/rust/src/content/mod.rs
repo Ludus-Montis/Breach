@@ -28,7 +28,7 @@ use serde::Serialize;
 
 pub use items::{Armour, Item, Weapon};
 pub use map::{
-    Bridge, Channel, Faction, FactionRelation, GarrisonUnit, Lane, LossGroup, LossRule, Map,
+    Bridge, Cell3, Channel, Faction, FactionRelation, GarrisonUnit, Lane, LossGroup, LossRule, Map,
     MapEdge, MapLayout, Node, NodeType, ResourceType, RoadSegment, Route, Side, Stance,
     StructureFace, StructurePlan, Subnode, Tile,
 };

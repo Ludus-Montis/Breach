@@ -1,7 +1,7 @@
 // Load paths through a structure plan (Decisions 61, 65, spec 24), for the designer's
-// live load overlay. This is the same rule as sim/structure/load_paths.gd and
-// structure_supports.gd, line for line; both run the shared cases in
-// tests/fixtures/structure/load_cases.json, so they cannot drift apart.
+// live load overlay. This is the same rule as the crate's `structure` module
+// (native/rust/src/structure.rs and structure/supports.rs), line for line; both run the
+// shared cases in tests/fixtures/structure/load_cases.json, so they cannot drift apart.
 //
 // A plan: { solid_cells: {"x,y,level": material}, faces: [{x, y, level, side, material,
 // thickness}] (side: north, south, east, west or floor; thickness in eighths),

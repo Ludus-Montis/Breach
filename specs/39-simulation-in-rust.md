@@ -1107,6 +1107,23 @@ events. After this step no battle phase runs in GDScript.
 The lanes, the economy, structures, the clock and commands. After it, `sim/` holds no GDScript,
 and `content/definitions/` and `content/import/` keep only what presentation reads.
 
+- **Split** (2026-11-04, under the user's standing leave to split), on its survey (`sim/` still
+  holds 144 GDScript files, about 11,400 lines: some 1,360 outside the skirmish, the rest the
+  skirmish's tick glue, its views of the crate's squads and units, and its GDScript trials and
+  bench): **9a** the structures' load paths (LoadPaths, StructureSupports), pure, read in the
+  game by nothing but their tests, and the designer's `load_paths.js` their twin; **9b** the
+  lane and the strategy around it (LaneSimulation, CombatResolver, TaskForceDispatch,
+  SuspicionSystem, ScriptedBeatWatcher, PlayerRoster, EconomySystem, CaptureResolution) held
+  by the crate, `main.gd` and presentation reading it through the binding; **9c** the clocks
+  and the command queue (SimulationClock, SkirmishClock, CommandQueue), which pace frames,
+  hold Godot callables and emit `SimEvents` (its session surveys whether each ports or is
+  presentation's, and asks the user where the spec is silent); **9d** the skirmish's Godot
+  side: FormationSimulation and FormationField one binding over the crate's own tick
+  (`Play`, `FieldPlay`), the tick's glue, the views (SkirmishSquad, SkirmishUnit, UnitView
+  and the rest) and the GDScript trials and bench retired, presentation reading the crate;
+  **9e** `content/definitions/` and `content/import/` cut to what presentation reads. Each is
+  an identical port; a part may split again on its own survey. 9e's PR closes the step.
+
 ### Step 10, threading, then slot packing (design first)
 
 Moved from spec 38 step 5 on 2026-10-22. It needs step 8, when the whole tick runs in Rust and
@@ -3274,6 +3291,33 @@ Decision's conditions.
   struck in the duel is TAKEN in GDScript's copy as in the crate, and "surrendered" and
   "destroyed" come after "hit" (red with the GDScript mirror stubbed, then green).
 - **After it**, 8b5-xxi: the pieces left only to tests retired.
+
+### Step 9a, the structures' load paths in the crate
+
+- **In the crate** (`src/structure.rs`, `breach_native::structure`): `solve(plan, library,
+  bearing) -> Solved` (each element's and ground column's load by key, and the keys that
+  failed, in the order found) and `settle(plan, library, bearing)` (every element that falls
+  as each failure brings down what it held; the plan left as it was), over the schema's
+  `StructurePlan` and `TerrainLibrary`. `structure/supports.rs` is StructureSupports: the
+  elements, what each rests on, its neighbours of its kind, where a load bears, and the
+  ground where it isn't dug or is filled with a solid. A `Bearing` is a default with some
+  columns of their own (`Bearing::every(n)` for one number). Keys are GDScript's strings
+  ("cell:x,y,level", "face:x,y,level,side", "ground:x,y"), so every sort is the same. The
+  plan's keyed lists are read as GDScript's dictionaries held them: a cell drawn twice is one
+  element where it was first drawn, with its last drawing.
+- **Gone:** `sim/structure/` (LoadPaths, StructureSupports) and their gdUnit tests
+  (`test_load_paths.gd`, `test_load_cases.gd`). Nothing in the game called them.
+  `content/definitions/`' structure plans and faces stay for the import till 9e.
+- **Identical:** the same loads and failures in the same order. The proof is the shared
+  cases (`tests/fixtures/structure/load_cases.json`, 13 cases), which now run in cargo and,
+  unchanged, against the designer's `load_paths.js`. No digest battle has a structure, so
+  outcomes don't change.
+- **Tests:** cargo `structure/tests.rs`: the six former gdUnit scenarios (a wall stands; it
+  bridges a dug gap; a ballista on a roof brings the walls down; a floor beyond its span
+  falls; the ground's bearing limits a stone tower; the failure cascades when settled), a
+  cell drawn twice, and every shared case, red against a `// RED-STUB` that solved nothing,
+  then green.
+- **After it**, 9b: the lane and the strategy around it.
 
 ## Open, for the implementing session to settle and record here
 
