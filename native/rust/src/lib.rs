@@ -24,6 +24,7 @@ pub mod designer;
 mod det_math;
 mod det_pow;
 mod detours;
+mod digest;
 mod discipline;
 mod ending;
 mod engage;
@@ -327,6 +328,15 @@ impl BodyField {
     #[func]
     fn snapshot(&self, tick: i64, seed: i64) -> PackedByteArray {
         PackedByteArray::from(snapshot::write(tick, seed, &self.field, &self.squads).as_slice())
+    }
+
+    /// The digest's state of the squads in `slots` (the battle's listing, in its order): the
+    /// bytes Godot's `var_to_bytes` gives DigestState.state (spec 39 step 8c-xi).
+    #[func]
+    fn digest_state(&self, slots: PackedInt64Array) -> PackedByteArray {
+        let listed: Vec<usize> = slots.as_slice().iter().map(|&s| s as usize).collect();
+        let state = digest::state::state(&self.squads, &self.field, &listed);
+        PackedByteArray::from(state.bytes().as_slice())
     }
 
     /// Squads the squad store holds.
