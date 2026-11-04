@@ -8,8 +8,6 @@ extends GdUnitTestSuite
 
 const SuspicionSystem = preload("res://sim/suspicion_system.gd")
 const TaskForceDispatch = preload("res://sim/task_force_dispatch.gd")
-const LaneSimulation = preload("res://sim/lane_simulation.gd")
-const CombatResolver = preload("res://sim/combat_resolver.gd")
 const NodeDef = preload("res://content/definitions/node_def.gd")
 
 
@@ -20,8 +18,15 @@ func _nodes() -> Array[NodeDef]:
 	return nodes
 
 
+## A lane of the crate's (`LaneState`) over `_nodes()`.
+func _lane() -> Object:
+	var lane: Object = NativeLibrary.made("LaneState")
+	lane.start(_nodes())
+	return lane
+
+
 func test_detection_spike_to_mobilized_dispatches_and_defeat_consumes_the_hero_party() -> void:
-	var lane := LaneSimulation.new(_nodes())
+	var lane := _lane()
 	var suspicion := SuspicionSystem.new([25, 50, 75, 90], 0)
 	var dispatch := TaskForceDispatch.new(
 		lane, 3, -1, {SuspicionSystem.Tier.MOBILIZED: {"hp": 70, "dmg": 18}}
@@ -37,11 +42,11 @@ func test_detection_spike_to_mobilized_dispatches_and_defeat_consumes_the_hero_p
 
 	# Beat 5: the player's horde meets the Hero Party and defeats it.
 	var hero_party: Dictionary = dispatch.dispatched()[0]
-	# Total dmg 80, enough to outright destroy the 70-hp Hero Party.
-	var horde := [{"hp": 20, "dmg": 40}, {"hp": 20, "dmg": 40}]
-	var outcome := CombatResolver.resolve(horde, hero_party["blocker"])
+	# Total dmg 80, enough to outright destroy the 70-hp Hero Party where they meet (2).
+	lane.spawn_wave("player", [{"hp": 20, "dmg": 40}, {"hp": 20, "dmg": 40}], 1, 1)
+	lane.advance_positions(SimEvents)
 
-	assert_bool(outcome["blocker_destroyed"]).is_true()
+	assert_array(lane.moving_blockers()).is_empty()
 	dispatch.mark_consumed(hero_party)
 
 	assert_array(dispatch.dispatched()).is_empty()

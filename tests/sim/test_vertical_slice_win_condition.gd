@@ -8,8 +8,6 @@ extends GdUnitTestSuite
 ## unconditionally - defeating the Hero Party first is no longer a win prerequisite,
 ## just the realistic path a wave takes to get there without being wiped out first.
 
-const LaneSimulation = preload("res://sim/lane_simulation.gd")
-const CombatResolver = preload("res://sim/combat_resolver.gd")
 const SuspicionSystem = preload("res://sim/suspicion_system.gd")
 const TaskForceDispatch = preload("res://sim/task_force_dispatch.gd")
 const ScriptedBeatWatcher = preload("res://sim/scripted_beat_watcher.gd")
@@ -41,8 +39,15 @@ func _nodes() -> Array[NodeDef]:
 	return nodes
 
 
+## A lane of the crate's (`LaneState`) over `_nodes()`.
+func _lane() -> Object:
+	var lane: Object = NativeLibrary.made("LaneState")
+	lane.start(_nodes())
+	return lane
+
+
 func test_defeating_the_fort_then_the_hero_party_then_reaching_the_core_wins() -> void:
-	var lane := LaneSimulation.new(_nodes())
+	var lane := _lane()
 	var suspicion := SuspicionSystem.new([25, 50, 75, 90], 0)
 	var dispatch := TaskForceDispatch.new(
 		lane, CORE, -1, {SuspicionSystem.Tier.MOBILIZED: {"hp": 20, "dmg": 5}}
@@ -55,7 +60,7 @@ func test_defeating_the_fort_then_the_hero_party_then_reaching_the_core_wins() -
 	# Beat 2: the player's horde destroys the fort outright (20 dmg > 10 hp) and
 	# captures it with no casualties.
 	lane.spawn_wave("player", [{"hp": 30, "dmg": 20}], P, 1)
-	lane.advance_positions()
+	lane.advance_positions(SimEvents)
 	assert_str(lane.node_state(FORT)["owner"]).is_equal("player")
 
 	# Beat 3: attacking the fort raises suspicion via a detection spike, crossing
@@ -67,14 +72,14 @@ func test_defeating_the_fort_then_the_hero_party_then_reaching_the_core_wins() -
 	# outright (20 dmg > 20 hp Hero Party) - a composition root would correlate this
 	# combat_resolved event against TaskForceDispatch's own dispatched list; done
 	# explicitly here.
-	lane.advance_positions()
+	lane.advance_positions(SimEvents)
 	var hero_party: Dictionary = dispatch.dispatched()[0]
 	dispatch.mark_consumed(hero_party)
 	assert_array(lane.moving_blockers()).is_empty()
 	assert_array(lane.waves()[0]["units"]).is_not_empty()
 
 	# Closing beat: the surviving horde reaches the Core and wins.
-	lane.advance_positions()
+	lane.advance_positions(SimEvents)
 
 	await assert_signal(SimEvents).is_emitted("victory")
 

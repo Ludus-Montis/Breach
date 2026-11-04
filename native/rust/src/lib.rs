@@ -48,6 +48,7 @@ mod groups;
 mod hurts;
 mod joins;
 mod landing;
+mod lane;
 mod laps;
 mod locks;
 mod lying;

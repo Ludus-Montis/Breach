@@ -1123,6 +1123,13 @@ and `content/definitions/` and `content/import/` keep only what presentation rea
   and the rest) and the GDScript trials and bench retired, presentation reading the crate;
   **9e** `content/definitions/` and `content/import/` cut to what presentation reads. Each is
   an identical port; a part may split again on its own survey. 9e's PR closes the step.
+- **9b split** (2026-11-04, under the user's standing leave to split), on its survey (8
+  classes, about 520 lines, which reach one another through `main.gd`): **9b-i** the lane and
+  its fights (LaneSimulation, CombatResolver, PlayerRoster), the binding `LaneState` and the
+  `SimEvents` it emits; **9b-ii** the economy and the captures (EconomySystem,
+  CaptureResolution), and the resource bar, the wave form and the capture choice reading them;
+  **9b-iii** the kingdom's response (SuspicionSystem, TaskForceDispatch,
+  ScriptedBeatWatcher), and the narrative log, `main.gd` then reading one binding.
 
 ### Step 10, threading, then slot packing (design first)
 
@@ -3318,6 +3325,43 @@ Decision's conditions.
   cell drawn twice, and every shared case, red against a `// RED-STUB` that solved nothing,
   then green.
 - **After it**, 9b: the lane and the strategy around it.
+
+### Step 9b-i, the lane and its fights in the crate
+
+- **In the crate** (`src/lane.rs`, `breach_native::lane`): `resolve(horde, blocker)` is
+  CombatResolver (the horde strikes first with all its damage; a blocker left standing
+  strikes back at the weakest first, spilling its overkill), and `Lane` is LaneSimulation and
+  PlayerRoster: each node's owner and garrison's hp, the waves and moving blockers, each with
+  an id, and each side's units harvesting (`harvest(node, owner)`, main.gd's farm, and
+  `units_of(owner)`). A tick is `march` (every wave and mover not engaged steps) and then
+  `arrive(id)` for each wave it listed, in order, each giving its events (`Combat`,
+  `Captured`).
+- **The binding** (`src/lane/binding.rs`, `LaneState`): `advance_positions(events)` emits each
+  wave's events on `events` (SimEvents) before the next wave arrives, holding `base_mut` so a
+  handler may call back into the lane. So main.gd's handlers act between arrivals where they
+  did: a mover a capture's suspicion spawns meets a later wave that tick, and a wave the farm
+  harvests during the tick still arrives, as GDScript's iterated copy held it. Its lists are
+  dictionaries in LaneSimulation's shape with an `id`; `despawn_wave` names a wave by it. A
+  moving blocker's `blocker` is the dictionary it was spawned with and stays its truth: it is
+  read before each arrival and given each clash's hp, as GDScript shared it (the dispatch's
+  stats for a tier are that dictionary). `NativeLibrary.made(class)` makes one.
+- **Gone:** `sim/lane_simulation.gd`, `sim/combat_resolver.gd`, `sim/player_roster.gd` and
+  their gdUnit tests; main.gd's roster and its farm's despawn loop (now `harvest`). The lane's
+  view, TaskForceDispatch and their tests read `LaneState`; the integration test's hero party
+  is beaten in a clash on the lane, not by calling the resolver.
+- **Identical:** the same fights, captures and events in the same order. Units of equal hp
+  keep their order in the crate's sort; GDScript's `sort_custom` did too up to 16 units (an
+  insertion sort), and a wave holds at most 3. No digest battle has a lane, so outcomes don't
+  change.
+- **Tests:** cargo `lane/tests.rs`: CombatResolver's four scenarios, LaneSimulation's thirteen
+  (two pairs of them joined), PlayerRoster's three, equal hp keeping its order, and the order
+  of a tick's arrivals (a wave despawned during the tick still arrives; a mover spawned
+  between arrivals meets a later wave; a mover set from outside fights with it), red against a
+  `// RED-STUB` (no march, no arrivals, no fight), then green. gdUnit
+  `tests/sim/test_lane_state.gd`: the events on the object given, a handler's mover and
+  harvest acting between arrivals, and the blocker's dictionary both ways, red against the
+  same stub, then green.
+- **After it**, 9b-ii: the economy and the captures.
 
 ## Open, for the implementing session to settle and record here
 

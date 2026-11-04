@@ -13,8 +13,8 @@ extends Node2D
 ## Scoped to this slice's actual content shape - at most one player wave and one
 ## moving blocker (Hero Party) at a time, per specs/00's scripted scenario - tracked
 ## as two named positions rather than a generic multi-entity id scheme. A future map
-## with simultaneous waves would need LaneSimulation to hand out stable per-entity
-## ids first; not built ahead of that real need.
+## with simultaneous waves can tell them apart by the `id` each of the lane's waves and
+## moving blockers carries (`LaneState`, native/rust/src/lane/binding.rs).
 ##
 ## Honest test-coverage note (see specs/05's own Notes): TickInterpolation's pure
 ## math is unit-tested headlessly (tests/presentation/test_tick_interpolation.gd).
@@ -31,7 +31,7 @@ extends Node2D
 
 const TickInterpolation = preload("res://presentation/tick_interpolation.gd")
 
-var lane: LaneSimulation
+var lane: Object
 var tick_duration_seconds: float = 1.0
 var speed_multiplier: float = 1.0
 var node_spacing: float = 96.0

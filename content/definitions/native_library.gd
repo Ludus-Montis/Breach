@@ -24,3 +24,12 @@ static func binary() -> String:
 		"macOS":
 			return "res://native/bin/lib%s.macos.universal.dylib" % NAME
 	return "res://native/bin/lib%s.linux.x86_64.so" % NAME
+
+
+## A new object of the crate's class `class_probe`; null, with an error, if the core isn't
+## built.
+static func made(class_probe: String) -> Object:
+	if not load_for(class_probe):
+		push_error("NativeLibrary: the native core isn't built: run bash native/build.sh")
+		return null
+	return ClassDB.instantiate(class_probe)
