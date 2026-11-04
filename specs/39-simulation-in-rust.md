@@ -722,6 +722,17 @@ events. After this step no battle phase runs in GDScript.
   codes the route as `squad_put_route` does. The gdUnit test holds the crate's whole state
   (`snapshot`) after three spawns equal, byte for byte, to GDScript's. Nothing in the tick
   calls it yet. Outcomes don't change.
+  **8c-v built** (2026-10-30): the map is FormationField's: the formation battles' only
+  painted ground (the digest's field logs and BattleTrials fight on it; nothing makes a
+  formation ground from a MapLayout). `ground::map` holds a `Map` (its size and its areas
+  painted in order, each a rect and a `Paint`) and makes its `Ground` on the battle's tuning
+  (`Map::ground`); `ground::map::field(tuning)` is FormationField._ground's map (the wood,
+  the stream, the ford, the hill's eight rings), and `ground::map::of(name, tuning)` names it
+  "field". The binding `TerrainGround.map(content, name)` makes it; `TerrainGround.snapshot()`
+  gives the ground's cells and rules as bytes. The gdUnit test holds the crate's field equal,
+  byte for byte, to the one FormationField paints. The trials' grounds (PathTrials' crag,
+  SightTrials' wall) are added as maps with the trials (8c-ix). Nothing in the tick calls it
+  yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
