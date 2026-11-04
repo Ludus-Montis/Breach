@@ -82,6 +82,9 @@ Every check that doesn't need another's output runs in its own job, side by side
   from one size to the next, and timings only compare when taken on one machine: each
   stage (march, fight, stacks) runs all its sizes in one job (`scaling_check.gd`'s
   `stages=`). Determinism makes the battles the same everywhere, not the runners' speed.
+  Each stage's job then times the crate's tick the same way (`native/bin/breach_scaling`,
+  spec 39 step 8c-xvii) on that same runner: it fails on its own growth, and its untimed
+  columns must equal Godot's.
 - **The diff-scoped checks' base** (Decision 50): a PR's base branch, or for a push the
   commit before it (`github.event.before`). A push checks out the branch itself, and
   `base_ref.py`'s detection would then pick the nearest other branch and count changes

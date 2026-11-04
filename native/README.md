@@ -219,6 +219,93 @@ The rules for matching Godot bit for bit (`native/rust/src/maths.rs`):
 
 ### Fingerprints (`tools/formation_digest.gd`, every tick hashed)
 
+`native/bin/breach_digest [set=standard|clash160|wide] [out=<file>] [only=<run label>]`
+plays the same runs in the crate with no Godot (spec 39 step 8c-xiii) and prints the same
+lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot's.
+
+**The snapshot tests' cuts** (`src/cuts.rs`, spec 39 step 8d): `breach_digest cuts=<dir>`
+writes eleven states cut from the standard digest's runs (`cuts::CUTS`: eight from the mirrors
+and the 40-a-side clash, three from the field logs, each at a tick after which the phases it
+was chosen for change the state) to `native/rust/cuts/`, committed, about 490 KB. Each is the
+snapshot's bytes (`<name>.state`) and a text file (`<name>.txt`): the run's label, the tick,
+the squads listed, and the SHA-256 of the field and the squads as each lap of the next tick
+ends. A field log's cut also carries FieldPlay's own state (`<name>.field`,
+`field_play::carried`: the definitions coded, the routes' codes, the waves, the builders and
+the reserve, hurry and tending); read back, the field is set up again from its record, that
+state laid over it, and the record's commands for the tick given before it is stepped.
+`cargo test cuts` reads each back, steps that tick from it and requires every lap's print; it
+also requires the run to still reach the committed state, and every phase but those
+`cuts::UNCHANGED` names (the rules and the roster, which only read; the joins and the groups,
+which no digest run uses) to change the state in some cut. After an intended outcome change,
+run `native/bin/breach_digest cuts=native/rust/cuts` (or `cargo run --release --bin digest --
+cuts=cuts` in `native/rust`) and commit what changed: only the cuts whose runs changed are
+rewritten. The first lap whose print differs names the phase that changed.
+
+### Trials (`tools/formation_trials.gd`, BattleTrials)
+
+`native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
+[first_seed=1] [swap] [repeats=20]` fights BattleTrials' scenarios in the crate with no Godot
+(spec 39 step 8c-xiv), `scenario=fatigue` FatigueTrials' four contacts (step 8c-xv) and
+`scenario=paths` PathTrials' ways and SightTrials' walk along a wall (step 8c-xvi), and prints
+the same lines; CI's `trials` job checks they equal Godot's. Each path search is timed on
+its own side, so CI compares the paths' lines with the timings left out: the last number of
+each table row and the "us a plan" figure blanked, and blank lines dropped, on both sides.
+
+### Scaling (`tools/scaling_check.gd`, bounded work)
+
+`native/bin/breach_scaling [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5]
+[stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]` times the crate's own tick
+on the same battles (FormationBench.clash and .lanes, set up by `battles::Battle`) with no
+Godot (spec 39 step 8c-xvii), prints the same lines and exits 1 when a doubling costs more
+than `limit` times as much. CI's `scaling` jobs run it on each stage after Godot's, on the same
+runner: its own verdict gates it, and its stage, size and "a side"/"stacks" columns must
+equal Godot's (the timings are each side's own).
+
+### Tick phases (`tools/tick_phases.gd`, where a tick's time goes)
+
+`native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
+[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false]` brings
+the same battle to its fight as tick_phases.gd does and times `fight` of the crate's own ticks
+pass by pass, with no Godot (spec 39 step 8c-xviii). Each pass of the tick ends a lap
+(`src/laps.rs`), counted only while the bench times it, and the lines are printed as
+tick_phases.gd prints them, so the `bench` workflow runs it with `tool=breach_tick_phases` and
+`bench_compare.py` reads it. Its phases are the crate's passes, named as tick_phases.gd names
+the GDScript passes they ported where they match. A second battle steps untimed beside the
+timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
+copies no columns across the Godot boundary.
+
+`series=1 [limit=600]` (spec 38 step 2, built in spec 39 step 8c-xx, `src/phases/series.rs`)
+times every tick from contact (`settle` is 0 unless given) until one side no longer stands or
+`limit` ticks, instead of `fight` ticks. The phase lines then carry the series' means, and a
+`series:` line follows with the tick's and each phase's mean, 95th and 99th percentiles
+(nearest rank), worst and the tick that was worst. `bench_compare.py` reads the means as
+before and, when every round has a series, also compares each phase's 95th and 99th by
+their medians, so the `bench` workflow needs only `series=1` in `args`.
+
+`terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
+in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
+follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
+slots it changed and the living units as it began, a lap, and the share changed. Each lap
+shows the field to a watcher (`laps::watched`), which copies the store's columns; it runs only
+under `counts=1`, on the untimed battle, so the timed one is timed as without it. The count
+lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
+
+### Rout and native benches (`tools/rout_bench.gd`, `tools/native_bench.gd`)
+
+`native/bin/breach_rout_bench [side=1024] [squads=16] [width=16] [ticks=20]` sets up
+rout_bench.gd's battle in the crate (the player's side in `squads` formations along one long
+lane, the front half breaking and routing back through the rear half, a kingdom formation
+beyond) and times the rout's pass alone, as FormationRout.step runs it, printing
+rout_bench.gd's line (spec 39 step 8c-xix). `native/bin/breach_native_bench
+[engines=rust,rust_threads] [sizes=160:10,512:32,1024:32] [runs=3] [settle=10] [fight=10]
+[seed=1]` brings FormationBench's clash to its fight as native_bench.gd does and times the
+crate's tick on one thread (`rust`) and on the pool (`rust_threads`), with the bodies' parting
+and the scrum's seek inside it. It prints `tick`, `rest`, `bodies` and `seek`: native_bench.gd's
+`b.sync`, `b.call` and `b.write` time the Godot boundary, which the crate's tick doesn't cross,
+and its `b.core` is the crate's whole parting. Cargo tests hold both battles to Godot's events
+and digest state; the `bench` workflow runs either as `tool=breach_rout_bench` or
+`tool=breach_native_bench`.
+
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
 
@@ -430,10 +517,21 @@ bash native/build.sh dev      # optimised without LTO: rebuilds in seconds
 
 This puts `native/bin/[lib]breach_rust.<platform>.<ext>` in place, and the map designer's
 server, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, `src/designer/`, spec 39
-step 2c). They are git-ignored, as
+step 2c), and the formation digest played in the crate, `native/bin/breach_digest[.exe]`
+(`src/bin/digest.rs`, `src/digest/runs.rs`, spec 39 step 8c-xiii), and BattleTrials fought
+in the crate, `native/bin/breach_trials[.exe]` (`src/bin/trials.rs`, `src/trials.rs`, spec 39
+step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
+`src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
+`native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
+8c-xvii), and tick_phases timed on the crate's tick, `native/bin/breach_tick_phases[.exe]`
+(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii;
+`src/phases/series.rs`, step 8c-xx), and
+rout_bench and native_bench, `native/bin/breach_rout_bench[.exe]` and
+`native/bin/breach_native_bench[.exe]` (`src/bin/rout_bench.rs`, `src/rout_bench.rs`,
+`src/bin/native_bench.rs`, `src/native_bench.rs`, spec 39 step 8c-xix). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
-by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it
+by Godot, the squad store, the snapshot read back, the cuts stepped), with no Godot. CI's `rust` job runs it
 with `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` on every PR that
 touches `native/`.
 

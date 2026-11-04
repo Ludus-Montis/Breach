@@ -143,7 +143,7 @@ impl Wave {
 }
 
 /// What a builder works for: nothing, the reserve, or a lane (an index into the lanes).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Claim {
     Idle,
     Reserve,
@@ -151,7 +151,7 @@ pub enum Claim {
 }
 
 /// One builder: ticks into its build, how far through it is, and what it builds for.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Builder {
     pub ticks: i64,
     pub progress: f64,
@@ -182,7 +182,7 @@ pub struct Builders {
     pub reserve_cap: usize,
     pub round_robin: bool,
     pub lane_order: Vec<usize>,
-    turn: usize,
+    pub(crate) turn: usize,
 }
 
 impl Default for Builders {

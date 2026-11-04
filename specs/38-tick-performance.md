@@ -457,6 +457,49 @@ Decision's conditions.
   counts.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
+### Dropped step 2, rebuilt under cargo (spec 39 steps 8c-xx to 8c-xxii)
+
+- **`series=1` built** (spec 39 step 8c-xx, 2026-11-04) on `breach_tick_phases`, not
+  tick_phases.gd: `src/phases/series.rs`. It times every tick from contact (`settle` is 0
+  unless given; `stage=march` from the start) while both sides stand (`Play::both_stand`:
+  some listed squad of each faction with someone standing, not routing), up to `limit`
+  (default 600). The phase lines carry the means. A `series: N ticks from tick T (ms)` line
+  follows, then the tick (its phases' sum each tick) and each phase, largest mean first:
+  mean, 95th and 99th percentiles (nearest rank: the `ceil(p * n / 100)`th smallest), worst,
+  and the first tick that was worst. `bench_compare.py` stops its means at the `series:` line,
+  and when every round has one, prints each phase's median 95th and 99th for base and head.
+- **`terrain=mixed` built** (spec 39 step 8c-xxi, 2026-11-04) on `breach_tick_phases` and
+  tick_phases.gd. The layout, fixed so runs compare: FormationBench.clash's pair on a
+  128 x 64 ground (2 tiles by 1, `FormationBench.mixed_ground()`, the crate's map "mixed"),
+  on a straight route along y 32 through its middle instead of the simulation's own at y 0.
+  Across that line of advance, a quarter of the way from the player's end, a wood 16 cells
+  deep (x 32 to 47) over the whole ground's height, painted as FormationField's wood (half
+  pace, blocks sight, the tuning's wood obscurance); three quarters of the way, a stream 3
+  cells wide (x 80 to 82) as deep as the field's (1.2 cells, too deep for grems) over the
+  whole height, with a ford 0.4 deep and 32 cells wide (y 16 to 47) where the line crosses
+  it. Outside the ground is open, as everywhere. The grems walk through the wood and the
+  militia wade the ford before they meet (side 64, width 8: the wood from tick 42, the ford
+  from 73, its first events at tick 108 against 90 on open ground). The clash only: with
+  `squads` above 1 the bin refuses it (exit 2). The crate's battle is held to Godot's on the same
+  ground by `phases::tests::GODOT_MIXED`: the same events, and the same DigestState.state
+  at ticks 130 and 400.
+- **`counts=1` built** (spec 39 step 8c-xxii, 2026-11-04) on `breach_tick_phases`, not
+  tick_phases.gd: `src/phases/counts.rs`. Each lap of the tick (`laps::lap`, which now takes
+  the field) shows the field to a watcher while `laps::watched` runs; the watcher copies the
+  unit store's columns and counts a slot as changed by the pass that just ended when any of
+  its columns (every one, named so a new column must be added) differs from the copy taken as
+  the pass began, a slot only one copy has included. The living are the slots the store holds
+  whose state is before DEAD, as the pass began. After the times, a `counts:` line, then each
+  pass in the tick's order: changed and living a lap, and the share changed. The bin counts
+  the untimed battle that steps beside the timed one, so the times are as without
+  `counts=1`, and the two still must end equal (no WARNING); the watcher's time is left out of
+  the laps in any case. The count lines end with `%`, so `bench_compare.py` reads a counted
+  run's times unchanged. `phases::counts::tests` holds the small clash's counts over three
+  ticks from contact: the seek, stamina, the parting and the walk to places change every
+  living unit, the fight 46 of 384 slot-laps, every other pass none.
+- **The three recorded `bench` runs on `main`** wait until the spec 39 chain is merged, when
+  `breach_tick_phases` is on `main`.
+
 ### Step 2b, the outcome check on Rust
 
 - **`base-build`** (`sim-checks.yml`) checks out the merge base, builds its Rust core
@@ -477,4 +520,5 @@ Decision's conditions.
 
 ## Open, for the implementing session to settle and record here
 
-- Step 2: the `terrain=mixed` layout.
+- Step 2: the `terrain=mixed` layout. Settled 2026-11-04 (spec 39 step 8c-xxi): recorded
+  under Built, "Dropped step 2, rebuilt under cargo".

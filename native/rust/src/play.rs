@@ -21,6 +21,7 @@ use crate::events::{Log, ENGAGED, KINDS, LISTS};
 use crate::field::Field;
 use crate::geometry::CELLS;
 use crate::ground::{Ground, GroundTuning, Walker};
+use crate::laps::lap;
 use crate::locks;
 use crate::pathing::pass::walker;
 use crate::paths::shares::Cache;
@@ -30,7 +31,7 @@ use crate::squads::Squads;
 use crate::tick::{self, given, Ticked};
 
 /// FormationSimulation.TRAVEL_SCALE: tiles a second at speed 1.
-const TRAVEL_SCALE: f64 = 0.125;
+pub(crate) const TRAVEL_SCALE: f64 = 0.125;
 /// The digest's ticks a run plays on once a side has broken: its rout, the pursuit, the
 /// downed taken (formation_digest.gd's TAIL).
 pub const TAIL: i64 = 150;
@@ -106,7 +107,9 @@ impl Play {
             cells_a_second: TRAVEL_SCALE * CELLS,
         };
         let (climb, rules) = tick::rules::of(&given::of(&content.tuning, &at, &paces))?;
+        lap("rules", field, squads);
         let roster = listed(squads, field, &self.listed, self.ground.is_some());
+        lap("roster", field, squads);
         let ticked = match self.ground.as_mut() {
             Some((ground, cache)) => {
                 let mut over = Over { ground, cache, tuning: climb };
@@ -117,18 +120,22 @@ impl Play {
         self.listed.clone_from(&ticked.listed);
         squads.pending.clear(); // taken, or nobody was left to take them
         settle(squads, field, &self.listed);
+        lap("store settles", field, squads);
         Some(ticked)
     }
 
     /// Whether some squad of each side still stands: anyone standing, not routing.
     pub fn both_stand(&self, squads: &Squads, field: &Field) -> bool {
-        FACTIONS.iter().all(|name| {
-            let Some(code) = field.lexicon.find(name) else { return false };
-            self.listed.iter().any(|&s| {
-                squads.faction[s] == code
-                    && squads.state[s] != locks::ROUTING
-                    && !squads.living(s, &field.columns.state).is_empty()
-            })
+        FACTIONS.iter().all(|name| self.stands(squads, field, name))
+    }
+
+    /// Whether some listed squad of the faction `name` still stands (BattleTrials._stands).
+    pub fn stands(&self, squads: &Squads, field: &Field, name: &str) -> bool {
+        let Some(code) = field.lexicon.find(name) else { return false };
+        self.listed.iter().any(|&s| {
+            squads.faction[s] == code
+                && squads.state[s] != locks::ROUTING
+                && !squads.living(s, &field.columns.state).is_empty()
         })
     }
 }
