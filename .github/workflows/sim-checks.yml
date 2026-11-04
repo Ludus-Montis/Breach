@@ -338,6 +338,7 @@ jobs:
         run: |
           set -o pipefail
           untimed() { grep '^  ' | sed -E 's/ +[0-9.]+ ms.*//'; }
+          chmod +x native/bin/breach_scaling
           native/bin/breach_scaling stages=${{ matrix.stage }} | tee scaling.${{ matrix.stage }}.crate.txt
           diff <(untimed < scaling.${{ matrix.stage }}.txt) <(untimed < scaling.${{ matrix.stage }}.crate.txt)
 
