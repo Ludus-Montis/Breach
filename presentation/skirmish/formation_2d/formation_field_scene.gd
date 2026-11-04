@@ -14,7 +14,6 @@ extends Node2D
 ##
 ##   godot --path . res://presentation/skirmish/formation_2d/formation_field.tscn
 
-const SkirmishClock = preload("res://sim/skirmish/skirmish_clock.gd")
 const FormationField = preload("res://sim/skirmish/formation/formation_field.gd")
 const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
 const FormationRecord = preload("res://sim/skirmish/formation/formation_record.gd")
@@ -48,7 +47,8 @@ const COLOURS := {
 	"sight": Color(1, 1, 1, 0.25),
 }
 
-var _clock := SkirmishClock.new()
+## The crate's SkirmishClock (spec 39 step 9c).
+var _clock: Object = NativeLibrary.made("SkirmishClock")
 var _field: FormationField
 var _previous := {}  # unit id -> position (cells) at the previous tick
 var _current := {}  # unit id -> position (cells) at the latest tick
@@ -65,7 +65,7 @@ func field() -> FormationField:
 	return _field
 
 
-func clock() -> SkirmishClock:
+func clock() -> Object:
 	return _clock
 
 
@@ -104,7 +104,7 @@ func restart(captained: bool, battle_seed: int, queued: Array = []) -> void:
 
 
 func _process(delta: float) -> void:
-	var due := _clock.advance(delta)
+	var due: int = _clock.advance(delta)
 	run_ticks(due)
 	for unit_id in _flashes.keys():
 		_flashes[unit_id] -= delta
@@ -131,7 +131,7 @@ func _draw() -> void:
 	draw_rect(_cells(FormationField.FORD), COLOURS["ford"])
 	for key in _field.routes:
 		_draw_route(key)
-	var fraction := 1.0 if _clock.is_paused() else _clock.fraction()
+	var fraction: float = 1.0 if _clock.is_paused() else _clock.fraction()
 	_draw_staging()
 	var at: PackedVector2Array = _field.sim.store.columns.column(UnitColumns.POSITION)  # a frame's
 	for squad in _field.sim.squads():
@@ -229,7 +229,7 @@ func _draw_morale(squad: SkirmishSquad) -> void:
 	var band_colours := [Color(0.3, 0.9, 0.3), Color(0.95, 0.85, 0.2), Color(1, 0.5, 0.1)]
 	var band: int = FormationMorale.band(squad)
 	var colour: Color = band_colours[band] if band < band_colours.size() else Color.RED
-	var fraction := 1.0 if _clock.is_paused() else _clock.fraction()
+	var fraction: float = 1.0 if _clock.is_paused() else _clock.fraction()
 	var before: Vector2 = _squads_before.get(squad.id, squad.position)
 	var front: Vector2 = before.lerp(_squads_now.get(squad.id, squad.position), fraction)
 	var top := ORIGIN + front * CELL_PX + Vector2(-12, -6 * CELL_PX)  # eased, as its units

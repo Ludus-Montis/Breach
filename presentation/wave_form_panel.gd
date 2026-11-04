@@ -12,7 +12,8 @@ extends Control
 ## already commits to rather than a number invented here.
 
 var economy: Object
-var command_queue: CommandQueue
+## The lane (`LaneState`), which holds the command queue (spec 39 step 9c).
+var command_queue: Object
 var max_pending_units: int = 3
 
 var _pending_units: Array = []

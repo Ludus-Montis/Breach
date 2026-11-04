@@ -13,7 +13,11 @@
 //! kingdom's response (`respond`, `binding/response.rs`): the suspicion, whose changes of
 //! tier send their task forces and are told as `suspicion_tier_changed(tier)`, and the
 //! watcher, told as `victory` and `defeat`.
+//!
+//! It holds the command queue too (step 9c, `binding/queue.rs`): `on_tick_advanced` commits
+//! it, then runs the lane's tick, as main.gd's tick handler did.
 
+mod queue;
 mod response;
 
 use std::collections::BTreeMap;
@@ -36,6 +40,8 @@ struct LaneState {
     #[init(val = EconomyState::new_gd())]
     economy: Gd<EconomyState>,
     response: Response,
+    /// The commands pending (Decision 3).
+    queue: queue::Pending,
     /// Its Godot object (named so: the derive's `base: base` trips newer clippy).
     object: Base<RefCounted>,
 }
@@ -175,11 +181,37 @@ impl LaneState {
         self.let_go(&task_force, false);
     }
 
-    /// main.gd's tick, once `respond` has been given: the harvests, the suspicion's decay,
+    /// `command` held pending until a tick finds `is_filled_check` answering true: its id.
+    #[func]
+    fn enqueue(&mut self, command: Variant, is_filled_check: Callable) -> i64 {
+        self.queue.enqueue((command, is_filled_check))
+    }
+
+    /// The command `id` no longer pending.
+    #[func]
+    fn cancel(&mut self, id: i64) {
+        self.queue.cancel(id);
+    }
+
+    /// Whether the command `id` is pending and its slots filled.
+    #[func]
+    fn is_filled(&self, id: i64) -> bool {
+        self.queue.get(id).is_some_and(|(_, check)| queue::filled(check))
+    }
+
+    /// The ids pending, in the order they were enqueued.
+    #[func]
+    fn pending_commands(&self) -> VarArray {
+        self.queue.pending().iter().map(|id| id.to_variant()).collect()
+    }
+
+    /// main.gd's tick, once `respond` has been given: the queue's commits, each told as
+    /// `command_committed(command)`, then the harvests, the suspicion's decay,
     /// `advance_positions` on the response's events, a task force lost in it consumed, and
     /// the player's units counted for the watcher.
     #[func]
     fn on_tick_advanced(&mut self, _tick_number: i64) {
+        self.commit_queue();
         self.ticked();
     }
 

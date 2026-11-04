@@ -3450,6 +3450,53 @@ Decision's conditions.
   (no dispatch, no economy or watcher on capture, no tick), then green.
 - **After it**, 9c: the clocks and the command queue.
 
+### Step 9c, the clocks and the command queue in the crate
+
+- **Where each goes** (settled with the user, 2026-11-04, on the survey: about 160 lines, none
+  of which decides an outcome): all three port to the crate. SimulationClock and SkirmishClock
+  share a `clock` module, so 9d can step the skirmish from its binding. CommandQueue is held
+  by `LaneState`, whose tick commits it and then runs the lane's, as main.gd's handler did.
+- **In the crate:**
+  - `src/clock.rs` (`breach_native::clock`): `Clock` is SimulationClock (the elapsed time,
+    scaled by the speed, ticks once it reaches the tick's length and is then reset to 0, not
+    carried; a skip resets it and ticks, paused or not). `FixedStep` is SkirmishClock (the
+    leftover time carried; `floor((time + 0.000001) / tick)` ticks due, at most 20, a longer
+    frame's time dropped; `fraction` clamped to 0..1). Their tick's length and speed are
+    given to each call as a `Pace`.
+  - `src/queue.rs` (`breach_native::queue`): `Queue` is CommandQueue (ids from 0, never given
+    twice; `due` makes every check, in the order enqueued, before any command is taken; one
+    cancelled by an earlier commit's handler is skipped, where GDScript's lookup failed).
+- **The bindings:**
+  - `clock/binding.rs`: `SimulationClock` keeps GDScript's fields as properties
+    (`tick_duration_seconds`, `speed_multiplier`, `auto_pause_each_tick`) and its methods.
+    `emit_on(events)` gives it SimEvents. It tells `tick_advanced(tick)`, lent while the
+    handlers run (a victory pauses it), then reads `auto_pause_each_tick`.
+  - `SkirmishClock` keeps `tick_seconds` (0.1) and `speed_multiplier` as properties.
+  - `lane/binding/queue.rs`: `LaneState` gains `enqueue(command, is_filled_check)`, `cancel`,
+    `is_filled` and `pending_commands`. `on_tick_advanced` first commits each filled command,
+    told as `command_committed(command)` on the response's events, lent so its handler spawns
+    the wave. The checks are made on a copy of the queue, lent, so they may read the lane, and
+    a command they enqueue waits for the next tick.
+- **Gone:** `sim/simulation_clock.gd`, `sim/command_queue.gd`, `sim/skirmish/skirmish_clock.gd`
+  and their gdUnit tests. main.gd makes the clock by `NativeLibrary.made`, and the wave form,
+  the wave command panel and the time controls hold their binding as an `Object`. So do both
+  skirmish scenes for theirs.
+- **Identical:** the same ticks from the same frames, the same commits on the same ticks, in
+  the same order against the handlers. No digest battle has a lane or a clock, so outcomes
+  don't change.
+- **Tests:**
+  - cargo `clock/tests.rs`: SimulationClock's scenarios and SkirmishClock's, a reset not
+    carried, a tick short only by rounding, and the fraction's clamp. Red against a
+    `// RED-STUB`, then green.
+  - cargo `queue/tests.rs`: CommandQueue's scenarios, the order of commits, every check before
+    any take, and a cancel after the checks. Red against a stub, then green.
+  - gdUnit `tests/sim/test_clocks.gd`: the properties, a tick told by a frame and by a skip,
+    a handler's pause while it is told, and auto-pause read after the handlers.
+  - gdUnit `tests/sim/test_lane_queue.gd`: the callable checks, a commit told with its
+    command, and a commit's wave spawned and marching in the same tick. Red against a stub,
+    then green.
+- **After it**, 9d: the skirmish's Godot side.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

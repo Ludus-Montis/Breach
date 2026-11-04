@@ -7,7 +7,8 @@ extends Control
 ## engine glue, same honesty as LaneView's _ready/_process/_draw - these on_x()
 ## methods are what's actually verified.
 
-var simulation_clock: SimulationClock
+## The crate's SimulationClock (spec 39 step 9c).
+var simulation_clock: Object
 var lane_view: LaneView
 
 

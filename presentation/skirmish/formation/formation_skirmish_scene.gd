@@ -7,7 +7,6 @@ extends Node2D
 ##
 ##   godot --path . res://presentation/skirmish/formation/formation_skirmish.tscn
 
-const SkirmishClock = preload("res://sim/skirmish/skirmish_clock.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SkirmishSlotPool = preload("res://sim/skirmish/formation/skirmish_slot_pool.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -49,7 +48,8 @@ var _militia := CrateContent.unit("kingdom_militia")
 var _brushes: Array = [_grem, _brute, _spitter, null]
 var _builder_types: Array = [_grem, _brute, _spitter]
 var _kinds := {"grem": _grem, "brute": _brute, "spitter": _spitter}
-var _clock := SkirmishClock.new()
+## The crate's SkirmishClock (spec 39 step 9c).
+var _clock: Object = NativeLibrary.made("SkirmishClock")
 var _battle: FormationBattle
 var _kingdom_auto := false
 var _paused_for_wave := false
@@ -70,7 +70,7 @@ func pool() -> SkirmishSlotPool:
 	return _battle.pool
 
 
-func clock() -> SkirmishClock:
+func clock() -> Object:
 	return _clock
 
 
@@ -110,7 +110,7 @@ func _add_lane(lane_key: String, points: PackedVector2Array) -> void:
 
 
 func _process(delta: float) -> void:
-	var due := _clock.advance(delta)
+	var due: int = _clock.advance(delta)
 	for i in range(due):
 		var events := _battle.step(_kingdom_auto)
 		for key in events:
@@ -190,7 +190,7 @@ func _choose_distribution(index: int) -> void:
 func _on_wave_full(lane_key: String) -> void:
 	var departure := _battle.lane(lane_key).production.departure
 	var waits := departure == FormationProduction.Departure.MANUAL
-	var pausing := waits and pause_on_wave_full and not _clock.is_paused()
+	var pausing: bool = waits and pause_on_wave_full and not _clock.is_paused()
 	if pausing:
 		_clock.pause()
 		_paused_for_wave = true
@@ -267,8 +267,8 @@ func _order(new_order: int) -> void:
 func _refresh_hud() -> void:
 	if _hud == null:
 		return
-	var seconds := simulation(lane_keys()[0]).tick_number() * _clock.tick_seconds
-	var paused := _clock.is_paused()
+	var seconds: float = simulation(lane_keys()[0]).tick_number() * _clock.tick_seconds
+	var paused: bool = _clock.is_paused()
 	var chosen: Array = $Squads.selected
 	var squad = null if chosen.is_empty() else simulation(chosen[0]).squad(chosen[1])
 	_hud.set_status(

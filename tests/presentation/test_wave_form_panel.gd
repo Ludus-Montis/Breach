@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
 ## Per specs/08's wave-forming input scenarios. The crate's economy (`EconomyState`) and
-## a real CommandQueue throughout (cheap to construct), same reasoning as test_time_controls.gd.
+## the lane's command queue (`LaneState`, spec 39 step 9c) throughout, same reasoning as
+## test_time_controls.gd.
 
 const WaveFormPanel = preload("res://presentation/wave_form_panel.gd")
-const CommandQueue = preload("res://sim/command_queue.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
 
@@ -20,7 +20,7 @@ func test_queueing_an_affordable_grem_spends_food_and_returns_true() -> void:
 	economy.add("food", 10)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
-	panel.command_queue = CommandQueue.new()
+	panel.command_queue = NativeLibrary.made("LaneState")
 
 	var result := panel.on_queue_grem_pressed(_grem(8))
 
@@ -33,7 +33,7 @@ func test_queueing_an_unaffordable_grem_spends_nothing_and_returns_false() -> vo
 	economy.add("food", 5)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
-	panel.command_queue = CommandQueue.new()
+	panel.command_queue = NativeLibrary.made("LaneState")
 
 	var result := panel.on_queue_grem_pressed(_grem(8))
 
@@ -42,7 +42,7 @@ func test_queueing_an_unaffordable_grem_spends_nothing_and_returns_false() -> vo
 
 
 func test_marching_with_no_queued_units_does_nothing() -> void:
-	var queue := CommandQueue.new()
+	var queue: Object = NativeLibrary.made("LaneState")
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = NativeLibrary.made("EconomyState")
 	panel.command_queue = queue
@@ -55,7 +55,7 @@ func test_marching_with_no_queued_units_does_nothing() -> void:
 func test_marching_with_queued_units_enqueues_one_filled_command() -> void:
 	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 8)
-	var queue := CommandQueue.new()
+	var queue: Object = NativeLibrary.made("LaneState")
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
 	panel.command_queue = queue
@@ -71,7 +71,7 @@ func test_marching_with_queued_units_enqueues_one_filled_command() -> void:
 func test_marching_clears_the_buffer_for_the_next_wave() -> void:
 	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 16)
-	var queue := CommandQueue.new()
+	var queue: Object = NativeLibrary.made("LaneState")
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
 	panel.command_queue = queue
@@ -88,7 +88,7 @@ func test_pending_count_reflects_queued_units() -> void:
 	economy.add("food", 16)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
-	panel.command_queue = CommandQueue.new()
+	panel.command_queue = NativeLibrary.made("LaneState")
 
 	panel.on_queue_grem_pressed(_grem(8))
 	panel.on_queue_grem_pressed(_grem(8))
@@ -101,7 +101,7 @@ func test_marching_resets_pending_count_to_zero() -> void:
 	economy.add("food", 8)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
-	panel.command_queue = CommandQueue.new()
+	panel.command_queue = NativeLibrary.made("LaneState")
 	panel.on_queue_grem_pressed(_grem(8))
 
 	panel.on_march_pressed(0, 1)
@@ -114,7 +114,7 @@ func test_queueing_beyond_the_cap_does_nothing_and_returns_false() -> void:
 	economy.add("food", 100)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
-	panel.command_queue = CommandQueue.new()
+	panel.command_queue = NativeLibrary.made("LaneState")
 	for i in range(panel.max_pending_units):
 		panel.on_queue_grem_pressed(_grem(8))
 
