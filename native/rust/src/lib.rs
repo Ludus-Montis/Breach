@@ -49,6 +49,7 @@ mod morale;
 mod motion;
 mod mover;
 mod moving;
+mod mustering;
 mod near;
 mod objects;
 mod opening;
@@ -3834,8 +3835,7 @@ impl BodyField {
     /// named by its code (`squad_route_code`), a split's group holding its own squad's.
     /// `rules`: [walk_lost, group_join,
     /// cells per tile]; `at`: [tick, seed]. Returns what it did, in order: [0, the listed squad
-    /// split from, the slot opened, count, its units (indices into that squad's living as
-    /// listed)...] a split; [1, taker, taken] a group taken in; [2, from, home, count, unit
+    /// split from, the slot opened, count, its units' ids...] a split; [1, taker, taken] a group taken in; [2, from, home, count, unit
     /// ids...] units gone back. A squad by its index in the lists, the groups split off listed
     /// after them in the order opened.
     #[func]
@@ -3854,24 +3854,33 @@ impl BodyField {
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let landed = groups::pass::step(squads, field, &roster.roster, &rules, tick, log);
         self.edits += 1;
-        let mut out = Vec::new();
-        for done in landed {
-            match done {
-                groups::pass::Landed::Split { from, slot, members } => {
-                    out.extend([0, from as i64, slot as i64, members.len() as i64]);
-                    out.extend(members.iter().map(|&m| m as i64));
-                }
-                groups::pass::Landed::Taken { taker, taken } => {
-                    out.extend([1, taker as i64, taken as i64])
-                }
-                groups::pass::Landed::Returned { from, home, units } => {
-                    out.extend([2, from as i64, home as i64, units.len() as i64]);
-                    out.extend(units);
-                }
+        let split = groups::pass::split_ids(&landed, &roster.roster);
+        PackedInt64Array::from(&grouped_flat(&landed, &split)[..])
+    }
+}
+
+/// What the groups did, as `groups_step` returns it: [0, from, slot, count, unit ids...] a
+/// split (its units' ids `split`, a list a split in order), [1, taker, taken] a group taken in,
+/// [2, from, home, count, unit ids...] units gone back.
+fn grouped_flat(landed: &[groups::pass::Landed], split: &[Vec<i64>]) -> Vec<i64> {
+    let mut out = Vec::new();
+    let mut ids = split.iter();
+    for done in landed {
+        match done {
+            groups::pass::Landed::Split { from, slot, members } => {
+                out.extend([0, *from as i64, *slot as i64, members.len() as i64]);
+                out.extend(ids.next().into_iter().flatten());
+            }
+            groups::pass::Landed::Taken { taker, taken } => {
+                out.extend([1, *taker as i64, *taken as i64])
+            }
+            groups::pass::Landed::Returned { from, home, units } => {
+                out.extend([2, *from as i64, *home as i64, units.len() as i64]);
+                out.extend(units);
             }
         }
-        PackedInt64Array::from(&out[..])
     }
+    out
 }
 
 /// Closing up, taking in, strays and staging (spec 39 step 5b).
@@ -4359,11 +4368,7 @@ impl BodyField {
         let lists = (&listed[..], homes.as_slice());
         let did = carry::pass::step(squads, field, lists, (tick, seed), (&t, &loads), log);
         self.edits += 1;
-        let rows = [(0, &did.changed), (1, &did.home), (2, &did.strays)];
-        let flat = rows
-            .into_iter()
-            .flat_map(|(what, units)| units.iter().flat_map(move |&(n, id)| [what, n as i64, id]));
-        PackedInt64Array::from_iter(flat)
+        PackedInt64Array::from(&carried_flat(&did)[..])
     }
 
     /// FormationTaking.step: taking the downed as one pass (`taking::pass::step`): the
@@ -4547,6 +4552,92 @@ impl BodyField {
         out.extend(recovered_flat(&after.recovered));
         PackedInt64Array::from(out.as_slice())
     }
+}
+
+/// The strays through the groups as one call (spec 39 step 8b5-xxxix).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationMustering.step (`mustering::step`) over `roster`'s squads: the `strays` (two
+    /// numbers a stray, as `strays_adopt` takes them) adopted, morale's second (as
+    /// `morale_step`) on a second's tick, the rout (as `rout_step`) if anything routs or
+    /// breaks, carrying (as `carry_step`, the routers home its homes), the bearers it set off
+    /// adopted, and the groups (as `groups_step`), the squads opened listed after the rest for
+    /// the passes after; each pass's events in the log in that order. `ints` = [tick, seed, 1
+    /// if a second's tick]; `tunings` = [morale's as `morale_step` takes it, the rout's as
+    /// `rout_step`, carrying's and the loads as `carry_step`, the groups' as `groups_step`];
+    /// `bands` as BandTuning.of_slice reads it. Returns each pass's result, each part its count
+    /// first: the strays adopted, as `strays_adopt`; the routers that left, as `rout_step`;
+    /// what carrying did, as `carry_step`; the bearers adopted (their index in what carrying
+    /// set off); then to the end what the groups did, as `groups_step`.
+    #[func]
+    fn mustering_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        strays: PackedInt32Array,
+        ints: PackedInt64Array,
+        tunings: VarArray,
+        bands: PackedInt64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let tuning = |n: usize| {
+            tunings.get(n).map_or_else(PackedFloat64Array::new, |t| t.to::<PackedFloat64Array>())
+        };
+        let (morale, rout, carrying, loads, grouping) =
+            (tuning(0), tuning(1), tuning(2), tuning(3), tuning(4));
+        let (&[tick, seed, second], (r, &[crush, panic, seen]), &[lost, join, cells_per_tile]) =
+            (ints.as_slice(), rout.as_slice().split_at(10), grouping.as_slice())
+        else {
+            return PackedInt64Array::new();
+        };
+        let rules = mustering::Rules {
+            morale: (second != 0).then(|| morale::MoraleTuning::of_slice(morale.as_slice())),
+            rout: rout::RoutTuning::of_slice(r),
+            shocks: rout::pass::RoutShocks {
+                crush: crush as i64,
+                panic: panic as i64,
+                seen: seen as i64,
+            },
+            bands: bands::BandTuning::of_slice(bands.as_slice()),
+            carry: carry::CarryTuning::of_slice(carrying.as_slice()),
+            loads: carry::pass::LoadTuning::of_slice(loads.as_slice()),
+            groups: split::Rules { lost, join, seed, cells_per_tile },
+            tick,
+            seed,
+        };
+        let (rows, _) = strays.as_slice().as_chunks::<2>();
+        let strays: Vec<(usize, usize)> =
+            rows.iter().map(|&[a, b]| (a as usize, b as usize)).collect();
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let done = on_ground(ground, |g| {
+            mustering::step(squads, field, &roster.roster, &strays, g, &rules, log)
+        });
+        self.edits += 1;
+        let pairs = |opened: &[(usize, usize)]| {
+            let mut out = vec![opened.len() as i64];
+            out.extend(opened.iter().flat_map(|&(n, s)| [n as i64, s as i64]));
+            out
+        };
+        let mut out = pairs(&done.adopted);
+        out.push(done.routed.len() as i64);
+        let routed = done.routed.iter();
+        out.extend(routed.flat_map(|m| [m.listed as i64, m.id, m.into.map_or(-1, |n| n as i64)]));
+        let carried = carried_flat(&done.carried);
+        out.push(carried.len() as i64 / 3);
+        out.extend(carried);
+        out.extend(pairs(&done.bearers));
+        out.extend(grouped_flat(&done.grouped, &done.split));
+        PackedInt64Array::from(out.as_slice())
+    }
+}
+
+/// What carrying did, as `carry_step` returns it: three numbers a unit, [what (0 changed, 1
+/// home, 2 setting off home alone), its squad's listed index, its id].
+fn carried_flat(did: &carry::pass::Carried) -> Vec<i64> {
+    let rows = [(0, &did.changed), (1, &did.home), (2, &did.strays)];
+    rows.into_iter()
+        .flat_map(|(what, units)| units.iter().flat_map(move |&(n, id)| [what, n as i64, id]))
+        .collect()
 }
 
 /// The fight's rules as `fight_step` is given them: `i` = [the ticks a second's strike takes,
