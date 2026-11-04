@@ -5,7 +5,12 @@
 //!
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
-//!       [threaded=true|false] [repo=<path>]
+//!       [threaded=true|false] [series=1] [limit=600] [repo=<path>]
+//!
+//! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
+//! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
+//! and follows the phases' means with each one's 95th and 99th percentiles and worst
+//! (`phases::series`; spec 38 step 2).
 //!
 //! tick_phases.gd's `copies` counts column copies across the Godot boundary, which the crate's
 //! tick doesn't cross: it exits 2. `repo` is the folder holding project.godot (default: the
@@ -16,14 +21,15 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
+use breach_native::phases::series::{self, LIMIT};
 use breach_native::phases::{self, Options, WARNING};
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
-                     [threaded=true|false] [repo=<path>]";
-const KNOWN: [&str; 11] = [
+                     [threaded=true|false] [series=1] [limit=600] [repo=<path>]";
+const KNOWN: [&str; 13] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
-    "threaded", "repo",
+    "threaded", "series", "limit", "repo",
 ];
 
 fn main() -> ExitCode {
@@ -62,12 +68,22 @@ fn main() -> ExitCode {
         eprintln!("breach_tick_phases: the battle can't be set up");
         return ExitCode::from(1);
     };
-    let spent = phases::timed(&mut timed, options.fight, &content);
-    for _ in 0..options.fight {
+    let (ticks, spent, spreads) = if in_series(&args) {
+        let limit = args.get("limit").map_or(LIMIT, |v| whole(v).max(0) as usize);
+        let timed_series = series::timed(&mut timed, limit, &content);
+        let lines = series::lines(&timed_series);
+        (timed_series.ticks.len(), timed_series.sums(), lines)
+    } else {
+        (options.fight, phases::timed(&mut timed, options.fight, &content), Vec::new())
+    };
+    for _ in 0..ticks {
         plain.step(&content);
     }
     println!("{}", phases::machine());
-    println!("{}", phases::lines(&options, &spent).join("\n"));
+    println!("{}", phases::lines(&options, ticks, &spent).join("\n"));
+    for line in spreads {
+        println!("{line}");
+    }
     if timed.state() != plain.state() {
         println!("{WARNING}");
     }
@@ -82,7 +98,7 @@ fn options(args: &HashMap<String, String>) -> Options {
     Options {
         side: count("side", given.side),
         width: count("width", given.width),
-        settle: count("settle", given.settle),
+        settle: count("settle", if in_series(args) { 0 } else { given.settle }),
         fight: count("fight", given.fight),
         seed: args.get("seed").map_or(given.seed, |v| whole(v)),
         march: args.get("stage").is_some_and(|stage| stage == "march"),
@@ -91,6 +107,11 @@ fn options(args: &HashMap<String, String>) -> Options {
         archers: count("archers", given.archers),
         threaded: args.get("threaded").is_none_or(|value| value != "false"),
     }
+}
+
+/// Whether `series` was asked for: given, and not 0 or false.
+fn in_series(args: &HashMap<String, String>) -> bool {
+    args.get("series").is_some_and(|value| value != "0" && value != "false")
 }
 
 /// A number as GDScript's `int(String)` reads it here: its digits, or 0.

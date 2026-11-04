@@ -457,6 +457,20 @@ Decision's conditions.
   counts.
 - **Outcomes unchanged,** as far as `sim-checks`' digests on both engines show (CI).
 
+### Dropped step 2, rebuilt under cargo (spec 39 steps 8c-xx to 8c-xxii)
+
+- **`series=1` built** (spec 39 step 8c-xx, 2026-11-04) on `breach_tick_phases`, not
+  tick_phases.gd: `src/phases/series.rs`. It times every tick from contact (`settle` is 0
+  unless given; `stage=march` from the start) while both sides stand (`Play::both_stand`:
+  some listed squad of each faction with someone standing, not routing), up to `limit`
+  (default 600). The phase lines carry the means. A `series: N ticks from tick T (ms)` line
+  follows, then the tick (its phases' sum each tick) and each phase, largest mean first:
+  mean, 95th and 99th percentiles (nearest rank: the `ceil(p * n / 100)`th smallest), worst,
+  and the first tick that was worst. `bench_compare.py` stops its means at the `series:` line,
+  and when every round has one, prints each phase's median 95th and 99th for base and head.
+- **The three recorded `bench` runs on `main`** wait until the spec 39 chain is merged, when
+  `breach_tick_phases` is on `main`.
+
 ### Step 2b, the outcome check on Rust
 
 - **`base-build`** (`sim-checks.yml`) checks out the merge base, builds its Rust core

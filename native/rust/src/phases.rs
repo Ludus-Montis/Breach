@@ -6,8 +6,9 @@
 //! own passes, named as tick_phases.gd names the GDScript passes they ported where they match.
 //! A second battle steps untimed beside it, and the two must end equal, or it says so.
 
+pub mod series;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::battles::Battle;
 use crate::content::Content;
@@ -142,9 +143,9 @@ pub fn timed(settled: &mut Settled, ticks: usize, content: &Content) -> Vec<(&'s
 }
 
 /// The lines tick_phases.gd prints after its machine line: the battle and its ms a tick, then
-/// each phase's ms a tick, largest first.
-pub fn lines(options: &Options, spent: &[(&'static str, f64)]) -> Vec<String> {
-    let ticks = options.fight.max(1) as f64;
+/// each phase's ms a tick, largest first, over `ticks` ticks (`fight`, or a series' length).
+pub fn lines(options: &Options, ticks: usize, spent: &[(&'static str, f64)]) -> Vec<String> {
+    let ticks = ticks.max(1) as f64;
     let total: f64 = spent.iter().map(|(_, usec)| usec).sum();
     let mut out = vec![format!(
         "{} a side, {} wide: {:.1} ms a tick",

@@ -1008,6 +1008,24 @@ events. After this step no battle phase runs in GDScript.
   measured clashes' final tick and digest state on one thread and on the pool, to a throwaway
   Godot probe's. Equal first time; the default rout line's counts (223 events, 9 routing) are
   Godot's too. Outcomes don't change.
+- **8c-xx split further** (2026-11-04, under the user's standing leave to split): spec 38
+  step 2's three measures are three tools' worth of work. **8c-xx** `series=1` (and `limit`)
+  on `breach_tick_phases`, with `bench_compare.py` reading its percentiles; **8c-xxi**
+  `terrain=mixed` (the clash on ground with a wood and a ford across the line of advance, its
+  layout settled and recorded in spec 38, the crate's battle held to a Godot probe's on the
+  same ground); **8c-xxii** per-pass changed counts (`counts=1`: each pass's slots whose
+  columns changed, against the living). Then 8d.
+  **8c-xx built** (2026-11-04): `src/phases/series.rs` (`breach_native::phases::series`):
+  `timed(settled, limit, content) -> Series` steps a tick at a time under `laps::timed` while
+  `Play::both_stand` and fewer than `limit` (`LIMIT`, 600) ticks are timed, keeping each
+  phase's microseconds a tick (0 where it didn't lap); `spread(values, ticks) -> Spread` is
+  the mean, the nearest-rank 95th and 99th, the worst and the first tick that was worst;
+  `lines(series)` the `series:` line and the tick's and each phase's spread in ms, largest
+  mean first. `phases::lines` now takes the ticks timed. `breach_tick_phases` takes
+  `series=1` and `limit=`; under series `settle` is 0 unless given. `bench_compare.py`'s
+  `spreads`, `compare_spreads` and `report_spreads` read and compare the percentiles (its
+  unittest first, red, then green). Cargo tests in `phases/series/tests.rs`. Outcomes don't
+  change (the laps time nothing the simulation reads; the bin still checks an untimed twin).
 
 ### Step 9, the rest of `sim/`
 
