@@ -1,9 +1,10 @@
 extends GdUnitTestSuite
 ## The downed and the caught, per Decision 121 (spec 28 part 6), as GDScript lands what the
-## crate decides (`deaths.rs` and `wounds.rs`, whose tests hold the rules): a unit brought
-## to 0 hp is downed, unless past minus its constitution, which kills it; a body is captured
-## by a captor, or sent home by a leader's messenger, who has one fewer. A routing unit
-## struck may surrender in the fight's pass (`fight/surrender.rs`, test_formation_fight.gd).
+## crate decides (`deaths.rs`, `wounds.rs` and `wounds/pass.rs`, whose tests hold the
+## rules): a unit brought to 0 hp is downed, unless past minus its constitution, which kills
+## it; a body is captured by a captor, or sent home by a leader's messenger, who has one
+## fewer. A routing unit struck may surrender in the fight's pass (`fight/surrender.rs`,
+## test_formation_fight.gd).
 
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
@@ -84,6 +85,7 @@ func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
 	var leader := _unit(4, "player", Vector2(30, 0))
 	leader.leadership = 2
 	leader.traits = {"messenger": 1}
+	_places.store.admit(leader)  # held in the crate, as a squad's units are
 	scene[0][1].units.append(leader)
 	UnitState.regather(scene[0][1])
 	var events := []
@@ -93,3 +95,18 @@ func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
 	assert_int(scene[1].state).is_equal(SkirmishUnit.State.RELEASED)
 	assert_int(leader.traits["messenger"]).is_equal(0)
 	assert_array(_types(events)).contains(["sent_home"])
+
+
+func test_the_crate_pass_captures_the_body_and_tells_of_it() -> void:
+	var scene := _scene()
+	scene[2].traits = {"captor": 1}
+	var events := []
+
+	FormationWounds.tend(scene[0], 1, SECOND, 1, events)
+
+	var captured := {"type": "captured", "tick": 1, "squad": 1, "faction": "the_kingdom"}
+	captured.merge({"unit": 1, "by": 2})
+	assert_array(events.filter(func(e): return e["type"] == "captured")).is_equal([captured])
+	assert_int(_places.store.columns.value(scene[1].slot, UnitColumns.STATE)).is_equal(
+		SkirmishUnit.State.TAKEN
+	)

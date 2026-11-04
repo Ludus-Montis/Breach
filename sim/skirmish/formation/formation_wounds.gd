@@ -9,22 +9,16 @@ extends RefCounted
 ## to carry word home - a morale blow to every standing formation of its side. A routing
 ## unit struck may surrender in place, by a seeded chance from its want of courage (none
 ## for one with "never_surrenders"): the fight's crate pass (`fight/surrender.rs`, spec 39
-## step 8b5-xx). What the downed come to, and regeneration, are
-## FormationRecovery's. Decided from one snapshot, then applied (Decision 97). The takings
-## and the rolls are the crate's (`wounds.rs`, spec 39 step 6b): this hands it the squads'
-## living and downed with what of each it doesn't hold, and lands what it decides - the
-## states, the messengers spent, the morale shocks and the events. Pure over the squads it
-## is given.
-
-## What the crate says became of a body taken (wounds_tend).
-enum Taken { CAPTURED, SENT_HOME, FINISHED }
+## step 8b5-xx). What the downed come to, and regeneration, are FormationRecovery's. Decided
+## from one snapshot, then applied (Decision 97). The whole of it is the crate's
+## (`wounds/pass.rs`, spec 39 step 8b5-xxiv): the takings and their rolls, the states, the
+## messengers spent, the morale shocks and the events; this mirrors the states and the
+## messengers on GDScript's copies. Pure over the squads it is given.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const UnitDef = preload("res://content/definitions/unit_def.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 
 
@@ -33,55 +27,24 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 static func tend(squads: Array, tick: int, interval: int, fight_seed: int, events: Array) -> void:
 	if not _any_body(squads):
 		return
-	var counts := PackedInt32Array()
-	var ints := PackedInt64Array()
-	var reals := PackedFloat64Array()
-	var listed := []  # per squad, [its living, its downed bodies], as handed in
-	var codes := {}  # faction -> its code
-	for squad in squads:
-		var living: Array = squad.living()
-		var bodies := _bodies(squad)
-		listed.append([living, bodies])
-		counts.append_array([living.size(), bodies.size()])
-		for unit: SkirmishUnit in living + bodies:
-			(
-				ints
-				. append_array(
-					[
-						unit.id,
-						unit.slot,
-						codes.get_or_add(unit.faction_id, codes.size()),
-						_flags(unit),
-						int(unit.traits.get("messenger", 0)),
-						unit.dmg,
-						int(unit.traits.get("cunning", 0)),
-						int(unit.traits.get("thorough", 0)),
-					]
-				)
-			)
-			(
-				reals
-				. append_array(
-					[
-						unit.attributes.get("wits", UnitDef.AVERAGE),
-						unit.attributes.get("constitution", UnitDef.AVERAGE),
-						unit.melee_seconds,
-					]
-				)
-			)
+	for squad: SkirmishSquad in squads:
+		squad.living()  # its members written to the squad store, if its lists changed
+	var listed := FormationLocks.slots(squads)
+	var at := PackedInt64Array([tick, interval, fight_seed, _tuning().wounds_messenger_shock])
 	var columns: UnitColumns = squads[0].store.columns
 	var field: Object = ColumnsLent.field(columns)
 	var tuning := tuning()
-	var taken: PackedInt64Array = ColumnsLent.all(
-		columns, func(): return field.wounds_tend(counts, ints, reals, interval, fight_seed, tuning)
+	var landed: PackedInt64Array = ColumnsLent.all(
+		columns, func(): return field.wounds_step(listed, at, tuning, BandTuning.rules())
 	)
-	for at in range(0, taken.size(), 5):
-		var squad: SkirmishSquad = squads[taken[at + 1]]
-		var body: SkirmishUnit = listed[taken[at + 1]][1][taken[at + 2]]
-		var other: SkirmishUnit = null
-		if taken[at] != Taken.FINISHED:
-			other = listed[taken[at + 3]][0][taken[at + 4]]
-		_land(taken[at], [squad, body, other], squads, tick, events)
+	for n in range(0, landed.size(), 5):  # store: scattered (few: the tick's takings)
+		var squad: SkirmishSquad = squads[landed[n]]
+		var body: SkirmishUnit = squad.store.record_of(landed[n + 1])
+		UnitState.put(squad, body, landed[n + 2])
+		if landed[n + 3] >= 0:  # sent home: its leader has one messenger fewer
+			var leader: SkirmishUnit = squads[landed[n + 3]].store.record_of(landed[n + 4])
+			leader.set_trait("messenger", leader.traits["messenger"] - 1)
+	events.append_array(CrateEvents.taken(field))  # "captured", "sent_home", "finished", ...
 
 
 ## What the downed's passes take of BattleTuning, in the order the crate reads it
@@ -118,38 +81,5 @@ static func _any_body(squads: Array) -> bool:
 	return false
 
 
-## The squad's downed bodies lying, not borne, in its order.
-static func _bodies(squad: SkirmishSquad) -> Array:
-	return UnitState.downed(squad).filter(
-		func(unit): return unit.state == SkirmishUnit.State.DOWNED
-	)
-
-
-## A unit's flags as the crate takes them: 1 a captor, 2 it leads, 4 it plays dead.
-static func _flags(unit: SkirmishUnit) -> int:
-	var captor := int(unit.traits.get("captor", 0) > 0)
-	return captor | int(unit.leadership > 0) << 1 | int(unit.playing_dead) << 2
-
-
-## One body's taking lands: `taking` is [the body's squad, the body, its captor or the
-## leader whose messenger sends it home (null when finished)].
-static func _land(what: int, taking: Array, squads: Array, tick: int, events: Array) -> void:
-	var squad: SkirmishSquad = taking[0]
-	var body: SkirmishUnit = taking[1]
-	var other: SkirmishUnit = taking[2]
-	match what:
-		Taken.CAPTURED:
-			UnitState.put(squad, body, SkirmishUnit.State.TAKEN)
-			var extra := {"by": other.id}
-			events.append(FormationEvents.unit_event("captured", tick, squad, body, extra))
-		Taken.SENT_HOME:
-			other.set_trait("messenger", other.traits["messenger"] - 1)
-			UnitState.put(squad, body, SkirmishUnit.State.RELEASED)
-			events.append(FormationEvents.unit_event("sent_home", tick, squad, body))
-			for side in squads:
-				if side.faction_id == body.faction_id and not side.is_destroyed():
-					var shock := BattleTuning.current().wounds_messenger_shock
-					FormationMorale.shock(side, shock, tick, events)
-		Taken.FINISHED:
-			UnitState.put(squad, body, SkirmishUnit.State.DEAD)
-			events.append(FormationEvents.unit_event("finished", tick, squad, body))
+static func _tuning() -> BattleTuning:
+	return BattleTuning.current()
