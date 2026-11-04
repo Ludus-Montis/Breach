@@ -21,13 +21,15 @@ var faction_id: String:
 		faction_id = value
 		store.field().squad_put_faction(slot, value)
 ## The route the squad follows (Decision 75); null is a straight lane along x. The crate
-## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there.
+## holds it too (spec 39 step 8b4-i), and the bindings that follow it read it there, named
+## by the code the crate gives this route (8b5-xxxvi: the same route, the same code).
 var route: FormationRoute = null:
 	set(value):
 		route = value
 		var points := PackedVector2Array() if value == null else value.points()
 		var half_width := 0.0 if value == null else value.corridor_half_width
-		store.field().squad_put_route(slot, value != null, points, half_width)
+		var object := 0 if value == null else value.get_instance_id()
+		store.field().squad_put_route(slot, value != null, points, half_width, object)
 		_place()
 ## The facing (SquadFrame) nearest its heading, for what still reckons in four ways (an
 ## exact diagonal rounds clockwise); setting it turns the frame to that way.

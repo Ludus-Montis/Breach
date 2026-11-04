@@ -96,3 +96,19 @@ func test_the_crate_holds_the_route_a_squad_follows() -> void:
 	assert_array(Array(field.squad_route(squad.slot))).is_equal(Array(bend))
 	squad.route = null
 	assert_bool(field.squad_route(squad.slot).is_empty()).is_true()
+
+
+func test_the_crate_names_each_route_by_a_code_the_same_route_the_same_code() -> void:
+	var squads := [_squad(1, [_unit(1, 0, 0)]), _squad(2, [_unit(2, 0, 0)])]
+	squads.append(_squad(3, [_unit(3, 0, 0)]))
+	var field: Object = squads[0].store.field()
+	var road := FormationRoute.new(PackedVector2Array([Vector2(0, 0), Vector2(64, 0)]), 0.0)
+	var lane := FormationRoute.new(PackedVector2Array([Vector2(0, 0), Vector2(64, 0)]), 0.0)
+	squads[0].route = road
+	squads[1].route = lane  # the same points, another route
+	squads[2].route = road
+	var codes := squads.map(func(squad): return field.squad_route_code(squad.slot))
+	assert_int(codes[0]).is_not_equal(codes[1])
+	assert_array(codes).is_equal([codes[0], codes[1], codes[0]])
+	squads[0].route = null
+	assert_int(field.squad_route_code(squads[0].slot)).is_equal(-1)

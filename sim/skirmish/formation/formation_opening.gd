@@ -5,10 +5,10 @@ extends RefCounted
 ## the edges lock (FormationFronts, FormationEdges), the groups find their way
 ## (FormationPathing, on ground only) and the squads move and join (the move's pass and
 ## FormationJoins), all over one roster, every pass's events in the crate's log in that order.
-## The routes GDScript holds are objects still: each squad's route goes over as a code
-## (FormationOrders.route_codes), and GDScript's copies follow after the call, as each pass's
-## own did: a pursuer takes its quarry's route, a group that re-routed its route afresh, what
-## each squad sees becomes the tick's perception and the joined squads leave the list.
+## The crate names each squad's route by a code it holds (step 8b5-xxxvi), and GDScript's
+## copies follow after the call, as each pass's own did: a pursuer takes its quarry's route,
+## a group that re-routed its route afresh, what each squad sees becomes the tick's
+## perception and the joined squads leave the list.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
@@ -30,7 +30,6 @@ static func step(
 	var field: Object = squads[0].store.field()
 	var flat: PackedInt64Array = field.opening_step(
 		CrateRoster.of(squads),
-		FormationOrders.route_codes(squads),
 		UnitMover.ground(terrain),
 		PackedInt64Array(ticks),
 		FormationOrders.rules(),

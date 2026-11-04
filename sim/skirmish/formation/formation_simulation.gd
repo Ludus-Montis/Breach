@@ -47,7 +47,6 @@ const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina
 const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
-const FormationStaging = preload("res://sim/skirmish/formation/formation_staging.gd")
 const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
@@ -197,9 +196,8 @@ func _apply_orders(events: Array) -> void:
 ## (`joins.rs`, 8b5-x), whose dropped squads leave GDScript's list here.
 func _move(events: Array, roster: Object) -> void:
 	var rules := FormationOpening.move_rules([TRAVEL_SCALE, tick_seconds, route_length])
-	var codes := FormationStaging.route_codes(_squads)
 	var ground := UnitMover.ground(terrain)
-	var joins: PackedInt32Array = _field.move_step(roster, codes, ground, _tick, fight_seed, rules)
+	var joins: PackedInt32Array = _field.move_step(roster, ground, _tick, fight_seed, rules)
 	events.append_array(CrateEvents.taken(_field))
 	FormationJoins.join(_squads, joins)
 

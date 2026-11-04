@@ -17,7 +17,6 @@ struct Built {
     squads: Squads,
     field: Field,
     roster: Roster,
-    routes: Vec<i64>,
 }
 
 impl Built {
@@ -61,7 +60,7 @@ impl Built {
         }
         let faction = self.squads.faction[s];
         self.roster.listed.push(Listed { squad: s, id, faction, living, ..Listed::default() });
-        self.routes.push(0);
+        self.squads.route_code[s] = 0;
         s
     }
 
@@ -74,7 +73,7 @@ impl Built {
         let rules = Rules { lost: 2.0, join: 2.0, seed: SEED, cells_per_tile: 64.0 };
         let mut log = Log::default();
         let (squads, field) = (&mut self.squads, &mut self.field);
-        let out = step(squads, field, (&self.roster, &self.routes), &rules, TICK, &mut log);
+        let out = step(squads, field, &self.roster, &rules, TICK, &mut log);
         (out, log.take())
     }
 
@@ -91,6 +90,7 @@ fn units_fallen_far_behind_go_on_as_a_group_the_crate_opens_with_the_next_id() {
     b.squads.state[line] = MOVING;
     b.squads.route[line] = Some(Route::new(vec![V2::ZERO, V2::new(100.0, 0.0)], 0.0));
     b.squads.squads_issued = 20;
+    b.squads.route_code[line] = 5;
     let (behind, further) = (b.slot(102), b.slot(103));
     b.field.columns.position[behind] = V2::new(20.0, 0.5);
     b.field.columns.position[further] = V2::new(21.0, 1.5);
@@ -104,6 +104,7 @@ fn units_fallen_far_behind_go_on_as_a_group_the_crate_opens_with_the_next_id() {
     assert_eq!((s.front_distance[1], s.width[1]), (21.0 / 64.0, 2));
     assert_eq!(s.members[1], vec![further as i32, behind as i32]);
     assert_eq!(s.members[0], stayed);
+    assert_eq!(s.route_code, vec![5, 5], "the group holds its squad's route and its code");
     let columns = &b.field.columns;
     let place = |u: usize| (columns.rank[u], columns.column[u], columns.sheet[u].squad_id);
     assert_eq!((place(further), place(behind)), ((0, 0, 21), (0, 1, 21)));

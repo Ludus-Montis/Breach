@@ -528,6 +528,24 @@ events. After this step no battle phase runs in GDScript.
   group that re-routed a code of its own. FormationOpening makes the call and mirrors after
   it: the pursuers' and re-routed groups' routes, the perception (handed back) and the joins.
   The per-pass bindings stay for their tests and `tick_phases`. Outcomes don't change.
+  **8b5-xxxvi split further** (2026-10-29, under the same leave), on its survey (the codes
+  are one change through the crate's route setter and four passes, the mirrors another that
+  makes GDScript's route a view of the crate's, and the perception a third): **8b5-xxxvi**
+  the routes' codes the crate's own; **8b5-xxxvii** the routes and the perception held by the
+  crate (the pursuers' and re-routed groups' routes no longer mirrored by hand, the taking
+  reading the perception the crate kept); **8b5-xxxviii** the fight through the groups as
+  one call (was 8b5-xxxvii); **8b5-xxxix** the tick's end and the one `step()` binding (was
+  8b5-xxxviii).
+  **8b5-xxxvi built** (2026-10-29): the routes' codes the crate's own (`Squads::route_code`,
+  -1 none): SkirmishSquad.route's setter hands the crate the route's instance id with its
+  points (`squad_put_route`), and the crate gives each route it is handed a code of its own
+  (`Squads::issue_route`; the same route, the same code). The passes that hand a squad
+  another's route hand it the code too (a pursuer its quarry's, `opening::took`, which
+  `apply_orders` now runs as well; a split's group and a stray their own squad's), and a
+  group that re-routes onto its command's way round takes a fresh code (`pathing::pass`).
+  `opening_step`, `apply_orders`, `move_step` and `groups_step` read the codes there, and
+  FormationOrders.route_codes, FormationStaging.route_codes and FormationGroups' codes are
+  gone. Outcomes don't change: the codes fall into the same groups as GDScript's routes.
 
 ### Step 9, the rest of `sim/`
 

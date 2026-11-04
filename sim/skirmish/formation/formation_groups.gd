@@ -29,8 +29,8 @@ extends RefCounted
 ##   order of its units' seeded draws, never by ids or lists (Decision 97).
 ## Both are one crate pass (`groups/pass.rs`, spec 39 step 8b5-xxx): it splits the groups
 ## off, opening each new group's squad with the battle's next id, then lands every meeting,
-## their events in its log. This hands it the squads and their routes, wraps each squad slot
-## it opened, and mirrors its unit lists.
+## their events in its log. This hands it the squads (each route named by the code the
+## crate holds, 8b5-xxxvi), wraps each squad slot it opened, and mirrors its unit lists.
 
 ## What the crate's pass did, as it numbers it.
 enum Landed { SPLIT, TAKEN, RETURNED }
@@ -50,11 +50,8 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 		return next_id
 	var store: UnitStore = squads[0].store
 	var livings := []  # each squad's living units as the crate is given them
-	var routes := PackedInt64Array()
-	var codes := {}  # route (or null) -> its code
 	for squad: SkirmishSquad in squads:
 		livings.append(squad.living())
-		routes.append(codes.get_or_add(squad.route, codes.size()))
 	var tuning := BattleTuning.current()
 	var rules := PackedFloat64Array(
 		[tuning.walk_lost, tuning.group_join, MapLayoutDef.CELLS_PER_TILE]
@@ -64,7 +61,7 @@ static func step(squads: Array, tick: int, fight_seed: int, events: Array, next_
 	var roster := CrateRoster.of(squads)
 	var at := PackedInt64Array([tick, fight_seed])
 	var out: PackedInt64Array = ColumnsLent.all(
-		store.columns, func(): return field.groups_step(roster, routes, rules, at)
+		store.columns, func(): return field.groups_step(roster, rules, at)
 	)
 	next_id = _mirrored(out, squads, livings, next_id)
 	events.append_array(CrateEvents.taken(field, store))
