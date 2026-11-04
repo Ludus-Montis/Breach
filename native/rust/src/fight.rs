@@ -210,5 +210,7 @@ fn shots(squads: &Squads, field: &mut Field, roster: &Roster, rules: &Rules) -> 
         .collect()
 }
 
+pub mod land;
+
 #[cfg(test)]
 mod tests;
