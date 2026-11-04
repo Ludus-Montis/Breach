@@ -3404,61 +3404,47 @@ fn coded_routes(
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationWithdraw.step over `roster`'s squads: those routing or destroyed withdraw no
-    /// more; then `listed` (flat in the lists' order, those still withdrawing) flee: per
-    /// squad its index in the roster, its disorder, its re-form pace, its home along the
-    /// route it holds (cells), and its living units' own flight angles in `fans`, in its
-    /// order. `rules`: [pace, seconds,
-    /// reach_contact, rout_enemy_near, rout_fan_cells, rout_rally_seconds]. Returns three
-    /// numbers a squad that re-formed, in order: its index in the roster, the way it now
-    /// faces along its route, and 1 if it is home and holds (else 0).
+    /// FormationWithdraw.step over `roster`'s squads on `tick` (`scrum::withdraw::step`):
+    /// those routing or destroyed withdraw no more; the rest flee, each one's disorder,
+    /// re-form pace, home and its units' flight angles (seeded by `seed`) read in the crate,
+    /// and those safe long enough, or home, re-form, their turns, "regrouping" and
+    /// "returned" in the log (`events_take`). `rules`: [pace, seconds, reach_contact,
+    /// rout_enemy_near, rout_fan_cells, rout_rally_seconds, rout_fan_degrees,
+    /// discipline_per_leadership, discipline_meets_threats, discipline_march_pace_at,
+    /// discipline_slowest, discipline_fastest].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn withdraw(
+    fn scrum_withdraw(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        orders: PackedFloat64Array,
-        fans: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        withdraw::ended(&mut self.squads, &roster.roster);
-        let (orders, fans) = (orders.as_slice(), fans.as_slice());
-        let mut withdrawing = Vec::with_capacity(listed.len());
-        let mut fanned = 0;
-        for n in 0..listed.len() {
-            let index = listed.as_slice()[n] as usize;
-            let living = roster.roster.listed[index].living.len();
-            let held = self.squads.route[roster.roster.listed[index].squad].clone();
-            withdrawing.push(withdraw::Withdrawing {
-                listed: index,
-                pursued: withdraw::pursued(&self.squads, &roster.roster, index),
-                disorder: orders[3 * n],
-                reform: orders[3 * n + 1],
-                home: orders[3 * n + 2],
-                route: held.expect("a withdrawing squad has a route"),
-                fans: fans[fanned..fanned + living].to_vec(),
-            });
-            fanned += living;
-        }
+        tick: i64,
+        seed: i64,
+    ) {
         let r = rules.as_slice();
-        let tuning =
-            withdraw::Rules { pace: r[0], seconds: r[1], reach: r[2], near: r[3], fan_cells: r[4] };
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let out = on_ground(ground, |g| {
-            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &tuning)
-        });
-        let timing = (r[1], r[5]);
-        let reformed =
-            withdraw::records(squads, columns, &roster.roster, &withdrawing, &out, timing);
+        let rules = scrum::withdraw::Rules {
+            flight: withdraw::Rules {
+                pace: r[0],
+                seconds: r[1],
+                reach: r[2],
+                near: r[3],
+                fan_cells: r[4],
+            },
+            rally_seconds: r[5],
+            fan_degrees: r[6],
+            discipline: discipline::DisciplineTuning {
+                per_leadership: r[7] as i64,
+                meets_threats: r[8] as i64,
+                ..discipline::DisciplineTuning::default()
+            },
+            reform: [r[9], r[10], r[11]],
+            seed,
+            tick,
+        };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        on_ground(ground, |g| scrum::withdraw::step(squads, field, &roster.roster, g, &rules, log));
         self.edits += 1;
-        let flat: Vec<i64> = reformed
-            .iter()
-            .flat_map(|w| [w.listed as i64, w.homeward as i64, w.arrived as i64])
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
     }
 
     /// FormationMarch.check_ends, the squad in `squad`, `along` as [front, home, order,

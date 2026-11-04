@@ -31,6 +31,7 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("reinforced", &["into"]),
     ("stepped_up", &["unit", "rank"]),
     ("faced", &["heading", "facing"]),
+    ("regrouping", &[]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -52,6 +53,7 @@ pub const MERGED: usize = 16;
 pub const REINFORCED: usize = 17;
 pub const STEPPED_UP: usize = 18;
 pub const FACED: usize = 19;
+pub const REGROUPING: usize = 20;
 
 /// The events a pass has built and GDScript hasn't yet taken, flat, in the order built.
 #[derive(Clone, Debug, Default, PartialEq)]
