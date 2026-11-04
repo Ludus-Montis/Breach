@@ -68,6 +68,34 @@ func test_a_wave_reaching_a_fight_joins_it_from_the_back() -> void:
 	assert_int(log.filter(func(e): return e["type"] == "reinforced").size()).is_equal(1)
 
 
+## The join is the crate's (spec 39 step 8b5-x): its event reads as FormationEvents made
+## it, and GDScript drops the joined wave, its units the leader's under its command.
+func test_a_joined_wave_is_dropped_and_its_units_follow_the_leader() -> void:
+	var setup := _second_wave_behind_a_fight(3)
+	var sim: FormationSimulation = setup[0]
+	var first: SkirmishSquad = setup[1]
+	var second: SkirmishSquad = setup[2]
+	var taken := second.units.duplicate()
+
+	var log := _run(sim, func(): return sim.tick_number() > 0 and _joined(sim, second))
+
+	var reinforced := log.filter(func(e): return e["type"] == "reinforced")
+	var tick: int = reinforced[0]["tick"]
+	var made := {"type": "reinforced", "tick": tick, "squad": second.id, "faction": "player"}
+	assert_dict(reinforced[0]).is_equal(made.merged({"into": first.id}))
+	assert_bool(sim.squads().has(second)).is_false()
+	assert_array(first.units.slice(3)).is_equal(taken)
+	assert_array(first.joined).is_equal(taken)
+	assert_bool(second.units.is_empty()).is_true()
+	for unit: SkirmishUnit in taken:
+		assert_int(unit.squad_id).is_equal(first.id)
+		assert_object(unit.command).is_same(first.command)
+
+
+func _joined(sim: FormationSimulation, second: SkirmishSquad) -> bool:
+	return second.store.squads.members(second.slot).is_empty() or _players(sim).size() == 1
+
+
 func test_the_joining_wave_never_engages_the_enemy_itself() -> void:
 	var setup := _second_wave_behind_a_fight(3)
 	var sim: FormationSimulation = setup[0]

@@ -49,29 +49,27 @@ static func joinable(mover: SkirmishSquad, squads: Array, roster: Object = null)
 
 ## Moves the joining squad's living units in behind the leader's back rank, both lines
 ## centred on the wider of the two, and steps them up. They are the leader's joined units,
-## free to spread in a fight (Decision 51). Returns the units that moved up. The moves are
-## the crate's (`compact.rs`, spec 39 step 5b); the units change lists and command here.
+## free to spread in a fight (Decision 51). Returns the units that moved up. The join is the
+## crate's (`joins::take_in`, spec 39 step 8b5-x): the moves, the members and the units'
+## command; GDScript's own lists follow (`took_in`).
 static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[SkirmishUnit]:
-	var frame := PackedInt32Array()  # all its units: the fallen shift with the frame
-	for unit in leader.units:
-		frame.append(unit.slot)
-	var leading := leader.living()
-	var taken := joining.living()
+	var closed := leader.living() + joining.living()  # each listed for the crate as it reads
 	var columns: UnitColumns = leader.store.columns
 	var field: Object = ColumnsLent.field(columns)
 	var front := leader.front_distance
 	var stepped: PackedInt32Array = ColumnsLent.all(
-		columns,
-		func():
-			return field.squad_reinforce(
-				leader.slot,
-				joining.slot,
-				frame,
-				SquadCompact.closers(leading),
-				SquadCompact.closers(taken)
-			)
+		columns, func(): return field.squad_take_in(leader.slot, joining.slot)
 	)
 	SquadCompact.placed(leader, front)
+	took_in(leader, joining)
+	return SquadCompact.units_at(closed, stepped)
+
+
+## GDScript's lists after the crate took `joining` into `leader`: its living units, enlisted
+## as the crate enlisted them (their command and origin, written again as they were), are
+## the leader's and its joined, and it holds none.
+static func took_in(leader: SkirmishSquad, joining: SkirmishSquad) -> void:
+	var taken := joining.living()
 	for unit in taken:
 		FormationCommand.enlist(leader, unit)
 	var joined := leader.joined.duplicate()
@@ -79,4 +77,3 @@ static func reinforce(leader: SkirmishSquad, joining: SkirmishSquad) -> Array[Sk
 	leader.joined = joined
 	joining.units.clear()
 	UnitState.regather(joining)
-	return SquadCompact.units_at(leading + taken, stepped)
