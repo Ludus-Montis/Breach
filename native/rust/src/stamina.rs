@@ -12,6 +12,8 @@
 //! less skilled. GDScript keeps each squad's pursuit record and whether the player hurries
 //! it, and hands them in with what of each unit the crate doesn't hold.
 
+pub mod pass;
+
 use crate::columns::Columns;
 #[cfg(test)]
 use crate::content::BattleTuning;

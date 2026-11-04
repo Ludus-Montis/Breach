@@ -11,6 +11,8 @@ use std::hash::{BuildHasherDefault, Hasher};
 
 use rayon::prelude::*;
 
+pub mod pass;
+
 pub use crate::field::{FLEEING, LOOSE};
 use crate::maths::V2;
 
