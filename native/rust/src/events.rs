@@ -47,6 +47,12 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("died_of_wounds", &["unit"]),
     ("playing_dead", &["unit"]),
     ("came_to", &["unit", "alone", "joined"]),
+    ("crushed", &["unit", "target", "dmg"]),
+    ("fled_home", &["unit", "definition"]),
+    ("scattered", &[]),
+    ("rallied", &["unit", "into"]),
+    ("reformed", &[]),
+    ("routed", &[]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -84,6 +90,12 @@ pub const FINISHED: usize = 32;
 pub const DIED_OF_WOUNDS: usize = 33;
 pub const PLAYING_DEAD: usize = 34;
 pub const CAME_TO: usize = 35;
+pub const CRUSHED: usize = 36;
+pub const FLED_HOME: usize = 37;
+pub const SCATTERED: usize = 38;
+pub const RALLIED: usize = 39;
+pub const REFORMED: usize = 40;
+pub const ROUTED: usize = 41;
 
 /// The kinds told of a unit, not a squad: their third number is the unit's id, and their
 /// faction its own ("hit").
