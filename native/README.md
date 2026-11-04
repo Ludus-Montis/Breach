@@ -227,8 +227,9 @@ lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot'
 
 `native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
 [first_seed=1] [swap]` fights BattleTrials' scenarios in the crate with no Godot (spec 39
-step 8c-xiv) and prints the same lines; CI's `trials` job checks they equal Godot's. The
-`fatigue` and `paths` trials are still only Godot's.
+step 8c-xiv), and `scenario=fatigue` FatigueTrials' four contacts (step 8c-xv), and prints
+the same lines; CI's `trials` job checks they equal Godot's. The `paths` trials are still
+only Godot's.
 
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
@@ -444,7 +445,7 @@ server, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, `src/designer
 step 2c), and the formation digest played in the crate, `native/bin/breach_digest[.exe]`
 (`src/bin/digest.rs`, `src/digest/runs.rs`, spec 39 step 8c-xiii), and BattleTrials fought
 in the crate, `native/bin/breach_trials[.exe]` (`src/bin/trials.rs`, `src/trials.rs`, spec 39
-step 8c-xiv). They are git-ignored, as
+step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it

@@ -263,7 +263,7 @@ jobs:
 
       # The same trials fought in the crate with nothing from Godot (native/bin/breach_trials,
       # spec 39 step 8c-xiv): each line must equal Godot's. Every scenario, field ones too, is
-      # compared over 10 runs as well.
+      # compared over 10 runs as well, and the fatigue trials' four contacts (step 8c-xv).
       - name: Trials in the crate
         if: always()
         run: |
@@ -279,6 +279,11 @@ jobs:
             runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' > trials.all.txt
           native/bin/breach_trials runs=10 > trials.all.crate.txt
           diff trials.all.txt trials.all.crate.txt
+          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
+            scenario=fatigue runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' \
+            > trials.fatigue.txt
+          native/bin/breach_trials scenario=fatigue runs=10 > trials.fatigue.crate.txt
+          diff trials.fatigue.txt trials.fatigue.crate.txt
 
       - uses: actions/upload-artifact@v7
         if: always()

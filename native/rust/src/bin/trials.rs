@@ -7,7 +7,8 @@
 //!       [first_seed=1] [swap] [threaded=true|false] [repo=<path>]
 //!
 //! The scenarios are BattleTrials': mirror_headon, mirror_flank, field_a, field_b,
-//! field_b_waits and field_together. `fatigue` and `paths` are still only Godot's.
+//! field_b_waits and field_together; and `fatigue` (FatigueTrials, step 8c-xv): how far a line
+//! pursues after 3, 30, 60 and 90 s of contact. `paths` is still only Godot's.
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
 use std::collections::HashMap;
@@ -15,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
-use breach_native::trials::{self, columns, heading, row, summary, Options, SCENARIOS};
+use breach_native::trials::{self, columns, fatigue, heading, row, summary, Options, SCENARIOS};
 
 const USAGE: &str = "usage: breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain] \
                      [first_seed=1] [swap] [threaded=true|false] [repo=<path>]";
@@ -38,8 +39,9 @@ fn main() -> ExitCode {
     }
     let scenario = args.get("scenario").map_or("all", String::as_str);
     let names: Vec<&str> = if scenario == "all" { SCENARIOS.to_vec() } else { vec![scenario] };
-    if let Some(name) = names.iter().find(|name| !SCENARIOS.contains(name)) {
-        eprintln!("breach_trials: no scenario {name} (fatigue and paths are Godot's)\n{USAGE}");
+    let tires = scenario == "fatigue";
+    if let Some(name) = names.iter().find(|name| !tires && !SCENARIOS.contains(name)) {
+        eprintln!("breach_trials: no scenario {name} (paths is Godot's)\n{USAGE}");
         return ExitCode::from(2);
     }
     let Some(root) = args.get("repo").map(PathBuf::from).or_else(find_repo) else {
@@ -54,12 +56,17 @@ fn main() -> ExitCode {
         }
     };
     let runs_given = args.get("runs").map_or("50", String::as_str);
+    let threaded = args.get("threaded").is_none_or(|value| value != "false");
+    let first_seed = whole(args.get("first_seed").map_or("1", String::as_str));
+    if tires {
+        return tire(whole(runs_given), first_seed, threaded, &content);
+    }
     let options = Options {
         rolls: args.get("rolls").is_none_or(|value| value != "off"),
         captain: args.contains_key("captain"),
-        first_seed: whole(args.get("first_seed").map_or("1", String::as_str)),
+        first_seed,
         swap: args.contains_key("swap"),
-        threaded: args.get("threaded").is_none_or(|value| value != "false"),
+        threaded,
     };
     println!("{}", heading(runs_given, &options));
     println!("{}", columns());
@@ -69,6 +76,19 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         };
         println!("{}", row(name, &summary(&results)));
+    }
+    ExitCode::SUCCESS
+}
+
+/// formation_trials.gd's `_fatigue`: a line a contact, each over `runs` battles.
+fn tire(runs: i64, first_seed: i64, threaded: bool, content: &Content) -> ExitCode {
+    println!("{}", fatigue::columns());
+    for seconds in fatigue::CONTACTS {
+        let Some(result) = fatigue::run(seconds, runs, first_seed, threaded, content) else {
+            eprintln!("breach_trials: fatigue can't be set up");
+            return ExitCode::from(1);
+        };
+        println!("{}", fatigue::row(seconds, &result));
     }
     ExitCode::SUCCESS
 }
