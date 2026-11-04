@@ -150,3 +150,26 @@ func test_the_crate_holds_who_is_out_taking_which_body() -> void:
 	assert_bool(line.units.any(func(u): return u.id == taking.keys()[0])).is_true()
 	line.taking = {}
 	assert_bool(FormationTaking.holding(line)).is_false()
+
+
+## The taking is the crate's one pass (`taking/pass.rs`, spec 39 step 8b5-xxiii, whose cargo
+## tests hold the rules): a threatened group sends none; else its taker sets out, held in the
+## crate, and "sent_to_take" comes back as FormationEvents made it.
+func test_the_crate_pass_sends_the_taker_and_tells_of_it() -> void:
+	var setup := _setup(1, 3.0)
+	var sim: FormationSimulation = setup[0]
+	var line: SkirmishSquad = setup[1]
+	var body: SkirmishUnit = setup[2]
+	CrateEvents.taken(ColumnsLent.field(line.store.columns))  # the setup's own, dropped
+	var events := []
+
+	FormationTaking.step(sim.squads(), 7, 0.1, sim.fight_seed, events, {line.id: {"threat": true}})
+	assert_array(events).is_empty()
+	FormationTaking.step(sim.squads(), 8, 0.1, sim.fight_seed, events)
+
+	var taker: int = line.units[0].id
+	assert_dict(line.taking).is_equal({taker: body.slot})
+	assert_int(line.taking_since).is_equal(8)
+	var told := {"type": "sent_to_take", "tick": 8, "squad": line.id, "faction": "player"}
+	told["unit"] = taker
+	assert_array(events).is_equal([told])

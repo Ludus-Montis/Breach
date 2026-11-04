@@ -40,6 +40,7 @@ pub const KINDS: &[(&str, &[&str])] = &[
     ("died", &["unit"]),
     ("downed", &["unit"]),
     ("leader_fell", &["unit", "leadership"]),
+    ("sent_to_take", &["unit"]),
 ];
 pub const ORDER_APPLIED: usize = 0;
 pub const DISENGAGED: usize = 1;
@@ -70,6 +71,7 @@ pub const DESTROYED: usize = 25;
 pub const DIED: usize = 26;
 pub const DOWNED: usize = 27;
 pub const LEADER_FELL: usize = 28;
+pub const SENT_TO_TAKE: usize = 29;
 
 /// The kinds told of a unit, not a squad: their third number is the unit's id, and their
 /// faction its own ("hit").

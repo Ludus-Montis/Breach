@@ -386,6 +386,14 @@ events. After this step no battle phase runs in GDScript.
   deaths; **8b5-xxiii** taking, wounds, recovery and strays; **8b5-xxiv** morale, the rout
   and carrying; **8b5-xxv** groups, stamina, the bodies, the shuffle and the march's sync;
   **8b5-xxvi** one `step()` binding.
+  **8b5-xxiii split further** (2026-10-29, under the same leave), on its survey (each of the
+  four is its own GDScript pass gluing crate calls, and each lands states, lists and events
+  of its own): **8b5-xxiii** taking as one crate pass (`taking/pass.rs`, `taking_step`: the
+  takers called back, the hold and `took_until`, which squads send, the sending and
+  "sent_to_take" in the log); **8b5-xxiv** the wounds' tending (FormationWounds.tend) as one
+  pass; **8b5-xxv** recovery and strays. The rest follow, renumbered: **8b5-xxvi** morale,
+  the rout and carrying; **8b5-xxvii** groups, stamina, the bodies, the shuffle and the
+  march's sync; **8b5-xxviii** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
