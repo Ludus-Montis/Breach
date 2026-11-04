@@ -100,6 +100,7 @@ mod swaps;
 mod taking;
 mod tick;
 mod trade;
+pub mod trials;
 mod turn;
 mod walk_store;
 mod walking;

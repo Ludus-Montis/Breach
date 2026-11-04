@@ -122,13 +122,16 @@ impl Play {
 
     /// Whether some squad of each side still stands: anyone standing, not routing.
     pub fn both_stand(&self, squads: &Squads, field: &Field) -> bool {
-        FACTIONS.iter().all(|name| {
-            let Some(code) = field.lexicon.find(name) else { return false };
-            self.listed.iter().any(|&s| {
-                squads.faction[s] == code
-                    && squads.state[s] != locks::ROUTING
-                    && !squads.living(s, &field.columns.state).is_empty()
-            })
+        FACTIONS.iter().all(|name| self.stands(squads, field, name))
+    }
+
+    /// Whether some listed squad of the faction `name` still stands (BattleTrials._stands).
+    pub fn stands(&self, squads: &Squads, field: &Field, name: &str) -> bool {
+        let Some(code) = field.lexicon.find(name) else { return false };
+        self.listed.iter().any(|&s| {
+            squads.faction[s] == code
+                && squads.state[s] != locks::ROUTING
+                && !squads.living(s, &field.columns.state).is_empty()
         })
     }
 }
