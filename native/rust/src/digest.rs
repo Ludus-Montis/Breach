@@ -10,12 +10,68 @@
 //! f32s, a string as its UTF-8 length and bytes padded to 4, a list as its length and each
 //! value in turn.
 
+pub mod events;
 pub mod state;
 
 #[cfg(test)]
 mod tests;
 
+use crate::content::Content;
+use crate::events::Log;
+use crate::field::Field;
+use crate::field_play::actions;
 use crate::maths::V2;
+use crate::play::{self, Play, Watch};
+use crate::record::Record;
+use crate::squads::Squads;
+
+/// A tick's record as the digest hashes it (`_record`): `var_to_bytes([events, state])`.
+pub fn recorded(events: Vec<Plain>, state: Plain) -> Vec<u8> {
+    Plain::List(vec![Plain::List(events), state]).bytes()
+}
+
+/// The digest's battle run (formation_digest.gd's `_run`) in the crate: `play` played until
+/// `watch` stops it, each tick's record handed to `out`; the ticks played.
+pub fn battle(
+    play: &mut Play,
+    crate_: (&mut Squads, &mut Field),
+    content: &Content,
+    log: &mut Log,
+    watch: &mut Watch,
+    out: &mut impl FnMut(Vec<u8>),
+) -> i64 {
+    play::run_each(play, crate_, content, log, watch, |listed, squads, field, flat| {
+        let told = events::logged(flat, &field.lexicon);
+        out(recorded(told, state::state(squads, field, listed)));
+    })
+}
+
+/// A field log played as the digest's `_field` plays it (`actions::replay`), each tick's
+/// record handed to `out`, the builders' and waves' events before the battle's; the ticks
+/// played, or None, with nothing played, if the field can't be set up.
+pub fn field(
+    record: &Record,
+    extra: i64,
+    crate_: (&mut Squads, &mut Field),
+    content: &Content,
+    how: (bool, bool),
+    log: &mut Log,
+    out: &mut impl FnMut(Vec<u8>),
+) -> Option<i64> {
+    actions::replay_each(
+        record,
+        extra,
+        crate_,
+        content,
+        how,
+        log,
+        |made, listed, squads, field, flat| {
+            let mut told = events::produced(made);
+            told.extend(events::logged(flat, &field.lexicon));
+            out(recorded(told, state::state(squads, field, listed)));
+        },
+    )
+}
 
 /// Godot's Variant types the digest's values take.
 const NIL: u32 = 0;

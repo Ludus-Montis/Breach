@@ -19,6 +19,7 @@ use crate::orders;
 use crate::record::{Command, Record, KINGDOM, PLAYER};
 use crate::squads::Squads;
 use crate::staging::Stage;
+use crate::waves::Produced;
 
 /// Where B's waiting wave holds, along its route (FormationField.STAGING's x), in cells.
 const STAGING_AT: f64 = 56.0;
@@ -130,21 +131,41 @@ impl FieldPlay {
 pub fn replay(
     record: &Record,
     extra: i64,
+    crate_: (&mut Squads, &mut Field),
+    content: &Content,
+    how: (bool, bool),
+    log: &mut Log,
+) -> Option<(i64, i64)> {
+    let mut produced = 0;
+    let count = |made: &[Produced], _: &[usize], _: &Squads, _: &Field, _: &[i64]| {
+        produced += made.len() as i64;
+    };
+    let ticks = replay_each(record, extra, crate_, content, how, log, count)?;
+    Some((ticks, produced))
+}
+
+/// `replay`, with `each` told of every tick as it ends: what the builders and waves did, the
+/// squads listed, the squads, the field and the tick's events, flat (the digest's record,
+/// `digest::field`). The ticks played; None, with nothing played, if the field can't be set up.
+pub fn replay_each(
+    record: &Record,
+    extra: i64,
     (squads, field): (&mut Squads, &mut Field),
     content: &Content,
     (rolls, threaded): (bool, bool),
     log: &mut Log,
-) -> Option<(i64, i64)> {
+    mut each: impl FnMut(&[Produced], &[usize], &Squads, &Field, &[i64]),
+) -> Option<i64> {
     let at = (record.seed, rolls, threaded);
     let mut played = FieldPlay::new(record.captained, (squads, field), content, at)?;
     let last = record.commands.last().map_or(0, |c| c.tick);
-    let mut produced = 0;
     for tick in 0..last + extra {
         for given in record.commands.iter().filter(|c| c.tick == tick) {
             played.apply(given, (squads, field), content);
         }
-        produced += played.step(squads, field, content, log).0.len() as i64;
-        log.take();
+        let (made, _) = played.step(squads, field, content, log);
+        let flat = log.take();
+        each(&made, &played.play.listed, squads, field, &flat);
     }
-    Some((last + extra, produced))
+    Some(last + extra)
 }

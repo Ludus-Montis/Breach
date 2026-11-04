@@ -242,15 +242,29 @@ impl Watch {
 /// dropped); the ticks played.
 pub fn run(
     play: &mut Play,
-    (squads, field): (&mut Squads, &mut Field),
+    crate_: (&mut Squads, &mut Field),
     content: &Content,
     log: &mut Log,
     watch: &mut Watch,
 ) -> i64 {
+    run_each(play, crate_, content, log, watch, |_, _, _, _| {})
+}
+
+/// `run`, with `each` told of every tick as it ends: the squads listed, the squads, the field
+/// and the tick's events, flat (the digest's record, `digest::battle`).
+pub fn run_each(
+    play: &mut Play,
+    (squads, field): (&mut Squads, &mut Field),
+    content: &Content,
+    log: &mut Log,
+    watch: &mut Watch,
+    mut each: impl FnMut(&[usize], &Squads, &Field, &[i64]),
+) -> i64 {
     loop {
         play.step(squads, field, content, log);
-        let engaged = told(&log.take(), ENGAGED);
-        if watch.stops(play.tick, engaged, play.both_stand(squads, field)) {
+        let flat = log.take();
+        each(&play.listed, squads, field, &flat);
+        if watch.stops(play.tick, told(&flat, ENGAGED), play.both_stand(squads, field)) {
             return play.tick;
         }
     }

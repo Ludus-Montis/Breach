@@ -4762,25 +4762,42 @@ impl BodyField {
         at: PackedInt64Array,
     ) -> i64 {
         let store = content.bind();
-        let (Some(content), Some(battle)) =
-            (store.content.as_ref(), battles::named(&name.to_string(), numbers.as_slice()))
-        else {
-            return -1;
-        };
-        let Ok([seed, rolls, threaded, limit, after]) = <[i64; 5]>::try_from(at.as_slice()) else {
-            return -1;
-        };
+        let Some(content) = store.content.as_ref() else { return -1 };
         let crate_ = (&mut self.squads, &mut self.field);
-        let Some(mut play) =
-            play::Play::new(&battle, crate_, content, (seed, rolls != 0, threaded != 0))
-        else {
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
             return -1;
         };
-        let mut watch = play::Watch::new(limit, (after >= 0).then_some(after));
         let crate_ = (&mut self.squads, &mut self.field);
         let ticks = play::run(&mut play, crate_, content, &mut self.events, &mut watch);
         self.edits += 1;
         ticks
+    }
+
+    /// The digest's battle `name` with its `numbers` played in the crate as `battle_play`
+    /// plays it, `at` the same, and each tick's record as formation_digest.gd's `_record`
+    /// hashes it (spec 39 step 8c-xii, `digest::battle`): the bytes of `var_to_bytes([events,
+    /// state])`, a tick each. Empty, with nothing written, for an unknown battle or definition.
+    #[func]
+    fn digest_battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
+            return records;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        digest::battle(&mut play, crate_, content, &mut self.events, &mut watch, &mut out);
+        self.edits += 1;
+        records
     }
 
     /// FormationField played in the crate (`field_play`): its line `captained` or not
@@ -4856,6 +4873,54 @@ impl BodyField {
         self.edits += 1;
         PackedInt64Array::from(&[ticks, produced][..])
     }
+
+    /// A field log replayed in the crate as `field_replay` replays it, `at` the same, and each
+    /// tick's record as formation_digest.gd's `_record` hashes it (spec 39 step 8c-xii,
+    /// `digest::field`): the bytes of `var_to_bytes([events, state])`, a tick each, the
+    /// builders' and waves' events before the battle's. Empty, with nothing written, for
+    /// unloaded content or a log that isn't a record.
+    #[func]
+    fn digest_field(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return records;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        let played =
+            digest::field(&record, extra, crate_, content, how, &mut self.events, &mut out);
+        if played.is_some() {
+            self.edits += 1;
+        }
+        records
+    }
+}
+
+/// The digest's battle `name` with its `numbers` set up on the crate to play as `at` = [seed,
+/// 1 if blows roll, 1 if threaded, the limit, ticks past first contact (-1: no such stop)]
+/// says, and the watch that stops it; None, with nothing written, for an unknown battle or
+/// definition.
+fn battle_set(
+    crate_: (&mut squads::Squads, &mut field::Field),
+    content: &content::Content,
+    name: &GString,
+    numbers: &PackedInt64Array,
+    at: &PackedInt64Array,
+) -> Option<(play::Play, play::Watch)> {
+    let battle = battles::named(&name.to_string(), numbers.as_slice())?;
+    let [seed, rolls, threaded, limit, after] = <[i64; 5]>::try_from(at.as_slice()).ok()?;
+    let play = play::Play::new(&battle, crate_, content, (seed, rolls != 0, threaded != 0))?;
+    Some((play, play::Watch::new(limit, (after >= 0).then_some(after))))
 }
 
 /// `of`'s words and lists by name, decoded through `lexicon`, as SkirmishUnit holds them.

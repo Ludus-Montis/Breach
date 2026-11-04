@@ -851,6 +851,20 @@ events. After this step no battle phase runs in GDScript.
   returns the bytes; the gdUnit test holds them equal to `var_to_bytes(DigestState.state(..))`
   every tick of both mirrors, field logs 3 and 4 and the 40-a-side clash. Nothing calls it
   yet. Outcomes don't change.
+  **8c-xii built** (2026-11-04): `digest::events::logged(flat, lexicon)` is the crate's log
+  as CrateEvents decodes it and DigestState.plain gives it: each event's dictionary, its
+  order, band and blow named, its words from the lexicon, a flank or "alone" a bool, a heading
+  its float, an unset "joined" left out, a list its values, a "definition" ["obj",
+  "Resource"] (a UnitDef has no id). `digest::events::produced` is the builders' and waves'
+  events (lanes "A", "B", the reserve ""). `digest::recorded(events, state)` is the tick's
+  record, `var_to_bytes([events, state])`. `digest::battle` and `digest::field` play a digest
+  run (`play::run_each`, `field_play::actions::replay_each`: `run` and `replay` with each
+  tick handed on) and give each tick's record, the field's production first. The bindings
+  `BodyField.digest_battle(content, name, numbers, at)` and `digest_field(content, log, at)`
+  return the records, a `PackedByteArray` a tick; the gdUnit test holds them equal to the
+  digest's `_record` bytes every tick of both mirrors, the 40-a-side clash and all five field
+  logs, and checks that every way of decoding a field was met. Nothing calls them yet.
+  Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
