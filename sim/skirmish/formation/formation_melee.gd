@@ -7,14 +7,19 @@ extends RefCounted
 ## battle's native bodies (`blows.rs`), the blows on routers (`rout_blows.rs`) and the shots
 ## (`shots.rs`), each blow's damage read from its striker's sheet. How each lands - high
 ## ground and flanks among what shifts it - is BlowLanding's. Pure over the squads it is
-## given; FormationSimulation applies the blows.
+## given; FormationSimulation applies the blows. The whole fight is one crate pass (`fight`,
+## `fight::step`, spec 39 step 8b5-xix): the choice, the landing, the hurts, "spat" and "hit"
+## in the crate's log and the strikers' stamina.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
+const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
+const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
-## Numbers a melee blow and a shot take in what the crate returns.
+## Numbers a melee blow and a shot take in what the crate returns; a blow the fight dealt.
 const MELEE := 6
 const SHOT := 5
+const DEALT := 5
 
 
 ## [the melee blows ([[attacker, target, damage, flank], ...]), the shots ([[shooter,
@@ -50,3 +55,36 @@ static func blows(squads: Array, interval: int, fight_seed: int, field: Object =
 		shots.append([shooter, target, chosen[at + 4], squads[chosen[at]]])
 		at += SHOT
 	return [melee, shots, roster]
+
+
+## The tick's fight over the squads, in the crate (`fight_step`): chosen as `blows` chooses
+## them, landed as BlowLanding lands them (with rolls if `rolls`), hurt, "spat" and "hit" in
+## the crate's log (CrateEvents takes them) and each striker's stamina spent. Returns the
+## melee blows, [[attacker, target, the damage it dealt], ...], for the surrender.
+static func fight(
+	squads: Array, ticks: Array, rolls: bool, terrain: FormationTerrain, field: Object
+) -> Array:
+	if squads.is_empty():
+		return []
+	var tuning := BattleTuning.current()
+	var front := DetMath.cos(deg_to_rad(tuning.reach_front_arc_degrees)) - 0.000001
+	var floats := PackedFloat64Array(
+		[tuning.reach_contact, front, tuning.rout_strike_reach, tuning.stamina_blow]
+	)
+	var ints := PackedInt64Array(ticks + [int(rolls)])
+	var roster := CrateRoster.of(squads)
+	var ground: Object = terrain.core if terrain != null else null
+	var columns: UnitColumns = squads[0].store.columns
+	var dealt: PackedInt64Array = ColumnsLent.all(
+		columns,
+		func():
+			return field.fight_step(
+				roster, ints, floats, BandTuning.rules(), BlowLanding.tuning(), ground
+			)
+	)
+	var livings := squads.map(func(squad): return squad.living())
+	var melee := []
+	for at in range(0, dealt.size(), DEALT):
+		var striker: SkirmishUnit = livings[dealt[at]][dealt[at + 1]]
+		melee.append([striker, livings[dealt[at + 2]][dealt[at + 3]], dealt[at + 4]])
+	return melee

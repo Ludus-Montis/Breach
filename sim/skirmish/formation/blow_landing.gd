@@ -60,7 +60,7 @@ static func land(
 		columns,
 		func():
 			return field.fight_land(
-				roster, blows, PackedInt64Array(rolls), _tuning(), reach, BandTuning.rules(), ground
+				roster, blows, PackedInt64Array(rolls), tuning(), reach, BandTuning.rules(), ground
 			)
 	)
 	for index in all.size():
@@ -69,7 +69,7 @@ static func land(
 
 
 ## What landing reads of BattleTuning, in the order LandingTuning.of_slice reads it.
-static func _tuning() -> PackedFloat64Array:
+static func tuning() -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
 	var out := PackedFloat64Array(
 		[

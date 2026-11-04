@@ -211,6 +211,7 @@ fn shots(squads: &Squads, field: &mut Field, roster: &Roster, rules: &Rules) -> 
 }
 
 pub mod land;
+pub mod step;
 
 #[cfg(test)]
 mod tests;
