@@ -8,6 +8,8 @@
 #[cfg(test)]
 pub(crate) mod tests;
 
+use crate::staging::Stage;
+
 /// WaveTemplate.MAX_RANKS.
 pub const MAX_RANKS: i32 = 4;
 
@@ -99,8 +101,8 @@ fn cells(painted: &[Painted]) -> i32 {
 }
 
 /// FormationProduction's wave: its template, one flag a place (in `ordered` order) for
-/// filled, whether it was announced full, whether it departs when full, and the route its
-/// squads take (a key into the field's routes).
+/// filled, whether it was announced full, whether it departs when full, the route its
+/// squads take (a key into the field's routes) and the staging they're sent with.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Wave {
     pub template: Template,
@@ -108,13 +110,14 @@ pub struct Wave {
     pub announced: bool,
     pub auto: bool,
     pub route: usize,
+    pub staging: Option<Stage>,
 }
 
 impl Wave {
     /// A wave on `template` with nothing filled (set_template on an empty wave).
     pub fn new(template: Template, route: usize) -> Wave {
         let filled = vec![false; template.ordered().len()];
-        Wave { template, filled, announced: false, auto: false, route }
+        Wave { template, filled, announced: false, auto: false, route, staging: None }
     }
 
     /// Its unfilled places of `id` (wanted()'s count for that type).

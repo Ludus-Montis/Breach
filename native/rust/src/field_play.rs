@@ -7,6 +7,7 @@
 //! filled places spawned as one squad, a partial wave closed up and centred on its route, and
 //! its units stood on their places.
 
+pub mod actions;
 #[cfg(test)]
 mod tests;
 
@@ -34,6 +35,7 @@ const C_Y: f32 = 62.0;
 /// The field's routes, in FormationField.route_points' order.
 pub const A: usize = 0;
 pub const B: usize = 1;
+pub const C: usize = 2;
 /// The waves' units (FormationFieldActions.field).
 const GREM: &str = "grem";
 const CHIEFTAIN: &str = "grem_chieftain";
@@ -53,11 +55,12 @@ pub fn routes() -> Vec<Route> {
     ]
 }
 
-/// The field being played: the battle, its routes and the codes they were given as first
-/// used, the waves (A's, B's), the builders, the routes whose waves hurry and what each
-/// route's waves do with their downed.
+/// The field being played: the battle, the kingdom's line and reserve, its routes and the
+/// codes they were given as first used, the waves (A's, B's), the builders, the routes whose
+/// waves hurry and what each route's waves do with their downed.
 pub struct FieldPlay {
     pub play: Play,
+    pub kingdom: Vec<usize>,
     pub routes: Vec<(Route, Option<i64>)>,
     pub waves: Vec<Wave>,
     pub builders: Builders,
@@ -94,7 +97,9 @@ impl FieldPlay {
         builders.set(CHIEFTAIN, chieftain.build_seconds, 1);
         builders.prefer(None); // round robin (Decision 51)
         let waves = vec![Wave::new(a, A), Wave::new(b, B)];
-        Some(FieldPlay { play, routes, waves, builders, hurried: Vec::new(), tending: Vec::new() })
+        let kingdom = play.listed.clone(); // the line, then the reserve
+        let (hurried, tending) = (Vec::new(), Vec::new());
+        Some(FieldPlay { play, kingdom, routes, waves, builders, hurried, tending })
     }
 
     /// FormationField.step: the player's squads hurried and tending as their routes' waves
@@ -207,6 +212,7 @@ impl FieldPlay {
         if let Some(command) = squads.command[s] {
             squads.commands.give(command, MERGES, false); // the field's waves don't merge
         }
+        squads.staging[s].clone_from(&self.waves[w].staging);
         if !full {
             close_up(squads, field, s);
         }

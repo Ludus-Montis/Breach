@@ -68,6 +68,7 @@ mod play;
 mod pursuit;
 mod ranks;
 mod reach;
+mod record;
 mod recovery;
 mod rect;
 mod regeneration;
@@ -4811,6 +4812,36 @@ impl BodyField {
             produced += made.len() as i64;
             self.events.take();
         }
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
+    }
+
+    /// A field log (FormationRecord) replayed in the crate as the digest plays it
+    /// (`field_play::actions::replay`): the field its header names, each tick's commands given
+    /// as FormationFieldActions.apply gives them and the tick played, each tick's events taken
+    /// and dropped, till `at`'s extra ticks past its last command. `at` = [1 if blows roll, 1
+    /// if threaded, extra ticks]. Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content, a log that isn't a record
+    /// or one sending the waves together (`send A+B`, not yet the crate's).
+    #[func]
+    fn field_replay(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return failed };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let played =
+            field_play::actions::replay(&record, extra, crate_, content, how, &mut self.events);
+        let Some((ticks, produced)) = played else { return failed };
         self.edits += 1;
         PackedInt64Array::from(&[ticks, produced][..])
     }
