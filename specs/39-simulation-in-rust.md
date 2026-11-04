@@ -2391,6 +2391,12 @@ Decision's conditions.
   pursuer whose enemy is gone says "pursuit_ended" as FormationEvents made it; one back at
   its post holds its own route again, GDScript's copy too, and turns (red with the GDScript
   mirror and the taking of the log stubbed, then green).
+- **The digest changes, outcomes don't** (found 2026-11-04, when CI's `digests (standard)`
+  job was red on #647): a squad's `pursuit` view no longer holds "route", so DigestState
+  hashes its pursuit with seven entries, not eight. The dropped entry was always
+  `["obj", "RefCounted"]` (a FormationRoute has no id), so it told nothing apart. field2
+  (both rolls) is the only standard run with a pursuit. Every tick of its trace equals the
+  base's with that entry dropped.
 - **After it**, 8b5-xvii: the fight.
 
 ## Open, for the implementing session to settle and record here
