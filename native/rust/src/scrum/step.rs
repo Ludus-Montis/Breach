@@ -55,18 +55,18 @@ pub fn step(
     let lines = prepare::Lines { anticipate: rules.anticipate, seed, discipline: &rules.stance };
     prepare::anticipate(squads, field, roster, ground, (&lines, tick), log);
     pass::manoeuvre(squads, &mut field.columns, roster);
-    lap("scrum: engage, prepare, stance", field);
+    lap("scrum: engage, prepare, stance", field, squads);
     let began = Instant::now();
     let active = seek::step(squads, field, roster, ground, &rules.seek);
     let seek_usec = began.elapsed().as_micros() as i64;
-    lap("scrum: seek, walk and facing", field);
+    lap("scrum: seek, walk and facing", field, squads);
     regroup::step(squads, field, roster, ground, &rules.regroup);
-    lap("scrum: regroup and chasers", field);
+    lap("scrum: regroup and chasers", field, squads);
     withdraw::step(squads, field, roster, ground, &rules.withdraw, log);
-    lap("scrum: withdraw", field);
+    lap("scrum: withdraw", field, squads);
     let back = pursue::step(squads, field, roster, &rules.pursue, log);
     pass::stall(squads, roster, (&active, rules.stall_ticks), tick, log);
-    lap("scrum: pursuit, stall", field);
+    lap("scrum: pursuit, stall", field, squads);
     Scrummed { back, seek_usec }
 }
 

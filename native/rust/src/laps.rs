@@ -4,17 +4,20 @@
 //! lap times nothing the simulation reads, so it changes no outcome (`phases::tests` holds a
 //! timed battle equal to an untimed one).
 //!
-//! A lap also shows the field to a watcher while `watched` runs on this thread (spec 39 step
-//! 8c-xxii: `phases::counts` copies the store's columns there). The watcher only reads the
-//! field, and its time is left out of the lap that follows.
+//! A lap also shows the field and the squads to a watcher while `watched` runs on this thread
+//! (spec 39 step 8c-xxii: `phases::counts` copies the store's columns there; step 8d:
+//! `cuts` fingerprints the whole state there). The watcher only reads them, and its time is
+//! left out of the lap that follows.
 
 use std::cell::RefCell;
 use std::time::Instant;
 
 use crate::field::Field;
+use crate::squads::Squads;
 
-/// What `watched` shows the field to at each lap: the phase that just ended, and the field.
-pub type Watcher = Box<dyn FnMut(&'static str, &Field)>;
+/// What `watched` shows the state to at each lap: the phase that just ended, the field and the
+/// squads.
+pub type Watcher = Box<dyn FnMut(&'static str, &Field, &Squads)>;
 
 thread_local! {
     static LAPS: RefCell<Option<Laps>> = const { RefCell::new(None) };
@@ -29,8 +32,8 @@ struct Laps {
 }
 
 /// Ends `phase`'s lap: the time since the last lap ended (or `timed` began) is added to it,
-/// then a watcher, if any, sees `field`, and the next lap starts after it.
-pub fn lap(phase: &'static str, field: &Field) {
+/// then a watcher, if any, sees `field` and `squads`, and the next lap starts after it.
+pub fn lap(phase: &'static str, field: &Field, squads: &Squads) {
     let timing = LAPS.with(|laps| {
         let mut laps = laps.borrow_mut();
         let laps = laps.as_mut()?;
@@ -46,7 +49,7 @@ pub fn lap(phase: &'static str, field: &Field) {
     let watching = WATCHER.with(|watcher| {
         let mut watcher = watcher.borrow_mut();
         let watch = watcher.as_mut()?;
-        watch(phase, field);
+        watch(phase, field, squads);
         Some(())
     });
     if timing.is_some() && watching.is_some() {
@@ -67,7 +70,7 @@ pub fn timed<R>(work: impl FnOnce() -> R) -> (R, Vec<(&'static str, f64)>) {
     (out, spent)
 }
 
-/// Runs `work` with `watcher` shown the field at each lap, and returns what it returned.
+/// Runs `work` with `watcher` shown the field and the squads at each lap, and returns what it returned.
 pub fn watched<R>(watcher: Watcher, work: impl FnOnce() -> R) -> R {
     WATCHER.with(|slot| *slot.borrow_mut() = Some(watcher));
     let out = work();

@@ -19,6 +19,7 @@ mod compact;
 mod contact;
 pub mod content;
 mod contest;
+pub mod cuts;
 mod deaths;
 pub mod designer;
 mod det_math;

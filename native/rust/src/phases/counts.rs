@@ -44,7 +44,8 @@ pub struct Counts {
 pub fn counted(settled: &mut Settled, ticks: usize, content: &Content) -> Counts {
     let watch = Rc::new(RefCell::new(Watch::of(&settled.field)));
     let watcher = Rc::clone(&watch);
-    let seen: laps::Watcher = Box::new(move |phase, field| watcher.borrow_mut().saw(phase, field));
+    let seen: laps::Watcher =
+        Box::new(move |phase, field, _| watcher.borrow_mut().saw(phase, field));
     laps::watched(seen, || {
         for _ in 0..ticks {
             settled.step(content);

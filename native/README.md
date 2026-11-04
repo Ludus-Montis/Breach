@@ -223,6 +223,21 @@ The rules for matching Godot bit for bit (`native/rust/src/maths.rs`):
 plays the same runs in the crate with no Godot (spec 39 step 8c-xiii) and prints the same
 lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot's.
 
+**The snapshot tests' cuts** (`src/cuts.rs`, spec 39 step 8d): `breach_digest cuts=<dir>`
+writes eight states cut from the standard digest's battles (`cuts::CUTS`: the mirrors and the
+40-a-side clash, each at a tick after which the phases it was chosen for change the state)
+to `native/rust/cuts/`, committed, about 390 KB. Each is the snapshot's bytes (`<name>.state`)
+and a text file (`<name>.txt`): the run's label, the tick, the squads listed, and the SHA-256
+of the field and the squads as each lap of the next tick ends. `cargo test cuts` reads each
+back, steps that tick from it and requires every lap's print; it also requires the battle to
+still reach the committed state, and every phase but those `cuts::UNCHANGED` names (the
+rules and the roster, which only read; the joins and the groups, which no digest battle uses;
+the pathing, the withdrawal and the carrying, which only the field logs use) to change the
+state in some cut. After an intended outcome change, run `native/bin/breach_digest
+cuts=native/rust/cuts` (or `cargo run --release --bin digest -- cuts=cuts` in `native/rust`)
+and commit what changed: only the cuts whose battles changed are rewritten. The first lap
+whose print differs names the phase that changed.
+
 ### Trials (`tools/formation_trials.gd`, BattleTrials)
 
 `native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
@@ -513,7 +528,7 @@ rout_bench and native_bench, `native/bin/breach_rout_bench[.exe]` and
 `src/bin/native_bench.rs`, `src/native_bench.rs`, spec 39 step 8c-xix). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
-by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it
+by Godot, the squad store, the snapshot read back, the cuts stepped), with no Godot. CI's `rust` job runs it
 with `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` on every PR that
 touches `native/`.
 

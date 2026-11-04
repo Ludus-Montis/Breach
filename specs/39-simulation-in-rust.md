@@ -1044,6 +1044,40 @@ events. After this step no battle phase runs in GDScript.
   each pass's changed slots against the living, a lap. The bin counts its untimed twin, so
   timed runs don't change. Cargo tests in `phases/counts/tests.rs`, red against stubs, then
   green. Outcomes don't change.
+- **8d split further** (2026-11-04, under the user's standing leave to split): the digest's
+  battles (the mirrors and the clashes) are a `Play`, whose state beside the snapshot is only
+  its squads listed, but the field logs are a FieldPlay, whose waves, builders, routes, hurry
+  and tending a cut must carry too. **8d-i** the cuts from the battles: the tool that writes
+  them, the cargo tests that step them, and every phase the battles act in; **8d-ii** the cuts
+  from the field logs, FieldPlay's state carried, for the phases only they act in (the
+  pathing, the withdrawal, the carrying and the carrying's strays). No digest run changes the
+  state in the joins or the groups; they stay held by their own cargo tests. 8d-ii's PR
+  closes the step.
+  **8d-i built** (2026-11-04): `src/cuts.rs` (`breach_native::cuts`). A cut is a digest
+  battle's state after a tick (`snapshot::write`) with its run's label and the squads listed;
+  `cut(run, tick, content)` plays the run on one thread to the tick and cuts it, with the
+  prints of the tick after; `resumed(cut, content)` reads it back into a `Play` (the battle's
+  set and rolls from its run, the tick and seed from the snapshot) and steps that tick. A
+  print is the SHA-256 of the field and the squads as written (`print`), taken as each lap
+  ends: `laps::lap(phase, field, squads)` now shows the squads to the watcher too
+  (`laps::Watcher` takes `&Squads`), so the squad-only passes are checked. So each phase is
+  stepped from the state the one before it left, the cut's own for the first, and the first
+  print that differs names the phase. **What "step one phase" is here:** the scenario's
+  fingerprint after one phase, for every phase of the tick at once; a phase alone can't be
+  called with what the tick hands it without rebuilding the tick around it. **The cuts**
+  (`CUTS`, chosen by a probe of which phases change the state in which ticks of the standard
+  digest's battles): `mirror_flank s1 rtrue` at 0 and 34, `mirror_headon s1 rtrue` at 80,
+  `mirror_flank s2 rtrue` at 108, `mirror_headon s3 rtrue` at 129, `clash40 s1 rfalse` at 141
+  and 202, `clash40 s2 rfalse` at 277. **Committed** under `native/rust/cuts/` (open item
+  settled: which snapshots, and their size): each `<label-with-dashes>-t<tick>.state` (the
+  snapshot, binary in `.gitattributes`) and `.txt` (the run, tick, listed and each lap's
+  print), about 390 KB in all. `breach_digest cuts=<dir>` writes them. Cargo tests in
+  `cuts/tests.rs`: a tick stepped from a cut read back prints as the tick played on (red
+  against a stub, then green, first time: the path cache a `Play` keeps isn't needed); every
+  committed cut is still the battle's state and steps as recorded; every phase but those
+  `UNCHANGED` names changes the state in some cut. After an intended outcome change the
+  second fails, and `breach_digest cuts=native/rust/cuts` rewrites only the cuts whose
+  battles changed. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
@@ -3218,7 +3252,7 @@ Decision's conditions.
   "Built", step 1.
 - ~~The snapshot's on-disk format and where snapshots live (step 1, used in step 8).~~ The
   format is settled in "Built", step 1. Which snapshots are committed, and their size, is
-  step 8's.
+  step 8's. Settled in "Built", 8d-i: eight cuts from the digest's battles, about 390 KB.
 - A chunk's boundary may move when a dependency demands it. The session records the move here.
 - **Step 4c's boundary moved** (2026-10-24): the squads' `pursuit` and `withdraw` records,
   and the order handling around them (a retreat's start, a pursuit's giving up, going back
