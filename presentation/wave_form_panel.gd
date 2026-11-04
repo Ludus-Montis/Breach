@@ -11,7 +11,7 @@ extends Control
 ## pending its own design pass), using the same "3 slots" starting shape the plan
 ## already commits to rather than a number invented here.
 
-var economy: EconomySystem
+var economy: Object
 var command_queue: CommandQueue
 var max_pending_units: int = 3
 

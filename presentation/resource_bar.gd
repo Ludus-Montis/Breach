@@ -1,13 +1,14 @@
 class_name ResourceBar
 extends Control
-## Read-only EconomySystem pool readout, per specs/05-presentation-and-hud.md. No
+## Read-only pool readout of the crate's economy (`EconomyState`), per
+## specs/05-presentation-and-hud.md. No
 ## automated coverage beyond construction (see specs/05's Notes) - actual rendering
 ## needs a real render context, deferred to manual playtest once a running scene
 ## exists (item 11).
 
 const RESOURCES := ["food", "wood", "stone", "metal", "crystal"]
 
-var economy: EconomySystem
+var economy: Object
 
 
 func _process(_delta: float) -> void:

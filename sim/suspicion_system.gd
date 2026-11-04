@@ -7,7 +7,7 @@ extends RefCounted
 ## (see TaskForceDispatch) simply has nothing dispatch when entered.
 ##
 ## Does not self-subscribe to SimEvents - on_tick_advanced() is a plain method, same
-## reasoning as CommandQueue/CaptureResolution (specs/01, specs/03).
+## reasoning as CommandQueue (specs/01).
 
 enum Tier { CALM, WARY, ALARMED, MOBILIZED, FULL_ALERT }
 

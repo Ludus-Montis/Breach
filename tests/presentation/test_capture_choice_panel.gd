@@ -1,11 +1,9 @@
 extends GdUnitTestSuite
-## Per specs/08: each button method calls exactly one CaptureResolution.issue_choice()
-## and nothing else - verified against a real CaptureResolution/EconomySystem, same
+## Per specs/08: each button method calls exactly one issue_choice() and nothing else -
+## verified against the crate's economy (`EconomyState`, spec 39 step 9b-ii), same
 ## reasoning as test_time_controls.gd.
 
 const CaptureChoicePanel = preload("res://presentation/capture_choice_panel.gd")
-const CaptureResolution = preload("res://sim/capture_resolution.gd")
-const EconomySystem = preload("res://sim/economy_system.gd")
 const NodeDef = preload("res://content/definitions/node_def.gd")
 
 
@@ -30,8 +28,8 @@ func _fort_node() -> NodeDef:
 
 
 func test_ravage_pressed_grants_the_lump_sum() -> void:
-	var economy := EconomySystem.new()
-	var resolution := CaptureResolution.new(economy)
+	var economy: Object = NativeLibrary.made("EconomyState")
+	var resolution := economy
 	var node := _resource_node()
 	resolution.on_node_captured(0, node)
 	var panel: CaptureChoicePanel = auto_free(CaptureChoicePanel.new())
@@ -43,8 +41,8 @@ func test_ravage_pressed_grants_the_lump_sum() -> void:
 
 
 func test_dismantle_pressed_grants_salvage() -> void:
-	var economy := EconomySystem.new()
-	var resolution := CaptureResolution.new(economy)
+	var economy: Object = NativeLibrary.made("EconomyState")
+	var resolution := economy
 	var node := _fort_node()
 	resolution.on_node_captured(1, node)
 	var panel: CaptureChoicePanel = auto_free(CaptureChoicePanel.new())
@@ -58,10 +56,10 @@ func test_dismantle_pressed_grants_salvage() -> void:
 
 
 func test_fortify_pressed_spends_the_cost_when_affordable() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("wood", 10)
 	economy.add("stone", 6)
-	var resolution := CaptureResolution.new(economy)
+	var resolution := economy
 	var node := _fort_node()
 	resolution.on_node_captured(1, node)
 	var panel: CaptureChoicePanel = auto_free(CaptureChoicePanel.new())
