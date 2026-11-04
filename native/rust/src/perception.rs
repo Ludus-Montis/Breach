@@ -87,6 +87,14 @@ fn sight_box(columns: &Columns, listed: &Listed) -> (Rect, f64) {
     (Rect::new(low, high.sub(low)), widest)
 }
 
+/// Keeps what each of `roster`'s squads saw (`see`'s, in the lists' order) as whether it is
+/// threatened: it saw a standing foe (Decision 134; spec 39 step 8b5-xxxvii).
+pub fn keep(squads: &mut Squads, roster: &Roster, seen: &[Vec<usize>]) {
+    for (listed, one) in roster.listed.iter().zip(seen) {
+        squads.threatened[listed.squad] = !one.is_empty();
+    }
+}
+
 /// FormationPerception.see: for each listed squad, in the lists' order, the indices of the
 /// standing hostile squads it detects.
 pub fn see(

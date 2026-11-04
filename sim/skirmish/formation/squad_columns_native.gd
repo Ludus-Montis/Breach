@@ -13,6 +13,8 @@ func _init(field: Object) -> void:
 
 
 func open(squad_id: int) -> int:
+	if opened >= 0:
+		return _take_opened()
 	return _field.squad_open(squad_id)
 
 
@@ -29,6 +31,8 @@ func value(slot: int, column: int) -> Variant:
 
 
 func put(slot: int, column: int, data: Variant) -> void:
+	if CrateMirroring.on:
+		return  # the crate's is the tick's (spec 39 step 8b5-xlii)
 	if column < REALS:
 		_field.put_squad_int(slot, column, data)
 	elif column < POINTS:

@@ -9,10 +9,13 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/tick_phases.gd -- \
 ##       [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 ##       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [copies]
+##       [terrain=open|mixed]
 ## copies also counts each phase's column copies across the boundary
 ## (ColumnCopies); counting slows the phases it counts, so time without it.
 ## squads=N splits each side into N squads of side/N on parallel lanes (FormationBench.lanes);
 ## archers=K makes the grems' back K a squad spitters, which shoot.
+## terrain=mixed plays the clash (one lane) on FormationBench.mixed_ground: a wood and a ford
+## across its line of advance (spec 38 step 2).
 ## stage=march times `fight` ticks of the march before contact, `settle` ticks after the
 ## start, instead of the fight. retreat orders that squad to retreat once the fight has
 ## settled in (its withdrawal, and its enemies' chasers, timed).
@@ -76,11 +79,13 @@ func _settled(side: int, width: int, args: Dictionary) -> Sim:
 	var lanes := int(args.get("squads", 1))
 	var archers := int(args.get("archers", 0))
 	var battle_seed := int(args.get("seed", 1))
-	var sim := (
-		FormationBench.lanes(lanes, side / lanes, width, battle_seed, archers)
-		if lanes > 1
-		else FormationBench.clash(side, width, battle_seed, archers)
-	)
+	var sim: Sim
+	if args.get("terrain", "open") == "mixed":
+		sim = FormationBench.mixed(side, width, battle_seed, archers)
+	elif lanes > 1:
+		sim = FormationBench.lanes(lanes, side / lanes, width, battle_seed, archers)
+	else:
+		sim = FormationBench.clash(side, width, battle_seed, archers)
 	if args.get("stage", "fight") == "march":
 		for _i in range(int(args.get("settle", 10))):
 			sim.step()
@@ -141,7 +146,7 @@ func _step(sim: Sim) -> void:
 	var interval := sim._attack_interval_ticks()
 	Sim.FormationDeaths.bury(squads, tick, events)
 	_lap("deaths (bury)")
-	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events, sim.perception)
+	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events)
 	_lap("taking the downed")
 	Sim.FormationWounds.tend(squads, tick, interval, sim.fight_seed, events)
 	_lap("wounds (tend)")
@@ -176,8 +181,7 @@ func _after(sim: Sim, events: Array) -> void:
 	_lap("stamina")
 	Sim.UnitBodies.step(squads, sim.fight_seed, sim._field)
 	_lap("bodies (UnitBodies)")
-	for entry in squads:
-		events.append_array(FormationShuffle.step(entry, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
+	events.append_array(FormationShuffle.step(squads, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
 	_lap("shuffle (re-form)")
 	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain, sim.fight_seed)
 	_lap("units walk to places")

@@ -11,9 +11,20 @@ use crate::squads::Squads;
 
 /// The squad's morale, its ceiling if it has none yet (FormationMorale._morale).
 pub fn morale(squads: &mut Squads, columns: &Columns, listed: &Listed, t: &BandTuning) -> i64 {
-    let s = listed.squad;
+    let living: Vec<usize> = listed.living.iter().map(|m| m.slot).collect();
+    morale_of(squads, columns, (listed.squad, &living), t)
+}
+
+/// The morale of the squad in slot `s`, whose living units are in store slots `living`, its
+/// ceiling if it has none yet.
+fn morale_of(
+    squads: &mut Squads,
+    columns: &Columns,
+    (s, living): (usize, &[usize]),
+    t: &BandTuning,
+) -> i64 {
     if squads.morale[s] < 0 {
-        let sheets = listed.living.iter().map(|m| &columns.sheet[m.slot]);
+        let sheets = living.iter().map(|&slot| &columns.sheet[slot]);
         let courage: Vec<i64> = sheets.clone().map(|sheet| sheet.courage).collect();
         let leaderships: Vec<i64> = sheets.map(|sheet| sheet.leadership).collect();
         squads.morale[s] = bands::ceiling(&courage, &leaderships, t) as i32;
@@ -29,8 +40,20 @@ pub fn shock(
     (t, tick): (&BandTuning, i64),
     log: &mut Log,
 ) {
-    let s = listed.squad;
-    let before = morale(squads, columns, listed, t);
+    let living: Vec<usize> = listed.living.iter().map(|m| m.slot).collect();
+    shock_living((squads, columns), (listed.squad, &living), amount, (t, tick), log);
+}
+
+/// Drains the morale of the squad in slot `s`, its living units in store slots `living`, by
+/// `amount` on `tick`.
+pub fn shock_living(
+    (squads, columns): (&mut Squads, &Columns),
+    (s, living): (usize, &[usize]),
+    amount: i64,
+    (t, tick): (&BandTuning, i64),
+    log: &mut Log,
+) {
+    let before = morale_of(squads, columns, (s, living), t);
     let after = bands::held(before - amount);
     squads.morale[s] = after as i32;
     let band = bands::band(after, t);

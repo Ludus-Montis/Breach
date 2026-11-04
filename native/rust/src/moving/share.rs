@@ -18,6 +18,7 @@ use crate::swaps;
 
 /// What the share reads besides the squad: the fight's seed, wounds_reach, walk_lost, and
 /// discipline_per_leadership, walk_slack_loose and walk_slack_drilled for its slack.
+#[derive(Clone, Copy)]
 pub struct ShareTuning {
     pub seed: i64,
     pub wounds_reach: f64,
@@ -85,7 +86,7 @@ pub fn slack(field: &Field, listed: &Listed, [per_leadership, loose, drilled]: [
 }
 
 /// FormationWalk.rule_of over the `living` units' store slots.
-fn rule(field: &Field, living: &[i32]) -> Rule {
+pub(crate) fn rule(field: &Field, living: &[i32]) -> Rule {
     let columns = &field.columns;
     let (left, none_left) = (field.lexicon.find(LEFT_BEHIND), field.lexicon.find(NO_MAN_LEFT));
     let has = |u: usize, code: Option<u32>| {

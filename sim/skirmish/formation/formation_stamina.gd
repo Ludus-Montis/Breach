@@ -12,57 +12,44 @@ extends RefCounted
 ## hardier the unit (its constitution), the rate times its condition. Below stamina_tired
 ## a unit is tired, below stamina_spent spent: slower and less skilled; a pursuit ends when
 ## its pursuers tire, as well as at its leash. All numbers: BattleTuning. The rules are the
-## crate's (`stamina.rs`, spec 39 step 6a): this hands it each squad's pursuit and hurry,
-## which GDScript keeps, and what of each unit the crate doesn't hold.
+## crate's (`stamina.rs`, spec 39 step 6a), and so is the pass (step 8b5-xxxi).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-const UnitDef = preload("res://content/definitions/unit_def.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
+const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
 
 
 ## One tick of `seconds`: runners and laden marchers tire, the rest recover after their
-## breather, and each unit's pace follows its gait and how tired it is.
+## breather, and each unit's pace follows its gait and how tired it is. The pass is the
+## crate's (`stamina/pass.rs`, spec 39 step 8b5-xxxi): each squad's pursuit and hurry and
+## each unit's numbers, traits and attributes are read there.
 static func step(squads: Array, seconds: float) -> void:
 	if squads.is_empty():
 		return
-	var columns: UnitColumns = squads[0].store.columns
-	var listed := PackedInt64Array()
-	var counts := PackedInt32Array()
-	var ints := PackedInt64Array()
-	var reals := PackedFloat64Array()
 	for squad: SkirmishSquad in squads:
-		var living: Array = squad.living()
-		var pursuing := not squad.pursuit.is_empty()
-		var returning: bool = pursuing and squad.pursuit["returning"]
-		listed.append_array(
-			[squad.slot, int(pursuing) | int(returning) << 1 | int(squad.hurry) << 2]
-		)
-		counts.append(living.size())
-		for unit: SkirmishUnit in living:
-			if unit.fresh_speed <= 0.0:  # one made by hand, not from its sheet
-				# store: scattered (few: a unit made by hand, once)
-				unit.fresh_speed = columns.value(unit.slot, UnitColumns.SPEED)
-			ints.append_array([unit.id, unit.slot, unit.load_stage, _flags(unit)])
-			(
-				reals
-				. append_array(
-					[
-						unit.fresh_speed,
-						unit.max_stamina,
-						unit.tiring,
-						unit.run_pace,
-						unit.attributes.get("wits", UnitDef.AVERAGE),
-						unit.attributes.get("constitution", UnitDef.AVERAGE),
-					]
-				)
-			)
-	var field: Object = ColumnsLent.field(columns)
-	var tuning := _tuning()
-	ColumnsLent.all(
-		columns, func(): field.stamina_step(listed, counts, ints, reals, seconds, tuning)
+		squad.living()  # its members written to the squad store, if its lists changed
+	var store: UnitStore = squads[0].store
+	var field: Object = ColumnsLent.field(store.columns)
+	var listed := FormationLocks.slots(squads)
+	var rules := tuning()
+	var made: PackedInt64Array = ColumnsLent.all(
+		store.columns, func(): return field.stamina_step(listed, seconds, rules)
 	)
+	mirror(store, made)
+
+
+## The units made by hand that took their speed as fresh in the crate (their ids, as
+## `stamina_step` returns them): GDScript's copy of the fresh speed set from the sheet.
+static func mirror(store: UnitStore, made: PackedInt64Array) -> void:
+	if made.is_empty():
+		return
+	var field: Object = ColumnsLent.field(store.columns)
+	var fresh: int = field.sheet_names().find("fresh_speed")
+	for id in made:  # store: scattered (few: a unit made by hand, once)
+		var unit: SkirmishUnit = store.record_of(id)
+		unit.fresh_speed = field.sheet(unit.slot)[fresh]  # its speed, given it as fresh
 
 
 ## 0 fresh, 1 tired, 2 spent: the stage of a unit with `stamina` of `most`.
@@ -92,30 +79,21 @@ static func squad_gives_up(squad: SkirmishSquad) -> bool:
 	)
 
 
-## A unit's flags as the crate takes them: 1 it leads, 2 it pursues at a march, 4 it
-## retreats at a march.
-static func _flags(unit: SkirmishUnit) -> int:
-	var leads := int(unit.leadership > 0)
-	var pursues := int(unit.traits.get("pursues_at_march", 0) > 0)
-	var retreats := int(unit.traits.get("retreats_at_march", 0) > 0)
-	return leads | pursues << 1 | retreats << 2
-
-
 ## The tuning stamina_step takes.
-static func _tuning() -> PackedFloat64Array:
-	var tuning := BattleTuning.current()
+static func tuning() -> PackedFloat64Array:
+	var battle := BattleTuning.current()
 	var out := PackedFloat64Array(
 		[
-			tuning.stamina_run,
-			tuning.stamina_delay,
-			tuning.stamina_recovery,
-			tuning.run_build_seconds,
-			tuning.run_reaction,
-			tuning.condition_cap,
-			tuning.stamina_tired,
-			tuning.stamina_spent,
+			battle.stamina_run,
+			battle.stamina_delay,
+			battle.stamina_recovery,
+			battle.run_build_seconds,
+			battle.run_reaction,
+			battle.condition_cap,
+			battle.stamina_tired,
+			battle.stamina_spent,
 		]
 	)
-	out.append_array(tuning.stamina_pace)
-	out.append_array(tuning.load_march_tiring)
+	out.append_array(battle.stamina_pace)
+	out.append_array(battle.load_march_tiring)
 	return out

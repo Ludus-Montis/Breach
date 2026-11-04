@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 ## The walk, the slack, the wait and the squeeze are the crate's march's (march/tests.rs,
 ## spec 39 step 3d); the share reads each unit where it lives (moving/share/tests.rs, 8b5-ix).
 
+const FormationMarch = preload("res://sim/skirmish/formation/formation_march.gd")
 const FormationWalk = preload("res://sim/skirmish/formation/formation_walk.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -52,3 +53,24 @@ func test_a_unit_lagging_three_quarters_of_its_slack_halves_its_frames_step() ->
 	var lag := behind * FormationWalk.slack_of(squad) * 0.75
 	UnitPlaces.put(squad, lagging, UnitPlaces.of(squad, lagging) + lag)
 	assert_float(FormationWalk.share(squad)).is_equal_approx(0.5, 0.0001)
+
+
+## One crate pass over every squad (`march::sync`, spec 39 step 8b5-xxxiii): each unit a cell
+## off its place walks a tick's way back towards it.
+func test_one_sync_walks_every_squads_units_towards_their_places() -> void:
+	var sim := FormationSimulation.new(4.0, 0.1)
+	var squads := [_line(sim, 2), _line(sim, 2)]
+	for squad: SkirmishSquad in squads:
+		for unit in squad.units:
+			var place := FormationWalk.place_of_one(squad, unit)
+			UnitPlaces.put(squad, unit, place + Vector2(0.0, 1.0))
+	FormationMarch.sync_units(squads, [0.1, 8.0])
+	var after := []
+	for squad: SkirmishSquad in squads:
+		for unit in squad.units:
+			var lag := UnitPlaces.of(squad, unit).distance_to(
+				FormationWalk.place_of_one(squad, unit)
+			)
+			after.append(snappedf(lag, 0.01))
+	# a tick's walk, sideways at its pace, as GDScript walked it
+	assert_array(after).is_equal([0.28, 0.28, 0.28, 0.28])

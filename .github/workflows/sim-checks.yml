@@ -180,7 +180,8 @@ jobs:
           mkdir -p digests
           /opt/godot/godot --headless --path . \
             --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
-            out=digests/${{ matrix.set }}.branch.txt > /dev/null 2>&1
+            out=digests/${{ matrix.set }}.branch.txt 2> /dev/null \
+            | grep -E '^.+ ticks +[0-9]+  [0-9a-f]{64}$' > digests/${{ matrix.set }}.branch.runs
           (cd digests && sha256sum *.txt)
 
       - uses: actions/download-artifact@v7
@@ -205,6 +206,17 @@ jobs:
             --changed digests/${{ matrix.set }}.changed.txt \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
+
+      # The same digest played in the crate with nothing from Godot (native/bin/breach_digest,
+      # spec 39 step 8c-xiii): each run's line and every tick's hash must equal Godot's.
+      - name: Digest ${{ matrix.set }} in the crate
+        if: always()
+        run: |
+          chmod +x native/bin/breach_digest
+          native/bin/breach_digest set=${{ matrix.set }} \
+            out=digests/${{ matrix.set }}.crate.txt > digests/${{ matrix.set }}.crate.runs
+          diff digests/${{ matrix.set }}.branch.runs digests/${{ matrix.set }}.crate.runs
+          cmp digests/${{ matrix.set }}.branch.txt digests/${{ matrix.set }}.crate.txt
 
       # When outcomes changed: the first 3 changed runs traced on the base and the branch
       # around their first difference, and diffed (specs/37-outcome-trace.md), into traces/.
@@ -249,11 +261,45 @@ jobs:
             done
           done | tee trials.txt
 
+      # The same trials fought in the crate with nothing from Godot (native/bin/breach_trials,
+      # spec 39 step 8c-xiv): each line must equal Godot's. Every scenario, field ones too, is
+      # compared over 10 runs as well, the fatigue trials' four contacts (step 8c-xv), and the
+      # path and sight trials (step 8c-xvi): each side times its own searches, so their lines
+      # are compared with the timings blanked (a table row's last number, "N us a plan") and
+      # blank lines dropped, on both sides.
+      - name: Trials in the crate
+        if: always()
+        run: |
+          chmod +x native/bin/breach_trials
+          for scenario in mirror_headon mirror_flank; do
+            for side in "" swap; do
+              native/bin/breach_trials scenario=$scenario runs=50 $side \
+                | tail -1 | sed "s/^/${side:-plain} /"
+            done
+          done > trials.crate.txt
+          diff trials.txt trials.crate.txt
+          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
+            runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' > trials.all.txt
+          native/bin/breach_trials runs=10 > trials.all.crate.txt
+          diff trials.all.txt trials.all.crate.txt
+          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
+            scenario=fatigue runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' \
+            > trials.fatigue.txt
+          native/bin/breach_trials scenario=fatigue runs=10 > trials.fatigue.crate.txt
+          diff trials.fatigue.txt trials.fatigue.crate.txt
+          untimed() {
+            grep -v '^Godot Engine\|^Initialize\|^$' | sed -E 's/ +[0-9]+$//; s/, [0-9]+ us a plan/, - us a plan/'
+          }
+          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
+            scenario=paths repeats=1 2>/dev/null | untimed > trials.paths.txt
+          native/bin/breach_trials scenario=paths repeats=1 | untimed > trials.paths.crate.txt
+          diff trials.paths.txt trials.paths.crate.txt
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sim-trials
-          path: trials.txt
+          path: trials*.txt
           retention-days: 7
 
   # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
@@ -284,11 +330,23 @@ jobs:
             --script res://tools/scaling_check.gd -- stages=${{ matrix.stage }} 2>/dev/null \
             | tee scaling.${{ matrix.stage }}.txt
 
+      # The crate's tick timed the same way (spec 39 step 8c-xvii), on this same machine. Its
+      # timings are its own, so its verdict on its own growth gates it, and only its untimed
+      # columns (stage, size, what) are diffed against Godot's.
+      - name: Scaling check in the crate, ${{ matrix.stage }}
+        if: always()
+        run: |
+          set -o pipefail
+          untimed() { grep '^  ' | sed -E 's/ +[0-9.]+ ms.*//'; }
+          chmod +x native/bin/breach_scaling
+          native/bin/breach_scaling stages=${{ matrix.stage }} | tee scaling.${{ matrix.stage }}.crate.txt
+          diff <(untimed < scaling.${{ matrix.stage }}.txt) <(untimed < scaling.${{ matrix.stage }}.crate.txt)
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sim-scaling-${{ matrix.stage }}
-          path: scaling.${{ matrix.stage }}.txt
+          path: scaling.${{ matrix.stage }}*.txt
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if either build

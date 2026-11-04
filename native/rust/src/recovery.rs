@@ -5,8 +5,8 @@
 //! comes to at 1 HP where it lies: it joins the nearest standing friendly formation it can
 //! see, and otherwise makes for home on its own. With a foe within `danger_reach` when it
 //! could get up, it may play dead instead (Decision 127). Regeneration is `regeneration.rs`'s,
-//! run here. GDScript keeps the units' states and lists, the joins and the events, and lands
-//! what this decides.
+//! run here. `pass.rs` reads the squads in the crate and lands what this decides: the
+//! states, the joins and the events.
 
 use crate::columns::Columns;
 use crate::contest;
@@ -333,5 +333,6 @@ impl Friends {
     }
 }
 
+pub mod pass;
 #[cfg(test)]
 mod tests;
