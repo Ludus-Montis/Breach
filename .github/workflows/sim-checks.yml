@@ -330,11 +330,22 @@ jobs:
             --script res://tools/scaling_check.gd -- stages=${{ matrix.stage }} 2>/dev/null \
             | tee scaling.${{ matrix.stage }}.txt
 
+      # The crate's tick timed the same way (spec 39 step 8c-xvii), on this same machine. Its
+      # timings are its own, so its verdict on its own growth gates it, and only its untimed
+      # columns (stage, size, what) are diffed against Godot's.
+      - name: Scaling check in the crate, ${{ matrix.stage }}
+        if: always()
+        run: |
+          set -o pipefail
+          untimed() { grep '^  ' | sed -E 's/ +[0-9.]+ ms.*//'; }
+          native/bin/breach_scaling stages=${{ matrix.stage }} | tee scaling.${{ matrix.stage }}.crate.txt
+          diff <(untimed < scaling.${{ matrix.stage }}.txt) <(untimed < scaling.${{ matrix.stage }}.crate.txt)
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sim-scaling-${{ matrix.stage }}
-          path: scaling.${{ matrix.stage }}.txt
+          path: scaling.${{ matrix.stage }}*.txt
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if either build

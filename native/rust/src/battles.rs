@@ -1,6 +1,6 @@
 //! The digest's battles set up in the crate (spec 39 step 8c-vi): BattleTrials' mirrors,
-//! FormationBench.clash and the field the digest's field logs play on (FormationField's
-//! kingdom line and reserve), each spawned by `spawn::squad` with every write GDScript's set-up
+//! FormationBench.clash and .lanes (scaling_check's stacks, step 8c-xvii) and the field the
+//! digest's field logs play on (FormationField's kingdom line and reserve), each spawned by `spawn::squad` with every write GDScript's set-up
 //! makes: its definitions coded in the order first met (UnitStore.definition_code), its
 //! routes coded as first used, its holds queued and, on the field, each kingdom squad's front
 //! set where it holds. The field's waves are built and sent by `field_play` (8c-viii).
@@ -30,6 +30,9 @@ pub enum Battle {
     /// FormationBench.clash: `per_side` grems (the last `archers` spitters) at the player's end
     /// against as many militia, `width` wide.
     Clash { per_side: usize, width: usize, archers: usize },
+    /// FormationBench.lanes: `lanes` parallel lanes LANE_SPACING cells apart, each with
+    /// FormationBench.clash's pair of `per_squad` a side, `width` wide, on its own route.
+    Lanes { lanes: usize, per_squad: usize, width: usize, archers: usize },
     /// FormationField's kingdom line (two ranks of six militia, `captained`: a captain in the
     /// second rank's middle) holding at LINE_AT, and its reserve of six on the hill.
     Field { captained: bool },
@@ -68,6 +71,8 @@ const LINE_AT: f64 = 80.0;
 const RESERVE_AT: f64 = 96.0;
 const KINGDOM_WIDTH: usize = 6;
 const WAVE_WIDTH: i64 = 8;
+/// FormationBench.LANE_SPACING: cells between neighbouring lanes' centre lines.
+const LANE_SPACING: f32 = 12.0;
 
 /// One squad to spawn: [width, its units' ids at their places (rank, column), its faction, at
 /// the player's end], on its route (a key into the battle's routes).
@@ -127,6 +132,9 @@ pub(crate) fn set_up_coded(
     let (set, routes, sides) = match battle {
         Battle::Mirror { flank, swap } => mirror(*flank, *swap),
         Battle::Clash { per_side, width, archers } => clash(*per_side, *width, *archers),
+        Battle::Lanes { lanes, per_squad, width, archers } => {
+            stacked(*lanes, *per_squad, *width, *archers)
+        }
         Battle::Field { captained } => kingdom(*captained),
     };
     let known = |side: &Side| side.units.iter().all(|(id, _)| content.units.contains_key(*id));
@@ -221,6 +229,26 @@ fn mirror(flank: bool, swap: bool) -> Plan {
 
 /// FormationBench.clash (its `_spawn_pair` on the simulation's own route).
 fn clash(per_side: usize, width: usize, archers: usize) -> Plan {
+    (open(None, 0), vec![lane(2.0)], pair(per_side, width, archers, 0))
+}
+
+/// FormationBench.lanes: a pair on each of `lanes` routes as long as the simulation's own,
+/// LANE_SPACING cells apart from y 0 down.
+fn stacked(lanes: usize, per_squad: usize, width: usize, archers: usize) -> Plan {
+    let length = (2.0 * CELLS) as f32;
+    let routes = (0..lanes)
+        .map(|k| {
+            let y = k as f32 * LANE_SPACING;
+            Route::new(vec![V2::new(0.0, y), V2::new(length, y)], 0.0)
+        })
+        .collect();
+    let sides = (0..lanes).flat_map(|k| pair(per_squad, width, archers, k)).collect();
+    (open(None, 0), routes, sides)
+}
+
+/// FormationBench._spawn_pair: `per_side` grems (the last `archers` spitters) at the player's
+/// end, then as many militia at the other, `width` wide, on the route keyed `route`.
+fn pair(per_side: usize, width: usize, archers: usize, route: usize) -> Vec<(Side, Then)> {
     let width = width.max(1);
     let side = |unit: &'static str, faction, at_player_end| {
         let units = (0..per_side)
@@ -230,10 +258,9 @@ fn clash(per_side: usize, width: usize, archers: usize) -> Plan {
                 (id, ((k / width) as i32, (k % width) as i32))
             })
             .collect();
-        (Side { width, units, faction, at_player_end, route: 0 }, Then::default())
+        (Side { width, units, faction, at_player_end, route }, Then::default())
     };
-    let sides = vec![side("grem", "player", true), side("kingdom_militia", "the_kingdom", false)];
-    (open(None, 0), vec![lane(2.0)], sides)
+    vec![side("grem", "player", true), side("kingdom_militia", "the_kingdom", false)]
 }
 
 /// FormationField._hold_the_line on route A, the field's 2 tiles across at y 32, 4 cells

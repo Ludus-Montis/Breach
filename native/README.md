@@ -233,6 +233,16 @@ the same lines; CI's `trials` job checks they equal Godot's. Each path search is
 its own side, so CI compares the paths' lines with the timings left out: the last number of
 each table row and the "us a plan" figure blanked, and blank lines dropped, on both sides.
 
+### Scaling (`tools/scaling_check.gd`, bounded work)
+
+`native/bin/breach_scaling [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5]
+[stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]` times the crate's own tick
+on the same battles (FormationBench.clash and .lanes, set up by `battles::Battle`) with no
+Godot (spec 39 step 8c-xvii), prints the same lines and exits 1 when a doubling costs more
+than `limit` times as much. CI's `scaling` jobs run it on each stage after Godot's, on the same
+runner: its own verdict gates it, and its stage, size and "a side"/"stacks" columns must
+equal Godot's (the timings are each side's own).
+
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
 
@@ -448,7 +458,9 @@ step 2c), and the formation digest played in the crate, `native/bin/breach_diges
 (`src/bin/digest.rs`, `src/digest/runs.rs`, spec 39 step 8c-xiii), and BattleTrials fought
 in the crate, `native/bin/breach_trials[.exe]` (`src/bin/trials.rs`, `src/trials.rs`, spec 39
 step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
-`src/trials/paths/wall.rs`, step 8c-xvi). They are git-ignored, as
+`src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
+`native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
+8c-xvii). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it

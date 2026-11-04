@@ -939,6 +939,23 @@ events. After this step no battle phase runs in GDScript.
   cargo test `trials::paths::tests::the_ways_and_the_walk_equal_godot_s` holds Godot's
   `repeats=1` lines, timings set to 0 (`src/trials/paths/godot_paths.txt`). Equal first time.
   Outcomes don't change.
+  **8c-xvii built** (2026-11-04): `src/scaling.rs` (`breach_native::scaling`) is
+  scaling_check.gd: `ready(stage, size, seed, options, content)` is its `_ready_for` (the clash,
+  `ranks` deep, 3 ticks into its march or 5 past its first engagement; for "stacks", `size`
+  lanes of `stack` a side, `settle` ticks past it; blows not rolled, as FormationSimulation's
+  default), `least` its `_least` (timed with `Instant`) and `lines` its printing, the growth
+  verdict included. FormationBench.lanes is `battles::Battle::Lanes` (each lane's pair on its
+  own route, LANE_SPACING 12 cells apart; not in `named`, which only the digest reads).
+  `src/bin/scaling.rs`, copied by `native/build.sh` to `native/bin/breach_scaling`, takes
+  scaling_check's arguments, plus `threaded=` and `repo=`, and exits 1 on a doubling past
+  `limit`. **How CI compares it:** the timings are each side's own, so CI's `scaling` job, on
+  each stage after Godot's check and on the same runner, fails when the crate's own growth is
+  too steep, and diffs the two outputs' size lines with everything from the ms on cut (the
+  stage, size and "a side"/"stacks" left). The battles are held equal to Godot's by the cargo
+  test `scaling::tests::each_stage_is_ready_on_the_tick_godot_s_is_and_tells_of_as_much`: each
+  stage at two sizes and two seeds, its tick and the events of its six timed ticks as Godot
+  gives them. Equal first time. The crate's run at the defaults takes about 5 s. Outcomes
+  don't change.
 
 ### Step 9, the rest of `sim/`
 
