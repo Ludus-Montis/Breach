@@ -708,6 +708,20 @@ events. After this step no battle phase runs in GDScript.
   `ContentStore.made(id, faction, direction)` returns them for the gdUnit test that holds every
   unit in `content/units/` equal to FormationUnits.make's. Nothing in the tick calls them yet.
   Outcomes don't change.
+  **8c-iv built** (2026-10-30): `spawn::squad` spawns a squad in the crate as
+  FormationSimulation.spawn_squad does, every write the one GDScript makes: its units' ids
+  and its squad's issued, its command opened on its route, the squad opened with its faction
+  (coded before its units' words), direction, facing, home and width; each unit made by
+  `made::unit` and admitted (sheet with its squad, words, walker, its command as command and
+  origin, its definition's code given by the caller with its sight and speed kept), then
+  placed at full hp, all its regeneration to come, full stamina and its pace fresh; the squad
+  on its route (its code given, or issued), placed and faced along it (`face_held`), with its
+  wait, its morale at its ceiling and its combat width, and its units stood on their places
+  (`march::sync`, placing). The binding `BodyField.spawn_squad(content, units, codes, places,
+  faction, [width, at the player's end, wait, combat width], points, half_width, object)`
+  codes the route as `squad_put_route` does. The gdUnit test holds the crate's whole state
+  (`snapshot`) after three spawns equal, byte for byte, to GDScript's. Nothing in the tick
+  calls it yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
