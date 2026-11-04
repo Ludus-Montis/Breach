@@ -30,6 +30,13 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 	var buried: PackedInt64Array = ColumnsLent.all(
 		columns, func(): return field.deaths_bury(listed, BandTuning.rules(), tick)
 	)
+	mirror(squads, buried)
+	events.append_array(CrateEvents.taken(field))  # "died", "downed", ..., "destroyed"
+
+
+## GDScript's copies of the units `deaths_bury` buried (three numbers a unit: its squad's
+## listed index, its id, the wounds it bears now or -1 if it died).
+static func mirror(squads: Array, buried: PackedInt64Array) -> void:
 	for at in range(0, buried.size(), 3):  # store: scattered (few: the tick's fallen)
 		var squad: SkirmishSquad = squads[buried[at]]
 		var unit: SkirmishUnit = squad.store.record_of(buried[at + 1])
@@ -38,4 +45,3 @@ static func bury(squads: Array, tick: int, events: Array) -> void:
 		else:
 			UnitState.put(squad, unit, SkirmishUnit.State.DOWNED)
 			unit.wounded = buried[at + 2]  # the sheet's already; GDScript's copy follows
-	events.append_array(CrateEvents.taken(field))  # "died", "downed", ..., "destroyed"

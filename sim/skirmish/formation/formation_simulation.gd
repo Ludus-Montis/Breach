@@ -41,13 +41,14 @@ const FormationEdges = preload("res://sim/skirmish/formation/formation_edges.gd"
 const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const FormationRecovery = preload("res://sim/skirmish/formation/formation_recovery.gd")
+const FormationAftermath = preload("res://sim/skirmish/formation/formation_aftermath.gd")
+const FormationMustering = preload("res://sim/skirmish/formation/formation_mustering.gd")
 const FormationStrays = preload("res://sim/skirmish/formation/formation_strays.gd")
 const FormationCarry = preload("res://sim/skirmish/formation/formation_carry.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
 const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
 const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const UnitBodies = preload("res://sim/skirmish/formation/unit_bodies.gd")
-const FormationStaging = preload("res://sim/skirmish/formation/formation_staging.gd")
 const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationRout = preload("res://sim/skirmish/formation/formation_rout.gd")
@@ -55,6 +56,9 @@ const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const FormationFronts = preload("res://sim/skirmish/formation/formation_fronts.gd")
 const FormationJoins = preload("res://sim/skirmish/formation/formation_joins.gd")
+const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
+const FormationEnding = preload("res://sim/skirmish/formation/formation_ending.gd")
+const FormationTick = preload("res://sim/skirmish/formation/formation_tick.gd")
 const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
 
@@ -147,74 +151,44 @@ func tick_number() -> int:
 	return _tick
 
 
+## One tick as one crate call (FormationTick, spec 39 step 8b5-xlii): every pass above in
+## the crate, GDScript's copies mirrored after it and its events decoded once; returns them.
 func step() -> Array:
 	_tick += 1
 	var events := []
-	_apply_orders(events)
-	var roster := _engage(events)  # who is living, till the joins: nobody falls before them
-	FormationPathing.step(_squads, terrain, _tick, fight_seed, events)
-	_move(events, roster)
+	var at := [_tick, fight_seed, _attack_interval_ticks(), _next_squad_id]
 	var pace := TRAVEL_SCALE * MapLayoutDef.CELLS_PER_TILE
-	events.append_array(
-		FormationScrum.step(_squads, _tick, pace, tick_seconds, fight_seed, terrain, _field)
-	)
-	_fight(events)
-	FormationDeaths.bury(_squads, _tick, events)
-	FormationTaking.step(_squads, _tick, tick_seconds, fight_seed, events, perception)
-	FormationWounds.tend(_squads, _tick, _attack_interval_ticks(), fight_seed, events)
-	var strays := FormationRecovery.step(_squads, tick_seconds, _tick, fight_seed, events)
-	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)
-	FormationMorale.step(_squads, _tick, _attack_interval_ticks(), events)
-	events.append_array(FormationRout.step(_squads, _tick, pace, tick_seconds, terrain, fight_seed))
-	strays = FormationCarry.step(_squads, _tick, fight_seed, events)  # the wounded borne
-	_next_squad_id = FormationStrays.adopt(strays, _squads, _next_squad_id, fight_seed)
-	_next_squad_id = FormationGroups.step(_squads, _tick, fight_seed, events, _next_squad_id)
-	FormationStamina.step(_squads, tick_seconds)  # runners tire, the rest recover
-	UnitBodies.step(_squads, fight_seed, _field)  # after every move: bodies part (Decision 106)
-	events.append_array(FormationShuffle.step(_squads, tick_seconds, TRAVEL_SCALE, _tick))
-	FormationMarch.sync_units(_squads, [tick_seconds, pace], terrain, fight_seed)  # to places
+	var paces := [TRAVEL_SCALE, tick_seconds, route_length, pace]
+	perception = FormationTick.step(_squads, terrain, at, paces, blow_rolls, events)
+	_field.orders_clear()  # taken, or nobody was left to take them
 	store.settle(_squads)  # the units no list holds any more give up their slots
 	return events
 
 
+## The tick's opening as one crate call (FormationOpening, spec 39 step 8b5-xxxv): the
+## orders, the perception, the fronts and edges, the pathing and the move with its joins.
+func _open(events: Array) -> void:
+	var moving := [TRAVEL_SCALE, tick_seconds, route_length]
+	perception = FormationOpening.step(_squads, terrain, [_tick, fight_seed], moving, events)
+	_field.orders_clear()  # taken, or nobody was left to take them
+
+
+## The orders alone, as the opening applies them (tools/tick_phases.gd times each pass).
 func _apply_orders(events: Array) -> void:
 	FormationOrders.apply(_squads, _field.orders_pending(), _tick, fight_seed, events)
 	_field.orders_clear()  # taken, or nobody was left to take them
 
 
-## The squads' roster (CrateRoster) it decided on, for the march's decisions too.
-func _engage(events: Array) -> Object:
-	var roster := CrateRoster.of(_squads)
-	perception = FormationPerception.see(_squads, terrain, roster)  # all decide on one picture
-	FormationFronts.engage(_squads, _tick, fight_seed, events, roster)
-	FormationEdges.engage(_squads, _tick, events, fight_seed, roster)
-	return roster
-
-
-## Each squad decides its move from the tick's start; all moves land together (Decision 97).
+## The move alone, as the opening makes it (tools/tick_phases.gd times each pass). Each
+## squad decides its move from the tick's start; all moves land together (Decision 97).
 ## The move is the crate's (`moving::pass`, spec 39 step 8b5-viii): staging, the march's
 ## ends, the turn, the sweep, the pace, the drag and the landing, its events in the crate's
 ## log, and each squad's share of its pace (`moving::share`, 8b5-ix); the joins after
 ## (`joins.rs`, 8b5-x), whose dropped squads leave GDScript's list here.
 func _move(events: Array, roster: Object) -> void:
-	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
-		[
-			TRAVEL_SCALE,
-			tick_seconds,
-			route_length,
-			tuning.discipline_per_leadership,
-			tuning.walk_slack_loose,
-			tuning.walk_slack_drilled,
-			tuning.bodies_ground_drag,
-			tuning.bodies_ground_block,
-			tuning.wounds_reach,
-			tuning.walk_lost,
-		]
-	)
-	var codes := FormationStaging.route_codes(_squads)
+	var rules := FormationOpening.move_rules([TRAVEL_SCALE, tick_seconds, route_length])
 	var ground := UnitMover.ground(terrain)
-	var joins: PackedInt32Array = _field.move_step(roster, codes, ground, _tick, fight_seed, rules)
+	var joins: PackedInt32Array = _field.move_step(roster, ground, _tick, fight_seed, rules)
 	events.append_array(CrateEvents.taken(_field))
 	FormationJoins.join(_squads, joins)
 

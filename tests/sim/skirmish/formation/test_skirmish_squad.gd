@@ -96,3 +96,38 @@ func test_the_crate_holds_the_route_a_squad_follows() -> void:
 	assert_array(Array(field.squad_route(squad.slot))).is_equal(Array(bend))
 	squad.route = null
 	assert_bool(field.squad_route(squad.slot).is_empty()).is_true()
+
+
+func test_the_crate_names_each_route_by_a_code_the_same_route_the_same_code() -> void:
+	var squads := [_squad(1, [_unit(1, 0, 0)]), _squad(2, [_unit(2, 0, 0)])]
+	squads.append(_squad(3, [_unit(3, 0, 0)]))
+	var field: Object = squads[0].store.field()
+	var road := FormationRoute.new(PackedVector2Array([Vector2(0, 0), Vector2(64, 0)]), 0.0)
+	var lane := FormationRoute.new(PackedVector2Array([Vector2(0, 0), Vector2(64, 0)]), 0.0)
+	squads[0].route = road
+	squads[1].route = lane  # the same points, another route
+	squads[2].route = road
+	var codes := squads.map(func(squad): return field.squad_route_code(squad.slot))
+	assert_int(codes[0]).is_not_equal(codes[1])
+	assert_array(codes).is_equal([codes[0], codes[1], codes[0]])
+	squads[0].route = null
+	assert_int(field.squad_route_code(squads[0].slot)).is_equal(-1)
+
+
+## GDScript's route is a view of the crate's (spec 39 step 8b5-xxxvii): a squad the crate
+## hands another's route and code reads that very route, and one the crate gives a route of
+## its own reads a route made from the crate's points and corridor, kept for its code.
+func test_a_squad_reads_the_route_the_crate_holds_it_on() -> void:
+	var squads := [_squad(1, [_unit(1, 0, 0)]), _squad(2, [_unit(2, 0, 0)])]
+	var field: Object = squads[0].store.field()
+	var road := FormationRoute.new(PackedVector2Array([Vector2(0, 0), Vector2(64, 0)]), 1.5)
+	squads[0].route = road
+	var points := road.points()
+	field.squad_put_route(squads[1].slot, true, points, 1.5, road.get_instance_id())
+	assert_bool(is_same(squads[1].route, road)).is_true()
+	var bend := PackedVector2Array([Vector2(0, 0), Vector2(32, 0), Vector2(32, 32)])
+	field.squad_put_route(squads[1].slot, true, bend, 2.5, 0)  # an object it never named
+	var own: FormationRoute = squads[1].route
+	var read := [] if own == null else [Array(own.points()), own.corridor_half_width]
+	assert_array(read).is_equal([Array(bend), 2.5])
+	assert_bool(own != null and is_same(squads[1].route, own)).is_true()  # one code, one route

@@ -11,7 +11,7 @@ use crate::ground::{GroundTuning, Paint, Walker};
 use crate::roster::{Listed, Member};
 use crate::route::Route;
 
-pub(super) const SEED: i64 = 7;
+pub(crate) const SEED: i64 = 7;
 const GREM: Walker = Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false };
 const TUNING: RoutTuning = RoutTuning {
     pace: 1.0,
@@ -26,7 +26,7 @@ const TUNING: RoutTuning = RoutTuning {
     steady_at: 50,
 };
 
-pub(super) fn member(id: i64, slot: usize) -> Member {
+pub(crate) fn member(id: i64, slot: usize) -> Member {
     Member {
         id,
         slot,
@@ -134,7 +134,7 @@ impl Built {
     }
 }
 
-pub(super) fn east(length: f32) -> Option<Route> {
+pub(crate) fn east(length: f32) -> Option<Route> {
     Some(Route::new(vec![V2::ZERO, v(length, 0.0)], 0.0))
 }
 

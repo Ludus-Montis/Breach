@@ -28,6 +28,7 @@ const AVERAGE: f64 = 10.0;
 
 /// A fallen unit buried: the index in the lists of the squad it lay in, its id, and the
 /// wounds it bears now if downed (`None`: it died).
+#[derive(Debug, PartialEq)]
 pub struct Buried {
     pub listed: usize,
     pub id: i64,

@@ -7,7 +7,7 @@ const MAPS := ["demo_map", "p_f_F_c", "skirmish_p_c", "skirmish_two_lanes"]
 
 
 func test_a_fresh_definition_holds_the_crates_defaults() -> void:
-	var defaults := CrateContent.defaults()
+	var defaults: Dictionary = CrateContent.store().defaults()
 	assert_dict(defaults).is_not_empty()  # the core is built
 	for class_id: String in defaults:
 		_assert_same_fields(defaults[class_id], _script_named(class_id).new())

@@ -185,6 +185,7 @@ fn back_at_its_post_it_takes_up_its_own_route_and_turns_to_face_the_way_it_held_
     assert!(b.squads.pursuit[0].is_none());
     assert_eq!(b.squads.route[0], Some(own()));
     assert_eq!(b.squads.post_route[0], None);
+    assert_eq!(b.squads.route_code[0], 0, "a route handed over unnamed is issued a code");
     assert_eq!(b.squads.direction[0], -1, "it about-faced the way it held its post");
     assert_eq!(b.squads.heading[0], 270.0);
     assert_eq!(b.kinds(), vec!["turning", "turned"]);
@@ -197,4 +198,28 @@ fn a_destroyed_pursuer_pursues_no_more() {
     assert_eq!(b.step(), Vec::<usize>::new());
     assert_eq!(b.squads.position[0], V2::new(10.0, 0.0));
     assert!(b.squads.pursuit[0].is_some_and(|p| !p.returning));
+}
+
+#[test]
+fn back_at_its_post_it_holds_the_code_of_the_route_it_held_it_on() {
+    let mut b = ahead_of_it();
+    let held = b.squads.pursuit[0].unwrap();
+    b.squads.pursuit[0] = Some(Pursuit { returning: true, ..held });
+    b.squads.order[0] = 0;
+    b.squads.route_code[0] = 3; // its quarry's, taken as it began
+    b.squads.post_route_code[0] = 5;
+    assert_eq!(b.step(), vec![0]);
+    assert_eq!((b.squads.route_code[0], b.squads.post_route_code[0]), (5, -1));
+}
+
+#[test]
+fn back_at_its_post_with_no_about_face_it_stands_on_its_own_route() {
+    let mut b = ahead_of_it();
+    let held = b.squads.pursuit[0].unwrap();
+    b.squads.pursuit[0] = Some(Pursuit { returning: true, direction: 1, ..held });
+    b.squads.order[0] = 0;
+    assert_eq!(b.step(), vec![0]);
+    let at = own().point_at(b.squads.front_distance[0] * CELLS);
+    assert_eq!(b.squads.position[0], at, "placed on its own route: no copy to place it by");
+    assert_eq!(b.squads.position[0].y, 4.0);
 }

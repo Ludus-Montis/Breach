@@ -30,7 +30,7 @@ and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 | GDScript side | `body_field_sync.gd` (the sync), `body_parting.gd` (parting on the field), `scrum_seek_field.gd` (the slot search on the field), `scrum_face_field.gd` (the facing on the field), `scrum_walk_field.gd` (the walk on the field) |
 | Owner | `FormationSimulation._field`: one field a battle, made when the battle is, under either engine. Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
 | Paths | `native/rust/src/paths/`, `pathing.rs` (spec 39 step 3c): the A* search over the ground (`search.rs`, its ties to geometry in `frontier.rs`), each kind of walker's speed shares (`shares.rs`, held by `TerrainGround` and dropped when it is painted), a pathfinder's sight and memory, climbing on stamina (`climb.rs`), plans, rejoining a route and a way's cost (`mod.rs`), and a marching group's look ahead, its walker and its pathfinder (`pathing.rs`). `GroundPaths` binds them, stateless and shared (`CratePaths`); `TerrainPaths`, `PathSearch`, `PathSight`, `SquadPathfinder`, `ClimbStamina.standable` and `ModeStamina.step_cost` are views over it, and `FormationPathing` keeps only which groups look and their commands' patches. Their scenarios are cargo tests (`paths/tests.rs`, `pathing.rs`) |
-| March | `native/rust/src/march/`, `lying.rs`, `det_pow.rs` (spec 39 step 3d): a squad's march along its route (where its front gets, which way its order takes it, the pace of the ground under its front rank; `mod.rs`), sweeping round bends (`sweep.rs`), its units walking to their places (`walk.rs`) with their climbing, swimming and falls (`modes.rs`), pouring through a gap (`pour.rs`), the frame's slack and wait, and the moves a re-form starts (`shuffle.rs`, `front.rs`), over the bodies lying underfoot (`lying.rs`, shared with the scrum's walk) and DetPow's `pow` (`det_pow.rs`). `GroundMarch` binds them, stateless and shared (`CrateMarch`); `FormationMarch`, `FormationSweep`, `FormationWalk`, `FormationPour`, `FormationShuffle` and `PlaceOrder` are views over it, `WalkModes`, `ShuffleFront` and `SquadPlaces` are gone, and the swaps under way, arrivals and the routers' and the loose's placing stay GDScript. Its scenarios are cargo tests (`march/tests.rs`) |
+| March | `native/rust/src/march/`, `lying.rs`, `det_pow.rs` (spec 39 step 3d): a squad's march along its route (where its front gets, which way its order takes it, the pace of the ground under its front rank; `mod.rs`), sweeping round bends (`sweep.rs`), its units walking to their places (`walk.rs`) with their climbing, swimming and falls (`modes.rs`), pouring through a gap (`pour.rs`), the frame's slack and wait, and the moves a re-form starts (`shuffle.rs`, `front.rs`), over the bodies lying underfoot (`lying.rs`, shared with the scrum's walk) and DetPow's `pow` (`det_pow.rs`). `GroundMarch` binds them, stateless and shared (`CrateMarch`); `FormationMarch`, `FormationSweep`, `FormationWalk`, `FormationPour`, `FormationShuffle` and `PlaceOrder` are views over it, `WalkModes`, `ShuffleFront` and `SquadPlaces` are gone, and the swaps under way, arrivals and the routers' and the loose's placing stay GDScript. Since step 8b5-xxxiii the units' placing and walking is one call over every squad, `march_sync` (`march/sync.rs`): each living unit's distance along the route, a router on its route, a loose one where it stood, the rest placed or walked a tick to where it makes for, a fall's hurt onto the fell queue. Its scenarios are cargo tests (`march/tests.rs`, `march/sync/tests.rs`) |
 | Scrum | `native/rust/src/scrum.rs`, `seeking.rs`, `walking.rs`, `facing.rs`, `blows.rs`, `contest.rs`, `reach.rs` (spec 39 step 4a): the seek, walk, facing and blows' search on the field, each a phase (`seeking::seek`, `walk_store::walk`, `face_store::face`) that `BodyField` calls, under either engine; ScrumContest's draws and rolls and ScrumReach's bodies, gaps and fronts, which `ScrumRules` binds, stateless and shared (`CrateScrum`), and ScrumContest and ScrumReach are views over. The builders `build::scrum` and `build::reversed` make a scrum for the scenarios, which are cargo tests (`scrum/tests.rs`, `walking/tests.rs`, `facing/tests.rs`, `blows.rs`, `contest.rs`, `reach.rs`) |
 | Squad scrum | `native/rust/src/squads.rs`, `entries.rs`, `locks.rs`, `engage.rs`, `stance.rs`, `manoeuvre.rs`, `ranks.rs`, `trade.rs`, `frame.rs`, `rect.rs` (spec 39 step 4b): each squad's records in the squad store (its loose and fleeing units, its stance, the foes on its edges, its chasers), which `SquadRecords` and SkirmishSquad's dictionaries are views of; the entries and their keys, the locks and who may be engaged, engaging, the stance, the manoeuvre, the stall, closing ranks and the trade, each a phase `BodyField` calls. `SquadEntries`, `EntryKeys`' writes, `FormationLocks`, `ScrumEngage`, `ScrumStance.anticipate_all`, `FormationManoeuvre.step` and `SquadRanks` are views over them (the trade is regroup's since step 4c); a pass holding the columns lends them to each call (`ColumnsLent`). Their scenarios are cargo tests (`entries.rs`, `locks.rs`, `engage.rs`, `stance.rs`, `manoeuvre.rs`, `ranks.rs`, `trade/tests.rs`) |
 | Regroup onwards | `native/rust/src/roster.rs`, `near.rs`, `regroup.rs`, `pursuit.rs`, `withdraw.rs`, `geometry.rs`, `contact.rs`, `perception.rs` (spec 39 step 4c): the squads a phase is given (`SquadRoster`: each squad's living units and what of them the crate doesn't hold, filled by `CrateRoster` once a tick), the bodies and foes near a unit, regrouping, the chasers and breaking ranks, a pursuing formation's lag and spread, the withdrawal's flight, the squads' geometry (frames, gaps, overlaps, edges, bounds), the march's limits, skirmishing, joining, the front and flank locks, and sight and the tick's perception. `ScrumRegroup`, `ScrumPursuit`, `FormationWithdraw`, `FormationContact`, `FormationFronts`, `FormationEdges`, `FormationSight`, `FormationPerception` and `SquadEdges` are views over them; each squad's pursuit and withdrawal records, the orders' re-forms and the events stayed GDScript until step 7c. Since step 8b5-xiv the regroup and the chasers are one call, `scrum_regroup` (`scrum/regroup.rs`), each squad's say (out of the fight, drilled, withdrawing, its re-form pace, where its units walk back to on the ground) read in the crate. Since step 8b5-xv the withdrawal is one call, `scrum_withdraw` (`scrum/withdraw.rs`), each squad's disorder, re-form pace, home and its units' flight angles read in the crate, and its re-form's turn (`turn::landed`), "regrouping" and "returned" in the crate's log. Since step 8b5-xvi the pursuit as a whole is one call, `scrum_pursue` (`scrum/pursue.rs`), each pursuer's routes (the one it held its post on is a squad column, `post_route`, kept by the orders' pass) and leash read in the crate, its return's route and turn and "pursuit_ended" landed there. Their scenarios are cargo tests (`regroup/`, `pursuit/`, `withdraw/`, `scrum/withdraw/`, `scrum/pursue/`, `geometry/`, `contact/`, `perception/`, `near.rs`, `rect.rs`) |
@@ -52,7 +52,7 @@ and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 | The move's choices | `moving.rs` (spec 39 step 8b1): which squads march as the move begins (not one fighting, routing, arrived or destroyed, nor one regrouping, its units out of their places but for its own chasers), which still wait to set out, whether one free to march holds (ordered to, or skirmishing), and every move landed together, each advance stopped at contact or behind a friend as they all stood at the tick's start. The move's pass (`moving/pass.rs`, spec 39 step 8b5-viii) runs each march between (staging, the ends, the hold, the turn, the sweep, the pace, the drag) and the landing, its events in the crate's log; Each squad's share of its pace is worked out there too (`moving/share.rs`, 8b5-ix), and the squads that advanced join their friends (`joins.rs`, 8b5-x); `FormationSimulation` calls `move_step`, takes the events (`CrateEvents`) and drops the joined squads. Its scenarios are cargo tests (`moving/tests.rs`, `moving/pass/tests.rs`) |
 | The fight's hurts | `hurts.rs` (spec 39 step 8b2): each shot, then each blow, in the order landed, takes what it dealt from its target's hp; a unit taken from above 0 to 0 or below falls, onto the fell queue in that order. Each answers its target's hp after it, which the "hit" event reports. The fight's pass (`fight::step`, spec 39 step 8b5-xix) lands them and logs "spat" and "hit". Its scenarios are cargo tests (`hurts/tests.rs`) |
 | The groups' ways round | `detours.rs` (spec 39 step 8b3): which groups re-route onto their command's route with its ways round (one it doesn't carry yet), standing where they stood along it, a group bound for the far end keeping it as home; and which look ahead (marching, on a route, its front moved on `path_relook` cells since it last looked). The commands keep the patches (`commands.rs`, step 8b4-iii) and the pass that calls these and the look is the crate's (`pathing/pass.rs`, step 8b5-vii). Its scenarios are cargo tests (`detours/tests.rs`) |
-| The squads' routes | `squads.rs`'s `route` column (spec 39 step 8b4-i): the route each squad follows, written whenever SkirmishSquad.route is set (`squad_put_route`) and carried by the snapshot. Every binding that follows a squad's route reads it there (step 8b4-ii: the rout, the withdrawal, the split, a retreat's orders, the pursuit, and the march's face and sweep, `march::sweep::face_held` and `sweep_held`) rather than taking points. Its tests are gdUnit's (`test_skirmish_squad.gd`) and cargo's (`march/tests.rs`) |
+| The squads' routes | `squads.rs`'s `route` column (spec 39 step 8b4-i): the route each squad follows, written whenever SkirmishSquad.route is set (`squad_put_route`) and carried by the snapshot. Every binding that follows a squad's route reads it there (step 8b4-ii: the rout, the withdrawal, the split, a retreat's orders, the pursuit, and the march's face and sweep, `march::sweep::face_held` and `sweep_held`) rather than taking points. Since step 8b5-xxxvi each route is named by a code the crate holds (`route_code`, -1 none: the same route, the same code): the setter hands it the route's instance id, the crate gives each route it is handed a code, the passes that hand a squad another's route hand it the code too, and a re-route takes a fresh one; the staging, the orders, the opening and the groups read the codes there. Its tests are gdUnit's (`test_skirmish_squad.gd`) and cargo's (`march/tests.rs`, `opening/tests.rs`) |
 | The commands | `commands.rs` (spec 39 step 8b4-iii): each command's guide route, home, standing options and learned ways round, in a table the squad store keeps (the snapshot carries it), and which command each squad follows. `FormationCommand` is a view of its slot. Groups follow their command's patched route from there (`detours::command_route`). Its scenarios are cargo tests (`commands/tests.rs`) |
 | Staging's order | `staging.rs`'s `Stage` (spec 39 step 8b4-iv): each squad's hold-until order, a squad column the snapshot carries; `SkirmishSquad.staging` is a view of it, read and written whole, and `staging::hold_staged` holds by it, counting its fallback down. Its scenarios are cargo tests (`staging/tests.rs`) |
 | The swaps under way | `swaps.rs`'s `Held` (spec 39 step 8b4-v): each squad's swaps under way, by unit id and slot, a squad column the snapshot carries. `swaps::end_held` ends them, `claims` and `begin` start them round those held, `offsets` and `moving` answer how far each unit is through its move and what compact closes up round. A unit's state is mirrored in the store's `state` column for who still stands. Its scenarios are cargo tests (`swaps/tests.rs`) |
@@ -67,6 +67,13 @@ and the engine switch with it. The C++ kernel from the spike (#174) is retired.
 | Pathing's pass | `pathing/pass.rs` (spec 39 step 8b5-vii): the groups' follows of their commands' patched routes, setting each one's route and place, then the marching groups' looks, each way round kept learned by the command and reported as its "detoured" event in the crate's log; a look reads each unit's walker, wits, place and definition's sight where they live (`members`, the field's `sights` written by `UnitWrites` as it codes a definition). `FormationPathing` hands it the squads (`path_step`) and takes the events (`CrateEvents`) and the re-routed groups' routes. Its tests are cargo's (`pathing/pass/tests.rs`) and gdUnit's (`test_formation_pathing.gd`) |
 | The scrum's engaging, manoeuvres and stall | `scrum/pass.rs` (spec 39 step 8b5-xi): over the scrum's one roster, engaging (each squad's living units where they stand, loose or in place), each lock's "engaged" event in the crate's log; each squad's manoeuvre, its withdrawal, locks and skirmishing read in the crate; and the stall, each release's "disengaged" event in the log. `ScrumEngage`, `FormationManoeuvre.step` and `FormationScrum._stall` call them (`scrum_engage`, `scrum_manoeuvre`, `scrum_stall`) and take the events (`CrateEvents`). Its tests are cargo's (`scrum/pass/tests.rs`) and gdUnit's (`test_formation_scrum.gd`) |
 | The scrum's preparing and stance | `scrum/prepare.rs` (spec 39 step 8b5-xii): over the scrum's one roster, each squad readied for the tick (a routing one letting its loose units, stance and fight go, the fallen unloosed, a fight's beginning marked and its end closing the ranks over the dead, a fighting squad's or a stance's units sent loose where they stand), and each squad meeting the threats it sees, its bounds, discipline and sight read in the crate, each new line's "faced" event in the log. `FormationScrum._prepare` and `ScrumStance.anticipate_all` call them (`scrum_prepare`, `scrum_stance`) and take the events (`CrateEvents`). Its tests are cargo's (`scrum/prepare/tests.rs`) and gdUnit's (`test_formation_scrum.gd`) |
+| The scrum as one call | `scrum/step.rs` (spec 39 step 8b5-xxxiv): FormationScrum.step is one call, `scrum_step`, its nine phases in their order over one roster (engaging, readying, the stances, the manoeuvres, the seek, the regroup and chasers, the withdrawal, the pursuit, the stall), each phase's events in the log in that order; it returns the pursuers back at their posts, whose routes FormationPursuit.mirror sets in GDScript. Each phase's class hands over its rules (`rules`); the per-phase bindings stay for their tests and `tools/tick_phases.gd`. Its tests are cargo's (`scrum/step/tests.rs`: the one pass against the phases one by one) and gdUnit's (`test_scrum_pursue.gd`) |
+| The fight and its aftermath as one call | `aftermath.rs` (spec 39 step 8b5-xxxviii): the fight with its surrender (`fight::step`), the burial (`deaths::bury`), the takers sent (`taking::pass`), the wounds' tending (`wounds::pass`) and recovery (`recovery::pass`) in their order over one roster, one call, `aftermath_step`, each pass's events in the log in that order. It returns each pass's result, its count first; FormationAftermath mirrors them in the same order (FormationDeaths.mirror, FormationWounds.mirror, FormationRecovery.mirror) and returns recovery's strays. The per-pass bindings stay for their tests and `tools/tick_phases.gd`. Its tests are cargo's (`aftermath/tests.rs`: the one call against the passes one by one) and gdUnit's (`test_formation_aftermath.gd`) |
+| The strays through the groups as one call | `mustering.rs` (spec 39 step 8b5-xxxix): the strays adopted (`strays::adopt`), morale's second (`morale::pass`), the rout (`rout::pass`), carrying (`carry::pass`), the bearers adopted and the groups (`groups::pass`) in their order, one call, `mustering_step`, each pass's events in the log in that order; the squads the passes open are listed after the rest for the passes after (`mustering::listing`). It returns each pass's result, its count first; FormationMustering mirrors them in the same order, a stray's squad keeping what the crate holds for it. The per-pass bindings stay for their tests and `tools/tick_phases.gd`. Its tests are cargo's (`mustering/tests.rs`: the one call against the passes one by one) and gdUnit's (`test_formation_mustering.gd`) |
+| The tick's end as one call | `ending.rs` (spec 39 step 8b5-xl): stamina (`stamina::pass`), the bodies' parting (`parting::pass`), the shuffle (`swaps::pass`) and the march's sync (`march::sync`) in their order over the squads listed, one call, `ending_step`, the shuffle's events in the log. It returns the parting's counts, then the units made by hand that took their speed as fresh, which FormationEnding mirrors (FormationStamina.mirror). The per-pass bindings stay for their tests, `tools/tick_phases.gd` and `tools/native_bench.gd`. Its tests are cargo's (`ending/tests.rs`: the one call against the passes one by one) and gdUnit's (`test_formation_ending.gd`) |
+| The whole tick as one call | `tick.rs` (spec 39 step 8b5-xli): the opening (`opening::step`), the scrum (`scrum::step`), the aftermath (`aftermath::step`), the mustering (`mustering::step`) and the end (`ending::step`) in their order, one call, `tick_step`, each pass handed its own binding's arguments, every pass's events in the log in that order. It takes a roster of every unit the squads hold and lists the squads afresh between the passes as CrateRoster.of did (`tick::relisted`: the squads a join took in dropped, the factions coded again, each squad's living read from its members), hands the mustering the strays recovery set off, and runs the end over the squads the mustering's mirrors would list (`tick::ended_listing`). It returns each pass's result as its own binding does, each part its length first. FormationSimulation.step makes it its one call (FormationTick, `tick_run`, step 8b5-xlii; since step 8c-i the crate builds each pass's rules from the battle's tuning it loaded, `tick::given`, value for value as each pass's GDScript `args` builds them; since step 8c-ii they are parsed into each pass's rules in `tick::rules`, with nothing from Godot, so `tick::rules::of` gives `tick::step` its rules in a cargo binary too): CrateRoster.of lists every unit, each pass's GDScript class mirrors its part (`mirror`) in order, under CrateMirroring, so a mirror takes the crate's final values instead of writing over what a later pass did, and the events are decoded once. Its tests are cargo's (`tick/tests.rs`: the one step against the five calls one by one, GDScript's lists made afresh between them) and gdUnit's (`test_formation_tick.gd`: a clash with a rout tick by tick against the five calls, a body downed and borne in one tick, and each pass's rules the crate builds equal to its `args`) |
+| A unit made from its definition | `arms.rs` and `made.rs` (spec 39 step 8c-iii): what a unit strikes with and wears, read from its definition in the crate's content as UnitArms and UnitDef read it (the weapons it can use, its best ranged one, their parts, floors and skills, its melee interval, whether it parries, its armour and ward, its load and the traits its items grant), and the unit made from it as FormationUnits.make and TerrainWalker.of make one: its sheet, its words coded in the field's lexicon in UnitWrites.all's order, and its walker. Nothing in the tick calls it yet; 8c-iv spawns a squad from it. Its tests are cargo's (`arms/tests.rs`, `made/tests.rs`: the repo's units, and a piker with a buckler granting hauler and fists his hands are too full for) and gdUnit's (`test_formation_units.gd`: every unit in `content/units/` through `ContentStore.made` equal to FormationUnits.make's) |
+| A squad spawned from its units | `spawn.rs` (spec 39 step 8c-iv): FormationSimulation.spawn_squad in the crate, `spawn::squad`, binding `BodyField.spawn_squad`: the ids issued, the command and squad opened, each unit made from its definition (`made::unit`) and admitted with its sheet, words, walker and objects, placed at full hp, regeneration, stamina and pace, then the squad on its route, faced along it, at its morale's ceiling, with its wait and combat width, and its units stood on their places (`march::sync`). The caller gives each definition's code (UnitStore.definition_code) and the route's code is issued as `squad_put_route` issues it. Nothing in the tick calls it yet. Its tests are cargo's (`spawn/tests.rs`) and gdUnit's (`test_formation_spawn.gd`: the crate's whole state after three spawns equal, byte for byte, to GDScript's) |
 | Identity | `tools/formation_digest.gd`, against the base's (`check_outcomes.py`, Decision 151); until spec 39 step 6a also under each engine, while body parting had its twin |
 
 ## The native state and its boundary
@@ -211,6 +218,93 @@ The rules for matching Godot bit for bit (`native/rust/src/maths.rs`):
   one spot" way is rolled in the crate too (`parting::pass::way`, spec 39 step 8b5-xxxi).
 
 ### Fingerprints (`tools/formation_digest.gd`, every tick hashed)
+
+`native/bin/breach_digest [set=standard|clash160|wide] [out=<file>] [only=<run label>]`
+plays the same runs in the crate with no Godot (spec 39 step 8c-xiii) and prints the same
+lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot's.
+
+**The snapshot tests' cuts** (`src/cuts.rs`, spec 39 step 8d): `breach_digest cuts=<dir>`
+writes eleven states cut from the standard digest's runs (`cuts::CUTS`: eight from the mirrors
+and the 40-a-side clash, three from the field logs, each at a tick after which the phases it
+was chosen for change the state) to `native/rust/cuts/`, committed, about 490 KB. Each is the
+snapshot's bytes (`<name>.state`) and a text file (`<name>.txt`): the run's label, the tick,
+the squads listed, and the SHA-256 of the field and the squads as each lap of the next tick
+ends. A field log's cut also carries FieldPlay's own state (`<name>.field`,
+`field_play::carried`: the definitions coded, the routes' codes, the waves, the builders and
+the reserve, hurry and tending); read back, the field is set up again from its record, that
+state laid over it, and the record's commands for the tick given before it is stepped.
+`cargo test cuts` reads each back, steps that tick from it and requires every lap's print; it
+also requires the run to still reach the committed state, and every phase but those
+`cuts::UNCHANGED` names (the rules and the roster, which only read; the joins and the groups,
+which no digest run uses) to change the state in some cut. After an intended outcome change,
+run `native/bin/breach_digest cuts=native/rust/cuts` (or `cargo run --release --bin digest --
+cuts=cuts` in `native/rust`) and commit what changed: only the cuts whose runs changed are
+rewritten. The first lap whose print differs names the phase that changed.
+
+### Trials (`tools/formation_trials.gd`, BattleTrials)
+
+`native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
+[first_seed=1] [swap] [repeats=20]` fights BattleTrials' scenarios in the crate with no Godot
+(spec 39 step 8c-xiv), `scenario=fatigue` FatigueTrials' four contacts (step 8c-xv) and
+`scenario=paths` PathTrials' ways and SightTrials' walk along a wall (step 8c-xvi), and prints
+the same lines; CI's `trials` job checks they equal Godot's. Each path search is timed on
+its own side, so CI compares the paths' lines with the timings left out: the last number of
+each table row and the "us a plan" figure blanked, and blank lines dropped, on both sides.
+
+### Scaling (`tools/scaling_check.gd`, bounded work)
+
+`native/bin/breach_scaling [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5]
+[stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]` times the crate's own tick
+on the same battles (FormationBench.clash and .lanes, set up by `battles::Battle`) with no
+Godot (spec 39 step 8c-xvii), prints the same lines and exits 1 when a doubling costs more
+than `limit` times as much. CI's `scaling` jobs run it on each stage after Godot's, on the same
+runner: its own verdict gates it, and its stage, size and "a side"/"stacks" columns must
+equal Godot's (the timings are each side's own).
+
+### Tick phases (`tools/tick_phases.gd`, where a tick's time goes)
+
+`native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
+[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false]` brings
+the same battle to its fight as tick_phases.gd does and times `fight` of the crate's own ticks
+pass by pass, with no Godot (spec 39 step 8c-xviii). Each pass of the tick ends a lap
+(`src/laps.rs`), counted only while the bench times it, and the lines are printed as
+tick_phases.gd prints them, so the `bench` workflow runs it with `tool=breach_tick_phases` and
+`bench_compare.py` reads it. Its phases are the crate's passes, named as tick_phases.gd names
+the GDScript passes they ported where they match. A second battle steps untimed beside the
+timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
+copies no columns across the Godot boundary.
+
+`series=1 [limit=600]` (spec 38 step 2, built in spec 39 step 8c-xx, `src/phases/series.rs`)
+times every tick from contact (`settle` is 0 unless given) until one side no longer stands or
+`limit` ticks, instead of `fight` ticks. The phase lines then carry the series' means, and a
+`series:` line follows with the tick's and each phase's mean, 95th and 99th percentiles
+(nearest rank), worst and the tick that was worst. `bench_compare.py` reads the means as
+before and, when every round has a series, also compares each phase's 95th and 99th by
+their medians, so the `bench` workflow needs only `series=1` in `args`.
+
+`terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
+in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
+follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
+slots it changed and the living units as it began, a lap, and the share changed. Each lap
+shows the field to a watcher (`laps::watched`), which copies the store's columns; it runs only
+under `counts=1`, on the untimed battle, so the timed one is timed as without it. The count
+lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
+
+### Rout and native benches (`tools/rout_bench.gd`, `tools/native_bench.gd`)
+
+`native/bin/breach_rout_bench [side=1024] [squads=16] [width=16] [ticks=20]` sets up
+rout_bench.gd's battle in the crate (the player's side in `squads` formations along one long
+lane, the front half breaking and routing back through the rear half, a kingdom formation
+beyond) and times the rout's pass alone, as FormationRout.step runs it, printing
+rout_bench.gd's line (spec 39 step 8c-xix). `native/bin/breach_native_bench
+[engines=rust,rust_threads] [sizes=160:10,512:32,1024:32] [runs=3] [settle=10] [fight=10]
+[seed=1]` brings FormationBench's clash to its fight as native_bench.gd does and times the
+crate's tick on one thread (`rust`) and on the pool (`rust_threads`), with the bodies' parting
+and the scrum's seek inside it. It prints `tick`, `rest`, `bodies` and `seek`: native_bench.gd's
+`b.sync`, `b.call` and `b.write` time the Godot boundary, which the crate's tick doesn't cross,
+and its `b.core` is the crate's whole parting. Cargo tests hold both battles to Godot's events
+and digest state; the `bench` workflow runs either as `tool=breach_rout_bench` or
+`tool=breach_native_bench`.
 
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
@@ -423,10 +517,21 @@ bash native/build.sh dev      # optimised without LTO: rebuilds in seconds
 
 This puts `native/bin/[lib]breach_rust.<platform>.<ext>` in place, and the map designer's
 server, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, `src/designer/`, spec 39
-step 2c). They are git-ignored, as
+step 2c), and the formation digest played in the crate, `native/bin/breach_digest[.exe]`
+(`src/bin/digest.rs`, `src/digest/runs.rs`, spec 39 step 8c-xiii), and BattleTrials fought
+in the crate, `native/bin/breach_trials[.exe]` (`src/bin/trials.rs`, `src/trials.rs`, spec 39
+step 8c-xiv; `src/trials/fatigue.rs`, step 8c-xv; `src/trials/paths.rs` and
+`src/trials/paths/wall.rs`, step 8c-xvi), and scaling_check timed on the crate's tick,
+`native/bin/breach_scaling[.exe]` (`src/bin/scaling.rs`, `src/scaling.rs`, spec 39 step
+8c-xvii), and tick_phases timed on the crate's tick, `native/bin/breach_tick_phases[.exe]`
+(`src/bin/tick_phases.rs`, `src/phases.rs`, `src/laps.rs`, spec 39 step 8c-xviii;
+`src/phases/series.rs`, step 8c-xx), and
+rout_bench and native_bench, `native/bin/breach_rout_bench[.exe]` and
+`native/bin/breach_native_bench[.exe]` (`src/bin/rout_bench.rs`, `src/rout_bench.rs`,
+`src/bin/native_bench.rs`, `src/native_bench.rs`, spec 39 step 8c-xix). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
-by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it
+by Godot, the squad store, the snapshot read back, the cuts stepped), with no Godot. CI's `rust` job runs it
 with `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` on every PR that
 touches `native/`.
 

@@ -81,7 +81,8 @@ pub(crate) fn walker(fields: Option<[f64; 5]>, height: f64) -> Walker {
 }
 
 /// FormationPathing._follow: whether the squad in `slot` re-routes onto its command's route
-/// with its ways round; if so it takes it, standing where it stood along it.
+/// with its ways round; if so it takes it, standing where it stood along it, and a code no
+/// other route has.
 fn follow(squads: &mut Squads, slot: usize) -> bool {
     let patches = detours::command_patches(squads, slot);
     if !detours::follows(squads, slot, patches) {
@@ -91,6 +92,7 @@ fn follow(squads: &mut Squads, slot: usize) -> bool {
     detours::follow(squads, slot, &route, patches.expect("a command's route"));
     squads.position[slot] = route.point_at(squads.front_distance[slot] * CELLS);
     squads.route[slot] = Some(route);
+    squads.route_code[slot] = squads.issue_route(); // a route of its own (spec 39 step 8b5-xxxvi)
     true
 }
 

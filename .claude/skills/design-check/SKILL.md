@@ -52,6 +52,9 @@ An id names a unit or squad. It never ranks one. Ids are handed out in spawn ord
        scenario=mirror_headon runs=100 first_seed=1 swap
    ```
 
+   `native/bin/breach_trials` takes the same arguments and prints the same lines in a
+   fraction of the time, with no Godot (spec 39 step 8c-xiv; `bash native/build.sh` builds it).
+
    Use at least 300 seeds per order (`first_seed=1`, `101`, `201`), and do the same
    for `mirror_flank` if flanks are touched. Compare the first-spawned side's wins
    across both orders. A gap beyond about 2 standard deviations (sd ≈ √n / 2 over n

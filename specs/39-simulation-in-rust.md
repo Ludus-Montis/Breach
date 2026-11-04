@@ -476,6 +476,631 @@ events. After this step no battle phase runs in GDScript.
   and none is under way. "passed" is the log's first list field: how many, then each
   (`events::LISTS`, `Log::squad_listed`; CrateEvents decodes it to an Array). FormationShuffle.step
   now takes the squads, not one squad. Outcomes don't change.
+  **8b5-xxxiii built** (2026-10-29): the march's sync as one crate pass over every squad
+  (`march/sync.rs`, the `march_sync` binding): each listed squad's living units get their
+  distance along the route (a swap under way included), a router stands on its point on the
+  route (`rout_blows::where_on`), facing the heading unless loose, a loose one where its own
+  moves took it; placing, each unit in its frame is set on its place (`pour::place`), facing
+  the heading; otherwise each walks a tick (`walk::walk`) to where it makes for
+  (`pour::targets`), its walker, stamina, turn and footprint read from its sheet, over the
+  bodies lying as the tick found them (`moving::pass::Bodies::listed`), and a fall from a
+  climb face lands its hurt in the crate, onto the fell queue. FormationMarch.sync_units keeps
+  its signature and makes the one call; its WALKED and SYNCED holds and FormationWalk.place_of
+  are gone. Outcomes don't change.
+  **8b5-xxxiv split further** (2026-10-29, under the same leave), on its survey (the tick is
+  still some twenty GDScript passes, each one crate call between GDScript's own mirrors, and
+  a few still hand the crate what only GDScript holds: the routes as objects, the
+  perception's picture, the lists of squads and units): **8b5-xxxiv** the scrum
+  (FormationScrum.step: engaging, readying, the stances, the manoeuvres, the seek, the
+  regroup, the withdrawal, the pursuit and the stall) as one crate call; **8b5-xxxv** the
+  tick's opening (the orders, the perception, the fronts and edges, the pathing and the
+  move with its joins) as one call, the routes and the perception held by the crate;
+  **8b5-xxxvi** the fight through the groups (the fight, deaths, taking, the wounds,
+  recovery, the strays, morale, the rout, carrying and the groups) as one call, each pass's
+  mirror after it; **8b5-xxxvii** the tick's end (stamina, the bodies, the shuffle and the
+  march's sync), then one `step()` binding running them all, FormationSimulation.step that
+  one call, GDScript's copies mirrored after it and the events decoded from its data.
+  **8b5-xxxiv built** (2026-10-29): the scrum as one crate call (`scrum/step.rs`, the
+  `scrum_step` binding): its nine phases in their order over one roster, each phase's events
+  in the log in that order, the stall quiet unless the seek found its squad or a foe active,
+  and the pursuers back at their posts handed back, whose routes GDScript mirrors
+  (FormationPursuit.mirror). Each phase's class hands over its own rules (`rules`), and its
+  own binding stays for its tests and `tick_phases`, which times each phase. Outcomes don't
+  change.
+  **8b5-xxxv split further** (2026-10-29, under the same leave), on its survey (the opening
+  is six crate calls between GDScript's mirrors; the routes reach the crate as codes of
+  GDScript's objects, made twice a tick and changed between the calls by the pursuers'
+  `enemy.route = quarry.route` and pathing's re-routes, and the taking reads the perception
+  as GDScript's dictionary): **8b5-xxxv** the tick's opening (the orders, the perception, the
+  fronts and edges, the pathing and the move with its joins) as one crate call, the routes'
+  codes handed over once and kept by the crate as GDScript's mirrors would leave them, the
+  perception handed back; **8b5-xxxvi** the routes and the perception held by the crate (the
+  routes' codes the crate's own, for the opening and the groups, the pursuers' and
+  re-routed groups' routes no longer mirrored by hand, the taking reading the perception the
+  crate kept); **8b5-xxxvii** the fight through the groups as one call (was 8b5-xxxvi);
+  **8b5-xxxviii** the tick's end and the one `step()` binding (was 8b5-xxxvii).
+  **8b5-xxxv built** (2026-10-29): the tick's opening as one crate call (`opening.rs`, the
+  `opening_step` binding): the orders queued, each squad's perception, the fronts and then the
+  edges, the pathing (on ground only) and the move with its joins, over one roster, every
+  pass's events in the log in that order. Each squad's route comes over once as a code
+  (FormationOrders.route_codes), and the crate keeps the codes as GDScript's mirrors left
+  them between the calls: a pursuer that took its quarry's route holds it and its code, and a
+  group that re-routed a code of its own. FormationOpening makes the call and mirrors after
+  it: the pursuers' and re-routed groups' routes, the perception (handed back) and the joins.
+  The per-pass bindings stay for their tests and `tick_phases`. Outcomes don't change.
+  **8b5-xxxvi split further** (2026-10-29, under the same leave), on its survey (the codes
+  are one change through the crate's route setter and four passes, the mirrors another that
+  makes GDScript's route a view of the crate's, and the perception a third): **8b5-xxxvi**
+  the routes' codes the crate's own; **8b5-xxxvii** the routes and the perception held by the
+  crate (the pursuers' and re-routed groups' routes no longer mirrored by hand, the taking
+  reading the perception the crate kept); **8b5-xxxviii** the fight through the groups as
+  one call (was 8b5-xxxvii); **8b5-xxxix** the tick's end and the one `step()` binding (was
+  8b5-xxxviii).
+  **8b5-xxxvi built** (2026-10-29): the routes' codes the crate's own (`Squads::route_code`,
+  -1 none): SkirmishSquad.route's setter hands the crate the route's instance id with its
+  points (`squad_put_route`), and the crate gives each route it is handed a code of its own
+  (`Squads::issue_route`; the same route, the same code). The passes that hand a squad
+  another's route hand it the code too (a pursuer its quarry's, `opening::took`, which
+  `apply_orders` now runs as well; a split's group and a stray their own squad's), and a
+  group that re-routes onto its command's way round takes a fresh code (`pathing::pass`).
+  `opening_step`, `apply_orders`, `move_step` and `groups_step` read the codes there, and
+  FormationOrders.route_codes, FormationStaging.route_codes and FormationGroups' codes are
+  gone. Outcomes don't change: the codes fall into the same groups as GDScript's routes.
+  **8b5-xxxvii built** (2026-10-29): the routes and the perception held by the crate.
+  SkirmishSquad.route is a view of the crate's route and code (SquadRoutes, on the store):
+  it reads the route kept for its squad's code, and a route the crate made (a group
+  re-routed, a pursuit's post route handed over unnamed) is made once from the crate's
+  points and corridor (`squad_route_half_width`) and named by its object (`name_route`). The
+  crate keeps the post route's code as a pursuit begins (`Squads::post_route_code`) and the
+  squad takes it up again back at its post; one handed over by `put_squad_pursuit` is issued
+  a fresh code there. So FormationOpening's `_pursued`, FormationOrders.apply's quarry copy,
+  FormationPathing's `_follow`/`rerouted` and FormationPursuit.mirror are gone, and a squad
+  carried to another store takes its route along (SquadRoutes.carry). The perception keeps
+  each squad's threat (`Squads::threatened`, `perception::keep`, from the opening and
+  `perception_see`), which `taking_step` reads instead of a list handed to it
+  (SkirmishSquad.threatened; FormationTaking.step takes no perception, and
+  FormationPerception.threatened is gone). Outcomes don't change, except where a pursuer
+  back at its post now holds the code of the very route it held it on, not one of the same
+  points (the old mirror's command's route or a new copy).
+  **8b5-xxxviii split further** (2026-10-29, under the same leave), on its survey (the fight
+  through recovery runs over one squad list that doesn't change, but the strays, the rout's
+  rallies and the groups open and drop squads partway, so the list must grow and shrink in
+  the crate): **8b5-xxxviii** the fight and its aftermath (the fight, deaths, taking, the
+  wounds' tending and recovery) as one call; **8b5-xxxix** the strays through the groups (the
+  strays, morale, the rout, carrying, the strays again and the groups) as one call, the
+  squads listed growing and shrinking in the crate; **8b5-xl** the tick's end and the one
+  `step()` binding (was 8b5-xxxix).
+  **8b5-xxxviii built** (2026-10-29): the fight and its aftermath as one crate call
+  (`aftermath::step`, binding `aftermath_step`): `fight::step`, `deaths::bury`,
+  `taking::pass`, `wounds::pass` and `recovery::pass` in that order over one roster, each
+  pass's events in the log in that order. It returns each pass's result, its count first
+  (the surrender's units now by id, not by their index in the living), and FormationAftermath
+  mirrors them in the same order (FormationDeaths.mirror, FormationWounds.mirror,
+  FormationRecovery.mirror, split out of their passes), then takes the events once.
+  FormationSimulation.step makes the one call; the per-pass bindings and `_fight` stay for
+  their tests and `tick_phases`. Outcomes don't change.
+  **8b5-xxxix built** (2026-10-29): the strays through the groups as one crate call
+  (`mustering::step`, binding `mustering_step`): `strays::adopt` over recovery's strays,
+  `morale::pass` on a second's tick, `rout::pass` when a listed squad routs or is at 0
+  morale, `carry::pass` (its homes the routers the rout brought home), `strays::adopt` over
+  the bearers it set off, then `groups::pass`, each pass's events in the log in that order.
+  The squads listed grow in the crate as GDScript's lists did (`mustering::listing`): each
+  squad opened is listed after the rest, its faction coded as a listed squad of the same
+  one, its merging its command's, and every listed squad's living read again from the
+  members, each unit as the roster first gave it. It returns each pass's result, its count
+  first; FormationMustering mirrors them in the same order (FormationStrays.mirror,
+  FormationRout.mirror, FormationCarry.mirror, FormationStrays.mirror,
+  FormationGroups.mirror), then takes the events once. A mirror now runs after the later
+  passes, so one must not write back what they changed: a stray's squad keeps the heading,
+  state, morale, front and place the crate holds for it (a stray home or rallied in the
+  same call is DESTROYED there), not those it was set off with. `groups_step` (and so
+  FormationGroups.mirror) names a split's units by id, not by their index in the living.
+  FormationSimulation.step makes the one call; the per-pass bindings stay for their tests
+  and `tick_phases`. Outcomes don't change.
+  **8b5-xl split further** (2026-10-29, under the same leave): **8b5-xl** the tick's end
+  (stamina, the bodies' parting, the shuffle and the march's sync) as one call; **8b5-xli**
+  the one `step()` binding running the opening, the scrum, the aftermath, the mustering and
+  the end, FormationSimulation.step that one call, GDScript's copies mirrored after it and
+  the events decoded from its data.
+  **8b5-xl built** (2026-10-29): the tick's end as one crate call (`ending::step`, binding
+  `ending_step`): `stamina::pass`, `parting::pass`, `swaps::pass` and `march::sync` in that
+  order over the squads listed, the shuffle's events in the log. No mirror between them fed
+  the next pass, and none changes the list. It returns the parting's [usec, passes, pairs],
+  then the ids of the units made by hand that took their speed as fresh;
+  FormationEnding.step mirrors those (FormationStamina.mirror, split out of its pass) and
+  takes the events. FormationSimulation.step makes the one call; the per-pass bindings and
+  GDScript passes stay for their tests, `tick_phases` and `native_bench`. Outcomes don't
+  change.
+  **8b5-xli split further** (2026-10-29, under the same leave): with the whole tick in one
+  call, every GDScript mirror runs after the last pass, and several write into the crate
+  (`UnitState.put` the STATE column, `unit.wounded` the sheet, FormationCommand.enlist a
+  unit's place), so a mirror can overwrite what a later pass in the same call did (a body
+  downed by the deaths' pass and picked up by carrying's). **8b5-xli** the whole tick as one
+  crate pass and its binding: `tick::step` runs the opening, the scrum, the aftermath, the
+  mustering and the end over one roster of every unit the squads hold, listing the squads
+  afresh between the passes as CrateRoster.of did (the squads a join took in dropped, the
+  factions coded again in the lists' order, each squad's living read from its members, the
+  strays recovery set off handed to the mustering, the squads it opened and took in listed
+  for the end). **8b5-xlii** FormationSimulation.step that one call, with GDScript's copies
+  mirrored after it, no mirror writing over the crate, and the events decoded once from its
+  data.
+  **8b5-xli built** (2026-10-29): the whole tick as one crate pass (`tick::step`, binding
+  `tick_step(roster, ground, opening, scrum, aftermath, mustering, ending)`, each of the five
+  an Array of that pass's own binding's arguments past the roster and the ground, the
+  mustering's past its strays). The roster holds every unit the squads hold; `tick::relisted`
+  lists the squads before the opening and after each pass but the last as CrateRoster.of
+  did, dropping the squads the opening's joins took in and coding the factions again in the
+  list's order; the strays recovery set off (`Came::Alone`, [its squad's slot, its unit's
+  slot]) go to the mustering; the end runs over `tick::ended_listing` (the mustering's list,
+  the adopted squads, the splits, less the groups taken in). It returns each pass's flat
+  result as its own binding does, each part its length first (the scrum's [seek usec, the
+  pursuers back...]). The five bindings share their rules and results with it (lib.rs
+  `opening_rules`/`opened_flat`, `scrum_rules`, `aftermath_rules`/`aftermath_flat`,
+  `mustering_rules`/`mustered_flat`, `ending_rules`/`ended_flat`). GDScript doesn't call it
+  yet. Outcomes don't change.
+  **8b5-xlii built** (2026-10-30): FormationSimulation.step is one crate call
+  (FormationTick.step, `tick_step`) over `CrateRoster.of(squads, terrain, true)` (every unit
+  of `squad.units`, after `squad.living()` freshens the members). Each pass's GDScript class
+  hands its part of the arguments (`args`: FormationOpening, FormationScrum,
+  FormationAftermath, FormationMustering, FormationEnding, whose own `step` uses them too)
+  and mirrors its part of the result (`mirror`) in the passes' order. The mirrors run under
+  CrateMirroring: while it is on, `UnitState.put` gives the unit the crate's STATE and
+  writes nothing, a unit's number setter takes the crate's sheet value (`UnitWrites.number`),
+  and its words and objects, a squad's columns, route, faction, command and joined list,
+  and an admitted unit's sheet and state are left as the crate holds them. So no mirror
+  writes over what a later pass in the call did (a body downed by the deaths and borne by
+  carrying stays CARRIED). The events are decoded once (`CrateEvents.taken(field, store)`),
+  then `orders_clear` and `store.settle`. The per-pass GDScript classes and bindings stay
+  for their tests and the tools. Outcomes don't change.
+- **8c split further** (2026-10-30, under the user's standing leave to split): a cargo binary
+  can only play a battle the crate can set up, order and step with nothing from GDScript.
+  **8c-i** the tick's rules read in the crate: each pass's rules built from the battle's
+  tuning the crate loaded, so FormationTick hands the call only the tick's own numbers.
+  **8c-ii** a battle set up in the crate: a squad spawned from its units' definitions, the
+  ground made from a map, and the digest's battles (BattleTrials' mirrors,
+  FormationBench.clash, the field logs' fields) made in Rust; the binding's rule parsers moved
+  off Godot's arrays so a cargo binary can use them. **8c-iii** a battle run end to end in
+  the crate: the rest of FormationSimulation.step and the field's actions (the field logs'
+  orders by tick), the digest's stop rules (a side broken, TAIL ticks, ticks past contact).
+  **8c-iv** the digest as a cargo binary: each tick's events and squads' and units' state
+  hashed as `formation_digest.gd` hashes them (Godot's `var_to_bytes`, SHA-256), its output
+  compared with the Godot digest's in CI; the Godot digest retired once they match on
+  `main`. **8c-v** the trials and `scaling_check` as cargo binaries. **8c-vi** the benches,
+  `tick_phases` among them with spec 38 step 2's series, `terrain=mixed` and per-pass
+  changed counts.
+  **8c-i built** (2026-10-30): `tick::given` (`tick::given::of(tuning, At, Paces)`) builds
+  every pass's arguments past the roster and the ground from the battle's tuning
+  (`content::BattleTuning`) and the tick's numbers, value for value as FormationOpening,
+  FormationScrum, FormationAftermath, FormationMustering and FormationEnding's `args` build
+  them. The binding `tick_run(content, roster, ground, [tick, seed, ticks a second, 1 if
+  blows roll, 1 if threaded], [travel scale, seconds, route length, cells a second])` reads
+  the tuning from the ContentStore (`CrateContent.store()`, which replaces
+  `CrateContent.defaults()`) and runs `tick_step` on them; `tick_given` returns them for the
+  test that holds them equal to GDScript's. FormationTick.step makes that call;
+  `FormationTick._args` is removed. Outcomes don't change.
+  **8c-ii split further** (2026-10-30, under the same leave): **8c-ii** the tick's rules
+  parsed in the crate: lib.rs's rule parsers (`opening_rules`, `scrum_rules`,
+  `aftermath_rules`, `mustering_rules`, `ending_rules`, `fight_rules` and the rest) moved off
+  Godot's Packed arrays and VarArrays into `tick::rules`, so `tick::rules::of(&Given)` gives
+  `tick::step` its rules with nothing from Godot; **8c-iii** a squad spawned in the crate from
+  its units' definitions; **8c-iv** the ground made in the crate from a map; **8c-v** the
+  digest's battles (BattleTrials' mirrors, FormationBench.clash, the field logs' fields) made
+  in Rust. The rest renumber: **8c-vi** a battle run end to end in the crate (was 8c-iii),
+  **8c-vii** the digest as a cargo binary (was 8c-iv), **8c-viii** the trials and
+  `scaling_check` (was 8c-v), **8c-ix** the benches (was 8c-vi).
+  **8c-iii split further** (2026-10-30, under the same leave): a squad spawned from its units'
+  definitions first needs each unit made from its definition, and none of FormationUnits.make,
+  UnitArms or TerrainWalker.of was in the crate. **8c-iii** a unit made in the crate from its
+  definition; **8c-iv** a squad spawned in the crate from those units (its squad and command
+  opened, the units admitted with their words coded and objects set, placed, at full hp,
+  regeneration, stamina and pace, on its route, facing along it, at its morale's ceiling, and
+  stood on their places). The rest renumber: **8c-v** the ground made from a map (was 8c-iv),
+  **8c-vi** the digest's battles made in Rust (was 8c-v), **8c-vii** a battle run end to end
+  in the crate (was 8c-vi), **8c-viii** the digest as a cargo binary (was 8c-vii), **8c-ix**
+  the trials and `scaling_check` (was 8c-viii), **8c-x** the benches (was 8c-ix).
+  **8c-iii built** (2026-10-30): `arms` (`Arms::of(content, unit)`) reads what a unit strikes
+  with and wears from its definition in the crate's content, as UnitArms and UnitDef do: the
+  weapons it can use (innate ones only where no carried item holds their body parts), its
+  best ranged weapon, its parts, floor shares and skills, its melee interval, whether it
+  parries, its armour and ward, its load stage and the traits its items grant. `made::unit`
+  makes a unit's sheet, words (coded in the field's lexicon in UnitWrites.all's order) and
+  walker from those, as FormationUnits.make and TerrainWalker.of do. The binding
+  `ContentStore.made(id, faction, direction)` returns them for the gdUnit test that holds every
+  unit in `content/units/` equal to FormationUnits.make's. Nothing in the tick calls them yet.
+  Outcomes don't change.
+  **8c-iv built** (2026-10-30): `spawn::squad` spawns a squad in the crate as
+  FormationSimulation.spawn_squad does, every write the one GDScript makes: its units' ids
+  and its squad's issued, its command opened on its route, the squad opened with its faction
+  (coded before its units' words), direction, facing, home and width; each unit made by
+  `made::unit` and admitted (sheet with its squad, words, walker, its command as command and
+  origin, its definition's code given by the caller with its sight and speed kept), then
+  placed at full hp, all its regeneration to come, full stamina and its pace fresh; the squad
+  on its route (its code given, or issued), placed and faced along it (`face_held`), with its
+  wait, its morale at its ceiling and its combat width, and its units stood on their places
+  (`march::sync`, placing). The binding `BodyField.spawn_squad(content, units, codes, places,
+  faction, [width, at the player's end, wait, combat width], points, half_width, object)`
+  codes the route as `squad_put_route` does. The gdUnit test holds the crate's whole state
+  (`snapshot`) after three spawns equal, byte for byte, to GDScript's. Nothing in the tick
+  calls it yet. Outcomes don't change.
+  **8c-v built** (2026-10-30): the map is FormationField's: the formation battles' only
+  painted ground (the digest's field logs and BattleTrials fight on it; nothing makes a
+  formation ground from a MapLayout). `ground::map` holds a `Map` (its size and its areas
+  painted in order, each a rect and a `Paint`) and makes its `Ground` on the battle's tuning
+  (`Map::ground`); `ground::map::field(tuning)` is FormationField._ground's map (the wood,
+  the stream, the ford, the hill's eight rings), and `ground::map::of(name, tuning)` names it
+  "field". The binding `TerrainGround.map(content, name)` makes it; `TerrainGround.snapshot()`
+  gives the ground's cells and rules as bytes. The gdUnit test holds the crate's field equal,
+  byte for byte, to the one FormationField paints. The trials' grounds (PathTrials' crag,
+  SightTrials' wall) are added as maps with the trials (8c-ix). Nothing in the tick calls it
+  yet. Outcomes don't change.
+  **8c-vi built** (2026-10-30): `battles` sets up the digest's battles in the crate, every
+  write GDScript's set-up makes: BattleTrials' mirrors (head-on, and on a flank with the
+  line's hold queued; its sides swapped if asked), FormationBench.clash (its back ranks
+  spitters if asked) and the field the field logs play on (FormationField's kingdom line,
+  captained or not, and its reserve, each holding with its front set where it stands on
+  route A). Each squad is spawned by `spawn::squad`, its definitions coded in the order
+  first met and its routes as first used. `battles::named(name, numbers)` names them as the
+  digest does ("mirror_headon", "mirror_flank", "clash", "field"), and `set_up` returns
+  what the simulation is made with (its route's length, tick, combat width and map). The
+  field's waves are its actions, built and sent tick by tick (8c-vii). The binding
+  `BodyField.battle(content, name, numbers)` sets one up; the gdUnit test holds the crate's
+  whole state after each digest battle's set-up equal, byte for byte, to GDScript's. Nothing
+  calls it yet. Outcomes don't change.
+  **8c-vii split further** (2026-10-30, under the same leave): the field's actions are a
+  system of their own (DomainProduction's builders, FormationProduction's waves with their
+  templates, staging and departures, FormationRehearsal's timed marches for a rendezvous, and
+  the record's commands: send, retreat, auto, wait, tend, hurry, route, pursue, and the routers
+  home banked), while the mirrors and the clash need none of it. **8c-vii** a digest battle
+  without the field's actions played end to end in the crate: the rest of
+  FormationSimulation.step and the digest's stop rules; **8c-viii** the field's actions in the
+  crate (the waves built and sent tick by tick, and the field logs' commands by tick). The
+  rest renumber: **8c-ix** the digest as a cargo binary (was 8c-viii), **8c-x** the trials and
+  `scaling_check` (was 8c-ix), **8c-xi** the benches (was 8c-x).
+  **8c-vii built** (2026-10-30): `play` plays a digest battle in the crate. `Play::new` sets
+  it up (`battles::set_up`) on its map's ground, if any, and `Play::step` is
+  FormationSimulation.step: the tick counted; the squads listed with every unit each holds as
+  CrateRoster.of(squads, terrain, true) lists them (`play::listed`: each unit's id, footprint,
+  band, reach, turn rate, backward pace, detection and most stamina from its sheet, its kind
+  its definition's code, its walker from its objects on ground and the open ground's
+  otherwise); the whole tick (`tick::step`) on the rules `tick::given` and `tick::rules` build
+  from the battle's tuning, on the ground with the paths' cache the play keeps; the orders
+  queued cleared; the squads listed as the tick leaves them (`Ticked::listed`, the end's
+  listing); and the units no listed squad holds let go (UnitStore.settle). `play::Watch` holds
+  the digest's stop rules (`_run`: the limit, ticks past first contact, TAIL ticks after a
+  side no longer stands) and `play::run` plays to them. The binding `BodyField.battle_play(
+  content, name, numbers, [seed, rolls, threaded, limit, after])` returns the ticks played;
+  the gdUnit test holds the ticks and the crate's whole state equal, byte for byte, to
+  GDScript's run of the same battle (a mirror head-on and one flanked and swapped to a side
+  broken and the tail, a clash to 30 ticks past contact, the captained field to its limit).
+  Nothing calls it yet. Outcomes don't change.
+  **8c-viii split further** (2026-10-30, under the same leave): the field's actions are three
+  systems: the waves built and sent (DomainProduction's builders, FormationProduction's
+  templates and sends) with FormationField.step's tick; the record's commands
+  (FormationFieldActions.apply and FormationRecord.parse: retreat, auto, wait with B's staging,
+  tend, hurry, route, the kingdom's pursue); and the rendezvous sent together (`send A+B`:
+  FormationRehearsal's private march and FormationRendezvous' waits). **8c-viii** the field's
+  waves in the crate: the builders and waves and FormationField.step, a wave sent by hand;
+  **8c-ix** the record's commands but `send A+B`, so field logs 1, 2 and 4 play in the crate;
+  **8c-x** the waves sent together, so all five do. The rest renumber: **8c-xi** the digest as
+  a cargo binary (was 8c-ix), **8c-xii** the trials and `scaling_check` (was 8c-x),
+  **8c-xiii** the benches (was 8c-xi).
+  **8c-viii built** (2026-10-30): `waves` holds a lane's wave as GDScript does: `Template`
+  (WaveTemplate's painting, front-first order and layout; `Template::line` is
+  WavePresets.line), `Wave` (its places filled front-first, announced full once, departing when
+  full if `auto`) and `Builders` (DomainProduction: builders by type in the order set, each
+  claiming a lane by the sharing rule or the reserve under its cap, the reserve filling the
+  lanes first, `Produced` telling what each did as GDScript's events do). `field_play`'s
+  `FieldPlay` sets the field up (`Play`, `Battle::Field`; `battles::set_up_coded` keeps the
+  definitions' codes for the waves' units) with FormationField's routes (A coded as the
+  kingdom's, B and C as first used), its waves and its builders, and `step` is
+  FormationField.step: the player's squads hurried and tending by their routes' waves, the
+  builders, each wave announced (and sent, if automatic), the battle's tick (`Play::step`), and
+  the player's "fled_home" units banked (`play::starts` walks the log `Log::since` gives from a
+  `Log::mark`). `FieldPlay::send` is FormationProduction.send: `spawn::squad`, a partial wave
+  as wide as its front band and closed up (`ranks::close`, its swaps cleared), centred, and
+  stood on its places (`spawn::stand`, split out of `spawn::squad`). The binding
+  `BodyField.field_play(content, [captained], [seed, rolls, threaded, ticks], sends)` returns
+  the ticks and how many production events there were; the gdUnit test holds both and the
+  crate's whole state equal, byte for byte, to GDScript's field sent the same waves on the
+  same ticks. Nothing calls it yet. Outcomes don't change.
+  **8c-ix built** (2026-10-30): `record::parse` is FormationRecord.parse (each version's
+  header, the commands in order, a version 0 log's words through `record::from_words`, lines
+  that aren't commands skipped). `FieldPlay::apply` (`field_play/actions.rs`) is
+  FormationFieldActions.apply: the kingdom's pursue on its line and reserve (`FieldPlay`'s
+  `kingdom`, kept from the set-up), a wave sent, a retreat queued for each player squad
+  listed on the wave's route (matched by route code), auto, hurry and tend as FormationField
+  holds them, a wave put on route A, B or C, and wait (`FieldPlay::set_wait`: B's `Wave`
+  `staging`, the `staging::Stage` FormationField.set_wait gives, which `send` sets on the
+  squad). `field_play::actions::replay` plays a record as the digest's `_field` does: each
+  tick's commands, then the tick, for `extra` ticks past the last command; a record sending
+  the waves together (`send A+B`) isn't replayed yet (8c-x). The binding
+  `BodyField.field_replay(content, log, [rolls, threaded, extra])` returns the ticks and the
+  production events, or [-1]; the gdUnit test holds the crate's whole state equal, byte for
+  byte, to GDScript's replay of the digest's field logs 1, 2 and 4. Nothing calls it yet.
+  Outcomes don't change.
+  **8c-x built** (2026-10-30): `rehearsal::ticks_to` is FormationRehearsal.ticks_to: a
+  wave's filled places (front-first, as its preview lists them) spawned eight wide on its
+  route in a battle of their own (`Play::open`, a FormationSimulation.new with nothing set up:
+  unseeded, blows unrolled, no combat width, on the field's map), played a tick at a time till
+  the front is its contact cells along (A 79, B 88: `field_play::CONTACT`), or LIMIT_TICKS.
+  `FieldPlay::send_together` is FormationField.send_together: each wave rehearsed, the waits
+  from `rendezvous::waits`, each wave sent with its wait. `FieldPlay::apply` gives `send A+B`
+  through it, and `replay` no longer refuses such a record, so all five of the digest's field
+  logs play in the crate; the gdUnit test holds each equal, byte for byte, to GDScript's
+  replay. Nothing calls it yet. Outcomes don't change.
+- **8c-xi split further** (2026-10-30, under the user's standing leave to split): the digest
+  hashes, each tick, `var_to_bytes([events, state])`, and both halves are Godot's values,
+  which a cargo binary must write byte for byte before it can hash. **8c-xi** the digest's
+  state in the crate: Godot's `var_to_bytes` for the plain values DigestState gives, and
+  DigestState.state read from the crate, held equal to GDScript's every tick of digest
+  battles. **8c-xii** the digest's events in the crate: each tick's events (the crate's log
+  as CrateEvents decodes it, and the field's production events) as DigestState.plain gives
+  them. **8c-xiii** the digest as a cargo binary: every run's hash chained (SHA-256) and
+  printed as `formation_digest.gd` prints it, `out=` lines too, compared with the Godot
+  digest's in CI. The rest renumber: **8c-xiv** the trials and `scaling_check` (was
+  8c-xii), **8c-xv** the benches (was 8c-xiii).
+  **8c-xi built** (2026-10-30): `digest::Plain` is a plain value (nil, bool, int, float,
+  string, point, list) and `Plain::bytes` writes it as Godot's `var_to_bytes` does: an int
+  past i32 and a float an f32 doesn't hold exactly in 64 bits, a string padded to 4.
+  `Plain::dict` is DigestState.plain's dictionary: its size and its pairs ordered by each
+  key as `var_to_str` writes it. `digest::state::state(squads, field, listed)` is
+  DigestState.state read from the crate: each listed squad's fields, its records (flank
+  contacts, stance, pursuit, withdrawal) as SquadRecords and OrderRecords make them, and each
+  member's fields with its loose, fleeing and chasing entries as EntryKeys and SquadRecords
+  make them, each value the type GDScript reads. The binding `BodyField.digest_state(slots)`
+  returns the bytes; the gdUnit test holds them equal to `var_to_bytes(DigestState.state(..))`
+  every tick of both mirrors, field logs 3 and 4 and the 40-a-side clash. Nothing calls it
+  yet. Outcomes don't change.
+  **8c-xii built** (2026-11-04): `digest::events::logged(flat, lexicon)` is the crate's log
+  as CrateEvents decodes it and DigestState.plain gives it: each event's dictionary, its
+  order, band and blow named, its words from the lexicon, a flank or "alone" a bool, a heading
+  its float, an unset "joined" left out, a list its values, a "definition" ["obj",
+  "Resource"] (a UnitDef has no id). `digest::events::produced` is the builders' and waves'
+  events (lanes "A", "B", the reserve ""). `digest::recorded(events, state)` is the tick's
+  record, `var_to_bytes([events, state])`. `digest::battle` and `digest::field` play a digest
+  run (`play::run_each`, `field_play::actions::replay_each`: `run` and `replay` with each
+  tick handed on) and give each tick's record, the field's production first. The bindings
+  `BodyField.digest_battle(content, name, numbers, at)` and `digest_field(content, log, at)`
+  return the records, a `PackedByteArray` a tick; the gdUnit test holds them equal to the
+  digest's `_record` bytes every tick of both mirrors, the 40-a-side clash and all five field
+  logs, and checks that every way of decoding a field was met. Nothing calls them yet.
+  Outcomes don't change.
+  **8c-xiii built** (2026-11-04): the digest as a cargo binary, `src/bin/digest.rs`, which
+  `native/build.sh` copies to `native/bin/breach_digest`. It takes the Godot digest's `set=`
+  (standard, clash160, wide), `out=` and `only=`, plus `threaded=` and `repo=`, loads the
+  repo's `content/` with no Godot, and plays each run of the set in formation_digest.gd's
+  order and by its labels (`digest::runs::runs`): the mirrors and clashes through
+  `digest::battle`, the five field logs through `digest::field`, each on a fresh crate. Every
+  tick's record is chained with SHA-256 (`Chain`, the `sha2` crate, as the digest's
+  HashingContext), and the run printed as `"%-32s ticks %4d  %s"` (`line`) and each tick
+  written to `out=` as `"%s %d %s"` with its record's hash cut to 16 hex digits
+  (`tick_line`). CI's `digests` jobs run it on each set after the Godot digest and fail
+  unless both its run lines and its `out=` file are the same as Godot's. Checked by hand on
+  mirror_headon s1 rtrue and field3 rfalse. `trace=` and `snapshot=` stay Godot's. Outcomes
+  don't change.
+- **8c-xiv split further** (2026-11-04, under the user's standing leave to split):
+  formation_trials.gd runs three kinds of trial, and `scaling_check` times the tick rather
+  than playing a battle to an outcome. **8c-xiv** the battle trials (BattleTrials' six
+  scenarios, the ones CI's `trials` job runs) as a cargo binary, its lines compared with
+  Godot's in CI; **8c-xv** the fatigue trials and the path and sight trials (formation_trials'
+  `fatigue` and `paths`); **8c-xvi** `scaling_check`; **8c-xvii** the benches (was 8c-xv).
+  **8c-xiv built** (2026-11-04): `src/trials.rs` (`breach_native::trials`) is BattleTrials:
+  `run(scenario, runs, options, content)` fights each run on a fresh crate, a mirror
+  (`Battle::Mirror`, swapped if asked) through `Play` till fewer than both sides stand
+  (`Play::stands`, BattleTrials._stands) or 2000 ticks, a field scenario through `FieldPlay`
+  with BattleTrials' eight grem builders (the digest's field has four), built till A has 8
+  and B 9, then sent as the scenario sends them and played till the kingdom's line is
+  destroyed or routs. Each unit died, downed or surrendered is counted once for its squad's
+  side. `summary` and `row` sum and print them as formation_trials.gd does, rounding as
+  Godot's `%.1f` does (ties to even, checked by hand). `src/bin/trials.rs`, copied by
+  `native/build.sh` to `native/bin/breach_trials`, takes formation_trials' `scenario=`,
+  `runs=`, `rolls=off`, `captain`, `first_seed=` and `swap`, plus `threaded=` and `repo=`;
+  `fatigue` and `paths` stay Godot's. CI's `trials` job runs it after Godot's trials and
+  fails unless the mirror lines, and every scenario's lines over 10 runs, equal Godot's.
+  Checked by hand: every scenario over 4 runs, and over 3 with swap and rolls off, captain
+  and seed 7, and mirror_flank swapped from seed 11, all equal. Outcomes don't change.
+- **8c-xv split further** (2026-11-04, under the user's standing leave to split): the
+  fatigue trials play a battle, but the path and sight trials search the ground (TerrainPaths,
+  PathSearch, PathSight, PathMemory) and time each search, so their tables can't be equal byte
+  for byte. **8c-xv** the fatigue trials (FatigueTrials) in `breach_trials`; **8c-xvi** the
+  path and sight trials (PathTrials, SightTrials: their cells, legs, reaches, seconds, searched
+  and drawings compared with Godot's, the timings left out); **8c-xvii** `scaling_check`;
+  **8c-xviii** the benches. **8c-xv built** (2026-11-04): `src/trials/fatigue.rs`
+  (`breach_native::trials::fatigue`) is FatigueTrials: `battle(contact, seed, threaded,
+  content)` spawns the wave (player) and the line (the kingdom, ordered to hold) of eight grems
+  each at 100000 hp on the simulation's own 2-tile lane (one route code), and plays it through
+  `Play` with blows rolled: at the first "engaged" the contact starts, after `contact / 0.1`
+  ticks more the line's stamina share is read, the wave's command hurries and it is ordered to
+  retreat; each tick the line pursues (not returning) counts and its furthest distance from the
+  post is kept; on the line's "pursuit_ended", whether it gives up (`stamina::squad_gives_up`),
+  or 3000 ticks. `run` sums the runs as FatigueTrials.run does, and `columns`/`row` print
+  formation_trials.gd's `_fatigue` lines. `breach_trials scenario=fatigue [runs=50]
+  [first_seed=1]` prints them; `paths` still exits 2. CI's `trials` job diffs them against
+  Godot's over 10 runs. Checked by hand: 2 and 10 runs, and 4 from seed 7, equal. Outcomes
+  don't change.
+  **8c-xvi built** (2026-11-04): `src/trials/paths.rs` (`breach_native::trials::paths`) is
+  PathTrials: `run(repeats, content)` plans each trip for each walker over `ground(content)`
+  (the field's map, `ground::map::of("field")`, with the crag painted), each walker
+  TerrainWalker.of its definition (`made::walker`, now pub(crate); the loaded militiaman's
+  pack an armour of weight 14 and no slots, added to a clone of the content, which now derives
+  Clone), a sight trip's sight PathSight.of the grem facing east; the search's cells searched
+  from `paths::search` (repeated `repeats` times and timed with `Instant`), the way from
+  `paths::plan` or `paths::rejoin`, its seconds from `paths::cost` over the walker's speed;
+  `report` and `drawing` print and draw as PathTrials does. `src/trials/paths/wall.rs`
+  (`trials::paths::wall`) is SightTrials: `feel_along` plans on a 24/12/6 sight with a
+  `paths::memory::Memory` till it reaches the goal or makes 20 plans, its facing normalised
+  twice as GDScript's is, and `report` prints its lines and its walk drawn. `breach_trials
+  scenario=paths [repeats=20]` prints both, as formation_trials.gd's `paths` does. **How CI
+  compares them:** each side times its own searches, so the `trials` job pipes both outputs
+  through the same filter, which drops Godot's banner and every blank line, strips each line's
+  trailing number (a table row's "search us"; no drawing line ends in a digit) and writes the
+  sight trial's "N us a plan" as "- us a plan", then diffs them; it runs `repeats=1`, since the
+  repeats change only the timings (checked by hand: 1 and 20 give the same untimed lines). The
+  cargo test `trials::paths::tests::the_ways_and_the_walk_equal_godot_s` holds Godot's
+  `repeats=1` lines, timings set to 0 (`src/trials/paths/godot_paths.txt`). Equal first time.
+  Outcomes don't change.
+  **8c-xvii built** (2026-11-04): `src/scaling.rs` (`breach_native::scaling`) is
+  scaling_check.gd: `ready(stage, size, seed, options, content)` is its `_ready_for` (the clash,
+  `ranks` deep, 3 ticks into its march or 5 past its first engagement; for "stacks", `size`
+  lanes of `stack` a side, `settle` ticks past it; blows not rolled, as FormationSimulation's
+  default), `least` its `_least` (timed with `Instant`) and `lines` its printing, the growth
+  verdict included. FormationBench.lanes is `battles::Battle::Lanes` (each lane's pair on its
+  own route, LANE_SPACING 12 cells apart; not in `named`, which only the digest reads).
+  `src/bin/scaling.rs`, copied by `native/build.sh` to `native/bin/breach_scaling`, takes
+  scaling_check's arguments, plus `threaded=` and `repo=`, and exits 1 on a doubling past
+  `limit`. **How CI compares it:** the timings are each side's own, so CI's `scaling` job, on
+  each stage after Godot's check and on the same runner, fails when the crate's own growth is
+  too steep, and diffs the two outputs' size lines with everything from the ms on cut (the
+  stage, size and "a side"/"stacks" left). The battles are held equal to Godot's by the cargo
+  test `scaling::tests::each_stage_is_ready_on_the_tick_godot_s_is_and_tells_of_as_much`: each
+  stage at two sizes and two seeds, its tick and the events of its six timed ticks as Godot
+  gives them. Equal first time. The crate's run at the defaults takes about 5 s. Outcomes
+  don't change.
+- **8c-xviii split further** (2026-11-04, under the user's standing leave to split): the
+  benches are three tools with different needs. **8c-xviii** `tick_phases` timed on the crate's
+  tick (`breach_tick_phases`), and the `bench` workflow able to run a crate binary; **8c-xix**
+  `rout_bench` (FormationRout.step alone on its own set-up of many friendly formations) and
+  `native_bench`'s columns (the tick on one thread and on the pool, the bodies' parting and the
+  seek; its sync, call and write columns time the Godot boundary, which the crate doesn't
+  cross); **8c-xx** spec 38 step 2's `series`, `terrain=mixed` (its layout settled and recorded
+  in spec 38) and per-pass changed counts (`counts`) on `breach_tick_phases`.
+  **8c-xviii built** (2026-11-04): `src/laps.rs` is the tick's laps: each pass of the tick
+  ends a lap where it ends (`laps::lap(phase)`: `Play::step`'s rules, roster and store settles,
+  `tick::step`'s relisting as "roster", and each of the five passes' parts), and a lap counts
+  only inside `laps::timed` on that thread (a thread-local; otherwise it returns at once), so it
+  times nothing the simulation reads. `src/phases.rs` (`breach_native::phases`) is
+  tick_phases.gd: `settled(options, content)` its `_settled` (FormationBench.lanes, `squads`
+  lanes of `side / squads`, or its clash, `archers` a squad; the march `settle` ticks from the
+  start; the fight to its first "engaged" or CONTACT_LIMIT, then `settle` ticks, then the
+  `retreat` order queued), `timed` each phase's time over `fight` ticks, `lines` its printing
+  (the battle's ms a tick, then each phase's, largest first) and `machine` its machine line.
+  The phases are the crate's passes, named as tick_phases.gd names the GDScript passes they
+  ported where they match ("recovery" and "strays" apart, as the crate runs them; "joins",
+  "rules", "roster" and "carry: strays" its own). `src/bin/tick_phases.rs`, copied by
+  `native/build.sh` to `native/bin/breach_tick_phases`, takes tick_phases.gd's arguments, plus
+  `threaded=` and `repo=`; `copies` exits 2 (the crate's tick crosses no Godot boundary). It
+  steps an untimed battle beside the timed one and prints a WARNING if they end apart, as
+  tick_phases.gd checks its mirror. **The bench workflow:** a `tool` named `breach_<name>`
+  runs `native/bin/breach_<name>` with the same `args`, so `bench_compare.py` compares crate
+  runs as it does Godot's. **How it is held to Godot:** the timings can't be, so the set-ups
+  are: the cargo test `phases::tests::each_battle_is_settled_on_the_tick_godot_s_is_and_tells_of_as_much`
+  holds five of tick_phases.gd's `_settled` battles (side 64, width 8; the clash, two lanes,
+  archers, a retreat, the march) to Godot's tick and event counts over six ticks. Equal first
+  time. Outcomes don't change.
+  **8c-xix built** (2026-11-04): `src/rout_bench.rs` (`breach_native::rout_bench`) is
+  rout_bench.gd: `set_up(options, content)` its `_field` (the player's `side` grems in
+  `squads` formations `width` wide along a lane `ceil((squads * gap + 80) / CELLS)` tiles long,
+  each front set through StoredSquad's setter, HOLDING, the front half at morale 0; `width * 2`
+  militia beyond; all stood by `march::sync` placing), `Routs::step(tick)` FormationRout.step
+  (its gate, a roster of the living as CrateRoster.of lists it via `play::listed` and
+  `tick::relisted`, then `rout::pass::step` on the open ground, seed 1; the events it told of),
+  `line` its printing. `src/native_bench.rs` (`breach_native::native_bench`) is
+  native_bench.gd: `settled` the clash brought to its fight by `phases::settled`, `measure`
+  `fight` ticks timed with the parting's and the seek's microseconds from the tick's own
+  results (`Ticked::ended.parting_usec`, `Ticked::seek_usec`), `pick`, `heading`, `line`. Its
+  columns are `tick`, `rest`, `bodies` and `seek`: native_bench.gd's `b.sync`, `b.call` and
+  `b.write` time the Godot boundary, which the crate's tick doesn't cross, and `b.core` is the
+  crate's whole parting, so they are left out. `src/bin/rout_bench.rs` and
+  `src/bin/native_bench.rs`, copied by `native/build.sh` to `native/bin/breach_rout_bench` and
+  `native/bin/breach_native_bench`, take the tools' arguments plus `repo=`; the `bench`
+  workflow runs them as any `breach_<name>`. **How they are held to Godot:** cargo tests hold
+  three rout battles' events each tick, routing count and final digest state (SHA-256), and two
+  measured clashes' final tick and digest state on one thread and on the pool, to a throwaway
+  Godot probe's. Equal first time; the default rout line's counts (223 events, 9 routing) are
+  Godot's too. Outcomes don't change.
+- **8c-xx split further** (2026-11-04, under the user's standing leave to split): spec 38
+  step 2's three measures are three tools' worth of work. **8c-xx** `series=1` (and `limit`)
+  on `breach_tick_phases`, with `bench_compare.py` reading its percentiles; **8c-xxi**
+  `terrain=mixed` (the clash on ground with a wood and a ford across the line of advance, its
+  layout settled and recorded in spec 38, the crate's battle held to a Godot probe's on the
+  same ground); **8c-xxii** per-pass changed counts (`counts=1`: each pass's slots whose
+  columns changed, against the living). Then 8d.
+  **8c-xx built** (2026-11-04): `src/phases/series.rs` (`breach_native::phases::series`):
+  `timed(settled, limit, content) -> Series` steps a tick at a time under `laps::timed` while
+  `Play::both_stand` and fewer than `limit` (`LIMIT`, 600) ticks are timed, keeping each
+  phase's microseconds a tick (0 where it didn't lap); `spread(values, ticks) -> Spread` is
+  the mean, the nearest-rank 95th and 99th, the worst and the first tick that was worst;
+  `lines(series)` the `series:` line and the tick's and each phase's spread in ms, largest
+  mean first. `phases::lines` now takes the ticks timed. `breach_tick_phases` takes
+  `series=1` and `limit=`; under series `settle` is 0 unless given. `bench_compare.py`'s
+  `spreads`, `compare_spreads` and `report_spreads` read and compare the percentiles (its
+  unittest first, red, then green). Cargo tests in `phases/series/tests.rs`. Outcomes don't
+  change (the laps time nothing the simulation reads; the bin still checks an untimed twin).
+  **8c-xxi built** (2026-11-04): `terrain=mixed`, its layout recorded in spec 38 ("Dropped
+  step 2, rebuilt under cargo"). GDScript's `FormationBench.mixed` and `mixed_ground()`
+  (tick_phases.gd takes `terrain=mixed` too); in the crate, `ground::map::mixed` (the map
+  "mixed"), `battles::Battle::Mixed` and `phases::Options::mixed`. `breach_tick_phases`
+  takes `terrain=open|mixed`, and exits 2 for another terrain or for `mixed` with `squads`
+  above 1. Held to Godot by a throwaway probe: `phases::tests::GODOT_MIXED` (three battles
+  stepped 400 ticks from the start: their events, the first tick that told of any, and
+  DigestState.state's SHA-256 at ticks 130 and 400), which matched first time; the gdUnit
+  test in `test_formation_bench.gd` sees the grems in the wood and the militia in the ford.
+  Outcomes of the existing battles don't change.
+  **8c-xxii built** (2026-11-04): `counts=1` on `breach_tick_phases`, recorded in spec 38
+  ("Dropped step 2, rebuilt under cargo"). `laps::lap(phase, field)` shows the field to a
+  watcher while `laps::watched` runs (its time left out of the next lap); `phases::counts`
+  (`counted(settled, ticks, content) -> Counts`, `changed(before, after)`, `living(field)`,
+  `lines(counts)`) copies the unit store's columns (`Columns` now derives Clone) and counts
+  each pass's changed slots against the living, a lap. The bin counts its untimed twin, so
+  timed runs don't change. Cargo tests in `phases/counts/tests.rs`, red against stubs, then
+  green. Outcomes don't change.
+- **8d split further** (2026-11-04, under the user's standing leave to split): the digest's
+  battles (the mirrors and the clashes) are a `Play`, whose state beside the snapshot is only
+  its squads listed, but the field logs are a FieldPlay, whose waves, builders, routes, hurry
+  and tending a cut must carry too. **8d-i** the cuts from the battles: the tool that writes
+  them, the cargo tests that step them, and every phase the battles act in; **8d-ii** the cuts
+  from the field logs, FieldPlay's state carried, for the phases only they act in (the
+  pathing, the withdrawal, the carrying and the carrying's strays). No digest run changes the
+  state in the joins or the groups; they stay held by their own cargo tests. 8d-ii's PR
+  closes the step.
+  **8d-i built** (2026-11-04): `src/cuts.rs` (`breach_native::cuts`). A cut is a digest
+  battle's state after a tick (`snapshot::write`) with its run's label and the squads listed;
+  `cut(run, tick, content)` plays the run on one thread to the tick and cuts it, with the
+  prints of the tick after; `resumed(cut, content)` reads it back into a `Play` (the battle's
+  set and rolls from its run, the tick and seed from the snapshot) and steps that tick. A
+  print is the SHA-256 of the field and the squads as written (`print`), taken as each lap
+  ends: `laps::lap(phase, field, squads)` now shows the squads to the watcher too
+  (`laps::Watcher` takes `&Squads`), so the squad-only passes are checked. So each phase is
+  stepped from the state the one before it left, the cut's own for the first, and the first
+  print that differs names the phase. **What "step one phase" is here:** the scenario's
+  fingerprint after one phase, for every phase of the tick at once; a phase alone can't be
+  called with what the tick hands it without rebuilding the tick around it. **The cuts**
+  (`CUTS`, chosen by a probe of which phases change the state in which ticks of the standard
+  digest's battles): `mirror_flank s1 rtrue` at 0 and 34, `mirror_headon s1 rtrue` at 80,
+  `mirror_flank s2 rtrue` at 108, `mirror_headon s3 rtrue` at 129, `clash40 s1 rfalse` at 141
+  and 202, `clash40 s2 rfalse` at 277. **Committed** under `native/rust/cuts/` (open item
+  settled: which snapshots, and their size): each `<label-with-dashes>-t<tick>.state` (the
+  snapshot, binary in `.gitattributes`) and `.txt` (the run, tick, listed and each lap's
+  print), about 390 KB in all. `breach_digest cuts=<dir>` writes them. Cargo tests in
+  `cuts/tests.rs`: a tick stepped from a cut read back prints as the tick played on (red
+  against a stub, then green, first time: the path cache a `Play` keeps isn't needed); every
+  committed cut is still the battle's state and steps as recorded; every phase but those
+  `UNCHANGED` names changes the state in some cut. After an intended outcome change the
+  second fails, and `breach_digest cuts=native/rust/cuts` rewrites only the cuts whose
+  battles changed. Outcomes don't change.
+  **8d-ii built** (2026-11-04): the field logs' cuts. A field log's cut carries FieldPlay's
+  own state beside the snapshot (`field_play::carried`, `Carried`: the squads listed, the
+  definitions coded as first met, each route's code, each wave's places filled, announced,
+  auto, route and staging, each builder's work, the reserve and the sharing's turn, hurry and
+  tending), written by bincode to `<name>.field` (binary in `.gitattributes`). What the
+  field's set-up fixes (the battle, the routes' points, the templates, the builders' kinds,
+  the kingdom's squads) isn't carried: `FieldPlay::carrying(record, carried, (tick, rolls),
+  content)` sets the field up again from its record on a scratch crate and lays the carried
+  state over it, refusing one that doesn't fit (a definition it doesn't know; the waves,
+  routes or builders' kinds counted otherwise). The commands aren't carried either: the
+  record's commands for the tick are given before it is stepped, as the digest's replay gives
+  them. `cuts::played::Played` is what a cut is taken from and stepped on, a battle's `Play`
+  or a field's FieldPlay with its record. **The field cuts** (by the same probe):
+  `field1 rtrue` at 120 (the pathing, the tick B is sent), `field2 rtrue` at 229 (the
+  withdrawal, the tick A retreats) and `field3 rtrue` at 470 (the carrying and its strays),
+  about 100 KB more. `pathing`, `scrum: withdraw`, `carry` and `carry: strays` left
+  `UNCHANGED`. A field cut's first lap is measured from itself: the field's commands,
+  builders and waves act before the tick's first lap. Cargo tests in `field_play/carried/
+  tests.rs` (a field carried and read back steps on as played on, for 140 ticks from two
+  cuts of field4; a carried state that doesn't fit is refused; red against a `// RED-STUB`
+  that laid nothing over the set-up), and `cuts/tests.rs`' resumed test now covers two field
+  cuts (red against a stub that didn't lay the carried state). The battles' cuts didn't
+  change. Outcomes don't change. Step 8 is done.
 
 ### Step 9, the rest of `sim/`
 
@@ -2656,7 +3281,8 @@ Decision's conditions.
   "Built", step 1.
 - ~~The snapshot's on-disk format and where snapshots live (step 1, used in step 8).~~ The
   format is settled in "Built", step 1. Which snapshots are committed, and their size, is
-  step 8's.
+  step 8's. Settled in "Built", 8d-i: eight cuts from the digest's battles, about 390 KB; 8d-ii
+  added three from the field logs, about 100 KB.
 - A chunk's boundary may move when a dependency demands it. The session records the move here.
 - **Step 4c's boundary moved** (2026-10-24): the squads' `pursuit` and `withdraw` records,
   and the order handling around them (a retreat's start, a pursuit's giving up, going back

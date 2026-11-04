@@ -156,6 +156,16 @@ impl Log {
         self.flat.extend_from_slice(values);
     }
 
+    /// The events built since last taken, flat, from `at` on (a `mark` the log had).
+    pub fn since(&self, at: usize) -> &[i64] {
+        &self.flat[at.min(self.flat.len())..]
+    }
+
+    /// Where the flat log has reached, for `since`.
+    pub fn mark(&self) -> usize {
+        self.flat.len()
+    }
+
     /// The events built since last taken, flat; the log is left empty.
     pub fn take(&mut self) -> Vec<i64> {
         std::mem::take(&mut self.flat)
