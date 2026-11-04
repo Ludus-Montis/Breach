@@ -4,11 +4,13 @@
 //! outputs can be compared line for line (CI's `trials` job does).
 //!
 //!   native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
-//!       [first_seed=1] [swap] [threaded=true|false] [repo=<path>]
+//!       [first_seed=1] [swap] [repeats=20] [threaded=true|false] [repo=<path>]
 //!
 //! The scenarios are BattleTrials': mirror_headon, mirror_flank, field_a, field_b,
 //! field_b_waits and field_together; and `fatigue` (FatigueTrials, step 8c-xv): how far a line
-//! pursues after 3, 30, 60 and 90 s of contact. `paths` is still only Godot's.
+//! pursues after 3, 30, 60 and 90 s of contact; and `paths` (PathTrials and SightTrials, step
+//! 8c-xvi): ways over the field for four walkers, drawn and timed, each search the mean of
+//! `repeats` (default 20), and a grem planning on what it sees feeling along a wall to its gap.
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
 use std::collections::HashMap;
@@ -16,12 +18,13 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
+use breach_native::trials::paths::{self, wall};
 use breach_native::trials::{self, columns, fatigue, heading, row, summary, Options, SCENARIOS};
 
 const USAGE: &str = "usage: breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain] \
-                     [first_seed=1] [swap] [threaded=true|false] [repo=<path>]";
-const KNOWN: [&str; 8] =
-    ["scenario", "runs", "rolls", "captain", "first_seed", "swap", "threaded", "repo"];
+                     [first_seed=1] [swap] [repeats=20] [threaded=true|false] [repo=<path>]";
+const KNOWN: [&str; 9] =
+    ["scenario", "runs", "rolls", "captain", "first_seed", "swap", "repeats", "threaded", "repo"];
 
 fn main() -> ExitCode {
     let mut args = HashMap::new();
@@ -39,9 +42,9 @@ fn main() -> ExitCode {
     }
     let scenario = args.get("scenario").map_or("all", String::as_str);
     let names: Vec<&str> = if scenario == "all" { SCENARIOS.to_vec() } else { vec![scenario] };
-    let tires = scenario == "fatigue";
-    if let Some(name) = names.iter().find(|name| !tires && !SCENARIOS.contains(name)) {
-        eprintln!("breach_trials: no scenario {name} (paths is Godot's)\n{USAGE}");
+    let (tires, ways) = (scenario == "fatigue", scenario == "paths");
+    if let Some(name) = names.iter().find(|name| !tires && !ways && !SCENARIOS.contains(name)) {
+        eprintln!("breach_trials: no scenario {name}\n{USAGE}");
         return ExitCode::from(2);
     }
     let Some(root) = args.get("repo").map(PathBuf::from).or_else(find_repo) else {
@@ -58,6 +61,9 @@ fn main() -> ExitCode {
     let runs_given = args.get("runs").map_or("50", String::as_str);
     let threaded = args.get("threaded").is_none_or(|value| value != "false");
     let first_seed = whole(args.get("first_seed").map_or("1", String::as_str));
+    if ways {
+        return find_ways(whole(args.get("repeats").map_or("20", String::as_str)), &content);
+    }
     if tires {
         return tire(whole(runs_given), first_seed, threaded, &content);
     }
@@ -90,6 +96,17 @@ fn tire(runs: i64, first_seed: i64, threaded: bool, content: &Content) -> ExitCo
         };
         println!("{}", fatigue::row(seconds, &result));
     }
+    ExitCode::SUCCESS
+}
+
+/// formation_trials.gd's `paths`: PathTrials' lines, then SightTrials'.
+fn find_ways(repeats: i64, content: &Content) -> ExitCode {
+    let (Some(rows), Some(ground)) = (paths::run(repeats, content), paths::ground(content)) else {
+        eprintln!("breach_trials: paths can't be set up");
+        return ExitCode::from(1);
+    };
+    println!("{}", paths::report(&rows, &ground).join("\n"));
+    println!("{}", wall::report(&wall::feel_along(content), content).join("\n"));
     ExitCode::SUCCESS
 }
 

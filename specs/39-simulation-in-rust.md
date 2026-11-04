@@ -918,6 +918,27 @@ events. After this step no battle phase runs in GDScript.
   [first_seed=1]` prints them; `paths` still exits 2. CI's `trials` job diffs them against
   Godot's over 10 runs. Checked by hand: 2 and 10 runs, and 4 from seed 7, equal. Outcomes
   don't change.
+  **8c-xvi built** (2026-11-04): `src/trials/paths.rs` (`breach_native::trials::paths`) is
+  PathTrials: `run(repeats, content)` plans each trip for each walker over `ground(content)`
+  (the field's map, `ground::map::of("field")`, with the crag painted), each walker
+  TerrainWalker.of its definition (`made::walker`, now pub(crate); the loaded militiaman's
+  pack an armour of weight 14 and no slots, added to a clone of the content, which now derives
+  Clone), a sight trip's sight PathSight.of the grem facing east; the search's cells searched
+  from `paths::search` (repeated `repeats` times and timed with `Instant`), the way from
+  `paths::plan` or `paths::rejoin`, its seconds from `paths::cost` over the walker's speed;
+  `report` and `drawing` print and draw as PathTrials does. `src/trials/paths/wall.rs`
+  (`trials::paths::wall`) is SightTrials: `feel_along` plans on a 24/12/6 sight with a
+  `paths::memory::Memory` till it reaches the goal or makes 20 plans, its facing normalised
+  twice as GDScript's is, and `report` prints its lines and its walk drawn. `breach_trials
+  scenario=paths [repeats=20]` prints both, as formation_trials.gd's `paths` does. **How CI
+  compares them:** each side times its own searches, so the `trials` job pipes both outputs
+  through the same filter, which drops Godot's banner and every blank line, strips each line's
+  trailing number (a table row's "search us"; no drawing line ends in a digit) and writes the
+  sight trial's "N us a plan" as "- us a plan", then diffs them; it runs `repeats=1`, since the
+  repeats change only the timings (checked by hand: 1 and 20 give the same untimed lines). The
+  cargo test `trials::paths::tests::the_ways_and_the_walk_equal_godot_s` holds Godot's
+  `repeats=1` lines, timings set to 0 (`src/trials/paths/godot_paths.txt`). Equal first time.
+  Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
