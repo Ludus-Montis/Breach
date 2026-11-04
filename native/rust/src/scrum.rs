@@ -636,6 +636,7 @@ pub mod prepare;
 pub mod pursue;
 pub mod regroup;
 pub mod seek;
+pub mod step;
 pub mod withdraw;
 
 #[cfg(test)]

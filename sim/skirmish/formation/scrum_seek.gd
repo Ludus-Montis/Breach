@@ -29,9 +29,23 @@ static var clock_usec := 0
 ## into ctx["active"] by its id, for the stall.
 static func step(field: Object, roster: Object, ctx: Dictionary) -> void:
 	var began := Time.get_ticks_usec()
+	var die := BattleTuning.current().combat_contest_die
+	var ints := PackedInt64Array([ctx["tick"], ctx["seed"], die])
+	var floats := rules(ctx)
+	var terrain: Object = ctx["terrain"]
+	var ground: Object = terrain.core if terrain != null else null
+	var active: PackedInt64Array = field.scrum_seek(roster, ground, ints, floats)
+	for squad_id in active:
+		ctx["active"][squad_id] = true
+	clock_usec += Time.get_ticks_usec() - began
+
+
+## The tuning the seek, the walk and the facing read, from the scrum's `ctx`:
+## [reach_contact, scrum_leash, tick seconds, pace, scrum_crowding, bodies_steer_look,
+## bodies_steer_clear, bodies_ground_drag, bodies_ground_block, the front's least dot].
+static func rules(ctx: Dictionary) -> PackedFloat64Array:
 	var tuning := BattleTuning.current()
-	var ints := PackedInt64Array([ctx["tick"], ctx["seed"], tuning.combat_contest_die])
-	var floats := PackedFloat64Array(
+	return PackedFloat64Array(
 		[
 			tuning.reach_contact,
 			tuning.scrum_leash,
@@ -45,9 +59,3 @@ static func step(field: Object, roster: Object, ctx: Dictionary) -> void:
 			DetMath.cos(deg_to_rad(tuning.reach_front_arc_degrees)) - 0.000001,
 		]
 	)
-	var terrain: Object = ctx["terrain"]
-	var ground: Object = terrain.core if terrain != null else null
-	var active: PackedInt64Array = field.scrum_seek(roster, ground, ints, floats)
-	for squad_id in active:
-		ctx["active"][squad_id] = true
-	clock_usec += Time.get_ticks_usec() - began

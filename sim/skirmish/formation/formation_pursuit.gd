@@ -38,30 +38,16 @@ static func step(
 		return
 	if roster == null:
 		roster = CrateRoster.of(squads)
-	var tuning := BattleTuning.current()
-	var rules := PackedFloat64Array(
-		[
-			cells_per_second,
-			seconds,
-			tuning.stamina_give_up,
-			tuning.reach_pursuit_lag,
-			tuning.discipline_per_leadership,
-			tuning.discipline_expected_max,
-			tuning.discipline_leash_shares.size(),
-		]
-	)
-	rules.append_array(PackedFloat64Array(tuning.discipline_leash_shares))
-	rules.append_array(PackedFloat64Array(tuning.discipline_leash_steps))
 	var field: Object = squads[0].store.field()
-	var back: PackedInt32Array = field.scrum_pursue(roster, rules, tick)
+	var back: PackedInt32Array = field.scrum_pursue(roster, rules(cells_per_second, seconds), tick)
 	events.append_array(CrateEvents.taken(field))
 	for index in back:
-		_mirror(squads[index], field)
+		mirror(squads[index], field)
 
 
 ## GDScript's copy of the route the squad is back on, as the crate set it: the one it or its
 ## command holds with the same points, else one made from them.
-static func _mirror(squad: SkirmishSquad, field: Object) -> void:
+static func mirror(squad: SkirmishSquad, field: Object) -> void:
 	var points: PackedVector2Array = field.squad_route(squad.slot)
 	if points.is_empty():
 		squad.route = null
@@ -81,3 +67,23 @@ static func _mirror(squad: SkirmishSquad, field: Object) -> void:
 static func reach(squad: SkirmishSquad) -> Array:
 	var gone: float = squad.position.distance_to(squad.pursuit["post_at"])
 	return [gone, FormationDiscipline.pursuit_leash(squad)]
+
+
+## The tuning the pursuit reads (BodyField's `scrum_pursue`): `cells_per_second` at speed 1
+## and the tick's `seconds`, then the pursuit's and the leash's.
+static func rules(cells_per_second: float, seconds: float) -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	var out := PackedFloat64Array(
+		[
+			cells_per_second,
+			seconds,
+			tuning.stamina_give_up,
+			tuning.reach_pursuit_lag,
+			tuning.discipline_per_leadership,
+			tuning.discipline_expected_max,
+			tuning.discipline_leash_shares.size(),
+		]
+	)
+	out.append_array(PackedFloat64Array(tuning.discipline_leash_shares))
+	out.append_array(PackedFloat64Array(tuning.discipline_leash_steps))
+	return out
