@@ -111,10 +111,7 @@ fn tended(squads: &Squads, field: &Field, s: usize) -> Tended {
 /// The unit in `slot` as the takings read it.
 fn taking(field: &Field, slot: usize) -> Taking {
     let (sheet, words) = (&field.columns.sheet[slot], &field.columns.words[slot]);
-    let level = |said: &[(u32, f64)], name: &str| {
-        let code = field.lexicon.find(name);
-        said.iter().find(|&&(word, _)| Some(word) == code).map(|&(_, level)| level)
-    };
+    let level = |said: &[(u32, f64)], name: &str| field.lexicon.level(said, name);
     let trait_of = |name: &str| level(&words.traits, name).unwrap_or(0.0);
     Taking {
         id: field.unit_at(slot as u32).unwrap_or(0),

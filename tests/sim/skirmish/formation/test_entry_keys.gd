@@ -93,7 +93,10 @@ func test_a_unit_moved_to_another_squad_leaves_no_entry_behind() -> void:
 	var best := SkirmishSquad.new(2, "player", 1, 0.0, 2, [units[2], units[3]], null, own.store)
 	SquadEntries.loosen(own, units[0], Vector2(1, 1))
 	SquadEntries.flee(own, units[0], 3.0, Vector2.ZERO)
-	FormationRecovery._join(units[0], own, best)
+	UnitState.put(own, units[0], SkirmishUnit.State.DOWNED)
+	own.store.columns.put(units[0].slot, UnitColumns.WAKE_LEFT, 0.0)  # it comes to now
+	own.state = SkirmishSquad.State.ROUTING  # so it joins `best`, not its own
+	FormationRecovery.step([own, best], 0.1, 1, 3, [])
 	assert_bool(own.loose.has(1) or own.fleeing.has(1)).is_false()
 	assert_object(best.loose[1]).is_same(units[0])
 	assert_int(own.store.columns.value(units[0].slot, UnitColumns.FLAGS)).is_equal(
