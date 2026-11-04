@@ -13,6 +13,8 @@ func _init(field: Object) -> void:
 
 
 func open(squad_id: int) -> int:
+	if opened >= 0:
+		return _take_opened()
 	return _field.squad_open(squad_id)
 
 

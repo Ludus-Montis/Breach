@@ -73,6 +73,9 @@ const BLANKS := [
 	Vector2.ZERO,
 ]
 
+## A slot the crate opened already (FormationStrays.adopt): the next `open` takes it instead
+## of opening one, and clears it. -1: none.
+var opened := -1
 var _columns: Array = []  # by column index, a packed array by slot
 var _ids := PackedInt64Array()  # slot -> squad id
 var _members: Array[PackedInt32Array] = []  # slot -> its units' slots
@@ -90,8 +93,10 @@ func _init() -> void:
 			_columns.append(PackedVector2Array())
 
 
-## A new squad's slot, every column blank there.
+## A new squad's slot, every column blank there; or the slot the crate opened, `opened`.
 func open(squad_id: int) -> int:
+	if opened >= 0:
+		return _take_opened()
 	_ids.append(squad_id)
 	for column in BLANKS.size():
 		_columns[column].append(BLANKS[column])
@@ -121,3 +126,10 @@ func members(slot: int) -> PackedInt32Array:
 
 func put_members(slot: int, slots: PackedInt32Array) -> void:
 	_members[slot] = slots
+
+
+## The slot the crate opened, taken: `opened` is cleared.
+func _take_opened() -> int:
+	var slot := opened
+	opened = -1
+	return slot
