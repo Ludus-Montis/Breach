@@ -33,6 +33,7 @@ mod face_store;
 mod facing;
 mod field;
 mod field_parting;
+mod field_play;
 mod fight;
 mod frame;
 mod geometry;
@@ -97,6 +98,7 @@ mod trade;
 mod turn;
 mod walk_store;
 mod walking;
+mod waves;
 mod withdraw;
 mod words;
 mod wounds;
@@ -4767,6 +4769,50 @@ impl BodyField {
         let ticks = play::run(&mut play, crate_, content, &mut self.events, &mut watch);
         self.edits += 1;
         ticks
+    }
+
+    /// FormationField played in the crate (`field_play`): its line `captained` or not
+    /// (`numbers` [1 if captained]), seeded and rolled as `at` = [seed, 1 if blows roll, 1 if
+    /// threaded, ticks], each tick as FormationField.step plays it, each tick's events taken
+    /// and dropped. `sends` = [tick, wave (0: A, 1: B)] each: that wave is sent before that
+    /// tick (FormationField.send). Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content.
+    #[func]
+    fn field_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+        sends: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([seed, rolls, threaded, ticks]) = <[i64; 4]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let captained = numbers.as_slice().first().is_some_and(|&n| n != 0);
+        let crate_ = (&mut self.squads, &mut self.field);
+        let at = (seed, rolls != 0, threaded != 0);
+        let Some(mut played) = field_play::FieldPlay::new(captained, crate_, content, at) else {
+            return failed;
+        };
+        let mut produced = 0;
+        for tick in 0..ticks {
+            let (given, _) = sends.as_slice().as_chunks::<2>();
+            for &[_, wave] in given.iter().filter(|send| send[0] == tick) {
+                if (0..played.waves.len() as i64).contains(&wave) {
+                    let crate_ = (&mut self.squads, &mut self.field);
+                    played.send(wave as usize, 0, crate_, content);
+                }
+            }
+            let (made, _) =
+                played.step(&mut self.squads, &mut self.field, content, &mut self.events);
+            produced += made.len() as i64;
+            self.events.take();
+        }
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
     }
 }
 
