@@ -19,6 +19,7 @@ use crate::locks::RETREAT;
 use crate::orders;
 use crate::play::{starts, told, Play};
 use crate::squads::Squads;
+use crate::tick::Ticked;
 
 /// FormationBench.CONTACT_LIMIT: ticks a battle may take to come to contact.
 pub const CONTACT_LIMIT: i64 = 2000;
@@ -72,6 +73,13 @@ impl Settled {
     pub fn step(&mut self, content: &Content) -> usize {
         self.play.step(&mut self.squads, &mut self.field, content, &mut self.log);
         starts(&self.log.take()).count()
+    }
+
+    /// One tick, and what it did; its events dropped.
+    pub(crate) fn ticked(&mut self, content: &Content) -> Option<Ticked> {
+        let ticked = self.play.step(&mut self.squads, &mut self.field, content, &mut self.log);
+        self.log.take();
+        ticked
     }
 
     /// One tick; whether it told of an engagement.

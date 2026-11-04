@@ -36,4 +36,7 @@ cp "$here/rust/target/$dir/trials$exe" "$here/bin/breach_trials$exe"
 cp "$here/rust/target/$dir/scaling$exe" "$here/bin/breach_scaling$exe"
 # tick_phases played in the crate (src/bin/tick_phases.rs): native/bin/breach_tick_phases.
 cp "$here/rust/target/$dir/tick_phases$exe" "$here/bin/breach_tick_phases$exe"
+# rout_bench and native_bench played in the crate (src/bin/rout_bench.rs, native_bench.rs).
+cp "$here/rust/target/$dir/rout_bench$exe" "$here/bin/breach_rout_bench$exe"
+cp "$here/rust/target/$dir/native_bench$exe" "$here/bin/breach_native_bench$exe"
 ls -l "$here/bin"

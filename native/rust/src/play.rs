@@ -31,7 +31,7 @@ use crate::squads::Squads;
 use crate::tick::{self, given, Ticked};
 
 /// FormationSimulation.TRAVEL_SCALE: tiles a second at speed 1.
-const TRAVEL_SCALE: f64 = 0.125;
+pub(crate) const TRAVEL_SCALE: f64 = 0.125;
 /// The digest's ticks a run plays on once a side has broken: its rout, the pursuit, the
 /// downed taken (formation_digest.gd's TAIL).
 pub const TAIL: i64 = 150;
