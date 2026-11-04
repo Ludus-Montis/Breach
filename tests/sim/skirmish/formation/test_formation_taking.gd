@@ -12,6 +12,7 @@ const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
+const FormationPerception = preload("res://sim/skirmish/formation/formation_perception.gd")
 const UnitPlaces = preload("res://tests/sim/skirmish/formation/unit_places.gd")
 
 
@@ -163,8 +164,10 @@ func test_the_crate_pass_sends_the_taker_and_tells_of_it() -> void:
 	CrateEvents.taken(ColumnsLent.field(line.store.columns))  # the setup's own, dropped
 	var events := []
 
-	FormationTaking.step(sim.squads(), 7, 0.1, sim.fight_seed, events, {line.id: {"threat": true}})
+	line.threatened = true
+	FormationTaking.step(sim.squads(), 7, 0.1, sim.fight_seed, events)
 	assert_array(events).is_empty()
+	line.threatened = false
 	FormationTaking.step(sim.squads(), 8, 0.1, sim.fight_seed, events)
 
 	var taker: int = line.units[0].id
@@ -173,3 +176,22 @@ func test_the_crate_pass_sends_the_taker_and_tells_of_it() -> void:
 	var told := {"type": "sent_to_take", "tick": 8, "squad": line.id, "faction": "player"}
 	told["unit"] = taker
 	assert_array(events).is_equal([told])
+
+
+## The threat is the one the crate's perception kept (spec 39 step 8b5-xxxvii): a group that
+## saw a standing foe as it looked sends no taker, with no perception handed to the taking.
+func test_a_group_the_crate_saw_threatened_sends_none() -> void:
+	var setup := _setup(1, 3.0)
+	var sim: FormationSimulation = setup[0]
+	var line: SkirmishSquad = setup[1]
+	var grem: UnitDef = CrateContent.unit("grem")
+	var foe := sim.spawn_squad(1, [[grem, Vector2i(0, 0)]], "the_kingdom", false)
+	sim.order(foe.id, SkirmishUnit.Order.HOLD)
+	UnitPlaces.put(foe, foe.units[0], Vector2(46.0, line.position.y))
+	CrateEvents.taken(ColumnsLent.field(line.store.columns))  # the setup's own, dropped
+	FormationPerception.see(sim.squads())
+	var events := []
+
+	FormationTaking.step(sim.squads(), 7, 0.1, sim.fight_seed, events)
+
+	assert_array([line.taking, events]).is_equal([{}, []])

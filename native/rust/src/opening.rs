@@ -64,6 +64,7 @@ pub fn step(
     let pursuers = order(squads, field, roster, rules, log);
     let ground = over.as_ref().map(|o| o.ground);
     let seen = perception::see(squads, &field.columns, roster, ground);
+    perception::keep(squads, roster, &seen);
     contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
     let shocks = (&rules.impacts, &rules.bands);
     contact::engage_edges(squads, &mut field.columns, roster, (tick, seed), shocks, log);

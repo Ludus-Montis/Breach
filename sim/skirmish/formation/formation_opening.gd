@@ -5,10 +5,10 @@ extends RefCounted
 ## the edges lock (FormationFronts, FormationEdges), the groups find their way
 ## (FormationPathing, on ground only) and the squads move and join (the move's pass and
 ## FormationJoins), all over one roster, every pass's events in the crate's log in that order.
-## The crate names each squad's route by a code it holds (step 8b5-xxxvi), and GDScript's
-## copies follow after the call, as each pass's own did: a pursuer takes its quarry's route,
-## a group that re-routed its route afresh, what each squad sees becomes the tick's
-## perception and the joined squads leave the list.
+## The crate holds each squad's route and its code (steps 8b5-xxxvi and 8b5-xxxvii), which
+## GDScript's route reads (SquadRoutes): a pursuer that took its quarry's route and a group
+## that re-routed read theirs with no copy made here. What each squad sees becomes the tick's
+## perception (the crate keeps each one's threat too) and the joined squads leave the list.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationOrders = preload("res://sim/skirmish/formation/formation_orders.gd")
@@ -39,7 +39,8 @@ static func step(
 		move_rules(moving)
 	)
 	events.append_array(CrateEvents.taken(field))
-	var at := _pursued(squads, flat, field)
+	var at := 1 + 4 * flat[0]  # past the pursuers, then the re-routed slots
+	at += 1 + flat[at]
 	var perception := {}
 	for squad in squads:
 		var seen := []
@@ -72,22 +73,3 @@ static func move_rules(moving: Array) -> PackedFloat64Array:
 		)
 	)
 	return rules
-
-
-## The pursuers' and the re-routed groups' routes taken by GDScript's copies, in the order
-## the passes took them: the re-routed are read first, as a pursuer's route written back
-## would overwrite one. Returns where in `flat` what each squad sees begins.
-static func _pursued(squads: Array, flat: PackedInt64Array, field: Object) -> int:
-	var pursuers := flat[0]
-	var at := 1 + 4 * pursuers
-	var rerouted := {}  # squad -> its route's points as the crate holds them
-	for index in range(at + 1, at + 1 + flat[at]):
-		for squad in squads:
-			if squad.slot == flat[index]:
-				rerouted[squad] = field.squad_route(squad.slot)
-	for p in range(1, at, 4):
-		if flat[p + 3] != 0:
-			squads[flat[p + 1]].route = squads[flat[p]].route  # its quarry's (Decision 113)
-	for squad in rerouted:
-		squad.route = FormationPathing.rerouted(squad, rerouted[squad])
-	return at + 1 + flat[at]

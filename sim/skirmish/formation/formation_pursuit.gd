@@ -16,8 +16,9 @@ extends RefCounted
 ## pursuer's routes (the one it is on, and the one it held its post on, kept as its pursuit
 ## began) and its leash read where the crate holds them, the pursuit, its own route taken up
 ## again and the turn back at its post, and "pursuit_ended", "turning" and "turned" in the
-## crate's log. This hands it the squads' roster (CrateRoster) and mirrors the route a squad
-## back at its post holds. Pure over the squads.
+## crate's log. This hands it the squads' roster (CrateRoster); the route a squad back at its
+## post holds is the crate's, read by SkirmishSquad.route (step 8b5-xxxvii). Pure over the
+## squads.
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -39,27 +40,8 @@ static func step(
 	if roster == null:
 		roster = CrateRoster.of(squads)
 	var field: Object = squads[0].store.field()
-	var back: PackedInt32Array = field.scrum_pursue(roster, rules(cells_per_second, seconds), tick)
+	field.scrum_pursue(roster, rules(cells_per_second, seconds), tick)
 	events.append_array(CrateEvents.taken(field))
-	for index in back:
-		mirror(squads[index], field)
-
-
-## GDScript's copy of the route the squad is back on, as the crate set it: the one it or its
-## command holds with the same points, else one made from them.
-static func mirror(squad: SkirmishSquad, field: Object) -> void:
-	var points: PackedVector2Array = field.squad_route(squad.slot)
-	if points.is_empty():
-		squad.route = null
-		return
-	if squad.route != null and squad.route.points() == points:
-		return
-	var command: FormationRoute = squad.command.route
-	if command != null and command.points() == points:
-		squad.route = command
-		return
-	var half_width := 0.0 if command == null else command.corridor_half_width
-	squad.route = FormationRoute.new(points, half_width)
 
 
 ## [cells its frame has gone from its post, as the crow flies, cells its leash allows (INF:

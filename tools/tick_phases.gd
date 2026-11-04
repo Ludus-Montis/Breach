@@ -141,7 +141,7 @@ func _step(sim: Sim) -> void:
 	var interval := sim._attack_interval_ticks()
 	Sim.FormationDeaths.bury(squads, tick, events)
 	_lap("deaths (bury)")
-	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events, sim.perception)
+	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events)
 	_lap("taking the downed")
 	Sim.FormationWounds.tend(squads, tick, interval, sim.fight_seed, events)
 	_lap("wounds (tend)")

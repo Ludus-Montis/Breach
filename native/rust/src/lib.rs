@@ -2581,6 +2581,7 @@ impl BodyField {
     #[func]
     fn put_squad_pursuit(&mut self, squad: i64, pursuit: PackedFloat64Array) {
         let p = pursuit.as_slice();
+        self.squads.post_route_code[squad as usize] = -1; // unnamed: issued one on its return
         self.squads.post_route[squad as usize] = (p.len() > 8).then(|| {
             let points = p[9..].chunks(2).map(|xy| V2::new(xy[0] as f32, xy[1] as f32));
             route::Route::new(points.collect(), p[8])
@@ -2754,12 +2755,41 @@ impl BodyField {
     ) {
         let s = squad as usize;
         self.squads.route[s] = routed.then(|| route::Route::new(v2s(&points), half_width));
-        self.squads.route_code[s] = if routed {
+        self.squads.route_code[s] = if !routed {
+            -1
+        } else if object == 0 {
+            self.squads.issue_route() // a route no object names: one of its own
+        } else {
             let squads = &mut self.squads;
             *self.route_objects.entry(object).or_insert_with(|| squads.issue_route())
-        } else {
-            -1
         };
+    }
+
+    /// Names the route coded `code` by GDScript's route `object` (its instance id): the one
+    /// SquadRoutes made for a route the crate made, so handing it back keeps its code.
+    #[func]
+    fn name_route(&mut self, code: i64, object: i64) {
+        self.route_objects.insert(object, code);
+    }
+
+    /// The corridor's half width of the route the squad in `squad` follows (0: none).
+    #[func]
+    fn squad_route_half_width(&self, squad: i64) -> f64 {
+        self.squads.route[squad as usize].as_ref().map_or(0.0, |r| r.half_width)
+    }
+
+    /// Whether the squad in `squad` saw a standing foe as the tick's perception looked
+    /// (`perception::keep`).
+    #[func]
+    fn squad_threatened(&self, squad: i64) -> bool {
+        self.squads.threatened[squad as usize]
+    }
+
+    /// Sets whether the squad in `squad` is threatened, as the perception keeps it.
+    #[func]
+    fn put_squad_threatened(&mut self, squad: i64, threatened: bool) {
+        self.squads.threatened[squad as usize] = threatened;
+        self.edits += 1;
     }
 
     /// The code naming the route the squad in `squad` follows (-1: none; the same code, the
@@ -3733,16 +3763,18 @@ impl BodyField {
     }
 
     /// FormationPerception.see over `roster`'s squads: per squad, in the lists' order, how
-    /// many it detects and then their indices.
+    /// many it detects and then their indices; each one's threat kept (`squad_threatened`).
     #[func]
     fn perception_see(
-        &self,
+        &mut self,
         roster: Gd<SquadRoster>,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt32Array {
         let roster = roster.bind();
         let (squads, columns) = (&self.squads, &self.field.columns);
         let seen = on_ground(ground, |g| perception::see(squads, columns, &roster.roster, g));
+        perception::keep(&mut self.squads, &roster.roster, &seen);
+        self.edits += 1;
         let mut flat = Vec::new();
         for one in seen {
             flat.push(one.len() as i32);
@@ -4350,20 +4382,19 @@ impl BodyField {
     /// FormationTaking.step: taking the downed as one pass (`taking::pass::step`): the
     /// takers whose work is done called back, the hold run out, then free units sent out to
     /// the downed foes, "sent_to_take" in the log. `listed`: the squads' slots, in the lists'
-    /// order; `threatened`: 1 a listed squad that sees a standing foe (FormationPerception),
-    /// else 0; `tuning`: [take_hold, take_reach].
+    /// order, each threatened as the tick's perception kept it (`Squads::threatened`, spec
+    /// 39 step 8b5-xxxvii); `tuning`: [take_hold, take_reach].
     #[func]
     fn taking_step(
         &mut self,
         listed: PackedInt32Array,
-        threatened: PackedInt32Array,
         tick: i64,
         seconds: f64,
         seed: i64,
         tuning: PackedFloat64Array,
     ) {
         let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
-        let threatened: Vec<bool> = threatened.as_slice().iter().map(|&t| t != 0).collect();
+        let threatened: Vec<bool> = listed.iter().map(|&s| self.squads.threatened[s]).collect();
         let &[hold, reach, ..] = tuning.as_slice() else { return };
         let t = taking::pass::TakingTuning { hold, reach };
         let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);

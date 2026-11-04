@@ -184,6 +184,7 @@ fn begin_pursuit(
             returning: false,
         });
         squads.post_route[s] = squads.route[s].clone();
+        squads.post_route_code[s] = squads.route_code[s];
         let towards = squads.position[roster.listed[foe].squad];
         took = take(squads, s, (&retreats.routes[enemy], &retreats.routes[foe]), towards);
         if took {

@@ -99,3 +99,15 @@ fn a_squad_with_none_living_sees_nothing_and_is_not_seen() {
     let (squads, columns, roster) = built(&sides, 8.0);
     assert_eq!(see(&squads, &columns, &roster, None), vec![Vec::<usize>::new(), vec![]]);
 }
+
+#[test]
+fn each_squad_is_kept_threatened_as_it_saw_and_no_longer_once_it_sees_none() {
+    let (mut squads, mut roster) = (Squads::default(), Roster::default());
+    for s in 0..2 {
+        squads.open(s as i64 + 1);
+        roster.listed.push(Listed { squad: s, id: s as i64 + 1, ..Listed::default() });
+    }
+    squads.threatened[1] = true;
+    keep(&mut squads, &roster, &[vec![1], vec![]]);
+    assert_eq!(squads.threatened, vec![true, false]);
+}
