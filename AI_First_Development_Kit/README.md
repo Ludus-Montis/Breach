@@ -33,7 +33,8 @@ principles/
                               what an agent never does alone
   agent-sessions.md          The entry file every session loads; design and
                               implementation in separate sessions; the open-questions
-                              register; hand-overs through the remote
+                              register; hand-overs through the remote; a
+                              long series of steps run as a cascade
   decision-ledger.md         Append-only decision convention
   progress-tracking.md       Mechanical hard gate + separate human qualitative gate
   tdd-bdd-workflow.md        Behaviour-first workflow, spec-type taxonomy, coverage floor
@@ -49,6 +50,7 @@ rubrics/
 
 templates/
   decision-entry.md          Copy-paste blocks for new/superseding decisions
+  cascade-issue.md           The one record a cascade keeps, edited in place
   commit-message.md          Conventional Commits template + type-vs-diff correctness
   pr-description.md          PR template linking rubric checklist + progress log
   ci-tool-mapping.md         Template for a stack-specific ci/<stack>/README.md

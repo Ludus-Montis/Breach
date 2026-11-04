@@ -58,6 +58,9 @@ How sessions work together is `principles/agent-sessions.md`.
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
   each question it settles. `github-sync` gives the PR and those questions the spec's
   milestone; set none yourself.
+- **Cascade:** `/cascade` runs a spec's steps back to back, one session each: a coordinator
+  starts each step session, and a step session (started with `/cascade step #N`) is an
+  implementation session whose standing instructions are that issue.
 - **Implementation:** you build one spec round with `/run-phase`. Build what the spec
   settles as written. Stop and ask only where it is silent, and record the answer in the
   spec or a Decision.
@@ -73,5 +76,6 @@ How sessions work together is `principles/agent-sessions.md`.
 | Specs, one per feature or round | `specs/NN-*.md`, the source. `github-sync` makes each spec's steps issues under `Spec NN: <title>`, one per `### Step <id>`; a step's PR closes its issue |
 | Open questions and the user's "remind me when…" | Issues labelled `question` (Decision 148); check those whose `raise-when:` label or **Raise when** matches your work. `OPEN_QUESTIONS.md` says how to raise one and keeps the closed archive |
 | README, changelog, docs index | `README.md`, `CHANGELOG.md`, `docs/index.md` (Diátaxis; links to docs that live beside their code) |
+| A cascade (steps run back to back) | Its issue labelled `cascade`, edited in place (`/cascade`, `AI_First_Development_Kit/principles/agent-sessions.md` rule 8) |
 | Gates | `PROGRESS_LOG.md` (Gate 1, generated), `QUALITATIVE_REVIEW_LOG.md` (Gate 2, the user's) |
 | CI and checks | `ci/godot/`, with known environment problems listed in `ci/godot/README.md` |

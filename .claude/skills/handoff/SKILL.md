@@ -45,6 +45,10 @@ does.** Say exactly that. Never tell the user the work will survive a shutdown w
 a link to show for it. Then push the plan as a draft PR with a `## Handoff` section, so
 a cloud session the user starts can pick it up.
 
+To start a series of steps one after another, use `/cascade` rather than having each
+session start the next: its coordinator keeps the depth of sessions started by sessions
+from growing with the number of steps.
+
 ### Design sessions hand off through the spec
 
 A design session (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3) hands
