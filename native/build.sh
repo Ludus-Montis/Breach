@@ -30,4 +30,6 @@ exe=; [ "$ext" = dll ] && exe=.exe
 cp "$here/rust/target/$dir/designer$exe" "$here/bin/breach_designer$exe"
 # The formation digest played in the crate (src/bin/digest.rs): native/bin/breach_digest.
 cp "$here/rust/target/$dir/digest$exe" "$here/bin/breach_digest$exe"
+# BattleTrials played in the crate (src/bin/trials.rs): native/bin/breach_trials.
+cp "$here/rust/target/$dir/trials$exe" "$here/bin/breach_trials$exe"
 ls -l "$here/bin"

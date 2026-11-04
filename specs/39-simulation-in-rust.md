@@ -878,6 +878,27 @@ events. After this step no battle phase runs in GDScript.
   unless both its run lines and its `out=` file are the same as Godot's. Checked by hand on
   mirror_headon s1 rtrue and field3 rfalse. `trace=` and `snapshot=` stay Godot's. Outcomes
   don't change.
+- **8c-xiv split further** (2026-11-04, under the user's standing leave to split):
+  formation_trials.gd runs three kinds of trial, and `scaling_check` times the tick rather
+  than playing a battle to an outcome. **8c-xiv** the battle trials (BattleTrials' six
+  scenarios, the ones CI's `trials` job runs) as a cargo binary, its lines compared with
+  Godot's in CI; **8c-xv** the fatigue trials and the path and sight trials (formation_trials'
+  `fatigue` and `paths`); **8c-xvi** `scaling_check`; **8c-xvii** the benches (was 8c-xv).
+  **8c-xiv built** (2026-11-04): `src/trials.rs` (`breach_native::trials`) is BattleTrials:
+  `run(scenario, runs, options, content)` fights each run on a fresh crate, a mirror
+  (`Battle::Mirror`, swapped if asked) through `Play` till fewer than both sides stand
+  (`Play::stands`, BattleTrials._stands) or 2000 ticks, a field scenario through `FieldPlay`
+  with BattleTrials' eight grem builders (the digest's field has four), built till A has 8
+  and B 9, then sent as the scenario sends them and played till the kingdom's line is
+  destroyed or routs. Each unit died, downed or surrendered is counted once for its squad's
+  side. `summary` and `row` sum and print them as formation_trials.gd does, rounding as
+  Godot's `%.1f` does (ties to even, checked by hand). `src/bin/trials.rs`, copied by
+  `native/build.sh` to `native/bin/breach_trials`, takes formation_trials' `scenario=`,
+  `runs=`, `rolls=off`, `captain`, `first_seed=` and `swap`, plus `threaded=` and `repo=`;
+  `fatigue` and `paths` stay Godot's. CI's `trials` job runs it after Godot's trials and
+  fails unless the mirror lines, and every scenario's lines over 10 runs, equal Godot's.
+  Checked by hand: every scenario over 4 runs, and over 3 with swap and rolls off, captain
+  and seed 7, and mirror_flank swapped from seed 11, all equal. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
