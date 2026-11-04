@@ -1026,6 +1026,16 @@ events. After this step no battle phase runs in GDScript.
   `spreads`, `compare_spreads` and `report_spreads` read and compare the percentiles (its
   unittest first, red, then green). Cargo tests in `phases/series/tests.rs`. Outcomes don't
   change (the laps time nothing the simulation reads; the bin still checks an untimed twin).
+  **8c-xxi built** (2026-11-04): `terrain=mixed`, its layout recorded in spec 38 ("Dropped
+  step 2, rebuilt under cargo"). GDScript's `FormationBench.mixed` and `mixed_ground()`
+  (tick_phases.gd takes `terrain=mixed` too); in the crate, `ground::map::mixed` (the map
+  "mixed"), `battles::Battle::Mixed` and `phases::Options::mixed`. `breach_tick_phases`
+  takes `terrain=open|mixed`, and exits 2 for another terrain or for `mixed` with `squads`
+  above 1. Held to Godot by a throwaway probe: `phases::tests::GODOT_MIXED` (three battles
+  stepped 400 ticks from the start: their events, the first tick that told of any, and
+  DigestState.state's SHA-256 at ticks 130 and 400), which matched first time; the gdUnit
+  test in `test_formation_bench.gd` sees the grems in the wood and the militia in the ford.
+  Outcomes of the existing battles don't change.
 
 ### Step 9, the rest of `sim/`
 

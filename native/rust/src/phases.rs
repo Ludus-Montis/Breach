@@ -42,6 +42,8 @@ pub struct Options {
     pub squads: usize,
     pub archers: usize,
     pub threaded: bool,
+    /// `terrain=mixed`: the clash on FormationBench's mixed ground (one lane only).
+    pub mixed: bool,
 }
 
 impl Default for Options {
@@ -57,6 +59,7 @@ impl Default for Options {
             squads: 1,
             archers: 0,
             threaded: true,
+            mixed: false,
         }
     }
 }
@@ -96,12 +99,15 @@ impl Settled {
 }
 
 /// tick_phases.gd's `_settled`: FormationBench.lanes (`squads` lanes of `side / squads` a
-/// side) or its clash, `archers` the back of each grem squad; for the march, `settle` ticks
+/// side), its clash or (`mixed`) FormationBench.mixed, `archers` the back of each grem
+/// squad; for the march, `settle` ticks
 /// from the start; for the fight, played till it tells of an engagement (or CONTACT_LIMIT),
 /// then `settle` ticks more, and `retreat`'s order given. None if it can't be set up.
 pub fn settled(options: &Options, content: &Content) -> Option<Settled> {
     let (side, width, archers) = (options.side, options.width, options.archers);
-    let battle = if options.squads > 1 {
+    let battle = if options.mixed {
+        Battle::Mixed { per_side: side, width, archers }
+    } else if options.squads > 1 {
         let lanes = options.squads;
         Battle::Lanes { lanes, per_squad: side / lanes, width, archers }
     } else {

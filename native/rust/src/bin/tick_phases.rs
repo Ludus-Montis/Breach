@@ -5,12 +5,16 @@
 //!
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
-//!       [threaded=true|false] [series=1] [limit=600] [repo=<path>]
+//!       [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] [repo=<path>]
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
 //! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
 //! and follows the phases' means with each one's 95th and 99th percentiles and worst
 //! (`phases::series`; spec 38 step 2).
+//!
+//! `terrain=mixed` plays the clash on FormationBench's mixed ground, a wood and a ford across
+//! its line of advance (`ground::map::mixed`; spec 38 step 2). It has one lane: with
+//! `squads` above 1 it exits 2, as does a terrain that isn't `open` or `mixed`.
 //!
 //! tick_phases.gd's `copies` counts column copies across the Godot boundary, which the crate's
 //! tick doesn't cross: it exits 2. `repo` is the folder holding project.godot (default: the
@@ -26,10 +30,11 @@ use breach_native::phases::{self, Options, WARNING};
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
-                     [threaded=true|false] [series=1] [limit=600] [repo=<path>]";
-const KNOWN: [&str; 13] = [
+                     [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] \
+                     [repo=<path>]";
+const KNOWN: [&str; 14] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
-    "threaded", "series", "limit", "repo",
+    "threaded", "series", "limit", "terrain", "repo",
 ];
 
 fn main() -> ExitCode {
@@ -48,6 +53,10 @@ fn main() -> ExitCode {
     }
     if let Some(unknown) = args.keys().find(|key| !KNOWN.contains(&key.as_str())) {
         eprintln!("breach_tick_phases: unknown argument {unknown}\n{USAGE}");
+        return ExitCode::from(2);
+    }
+    if let Some(why) = refused_terrain(&args) {
+        eprintln!("breach_tick_phases: {why}\n{USAGE}");
         return ExitCode::from(2);
     }
     let Some(root) = args.get("repo").map(PathBuf::from).or_else(find_repo) else {
@@ -106,6 +115,20 @@ fn options(args: &HashMap<String, String>) -> Options {
         squads: count("squads", given.squads),
         archers: count("archers", given.archers),
         threaded: args.get("threaded").is_none_or(|value| value != "false"),
+        mixed: args.get("terrain").is_some_and(|terrain| terrain == "mixed"),
+    }
+}
+
+/// Why the `terrain` given can't be played: one that isn't `open` or `mixed`, or `mixed`
+/// with more than one lane. None if it can.
+fn refused_terrain(args: &HashMap<String, String>) -> Option<String> {
+    let terrain = args.get("terrain").map_or("open", String::as_str);
+    let lanes = args.get("squads").map_or(1, |v| whole(v));
+    match terrain {
+        "open" => None,
+        "mixed" if lanes > 1 => Some("terrain=mixed is the clash, one lane: drop squads=".into()),
+        "mixed" => None,
+        _ => Some(format!("unknown terrain {terrain}")),
     }
 }
 

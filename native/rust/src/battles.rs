@@ -1,6 +1,7 @@
 //! The digest's battles set up in the crate (spec 39 step 8c-vi): BattleTrials' mirrors,
 //! FormationBench.clash and .lanes (scaling_check's stacks, step 8c-xvii) and the field the
-//! digest's field logs play on (FormationField's kingdom line and reserve), each spawned by `spawn::squad` with every write GDScript's set-up
+//! digest's field logs play on, and FormationBench.mixed (tick_phases' `terrain=mixed`, step
+//! 8c-xxi) (FormationField's kingdom line and reserve), each spawned by `spawn::squad` with every write GDScript's set-up
 //! makes: its definitions coded in the order first met (UnitStore.definition_code), its
 //! routes coded as first used, its holds queued and, on the field, each kingdom squad's front
 //! set where it holds. The field's waves are built and sent by `field_play` (8c-viii).
@@ -33,6 +34,9 @@ pub enum Battle {
     /// FormationBench.lanes: `lanes` parallel lanes LANE_SPACING cells apart, each with
     /// FormationBench.clash's pair of `per_squad` a side, `width` wide, on its own route.
     Lanes { lanes: usize, per_squad: usize, width: usize, archers: usize },
+    /// FormationBench.mixed: the clash's pair on the mixed ground (`ground::map::mixed`),
+    /// along y MIXED_Y, through the wood and the ford.
+    Mixed { per_side: usize, width: usize, archers: usize },
     /// FormationField's kingdom line (two ranks of six militia, `captained`: a captain in the
     /// second rank's middle) holding at LINE_AT, and its reserve of six on the hill.
     Field { captained: bool },
@@ -73,6 +77,8 @@ const KINGDOM_WIDTH: usize = 6;
 const WAVE_WIDTH: i64 = 8;
 /// FormationBench.LANE_SPACING: cells between neighbouring lanes' centre lines.
 const LANE_SPACING: f32 = 12.0;
+/// FormationBench.MIXED_Y: the mixed clash's line of advance, through the ground's middle.
+const MIXED_Y: f32 = 32.0;
 
 /// One squad to spawn: [width, its units' ids at their places (rank, column), its faction, at
 /// the player's end], on its route (a key into the battle's routes).
@@ -135,6 +141,7 @@ pub(crate) fn set_up_coded(
         Battle::Lanes { lanes, per_squad, width, archers } => {
             stacked(*lanes, *per_squad, *width, *archers)
         }
+        Battle::Mixed { per_side, width, archers } => mixed(*per_side, *width, *archers),
         Battle::Field { captained } => kingdom(*captained),
     };
     let known = |side: &Side| side.units.iter().all(|(id, _)| content.units.contains_key(*id));
@@ -230,6 +237,13 @@ fn mirror(flank: bool, swap: bool) -> Plan {
 /// FormationBench.clash (its `_spawn_pair` on the simulation's own route).
 fn clash(per_side: usize, width: usize, archers: usize) -> Plan {
     (open(None, 0), vec![lane(2.0)], pair(per_side, width, archers, 0))
+}
+
+/// FormationBench.mixed: the clash's pair on the mixed ground, on a route as long as the
+/// simulation's own along y MIXED_Y.
+fn mixed(per_side: usize, width: usize, archers: usize) -> Plan {
+    let line = vec![V2::new(0.0, MIXED_Y), V2::new((2.0 * CELLS) as f32, MIXED_Y)];
+    (open(Some("mixed"), 0), vec![Route::new(line, 0.0)], pair(per_side, width, archers, 0))
 }
 
 /// FormationBench.lanes: a pair on each of `lanes` routes as long as the simulation's own,
