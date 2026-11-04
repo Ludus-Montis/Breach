@@ -82,6 +82,7 @@ mod roster;
 mod rout;
 mod rout_blows;
 mod route;
+pub mod scaling;
 mod scrum;
 mod seeking;
 mod sheet;
