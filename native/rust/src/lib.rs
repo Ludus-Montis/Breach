@@ -6,6 +6,7 @@
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
 mod aftermath;
+mod arms;
 mod bands;
 mod blows;
 #[cfg(test)]
@@ -43,6 +44,7 @@ mod joins;
 mod landing;
 mod locks;
 mod lying;
+mod made;
 mod manoeuvre;
 mod march;
 mod maths;
@@ -642,34 +644,7 @@ impl BodyField {
     /// A slot's words and lists, by name, read back as SkirmishUnit holds them.
     #[func]
     fn words(&self, slot: i64) -> VarDictionary {
-        let lexicon = &self.field.lexicon;
-        let mut held = self.field.columns.words[slot as usize].clone();
-        let mut out = VarDictionary::new();
-        for name in words::WORDS {
-            let code = *held.word(name).unwrap();
-            out.set(*name, &GString::from(lexicon.word(code)).to_variant());
-        }
-        for name in words::LISTS {
-            let list: PackedStringArray =
-                held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
-            out.set(*name, &list.to_variant());
-        }
-        for name in words::LEVELS {
-            let mut levels = VarDictionary::new();
-            for &(code, level) in held.levels(name).unwrap().iter() {
-                levels.set(lexicon.word(code), level);
-            }
-            out.set(*name, &levels.to_variant());
-        }
-        for name in words::PARTS {
-            let mut parts = VarArray::new();
-            for part in held.parts(name).unwrap().iter() {
-                let kind = GString::from(lexicon.word(part.kind));
-                parts.push(&varray![part.damage, &kind, part.magical].to_variant());
-            }
-            out.set(*name, &parts.to_variant());
-        }
-        out
+        said(&self.field.lexicon, &self.field.columns.words[slot as usize])
     }
 
     /// A unit's objects' names (SkirmishUnit's properties): its walker, then its codes
@@ -845,6 +820,29 @@ impl ContentStore {
         let made = map_object(map);
         self.made.insert(key, made.clone());
         made.to_variant()
+    }
+
+    /// A unit of `faction` made in the crate from the definition `id`, advancing in
+    /// `direction` (spec 39 step 8c-iii, `made::unit`), for the test that holds it equal to
+    /// FormationUnits.make's: {"sheet": its numbers by `sheet_names`, "words": its words and
+    /// lists by name, "walker": its walker's fields}. Empty if there is no such unit.
+    #[func]
+    fn made(&self, id: GString, faction: GString, direction: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(content) = self.content.as_ref() else {
+            return out;
+        };
+        let Some(unit) = content.units.get(&id.to_string()) else {
+            return out;
+        };
+        let mut lexicon = words::Lexicon::default();
+        let made = made::unit(content, unit, &faction.to_string(), direction, &mut lexicon);
+        let sheet: PackedFloat64Array =
+            (0..sheet::NAMES.len()).map(|n| made.sheet.get(n)).collect();
+        out.set("sheet", &sheet.to_variant());
+        out.set("words", &said(&lexicon, &made.words).to_variant());
+        out.set("walker", &PackedFloat64Array::from(made.walker.as_slice()).to_variant());
+        out
     }
 
     /// A fresh definition of each kind filled with the crate's defaults, for the test that
@@ -4622,6 +4620,37 @@ impl BodyField {
         };
         self.ticked(roster, ground, climb, &rules)
     }
+}
+
+/// `of`'s words and lists by name, decoded through `lexicon`, as SkirmishUnit holds them.
+fn said(lexicon: &words::Lexicon, of: &words::Words) -> VarDictionary {
+    let mut held = of.clone();
+    let mut out = VarDictionary::new();
+    for name in words::WORDS {
+        let code = *held.word(name).unwrap();
+        out.set(*name, &GString::from(lexicon.word(code)).to_variant());
+    }
+    for name in words::LISTS {
+        let list: PackedStringArray =
+            held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
+        out.set(*name, &list.to_variant());
+    }
+    for name in words::LEVELS {
+        let mut levels = VarDictionary::new();
+        for &(code, level) in held.levels(name).unwrap().iter() {
+            levels.set(lexicon.word(code), level);
+        }
+        out.set(*name, &levels.to_variant());
+    }
+    for name in words::PARTS {
+        let mut parts = VarArray::new();
+        for part in held.parts(name).unwrap().iter() {
+            let kind = GString::from(lexicon.word(part.kind));
+            parts.push(&varray![part.damage, &kind, part.magical].to_variant());
+        }
+        out.set(*name, &parts.to_variant());
+    }
+    out
 }
 
 /// Each pass's arguments, built from `content`'s battle tuning (`tick::given`); None if the
