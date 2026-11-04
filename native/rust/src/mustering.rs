@@ -9,7 +9,7 @@
 //! mirrors each pass's result after it.
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::collections::BTreeMap;
 

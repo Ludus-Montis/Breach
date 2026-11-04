@@ -6,7 +6,7 @@
 //! counts, and the sync nothing. The shuffle's events go to the log.
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::time::Instant;
 

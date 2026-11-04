@@ -11,7 +11,7 @@ use crate::{regroup as regrouping, withdraw as withdrawing};
 
 const GREM: Walker = Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false };
 
-fn rules() -> Rules {
+pub(crate) fn rules() -> Rules {
     let discipline = DisciplineTuning {
         meets_threats: 25,
         expected_max: 100.0,

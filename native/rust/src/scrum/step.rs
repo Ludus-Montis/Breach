@@ -65,4 +65,4 @@ pub fn step(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

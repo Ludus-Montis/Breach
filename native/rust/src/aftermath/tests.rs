@@ -9,7 +9,7 @@ use crate::events::{DIED, DOWNED};
 use crate::fight::tests::{built, landing, rules as choosing, Built};
 use crate::locks::{FIGHTING, ROUTING};
 
-fn rules() -> Rules {
+pub(crate) fn rules() -> Rules {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
     let fight = fighting::Rules {
         choose: choosing(),
@@ -30,7 +30,7 @@ fn rules() -> Rules {
 
 /// The fight's squads at 20 hp and full stamina, the second's 201 at `hp`; the second
 /// routing and without courage if `routing` (every one struck gives up).
-fn fixture(hp: i32, routing: bool) -> Built {
+pub(crate) fn fixture(hp: i32, routing: bool) -> Built {
     let mut b = built(1.0, FIGHTING);
     for id in [100, 101, 200, 201] {
         let slot = b.slot(id);

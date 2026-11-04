@@ -611,6 +611,33 @@ events. After this step no battle phase runs in GDScript.
   takes the events. FormationSimulation.step makes the one call; the per-pass bindings and
   GDScript passes stay for their tests, `tick_phases` and `native_bench`. Outcomes don't
   change.
+  **8b5-xli split further** (2026-10-29, under the same leave): with the whole tick in one
+  call, every GDScript mirror runs after the last pass, and several write into the crate
+  (`UnitState.put` the STATE column, `unit.wounded` the sheet, FormationCommand.enlist a
+  unit's place), so a mirror can overwrite what a later pass in the same call did (a body
+  downed by the deaths' pass and picked up by carrying's). **8b5-xli** the whole tick as one
+  crate pass and its binding: `tick::step` runs the opening, the scrum, the aftermath, the
+  mustering and the end over one roster of every unit the squads hold, listing the squads
+  afresh between the passes as CrateRoster.of did (the squads a join took in dropped, the
+  factions coded again in the lists' order, each squad's living read from its members, the
+  strays recovery set off handed to the mustering, the squads it opened and took in listed
+  for the end). **8b5-xlii** FormationSimulation.step that one call, with GDScript's copies
+  mirrored after it, no mirror writing over the crate, and the events decoded once from its
+  data.
+  **8b5-xli built** (2026-10-29): the whole tick as one crate pass (`tick::step`, binding
+  `tick_step(roster, ground, opening, scrum, aftermath, mustering, ending)`, each of the five
+  an Array of that pass's own binding's arguments past the roster and the ground, the
+  mustering's past its strays). The roster holds every unit the squads hold; `tick::relisted`
+  lists the squads before the opening and after each pass but the last as CrateRoster.of
+  did, dropping the squads the opening's joins took in and coding the factions again in the
+  list's order; the strays recovery set off (`Came::Alone`, [its squad's slot, its unit's
+  slot]) go to the mustering; the end runs over `tick::ended_listing` (the mustering's list,
+  the adopted squads, the splits, less the groups taken in). It returns each pass's flat
+  result as its own binding does, each part its length first (the scrum's [seek usec, the
+  pursuers back...]). The five bindings share their rules and results with it (lib.rs
+  `opening_rules`/`opened_flat`, `scrum_rules`, `aftermath_rules`/`aftermath_flat`,
+  `mustering_rules`/`mustered_flat`, `ending_rules`/`ended_flat`). GDScript doesn't call it
+  yet. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

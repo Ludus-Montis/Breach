@@ -17,7 +17,7 @@ const SEED: i64 = 3;
 /// UnitDef.Position.BACK.
 const BACK: i64 = 2;
 
-fn rules() -> Rules {
+pub(crate) fn rules() -> Rules {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
     let t = &content.tuning;
     Rules {

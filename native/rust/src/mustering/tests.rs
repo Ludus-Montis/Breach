@@ -11,7 +11,7 @@ use crate::rout::tests::{east, member, SEED};
 
 const TICK: i64 = 10;
 
-fn rules(second: bool) -> Rules {
+pub(crate) fn rules(second: bool) -> Rules {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
     let t = &content.tuning;
     let loads = LoadTuning {
