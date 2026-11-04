@@ -6,7 +6,12 @@
 //!   native/bin/breach_digest [set=standard|clash160|wide] [out=<file of every tick's hash>]
 //!       [only=<run label>] [threaded=true|false] [repo=<path>]
 //!
+//!   native/bin/breach_digest cuts=<dir> [repo=<path>]
+//!
 //! `out` and `only` are the Godot digest's; `trace` and `snapshot` are still only Godot's.
+//! `cuts` writes the snapshot tests' cuts (spec 39 step 8d, `breach_native::cuts::CUTS`) to
+//! `<dir>` instead: each one's state (`<name>.state`) and its run, tick, squads listed and
+//! each lap's print (`<name>.txt`). Its tests read them from `native/rust/cuts`.
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
 use std::collections::HashMap;
@@ -16,10 +21,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
+use breach_native::cuts;
 use breach_native::digest_runs::{line, runs, tick_line};
 
 const USAGE: &str = "usage: breach_digest [set=standard|clash160|wide] [out=<file>] \
-                     [only=<run label>] [threaded=true|false] [repo=<path>]";
+                     [only=<run label>] [threaded=true|false] [repo=<path>]\n       \
+                     breach_digest cuts=<dir> [repo=<path>]";
 
 fn main() -> ExitCode {
     let mut args = HashMap::new();
@@ -52,6 +59,9 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    if let Some(dir) = args.get("cuts") {
+        return write_cuts(Path::new(dir), &content);
+    }
     let mut out = match args.get("out").map(File::create).transpose() {
         Ok(file) => file.map(BufWriter::new),
         Err(why) => {
@@ -92,7 +102,31 @@ fn main() -> ExitCode {
     }
 }
 
-const KNOWN: [&str; 5] = ["set", "out", "only", "threaded", "repo"];
+const KNOWN: [&str; 6] = ["set", "out", "only", "threaded", "repo", "cuts"];
+
+/// Writes every cut of `CUTS` to `dir`: its state and its text.
+fn write_cuts(dir: &Path, content: &Content) -> ExitCode {
+    for (label, tick) in cuts::CUTS {
+        let Some((cut, prints)) =
+            cuts::run_of(label).and_then(|run| cuts::cut(&run, tick, content))
+        else {
+            eprintln!("breach_digest: {label} doesn't reach tick {tick}");
+            return ExitCode::from(1);
+        };
+        let name = cuts::file_name(label, tick);
+        let wrote = std::fs::create_dir_all(dir)
+            .and_then(|()| std::fs::write(dir.join(format!("{name}.state")), &cut.bytes))
+            .and_then(|()| {
+                std::fs::write(dir.join(format!("{name}.txt")), cuts::written(&cut, &prints))
+            });
+        if let Err(why) = wrote {
+            eprintln!("breach_digest: can't write {name}: {why}");
+            return ExitCode::from(1);
+        }
+        println!("{name}");
+    }
+    ExitCode::SUCCESS
+}
 
 /// The repo this is run in or from: the nearest folder above holding project.godot.
 fn find_repo() -> Option<PathBuf> {
