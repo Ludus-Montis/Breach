@@ -2,13 +2,15 @@ extends GdUnitTestSuite
 ## BlowLanding, per Decision 118 (spec 28 part 4): with rolls on, a tick's blows are each
 ## rolled against their targets - a wavering formation's land worse, a unit fought by two
 ## foes is struck more surely - and the same seed lands them the same; with rolls off,
-## every blow is a plain hit.
+## every blow is a plain hit. That each blow lands with the arms the crate holds for its units
+## (spec 39 step 8b5-xviii) is the crate's own test (`fight/tests.rs`).
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
+const BlowLanding = preload("res://sim/skirmish/formation/blow_landing.gd")
 
 const TICK := 0.1
 const LANDED := ["grazed", "hit", "critical"]

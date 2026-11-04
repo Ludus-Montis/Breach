@@ -2,8 +2,8 @@
 //! step 6c): which free unit of a group out of a fight walks out to which downed foe. Each
 //! free unit is paired with a downed foe it can see within `reach`, one unit to a body,
 //! nearest first, ties by the unit's then the body's seeded draws - never ids or lists
-//! (Decision 97). GDScript keeps the groups' takings (which squads send, the hold and the
-//! recall) and the events, and lands what this decides.
+//! (Decision 97). Which squads send, the hold, the recall and the events are the pass's
+//! (`pass`, spec 39 step 8b5-xxiii).
 
 use crate::columns::Columns;
 use crate::contest;
@@ -84,5 +84,6 @@ fn sent(
     out
 }
 
+pub mod pass;
 #[cfg(test)]
 mod tests;

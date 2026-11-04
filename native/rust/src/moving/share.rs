@@ -18,6 +18,7 @@ use crate::swaps;
 
 /// What the share reads besides the squad: the fight's seed, wounds_reach, walk_lost, and
 /// discipline_per_leadership, walk_slack_loose and walk_slack_drilled for its slack.
+#[derive(Clone, Copy)]
 pub struct ShareTuning {
     pub seed: i64,
     pub wounds_reach: f64,
@@ -60,7 +61,7 @@ pub fn of(
         width: squads.width[s],
         centre_shift: squads.centre_shift[s],
     };
-    let units = pourers(squads, field, s, &framed);
+    let units = pourers(squads, field, s, &framed, false);
     let aims = pour::targets(ground, &frame, &units, t.seed, t.wounds_reach);
     let lags: Vec<Lag> = units
         .iter()
@@ -85,7 +86,7 @@ pub fn slack(field: &Field, listed: &Listed, [per_leadership, loose, drilled]: [
 }
 
 /// FormationWalk.rule_of over the `living` units' store slots.
-fn rule(field: &Field, living: &[i32]) -> Rule {
+pub(crate) fn rule(field: &Field, living: &[i32]) -> Rule {
     let columns = &field.columns;
     let (left, none_left) = (field.lexicon.find(LEFT_BEHIND), field.lexicon.find(NO_MAN_LEFT));
     let has = |u: usize, code: Option<u32>| {
@@ -106,10 +107,21 @@ fn rule(field: &Field, living: &[i32]) -> Rule {
 }
 
 /// The `framed` units ([store slot, id]) of the squad in `s` as a pour reads them
-/// (CrateMarch.pourers), none of them out taking.
-fn pourers(squads: &Squads, field: &Field, s: usize, framed: &[(i32, i64)]) -> Vec<Pourer> {
+/// (CrateMarch.pourers): where the downed foe each is out taking lies, if `taking`; else
+/// none of them out taking.
+pub fn pourers(
+    squads: &Squads,
+    field: &Field,
+    s: usize,
+    framed: &[(i32, i64)],
+    taking: bool,
+) -> Vec<Pourer> {
     let columns = &field.columns;
     let moving = swaps::offsets(squads, s);
+    let body = |id: i64| {
+        let held = squads.taking[s].iter().find(|&&(taker, _)| taker == id);
+        held.filter(|_| taking).map(|&(_, slot)| columns.position[slot])
+    };
     framed
         .iter()
         .map(|&(unit, id)| {
@@ -128,7 +140,7 @@ fn pourers(squads: &Squads, field: &Field, s: usize, framed: &[(i32, i64)]) -> V
                 footprint_depth: sheet.footprint_depth as i32,
                 offset,
                 walker: crate::pathing::pass::walker(columns.objects[u].walker, sheet.height),
-                taking: None, // the share is 0 while any of them is out taking
+                taking: body(id),
             }
         })
         .collect()

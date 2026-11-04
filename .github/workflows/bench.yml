@@ -5,7 +5,10 @@ name: Bench
 # `head`, a branch or commit checked out beside it), and - if
 # `base` names another branch or commit - the same on it, on the same runner, so the two
 # compare like for like. The last step prints both between SUMMARY markers. GitHub's
-# runners are slower than a desktop: read the comparison, not the absolute times.
+# runners are slower than a desktop: read the comparison, not the absolute times. A `tool`
+# named `breach_<name>` runs the crate's own binary, native/bin/breach_<name> (spec 39 step
+# 8c-xviii: `breach_tick_phases` is tick_phases timed on the crate's tick, with nothing from
+# Godot), with the same `args`.
 #
 # One run each can't tell a 5% change from the swing any change of code brings (an A/A run
 # repeats to within 1%, two commits move phases neither touched by 5 to 20%: spec 35
@@ -19,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       tool:
-        description: "tools/<tool>.gd to run (tick_phases, scaling_check, native_bench, ...)"
+        description: "tools/<tool>.gd to run (tick_phases, scaling_check, native_bench, ...), or a crate binary (breach_tick_phases, breach_scaling, breach_rout_bench, breach_native_bench)"
         default: "tick_phases"
       args:
         description: "Its arguments"
@@ -103,6 +106,11 @@ jobs:
           time_in() {
             # stderr is kept aside, and shown if the tool printed nothing (#601)
             local err="$RUNNER_TEMP/stderr.txt"
+            if [[ "$TOOL" == breach_* ]]; then
+              (cd "$1" && "native/bin/$TOOL" $ARGS 2>"$err") \
+                || { echo "::error::$TOOL failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
+              return
+            fi
             (cd "$1" \
               && /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
                 2>"$err" | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)') \

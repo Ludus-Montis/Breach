@@ -1,9 +1,10 @@
 extends GdUnitTestSuite
 ## The downed and the caught, per Decision 121 (spec 28 part 6), as GDScript lands what the
-## crate decides (`deaths.rs` and `wounds.rs`, whose tests hold the rules): a unit brought
-## to 0 hp is downed, unless past minus its constitution, which kills it; a body is captured
-## by a captor, or sent home by a leader's messenger, who has one fewer; a routing unit
-## struck may surrender.
+## crate decides (`deaths.rs`, `wounds.rs` and `wounds/pass.rs`, whose tests hold the
+## rules): a unit brought to 0 hp is downed, unless past minus its constitution, which kills
+## it; a body is captured by a captor, or sent home by a leader's messenger, who has one
+## fewer. A routing unit struck may surrender in the fight's pass (`fight/surrender.rs`,
+## test_formation_fight.gd).
 
 const FormationWounds = preload("res://sim/skirmish/formation/formation_wounds.gd")
 const FormationDeaths = preload("res://sim/skirmish/formation/formation_deaths.gd")
@@ -84,6 +85,7 @@ func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
 	var leader := _unit(4, "player", Vector2(30, 0))
 	leader.leadership = 2
 	leader.traits = {"messenger": 1}
+	_places.store.admit(leader)  # held in the crate, as a squad's units are
 	scene[0][1].units.append(leader)
 	UnitState.regather(scene[0][1])
 	var events := []
@@ -95,26 +97,16 @@ func test_a_leader_with_a_messenger_sends_one_home_to_shake_its_side() -> void:
 	assert_array(_types(events)).contains(["sent_home"])
 
 
-func test_a_struck_router_may_surrender_unless_it_never_does() -> void:
-	var cowards := []
-	var proud := []
-	for index in range(20):
-		var coward := _unit(10 + index, "the_kingdom", Vector2(index, 0))
-		coward.courage = 0
-		cowards.append(coward)
-		var stubborn := _unit(40 + index, "the_kingdom", Vector2(index, 5))
-		stubborn.courage = 0
-		stubborn.traits = {"never_surrenders": 1}
-		proud.append(stubborn)
-	var fleeing := _squad(1, "the_kingdom", cowards + proud)
-	fleeing.state = SkirmishSquad.State.ROUTING
-	var hunter := _unit(99, "player", Vector2(0, 1))
-	var blows := (cowards + proud).map(func(u): return [hunter, u, 1, true, "hit"])
+func test_the_crate_pass_captures_the_body_and_tells_of_it() -> void:
+	var scene := _scene()
+	scene[2].traits = {"captor": 1}
 	var events := []
 
-	FormationWounds.surrender(blows, [fleeing, _squad(2, "player", [hunter])], 1, 1, events)
+	FormationWounds.tend(scene[0], 1, SECOND, 1, events)
 
-	var taken := cowards.filter(func(u): return u.state == SkirmishUnit.State.TAKEN)
-	assert_int(taken.size()).is_between(3, 17)  # half each, by the seeded roll
-	assert_bool(proud.all(func(u): return u.is_alive())).is_true()
-	assert_int(_types(events).count("surrendered")).is_equal(taken.size())
+	var captured := {"type": "captured", "tick": 1, "squad": 1, "faction": "the_kingdom"}
+	captured.merge({"unit": 1, "by": 2})
+	assert_array(events.filter(func(e): return e["type"] == "captured")).is_equal([captured])
+	assert_int(_places.store.columns.value(scene[1].slot, UnitColumns.STATE)).is_equal(
+		SkirmishUnit.State.TAKEN
+	)

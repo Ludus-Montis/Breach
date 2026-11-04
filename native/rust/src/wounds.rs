@@ -414,5 +414,6 @@ pub fn surrenders(
         .collect()
 }
 
+pub mod pass;
 #[cfg(test)]
 mod tests;

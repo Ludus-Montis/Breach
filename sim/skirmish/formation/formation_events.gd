@@ -21,19 +21,3 @@ static func unit_event(
 	var event := squad_event(kind, tick, owner, {"unit": unit.id})
 	event.merge(extra)
 	return event
-
-
-## blow = [attacker, target, damage, is_flank, how it landed (BlowLanding)], after the damage
-## has been applied, leaving the target at `target_hp`.
-static func hit(tick: int, blow: Array, target_hp: int) -> Dictionary:
-	return {
-		"type": "hit",
-		"tick": tick,
-		"unit": blow[0].id,
-		"faction": blow[0].faction_id,
-		"target": blow[1].id,
-		"dmg": blow[2],
-		"flank": blow[3],
-		"blow": blow[4],
-		"target_hp": target_hp,
-	}

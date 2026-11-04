@@ -3,8 +3,9 @@
 //! living units' chances to break ranks and leashes (`discipline`, from their sheets), and
 //! land here: each order applied is an "order_applied" event; a retreat out of a fight is
 //! "disengaged", a ragged one's shock (`shocks`, by how far short of drilled it is),
-//! "withdrawing", then each enemy's "pursuing". The routes its pursuers keep or take stay
-//! GDScript's to land, from what this returns, as the routes GDScript holds are objects.
+//! "withdrawing", then each enemy's "pursuing". A pursuer keeps the route it held its post
+//! on here (`post_route`, step 8b5-xvi); the route it takes stays GDScript's to land, from
+//! what this returns, as the routes GDScript holds are objects.
 
 use super::{apply, Applied, Coded, Retreats};
 use crate::bands::BandTuning;

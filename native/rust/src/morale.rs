@@ -3,10 +3,12 @@
 //! sides it fights on - its front if it is locked, and each edge it is flanked on - a left or
 //! right edge with a friendly formation near beyond it counting one less; or, out of contact,
 //! it recovers a little by its units' mean condition (Decision 125), plus its best leader's
-//! leadership; either way up to its ceiling. GDScript hands in each one's morale, leadership
-//! and ceiling (`bands.rs`, over its units' courage and leaders), and sets what this returns,
-//! held as `bands.rs` holds it, with its events. Nothing here reads another formation's morale, so
+//! leadership; either way up to its ceiling. Its pass (`pass.rs`, spec 39 step 8b5-xxvii) reads
+//! each one's morale, leadership and ceiling (`bands.rs`, over its units' courage and leaders)
+//! and sets what this returns, held as `bands.rs` holds it, with its events. Nothing here reads another formation's morale, so
 //! no formation's result hangs on the lists' order (Decision 97).
+
+pub mod pass;
 
 use crate::columns::Columns;
 #[cfg(test)]

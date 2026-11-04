@@ -117,25 +117,20 @@ func _scrum(ticks: int, reversed: bool) -> Array:
 	return squads
 
 
-func _ctx(squads: Array, field: Object) -> Dictionary:
-	UnitPlaces.onto(field, squads)  # its passes read the store's columns on the field
-	var ctx := {"squads": squads, "tick": 7, "seed": 2, "terrain": null, "active": {}}
-	ctx["field"] = field
-	return ctx
-
-
-## Every unit's seeking state after one plan, by unit id, with the squads made active.
-func _planned(squads: Array, field: Object) -> Array:
-	var ctx := _ctx(squads, field)
-	ScrumSeek.plan(ctx)
+## Every unit's seeking state after one seek, walk and facing (ScrumSeek.step), by unit id,
+## with the squads made active: what the slot search decided (its goal, its foe's place,
+## whether it touches one), which the walk and the facing keep.
+func _planned(squads: Array) -> Array:
+	var field: Object = squads[0].store.field()  # the battle's own, its squads' store on it
+	var ctx := {"tick": 7, "seed": 2, "seconds": 0.1, "pace": 0.8, "terrain": null, "active": {}}
+	ScrumSeek.step(field, CrateRoster.of(squads), ctx)
 	var out := []
 	for squad in squads:
 		for unit_id in squad.loose:
 			var entry := EntryKeys.loose_entry(
 				squad.store.columns, squad.loose[unit_id], Vector2.ZERO
 			)
-			var held := [entry["goal"], entry["next"], entry.get("foe_at"), entry.get("touch")]
-			out.append([unit_id, held])
+			out.append([unit_id, [entry["goal"], entry.get("foe_at"), entry.get("touch")]])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	var active: Array = ctx["active"].keys()
 	active.sort()
@@ -168,6 +163,6 @@ func test_the_slot_search_on_the_field_is_the_same_whatever_the_list_order() -> 
 	var field := _field()
 	if field == null:
 		return
-	var forward := _planned(_scrum(120, false), field)
-	var backward := _planned(_scrum(120, true), _field())
+	var forward := _planned(_scrum(120, false))
+	var backward := _planned(_scrum(120, true))
 	assert_array(Array(var_to_bytes(backward))).is_equal(Array(var_to_bytes(forward)))

@@ -23,33 +23,22 @@ extends RefCounted
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
-const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
-
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
-
-const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
-const SquadRanks = preload("res://sim/skirmish/formation/squad_ranks.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
-const FormationLocks = preload("res://sim/skirmish/formation/formation_locks.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
-const FormationEvents = preload("res://sim/skirmish/formation/formation_events.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
-const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
-const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
-const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
-const SquadEntries = preload("res://sim/skirmish/formation/squad_entries.gd")
 
-
-## One tick of the scrum. `cells_per_second` is the march pace at speed 1; the seek, the
-## walk and the facing run on the battle's native bodies (`field`, NativeKernels; without
-## one, its squads' store's). Returns "faced" and "disengaged" events.
+## One tick of the scrum. `cells_per_second` is the march pace at speed 1. The scrum is one
+## crate pass (`scrum::step`, spec 39 step 8b5-xxxiv) on the battle's native bodies
+## (`field`, NativeKernels; without one, its squads' store's): engaging, readying, the
+## stances, the manoeuvres, the seek, walk and facing, the regroup and chasers, the
+## withdrawal, the pursuit and the stall, over one roster (CrateRoster): nobody falls in the
+## scrum. Each phase's class hands it its rules. The pursuers back at their posts hold their
+## own routes again in the crate, which GDScript's route reads. Returns the scrum's events
+## ("engaged", "faced", "disengaged" and the rest) in the order its phases told them.
 static func step(
 	squads: Array,
 	tick: int,
@@ -59,101 +48,57 @@ static func step(
 	terrain: FormationTerrain = null,
 	field: Object = null
 ) -> Array:
-	var events := ScrumEngage.step(squads, tick, fight_seed)
-	for squad in squads:
-		_prepare(squad, tick)
-	ScrumStance.anticipate_all(squads, tick, events, terrain, fight_seed)
-	FormationManoeuvre.step(squads)
-	var ctx := {
-		"squads": squads,
-		"tick": tick,
-		"seconds": tick_seconds,
-		"pace": cells_per_second * tick_seconds,
-		"seed": fight_seed,
-		"terrain": terrain,
-		"lying": GroundBodies.ground(squads),
-		"active": {},
-		"field": field if field != null or squads.is_empty() else squads[0].store.field(),
-	}
-	_seek(ctx)
-	var roster := CrateRoster.of(squads, terrain)  # who is living: nobody falls from here on
-	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
-	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
-	FormationWithdraw.step(
-		squads, tick, ctx["pace"], tick_seconds, fight_seed, terrain, events, roster
-	)
-	FormationPursuit.step(squads, tick, cells_per_second, tick_seconds, events, roster)
-	_stall(squads, ctx["active"], tick, tick_seconds, events)
-	return events
+	if field == null and not squads.is_empty():
+		field = squads[0].store.field()
+	if field == null:
+		return []  # no squads: no scrum
+	var given := [CrateRoster.of(squads, terrain), UnitMover.ground(terrain)]  # who is living
+	field.callv(&"scrum_step", given + args(tick, cells_per_second, tick_seconds, fight_seed))
+	ScrumSeek.clock_usec += field.usec()  # the seek's own time, for the benches
+	return CrateEvents.taken(field)
 
 
-## True while the squad's units are out of their places: it doesn't march. Units out chasing
-## or straggling back on their own don't hold it (Decision 112). The crate's rule
-## (`moving::regrouping`, spec 39 step 8b1), as the move reads it.
+## The scrum's arguments past the roster and the ground (`scrum_step`'s; the crate's
+## `tick::given` builds the same for the whole tick): `tick`, `cells_per_second`,
+## `tick_seconds` and `fight_seed` as `step` takes them.
+static func args(tick: int, cells_per_second: float, tick_seconds: float, fight_seed: int) -> Array:
+	var ctx := {"seconds": tick_seconds, "pace": cells_per_second * tick_seconds}
+	ctx["cells_per_second"] = cells_per_second
+	var tuning := BattleTuning.current()
+	var stall := roundi(tuning.scrum_stall_seconds / tick_seconds)
+	return [
+		PackedInt64Array([tick, fight_seed, tuning.combat_contest_die, stall]),
+		tuning.reach_engage,
+		ScrumStance.rules(),
+		ScrumSeek.rules(ctx),
+		ScrumRegroup.rules(ctx),
+		FormationWithdraw.rules(ctx),
+		FormationPursuit.rules(cells_per_second, tick_seconds),
+	]
+
+
 static func regrouping(squad: SkirmishSquad) -> bool:
 	return squad.store.field().squad_regrouping(squad.slot)
 
 
-static func _prepare(squad: SkirmishSquad, tick: int) -> void:
-	if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
-		SquadEntries.unloose_all(squad)
-		squad.stance = {}
-		squad.fight_since = -1
-		return
-	for unit_id in squad.loose.keys():
-		if not squad.loose[unit_id].is_alive():
-			SquadEntries.unloose(squad, unit_id)
-	var fighting := squad.state == SkirmishSquad.State.FIGHTING
-	if fighting and squad.fight_since < 0:
-		squad.fight_since = tick
-		squad.fought = true
-		squad.stall_ticks = 0
-	elif not fighting:
-		if squad.fight_since >= 0:
-			SquadRanks.close(squad)  # the dead leave holes: the living close up
-		squad.fight_since = -1
-	if not fighting and squad.stance.is_empty():
-		return
-	var at: PackedVector2Array = squad.store.columns.column(UnitColumns.POSITION)
-	for unit in squad.living():
-		if not squad.loose.has(unit.id):
-			var stood := at[unit.slot]
-			SquadEntries.loosen(squad, unit, stood)
-
-
-## Plans every fighting squad's seekers (ScrumSeek), then walks and turns its units, on the
-## battle's native bodies, ctx["field"] (Decision 129). The walk (ScrumWalkField) steps each
-## from the bodies as they stood before any stepped: one making for a slot towards its next
-## point, one with no slot that touches no foe back towards its place, round the bodies in
-## its way (`steer.rs`), over those lying underfoot (GroundBodies), paying the ground it
-## crosses (ScrumWalkField.pay); units out chasing on their own are left to ScrumPursuit.
-## The facing (ScrumFaceField), after all have moved so a unit stepped up to is seen, turns
-## each towards the nearest foe it touches, or else so as to arrive facing what it will do
-## (`motion::look`).
-static func _seek(ctx: Dictionary) -> void:
-	if ctx["field"] == null:
-		return  # no squads: no field to run on
-	ScrumSeek.plan(ctx)
-	ScrumWalkField.walk(ctx)
-	ScrumFaceField.face(ctx)
+## Readies each squad for the scrum, in the crate (`scrum::prepare::prepare`, spec 39 step
+## 8b5-xii): a routing or destroyed one lets its loose units, its stance and its fight go;
+## the fallen leave their loose entries; a fight beginning is marked (`fight_since`,
+## `fought`), and one ending closes its ranks over the dead (SquadRanks); a squad fighting,
+## or holding a stance, sends each living unit loose where it stands.
+static func _prepare(field: Object, roster: Object, tick: int) -> void:
+	if field != null:
+		field.scrum_prepare(roster, tick)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while, in
-## the crate (`manoeuvre::stall`, spec 39 step 4b).
+## the crate (`scrum::pass::stall`, spec 39 step 8b5-xi), each its "disengaged" event in the
+## crate's log. `when`: the tick and the seconds a tick lasts.
 static func _stall(
-	squads: Array, active: Dictionary, tick: int, tick_seconds: float, events: Array
+	field: Object, roster: Object, active: Dictionary, when: Array, events: Array
 ) -> void:
-	if squads.is_empty():
-		return
-	var ticks := roundi(BattleTuning.current().scrum_stall_seconds / tick_seconds)
-	var stalled: PackedInt32Array = squads[0].store.field().scrum_stall(
-		FormationLocks.slots(squads),
-		FormationLocks.factions(squads),
-		PackedInt64Array(active.keys()),
-		ticks
-	)
-	var by_slot := {}
-	for squad in squads:
-		by_slot[squad.slot] = squad
-	for slot in stalled:
-		events.append(FormationEvents.squad_event("disengaged", tick, by_slot[slot]))
+	if field == null:
+		return  # no squads: nothing to release
+	var ticks := roundi(BattleTuning.current().scrum_stall_seconds / when[1])
+	field.scrum_stall(roster, PackedInt64Array(active.keys()), ticks, when[0])
+	events.append_array(CrateEvents.taken(field))

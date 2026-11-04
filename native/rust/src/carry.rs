@@ -6,6 +6,8 @@
 //! their bearers, dropping and setting them down, coming home, the bearers' pace and the
 //! events, and lands what this decides.
 
+pub mod pass;
+
 use std::collections::HashSet;
 
 use crate::columns::Columns;

@@ -3,10 +3,10 @@ extends GdUnitTestSuite
 ## Decision 147): the unit it fights, how far along its route it stands, the last place it
 ## could stand, whether it is on a climb face or in deep water, and the climb still above
 ## it. The columns round-trip and start blank and the native store holds them on its field;
-## the melee clears every target in the store as a fight begins; the march writes where
-## along the route each unit stands; the walk keeps its climb in the store, and stamina
-## reads it there; and SkirmishUnit no longer declares them, nor its unread copies of its
-## squad's order, home and wait.
+## the fight clears every target in the store as it begins (`fight/tests.rs`); the march
+## writes where along the route each unit stands; the walk keeps its climb in the store,
+## and stamina reads it there; and SkirmishUnit no longer declares them, nor its unread
+## copies of its squad's order, home and wait.
 
 const NativeKernels = preload("res://sim/skirmish/formation/native_kernels.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
@@ -15,7 +15,6 @@ const UnitColumns = preload("res://sim/skirmish/formation/unit_columns.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
-const FormationMelee = preload("res://sim/skirmish/formation/formation_melee.gd")
 const FormationStamina = preload("res://sim/skirmish/formation/formation_stamina.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 const TerrainWalker = preload("res://sim/skirmish/formation/terrain_walker.gd")
@@ -97,24 +96,6 @@ func _assert_on_field(field: Object, slot: int) -> void:
 	assert_vector(field.column_points(UnitColumns.FOOTHOLD)[slot]).is_equal(Vector2(3.5, 1.5))
 	assert_int(field.column_ints(UnitColumns.ON_FACE)[slot]).is_equal(1)
 	assert_float(field.column_reals(UnitColumns.CLIMB_LEFT)[slot]).is_equal(4.0)
-
-
-## A fight begins with every living unit's target cleared, in the store, before any strikes:
-## with no foe to strike, every target is 0 after the melee.
-func test_the_melee_clears_each_target_in_the_store_on_both_backends() -> void:
-	for backend in _backends():
-		var store: UnitStore = backend[1]
-		var said: String = backend[0]
-		var fighter := _unit(1)
-		var squad := _squad(1, [fighter], store)
-		UnitHealth.put_one(squad, fighter, 10)
-		store.columns.put(fighter.slot, UnitColumns.TARGET_ID, 42)
-		FormationMelee.blows([squad], 10, 0, store.field())
-		(
-			assert_int(store.columns.value(fighter.slot, UnitColumns.TARGET_ID))
-			. override_failure_message(said)
-			. is_equal(0)
-		)
 
 
 ## Each unit in its place stands along the route at its rank's distance, as the march

@@ -5,7 +5,10 @@
 //! (FormationScrum._faces, UnitShuffle, UnitMotion). GDScript keeps the rules and stays the
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
+mod aftermath;
+mod arms;
 mod bands;
+mod battles;
 mod blows;
 #[cfg(test)]
 mod build;
@@ -16,12 +19,17 @@ mod compact;
 mod contact;
 pub mod content;
 mod contest;
+pub mod cuts;
 mod deaths;
 pub mod designer;
 mod det_math;
 mod det_pow;
 mod detours;
+mod digest;
+/// The digest's runs, for the digest binary (src/bin/digest.rs).
+pub use digest::runs as digest_runs;
 mod discipline;
+mod ending;
 mod engage;
 mod entries;
 mod events;
@@ -29,6 +37,8 @@ mod face_store;
 mod facing;
 mod field;
 mod field_parting;
+mod field_play;
+mod fight;
 mod frame;
 mod geometry;
 mod ghash;
@@ -38,8 +48,10 @@ mod groups;
 mod hurts;
 mod joins;
 mod landing;
+mod laps;
 mod locks;
 mod lying;
+mod made;
 mod manoeuvre;
 mod march;
 mod maths;
@@ -47,32 +59,42 @@ mod morale;
 mod motion;
 mod mover;
 mod moving;
+mod mustering;
+pub mod native_bench;
 mod near;
 mod objects;
+mod opening;
 mod ordered;
 mod orders;
 mod parting;
 mod pathing;
 mod paths;
 mod perception;
+pub mod phases;
+mod play;
 mod pursuit;
 mod ranks;
 mod reach;
+mod record;
 mod recovery;
 mod rect;
 mod regeneration;
 mod regroup;
+mod rehearsal;
 mod rendezvous;
 mod roster;
 mod rout;
+pub mod rout_bench;
 mod rout_blows;
 mod route;
+pub mod scaling;
 mod scrum;
 mod seeking;
 mod sheet;
 mod shocks;
 mod shots;
 mod snapshot;
+mod spawn;
 mod split;
 mod squads;
 mod staging;
@@ -82,10 +104,13 @@ mod steer;
 mod strays;
 mod swaps;
 mod taking;
+mod tick;
 mod trade;
+pub mod trials;
 mod turn;
 mod walk_store;
 mod walking;
+mod waves;
 mod withdraw;
 mod words;
 mod wounds;
@@ -98,6 +123,12 @@ use field::{Enrol, Field, SyncIn};
 use maths::V2;
 use parting::Tuning;
 use squads::Squads;
+use tick::given::{Arg, Given};
+use tick::rules::{
+    aftermath_rules, ending_rules, fight_rules, looks_of, moving_given, mustering_rules,
+    opening_rules, orders_discipline, pursue_rules, regroup_rules, scrum_rules, seek_rules,
+    share_tuning, stamina_tuning, stance_rules, walk_tuning_of, withdraw_rules,
+};
 
 struct BreachNative;
 
@@ -113,13 +144,14 @@ struct BodyField {
     squads: Squads,
     /// Microseconds of native work in the last call (the bench reads it).
     usec: i64,
-    /// The last part()'s moved bodies (flat indices), points and nexts, for commit_part().
-    parted: (Vec<i32>, Vec<V2>, Vec<V2>),
     /// How many calls have changed the squads' records (spec 39 step 4b): SquadRecords'
     /// views are taken afresh when it moves.
     edits: i64,
     /// The events the passes have built and GDScript hasn't yet taken (spec 39 step 8b5-v).
     events: events::Log,
+    /// The code the crate gave each GDScript route it was handed (by the route's instance
+    /// id; spec 39 step 8b5-xxxvi): the same object, the same code (`Squads::route_code`).
+    route_objects: std::collections::HashMap<i64, i64>,
 }
 
 #[godot_api]
@@ -205,244 +237,29 @@ impl BodyField {
         ])
     }
 
-    /// UnitBodies' passes on the field. `tuning` = [passes, resist, brush]; `way.call(draw,
-    /// other draw)` gives the way two bodies on each other part. Returns [moved (flat
-    /// indices), their points (a fleeing one's offset), their nexts, loosened (flat indices,
-    /// in order), stats = [usec, passes that moved something, pairs pushed]]; commit_part()
-    /// then writes the moved into the store's columns.
+    /// UnitBodies.step as one pass (`parting::pass`, spec 39 step 8b5-xxxi) over the squads
+    /// in squad slots `listed`, in the lists' order, on the battle's `seed`: the field brought
+    /// to their living units as the bodies stand, the new ones enrolled from their sheets, the
+    /// bodies parted, those pushed from their places made loose and the moved written into
+    /// the store's columns. `tuning` = [passes, resist, brush]. Returns [usec of the parting,
+    /// passes that moved something, pairs pushed].
     #[func]
-    fn part(&mut self, tuning: PackedFloat64Array, way: Callable, threaded: bool) -> VarArray {
+    fn bodies_part(
+        &mut self,
+        listed: PackedInt32Array,
+        seed: i64,
+        tuning: PackedFloat64Array,
+        threaded: bool,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
         let t = tuning.as_slice();
         let tuning = Tuning { passes: t[0] as i64, resist: t[1], brush: t[2] };
-        let mut ask = |a: i64, b: i64| -> V2 {
-            let w: Vector2 = way.callv(&varray![a, b]).to();
-            V2::new(w.x, w.y)
-        };
         let began = Instant::now();
-        let out = field_parting::part_field(&mut self.field, &tuning, threaded, &mut ask);
+        let parts = (&tuning, threaded);
+        let out = parting::pass::step(&mut self.squads, &mut self.field, &listed, seed, parts);
         self.usec = began.elapsed().as_micros() as i64;
-        let result = varray![
-            &PackedInt32Array::from(out.moved.as_slice()),
-            &packed(&out.points),
-            &packed(&out.nexts),
-            &PackedInt32Array::from(out.loosened.as_slice()),
-            &PackedInt64Array::from(&[self.usec, out.passes, out.pairs]),
-        ];
-        self.parted = (out.moved, out.points, out.nexts);
-        result
-    }
-
-    /// Writes the last part()'s moved bodies into the unit store's columns, by how each
-    /// stands now (a fleeing one's offset, a loose one's point and next, else its position):
-    /// called once GDScript has given the bodies it made loose their entries (spec 35,
-    /// Decision 144).
-    #[func]
-    fn commit_part(&mut self) {
-        let (moved, points, nexts) = std::mem::take(&mut self.parted);
-        field_parting::commit(&mut self.field, &moved, &points, &nexts);
-    }
-
-    /// ScrumSeek.plan on the field, as of a sync of the scrum's snapshot, reading and
-    /// writing the unit store's columns there (spec 35 step 4b). `ints` = [tick, seed,
-    /// combat_contest_die, EntryKeys' touch bit, its foe_at bit], `floats` = [reach_contact,
-    /// scrum_leash]. Per fighting squad, in the sync's order: its id, how many foes, their
-    /// squad ids, whether its units may seek (1: not ordered to retreat), its frame
-    /// ([heading, width, centre shift] and its anchor), how many chasers and their unit ids;
-    /// per unit of the sync (flat index) its speed. `within.call(flat index, point)` is the
-    /// ground's say (an invalid Callable: open ground). Each unit's place, goal and record
-    /// are read on the field, and its outcome written into its loose entry's columns there.
-    /// Returns, for the walk and the facing: [the squads planned (those of `squads` the
-    /// sync named a living unit of), their units' flat indices, units per squad, codes (0
-    /// touch, 1 stand, 2 aim, 3 press, 4 idle), nexts, foe_ats, active (per squad: 1 if any
-    /// unit touches a foe or makes for a slot)].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn seek(
-        &mut self,
-        ints: PackedInt64Array,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        foe_counts: PackedInt32Array,
-        foe_ids: PackedInt64Array,
-        seeking: PackedByteArray,
-        frames: PackedFloat64Array,
-        anchors: PackedVector2Array,
-        chaser_counts: PackedInt32Array,
-        chaser_ids: PackedInt64Array,
-        speeds: PackedFloat64Array,
-        within: Callable,
-    ) -> VarArray {
-        let began = Instant::now();
-        let i = ints.as_slice();
-        let f = floats.as_slice();
-        let params = scrum::Params { tick: i[0], seed: i[1], die: i[2], reach: f[0], leash: f[1] };
-        let anchors = v2s(&anchors);
-        let say = seeking::SquadSay {
-            ids: squads.as_slice(),
-            foe_counts: foe_counts.as_slice(),
-            foe_ids: foe_ids.as_slice(),
-            seeking: seeking.as_slice(),
-            frames: frames.as_slice(),
-            anchors: &anchors,
-            chaser_counts: chaser_counts.as_slice(),
-            chaser_ids: chaser_ids.as_slice(),
-            speeds: speeds.as_slice(),
-        };
-        let ground = within.is_valid();
-        let mut ask = |flat: i32, p: V2| -> bool {
-            !ground || within.callv(&varray![flat as i64, Vector2::new(p.x, p.y)]).to::<bool>()
-        };
-        let bits = [i[3] as i32, i[4] as i32];
-        let (gathered, out, active) = seeking::seek(&mut self.field, &say, &params, &mut ask, bits);
-        self.usec = began.elapsed().as_micros() as i64;
-        varray![
-            &PackedInt64Array::from(gathered.fighters.as_slice()),
-            &PackedInt32Array::from(gathered.members.as_slice()),
-            &PackedInt32Array::from(gathered.member_counts.as_slice()),
-            &PackedByteArray::from(out.codes.as_slice()),
-            &packed(&out.nexts),
-            &packed(&out.foe_ats),
-            &PackedByteArray::from(active.as_slice()),
-        ]
-    }
-
-    /// FormationScrum's facing on the field, after the walk, for the units the tick's
-    /// seek() planned (`squads` = per fighting squad [id, foes, units], `foe_ids`,
-    /// `members` and `speeds` as seek's). `floats` = [reach_contact, the front's least
-    /// dot (ScrumReach.in_front), tick seconds, pace (cells a tick at speed 1),
-    /// scrum_crowding]; `valued` = EntryKeys' bit saying a unit's walk chose a point to
-    /// look towards. Where each unit stands, faces and makes for (next, foe_at, toward)
-    /// are read from the unit store's columns, its turn rate and backward pace from its
-    /// record, and its bearing after its turn is written into the column (spec 35 step
-    /// 4d). Returns every unit's bearing after its turn (tests).
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn face(
-        &mut self,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        foe_ids: PackedInt64Array,
-        members: PackedInt32Array,
-        speeds: PackedFloat64Array,
-        valued: i64,
-    ) -> PackedFloat64Array {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params =
-            facing::Params { reach: f[0], front: f[1], seconds: f[2], pace: f[3], crowding: f[4] };
-        let out = face_store::face(
-            &mut self.field,
-            squads.as_slice(),
-            foe_ids.as_slice(),
-            members.as_slice(),
-            speeds.as_slice(),
-            valued as i32,
-            &params,
-        );
-        self.usec = began.elapsed().as_micros() as i64;
-        PackedFloat64Array::from(out.as_slice())
-    }
-
-    /// ScrumBlows.blows' search on the field, as of a sync of the scrum's snapshot:
-    /// `floats` = [reach_contact, the front's least dot (ScrumReach.in_front)], `rules` per
-    /// squad in the sync's order (1 fighting, 2 ordered to retreat). Returns per unit that
-    /// touches a foe it strikes, in the sync's order: [its flat index, the foe's, flags (1
-    /// it retreats and has turned away, 2 the blow falls on the foe's flank)].
-    #[func]
-    fn blows(&mut self, floats: PackedFloat64Array, rules: PackedByteArray) -> PackedInt32Array {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params = blows::Params { reach: f[0], front: f[1] };
-        let picks = blows::picks(&self.field, rules.as_slice(), &params);
-        let mut out = Vec::with_capacity(picks.len() * 3);
-        for pick in &picks {
-            out.extend_from_slice(&[pick.flat, pick.foe, pick.flags as i32]);
-        }
-        self.usec = began.elapsed().as_micros() as i64;
-        PackedInt32Array::from(out.as_slice())
-    }
-
-    /// BlowLanding's counts on the field, as of the same sync as blows(): `targets` is
-    /// every unit's target id by flat index, `asked` [striker id, target id] per blow.
-    /// Returns per blow [the striker's squad (its place in the sync, -1: none), how many
-    /// units touching the target (within `reach`) have it as theirs].
-    #[func]
-    fn pressed(
-        &mut self,
-        reach: f64,
-        targets: PackedInt64Array,
-        asked: PackedInt64Array,
-    ) -> PackedInt32Array {
-        let began = Instant::now();
-        let out = blows::pressed(&self.field, targets.as_slice(), asked.as_slice(), reach);
-        self.usec = began.elapsed().as_micros() as i64;
-        PackedInt32Array::from(out.as_slice())
-    }
-
-    /// FormationScrum's walk on the field, before the facing, for the units the tick's
-    /// seek() planned (`squads` and `members` as seek's; where each stands as that
-    /// call's sync left it). `floats` = [tick seconds, bodies_steer_look,
-    /// bodies_steer_clear, bodies_ground_drag, bodies_ground_block]; `bits` = EntryKeys'
-    /// [toward's key bit, its valued bit]; per squad `squad_floats` = [pace (cells a tick at
-    /// speed 1), heading, width, centre shift] and its frame's anchor; per unit: seek()'s
-    /// code and next point, its speed; the bodies lying on the ground and their [radius,
-    /// footprint area]. Each unit's bearing, rank and column are read from the unit store's
-    /// columns, its turn rate, backward pace and footprint from its record (spec 35 step
-    /// 4c), and where it ends and looks is written into its loose entry's columns there.
-    /// Returns [where each unit stands after its step, where it looks: its next point
-    /// making for a slot, UnitShuffle's walking back to its place] (tests).
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn walk(
-        &mut self,
-        seed: i64,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        squad_floats: PackedFloat64Array,
-        squad_anchors: PackedVector2Array,
-        members: PackedInt32Array,
-        codes: PackedByteArray,
-        nexts: PackedVector2Array,
-        speeds: PackedFloat64Array,
-        bits: PackedInt32Array,
-        lying_ats: PackedVector2Array,
-        lying_sizes: PackedFloat64Array,
-    ) -> VarArray {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params = walking::Params {
-            seed,
-            seconds: f[0],
-            look: f[1],
-            clear: f[2],
-            drag: f[3],
-            block: f[4],
-        };
-        let sizes = lying_sizes.as_slice();
-        let lying_radii: Vec<f64> = sizes.chunks(2).map(|c| c[0]).collect();
-        let lying_areas: Vec<f64> = sizes.chunks(2).map(|c| c[1]).collect();
-        let (anchors, nexts, lying) = (v2s(&squad_anchors), v2s(&nexts), v2s(&lying_ats));
-        let say = walk_store::WalkSay {
-            squad_floats: squad_floats.as_slice(),
-            squad_anchors: &anchors,
-            lying_ats: &lying,
-            lying_radii: &lying_radii,
-            lying_areas: &lying_areas,
-        };
-        let b = bits.as_slice();
-        let out = walk_store::walk(
-            &mut self.field,
-            squads.as_slice(),
-            &say,
-            members.as_slice(),
-            codes.as_slice(),
-            &nexts,
-            speeds.as_slice(),
-            [b[0], b[1]],
-            &params,
-        );
-        self.usec = began.elapsed().as_micros() as i64;
-        varray![&packed(&out.ats), &packed(&out.towards)]
+        self.edits += 1;
+        PackedInt64Array::from(&[self.usec, out.passes, out.pairs])
     }
 
     /// DetMath's `op` ("sin", "cos", "asin", "acos", or "atan2" of a and b) over the
@@ -520,6 +337,15 @@ impl BodyField {
     #[func]
     fn snapshot(&self, tick: i64, seed: i64) -> PackedByteArray {
         PackedByteArray::from(snapshot::write(tick, seed, &self.field, &self.squads).as_slice())
+    }
+
+    /// The digest's state of the squads in `slots` (the battle's listing, in its order): the
+    /// bytes Godot's `var_to_bytes` gives DigestState.state (spec 39 step 8c-xi).
+    #[func]
+    fn digest_state(&self, slots: PackedInt64Array) -> PackedByteArray {
+        let listed: Vec<usize> = slots.as_slice().iter().map(|&s| s as usize).collect();
+        let state = digest::state::state(&self.squads, &self.field, &listed);
+        PackedByteArray::from(state.bytes().as_slice())
     }
 
     /// Squads the squad store holds.
@@ -844,34 +670,7 @@ impl BodyField {
     /// A slot's words and lists, by name, read back as SkirmishUnit holds them.
     #[func]
     fn words(&self, slot: i64) -> VarDictionary {
-        let lexicon = &self.field.lexicon;
-        let mut held = self.field.columns.words[slot as usize].clone();
-        let mut out = VarDictionary::new();
-        for name in words::WORDS {
-            let code = *held.word(name).unwrap();
-            out.set(*name, &GString::from(lexicon.word(code)).to_variant());
-        }
-        for name in words::LISTS {
-            let list: PackedStringArray =
-                held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
-            out.set(*name, &list.to_variant());
-        }
-        for name in words::LEVELS {
-            let mut levels = VarDictionary::new();
-            for &(code, level) in held.levels(name).unwrap().iter() {
-                levels.set(lexicon.word(code), level);
-            }
-            out.set(*name, &levels.to_variant());
-        }
-        for name in words::PARTS {
-            let mut parts = VarArray::new();
-            for part in held.parts(name).unwrap().iter() {
-                let kind = GString::from(lexicon.word(part.kind));
-                parts.push(&varray![part.damage, &kind, part.magical].to_variant());
-            }
-            out.set(*name, &parts.to_variant());
-        }
-        out
+        said(&self.field.lexicon, &self.field.columns.words[slot as usize])
     }
 
     /// A unit's objects' names (SkirmishUnit's properties): its walker, then its codes
@@ -1047,6 +846,29 @@ impl ContentStore {
         let made = map_object(map);
         self.made.insert(key, made.clone());
         made.to_variant()
+    }
+
+    /// A unit of `faction` made in the crate from the definition `id`, advancing in
+    /// `direction` (spec 39 step 8c-iii, `made::unit`), for the test that holds it equal to
+    /// FormationUnits.make's: {"sheet": its numbers by `sheet_names`, "words": its words and
+    /// lists by name, "walker": its walker's fields}. Empty if there is no such unit.
+    #[func]
+    fn made(&self, id: GString, faction: GString, direction: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(content) = self.content.as_ref() else {
+            return out;
+        };
+        let Some(unit) = content.units.get(&id.to_string()) else {
+            return out;
+        };
+        let mut lexicon = words::Lexicon::default();
+        let made = made::unit(content, unit, &faction.to_string(), direction, &mut lexicon);
+        let sheet: PackedFloat64Array =
+            (0..sheet::NAMES.len()).map(|n| made.sheet.get(n)).collect();
+        out.set("sheet", &sheet.to_variant());
+        out.set("words", &said(&lexicon, &made.words).to_variant());
+        out.set("walker", &PackedFloat64Array::from(made.walker.as_slice()).to_variant());
+        out
     }
 
     /// A fresh definition of each kind filled with the crate's defaults, for the test that
@@ -1564,6 +1386,31 @@ impl TerrainGround {
         self.ground = Some(ground::Ground::new(size.x, size.y, tuning));
     }
 
+    /// The ground of the map named `map` ("field": FormationField's), made on the content's
+    /// tuning (spec 39 step 8c-v, `ground::map`): true, else false with the ground as it was
+    /// (an unknown map, or the content not loaded).
+    #[func]
+    fn map(&mut self, content: Gd<ContentStore>, map: GString) -> bool {
+        let store = content.bind();
+        let Some(tuning) = store.content.as_ref().map(|c| &c.tuning) else {
+            return false;
+        };
+        let Some(map) = ground::map::of(&map.to_string(), tuning) else {
+            return false;
+        };
+        self.shares.clear();
+        self.ground = Some(map.ground(ground::GroundTuning::of(tuning)));
+        true
+    }
+
+    /// The ground's cells and rules, in bincode's binary (`snapshot`): two grounds alike
+    /// are alike byte for byte.
+    #[func]
+    fn snapshot(&self) -> PackedByteArray {
+        let bytes = bincode::serialize(self.ground()).expect("the ground serialises");
+        PackedByteArray::from(bytes.as_slice())
+    }
+
     /// Sets the cells of `area`: any of "cost", "height" (quarters), "depth" (cells),
     /// "flows", "climb", "obscurance" and "blocks_sight", as GDScript's packed arrays took
     /// them (a float into an int column truncated).
@@ -1752,12 +1599,6 @@ impl ScrumRules {
     #[func]
     fn morale_held(&self, value: i64) -> i64 {
         bands::held(value)
-    }
-
-    /// FormationMorale.losses' shock, over the fallen's leaderships.
-    #[func]
-    fn morale_losses(&self, fallen: PackedInt64Array, tuning: PackedInt64Array) -> i64 {
-        bands::losses(fallen.as_slice(), &bands::BandTuning::of_slice(tuning.as_slice()))
     }
 
     #[func]
@@ -1958,41 +1799,6 @@ impl UnitMoves {
         let out = route::Patch::patched(&route_of(&points), &patches);
         packed(&out.points)
     }
-}
-
-/// A squad as march::shuffle takes it: [width, combat width, centre shift, fighting].
-fn shuffle_squad(shape: &PackedFloat64Array) -> march::shuffle::Squad {
-    let s = shape.as_slice();
-    march::shuffle::Squad {
-        width: s[0] as i32,
-        combat_width: s[1] as i32,
-        centre_shift: s[2],
-        fighting: s[3] != 0.0,
-    }
-}
-
-/// Living units as march::shuffle takes them: seven numbers each in `units` (rank, column,
-/// footprint width and depth, band, priority, joined), at `speeds`.
-fn ranked_of(units: &PackedInt32Array, speeds: &PackedFloat64Array) -> Vec<march::shuffle::Ranked> {
-    let (rows, _) = units.as_slice().as_chunks::<7>();
-    rows.iter()
-        .zip(speeds.as_slice())
-        .map(|(r, &speed)| march::shuffle::Ranked {
-            place: (r[0], r[1]),
-            footprint_width: r[2],
-            footprint_depth: r[3],
-            preferred_position: r[4],
-            position_priority: r[5],
-            speed,
-            joined: r[6] != 0,
-        })
-        .collect()
-}
-
-/// [tick seconds, cells a second at speed 1, scrum_crowding].
-fn pace_of(pace: &PackedFloat64Array) -> [f64; 3] {
-    let p = pace.as_slice();
-    [p[0], p[1], p[2]]
 }
 
 /// A number GDScript handed in, an int or a float.
@@ -2249,7 +2055,7 @@ impl GroundMarch {
         let (units, _) = units.as_slice().as_chunks::<11>();
         let (states, _) = states.as_slice().as_chunks::<9>();
         let places = v2s(&places);
-        let tuning = walk_tuning_of(&tuning);
+        let tuning = walk_tuning_of(tuning.as_slice());
         let mut out = Vec::with_capacity(states.len() * 10);
         on_ground(ground, |ground| {
             let on = march::walk::Walking {
@@ -2406,25 +2212,6 @@ fn walker_from(w: &[f64]) -> ground::Walker {
     }
 }
 
-/// [walk_face_travel, bodies_ground_drag, bodies_ground_block, stamina_climb, stamina_swim,
-/// stamina_spent, ground_cliff_quarters, fall_damage_per_cell, fall_mass_power].
-fn walk_tuning_of(tuning: &PackedFloat64Array) -> march::walk::WalkTuning {
-    let t = tuning.as_slice();
-    march::walk::WalkTuning {
-        face_travel: t[0],
-        drag: t[1],
-        block: t[2],
-        modes: march::modes::ModeTuning {
-            climb_rate: t[3],
-            swim_rate: t[4],
-            spent: t[5],
-            cliff_quarters: t[6] as i64,
-            fall_per_cell: t[7],
-            fall_mass_power: t[8],
-        },
-    }
-}
-
 fn marcher_of(u: &[f64; 11]) -> march::walk::Marcher {
     march::walk::Marcher {
         climber: march::modes::Climber {
@@ -2480,17 +2267,6 @@ fn pourers_of(rows: &PackedFloat64Array) -> Vec<march::pour::Pourer> {
             taking: (r[14] != 0.0).then(|| V2::new(r[15] as f32, r[16] as f32)),
         })
         .collect()
-}
-
-/// The share's tuning: the fight's `seed`, [discipline_per_leadership, walk_slack_loose,
-/// walk_slack_drilled] and [wounds_reach, walk_lost].
-fn share_tuning(seed: i64, slack: &[f64], reach: &[f64]) -> moving::share::ShareTuning {
-    moving::share::ShareTuning {
-        seed,
-        wounds_reach: reach[0],
-        lost: reach[1],
-        slack: [slack[0], slack[1], slack[2]],
-    }
 }
 
 /// `run` over the ground and its cache of shares.
@@ -2806,29 +2582,40 @@ impl BodyField {
     }
 
     /// The squad's pursuit as a whole as [foe, post, post x, y, home, direction, order, 1 if
-    /// returning else 0], or empty for none.
+    /// returning else 0], then the route it held its post on, if any, as [its corridor's
+    /// half width, then its points' x and y]; or empty for none.
     #[func]
     fn squad_pursuit(&self, squad: i64) -> PackedFloat64Array {
-        match self.squads.pursuit[squad as usize] {
-            Some(p) => PackedFloat64Array::from(&[
-                p.foe as f64,
-                p.post,
-                p.post_at.x as f64,
-                p.post_at.y as f64,
-                p.home,
-                p.direction as f64,
-                p.order as f64,
-                if p.returning { 1.0 } else { 0.0 },
-            ]),
-            None => PackedFloat64Array::new(),
+        let s = squad as usize;
+        let Some(p) = self.squads.pursuit[s] else { return PackedFloat64Array::new() };
+        let mut held = vec![
+            p.foe as f64,
+            p.post,
+            p.post_at.x as f64,
+            p.post_at.y as f64,
+            p.home,
+            p.direction as f64,
+            p.order as f64,
+            if p.returning { 1.0 } else { 0.0 },
+        ];
+        if let Some(route) = &self.squads.post_route[s] {
+            held.push(route.half_width);
+            held.extend(route.points.iter().flat_map(|p| [p.x as f64, p.y as f64]));
         }
+        PackedFloat64Array::from(held.as_slice())
     }
 
-    /// Sets the squad's pursuit from what `squad_pursuit` reads, or none from empty.
+    /// Sets the squad's pursuit, and the route it held its post on, from what
+    /// `squad_pursuit` reads, or none from empty.
     #[func]
     fn put_squad_pursuit(&mut self, squad: i64, pursuit: PackedFloat64Array) {
         let p = pursuit.as_slice();
-        self.squads.pursuit[squad as usize] = (p.len() == 8).then(|| squads::Pursuit {
+        self.squads.post_route_code[squad as usize] = -1; // unnamed: issued one on its return
+        self.squads.post_route[squad as usize] = (p.len() > 8).then(|| {
+            let points = p[9..].chunks(2).map(|xy| V2::new(xy[0] as f32, xy[1] as f32));
+            route::Route::new(points.collect(), p[8])
+        });
+        self.squads.pursuit[squad as usize] = (p.len() >= 8).then(|| squads::Pursuit {
             foe: p[0] as i64,
             post: p[1],
             post_at: V2::new(p[2] as f32, p[3] as f32),
@@ -2984,7 +2771,8 @@ impl BodyField {
     }
 
     /// The route the squad in `squad` follows, as GDScript's SkirmishSquad.route sets it:
-    /// its `points` and corridor's `half_width`, or none if `routed` is false.
+    /// its `points` and corridor's `half_width`, or none if `routed` is false; `object` names
+    /// the route (its instance id), whose code the squad holds (`squad_route_code`).
     #[func]
     fn squad_put_route(
         &mut self,
@@ -2992,9 +2780,52 @@ impl BodyField {
         routed: bool,
         points: PackedVector2Array,
         half_width: f64,
+        object: i64,
     ) {
-        self.squads.route[squad as usize] =
-            routed.then(|| route::Route::new(v2s(&points), half_width));
+        let s = squad as usize;
+        self.squads.route[s] = routed.then(|| route::Route::new(v2s(&points), half_width));
+        self.squads.route_code[s] = if !routed {
+            -1
+        } else if object == 0 {
+            self.squads.issue_route() // a route no object names: one of its own
+        } else {
+            let squads = &mut self.squads;
+            *self.route_objects.entry(object).or_insert_with(|| squads.issue_route())
+        };
+    }
+
+    /// Names the route coded `code` by GDScript's route `object` (its instance id): the one
+    /// SquadRoutes made for a route the crate made, so handing it back keeps its code.
+    #[func]
+    fn name_route(&mut self, code: i64, object: i64) {
+        self.route_objects.insert(object, code);
+    }
+
+    /// The corridor's half width of the route the squad in `squad` follows (0: none).
+    #[func]
+    fn squad_route_half_width(&self, squad: i64) -> f64 {
+        self.squads.route[squad as usize].as_ref().map_or(0.0, |r| r.half_width)
+    }
+
+    /// Whether the squad in `squad` saw a standing foe as the tick's perception looked
+    /// (`perception::keep`).
+    #[func]
+    fn squad_threatened(&self, squad: i64) -> bool {
+        self.squads.threatened[squad as usize]
+    }
+
+    /// Sets whether the squad in `squad` is threatened, as the perception keeps it.
+    #[func]
+    fn put_squad_threatened(&mut self, squad: i64, threatened: bool) {
+        self.squads.threatened[squad as usize] = threatened;
+        self.edits += 1;
+    }
+
+    /// The code naming the route the squad in `squad` follows (-1: none; the same code, the
+    /// same route).
+    #[func]
+    fn squad_route_code(&self, squad: i64) -> i64 {
+        self.squads.route_code[squad as usize]
     }
 
     /// The points of the route the squad in `squad` follows (none: a straight lane).
@@ -3142,158 +2973,101 @@ impl BodyField {
         moving::regrouping(&self.squads, squad as usize)
     }
 
-    /// ScrumSeek.foe_ids: the ids of the squads of `listed` (squad slots) the squad fights;
-    /// `factions` each listed squad's faction (as a code), and its own `faction`.
+    /// FormationManoeuvre.step over `roster`'s squads: each one's manoeuvre this tick
+    /// (`scrum::pass::manoeuvre`).
     #[func]
-    fn squad_foe_ids(
-        &self,
-        squad: i64,
-        listed: PackedInt32Array,
-        factions: PackedInt32Array,
-        faction: i64,
-    ) -> PackedInt64Array {
-        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
-        let foes = locks::foe_ids(
-            &self.squads,
-            squad as usize,
-            &usizes(&listed),
-            &factions,
-            faction as u32,
-        );
-        PackedInt64Array::from(foes.as_slice())
-    }
-
-    /// FormationManoeuvre.step over `cases`, flat: per squad its slot, whether it is
-    /// withdrawing and skirmishing, how many living units follow, and each one's id and store
-    /// slot (only for a squad that narrowed through a gap).
-    #[func]
-    fn manoeuvre_step(&mut self, cases: PackedInt64Array) {
-        let flat = cases.as_slice();
-        let mut out = Vec::new();
-        let mut at = 0;
-        while at < flat.len() {
-            let count = flat[at + 3] as usize;
-            let living =
-                (0..count).map(|n| (flat[at + 4 + 2 * n], flat[at + 5 + 2 * n] as usize)).collect();
-            out.push(manoeuvre::Case {
-                squad: flat[at] as usize,
-                withdrawing: flat[at + 1] != 0,
-                skirmishing: flat[at + 2] != 0,
-                living,
-            });
-            at += 4 + 2 * count;
-        }
-        manoeuvre::step(&mut self.squads, &mut self.field.columns, &out);
+    fn scrum_manoeuvre(&mut self, roster: Gd<SquadRoster>) {
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        scrum::pass::manoeuvre(squads, columns, &roster.roster);
         self.edits += 1;
     }
 
-    /// FormationScrum._stall: counts each fighting squad of `listed` (squad slots, in the
-    /// lists' order; `factions` theirs as codes) quiet unless it or a foe is `active` (squad
-    /// ids), and releases those stalled `ticks`. Returns their slots.
+    /// FormationScrum._stall over `roster`'s squads on `tick`: counts each fighting squad
+    /// quiet unless it or a foe is `active` (squad ids), and releases those stalled `ticks`;
+    /// each release's "disengaged" event goes to the log (`scrum::pass::stall`, `events_take`).
     #[func]
     fn scrum_stall(
         &mut self,
-        listed: PackedInt32Array,
-        factions: PackedInt32Array,
+        roster: Gd<SquadRoster>,
         active: PackedInt64Array,
         ticks: i64,
-    ) -> PackedInt32Array {
-        let listed = usizes(&listed);
-        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
-        let foes: Vec<Vec<i64>> = (0..listed.len())
-            .map(|n| locks::foe_ids(&self.squads, listed[n], &listed, &factions, factions[n]))
-            .collect();
-        let stall =
-            manoeuvre::Stall { listed: &listed, foes: &foes, active: active.as_slice(), ticks };
-        let stalled = manoeuvre::stall(&mut self.squads, &stall);
+        tick: i64,
+    ) {
+        let roster = roster.bind();
+        let rules = (active.as_slice(), ticks);
+        scrum::pass::stall(&mut self.squads, &roster.roster, rules, tick, &mut self.events);
         self.edits += 1;
-        PackedInt32Array::from_iter(stalled.into_iter().map(|s| s as i32))
     }
 
-    /// ScrumEngage.step over the listed squads (`slots`, in the lists' order): each one's
-    /// faction (a code), whether units joined it on the march, and how many living units
-    /// follow in `units` (store slots), `ats` (where each stands) and `feet` (each one's
-    /// footprint, width and depth). Returns each lock as [its index in the list, the foe's
-    /// id].
+    /// ScrumEngage.step over `roster`'s squads on `tick`: free squads lock onto the nearest
+    /// hostile their units have come within `reach_engage` of; each pick's "engaged" event
+    /// goes to the log (`scrum::pass::engage`, `events_take`).
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn engage(
+    fn scrum_engage(&mut self, roster: Gd<SquadRoster>, tick: i64, seed: i64, reach_engage: f64) {
+        let roster = roster.bind();
+        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
+        let rules = (tick, seed, reach_engage);
+        scrum::pass::engage(squads, columns, &roster.roster, rules, &mut self.events);
+        self.edits += 1;
+    }
+
+    /// FormationScrum._prepare over `roster`'s squads on `tick`: each readied for the scrum
+    /// (`scrum::prepare::prepare`).
+    #[func]
+    fn scrum_prepare(&mut self, roster: Gd<SquadRoster>, tick: i64) {
+        let roster = roster.bind();
+        scrum::prepare::prepare(&mut self.squads, &mut self.field, &roster.roster, tick);
+        self.edits += 1;
+    }
+
+    /// ScrumStance.anticipate_all over `roster`'s squads on `ground`, on `tick`: each meets
+    /// the threats it sees; stances let go are cleared and new ones taken, each its "faced"
+    /// event in the log (`scrum::prepare::anticipate`, `events_take`). `rules`:
+    /// [scrum_anticipate, discipline_per_leadership, discipline_meets_threats].
+    #[func]
+    fn scrum_stance(
         &mut self,
-        squads: PackedInt32Array,
-        factions: PackedInt32Array,
-        joined: PackedByteArray,
-        counts: PackedInt32Array,
-        units: PackedInt32Array,
-        ats: PackedVector2Array,
-        feet: PackedInt32Array,
-        reach_engage: f64,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        tick: i64,
         seed: i64,
+    ) {
+        let (anticipate, discipline) = stance_rules(rules.as_slice());
+        let lines = scrum::prepare::Lines { anticipate, seed, discipline: &discipline };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);
+        on_ground(ground, |g| {
+            scrum::prepare::anticipate(squads, field, &roster.roster, g, (&lines, tick), log)
+        });
+        self.edits += 1;
+    }
+
+    /// FormationScrum._seek over `roster`'s squads on `ground`: the field brought to the
+    /// scrum's snapshot, every fighting squad's units planned, walked and turned
+    /// (`scrum::seek::step`). `ints` = [tick, seed, combat_contest_die]; `floats` =
+    /// [reach_contact, scrum_leash, tick seconds, pace (cells a tick at speed 1),
+    /// scrum_crowding, bodies_steer_look, bodies_steer_clear, bodies_ground_drag,
+    /// bodies_ground_block, the front's least dot (ScrumReach.in_front)]. Returns the ids of
+    /// the fighting squads active this tick (the stall's).
+    #[func]
+    fn scrum_seek(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
     ) -> PackedInt64Array {
-        let points = v2s(&ats);
-        let feet = feet.as_slice();
-        let mut sides = Vec::new();
-        let mut from = 0;
-        for (n, &count) in counts.as_slice().iter().enumerate() {
-            let to = from + count as usize;
-            sides.push(engage::Side {
-                squad: squads.as_slice()[n] as usize,
-                faction: factions.as_slice()[n] as u32,
-                joined: joined.as_slice()[n] != 0,
-                slots: units.as_slice()[from..to].to_vec(),
-                at: points[from..to].to_vec(),
-                radii: (from..to)
-                    .map(|u| reach::radius(feet[2 * u] as i64, feet[2 * u + 1] as i64))
-                    .collect(),
-            });
-            from = to;
-        }
-        let picks =
-            engage::step(&mut self.squads, &mut self.field.columns, &sides, reach_engage, seed);
+        let began = Instant::now();
+        let rules = seek_rules(ints.as_slice(), floats.as_slice());
+        let roster = roster.bind();
+        let (squads, field) = (&self.squads, &mut self.field);
+        let active =
+            on_ground(ground, |g| scrum::seek::step(squads, field, &roster.roster, g, &rules));
+        self.usec = began.elapsed().as_micros() as i64;
         self.edits += 1;
-        let flat: Vec<i64> = picks.iter().flat_map(|&(n, foe)| [n as i64, foe]).collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// ScrumStance.anticipate_all over the listed squads (`slots`): each one's faction (a
-    /// code), flags (1 it has living units, 2 it meets threats as a line), bounds (`boxes`:
-    /// position and size each) and how many of the list it detects follow in `detects` (by
-    /// their indices in the list). Lets go of stances in place; returns each new one to take
-    /// as [index in the list, heading, foe].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn anticipate(
-        &mut self,
-        squads: PackedInt32Array,
-        factions: PackedInt32Array,
-        flags: PackedByteArray,
-        boxes: PackedVector2Array,
-        counts: PackedInt32Array,
-        detects: PackedInt32Array,
-        scrum_anticipate: f64,
-        seed: i64,
-    ) -> PackedFloat64Array {
-        let boxes = v2s(&boxes);
-        let detects = usizes(&detects);
-        let mut seen = Vec::new();
-        let mut from = 0;
-        for (n, &count) in counts.as_slice().iter().enumerate() {
-            let to = from + count as usize;
-            let flag = flags.as_slice()[n];
-            seen.push(stance::Seen {
-                squad: squads.as_slice()[n] as usize,
-                faction: factions.as_slice()[n] as u32,
-                living: flag & 1 != 0,
-                bounds: rect::Rect::new(boxes[2 * n], boxes[2 * n + 1]),
-                meets_threats: flag & 2 != 0,
-                detects: detects[from..to].to_vec(),
-            });
-            from = to;
-        }
-        let turns = stance::anticipate(&mut self.squads, &seen, (scrum_anticipate, seed));
-        self.edits += 1;
-        let flat: Vec<f64> =
-            turns.iter().flat_map(|t| [t.seen as f64, t.heading, t.foe as f64]).collect();
-        PackedFloat64Array::from(flat.as_slice())
+        PackedInt64Array::from(active.as_slice())
     }
 
     /// SquadRanks.close: the living units (store slots, in the squad's order), each one's
@@ -3315,6 +3089,42 @@ impl BodyField {
             })
             .collect();
         ranks::close(&mut self.field.columns, &units, width as i32);
+    }
+}
+
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationScrum.step over `roster`'s squads on `ground` as one pass
+    /// (`scrum::step::step`): engaging, readying, the stances, the manoeuvres, the seek, walk
+    /// and facing, the regroup and chasers, the withdrawal, the pursuit and the stall, their
+    /// events in the log (`events_take`). `ints`: [tick, seed, combat_contest_die, the
+    /// stall's ticks]; the rest are each phase's own binding's rules (`scrum_stance`,
+    /// `scrum_seek`'s floats, `scrum_regroup`, `scrum_withdraw`, `scrum_pursue`). Returns the
+    /// listed indices of the pursuers back at their posts, in order; the seek's time is
+    /// `usec`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn scrum_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        reach_engage: f64,
+        stance: PackedFloat64Array,
+        seek: PackedFloat64Array,
+        regroup: PackedFloat64Array,
+        withdraw: PackedFloat64Array,
+        pursue: PackedFloat64Array,
+    ) -> PackedInt32Array {
+        let phases = [&stance, &seek, &regroup, &withdraw, &pursue];
+        let rules = scrum_rules(ints.as_slice(), reach_engage, phases.map(|p| p.as_slice()));
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let scrummed =
+            on_ground(ground, |g| scrum::step::step(squads, field, &roster.roster, g, &rules, log));
+        self.usec = scrummed.seek_usec;
+        self.edits += 1;
+        scrummed.back.into_iter().map(|n| n as i32).collect()
     }
 }
 
@@ -3406,107 +3216,35 @@ impl SquadRoster {
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// ScrumRegroup.step over `roster`'s squads out of the fight, flat in the lists' order:
-    /// per squad its index in the roster, flags (1 a drilled retreat, 2 withdrawing), its
-    /// re-form pace and how many homes follow (`homes`: unit id, and where it walks back to,
-    /// in `home_at`). `rules`: [pace, seconds, reach_contact, reach_front_arc_degrees,
-    /// bodies_steer_look, bodies_steer_clear, scrum_trade_seconds].
+    /// ScrumRegroup.step and ScrumPursuit.step over `roster`'s squads on `ground`: those out
+    /// of the fight walk their units back, then the chasers chase (`scrum::regroup::step`),
+    /// each squad's say read where the crate holds it. `rules`: [pace (cells a tick at speed
+    /// 1), seconds, reach_contact, reach_front_arc_degrees, bodies_steer_look,
+    /// bodies_steer_clear, scrum_trade_seconds, cells a second at speed 1, stamina_give_up,
+    /// discipline_per_leadership, discipline_meets_threats, discipline_march_pace_at,
+    /// discipline_slowest, discipline_fastest, wounds_reach].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn regroup(
+    fn scrum_regroup(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        flags: PackedByteArray,
-        reforms: PackedFloat64Array,
-        counts: PackedInt32Array,
-        homes: PackedInt64Array,
-        home_at: PackedVector2Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
         seed: i64,
     ) {
-        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
-        let mut regroupers = Vec::with_capacity(listed.len());
-        let mut from = 0;
-        for n in 0..listed.len() {
-            let to = from + counts.as_slice()[n] as usize;
-            let flag = flags.as_slice()[n];
-            regroupers.push(regroup::Regrouper {
-                listed: listed.as_slice()[n] as usize,
-                drilled: flag & 1 != 0,
-                reform: reforms.as_slice()[n],
-                withdrawing: flag & 2 != 0,
-                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
-            });
-            from = to;
-        }
-        let r = rules.as_slice();
-        let rules = regroup::Rules {
-            pace: r[0],
-            seconds: r[1],
-            seed,
-            reach: r[2],
-            arc: r[3],
-            look: r[4],
-            clear: r[5],
-            trade_seconds: r[6],
-        };
+        let rules = regroup_rules(rules.as_slice(), seed);
         let roster = roster.bind();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        on_ground(ground, |g| {
-            regroup::step(squads, columns, &roster.roster, &regroupers, g, &rules)
-        });
+        let (squads, field) = (&mut self.squads, &mut self.field);
+        on_ground(ground, |g| scrum::regroup::step(squads, field, &roster.roster, g, &rules));
         self.edits += 1;
     }
 }
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// ScrumPursuit.step over `roster`'s squads with units out chasing, flat in the lists'
-    /// order: per squad its index in the roster and how many homes follow (`homes`: unit id,
-    /// and where it walks back to, in `home_at`). `rules`: [cells a second at speed 1,
-    /// seconds, stamina_give_up, bodies_steer_look, bodies_steer_clear].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn pursue_chasers(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        counts: PackedInt32Array,
-        homes: PackedInt64Array,
-        home_at: PackedVector2Array,
-        ground: Option<Gd<TerrainGround>>,
-        rules: PackedFloat64Array,
-        seed: i64,
-    ) {
-        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
-        let mut chasing = Vec::with_capacity(listed.len());
-        let mut from = 0;
-        for n in 0..listed.len() {
-            let to = from + counts.as_slice()[n] as usize;
-            chasing.push(pursuit::Chasing {
-                listed: listed.as_slice()[n] as usize,
-                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
-            });
-            from = to;
-        }
-        let r = rules.as_slice();
-        let rules = pursuit::Rules {
-            cells_per_second: r[0],
-            seconds: r[1],
-            give_up: r[2],
-            steering: near::Steering { look: r[3], clear: r[4], seed },
-        };
-        let roster = roster.bind();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        on_ground(ground, |g| pursuit::chase(squads, columns, &roster.roster, &chasing, g, &rules));
-        self.edits += 1;
-    }
-
     /// FormationOrders.apply over `roster`'s squads: the orders queued (`orders::queue`), in
-    /// the order given, which it takes (`orders::pass`). Per listed squad a code naming the
-    /// route it holds (-1: none, the straight lane; empty when no order retreats). `rules`:
+    /// the order given, which it takes (`orders::pass`), each squad's route as its code names
+    /// it (`squad_route_code`), and a pursuer that took its quarry's route holds its code too.
+    /// `rules`:
     /// [pursuit_tempted_within, pursuit_ragged_shock, discipline_per_leadership,
     /// discipline_meets_threats, discipline_expected_max, how many leash shares follow, the
     /// shares, the leash steps]; `bands`: morale's (`bands::BandTuning`). Its events go to the
@@ -3517,25 +3255,17 @@ impl BodyField {
     fn apply_orders(
         &mut self,
         roster: Gd<SquadRoster>,
-        routes: PackedInt64Array,
         rules: PackedFloat64Array,
         bands: PackedInt64Array,
         tick: i64,
         seed: i64,
     ) -> PackedInt64Array {
         let r = rules.as_slice();
-        let shares = r[5] as usize;
-        let discipline = discipline::DisciplineTuning {
-            per_leadership: r[2] as i64,
-            meets_threats: r[3] as i64,
-            expected_max: r[4],
-            leash_shares: r[6..6 + shares].to_vec(),
-            leash_steps: r[6 + shares..].to_vec(),
-        };
+        let discipline = orders_discipline(r);
         let bands = bands::BandTuning::of_slice(bands.as_slice());
         let roster = roster.bind();
         let given = orders::pass::Given {
-            routes: coded_routes(&self.squads, &roster.roster, &routes),
+            routes: opening::coded(&self.squads, &roster.roster),
             within: r[0],
             ragged_shock: r[1] as i64,
             discipline: &discipline,
@@ -3546,13 +3276,14 @@ impl BodyField {
         let (squads, columns) = (&mut self.squads, &mut self.field.columns);
         let applied = orders::pass::pass(squads, columns, &roster.roster, given, &mut self.events);
         self.edits += 1;
-        let mut flat: Vec<i64> = Vec::new();
+        let mut pursuers = Vec::new();
         for a in applied {
             for p in a.retreat.unwrap_or_default() {
-                flat.extend([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
+                pursuers.push([a.listed as i64, p.listed as i64, p.began as i64, p.took as i64]);
             }
         }
-        PackedInt64Array::from(flat.as_slice())
+        opening::took(&mut self.squads, &roster.roster, &pursuers);
+        PackedInt64Array::from(pursuers.as_flattened())
     }
 
     /// The events the passes have built since last taken, flat (`events::Log`); the log is
@@ -3562,14 +3293,17 @@ impl BodyField {
         PackedInt64Array::from(self.events.take().as_slice())
     }
 
-    /// Each event kind, by its index: [its type, its fields' names] (`events::KINDS`).
+    /// Each event kind, by its index: [its type, its fields' names, whether it is told of a
+    /// unit] (`events::KINDS`, `events::UNIT_LED`).
     #[func]
     fn event_kinds(&self) -> Array<Variant> {
         events::KINDS
             .iter()
-            .map(|(kind, fields)| {
+            .enumerate()
+            .map(|(n, (kind, fields))| {
                 let names: PackedStringArray = fields.iter().map(|&f| GString::from(f)).collect();
-                varray![&GString::from(*kind), &names].to_variant()
+                let unit = events::UNIT_LED.contains(&n);
+                varray![&GString::from(*kind), &names, unit].to_variant()
             })
             .collect()
     }
@@ -3580,135 +3314,68 @@ impl BodyField {
         self.field.lexicon.words().iter().map(|w| GString::from(w.as_str())).collect()
     }
 
-    /// FormationPursuit.step over `roster`'s pursuing squads (a record set, a unit living), in
-    /// the lists' order: per squad its index in the roster (`listed`), its leash, and the
-    /// route it held its post on, as how many of its points follow in `points` (-1: none);
-    /// the route it is on is the one it holds. `rules`: [cells a second at speed 1, seconds, stamina_give_up,
-    /// reach_pursuit_lag]. Returns three numbers a pursuit that ended or arrived back, in
-    /// order: 0 ended or 1 arrived, the squad's index in the roster, and the way it is to
-    /// face along its own route (arrived; else 0).
+    /// FormationPursuit.step over `roster`'s squads on `tick` (`scrum::pursue::step`): each
+    /// pursuer's routes and leash read in the crate, then it advances after its enemy, gives
+    /// up ("pursuit_ended") or, back at its post, takes up the route it held it on and turns
+    /// to face the way it held it ("turning", "turned"), in the log (`events_take`). `rules`:
+    /// [cells a second at speed 1, seconds, stamina_give_up, reach_pursuit_lag,
+    /// discipline_per_leadership, discipline_expected_max, how many leash shares, the
+    /// shares, then the leash steps]. Returns the listed indices of those back at their
+    /// posts, in order.
     #[func]
-    fn pursue(
+    fn scrum_pursue(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        leashes: PackedFloat64Array,
-        counts: PackedInt32Array,
-        points: PackedVector2Array,
         rules: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let points = v2s(&points);
-        let mut from = 0;
-        let mut route = |count: i32| {
-            let count = usize::try_from(count).ok()?;
-            from += count;
-            Some(route::Route::new(points[from - count..from].to_vec(), 0.0))
-        };
+        tick: i64,
+    ) -> PackedInt32Array {
+        let rules = pursue_rules(rules.as_slice(), tick);
         let roster = roster.bind();
-        let mut pursuing = Vec::with_capacity(listed.len());
-        for n in 0..listed.len() {
-            let index = listed.as_slice()[n] as usize;
-            pursuing.push(pursuit::whole::Pursuing {
-                listed: index,
-                route: self.squads.route[roster.roster.listed[index].squad].clone(),
-                held: route(counts.as_slice()[n]),
-                leash: leashes.as_slice()[n],
-            });
-        }
-        let r = rules.as_slice();
-        let rules = pursuit::whole::Rules {
-            cells_per_second: r[0],
-            seconds: r[1],
-            give_up: r[2],
-            lag: r[3],
-        };
-        let (squads, columns) = (&mut self.squads, &self.field.columns);
-        let out = pursuit::whole::step(squads, columns, &roster.roster, &pursuing, &rules);
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let back = scrum::pursue::step(squads, field, &roster.roster, &rules, log);
         self.edits += 1;
-        let flat: Vec<i64> = out
-            .iter()
-            .flat_map(|p| match *p {
-                pursuit::whole::Pursued::Ended(n) => [0, n as i64, 0],
-                pursuit::whole::Pursued::Arrived(n, way) => [1, n as i64, way as i64],
-            })
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
+        back.into_iter().map(|n| n as i32).collect()
     }
 }
 
-/// Each listed squad's route as [its code, the route it holds]: `codes` one a squad in
-/// `roster` (-1 for none).
-fn coded_routes(
-    squads: &Squads,
-    roster: &roster::Roster,
-    codes: &PackedInt64Array,
-) -> Vec<orders::Coded> {
-    let held = |n: usize| squads.route[roster.listed[n].squad].clone();
-    codes
-        .as_slice()
-        .iter()
-        .enumerate()
-        .map(|(n, &code)| (code, if code >= 0 { held(n) } else { None }))
-        .collect()
+/// What the opening did, flat as `opening_step` returns it.
+fn opened_flat(opened: &opening::Opened) -> Vec<i64> {
+    let mut flat = vec![opened.pursuers.len() as i64];
+    flat.extend(opened.pursuers.iter().flatten());
+    flat.push(opened.followed.len() as i64);
+    flat.extend(opened.followed.iter().map(|&s| s as i64));
+    for one in &opened.seen {
+        flat.push(one.len() as i64);
+        flat.extend(one.iter().map(|&n| n as i64));
+    }
+    flat.extend(opened.joins.iter().flat_map(|&(l, j)| [l as i64, j as i64]));
+    flat
 }
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationWithdraw.step over `roster`'s squads: those routing or destroyed withdraw no
-    /// more; then `listed` (flat in the lists' order, those still withdrawing) flee: per
-    /// squad its index in the roster, its disorder, its re-form pace, its home along the
-    /// route it holds (cells), and its living units' own flight angles in `fans`, in its
-    /// order. `rules`: [pace, seconds,
-    /// reach_contact, rout_enemy_near, rout_fan_cells, rout_rally_seconds]. Returns three
-    /// numbers a squad that re-formed, in order: its index in the roster, the way it now
-    /// faces along its route, and 1 if it is home and holds (else 0).
+    /// FormationWithdraw.step over `roster`'s squads on `tick` (`scrum::withdraw::step`):
+    /// those routing or destroyed withdraw no more; the rest flee, each one's disorder,
+    /// re-form pace, home and its units' flight angles (seeded by `seed`) read in the crate,
+    /// and those safe long enough, or home, re-form, their turns, "regrouping" and
+    /// "returned" in the log (`events_take`). `rules`: [pace, seconds, reach_contact,
+    /// rout_enemy_near, rout_fan_cells, rout_rally_seconds, rout_fan_degrees,
+    /// discipline_per_leadership, discipline_meets_threats, discipline_march_pace_at,
+    /// discipline_slowest, discipline_fastest].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn withdraw(
+    fn scrum_withdraw(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        orders: PackedFloat64Array,
-        fans: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
-    ) -> PackedInt64Array {
+        tick: i64,
+        seed: i64,
+    ) {
+        let rules = withdraw_rules(rules.as_slice(), tick, seed);
         let roster = roster.bind();
-        withdraw::ended(&mut self.squads, &roster.roster);
-        let (orders, fans) = (orders.as_slice(), fans.as_slice());
-        let mut withdrawing = Vec::with_capacity(listed.len());
-        let mut fanned = 0;
-        for n in 0..listed.len() {
-            let index = listed.as_slice()[n] as usize;
-            let living = roster.roster.listed[index].living.len();
-            let held = self.squads.route[roster.roster.listed[index].squad].clone();
-            withdrawing.push(withdraw::Withdrawing {
-                listed: index,
-                pursued: withdraw::pursued(&self.squads, &roster.roster, index),
-                disorder: orders[3 * n],
-                reform: orders[3 * n + 1],
-                home: orders[3 * n + 2],
-                route: held.expect("a withdrawing squad has a route"),
-                fans: fans[fanned..fanned + living].to_vec(),
-            });
-            fanned += living;
-        }
-        let r = rules.as_slice();
-        let tuning =
-            withdraw::Rules { pace: r[0], seconds: r[1], reach: r[2], near: r[3], fan_cells: r[4] };
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let out = on_ground(ground, |g| {
-            withdraw::step(squads, columns, &roster.roster, &withdrawing, g, &tuning)
-        });
-        let timing = (r[1], r[5]);
-        let reformed =
-            withdraw::records(squads, columns, &roster.roster, &withdrawing, &out, timing);
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        on_ground(ground, |g| scrum::withdraw::step(squads, field, &roster.roster, g, &rules, log));
         self.edits += 1;
-        let flat: Vec<i64> = reformed
-            .iter()
-            .flat_map(|w| [w.listed as i64, w.homeward as i64, w.arrived as i64])
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
     }
 
     /// FormationMarch.check_ends, the squad in `squad`, `along` as [front, home, order,
@@ -3743,8 +3410,8 @@ impl BodyField {
         PackedFloat64Array::from(ended.as_slice())
     }
 
-    /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`): per
-    /// listed squad its route's code (`routes`, FormationStaging's); `tuning`: [TRAVEL_SCALE,
+    /// FormationSimulation._move over `roster`'s squads on `ground` (`moving::pass`), each
+    /// squad's route named by its code (`squad_route_code`); `tuning`: [TRAVEL_SCALE,
     /// seconds a tick, the lane's length (tiles), discipline_per_leadership, walk_slack_loose,
     /// walk_slack_drilled, bodies_ground_drag, bodies_ground_block, wounds_reach, walk_lost].
     /// Each squad's share of its pace is worked out here (`moving::share`, by the fight's
@@ -3755,7 +3422,6 @@ impl BodyField {
     fn move_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        routes: PackedInt32Array,
         ground: Option<Gd<TerrainGround>>,
         tick: i64,
         seed: i64,
@@ -3763,16 +3429,8 @@ impl BodyField {
     ) -> PackedInt32Array {
         let roster = roster.bind();
         let t = tuning.as_slice();
-        let routes: Vec<u32> = routes.as_slice().iter().map(|&code| code as u32).collect();
-        let given = moving::pass::Given {
-            routes: &routes,
-            tick,
-            travel_scale: t[0],
-            seconds: t[1],
-            route_length: t[2],
-            share: share_tuning(seed, &t[3..6], &t[8..10]),
-            drag: [t[6], t[7]],
-        };
+        let routes = opening::routes(&self.squads, &roster.roster);
+        let given = moving_given(&routes, tick, seed, t);
         let (squads, field, events) = (&mut self.squads, &mut self.field, &mut self.events);
         let joiners = on_ground(ground, |g| {
             moving::pass::step(squads, field, &roster.roster, g, &given, events)
@@ -3780,6 +3438,43 @@ impl BodyField {
         let joins = joins::step(squads, field, &roster.roster, &joiners, seed, tick, events);
         self.edits += 1;
         joins.into_iter().flat_map(|(leader, joining)| [leader as i32, joining as i32]).collect()
+    }
+
+    /// FormationSimulation's opening over `roster`'s squads on `ground` (`opening::step`): the
+    /// orders queued, the perception, the fronts and edges, the pathing (on ground only) and
+    /// the move with its joins, every pass's events in the log (`events_take`), each squad's
+    /// route named by its code (`squad_route_code`). `ints`: [tick, seed]; `orders`:
+    /// `apply_orders`' rules; `bands`: morale's; `impacts`: `contact_edges`'; `looks`:
+    /// `path_step`'s; `moving`: `move_step`'s. Returns, flat: how many pursuers, four numbers
+    /// each (`apply_orders`'); how many slots re-routed, then each; per listed squad how many
+    /// it sees, then their indices; then the joins as pairs of listed indices to the end.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn opening_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        orders: PackedFloat64Array,
+        bands: PackedInt64Array,
+        impacts: PackedInt64Array,
+        looks: PackedFloat64Array,
+        moving: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let (climb, rules) = opening_rules(
+            [&ints, &bands, &impacts].map(|p| p.as_slice()),
+            [&orders, &looks, &moving].map(|p| p.as_slice()),
+        );
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let opened = match ground {
+            Some(ground) => on_paths(ground, climb, |over| {
+                opening::step(squads, field, &roster.roster, Some(over), &rules, log)
+            }),
+            None => opening::step(squads, field, &roster.roster, None, &rules, log),
+        };
+        self.edits += 1;
+        PackedInt64Array::from(opened_flat(&opened).as_slice())
     }
 
     /// FormationWalk.share for `roster`'s only squad on `ground` (`moving::share`), by the
@@ -3814,14 +3509,7 @@ impl BodyField {
         seed: i64,
         tuning: PackedFloat64Array,
     ) -> PackedInt32Array {
-        let t = tuning.as_slice();
-        let climb = paths::PathTuning {
-            cliff_quarters: t[4] as i64,
-            stamina_climb: t[5],
-            stamina_swim: t[6],
-        };
-        let look = pathing::LookTuning { look: t[1], detour_gain: t[2], sight_budget: t[3] };
-        let looks = pathing::pass::Looks { relook: t[0], look };
+        let (climb, looks) = looks_of(tuning.as_slice());
         let listed: Vec<usize> = squads.as_slice().iter().map(|&s| s as usize).collect();
         let (field, events) = (&self.field, &mut self.events);
         let followed = on_paths(ground, climb, |over| {
@@ -3845,6 +3533,13 @@ impl BodyField {
     fn put_sight(&mut self, code: i64, sight: PackedFloat64Array) {
         let s = sight.as_slice();
         self.field.put_sight(code as usize, [s[0], s[1], s[2], s[3]]);
+    }
+
+    /// Keeps the marching speed of the definition coded `code` (UnitStore.definition_code),
+    /// which a bearer's pace is a share of.
+    #[func]
+    fn put_speed(&mut self, code: i64, speed: f64) {
+        self.field.put_speed(code as usize, speed);
     }
 }
 
@@ -3937,16 +3632,18 @@ impl BodyField {
     }
 
     /// FormationPerception.see over `roster`'s squads: per squad, in the lists' order, how
-    /// many it detects and then their indices.
+    /// many it detects and then their indices; each one's threat kept (`squad_threatened`).
     #[func]
     fn perception_see(
-        &self,
+        &mut self,
         roster: Gd<SquadRoster>,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt32Array {
         let roster = roster.bind();
         let (squads, columns) = (&self.squads, &self.field.columns);
         let seen = on_ground(ground, |g| perception::see(squads, columns, &roster.roster, g));
+        perception::keep(&mut self.squads, &roster.roster, &seen);
+        self.edits += 1;
         let mut flat = Vec::new();
         for one in seen {
             flat.push(one.len() as i32);
@@ -3999,103 +3696,58 @@ impl BodyField {
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// GroupSplit.step's decisions over `roster`'s squads. Per candidate (at ease, on a
-    /// route), in `candidates`: its index in the roster and 1 if its frame waits for every
-    /// unit, on the route it holds; and per living unit, in its order, 1 in `taking` if it is out taking a downed foe and its swap offset
-    /// in `offsets`. `rules`: [walk_lost, group_join, cells per tile]. Returns per split, in
-    /// the order they are numbered: [its candidate, its front (tiles), its unit count, then
-    /// its units (indices into its squad's living) in the order they line up].
+    /// FormationGroups.step as one pass (`groups::pass::step`) over `roster`'s squads: the
+    /// groups fallen behind split off, each opened with the battle's next id, then the groups
+    /// at ease forming up, every meeting landed, their events in the log; each squad's route
+    /// named by its code (`squad_route_code`), a split's group holding its own squad's.
+    /// `rules`: [walk_lost, group_join,
+    /// cells per tile]; `at`: [tick, seed]. Returns what it did, in order: [0, the listed squad
+    /// split from, the slot opened, count, its units' ids...] a split; [1, taker, taken] a group taken in; [2, from, home, count, unit
+    /// ids...] units gone back. A squad by its index in the lists, the groups split off listed
+    /// after them in the order opened.
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn group_split(
-        &self,
+    fn groups_step(
+        &mut self,
         roster: Gd<SquadRoster>,
-        candidates: PackedInt32Array,
-        taking: PackedByteArray,
-        offsets: PackedVector2Array,
         rules: PackedFloat64Array,
-        seed: i64,
-    ) -> PackedFloat64Array {
-        let roster = roster.bind();
-        let (offsets, taking) = (v2s(&offsets), taking.as_slice());
-        let (rows, _) = candidates.as_slice().as_chunks::<2>();
-        let mut list = Vec::with_capacity(rows.len());
-        let mut unit = 0;
-        for row in rows {
-            let listed = row[0] as usize;
-            let living = roster.roster.listed[listed].living.len();
-            let held = self.squads.route[roster.roster.listed[listed].squad].clone();
-            list.push(split::Candidate {
-                listed,
-                waits: row[1] != 0,
-                route: held.expect("a group splitting is on a route"),
-                taking: taking[unit..unit + living].iter().map(|&t| t != 0).collect(),
-                offsets: offsets[unit..unit + living].to_vec(),
-            });
-            unit += living;
-        }
-        let r = rules.as_slice();
-        let rules = split::Rules { lost: r[0], join: r[1], seed, cells_per_tile: r[2] };
-        let splits = split::step(&self.squads, &self.field.columns, &roster.roster, &list, &rules);
-        let mut out = Vec::new();
-        for s in splits {
-            out.extend([s.candidate as f64, s.front, s.members.len() as f64]);
-            out.extend(s.members.iter().map(|&u| u as f64));
-        }
-        PackedFloat64Array::from(&out[..])
-    }
-
-    /// FormationGroups._form_up's decisions over `roster`'s squads (the groups at ease with
-    /// living units). `groups`: per group [its command, its route] (codes). `followers`: per
-    /// living unit, in each group's order, [1 if it leads + 2 if it joins + 4 if it gathers,
-    /// the command it started under (-1: none)]. Returns each meeting's outcome in the order
-    /// it lands: [0, taker, taken] for a group taken in, or [1, from, home, count, unit ids...]
-    /// for units going back to the command they started under.
-    #[func]
-    fn group_form_up(
-        &self,
-        roster: Gd<SquadRoster>,
-        groups: PackedInt32Array,
-        followers: PackedInt32Array,
-        join: f64,
-        seed: i64,
+        at: PackedInt64Array,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let (g, f) = (groups.as_slice(), followers.as_slice());
-        let mut list = Vec::with_capacity(roster.roster.listed.len());
-        let mut unit = 0;
-        for (n, listed) in roster.roster.listed.iter().enumerate() {
-            let followers = (unit..unit + listed.living.len())
-                .map(|u| groups::Follower {
-                    leads: f[2 * u] & 1 != 0,
-                    joins: f[2 * u] & 2 != 0,
-                    gathers: f[2 * u] & 4 != 0,
-                    origin: (f[2 * u + 1] >= 0).then_some(f[2 * u + 1] as u32),
-                })
-                .collect();
-            unit += listed.living.len();
-            list.push(groups::Group {
-                command: g[2 * n] as u32,
-                route: g[2 * n + 1] as u32,
-                followers,
-            });
-        }
-        let meetings =
-            groups::form_up(&self.squads, &self.field.columns, &roster.roster, &list, join, seed);
-        let mut out = Vec::new();
-        for meeting in meetings {
-            match meeting {
-                groups::Meeting::Taken { taker, taken } => {
-                    out.extend([0, taker as i64, taken as i64])
-                }
-                groups::Meeting::Returned { from, home, units } => {
-                    out.extend([1, from as i64, home as i64, units.len() as i64]);
-                    out.extend(units);
-                }
+        let (&[lost, join, cells_per_tile], &[tick, seed]) = (rules.as_slice(), at.as_slice())
+        else {
+            return PackedInt64Array::new();
+        };
+        let rules = split::Rules { lost, join, seed, cells_per_tile };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let landed = groups::pass::step(squads, field, &roster.roster, &rules, tick, log);
+        self.edits += 1;
+        let split = groups::pass::split_ids(&landed, &roster.roster);
+        PackedInt64Array::from(&grouped_flat(&landed, &split)[..])
+    }
+}
+
+/// What the groups did, as `groups_step` returns it: [0, from, slot, count, unit ids...] a
+/// split (its units' ids `split`, a list a split in order), [1, taker, taken] a group taken in,
+/// [2, from, home, count, unit ids...] units gone back.
+fn grouped_flat(landed: &[groups::pass::Landed], split: &[Vec<i64>]) -> Vec<i64> {
+    let mut out = Vec::new();
+    let mut ids = split.iter();
+    for done in landed {
+        match done {
+            groups::pass::Landed::Split { from, slot, members } => {
+                out.extend([0, *from as i64, *slot as i64, members.len() as i64]);
+                out.extend(ids.next().into_iter().flatten());
+            }
+            groups::pass::Landed::Taken { taker, taken } => {
+                out.extend([1, *taker as i64, *taken as i64])
+            }
+            groups::pass::Landed::Returned { from, home, units } => {
+                out.extend([2, *from as i64, *home as i64, units.len() as i64]);
+                out.extend(units);
             }
         }
-        PackedInt64Array::from(&out[..])
     }
+    out
 }
 
 /// Closing up, taking in, strays and staging (spec 39 step 5b).
@@ -4118,67 +3770,52 @@ impl BodyField {
         PackedInt32Array::from_iter(moved.into_iter().map(|n| n as i32))
     }
 
-    /// FormationShuffle.step's swaps under way for the squad in squad slot `squad`, as it
-    /// holds them (`swaps::end_held`): `living` its living units as squad_compact takes them,
-    /// `units` the store slots of all its units. Returns, for each swap that ended in the
-    /// order it did: its mover's id, how many units it passed and their ids, then how many
-    /// stepped up after it and each one's index into `living` and rank.
+    /// FormationShuffle.step over the squads in squad slots `listed`, in the lists' order
+    /// (`swaps::pass::step`): each one's swaps under way end, "swapped" (unit, passed) and
+    /// "stepped_up" in the log, then a re-forming squad starts every move it can, each
+    /// unit's place, footprint, band, priority, pace and whether it joined read here, and
+    /// stops re-forming once none starts and none is under way. `pace`: [tick seconds, cells
+    /// a second at speed 1, scrum_crowding].
     #[func]
-    fn squad_swaps_end(
-        &mut self,
-        squad: i64,
-        living: PackedInt64Array,
-        units: PackedInt32Array,
-    ) -> PackedInt64Array {
-        let units: Vec<usize> = units.as_slice().iter().map(|&slot| slot as usize).collect();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let ended = swaps::end_held(squads, columns, squad as usize, &closers(&living), &units);
-        let mut out: Vec<i64> = Vec::new();
-        for one in ended {
-            out.extend_from_slice(&[one.mover, one.passed.len() as i64]);
-            out.extend_from_slice(&one.passed);
-            out.push(one.stepped.len() as i64);
-            for (n, rank) in one.stepped {
-                out.extend_from_slice(&[n as i64, rank as i64]);
-            }
-        }
-        PackedInt64Array::from(&out[..])
+    fn shuffle_step(&mut self, listed: PackedInt32Array, pace: PackedFloat64Array, tick: i64) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let p = pace.as_slice();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        swaps::pass::step(squads, field, &listed, ([p[0], p[1], p[2]], tick), log);
+        self.edits += 1;
     }
 
-    /// FormationShuffle._start_moves for the squad in squad slot `squad`: the moves `shape`
-    /// [width, combat width, centre shift, fighting] can start round the moves it holds, its
-    /// living units given by [id, store slot] in `living` and seven numbers each in `units`
-    /// (rank, column, footprint width and depth, band, priority, joined) at `speeds`, at
-    /// `pace` = [tick seconds, cells a second at speed 1, scrum_crowding]. It holds each move
-    /// it starts (`swaps::begin`). True if any started.
+    /// FormationMarch.sync_units over the listed squads (their slots, in the lists' order;
+    /// `march::sync::step`): each living unit's distance along the route, a router on its
+    /// route, a loose one where it stood; with `timing` empty each in its frame placed,
+    /// facing the heading, else ([seconds, cells a second at speed 1]) walked a tick on
+    /// `ground` to where it makes for over the bodies lying, a fall from a climb face hurting
+    /// it. `tuning`: CrateMarch.walk_tuning, then wounds_reach.
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn squad_start_moves(
+    fn march_sync(
         &mut self,
-        squad: i64,
-        living: PackedInt64Array,
-        shape: PackedFloat64Array,
-        units: PackedInt32Array,
-        speeds: PackedFloat64Array,
-        pace: PackedFloat64Array,
-    ) -> bool {
-        let (pairs, _) = living.as_slice().as_chunks::<2>();
-        let living: Vec<(i64, usize)> = pairs.iter().map(|p| (p[0], p[1] as usize)).collect();
-        let slots: Vec<usize> = living.iter().map(|&(_, slot)| slot).collect();
-        let (claimed, busy) = swaps::claims(&self.squads, squad as usize, &slots);
-        let ranked = ranked_of(&units, &speeds);
-        let started = march::shuffle::start_moves(
-            &shuffle_squad(&shape),
-            &ranked,
-            &claimed,
-            &busy,
-            pace_of(&pace),
-        );
-        let places: Vec<(i32, i32)> = ranked.iter().map(|r| r.place).collect();
-        let feet: Vec<(i32, i32)> =
-            ranked.iter().map(|r| (r.footprint_width, r.footprint_depth)).collect();
-        swaps::begin(&mut self.squads, squad as usize, &started, &living, &places, &feet);
-        !started.is_empty()
+        listed: PackedInt32Array,
+        timing: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+        seed: i64,
+        tuning: PackedFloat64Array,
+    ) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let t = timing.as_slice();
+        let timing = (t.len() >= 2).then(|| [t[0], t[1]]);
+        let wounds_reach = tuning.as_slice()[9];
+        let (squads, field) = (&self.squads, &mut self.field);
+        on_ground(ground, |ground| {
+            let given = march::sync::Given {
+                ground,
+                timing,
+                seed,
+                wounds_reach,
+                tuning: walk_tuning_of(tuning.as_slice()),
+            };
+            march::sync::step(squads, field, &listed, &given);
+        });
+        self.edits += 1;
     }
 
     /// How far each unit in the squad in `squad`'s held swaps is through its move, three
@@ -4341,23 +3978,19 @@ impl BodyField {
         PackedInt32Array::from_iter(took.stepped.into_iter().map(|n| n as i32))
     }
 
-    /// FormationStrays.strand's setting off: the unit `unit_id` in store slot `slot`, alone
-    /// in the stray squad in squad slot `stray`, flees home along the route it holds from
-    /// where it stands. Returns the stray squad's front (tiles along the route).
+    /// FormationStrays.adopt as one pass (`strays::adopt`): each stray (two numbers in
+    /// `strays`: its squad's slot, its unit's store slot) taken out of its squad and set off
+    /// home alone as a routing squad the crate opens, numbered from the ids the battle issues
+    /// in their draws' order under `seed`. Returns two numbers a stray, in the order
+    /// numbered: [its index in `strays`, the squad slot opened for it].
     #[func]
-    fn stray_set_off(&mut self, stray: i64, unit_id: i64, slot: i64) -> f64 {
-        let held = self.squads.route[stray as usize].clone();
-        let route = held.expect("a stray flees along its squad's route");
-        let unit = (unit_id, slot as usize);
-        strays::set_off(&mut self.squads, &mut self.field.columns, stray as usize, unit, &route)
-    }
-
-    /// FormationStrays.adopt's order: the indices of the strays' unit ids in the order their
-    /// squads are numbered.
-    #[func]
-    fn strays_numbered(&self, ids: PackedInt64Array, seed: i64) -> PackedInt32Array {
-        let order = strays::numbered(ids.as_slice(), seed);
-        PackedInt32Array::from_iter(order.into_iter().map(|n| n as i32))
+    fn strays_adopt(&mut self, strays: PackedInt32Array, seed: i64) -> PackedInt32Array {
+        let (rows, _) = strays.as_slice().as_chunks::<2>();
+        let pairs: Vec<(usize, usize)> =
+            rows.iter().map(|&[a, b]| (a as usize, b as usize)).collect();
+        let opened = strays::adopt(&mut self.squads, &mut self.field, &pairs, seed);
+        self.edits += 1;
+        PackedInt32Array::from_iter(opened.into_iter().flat_map(|(n, s)| [n as i32, s as i32]))
     }
 
     /// The hold-until order the squad in `squad` holds, as FormationStaging reads it: {"at",
@@ -4440,52 +4073,24 @@ fn closers(living: &PackedInt64Array) -> Vec<compact::Closer> {
 /// Stamina (spec 39 step 6a).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationStamina.step: one tick of `seconds`. `squads`: two numbers a squad, its squad
-    /// slot and its flags (1 pursuing, 2 on its way back, 4 hurried); `counts`: its living
-    /// units' count; `ints`: four numbers a unit, its id, store slot, load stage and flags (1
-    /// leads, 2 "pursues_at_march", 4 "retreats_at_march"); `reals`: six a unit, its fresh
-    /// speed, most stamina, tiring, run pace, wits and constitution. `tuning`: stamina_run,
-    /// stamina_delay, stamina_recovery, run_build_seconds, run_reaction,
-    /// condition_cap, stamina_tired, stamina_spent, the three stamina_pace, then
-    /// load_march_tiring.
+    /// FormationStamina.step as one pass (`stamina::pass`, spec 39 step 8b5-xxxi): one tick
+    /// of `seconds` over the squads in squad slots `listed`, in the lists' order, each
+    /// squad's pursuit and hurry and each living unit's numbers, traits and attributes read
+    /// here. `tuning`: stamina_run, stamina_delay, stamina_recovery, run_build_seconds,
+    /// run_reaction, condition_cap, stamina_tired, stamina_spent, the three stamina_pace,
+    /// then load_march_tiring. Returns the ids of the units made by hand that took their
+    /// speed as fresh.
     #[func]
     fn stamina_step(
         &mut self,
-        squads: PackedInt64Array,
-        counts: PackedInt32Array,
-        ints: PackedInt64Array,
-        reals: PackedFloat64Array,
+        listed: PackedInt32Array,
         seconds: f64,
         tuning: PackedFloat64Array,
-    ) {
-        let listed = paced(&squads, &counts, &ints, &reals);
-        let t = tuning.as_slice();
-        let tuning = stamina::StaminaTuning {
-            run: t[0],
-            delay: t[1],
-            recovery: t[2],
-            run_build_seconds: t[3],
-            run_reaction: t[4],
-            condition_cap: t[5],
-            tired: t[6],
-            spent: t[7],
-            pace: t[8..11].to_vec(),
-            march_tiring: t[11..].to_vec(),
-        };
-        stamina::step(&self.squads, &mut self.field.columns, &listed, seconds, &tuning);
-    }
-
-    /// FormationStamina.strike: `blow` stamina times each striker's tiring spent, in the
-    /// blows' order (`slots` and `tirings`, one a blow).
-    #[func]
-    fn stamina_strike(&mut self, slots: PackedInt32Array, tirings: PackedFloat64Array, blow: f64) {
-        let strikers: Vec<(usize, f64)> = slots
-            .as_slice()
-            .iter()
-            .zip(tirings.as_slice())
-            .map(|(&slot, &tiring)| (slot as usize, tiring))
-            .collect();
-        stamina::strike(&mut self.field.columns, &strikers, blow);
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let tuning = stamina_tuning(tuning.as_slice());
+        let made = stamina::pass::step(&self.squads, &mut self.field, &listed, seconds, &tuning);
+        PackedInt64Array::from(made.as_slice())
     }
 
     /// FormationStamina.squad_gives_up: its living units' store `slots` and most stamina.
@@ -4506,733 +4111,909 @@ impl BodyField {
     }
 }
 
-/// The squads as stamina_step is given them.
-fn paced(
-    squads: &PackedInt64Array,
-    counts: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-) -> Vec<stamina::Paced> {
-    let (squad_rows, _) = squads.as_slice().as_chunks::<2>();
-    let (int_rows, _) = ints.as_slice().as_chunks::<4>();
-    let (real_rows, _) = reals.as_slice().as_chunks::<6>();
-    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| stamina::Gaited {
-        id: i[0],
-        slot: i[1] as usize,
-        load_stage: i[2],
-        leads: i[3] & 1 != 0,
-        pursues_at_march: i[3] & 2 != 0,
-        retreats_at_march: i[3] & 4 != 0,
-        fresh_speed: r[0],
-        max_stamina: r[1],
-        tiring: r[2],
-        run_pace: r[3],
-        wits: r[4],
-        constitution: r[5],
-    });
-    squad_rows
-        .iter()
-        .zip(counts.as_slice())
-        .map(|(s, &count)| stamina::Paced {
-            squad: s[0] as usize,
-            pursuing: s[1] & 1 != 0,
-            returning: s[1] & 2 != 0,
-            hurry: s[1] & 4 != 0,
-            living: units.by_ref().take(count as usize).collect(),
-        })
-        .collect()
-}
-
 /// The downed: the fallen, the takers, surrender and recovery (spec 39 step 6b).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationDeaths.bury's fates, for the fallen in the order they are buried (`slots` and
-    /// `constitutions`, one a unit): -1 if it dies, else the wounds it takes. The downed's hp
-    /// is put to 0 and their time downed is to be reckoned.
+    /// FormationDeaths.bury over the squads in squad slots `listed`, in the lists' order
+    /// (`deaths::bury::bury`): the fell queue taken, each fallen unit still standing at 0 hp
+    /// or below dying or downed with the squad it is in now, its state and wounds written,
+    /// "died" or "downed", "leader_fell", "morale_band", "stepped_up" and "destroyed" in the
+    /// log, the losses' shock, the ranks closed up and the squads left with no one destroyed
+    /// and released. `bands` as BandTuning.of_slice reads it. Returns three numbers a unit
+    /// buried, in the order buried: [its squad's index in `listed`, its id, the wounds it
+    /// bears now if downed, else -1].
     #[func]
-    fn deaths_fate(
+    fn deaths_bury(
         &mut self,
-        slots: PackedInt32Array,
-        constitutions: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let fallen: Vec<(usize, f64)> = slots
-            .as_slice()
-            .iter()
-            .zip(constitutions.as_slice())
-            .map(|(&slot, &constitution)| (slot as usize, constitution))
-            .collect();
-        let fates = deaths::fate(&mut self.field.columns, &fallen);
-        fates.iter().map(|fate| fate.unwrap_or(-1)).collect()
-    }
-
-    /// FormationWounds.tend: this tick's takings of the downed. `counts`: two numbers a squad
-    /// in the lists' order, how many living units follow and then how many downed (not borne)
-    /// bodies; `ints`: eight a unit, its id, store slot, faction (a code), flags (1 a captor, 2
-    /// leads, 4 playing dead), messengers left, damage, "cunning" and "thorough"; `reals`:
-    /// three a unit, its wits, constitution and melee seconds. `tuning`: as `wounds_tuning`.
-    /// Returns five numbers a body taken, in order: [what (0 captured, 1 sent home, 2
-    /// finished), the body's squad, its index in that squad's downed, then the captor's or
-    /// leader's squad and its index in that squad's living, or 0, 0].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn wounds_tend(
-        &mut self,
-        counts: PackedInt32Array,
-        ints: PackedInt64Array,
-        reals: PackedFloat64Array,
-        interval: i64,
-        seed: i64,
-        tuning: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let squads = tended(&counts, &ints, &reals);
-        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
-        let tending = wounds::tend(&mut self.field.columns, &squads, interval, seed, &tuning);
-        for id in tending.fell {
-            self.field.fell(id);
-        }
-        let mut out = vec![];
-        for taken in tending.taken {
-            let (what, body, other) = match taken {
-                wounds::Taken::Captured { body, by } => (0, body, by),
-                wounds::Taken::SentHome { body, leader } => (1, body, leader),
-                wounds::Taken::Finished { body } => (2, body, (0, 0)),
-            };
-            out.extend([what, body.0 as i64, body.1 as i64, other.0 as i64, other.1 as i64]);
-        }
-        PackedInt64Array::from(out.as_slice())
-    }
-
-    /// FormationWounds.surrender's rolls: which struck routers (`slots`, `ids` and `courages`,
-    /// one a unit; still standing, none "never_surrenders") surrender, 1 or 0 each.
-    #[func]
-    fn wounds_surrenders(
-        &self,
-        slots: PackedInt32Array,
-        ids: PackedInt64Array,
-        courages: PackedFloat64Array,
+        listed: PackedInt32Array,
+        bands: PackedInt64Array,
         tick: i64,
-        seed: i64,
-        chance: f64,
-    ) -> PackedByteArray {
-        let caught: Vec<wounds::Caught> = (0..slots.len())
-            .map(|n| wounds::Caught {
-                id: ids.as_slice()[n],
-                slot: slots.as_slice()[n] as usize,
-                courage: courages.as_slice()[n],
-            })
-            .collect();
-        let taken = wounds::surrenders(&self.field.columns, &caught, tick, seed, chance);
-        taken.iter().map(|&t| t as u8).collect()
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let t = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let buried = deaths::bury::bury(squads, field, &listed, (&t, tick), log);
+        self.edits += 1;
+        PackedInt64Array::from_iter(buried_flat(&buried))
     }
 
-    /// FormationRecovery.step: one tick of `seconds`. `squads`: two numbers a squad in the
-    /// lists' order, its id and whether one coming to may join it (1); `counts`: two a squad,
-    /// how many living units follow and then how many downed; `ints`: eight a unit, its id,
-    /// store slot, faction (a code), wounds, "hardened", "cunning", flags (1 leads, 2
-    /// "regenerates_downed", 4 playing dead) and most hp; `reals`: four a unit, its
-    /// regeneration, wits, constitution and detection. `tuning`: as `wounds_tuning`. Returns
-    /// the downed's events, three numbers each, [what (0 died of wounds, 1 began to play dead),
-    /// its squad, its index in that squad's downed], after their count; then three a unit
-    /// coming to, nearest first: [its squad, its index, the squad it joins or -1].
+    /// FormationWounds.tend: the wounds' tending as one pass (`wounds::pass::step`): the
+    /// listed squads' living units and bodies lying read in the crate, the takings, the
+    /// bodies taken captured, sent home (the leader's messenger spent, the body's side
+    /// shocked) or finished, their states written and "captured", "sent_home", "finished" and
+    /// "morale_band" in the log. `listed`: the squads' slots, in the lists' order; `at`: [tick,
+    /// ticks a second, seed, wounds_messenger_shock]; `tuning`: as `wounds_tuning`; `bands`:
+    /// as BandTuning.of_slice reads it. Returns five numbers a body taken, in the order
+    /// landed: [its squad's index in `listed`, its id, its state now, then for one sent home
+    /// its leader's squad's index and id, else -1, -1].
     #[func]
-    #[allow(clippy::too_many_arguments)]
+    fn wounds_step(
+        &mut self,
+        listed: PackedInt32Array,
+        at: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        bands: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let &[tick, interval, seed, shock, ..] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let wounds = wounds::WoundsTuning::of_slice(tuning.as_slice());
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let t = wounds::pass::Tuning { wounds: &wounds, shock, bands: &bands };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let landed = wounds::pass::step(squads, field, &listed, (tick, interval, seed), &t, log);
+        self.edits += 1;
+        PackedInt64Array::from_iter(tended_flat(&landed))
+    }
+
+    /// FormationRecovery.step: what the wounded come to as one pass (`recovery::pass::step`):
+    /// the listed squads' living and downed read in the crate, recovery run over one tick of
+    /// `seconds`, and what it decided landed - those dead of their wounds, those playing dead,
+    /// those coming to joining a formation or setting off alone - with "died_of_wounds",
+    /// "playing_dead" and "came_to" in the log. `listed`: the squads' slots, in the lists'
+    /// order; `at`: [tick, seed]; `tuning`: as `wounds_tuning`. Returns four numbers a unit
+    /// something befell, in the order landed: [its squad's index in `listed`, its id, what (0
+    /// died of its wounds, 1 began to play dead, 2 came to), the index of the squad it joined,
+    /// or -1].
+    #[func]
     fn recovery_step(
         &mut self,
-        squads: PackedInt64Array,
-        counts: PackedInt32Array,
-        ints: PackedInt64Array,
-        reals: PackedFloat64Array,
+        listed: PackedInt32Array,
+        at: PackedInt64Array,
+        seconds: f64,
+        tuning: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let &[tick, seed, ..] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let landed =
+            recovery::pass::step(squads, field, &listed, (tick, seconds, seed), &tuning, log);
+        self.edits += 1;
+        PackedInt64Array::from_iter(recovered_flat(&landed))
+    }
+
+    /// FormationCarry.step: bearing the wounded as one pass (`carry::pass::step`, spec 39
+    /// step 8b5-xxix) over the squads in slots `listed` (the lists' order): bodies whose
+    /// bearers fled home (`homes`, those units' ids this tick) come home, the borne follow or
+    /// are dropped, bearers set their loads down, then the free pick bodies up; "fled_home"
+    /// and "borne" in the log. `at`: [tick, seed]; `tuning`: as `FormationCarry.tuning()`;
+    /// `loads`: load_pace, load_tiring and load_dodge one after another. Returns three
+    /// numbers a unit, in order: [what (0 its state, carrying or load changed, 1 home out of
+    /// its squad, 2 setting off home alone with a body), its squad's listed index, its id].
+    #[func]
+    fn carry_step(
+        &mut self,
+        listed: PackedInt32Array,
+        homes: PackedInt64Array,
+        at: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        loads: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let &[tick, seed, ..] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let t = carry::CarryTuning::of_slice(tuning.as_slice());
+        let loads = carry::pass::LoadTuning::of_slice(loads.as_slice());
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let lists = (&listed[..], homes.as_slice());
+        let did = carry::pass::step(squads, field, lists, (tick, seed), (&t, &loads), log);
+        self.edits += 1;
+        PackedInt64Array::from(&carried_flat(&did)[..])
+    }
+
+    /// FormationTaking.step: taking the downed as one pass (`taking::pass::step`): the
+    /// takers whose work is done called back, the hold run out, then free units sent out to
+    /// the downed foes, "sent_to_take" in the log. `listed`: the squads' slots, in the lists'
+    /// order, each threatened as the tick's perception kept it (`Squads::threatened`, spec
+    /// 39 step 8b5-xxxvii); `tuning`: [take_hold, take_reach].
+    #[func]
+    fn taking_step(
+        &mut self,
+        listed: PackedInt32Array,
+        tick: i64,
         seconds: f64,
         seed: i64,
         tuning: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let wards = wards(&squads, &counts, &ints, &reals);
-        let tuning = wounds::WoundsTuning::of_slice(tuning.as_slice());
-        let recovered = recovery::step(&mut self.field.columns, &wards, seconds, seed, &tuning);
-        for id in recovered.fell {
-            self.field.fell(id);
-        }
-        let mut out = vec![recovered.lay.len() as i64];
-        for lay in recovered.lay {
-            let (what, at) = match lay {
-                recovery::Lay::DiedOfWounds(at) => (0, at),
-                recovery::Lay::PlayingDead(at) => (1, at),
-            };
-            out.extend([what, at.0 as i64, at.1 as i64]);
-        }
-        for rising in recovered.rising {
-            let joins = rising.joins.map_or(-1, |s| s as i64);
-            out.extend([rising.unit.0 as i64, rising.unit.1 as i64, joins]);
-        }
-        PackedInt64Array::from(out.as_slice())
+    ) {
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let threatened: Vec<bool> = listed.iter().map(|&s| self.squads.threatened[s]).collect();
+        let &[hold, reach, ..] = tuning.as_slice() else { return };
+        let t = taking::pass::TakingTuning { hold, reach };
+        let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);
+        let lists = (&listed[..], &threatened[..]);
+        taking::pass::step(squads, field, lists, (tick, seconds, seed), &t, log);
+        self.edits += 1;
     }
-
-    /// FormationCarry's pick-up: who picks up which downed friend. `squads`: four numbers a
-    /// squad in the lists' order, its faction (a code), whether it tends its downed now (1),
-    /// how many living units follow and then how many downed bodies lying; `ints`: six a unit,
-    /// its id, store slot, faction, then for one living whether it bears a body (1), its
-    /// strength and its "hauler", and for a body the cells it covers, 0, 0; `gear`: one a
-    /// unit, its gear's weight (0 for a body). `tuning`: as `carry_tuning`. Returns four
-    /// numbers a body picked up, in order: [its squad, its index in that squad's downed, the
-    /// bearer's squad, its index in that squad's living].
-    #[func]
-    fn carry_pick_up(
-        &self,
-        squads: PackedInt32Array,
-        ints: PackedInt64Array,
-        gear: PackedFloat64Array,
-        seed: i64,
-        tuning: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let squads = carrying(&squads, &ints, &gear);
-        let tuning = carry::CarryTuning::of_slice(tuning.as_slice());
-        let picked = carry::pick_up(&self.field.columns, &squads, seed, &tuning);
-        let out: Vec<i64> = picked
-            .iter()
-            .flat_map(|&(body, bearer)| [body.0, body.1, bearer.0, bearer.1].map(|n| n as i64))
-            .collect();
-        PackedInt64Array::from(out.as_slice())
-    }
-
-    /// FormationTaking's sending: which free unit of each group sending takers walks out to
-    /// which downed foe. `counts`: two numbers a squad that sends, in the lists' order, how
-    /// many free units it has and how many bodies its takers have claimed; `takers`: three a
-    /// free unit, its id, store slot and faction (a code); `detections`: one a free unit, how
-    /// far it sees; `claimed`: the claimed bodies' indices in `downed`, the squads' in turn;
-    /// `downed`: three a body lying, its id, store slot and faction. Returns three numbers a
-    /// taker sent, in order: [its squad's index in `counts`, its index in that squad's free
-    /// units, the body's index in `downed`].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn taking_send(
-        &self,
-        counts: PackedInt32Array,
-        takers: PackedInt64Array,
-        detections: PackedFloat64Array,
-        claimed: PackedInt32Array,
-        downed: PackedInt64Array,
-        seed: i64,
-        reach: f64,
-    ) -> PackedInt64Array {
-        let (squads, downed) = sending(&counts, &takers, &detections, &claimed, &downed);
-        let sent = taking::send(&self.field.columns, &squads, &downed, seed, reach);
-        let mut out = vec![];
-        for (s, pairs) in sent.iter().enumerate() {
-            for &(u, b) in pairs {
-                out.extend([s as i64, u as i64, b as i64]);
-            }
-        }
-        PackedInt64Array::from(out.as_slice())
-    }
-}
-
-/// The squads as carry_pick_up is given them.
-fn carrying(
-    squads: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    gear: &PackedFloat64Array,
-) -> Vec<carry::Carrying> {
-    let (rows, _) = ints.as_slice().as_chunks::<6>();
-    let mut units = rows.iter().zip(gear.as_slice());
-    let (squad_rows, _) = squads.as_slice().as_chunks::<4>();
-    squad_rows
-        .iter()
-        .map(|s| carry::Carrying {
-            faction: s[0] as u32,
-            tending: s[1] != 0,
-            living: units
-                .by_ref()
-                .take(s[2] as usize)
-                .map(|(i, &gear_weight)| carry::Bearer {
-                    id: i[0],
-                    slot: i[1] as usize,
-                    faction: i[2] as u32,
-                    carrying: i[3] != 0,
-                    gear_weight,
-                    strength: i[4],
-                    hauler: i[5],
-                })
-                .collect(),
-            downed: units
-                .by_ref()
-                .take(s[3] as usize)
-                .map(|(i, _)| carry::Body {
-                    id: i[0],
-                    slot: i[1] as usize,
-                    faction: i[2] as u32,
-                    cells: i[3],
-                })
-                .collect(),
-        })
-        .collect()
-}
-
-/// The squads and the bodies as taking_send is given them.
-fn sending(
-    counts: &PackedInt32Array,
-    takers: &PackedInt64Array,
-    detections: &PackedFloat64Array,
-    claimed: &PackedInt32Array,
-    downed: &PackedInt64Array,
-) -> (Vec<taking::Sending>, Vec<taking::Taker>) {
-    let unit = |i: &[i64; 3], detection: f64| taking::Taker {
-        id: i[0],
-        slot: i[1] as usize,
-        faction: i[2] as u32,
-        detection,
-    };
-    let (rows, _) = takers.as_slice().as_chunks::<3>();
-    let mut free = rows.iter().zip(detections.as_slice());
-    let mut claims = claimed.as_slice().iter();
-    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
-    let squads = count_rows
-        .iter()
-        .map(|c| taking::Sending {
-            free: free.by_ref().take(c[0] as usize).map(|(i, &d)| unit(i, d)).collect(),
-            claimed: claims.by_ref().take(c[1] as usize).map(|&b| b as usize).collect(),
-        })
-        .collect();
-    let (body_rows, _) = downed.as_slice().as_chunks::<3>();
-    (squads, body_rows.iter().map(|i| unit(i, 0.0)).collect())
-}
-
-/// The squads as wounds_tend is given them.
-fn tended(
-    counts: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-) -> Vec<wounds::Tended> {
-    let (int_rows, _) = ints.as_slice().as_chunks::<8>();
-    let (real_rows, _) = reals.as_slice().as_chunks::<3>();
-    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| wounds::Taking {
-        id: i[0],
-        slot: i[1] as usize,
-        faction: i[2] as u32,
-        captor: i[3] & 1 != 0,
-        leads: i[3] & 2 != 0,
-        playing_dead: i[3] & 4 != 0,
-        messengers: i[4],
-        dmg: i[5],
-        cunning: i[6],
-        thorough: i[7],
-        wits: r[0],
-        constitution: r[1],
-        melee_seconds: r[2],
-    });
-    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
-    count_rows
-        .iter()
-        .map(|c| wounds::Tended {
-            living: units.by_ref().take(c[0] as usize).collect(),
-            downed: units.by_ref().take(c[1] as usize).collect(),
-        })
-        .collect()
-}
-
-/// The squads as recovery_step is given them.
-fn wards(
-    squads: &PackedInt64Array,
-    counts: &PackedInt32Array,
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-) -> Vec<recovery::Ward> {
-    let (int_rows, _) = ints.as_slice().as_chunks::<8>();
-    let (real_rows, _) = reals.as_slice().as_chunks::<4>();
-    let mut units = int_rows.iter().zip(real_rows).map(|(i, r)| recovery::Recovering {
-        id: i[0],
-        slot: i[1] as usize,
-        faction: i[2] as u32,
-        wounded: i[3],
-        hardened: i[4],
-        cunning: i[5],
-        leads: i[6] & 1 != 0,
-        regenerates_downed: i[6] & 2 != 0,
-        playing_dead: i[6] & 4 != 0,
-        max_hp: i[7],
-        regeneration: r[0],
-        wits: r[1],
-        constitution: r[2],
-        detection: r[3],
-    });
-    let (squad_rows, _) = squads.as_slice().as_chunks::<2>();
-    let (count_rows, _) = counts.as_slice().as_chunks::<2>();
-    squad_rows
-        .iter()
-        .zip(count_rows)
-        .map(|(s, c)| recovery::Ward {
-            id: s[0],
-            joinable: s[1] != 0,
-            living: units.by_ref().take(c[0] as usize).collect(),
-            downed: units.by_ref().take(c[1] as usize).collect(),
-        })
-        .collect()
 }
 
 /// Morale and the blows on routers (spec 39 step 7a).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationMorale.step's pressure and recovery for `roster`'s squads. `stepping`: four
-    /// numbers a squad stepped, in order: its index in the roster, its morale, its best
-    /// leader's leadership and its ceiling. `tuning`: [morale_recovery, morale_support_cells,
-    /// condition_cap, the morale_pressure...]. Returns each one's morale after the second,
-    /// before it is held to 0..100.
+    /// FormationMorale.step's second as one pass (`morale::pass`, spec 39 step 8b5-xxvii) for
+    /// `roster`'s squads on `tick`: each one's morale, leadership and ceiling read here, its
+    /// morale set and a change of band logged. `tuning`: [morale_recovery,
+    /// morale_support_cells, condition_cap, the morale_pressure...]; `bands`: BandTuning's.
     #[func]
     fn morale_step(
-        &self,
+        &mut self,
         roster: Gd<SquadRoster>,
-        stepping: PackedInt64Array,
         tuning: PackedFloat64Array,
+        bands: PackedInt64Array,
+        tick: i64,
+    ) {
+        let roster = roster.bind();
+        let tuning = morale::MoraleTuning::of_slice(tuning.as_slice());
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let (squads, columns, log) = (&mut self.squads, &self.field.columns, &mut self.events);
+        morale::pass::step((squads, columns), &roster.roster, (&tuning, &bands), tick, log);
+        self.edits += 1;
+    }
+}
+
+/// The rout (spec 39 steps 7b and 8b5-xxviii).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationRout.step as one pass (`rout::pass::step`) over `roster`'s squads: the
+    /// breaking found, the flight and what it did landed (the crushes' hurts and panic, the
+    /// routers home out of their squads, the squads scattered), the rallies made, the routs
+    /// re-formed and the breaks, their events in the log. `tuning` as RoutTuning.of_slice reads
+    /// it, then [rout_crush, rout_panic, rout_seen]; `bands` BandTuning's; `at` [tick, seed].
+    /// Returns three numbers a router that left its squad, in the order it did: [its squad's
+    /// index in the roster, its id, the index of the friend it joined, or -1 if it reached
+    /// home].
+    #[func]
+    fn rout_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        tuning: PackedFloat64Array,
+        bands: PackedInt64Array,
+        at: PackedInt64Array,
+        ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
         let roster = roster.bind();
-        let (rows, _) = stepping.as_slice().as_chunks::<4>();
-        let stepping: Vec<morale::Stepping> = rows
-            .iter()
-            .map(|s| morale::Stepping {
-                listed: s[0] as usize,
-                morale: s[1],
-                leadership: s[2],
-                ceiling: s[3],
-            })
-            .collect();
-        let tuning = morale::MoraleTuning::of_slice(tuning.as_slice());
-        let out =
-            morale::step(&self.squads, &self.field.columns, &roster.roster, &stepping, &tuning);
+        let (t, &[crush, panic, seen]) = tuning.as_slice().split_at(10) else {
+            return PackedInt64Array::new();
+        };
+        let tuning = rout::RoutTuning::of_slice(t);
+        let hurt =
+            rout::pass::RoutShocks { crush: crush as i64, panic: panic as i64, seen: seen as i64 };
+        let bands = bands::BandTuning::of_slice(bands.as_slice());
+        let &[tick, seed] = at.as_slice() else {
+            return PackedInt64Array::new();
+        };
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let moved = on_ground(ground, |g| {
+            rout::pass::step(
+                squads,
+                field,
+                &roster.roster,
+                (&tuning, &hurt, &bands),
+                (tick, seed),
+                g,
+                log,
+            )
+        });
+        self.edits += 1;
+        let flat =
+            moved.iter().flat_map(|m| [m.listed as i64, m.id, m.into.map_or(-1, |n| n as i64)]);
+        PackedInt64Array::from_iter(flat)
+    }
+}
+
+/// The fight as one pass (spec 39 steps 8a1 and 8b5-xix).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationSimulation._fight over `roster`'s squads (`fight::step::step`): every living
+    /// unit's target cleared, then the blows and shots chosen (`fight::choose`: the field
+    /// synced to the scrum if some squad may strike), each striker's target and cooldown set;
+    /// each landed (`fight::land`: each unit's arms from its sheet and words, with rolls its
+    /// band and the foes pressing each target), the hurts (`hurts::land`, the fallen on the
+    /// fell queue), "spat" and "hit" in the log, each striker's stamina spent, then the
+    /// surrender (`fight::surrender`:
+    /// "surrendered" and "destroyed" in the log). `ints` = [the ticks a second's strike
+    /// takes, seed, tick, 1 if blows roll]; `floats` = [reach_contact, the front's least dot,
+    /// rout_strike_reach, stamina_blow, wounds_surrender]; `bands` as BandTuning.of_slice
+    /// reads it, `tuning` as LandingTuning.of_slice. Returns two numbers a unit the surrender
+    /// took, in the order they gave up: [its squad's index in the roster, its index in that
+    /// one's living].
+    #[func]
+    fn fight_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        bands: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let rules =
+            fight_rules(ints.as_slice(), floats.as_slice(), bands.as_slice(), tuning.as_slice());
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let fought =
+            on_ground(ground, |g| fight::step::step(squads, field, &roster.roster, &rules, g, log));
+        self.edits += 1;
+        let out: Vec<i64> = fought.taken.iter().flat_map(|&(n, m)| [n as i64, m as i64]).collect();
         PackedInt64Array::from(out.as_slice())
     }
 
-    /// RoutBlows.blows: `routing`, each routing squad's index in `roster`; `fighters`, three a fighter, its squad's
-    /// index in `roster`, its store slot and the cooldown it starts again at. Sets each
-    /// fighter's target and cooldown, and returns three numbers a blow, in order: [the
-    /// fighter's index, the router's squad's index in `routing`, its index in that one's
-    /// living].
+    /// FormationAftermath.step: the fight and its aftermath as one call (`aftermath::step`,
+    /// spec 39 step 8b5-xxxviii) over `roster`'s squads: the fight (as `fight_step`), the
+    /// burial (`deaths_bury`), the takers sent (`taking_step`), the wounds' tending
+    /// (`wounds_step`) and what the downed come to (`recovery_step`), each pass's events in
+    /// the log in that order. `ints` = [the ticks a second, seed, tick, 1 if blows roll,
+    /// wounds_messenger_shock]; `floats` = `fight_step`'s five, then [the tick's seconds,
+    /// take_hold, take_reach]; `bands` as BandTuning.of_slice reads it, `tuning` as
+    /// LandingTuning.of_slice, `wounds` as `wounds_tuning`. Returns each pass's result, each
+    /// part its count first: the units the surrender took, [index in the roster, id]; the
+    /// fallen buried, as `deaths_bury`; the bodies taken, as `wounds_step`; then to the end
+    /// what the downed came to, as `recovery_step`.
     #[func]
-    fn rout_blows(
+    #[allow(clippy::too_many_arguments)]
+    fn aftermath_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        routing: PackedInt32Array,
-        fighters: PackedInt64Array,
-        reach: f64,
-        seed: i64,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        bands: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        wounds: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
+        let rules = aftermath_rules(
+            ints.as_slice(),
+            floats.as_slice(),
+            bands.as_slice(),
+            tuning.as_slice(),
+            wounds.as_slice(),
+        );
         let roster = roster.bind();
-        let routing = routings(&self.squads, &roster.roster, &routing);
-        let (rows, _) = fighters.as_slice().as_chunks::<3>();
-        let fighters: Vec<rout_blows::Fighter> = rows
-            .iter()
-            .map(|f| rout_blows::Fighter {
-                listed: f[0] as usize,
-                slot: f[1] as usize,
-                reset: f[2] as i32,
-            })
-            .collect();
-        let columns = &mut self.field.columns;
-        let out = rout_blows::blows(columns, &roster.roster, &routing, &fighters, reach, seed);
-        let flat: Vec<i64> =
-            out.iter().flat_map(|&(f, r, m)| [f, r, m].map(|n| n as i64)).collect();
-        PackedInt64Array::from(flat.as_slice())
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let after =
+            on_ground(ground, |g| aftermath::step(squads, field, &roster.roster, g, &rules, log));
+        self.edits += 1;
+        PackedInt64Array::from(aftermath_flat(&after).as_slice())
     }
 }
 
-/// Routing formations as RoutBlows and FormationRout hand them in: each one's index in
-/// `roster`, on the route it holds.
-fn routings(
-    squads: &Squads,
-    roster: &roster::Roster,
-    routing: &PackedInt32Array,
-) -> Vec<rout_blows::Routing> {
-    routing
-        .as_slice()
-        .iter()
-        .map(|&listed| rout_blows::Routing {
-            listed: listed as usize,
-            route: squads.route[roster.listed[listed as usize].squad].clone(),
-        })
-        .collect()
+/// What the aftermath did, flat as `aftermath_step` returns it.
+fn aftermath_flat(after: &aftermath::Aftermath) -> Vec<i64> {
+    let mut out = vec![after.taken.len() as i64];
+    out.extend(after.taken.iter().flat_map(|&(n, id)| [n as i64, id]));
+    out.push(after.buried.len() as i64);
+    out.extend(buried_flat(&after.buried));
+    out.push(after.tended.len() as i64);
+    out.extend(tended_flat(&after.tended));
+    out.extend(recovered_flat(&after.recovered));
+    out
 }
 
-/// The rout (spec 39 step 7b). `routing` as `routings` reads it; `leaders`
-/// every listed squad's living units' leadership, in the roster's order; `tuning` as
-/// RoutTuning.of_slice reads it.
+/// The strays through the groups as one call (spec 39 step 8b5-xxxix).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationRout's breaking and flight. Returns how many of the roster break, their
-    /// indices in it, then six numbers a thing the flight did, in order: its kind (0 a
-    /// crush, 1 home, 2 scattered), the formation's index in `routing`, the router's in its
-    /// living, and for a crush the friend's index in the roster, its unit's in its living
-    /// and 1 if it panics that friend (else 0, 0, 0).
+    /// FormationMustering.step (`mustering::step`) over `roster`'s squads: the `strays` (two
+    /// numbers a stray, as `strays_adopt` takes them) adopted, morale's second (as
+    /// `morale_step`) on a second's tick, the rout (as `rout_step`) if anything routs or
+    /// breaks, carrying (as `carry_step`, the routers home its homes), the bearers it set off
+    /// adopted, and the groups (as `groups_step`), the squads opened listed after the rest for
+    /// the passes after; each pass's events in the log in that order. `ints` = [tick, seed, 1
+    /// if a second's tick]; `tunings` = [morale's as `morale_step` takes it, the rout's as
+    /// `rout_step`, carrying's and the loads as `carry_step`, the groups' as `groups_step`];
+    /// `bands` as BandTuning.of_slice reads it. Returns each pass's result, each part its count
+    /// first: the strays adopted, as `strays_adopt`; the routers that left, as `rout_step`;
+    /// what carrying did, as `carry_step`; the bearers adopted (their index in what carrying
+    /// set off); then to the end what the groups did, as `groups_step`.
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn rout_flee(
+    fn mustering_step(
         &mut self,
         roster: Gd<SquadRoster>,
-        routing: PackedInt32Array,
-        leaders: PackedInt32Array,
-        tuning: PackedFloat64Array,
-        seed: i64,
+        strays: PackedInt32Array,
+        ints: PackedInt64Array,
+        tunings: VarArray,
+        bands: PackedInt64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
+        let tunings: [PackedFloat64Array; 5] = std::array::from_fn(|n| arg(&tunings, n));
+        let tunings = tunings.each_ref().map(|t| t.as_slice());
+        let Some(rules) = mustering_rules(ints.as_slice(), tunings, bands.as_slice()) else {
+            return PackedInt64Array::new();
+        };
+        let (rows, _) = strays.as_slice().as_chunks::<2>();
+        let strays: Vec<(usize, usize)> =
+            rows.iter().map(|&[a, b]| (a as usize, b as usize)).collect();
         let roster = roster.bind();
-        let routing = routings(&self.squads, &roster.roster, &routing);
-        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
-        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
-        let breaking = rout::breaking(&self.squads, &roster.roster);
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let fled = on_ground(ground, |g| {
-            rout::flee(squads, columns, &roster.roster, &routing, &leaders, &tuning, seed, g)
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let done = on_ground(ground, |g| {
+            mustering::step(squads, field, &roster.roster, &strays, g, &rules, log)
         });
         self.edits += 1;
-        let mut flat: Vec<i64> = vec![breaking.len() as i64];
-        flat.extend(breaking.iter().map(|&n| n as i64));
-        for f in fled {
-            flat.extend(match f {
-                rout::Fled::Crushed { routing, member, hit, panic } => {
-                    [0, routing as i64, member as i64, hit.0 as i64, hit.1 as i64, panic as i64]
-                }
-                rout::Fled::Home { routing, member } => [1, routing as i64, member as i64, 0, 0, 0],
-                rout::Fled::Scattered { routing } => [2, routing as i64, 0, 0, 0, 0],
-            });
-        }
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// FormationRout's rallies. `morale`: two numbers a listed squad, its morale (below 0: not
-    /// read yet) and then its ceiling (else 0). Returns how many squads' morale was first
-    /// read, their indices in the roster, then three numbers a join, in the order they join:
-    /// the formation's index in `routing`, the router's in its living, and the friend's index
-    /// in the roster.
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn rout_rallies(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        routing: PackedInt32Array,
-        leaders: PackedInt32Array,
-        morale: PackedInt64Array,
-        tuning: PackedFloat64Array,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let routing = routings(&self.squads, &roster.roster, &routing);
-        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
-        let (rows, _) = morale.as_slice().as_chunks::<2>();
-        let morale: Vec<(i64, i64)> = rows.iter().map(|m| (m[0], m[1])).collect();
-        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
-        let columns = &mut self.field.columns;
-        let rallied = rout::rallies(
-            &self.squads,
-            columns,
-            &roster.roster,
-            &routing,
-            &leaders,
-            &morale,
-            &tuning,
-            seed,
-        );
-        let mut flat: Vec<i64> = vec![rallied.first_read.len() as i64];
-        flat.extend(rallied.first_read.iter().map(|&n| n as i64));
-        flat.extend(rallied.joins.iter().flat_map(|&(r, u, f)| [r, u, f].map(|n| n as i64)));
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// FormationRout's re-forming. Returns the indices in `routing` of the formations that
-    /// re-formed, in order.
-    #[func]
-    fn rout_regroup(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        routing: PackedInt32Array,
-        leaders: PackedInt32Array,
-        tuning: PackedFloat64Array,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let routing = routings(&self.squads, &roster.roster, &routing);
-        let leaders: Vec<i64> = leaders.as_slice().iter().map(|&l| l as i64).collect();
-        let tuning = rout::RoutTuning::of_slice(tuning.as_slice());
-        let mut slots = std::collections::BTreeMap::new();
-        for formation in &routing {
-            for &id in &self.squads.fleeing[roster.roster.listed[formation.listed].squad] {
-                slots.insert(id, self.field.slot_of(id).map(|s| s as usize));
-            }
-        }
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let slot_of = |id: i64| slots.get(&id).copied().flatten();
-        let out = rout::regroup(
-            squads,
-            columns,
-            &roster.roster,
-            &routing,
-            &leaders,
-            &tuning,
-            seed,
-            slot_of,
-        );
-        self.edits += 1;
-        let flat: Vec<i64> = out.iter().map(|&r| r as i64).collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// FormationRout's breaks, of the formations in `breaking` (as `routings` reads them).
-    /// Returns, for each, how many friends saw it break and their indices in the roster.
-    #[func]
-    fn rout_break(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        breaking: PackedInt32Array,
-        ground: Option<Gd<TerrainGround>>,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let breaking = routings(&self.squads, &roster.roster, &breaking);
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        let seen =
-            on_ground(ground, |g| rout::breaks(squads, columns, &roster.roster, &breaking, g));
-        self.edits += 1;
-        let mut flat: Vec<i64> = Vec::new();
-        for friends in seen {
-            flat.push(friends.len() as i64);
-            flat.extend(friends.iter().map(|&n| n as i64));
-        }
-        PackedInt64Array::from(flat.as_slice())
+        PackedInt64Array::from(mustered_flat(&done).as_slice())
     }
 }
 
-/// The ranged picks and the blows' landing (spec 39 step 8a1).
+/// What the mustering did, flat as `mustering_step` returns it.
+fn mustered_flat(done: &mustering::Mustered) -> Vec<i64> {
+    let pairs = |opened: &[(usize, usize)]| {
+        let mut out = vec![opened.len() as i64];
+        out.extend(opened.iter().flat_map(|&(n, s)| [n as i64, s as i64]));
+        out
+    };
+    let mut out = pairs(&done.adopted);
+    out.push(done.routed.len() as i64);
+    let routed = done.routed.iter();
+    out.extend(routed.flat_map(|m| [m.listed as i64, m.id, m.into.map_or(-1, |n| n as i64)]));
+    let carried = carried_flat(&done.carried);
+    out.push(carried.len() as i64 / 3);
+    out.extend(carried);
+    out.extend(pairs(&done.bearers));
+    out.extend(grouped_flat(&done.grouped, &done.split));
+    out
+}
+
+/// What carrying did, as `carry_step` returns it: three numbers a unit, [what (0 changed, 1
+/// home, 2 setting off home alone), its squad's listed index, its id].
+fn carried_flat(did: &carry::pass::Carried) -> Vec<i64> {
+    let rows = [(0, &did.changed), (1, &did.home), (2, &did.strays)];
+    rows.into_iter()
+        .flat_map(|(what, units)| units.iter().flat_map(move |&(n, id)| [what, n as i64, id]))
+        .collect()
+}
+
+/// The units buried, three numbers each, as `deaths_bury` returns them.
+fn buried_flat(buried: &[deaths::bury::Buried]) -> impl Iterator<Item = i64> + '_ {
+    buried.iter().flat_map(|b| [b.listed as i64, b.id, b.wounded.unwrap_or(-1)])
+}
+
+/// The bodies taken, five numbers each, as `wounds_step` returns them.
+fn tended_flat(landed: &[wounds::pass::Landed]) -> impl Iterator<Item = i64> + '_ {
+    landed.iter().flat_map(|l| {
+        let (n, id) = l.leader.map_or((-1, -1), |(n, id)| (n as i64, id));
+        [l.listed as i64, l.id, i64::from(l.state), n, id]
+    })
+}
+
+/// What the downed came to, four numbers each, as `recovery_step` returns them.
+fn recovered_flat(landed: &[recovery::pass::Landed]) -> impl Iterator<Item = i64> + '_ {
+    landed.iter().flat_map(|l| {
+        let (what, joins) = match l.came {
+            recovery::pass::Came::DiedOfWounds => (0, -1),
+            recovery::pass::Came::PlayingDead => (1, -1),
+            recovery::pass::Came::Alone => (2, -1),
+            recovery::pass::Came::Joined(n) => (2, n as i64),
+        };
+        [l.listed as i64, l.id, what, joins]
+    })
+}
+
+/// The tick's end as one call (spec 39 step 8b5-xl).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationCombat.ranged_blows over `roster`'s squads: who may shoot (`shots::shooters`,
-    /// `seconds` each living unit's ranged time in the roster's order, `interval` the ticks a
-    /// second's strike takes), each one's target and cooldown set. Returns four numbers a
-    /// shot, in order: [the shooter's squad's index in the roster, its index in that one's
-    /// living, its target's squad's index, its index in that one's living].
-    #[func]
-    fn shots(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        seconds: PackedFloat64Array,
-        interval: i64,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let columns = &mut self.field.columns;
-        let shooters =
-            shots::shooters(&self.squads, columns, &roster.roster, seconds.as_slice(), interval);
-        let out = shots::shots(&self.squads, columns, &roster.roster, &shooters, seed);
-        let flat: Vec<i64> = out
-            .iter()
-            .flat_map(|&(s, n, u)| [shooters[s].listed, shooters[s].member, n, u].map(|v| v as i64))
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// BlowLanding.land. `ints`, ARMS_INTS numbers a unit: [id, slot, defence, armour, ward,
-    /// wounding, parries, the sets of damage-type codes it is weak to, resists, is immune to
-    /// and that stop its regeneration (one bit a code), how many melee parts and ranged
-    /// parts]; `reals`, ARMS_REALS a unit: [melee skill, ranged skill, critical, melee floor,
-    /// ranged floor, most stamina, agility, dodging]; `parts`, three a part, each unit's melee
-    /// parts then its ranged ones: [damage, type code, 1 if magical]. `blows`, seven a blow:
-    /// [the striker's and the target's index among the units, its damage, 1 if a shot, 1 if
-    /// from a flank, the striker's formation's morale band (-1: none), the foes pressing its
-    /// target]. `tuning` as LandingTuning.of_slice reads it; `rolls` [battle seed, tick], or
-    /// empty for none. Returns two numbers a blow: [the damage it deals, how it landed].
+    /// FormationEnding.step (`ending::step`) over the squads in squad slots `listed`, in the
+    /// lists' order: stamina (as `stamina_step`), the bodies parted (as `bodies_part`), the
+    /// shuffle (as `shuffle_step`, its events in the log) and the march's sync (as
+    /// `march_sync`, a tick's walk on `ground`), in that order. `ints` = [tick, seed, 1 if
+    /// the parting runs threaded]; `floats` = [the tick's seconds, cells a second at speed 1
+    /// for the shuffle (the travel scale), scrum_crowding, cells a second at speed 1 for the
+    /// march]; `stamina` as `stamina_step` takes it; `bodies` = [passes, resist, brush];
+    /// `walk` as `march_sync`'s tuning (CrateMarch.walk_tuning, then wounds_reach). Returns
+    /// [usec of the parting, passes that moved something, pairs pushed], then the ids of the
+    /// units made by hand that took their speed as fresh (as `stamina_step`).
     #[func]
     #[allow(clippy::too_many_arguments)]
-    fn land_blows(
+    fn ending_step(
         &mut self,
+        listed: PackedInt32Array,
         ints: PackedInt64Array,
-        reals: PackedFloat64Array,
-        parts: PackedFloat64Array,
-        blows: PackedInt64Array,
-        tuning: PackedFloat64Array,
-        rolls: PackedInt64Array,
+        floats: PackedFloat64Array,
+        stamina: PackedFloat64Array,
+        bodies: PackedFloat64Array,
+        walk: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let arms = arms_of(&ints, &reals, &parts);
-        let (rows, _) = blows.as_slice().as_chunks::<7>();
-        let blows: Vec<landing::Blow> = rows
-            .iter()
-            .map(|b| landing::Blow {
-                striker: b[0] as usize,
-                target: b[1] as usize,
-                nominal: b[2],
-                ranged: b[3] != 0,
-                flank: b[4] != 0,
-                band: (b[5] >= 0).then_some(b[5] as usize),
-                pressed: b[6],
-            })
-            .collect();
-        let tuning = landing::LandingTuning::of_slice(tuning.as_slice());
-        let rolls = (rolls.len() == 2).then(|| (rolls[0], rolls[1]));
-        let columns = &mut self.field.columns;
-        let out = on_ground(ground, |g| landing::land(columns, &arms, &blows, &tuning, rolls, g));
-        let flat: Vec<i64> =
-            out.iter().flat_map(|&(dealt, landed)| [dealt, landed as i64]).collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
-
-    /// FormationSimulation._fight's hurts (`hurts::land`), three numbers a hurt in the order
-    /// landed: [its target's store slot, its id, the damage it dealt]. The fallen go on the
-    /// fell queue. Returns each one's target's hp after it.
-    #[func]
-    fn fight_hurts(&mut self, hurts: PackedInt64Array) -> PackedInt32Array {
-        let (rows, _) = hurts.as_slice().as_chunks::<3>();
-        let hurts: Vec<hurts::Hurt> = rows
-            .iter()
-            .map(|h| hurts::Hurt { slot: h[0] as usize, id: h[1], damage: h[2] })
-            .collect();
-        let mut fell = vec![];
-        let left = hurts::land(&mut self.field.columns, &hurts, &mut fell);
-        for id in fell {
-            self.field.fell(id);
-        }
-        PackedInt32Array::from(left.as_slice())
+        let listed: Vec<usize> = listed.as_slice().iter().map(|&s| s as usize).collect();
+        let rules = ending_rules(
+            ints.as_slice(),
+            [&floats, &stamina, &bodies, &walk].map(|p| p.as_slice()),
+        );
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let ended = on_ground(ground, |g| ending::step(squads, field, &listed, g, &rules, log));
+        self.usec = ended.parting_usec;
+        self.edits += 1;
+        PackedInt64Array::from(ended_flat(&ended).as_slice())
     }
 }
 
-/// Numbers a unit's arms take in `land_blows`' `ints` and `reals`.
-const ARMS_INTS: usize = 13;
-const ARMS_REALS: usize = 8;
+/// What the end did, flat as `ending_step` returns it.
+fn ended_flat(ended: &ending::Ended) -> Vec<i64> {
+    let mut out = vec![ended.parting_usec, ended.passes, ended.pairs];
+    out.extend(&ended.made);
+    out
+}
 
-/// The units' arms as `land_blows` is handed them.
-fn arms_of(
-    ints: &PackedInt64Array,
-    reals: &PackedFloat64Array,
-    parts: &PackedFloat64Array,
-) -> Vec<landing::Arms> {
-    let (ints, _) = ints.as_slice().as_chunks::<ARMS_INTS>();
-    let (reals, _) = reals.as_slice().as_chunks::<ARMS_REALS>();
-    let (mut parts, _) = parts.as_slice().as_chunks::<3>();
-    let mut take = |count: i64| -> Vec<landing::Part> {
-        let (these, rest) = parts.split_at(count as usize);
-        parts = rest;
-        these
-            .iter()
-            .map(|p| landing::Part { amount: p[0], kind: p[1] as u32, magical: p[2] != 0.0 })
-            .collect()
-    };
-    ints.iter()
-        .zip(reals)
-        .map(|(i, r)| landing::Arms {
-            id: i[0],
-            slot: i[1] as usize,
-            defence: i[2],
-            armour: i[3],
-            ward: i[4],
-            wounding: i[5] as i32,
-            parries: i[6] != 0,
-            weak: i[7] as u64,
-            resists: i[8] as u64,
-            immune: i[9] as u64,
-            stops: i[10] as u64,
-            melee_parts: take(i[11]),
-            ranged_parts: take(i[12]),
-            melee_skill: r[0],
-            ranged_skill: r[1],
-            critical: r[2],
-            melee_floor: r[3],
-            ranged_floor: r[4],
-            max_stamina: r[5],
-            agility: r[6],
-            dodging: r[7],
+/// The whole tick as one call (spec 39 step 8b5-xli).
+#[godot_api(secondary)]
+impl BodyField {
+    /// FormationSimulation.step as one call (`tick::step`) over `roster`'s squads, a roster of
+    /// every unit each squad holds, living or not, on `ground`: the opening, the scrum, the
+    /// fight and its aftermath, the strays through the groups and the tick's end, the squads
+    /// listed afresh between them as CrateRoster.of listed them; every pass's events in the
+    /// log in that order. Each of `opening`, `scrum`, `aftermath`, `mustering` and `ending`
+    /// holds its pass's own binding's arguments past the roster (and the ground, and the
+    /// mustering's strays, which the crate hands it from recovery): `opening_step`'s [ints,
+    /// orders, bands, impacts, looks, moving]; `scrum_step`'s [ints, reach_engage, stance,
+    /// seek, regroup, withdraw, pursue]; `aftermath_step`'s [ints, floats, bands, tuning,
+    /// wounds]; `mustering_step`'s [ints, tunings, bands]; `ending_step`'s [ints, floats,
+    /// stamina, bodies, walk], its squads the crate's own list. Returns each pass's result as
+    /// its own binding returns it, each part its length first: the opening's; the scrum's
+    /// [the seek's usec, then the pursuers back at their posts]; the aftermath's; the
+    /// mustering's; then the end's.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn tick_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        opening: VarArray,
+        scrum: VarArray,
+        aftermath: VarArray,
+        mustering: VarArray,
+        ending: VarArray,
+    ) -> PackedInt64Array {
+        let given = Given {
+            opening: var_args(&opening, "ifiiff"),
+            scrum: var_args(&scrum, "irfffff"),
+            aftermath: var_args(&aftermath, "ififf"),
+            mustering: var_args(&mustering, "ili"),
+            ending: var_args(&ending, "iffff"),
+        };
+        let Some((climb, rules)) = tick::rules::of(&given) else {
+            return PackedInt64Array::new();
+        };
+        self.ticked(roster, ground, climb, &rules)
+    }
+
+    /// The whole tick on `rules` (`tick::step`), each pass's result flat as `tick_step`
+    /// returns it.
+    fn ticked(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        climb: paths::PathTuning,
+        rules: &tick::Rules,
+    ) -> PackedInt64Array {
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let ticked = match ground {
+            Some(ground) => on_paths(ground, climb, |over| {
+                tick::step(squads, field, &roster.roster, Some(over), rules, log)
+            }),
+            None => tick::step(squads, field, &roster.roster, None, rules, log),
+        };
+        self.edits += 1;
+        let back = ticked.back.iter().map(|&n| n as i64);
+        let parts = [
+            opened_flat(&ticked.opened),
+            std::iter::once(ticked.seek_usec).chain(back).collect(),
+            aftermath_flat(&ticked.after),
+            mustered_flat(&ticked.mustered),
+            ended_flat(&ticked.ended),
+        ];
+        let mut out = Vec::new();
+        for part in parts {
+            out.push(part.len() as i64);
+            out.extend(part);
+        }
+        PackedInt64Array::from(out.as_slice())
+    }
+
+    /// The tick's rules as the crate builds them from `content`'s battle tuning (spec 39 step
+    /// 8c-i, `tick::given`): each pass's arguments past the roster and the ground, as
+    /// `tick_step` takes them. `at` = [tick, seed, ticks a second, 1 if blows roll, 1 if
+    /// threaded]; `paces` = [travel scale, the tick's seconds, the lane's length, cells a
+    /// second at speed 1]. Empty if the content isn't loaded.
+    #[func]
+    fn tick_given(
+        &self,
+        content: Gd<ContentStore>,
+        at: PackedInt64Array,
+        paces: PackedFloat64Array,
+    ) -> VarArray {
+        given_of(&content, &at, &paces).map_or_else(VarArray::new, |given| {
+            let passes =
+                [given.opening, given.scrum, given.aftermath, given.mustering, given.ending];
+            passes
+                .iter()
+                .map(|args| args.iter().map(given_arg).collect::<VarArray>().to_variant())
+                .collect()
+        })
+    }
+
+    /// The whole tick (`tick_step`), its rules built in the crate from `content`'s battle
+    /// tuning (`tick_given`'s `at` and `paces`).
+    #[func]
+    fn tick_run(
+        &mut self,
+        content: Gd<ContentStore>,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        at: PackedInt64Array,
+        paces: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let Some((climb, rules)) =
+            given_of(&content, &at, &paces).and_then(|given| tick::rules::of(&given))
+        else {
+            return PackedInt64Array::new();
+        };
+        self.ticked(roster, ground, climb, &rules)
+    }
+
+    /// FormationSimulation.spawn_squad in the crate (`spawn::squad`, spec 39 step 8c-iv): a
+    /// squad of the definitions `units` (ids in `content`), coded `codes`
+    /// (UnitStore.definition_code), at `places` ([rank, column] each), of `faction`; `ints` =
+    /// [width, 1 if at the player's end, wait ticks, combat width]; on the route through
+    /// `points` with corridor `half_width`, which GDScript's route `object` names (its
+    /// instance id; 0 for a route of its own), as `squad_put_route` codes it. Returns the
+    /// squad's slot, or -1 (and nothing spawned) for a definition `content` doesn't hold.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn spawn_squad(
+        &mut self,
+        content: Gd<ContentStore>,
+        units: PackedStringArray,
+        codes: PackedInt64Array,
+        places: PackedInt32Array,
+        faction: GString,
+        ints: PackedInt64Array,
+        points: PackedVector2Array,
+        half_width: f64,
+        object: i64,
+    ) -> i64 {
+        let store = content.bind();
+        let Some(content) = store.content.as_ref() else {
+            return -1;
+        };
+        let (codes, places, i) = (codes.as_slice(), places.as_slice(), ints.as_slice());
+        let mut placed = Vec::with_capacity(units.len());
+        for (k, id) in units.as_slice().iter().enumerate() {
+            let Some(unit) = content.units.get(&id.to_string()) else {
+                return -1;
+            };
+            let place = (places[2 * k], places[2 * k + 1]);
+            placed.push(spawn::Placed { unit, code: codes[k], place });
+        }
+        let route = route::Route::new(v2s(&points), half_width);
+        let squads = &mut self.squads;
+        let route_code = (object != 0)
+            .then(|| *self.route_objects.entry(object).or_insert_with(|| squads.issue_route()));
+        let faction = faction.to_string();
+        let spawn = spawn::Spawn {
+            width: i[0],
+            placed: &placed,
+            faction: &faction,
+            at_player_end: i[1] != 0,
+            wait_ticks: i[2],
+            route: &route,
+            route_code,
+            combat_width: i[3],
+        };
+        let s = spawn::squad(&mut self.squads, &mut self.field, content, &spawn);
+        self.edits += 1;
+        s as i64
+    }
+
+    /// Sets up the digest's battle `name` with its `numbers` (`battles::named`) from
+    /// `content`'s definitions (spec 39 step 8c-vi): {"route_tiles", "tick_seconds",
+    /// "combat_width", "map" ("" for open ground)} the simulation is made with, or an empty
+    /// dictionary, with nothing written, for an unknown battle or definition. Its routes'
+    /// codes are its own, not in `route_objects`.
+    #[func]
+    fn battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+    ) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let store = content.bind();
+        let (Some(content), Some(battle)) =
+            (store.content.as_ref(), battles::named(&name.to_string(), numbers.as_slice()))
+        else {
+            return out;
+        };
+        let Some(set) = battles::set_up(&battle, &mut self.squads, &mut self.field, content) else {
+            return out;
+        };
+        self.edits += 1;
+        out.set("route_tiles", set.route_tiles);
+        out.set("tick_seconds", set.tick_seconds);
+        out.set("combat_width", set.combat_width);
+        out.set("map", &GString::from(set.map.unwrap_or("")).to_variant());
+        out
+    }
+
+    /// Plays the digest's battle `name` with its `numbers` end to end in the crate (spec 39
+    /// step 8c-vii, `play`): set up as `battle` sets it up, then tick by tick as
+    /// FormationSimulation.step plays it, each tick's events taken and dropped, until the
+    /// digest's rules stop it. `at` = [seed, 1 if blows roll, 1 if threaded, the limit, ticks
+    /// past first contact (-1: no such stop)]. Returns the ticks played, or -1, with nothing
+    /// written, for an unknown battle or definition.
+    #[func]
+    fn battle_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> i64 {
+        let store = content.bind();
+        let Some(content) = store.content.as_ref() else { return -1 };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
+            return -1;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let ticks = play::run(&mut play, crate_, content, &mut self.events, &mut watch);
+        self.edits += 1;
+        ticks
+    }
+
+    /// The digest's battle `name` with its `numbers` played in the crate as `battle_play`
+    /// plays it, `at` the same, and each tick's record as formation_digest.gd's `_record`
+    /// hashes it (spec 39 step 8c-xii, `digest::battle`): the bytes of `var_to_bytes([events,
+    /// state])`, a tick each. Empty, with nothing written, for an unknown battle or definition.
+    #[func]
+    fn digest_battle(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some((mut play, mut watch)) = battle_set(crate_, content, &name, &numbers, &at) else {
+            return records;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        digest::battle(&mut play, crate_, content, &mut self.events, &mut watch, &mut out);
+        self.edits += 1;
+        records
+    }
+
+    /// FormationField played in the crate (`field_play`): its line `captained` or not
+    /// (`numbers` [1 if captained]), seeded and rolled as `at` = [seed, 1 if blows roll, 1 if
+    /// threaded, ticks], each tick as FormationField.step plays it, each tick's events taken
+    /// and dropped. `sends` = [tick, wave (0: A, 1: B)] each: that wave is sent before that
+    /// tick (FormationField.send). Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content.
+    #[func]
+    fn field_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+        sends: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([seed, rolls, threaded, ticks]) = <[i64; 4]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let captained = numbers.as_slice().first().is_some_and(|&n| n != 0);
+        let crate_ = (&mut self.squads, &mut self.field);
+        let at = (seed, rolls != 0, threaded != 0);
+        let Some(mut played) = field_play::FieldPlay::new(captained, crate_, content, at) else {
+            return failed;
+        };
+        let mut produced = 0;
+        for tick in 0..ticks {
+            let (given, _) = sends.as_slice().as_chunks::<2>();
+            for &[_, wave] in given.iter().filter(|send| send[0] == tick) {
+                if (0..played.waves.len() as i64).contains(&wave) {
+                    let crate_ = (&mut self.squads, &mut self.field);
+                    played.send(wave as usize, 0, crate_, content);
+                }
+            }
+            let (made, _) =
+                played.step(&mut self.squads, &mut self.field, content, &mut self.events);
+            produced += made.len() as i64;
+            self.events.take();
+        }
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
+    }
+
+    /// A field log (FormationRecord) replayed in the crate as the digest plays it
+    /// (`field_play::actions::replay`): the field its header names, each tick's commands given
+    /// as FormationFieldActions.apply gives them and the tick played, each tick's events taken
+    /// and dropped, till `at`'s extra ticks past its last command. `at` = [1 if blows roll, 1
+    /// if threaded, extra ticks]. Returns [the ticks played, the builders' and waves' events
+    /// in all], or [-1], with nothing written, for unloaded content, a log that isn't a record
+    /// or one sending the waves together (`send A+B`, not yet the crate's).
+    #[func]
+    fn field_replay(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> PackedInt64Array {
+        let store = content.bind();
+        let failed = PackedInt64Array::from(&[-1][..]);
+        let Some(content) = store.content.as_ref() else { return failed };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return failed;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return failed };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let played =
+            field_play::actions::replay(&record, extra, crate_, content, how, &mut self.events);
+        let Some((ticks, produced)) = played else { return failed };
+        self.edits += 1;
+        PackedInt64Array::from(&[ticks, produced][..])
+    }
+
+    /// A field log replayed in the crate as `field_replay` replays it, `at` the same, and each
+    /// tick's record as formation_digest.gd's `_record` hashes it (spec 39 step 8c-xii,
+    /// `digest::field`): the bytes of `var_to_bytes([events, state])`, a tick each, the
+    /// builders' and waves' events before the battle's. Empty, with nothing written, for
+    /// unloaded content or a log that isn't a record.
+    #[func]
+    fn digest_field(
+        &mut self,
+        content: Gd<ContentStore>,
+        log: GString,
+        at: PackedInt64Array,
+    ) -> VarArray {
+        let store = content.bind();
+        let mut records = VarArray::new();
+        let Some(content) = store.content.as_ref() else { return records };
+        let Ok([rolls, threaded, extra]) = <[i64; 3]>::try_from(at.as_slice()) else {
+            return records;
+        };
+        let Some(record) = record::parse(&log.to_string()) else { return records };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let how = (rolls != 0, threaded != 0);
+        let mut out =
+            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        let played =
+            digest::field(&record, extra, crate_, content, how, &mut self.events, &mut out);
+        if played.is_some() {
+            self.edits += 1;
+        }
+        records
+    }
+}
+
+/// The digest's battle `name` with its `numbers` set up on the crate to play as `at` = [seed,
+/// 1 if blows roll, 1 if threaded, the limit, ticks past first contact (-1: no such stop)]
+/// says, and the watch that stops it; None, with nothing written, for an unknown battle or
+/// definition.
+fn battle_set(
+    crate_: (&mut squads::Squads, &mut field::Field),
+    content: &content::Content,
+    name: &GString,
+    numbers: &PackedInt64Array,
+    at: &PackedInt64Array,
+) -> Option<(play::Play, play::Watch)> {
+    let battle = battles::named(&name.to_string(), numbers.as_slice())?;
+    let [seed, rolls, threaded, limit, after] = <[i64; 5]>::try_from(at.as_slice()).ok()?;
+    let play = play::Play::new(&battle, crate_, content, (seed, rolls != 0, threaded != 0))?;
+    Some((play, play::Watch::new(limit, (after >= 0).then_some(after))))
+}
+
+/// `of`'s words and lists by name, decoded through `lexicon`, as SkirmishUnit holds them.
+fn said(lexicon: &words::Lexicon, of: &words::Words) -> VarDictionary {
+    let mut held = of.clone();
+    let mut out = VarDictionary::new();
+    for name in words::WORDS {
+        let code = *held.word(name).unwrap();
+        out.set(*name, &GString::from(lexicon.word(code)).to_variant());
+    }
+    for name in words::LISTS {
+        let list: PackedStringArray =
+            held.list(name).unwrap().iter().map(|&c| GString::from(lexicon.word(c))).collect();
+        out.set(*name, &list.to_variant());
+    }
+    for name in words::LEVELS {
+        let mut levels = VarDictionary::new();
+        for &(code, level) in held.levels(name).unwrap().iter() {
+            levels.set(lexicon.word(code), level);
+        }
+        out.set(*name, &levels.to_variant());
+    }
+    for name in words::PARTS {
+        let mut parts = VarArray::new();
+        for part in held.parts(name).unwrap().iter() {
+            let kind = GString::from(lexicon.word(part.kind));
+            parts.push(&varray![part.damage, &kind, part.magical].to_variant());
+        }
+        out.set(*name, &parts.to_variant());
+    }
+    out
+}
+
+/// Each pass's arguments, built from `content`'s battle tuning (`tick::given`); None if the
+/// content isn't loaded or `at` or `paces` is short.
+fn given_of(
+    content: &Gd<ContentStore>,
+    at: &PackedInt64Array,
+    paces: &PackedFloat64Array,
+) -> Option<Given> {
+    let store = content.bind();
+    let tuning = &store.content.as_ref()?.tuning;
+    let [tick, seed, ticks_a_second, rolls, threaded]: [i64; 5] = at.as_slice().try_into().ok()?;
+    let [travel_scale, seconds, route_length, cells_a_second]: [f64; 4] =
+        paces.as_slice().try_into().ok()?;
+    let at =
+        tick::given::At { tick, seed, ticks_a_second, rolls: rolls != 0, threaded: threaded != 0 };
+    let paces = tick::given::Paces { travel_scale, seconds, route_length, cells_a_second };
+    Some(tick::given::of(tuning, &at, &paces))
+}
+
+/// A pass's arguments handed over in `args` as `tick::rules` reads them, each by its `kinds`
+/// letter: `i` ints, `f` floats, `r` a real, `l` a list of float lists.
+fn var_args(args: &VarArray, kinds: &str) -> Vec<Arg> {
+    let floats = |p: PackedFloat64Array| p.as_slice().to_vec();
+    kinds
+        .chars()
+        .enumerate()
+        .map(|(n, kind)| match kind {
+            'i' => Arg::Ints(arg::<PackedInt64Array>(args, n).as_slice().to_vec()),
+            'f' => Arg::Floats(floats(arg(args, n))),
+            'r' => Arg::Real(arg(args, n)),
+            _ => {
+                Arg::Lists(arg::<VarArray>(args, n).iter_shared().map(|t| floats(t.to())).collect())
+            }
         })
         .collect()
+}
+
+/// One of a pass's arguments as its binding takes it.
+fn given_arg(arg: &Arg) -> Variant {
+    match arg {
+        Arg::Ints(n) => PackedInt64Array::from(n.as_slice()).to_variant(),
+        Arg::Floats(x) => PackedFloat64Array::from(x.as_slice()).to_variant(),
+        Arg::Real(x) => x.to_variant(),
+        Arg::Lists(lists) => {
+            let lists: VarArray =
+                lists.iter().map(|x| PackedFloat64Array::from(x.as_slice()).to_variant()).collect();
+            lists.to_variant()
+        }
+    }
+}
+
+/// The `n`th of a binding's arguments handed over in `args`, or its default if missing.
+fn arg<T: FromGodot + Default>(args: &VarArray, n: usize) -> T {
+    args.get(n).map_or_else(T::default, |v| v.to::<T>())
 }

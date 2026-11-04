@@ -17,36 +17,13 @@ extends RefCounted
 
 enum Kind { COMBAT, WITHDRAW, ROUTE, RE_FORM, ORDER }
 
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const FormationContact = preload("res://sim/skirmish/formation/formation_contact.gd")
-
 const NAMES := ["combat", "withdraw", "route", "re-form", "order"]
 
 
 ## Settles each squad's manoeuvre this tick, in the crate (`manoeuvre.rs`, spec 39 step
-## 4b). A gap's narrowing becomes a re-form: its units walk to their new places rather than
-## the squad waiting a fixed time. This hands the crate what it doesn't hold: whether each
-## squad is withdrawing and skirmishing (asked only where no higher priority applies), and
-## the living units of one that narrowed.
-static func step(squads: Array) -> void:
-	if squads.is_empty():
-		return
-	var roster: Object = null  # the squads' (CrateRoster), made when a squad first asks
-	var cases := PackedInt64Array()
-	for squad in squads:
-		var withdrawing: bool = not squad.withdraw.is_empty()
-		var fighting: bool = (
-			squad.state == SkirmishSquad.State.FIGHTING
-			or squad.engaged_with != 0
-			or not squad.flank_contacts.is_empty()
-		)
-		var skirmishing := false
-		if not withdrawing and not fighting:
-			if roster == null:
-				roster = CrateRoster.of(squads)
-			skirmishing = FormationContact.skirmishing(squad, squads, roster)
-		var living: Array = squad.living() if squad.narrow_ticks > 0 else []
-		cases.append_array([squad.slot, int(withdrawing), int(skirmishing), living.size()])
-		for unit in living:
-			cases.append_array([unit.id, unit.slot])
-	squads[0].store.field().manoeuvre_step(cases)
+## 4b; `scrum::pass::manoeuvre`, 8b5-xi), on the battle's `field` (null: no squads) over its
+## squads' `roster` (CrateRoster). A gap's narrowing becomes a re-form: its units walk to
+## their new places rather than the squad waiting a fixed time.
+static func step(field: Object, roster: Object) -> void:
+	if field != null:
+		field.scrum_manoeuvre(roster)

@@ -9,10 +9,13 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/tick_phases.gd -- \
 ##       [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 ##       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [copies]
+##       [terrain=open|mixed]
 ## copies also counts each phase's column copies across the boundary
 ## (ColumnCopies); counting slows the phases it counts, so time without it.
 ## squads=N splits each side into N squads of side/N on parallel lanes (FormationBench.lanes);
 ## archers=K makes the grems' back K a squad spitters, which shoot.
+## terrain=mixed plays the clash (one lane) on FormationBench.mixed_ground: a wood and a ford
+## across its line of advance (spec 38 step 2).
 ## stage=march times `fight` ticks of the march before contact, `settle` ticks after the
 ## start, instead of the fight. retreat orders that squad to retreat once the fight has
 ## settled in (its withdrawal, and its enemies' chasers, timed).
@@ -23,13 +26,10 @@ const Scrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
-const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
-const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const ColumnCopies = preload("res://tools/column_copies.gd")
@@ -79,11 +79,13 @@ func _settled(side: int, width: int, args: Dictionary) -> Sim:
 	var lanes := int(args.get("squads", 1))
 	var archers := int(args.get("archers", 0))
 	var battle_seed := int(args.get("seed", 1))
-	var sim := (
-		FormationBench.lanes(lanes, side / lanes, width, battle_seed, archers)
-		if lanes > 1
-		else FormationBench.clash(side, width, battle_seed, archers)
-	)
+	var sim: Sim
+	if args.get("terrain", "open") == "mixed":
+		sim = FormationBench.mixed(side, width, battle_seed, archers)
+	elif lanes > 1:
+		sim = FormationBench.lanes(lanes, side / lanes, width, battle_seed, archers)
+	else:
+		sim = FormationBench.clash(side, width, battle_seed, archers)
 	if args.get("stage", "fight") == "march":
 		for _i in range(int(args.get("settle", 10))):
 			sim.step()
@@ -144,7 +146,7 @@ func _step(sim: Sim) -> void:
 	var interval := sim._attack_interval_ticks()
 	Sim.FormationDeaths.bury(squads, tick, events)
 	_lap("deaths (bury)")
-	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events, sim.perception)
+	Sim.FormationTaking.step(squads, tick, sim.tick_seconds, sim.fight_seed, events)
 	_lap("taking the downed")
 	Sim.FormationWounds.tend(squads, tick, interval, sim.fight_seed, events)
 	_lap("wounds (tend)")
@@ -179,8 +181,7 @@ func _after(sim: Sim, events: Array) -> void:
 	_lap("stamina")
 	Sim.UnitBodies.step(squads, sim.fight_seed, sim._field)
 	_lap("bodies (UnitBodies)")
-	for entry in squads:
-		events.append_array(FormationShuffle.step(entry, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
+	events.append_array(FormationShuffle.step(squads, sim.tick_seconds, Sim.TRAVEL_SCALE, tick))
 	_lap("shuffle (re-form)")
 	Sim.FormationMarch.sync_units(squads, [sim.tick_seconds, pace], sim.terrain, sim.fight_seed)
 	_lap("units walk to places")
@@ -192,89 +193,48 @@ func _after(sim: Sim, events: Array) -> void:
 func _scrum(sim: Sim, events: Array) -> void:
 	var squads := sim.squads()
 	var tick := sim.tick_number()
-	events.append_array(_scrum_events(sim))
+	var roster := CrateRoster.of(squads, sim.terrain)  # who is living, through the scrum
+	_lap("scrum: roster")
+	events.append_array(_scrum_events(sim, roster))
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var ctx := {
-		"squads": squads,
 		"tick": tick,
 		"seconds": sim.tick_seconds,
 		"pace": pace * sim.tick_seconds,
+		"cells_per_second": pace,
 		"seed": sim.fight_seed,
 		"terrain": sim.terrain,
-		"lying": GroundBodies.ground(squads),
 		"active": {},
-		"field": sim._field,
 	}
-	_lap("scrum: bodies snapshot")
-	_seek(ctx)
-	_lap("scrum: seek (slot search)")
-	_walk_and_face(ctx)
-	_after_seek(sim, ctx, events)
+	ScrumSeek.step(sim._field, roster, ctx)
+	_lap("scrum: seek, walk and facing")
+	_after_seek(sim, [ctx, roster], events)
 
 
-## FormationScrum.step after the seek: the roster, regroup, the chasers, withdrawal and
-## pursuit, and the stall.
-func _after_seek(sim: Sim, ctx: Dictionary, events: Array) -> void:
+## FormationScrum.step after the seek: regroup, the chasers, withdrawal and pursuit, and
+## the stall. `scrum`: the scrum's ctx and its roster.
+func _after_seek(sim: Sim, scrum: Array, events: Array) -> void:
+	var ctx: Dictionary = scrum[0]
+	var roster: Object = scrum[1]
 	var squads := sim.squads()
 	var tick := sim.tick_number()
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var scrum_events := []
-	var roster := CrateRoster.of(squads, sim.terrain)  # who is living: nobody falls from here on
-	_lap("scrum: roster")
-	ScrumRegroup.step(squads, ctx["pace"], sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
-	_lap("scrum: regroup")
-	ScrumPursuit.step(squads, tick, pace, sim.tick_seconds, sim.fight_seed, sim.terrain, roster)
-	_lap("scrum: chasers (ScrumPursuit)")
-	FormationWithdraw.step(
-		squads,
-		tick,
-		ctx["pace"],
-		sim.tick_seconds,
-		sim.fight_seed,
-		sim.terrain,
-		scrum_events,
-		roster
-	)
+	ScrumRegroup.step(sim._field, roster, ctx)
+	_lap("scrum: regroup and chasers")
+	FormationWithdraw.step(sim._field, roster, ctx, scrum_events)
 	_lap("scrum: withdraw")
 	FormationPursuit.step(squads, tick, pace, sim.tick_seconds, scrum_events, roster)
-	Scrum._stall(squads, ctx["active"], tick, sim.tick_seconds, scrum_events)
+	Scrum._stall(sim._field, roster, ctx["active"], [tick, sim.tick_seconds], scrum_events)
 	events.append_array(scrum_events)
 	_lap("scrum: pursuit, stall")
 
 
-## ScrumSeek.plan. ScrumSeekField's own timings are booked to their parts, so the seek's
-## line keeps only the rest.
-func _seek(ctx: Dictionary) -> void:
-	var before := ScrumSeekField.spent.duplicate()
-	ScrumSeek.plan(ctx)
-	var spent := ScrumSeekField.spent
-	var core := spent[3] - before[3]
-	var parts := {
-		"scrum: seek: sync the field": spent[0] - before[0],
-		"scrum: seek: gather the rules' say": spent[1] - before[1],
-		"scrum: seek: the core's work": core,
-		"scrum: seek: the call, less the core": spent[2] - before[2] - core,
-		"scrum: seek: the walk's batch": spent[4] - before[4],
-	}
-	for part in parts:
-		if parts[part] > 0:
-			_spent[part] = _spent.get(part, 0) + parts[part]
-			_last += parts[part]  # booked here, not to the seek's own line
-
-
-func _scrum_events(sim: Sim) -> Array:
-	var squads := sim.squads()
-	var events := ScrumEngage.step(squads, sim.tick_number(), sim.fight_seed)
-	for squad in squads:
-		Scrum._prepare(squad, sim.tick_number())
-	ScrumStance.anticipate_all(squads, sim.tick_number(), events, sim.terrain, sim.fight_seed)
-	FormationManoeuvre.step(squads)
+func _scrum_events(sim: Sim, roster: Object) -> Array:
+	var events := ScrumEngage.step(sim._field, roster, sim.tick_number(), sim.fight_seed)
+	Scrum._prepare(sim._field, roster, sim.tick_number())
+	var when := [sim.tick_number(), sim.fight_seed]
+	ScrumStance.anticipate_all(sim._field, roster, when, sim.terrain, events)
+	FormationManoeuvre.step(sim._field, roster)
 	_lap("scrum: engage, prepare, stance")
 	return events
-
-
-func _walk_and_face(ctx: Dictionary) -> void:
-	ScrumWalkField.walk(ctx)
-	_lap("scrum: walk (steering)")
-	ScrumFaceField.face(ctx)
-	_lap("scrum: face foes")

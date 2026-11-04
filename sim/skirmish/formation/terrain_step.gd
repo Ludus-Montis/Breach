@@ -7,12 +7,11 @@ extends RefCounted
 ## wading pace); where its way is barred (deep water, a wall) it slides along the barrier on
 ## whichever axis is open and brings it nearer (a stream's bank, a wall's face), and where
 ## neither is, it stays. A view over the crate's (native/rust/src/mover.rs, spec 39 step
-## 3b), and `returns` one over its march's (march/pour.rs, 3d). Cells.
+## 3b); where loose units walk back to on the ground is the crate's own (the pour's targets,
+## `scrum::regroup`, spec 39 step 8b5-xiv). Cells.
 
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
-const FormationPour = preload("res://sim/skirmish/formation/formation_pour.gd")
 
 
 ## [the point the unit at `at` steps towards on its way to `goal`, the share of its pace
@@ -34,13 +33,3 @@ static func pay(unit: SkirmishUnit, at: Vector2, to: Vector2, terrain: Formation
 	if terrain == null:
 		return to
 	return CrateMoves.core().pay(terrain.core, UnitMover.walker(unit, terrain), at, to)
-
-
-## unit id -> where the squad's loose units walk back to on `terrain`: where each makes for
-## in its frame (FormationPour.targets), so one whose place is barred makes for the nearest
-## it can walk, as its formation's walk would - or {} (their places, ScrumStance.anchor) on
-## open ground or in a stance.
-static func returns(squad: SkirmishSquad, terrain: FormationTerrain, fight_seed: int) -> Dictionary:
-	if terrain == null or not squad.stance.is_empty():
-		return {}
-	return FormationPour.targets(squad, terrain, null, fight_seed, true)

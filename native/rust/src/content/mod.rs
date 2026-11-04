@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-pub use items::{Armour, Weapon};
+pub use items::{Armour, Item, Weapon};
 pub use map::{
     Bridge, Channel, Faction, FactionRelation, GarrisonUnit, Lane, LossGroup, LossRule, Map,
     MapEdge, MapLayout, Node, NodeType, ResourceType, RoadSegment, Route, Side, Stance,
@@ -59,7 +59,7 @@ impl fmt::Display for LoadError {
 }
 
 /// Everything the simulation reads from `content/`, by id in id order.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Content {
     pub units: BTreeMap<String, Unit>,
     pub weapons: BTreeMap<String, Weapon>,
