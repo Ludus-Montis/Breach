@@ -40,6 +40,19 @@ static func step(
 		flat.append_array([stray[1].slot, stray[0].slot])
 	field.put_squads_issued(next_id - 1)
 	var roster := CrateRoster.of(squads, terrain)  # each squad's living, fresh
+	var given := [roster, flat] + args(at, pace) + [UnitMover.ground(terrain)]
+	var out: PackedInt64Array = ColumnsLent.all(
+		store.columns, func(): return field.callv(&"mustering_step", given)
+	)
+	next_id = mirror(squads, strays, out, next_id)
+	events.append_array(CrateEvents.taken(field, store))  # the passes' events, in order
+	return next_id
+
+
+## The mustering's arguments past the roster and its strays and before the ground
+## (`mustering_step`'s, and the whole tick's part, `tick_step`): `at` and `pace` as `step`
+## takes them.
+static func args(at: Array, pace: Array) -> Array:
 	var ints := PackedInt64Array([at[0], at[2], int(at[0] % maxi(1, at[1]) == 0)])
 	var tunings := [
 		_morale(),
@@ -48,11 +61,13 @@ static func step(
 		FormationCarry.loads(),
 		FormationGroups.rules(),
 	]
-	var ground: Object = UnitMover.ground(terrain)
-	var out: PackedInt64Array = ColumnsLent.all(
-		store.columns,
-		func(): return field.mustering_step(roster, flat, ints, tunings, BandTuning.rules(), ground)
-	)
+	return [ints, tunings, BandTuning.rules()]
+
+
+## GDScript's copies after the mustering's `out` result, each pass's in order, with
+## recovery's `strays` and the squads numbered from `next_id`; returns the next free id.
+static func mirror(squads: Array, strays: Array, out: PackedInt64Array, next_id: int) -> int:
+	var field: Object = squads[0].store.field()
 	var end := 1 + ADOPTED * out[0]
 	next_id = FormationStrays.mirror(strays, squads, out.slice(1, end), next_id)
 	var at_rout := end + 1 + ROUTED * out[end]
@@ -61,9 +76,7 @@ static func step(
 	var bearers := FormationCarry.mirror(squads, out.slice(at_rout + 1, end), field)
 	var at_groups := end + 1 + ADOPTED * out[end]
 	next_id = FormationStrays.mirror(bearers, squads, out.slice(end + 1, at_groups), next_id)
-	next_id = FormationGroups.mirror(out.slice(at_groups), squads, next_id)
-	events.append_array(CrateEvents.taken(field, store))  # the passes' events, in order
-	return next_id
+	return FormationGroups.mirror(out.slice(at_groups), squads, next_id)
 
 
 ## Morale's tuning as FormationMorale.step hands it the crate: [morale_recovery,

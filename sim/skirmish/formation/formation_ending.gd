@@ -28,24 +28,33 @@ static func step(squads: Array, at: Array, paces: Array, terrain: FormationTerra
 		return []
 	for squad: SkirmishSquad in squads:
 		squad.living()  # its members written to the squad store, if its lists changed
+	var given := [FormationLocks.slots(squads)] + args(at, paces) + [UnitMover.ground(terrain)]
+	var store: UnitStore = squads[0].store
+	var field: Object = ColumnsLent.field(store.columns)
+	var flat: PackedInt64Array = ColumnsLent.all(
+		store.columns, func(): return field.callv(&"ending_step", given)
+	)
+	mirror(store, flat)
+	return CrateEvents.taken(field)  # the shuffle's "swapped", "stepped_up"
+
+
+## The end's arguments past the squads listed and before the ground (`ending_step`'s, and
+## the whole tick's part, `tick_step`): `at` and `paces` as `step` takes them.
+static func args(at: Array, paces: Array) -> Array:
 	var tuning := BattleTuning.current()
-	var listed := FormationLocks.slots(squads)
 	var ints := PackedInt64Array(at + [int(NativeKernels.threaded)])
 	var floats := PackedFloat64Array([paces[0], paces[1], tuning.scrum_crowding, paces[2]])
-	var stamina := FormationStamina.tuning()
 	var bodies := PackedFloat64Array(
 		[tuning.bodies_passes, tuning.bodies_resist, tuning.bodies_brush]
 	)
 	var walk := CrateMarch.walk_tuning()
 	walk.append(tuning.wounds_reach)
-	var ground: Object = UnitMover.ground(terrain)
-	var store: UnitStore = squads[0].store
-	var field: Object = ColumnsLent.field(store.columns)
-	var flat: PackedInt64Array = ColumnsLent.all(
-		store.columns,
-		func(): return field.ending_step(listed, ints, floats, stamina, bodies, walk, ground)
-	)
+	return [ints, floats, FormationStamina.tuning(), bodies, walk]
+
+
+## GDScript's copies after the end's `flat` result in `store`: the parting's time for the
+## benches, and the units made by hand given their speed as fresh.
+static func mirror(store: UnitStore, flat: PackedInt64Array) -> void:
 	UnitBodies.clock_usec += flat[0]  # the parting's own time, for the benches
 	BodyParting.spent[2] += flat[0]
 	FormationStamina.mirror(store, flat.slice(PARTED))
-	return CrateEvents.taken(field)  # the shuffle's "swapped", "stepped_up"

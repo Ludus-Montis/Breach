@@ -32,8 +32,11 @@ func of(slot: int) -> FormationRoute:
 	return route
 
 
-## Sets the route the squad in `slot` follows (null: a straight lane along x).
+## Sets the route the squad in `slot` follows (null: a straight lane along x); none while
+## CrateMirroring is on (the crate's is the tick's).
 func put(slot: int, route: FormationRoute) -> void:
+	if CrateMirroring.on:
+		return
 	var points := PackedVector2Array() if route == null else route.points()
 	var half_width := 0.0 if route == null else route.corridor_half_width
 	var object := 0 if route == null else route.get_instance_id()

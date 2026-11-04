@@ -19,7 +19,8 @@ const RANK_DEPTH := 1.0 / MapLayoutDef.CELLS_PER_TILE
 var faction_id: String:
 	set(value):
 		faction_id = value
-		store.field().squad_put_faction(slot, value)
+		if not CrateMirroring.on:  # mirrored, the crate's is the tick's
+			store.field().squad_put_faction(slot, value)
 ## The route the squad follows (Decision 75); null is a straight lane along x. The crate
 ## holds it (spec 39 step 8b4-i), named by the code it gives this route (8b5-xxxvi: the same
 ## route, the same code), and this is a view of it (8b5-xxxvii, SquadRoutes): a route a pass
@@ -105,6 +106,8 @@ var kept := UnitState.Kept.new()
 var joined: Array[SkirmishUnit] = []:
 	set(value):
 		joined = value
+		if CrateMirroring.on:
+			return  # mirrored, the crate's is the tick's
 		var ids := PackedInt64Array()
 		for unit in value:
 			ids.append(unit.id)
@@ -119,7 +122,8 @@ var merges: bool:
 var command: FormationCommand:
 	set(value):
 		command = value
-		store.field().squad_put_command(slot, value.slot)
+		if not CrateMirroring.on:  # mirrored, the crate's is the tick's
+			store.field().squad_put_command(slot, value.slot)
 
 
 func _init(

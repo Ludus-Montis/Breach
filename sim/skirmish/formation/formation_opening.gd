@@ -26,19 +26,30 @@ static func step(
 ) -> Dictionary:
 	if squads.is_empty():
 		return {}
-	var tuning := BattleTuning.current()
 	var field: Object = squads[0].store.field()
-	var flat: PackedInt64Array = field.opening_step(
-		CrateRoster.of(squads),
-		UnitMover.ground(terrain),
+	var given := [CrateRoster.of(squads), UnitMover.ground(terrain)]
+	var flat: PackedInt64Array = field.callv(&"opening_step", given + args(ticks, moving))
+	events.append_array(CrateEvents.taken(field))
+	return mirror(squads, flat)
+
+
+## The opening's arguments past the roster and the ground (`opening_step`'s, and the whole
+## tick's part, `tick_step`): `ticks` [tick, seed], `moving` as `step` takes it.
+static func args(ticks: Array, moving: Array) -> Array:
+	var tuning := BattleTuning.current()
+	return [
 		PackedInt64Array(ticks),
 		FormationOrders.rules(),
 		BandTuning.rules(),
 		PackedInt64Array([tuning.morale_side_impact, tuning.morale_rear_impact]),
 		FormationPathing.looks(),
-		move_rules(moving)
-	)
-	events.append_array(CrateEvents.taken(field))
+		move_rules(moving),
+	]
+
+
+## GDScript's copies after the opening's `flat` result: the tick's perception (returned)
+## and the joined squads out of `squads`.
+static func mirror(squads: Array, flat: PackedInt64Array) -> Dictionary:
 	var at := 1 + 4 * flat[0]  # past the pursuers, then the re-routed slots
 	at += 1 + flat[at]
 	var perception := {}
