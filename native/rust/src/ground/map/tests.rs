@@ -59,8 +59,36 @@ fn the_hill_rises_a_quarter_a_ring_to_two_cells() {
 }
 
 #[test]
-fn only_the_field_is_a_map() {
+fn only_the_field_and_the_mixed_ground_are_maps() {
     let tuning = tuning();
     assert!(of("field", &tuning).is_some());
+    assert!(of("mixed", &tuning).is_some());
     assert!(of("nowhere", &tuning).is_none());
+}
+
+fn mixed_ground() -> Ground {
+    let tuning = tuning();
+    mixed(&tuning).ground(GroundTuning::of(&tuning))
+}
+
+#[test]
+fn the_mixed_ground_s_wood_crosses_the_line_of_advance_at_half_pace() {
+    let ground = mixed_ground();
+    assert_eq!(ground.size(), (128, 64));
+    for y in [0, 32, 63] {
+        assert_eq!(ground.crossing(&grem(), at(31, y), at(32, y)), 0.5, "into the wood at y {y}");
+        assert!(ground.blocks_sight(at(40, y)));
+        assert_eq!(ground.crossing(&grem(), at(47, y), at(48, y)), 1.0, "out of it at y {y}");
+    }
+}
+
+#[test]
+fn the_mixed_ground_s_stream_is_too_deep_for_a_grem_but_its_ford_is_not() {
+    let ground = mixed_ground();
+    for y in [0, 15, 48, 63] {
+        assert_eq!(ground.crossing(&grem(), at(79, y), at(80, y)), 0.0, "the stream at y {y}");
+    }
+    for y in [16, 32, 47] {
+        assert!(ground.crossing(&grem(), at(79, y), at(80, y)) > 0.0, "the ford at y {y}");
+    }
 }

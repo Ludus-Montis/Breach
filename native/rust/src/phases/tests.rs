@@ -102,3 +102,59 @@ fn each_battle_is_settled_on_the_tick_godot_s_is_and_tells_of_as_much() {
         assert_eq!((settled.play.tick, told), (tick, counts.to_vec()), "{options:?}");
     }
 }
+
+/// FormationBench.mixed (spec 38 step 2's `terrain=mixed`) as Godot played it from the start,
+/// from a throwaway probe (spec 39 step 8c-xxi): (side, width, seed, archers), the events told
+/// over its first 400 ticks, the first tick that told of any, and the SHA-256 of
+/// DigestState.state at tick 130 (the fight) and at tick 400 (long after it ended).
+type Mixed = ((usize, usize, i64, usize), usize, i64, &'static str, &'static str);
+
+const GODOT_MIXED: [Mixed; 3] = [
+    (
+        (64, 8, 1, 0),
+        447,
+        108,
+        "65322c7b9d200e5243668e5d17d46b154158188607adcb8dbe14ae5880c78cdf",
+        "e3b511ff556c4a9389cfd0adab9987089f313426acb734361f683db8154d69bb",
+    ),
+    (
+        (64, 8, 2, 0),
+        463,
+        108,
+        "702f148c53862530aa799ae0f3962f314a6090692e6c0d1942134c5fc1cb6d98",
+        "fc3dd57b5862009def0974bd2ada258233de7325062ddb837a58555f6883cf93",
+    ),
+    (
+        (96, 12, 1, 4),
+        553,
+        108,
+        "c31f47f8d9b5ffdc1d38e15302821453af207f39ea5aa5115a37a2a6eccd99aa",
+        "b26640a5cd0b3e8f59ed3029d60673ab11a0ab866afda16284104518ecdb68ea",
+    ),
+];
+
+fn sha(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[test]
+fn the_mixed_clash_plays_as_godot_s_did_and_its_digest_is_the_same() {
+    let content = content();
+    for ((side, width, seed, archers), sum, first, mid, end) in GODOT_MIXED {
+        let (march, settle, mixed) = (true, 0, true); // from the start, as the probe stepped it
+        let options = Options { side, width, seed, archers, march, settle, mixed, ..small() };
+        let mut settled = settled(&options, &content).expect("the battle sets up");
+        let mut told = Vec::new();
+        let mut at_mid = String::new();
+        for tick in 1..=400 {
+            told.push(settled.step(&content));
+            if tick == 130 {
+                at_mid = sha(&settled.state());
+            }
+        }
+        let first_told = told.iter().position(|&n| n > 0).map_or(-1, |k| k as i64 + 1);
+        let ours = (told.iter().sum::<usize>(), first_told, at_mid, sha(&settled.state()));
+        assert_eq!(ours, (sum, first, mid.to_string(), end.to_string()), "{options:?}");
+    }
+}
