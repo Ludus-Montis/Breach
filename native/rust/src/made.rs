@@ -152,7 +152,7 @@ fn words(unit: &Unit, arms: &Arms, faction: &str, lexicon: &mut Lexicon) -> Word
 /// How it crosses terrain (TerrainWalker.of): its height, its swimmer and climber levels,
 /// and whether it swims and climbs at all (not when too laden, nor when it sinks or can't
 /// climb).
-fn walker(unit: &Unit, arms: &Arms) -> [f64; 5] {
+pub(crate) fn walker(unit: &Unit, arms: &Arms) -> [f64; 5] {
     let free = !arms.too_heavy_for_modes();
     let swims = free && arms.trait_level("sinks") == 0;
     let climbs = free && arms.trait_level("cant_climb") == 0;

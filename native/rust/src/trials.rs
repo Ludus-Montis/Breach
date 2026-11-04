@@ -7,6 +7,7 @@
 //! built (by BattleTrials' eight grem builders), then sent as the scenario sends them, played till the kingdom's line breaks.
 
 pub mod fatigue;
+pub mod paths;
 #[cfg(test)]
 mod tests;
 

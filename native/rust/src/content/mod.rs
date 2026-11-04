@@ -59,7 +59,7 @@ impl fmt::Display for LoadError {
 }
 
 /// Everything the simulation reads from `content/`, by id in id order.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Content {
     pub units: BTreeMap<String, Unit>,
     pub weapons: BTreeMap<String, Weapon>,
