@@ -7376,3 +7376,65 @@ reached, with its count stated in each PR.
 of once a unit. CI's digests compare both engines with `main`.
 **Bounded:** this lowers per-tick work: a squad's fields are read once a pass, not once a unit.
 **Pillar check:** holds. Process only.
+
+### Decision 158 — A long series of steps runs as a cascade: a coordinator, and one record edited in place
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-04
+**Amends:** none; it adds to Decision 148's hand-offs through GitHub and to the
+one-step-per-session rule (`AI_First_Development_Kit/principles/agent-sessions.md`, rule 3)
+
+**Rationale:** Spec 39 step 8 was built as one chain of 57 PRs (#641 to #697), each session
+starting the next with `create_session`, and it showed three failures.
+- **Depth:** each session was one level deeper than the last. The service's limit on sessions
+  started by sessions refused the next start every few steps, and the owner had to restart
+  the chain by hand.
+- **Layered instructions:** each session posted its prompt as "the comment before, updated by
+  these comments, in this order". By the end, a session spent its first dozen reads rebuilding
+  what it had been told.
+- **Silent stalls:** a session that ends cleanly reports nothing, so a chain that stopped
+  looked the same as one still working.
+
+The owner asked for a skill to start such a series for any spec, without the limit.
+- **The rule:** a series of steps built back to back runs as a cascade (`/cascade`,
+  `.claude/skills/cascade/SKILL.md`; the kit's rule 8). The session the owner starts is the
+  coordinator.
+  - It starts every step session itself and waits idle in between, so each step is one level
+    below it however many steps there are.
+  - It hands its role to a fresh coordinator when its own context has been reset, at one level
+    per hand-over.
+  - The cascade's whole state is one issue labelled `cascade`, from
+    `AI_First_Development_Kit/templates/cascade-issue.md`, edited in place by each step. Its
+    comments are a log, never instructions.
+  - Each step is an ordinary `/run-phase` step with its own PR. When it ends, it updates the
+    record and reports to the coordinator. The coordinator also schedules a check of each
+    step, reads the record (not the message) as the truth, and never restarts a step on its
+    own.
+  - The owner's standing rules (where to stop, stacking, checkpoints, splitting, what is
+    allowed without asking) are set once, when the cascade starts. A step's report can't widen
+    them. A step that needs the owner blocks the cascade until they answer.
+- **Not covered:** a single step, which runs with `/run-phase` as before; and merging, which
+  stays the owner's.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep the chain: each step starts the next | Its depth grows with every step and hits the limit; the owner restarts it by hand. |
+| The owner starts each step by hand | Works, but the owner asked for a series that runs on its own. |
+| Instructions as comments on each PR | They layer: each session has to rebuild them, and one missed layer changes the work. |
+| The record as a file on the branch | A stacked file is only current at the chain's tip, and merging one PR brings in a stale copy; an issue is one place every session reads. |
+| A scheduled task per step instead of a coordinator | Untried as a way round the depth limit, and it adds a scheduled task per step; it can be revisited if the coordinator's reports prove unreliable. |
+
+**Consequences:** `/run-phase` reads the cascade's record when a step was started by
+`/cascade step #N`, and `ci/github/labels.py` gains the `cascade` label. The first real cascade
+tests two things not yet tried: a step session messaging its coordinator back, and the depth
+the coordinator layout reaches. The scheduled check and the record carry the cascade even if
+the messages don't arrive. A cascade stacked long without checkpoints is still a lot to
+review at once, so the start asks the owner about checkpoints.
+
+**Rules over cases:** general: every series of steps built back to back runs the same way,
+whatever the spec.
+**Order:** no outcome changes: process only.
+**Bounded:** not applicable: no per-tick work.
+**Pillar check:** holds. Process only.

@@ -39,6 +39,11 @@ regardless of size, goes on its own branch and through a PR that a human merges.
   uncommitted changes that aren't yours to discard, stop and ask.
 - Confirm the branch this item depends on (if any) is already merged to `main` before
   branching from it — don't stack on an unmerged PR without asking first.
+- **In a cascade** (you were started with `/cascade step #N`, `.claude/skills/cascade/`):
+  the cascade's issue is your standing instructions, and its **Base** is the branch you
+  stack on (the owner authorised that when the cascade started). Read it whole, once.
+  Don't rebuild instructions from older PR comments. Finish with the cascade skill's
+  "Step" section (update the record, report), then stop.
 
 ## 1. Branch — Conventional Branch, purpose-driven prefix only
 
@@ -113,7 +118,24 @@ pillars: "holds", or which pillar it bends and why, and with the **Rules over ca
 every design decision and every change to simulation outcomes. A Decision that bends a pillar is a
 pivot: say so to the user and get their explicit authorisation before recording it.
 
+**Running long commands in a session.** A shell call times out after two minutes by
+default, and a first `cargo build` or `cargo test` takes several:
+- pass a longer timeout (up to ten minutes);
+- or run the command in the background and wait for its completion notice;
+- never chain `sleep`s to wait;
+- don't edit a Rust source or run `cargo fmt` while a build is running: the crate
+  compiles from whatever is on disk.
+
+**Choosing fixtures from real runs.** To find the ticks, seeds or cases where a behaviour
+shows (which phases change state in which tick, say), write a throwaway probe: an
+`#[ignore]`d cargo test, or a script under the scratchpad. Run it once, read only its
+summary lines, and delete it before committing. Record what it found in the spec, so
+the next agent doesn't run it again.
+
 ## 4. Commit as you go
+
+**Never commit a `// RED-STUB`:** finish the red-then-green pair first. A stop hook that
+asks for a commit while a stub is in the tree waits until the stub is gone.
 
 Run the fast local gate before each commit: `pre-commit run --all-files` (runs
 automatically on `git commit` once `pre-commit install` has been run once per clone).
@@ -134,7 +156,9 @@ hard, and not skippable:
 2. Run the static checks directly (they also run in `pre-commit`/CI, but run them here
    first to catch anything before pushing): `check_function_length.py`,
    `check_generic_naming.py`, `check_isp.py`, `check_dependency_direction.py`,
-   `check_helper_promotion.py`, `check_id_order.py`, `check_ocp_shotgun_surgery.py origin/main`,
+   `check_helper_promotion.py`, `check_id_order.py`, `check_ocp_shotgun_surgery.py origin/main`
+   (on a PR stacked on an unmerged branch, run it against that base branch instead and say
+   so in the PR: against `main` it counts every unmerged step below yours),
    `check_context_locality.py origin/main` (informational — read its output, it won't
    fail the gate, but a large touched-file count that *isn't* the schema-plus-consumer
    pattern Decision 12 covers is worth a second look before opening the PR), plus

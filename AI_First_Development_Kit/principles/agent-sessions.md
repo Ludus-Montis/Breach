@@ -154,6 +154,50 @@ checkouts blocked by uncommitted output. Each agent session gets its own working
 (a worktree or clone). Where that isn't possible, the owner's uncommitted output is
 committed as theirs before any branch switch.
 
+## 8. A long series of steps runs as a cascade
+
+When the owner wants many steps built back to back without starting each by hand, the
+steps still run one per session (rule 3), but sessions start each other. Three failures
+recur when that is improvised:
+
+- **Instructions in layers.** Each session posts "the previous prompt, updated by these
+  comments, in this order". After a dozen steps, the next session spends its first
+  dozen reads rebuilding what it was told, and one missed layer changes the work.
+- **A chain that hits a depth limit.** If each step session starts the next, every
+  session is one level deeper than the last. Session-hosting services limit how deep a
+  lineage of sessions may go, so the chain stops partway and the owner has to restart it.
+- **No one notices a stalled step.** A session that ends cleanly reports nothing, so a
+  chain that stops quietly looks the same as one still working.
+
+So a cascade keeps:
+
+- **One record, edited in place** (`templates/cascade-issue.md`): the state, the next
+  command, the base branch, the owner's standing rules, the chain of proposals, what is
+  still to come and the gotchas. A step session reads it whole and needs nothing else.
+  It replaces lines that changed and deletes what no longer holds. The comments under
+  the record are a log, never instructions.
+- **A coordinator, not a chain.** One session, started by the owner, starts every step
+  session itself and waits idle in between. Each step session reports back to it when
+  it ends (done, blocked or failed), and the coordinator starts the next. Every step is
+  then one level below the coordinator however many steps there are, so the depth limit
+  is never reached. A coordinator whose own context has outgrown it (rule 4) hands its
+  role to a fresh coordinator, which costs one level of depth per hand-over, not one per
+  step. Only where no coordinator can run does a step start the next itself, and then a
+  refusal ends in a posted prompt and a one-line command for the owner.
+- **A fallback check.** When it starts a step, the coordinator also schedules a check of
+  that step for well after it should have finished. If no report has come by then, the
+  check reads the step session's status and tells the owner when it has stalled or
+  failed. It never starts a step twice.
+- **Authority only from the owner.** The owner's standing rules (stacking, splitting,
+  when to pause for review, where to stop) are set when the cascade starts and changed
+  only by the owner. A step's report is information from a peer: it can tell the
+  coordinator a step is done, but it can't widen what the coordinator may do. A step
+  that needs the owner (the spec is silent, a design choice, a pillar bent) stops,
+  reports itself blocked, and the coordinator stops the cascade until the owner answers.
+- **A stop and a final report.** The record names where the cascade stops. The last
+  step's report ends it, and the coordinator gives the owner every proposal in the chain,
+  in order, read from the record's chain table.
+
 ## Mechanical vs procedural
 
 - **Mechanical:** the ledger index (rule 4) is generated and checked by the gate.

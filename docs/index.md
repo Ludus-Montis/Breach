@@ -15,6 +15,8 @@ Task-oriented. Steps to achieve a specific goal.
 - [Run the checks locally](../ci/godot/README.md#running-the-checks-locally)
 - [See an outcome change side by side](../tools/trace_view/README.md)
 - [Replace the placeholder art](../assets/placeholder/README.md)
+- [Run a spec's steps back to back, one session each](../.claude/skills/cascade/SKILL.md)
+  (`/cascade`; why it works this way: [agent sessions, rule 8](../AI_First_Development_Kit/principles/agent-sessions.md#8-a-long-series-of-steps-runs-as-a-cascade))
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 
