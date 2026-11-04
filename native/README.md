@@ -224,19 +224,22 @@ plays the same runs in the crate with no Godot (spec 39 step 8c-xiii) and prints
 lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot's.
 
 **The snapshot tests' cuts** (`src/cuts.rs`, spec 39 step 8d): `breach_digest cuts=<dir>`
-writes eight states cut from the standard digest's battles (`cuts::CUTS`: the mirrors and the
-40-a-side clash, each at a tick after which the phases it was chosen for change the state)
-to `native/rust/cuts/`, committed, about 390 KB. Each is the snapshot's bytes (`<name>.state`)
-and a text file (`<name>.txt`): the run's label, the tick, the squads listed, and the SHA-256
-of the field and the squads as each lap of the next tick ends. `cargo test cuts` reads each
-back, steps that tick from it and requires every lap's print; it also requires the battle to
-still reach the committed state, and every phase but those `cuts::UNCHANGED` names (the
-rules and the roster, which only read; the joins and the groups, which no digest battle uses;
-the pathing, the withdrawal and the carrying, which only the field logs use) to change the
-state in some cut. After an intended outcome change, run `native/bin/breach_digest
-cuts=native/rust/cuts` (or `cargo run --release --bin digest -- cuts=cuts` in `native/rust`)
-and commit what changed: only the cuts whose battles changed are rewritten. The first lap
-whose print differs names the phase that changed.
+writes eleven states cut from the standard digest's runs (`cuts::CUTS`: eight from the mirrors
+and the 40-a-side clash, three from the field logs, each at a tick after which the phases it
+was chosen for change the state) to `native/rust/cuts/`, committed, about 490 KB. Each is the
+snapshot's bytes (`<name>.state`) and a text file (`<name>.txt`): the run's label, the tick,
+the squads listed, and the SHA-256 of the field and the squads as each lap of the next tick
+ends. A field log's cut also carries FieldPlay's own state (`<name>.field`,
+`field_play::carried`: the definitions coded, the routes' codes, the waves, the builders and
+the reserve, hurry and tending); read back, the field is set up again from its record, that
+state laid over it, and the record's commands for the tick given before it is stepped.
+`cargo test cuts` reads each back, steps that tick from it and requires every lap's print; it
+also requires the run to still reach the committed state, and every phase but those
+`cuts::UNCHANGED` names (the rules and the roster, which only read; the joins and the groups,
+which no digest run uses) to change the state in some cut. After an intended outcome change,
+run `native/bin/breach_digest cuts=native/rust/cuts` (or `cargo run --release --bin digest --
+cuts=cuts` in `native/rust`) and commit what changed: only the cuts whose runs changed are
+rewritten. The first lap whose print differs names the phase that changed.
 
 ### Trials (`tools/formation_trials.gd`, BattleTrials)
 
