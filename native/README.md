@@ -219,6 +219,10 @@ The rules for matching Godot bit for bit (`native/rust/src/maths.rs`):
 
 ### Fingerprints (`tools/formation_digest.gd`, every tick hashed)
 
+`native/bin/breach_digest [set=standard|clash160|wide] [out=<file>] [only=<run label>]`
+plays the same runs in the crate with no Godot (spec 39 step 8c-xiii) and prints the same
+lines; CI's `digests` jobs check that its run lines and `out=` file equal Godot's.
+
 The per-tick files are byte-identical between `BREACH_NATIVE=gdscript` and `rust`
 (sha256 of each per-tick file):
 
@@ -430,7 +434,8 @@ bash native/build.sh dev      # optimised without LTO: rebuilds in seconds
 
 This puts `native/bin/[lib]breach_rust.<platform>.<ext>` in place, and the map designer's
 server, `native/bin/breach_designer[.exe]` (`src/bin/designer.rs`, `src/designer/`, spec 39
-step 2c). They are git-ignored, as
+step 2c), and the formation digest played in the crate, `native/bin/breach_digest[.exe]`
+(`src/bin/digest.rs`, `src/digest/runs.rs`, spec 39 step 8c-xiii). They are git-ignored, as
 is `native/rust/target`. Results are the same bit for bit under either profile.
 `cargo test` in `native/rust` runs the crate's own tests (the hash against values printed
 by Godot, the squad store, the snapshot read back), with no Godot. CI's `rust` job runs it

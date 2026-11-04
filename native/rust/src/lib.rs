@@ -25,6 +25,8 @@ mod det_math;
 mod det_pow;
 mod detours;
 mod digest;
+/// The digest's runs, for the digest binary (src/bin/digest.rs).
+pub use digest::runs as digest_runs;
 mod discipline;
 mod ending;
 mod engage;

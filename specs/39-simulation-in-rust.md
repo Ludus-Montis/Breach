@@ -865,6 +865,19 @@ events. After this step no battle phase runs in GDScript.
   digest's `_record` bytes every tick of both mirrors, the 40-a-side clash and all five field
   logs, and checks that every way of decoding a field was met. Nothing calls them yet.
   Outcomes don't change.
+  **8c-xiii built** (2026-11-04): the digest as a cargo binary, `src/bin/digest.rs`, which
+  `native/build.sh` copies to `native/bin/breach_digest`. It takes the Godot digest's `set=`
+  (standard, clash160, wide), `out=` and `only=`, plus `threaded=` and `repo=`, loads the
+  repo's `content/` with no Godot, and plays each run of the set in formation_digest.gd's
+  order and by its labels (`digest::runs::runs`): the mirrors and clashes through
+  `digest::battle`, the five field logs through `digest::field`, each on a fresh crate. Every
+  tick's record is chained with SHA-256 (`Chain`, the `sha2` crate, as the digest's
+  HashingContext), and the run printed as `"%-32s ticks %4d  %s"` (`line`) and each tick
+  written to `out=` as `"%s %d %s"` with its record's hash cut to 16 hex digits
+  (`tick_line`). CI's `digests` jobs run it on each set after the Godot digest and fail
+  unless both its run lines and its `out=` file are the same as Godot's. Checked by hand on
+  mirror_headon s1 rtrue and field3 rfalse. `trace=` and `snapshot=` stay Godot's. Outcomes
+  don't change.
 
 ### Step 9, the rest of `sim/`
 

@@ -180,7 +180,8 @@ jobs:
           mkdir -p digests
           /opt/godot/godot --headless --path . \
             --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
-            out=digests/${{ matrix.set }}.branch.txt > /dev/null 2>&1
+            out=digests/${{ matrix.set }}.branch.txt 2> /dev/null \
+            | grep -E '^.+ ticks +[0-9]+  [0-9a-f]{64}$' > digests/${{ matrix.set }}.branch.runs
           (cd digests && sha256sum *.txt)
 
       - uses: actions/download-artifact@v7
@@ -205,6 +206,17 @@ jobs:
             --changed digests/${{ matrix.set }}.changed.txt \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
+
+      # The same digest played in the crate with nothing from Godot (native/bin/breach_digest,
+      # spec 39 step 8c-xiii): each run's line and every tick's hash must equal Godot's.
+      - name: Digest ${{ matrix.set }} in the crate
+        if: always()
+        run: |
+          chmod +x native/bin/breach_digest
+          native/bin/breach_digest set=${{ matrix.set }} \
+            out=digests/${{ matrix.set }}.crate.txt > digests/${{ matrix.set }}.crate.runs
+          diff digests/${{ matrix.set }}.branch.runs digests/${{ matrix.set }}.crate.runs
+          cmp digests/${{ matrix.set }}.branch.txt digests/${{ matrix.set }}.crate.txt
 
       # When outcomes changed: the first 3 changed runs traced on the base and the branch
       # around their first difference, and diffed (specs/37-outcome-trace.md), into traces/.

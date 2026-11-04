@@ -28,4 +28,6 @@ cp "$here/rust/target/$dir/${prefix}breach_native.$ext" "$here/bin/${prefix}brea
 # The map designer's server (src/bin/designer.rs): native/bin/breach_designer.
 exe=; [ "$ext" = dll ] && exe=.exe
 cp "$here/rust/target/$dir/designer$exe" "$here/bin/breach_designer$exe"
+# The formation digest played in the crate (src/bin/digest.rs): native/bin/breach_digest.
+cp "$here/rust/target/$dir/digest$exe" "$here/bin/breach_digest$exe"
 ls -l "$here/bin"
