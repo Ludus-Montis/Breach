@@ -39,6 +39,15 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 	var landed: PackedInt64Array = ColumnsLent.all(
 		columns, func(): return field.recovery_step(listed, at, seconds, tuning)
 	)
+	var strays := mirror(squads, landed)
+	events.append_array(CrateEvents.taken(field))  # "died_of_wounds", "came_to", ...
+	return strays
+
+
+## GDScript's copies of what `recovery_step` landed (four numbers a unit: its squad's listed
+## index, its id, what befell it, the squad it joined or -1). Returns the strays, [[unit, its
+## squad], ...], for FormationStrays.adopt.
+static func mirror(squads: Array, landed: PackedInt64Array) -> Array:
 	var strays := []
 	for n in range(0, landed.size(), 4):  # store: scattered (few: the downed it befell)
 		var own: SkirmishSquad = squads[landed[n]]
@@ -52,7 +61,6 @@ static func step(squads: Array, seconds: float, tick: int, fight_seed: int, even
 			strays.append([unit, own])
 		else:
 			_rose(unit, own, squads[landed[n + 3]])
-	events.append_array(CrateEvents.taken(field))  # "died_of_wounds", "came_to", ...
 	return strays
 
 

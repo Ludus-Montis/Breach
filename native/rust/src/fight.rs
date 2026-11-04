@@ -215,4 +215,4 @@ pub mod step;
 pub mod surrender;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

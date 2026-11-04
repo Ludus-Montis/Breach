@@ -5,6 +5,7 @@
 //! (FormationScrum._faces, UnitShuffle, UnitMotion). GDScript keeps the rules and stays the
 //! reference; the switch is `BREACH_NATIVE` (NativeKernels).
 
+mod aftermath;
 mod bands;
 mod blows;
 #[cfg(test)]
@@ -4269,8 +4270,7 @@ impl BodyField {
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let buried = deaths::bury::bury(squads, field, &listed, (&t, tick), log);
         self.edits += 1;
-        let flat = buried.iter().flat_map(|b| [b.listed as i64, b.id, b.wounded.unwrap_or(-1)]);
-        PackedInt64Array::from_iter(flat)
+        PackedInt64Array::from_iter(buried_flat(&buried))
     }
 
     /// FormationWounds.tend: the wounds' tending as one pass (`wounds::pass::step`): the
@@ -4300,11 +4300,7 @@ impl BodyField {
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let landed = wounds::pass::step(squads, field, &listed, (tick, interval, seed), &t, log);
         self.edits += 1;
-        let flat = landed.iter().flat_map(|l| {
-            let (n, id) = l.leader.map_or((-1, -1), |(n, id)| (n as i64, id));
-            [l.listed as i64, l.id, i64::from(l.state), n, id]
-        });
-        PackedInt64Array::from_iter(flat)
+        PackedInt64Array::from_iter(tended_flat(&landed))
     }
 
     /// FormationRecovery.step: what the wounded come to as one pass (`recovery::pass::step`):
@@ -4333,16 +4329,7 @@ impl BodyField {
         let landed =
             recovery::pass::step(squads, field, &listed, (tick, seconds, seed), &tuning, log);
         self.edits += 1;
-        let flat = landed.iter().flat_map(|l| {
-            let (what, joins) = match l.came {
-                recovery::pass::Came::DiedOfWounds => (0, -1),
-                recovery::pass::Came::PlayingDead => (1, -1),
-                recovery::pass::Came::Alone => (2, -1),
-                recovery::pass::Came::Joined(n) => (2, n as i64),
-            };
-            [l.listed as i64, l.id, what, joins]
-        });
-        PackedInt64Array::from_iter(flat)
+        PackedInt64Array::from_iter(recovered_flat(&landed))
     }
 
     /// FormationCarry.step: bearing the wounded as one pass (`carry::pass::step`, spec 39
@@ -4504,27 +4491,7 @@ impl BodyField {
         tuning: PackedFloat64Array,
         ground: Option<Gd<TerrainGround>>,
     ) -> PackedInt64Array {
-        let (i, f) = (ints.as_slice(), floats.as_slice());
-        let bands = bands::BandTuning::of_slice(bands.as_slice());
-        let rules = fight::step::Rules {
-            choose: fight::Rules {
-                interval: i[0],
-                seed: i[1],
-                reach: f[0],
-                front: f[1],
-                rout_reach: f[2],
-                bands,
-            },
-            land: fight::land::Rules {
-                tuning: landing::LandingTuning::of_slice(tuning.as_slice()),
-                rolls: (i[3] != 0).then_some((i[1], i[2])),
-                reach: f[0],
-                bands,
-            },
-            tick: i[2],
-            blow: f[3],
-            surrender: f[4],
-        };
+        let rules = fight_rules(ints.as_slice(), floats.as_slice(), &bands, &tuning);
         let roster = roster.bind();
         let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
         let fought =
@@ -4533,4 +4500,108 @@ impl BodyField {
         let out: Vec<i64> = fought.taken.iter().flat_map(|&(n, m)| [n as i64, m as i64]).collect();
         PackedInt64Array::from(out.as_slice())
     }
+
+    /// FormationAftermath.step: the fight and its aftermath as one call (`aftermath::step`,
+    /// spec 39 step 8b5-xxxviii) over `roster`'s squads: the fight (as `fight_step`), the
+    /// burial (`deaths_bury`), the takers sent (`taking_step`), the wounds' tending
+    /// (`wounds_step`) and what the downed come to (`recovery_step`), each pass's events in
+    /// the log in that order. `ints` = [the ticks a second, seed, tick, 1 if blows roll,
+    /// wounds_messenger_shock]; `floats` = `fight_step`'s five, then [the tick's seconds,
+    /// take_hold, take_reach]; `bands` as BandTuning.of_slice reads it, `tuning` as
+    /// LandingTuning.of_slice, `wounds` as `wounds_tuning`. Returns each pass's result, each
+    /// part its count first: the units the surrender took, [index in the roster, id]; the
+    /// fallen buried, as `deaths_bury`; the bodies taken, as `wounds_step`; then to the end
+    /// what the downed came to, as `recovery_step`.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn aftermath_step(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        bands: PackedInt64Array,
+        tuning: PackedFloat64Array,
+        wounds: PackedFloat64Array,
+        ground: Option<Gd<TerrainGround>>,
+    ) -> PackedInt64Array {
+        let (i, f) = (ints.as_slice(), floats.as_slice());
+        let rules = aftermath::Rules {
+            fight: fight_rules(i, f, &bands, &tuning),
+            seconds: f[5],
+            taking: taking::pass::TakingTuning { hold: f[6], reach: f[7] },
+            wounds: wounds::WoundsTuning::of_slice(wounds.as_slice()),
+            messenger_shock: i[4],
+            bands: bands::BandTuning::of_slice(bands.as_slice()),
+        };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let after =
+            on_ground(ground, |g| aftermath::step(squads, field, &roster.roster, g, &rules, log));
+        self.edits += 1;
+        let mut out = vec![after.taken.len() as i64];
+        out.extend(after.taken.iter().flat_map(|&(n, id)| [n as i64, id]));
+        out.push(after.buried.len() as i64);
+        out.extend(buried_flat(&after.buried));
+        out.push(after.tended.len() as i64);
+        out.extend(tended_flat(&after.tended));
+        out.extend(recovered_flat(&after.recovered));
+        PackedInt64Array::from(out.as_slice())
+    }
+}
+
+/// The fight's rules as `fight_step` is given them: `i` = [the ticks a second's strike takes,
+/// seed, tick, 1 if blows roll], `f` = [reach_contact, the front's least dot,
+/// rout_strike_reach, stamina_blow, wounds_surrender].
+fn fight_rules(
+    i: &[i64],
+    f: &[f64],
+    bands: &PackedInt64Array,
+    tuning: &PackedFloat64Array,
+) -> fight::step::Rules {
+    let bands = bands::BandTuning::of_slice(bands.as_slice());
+    fight::step::Rules {
+        choose: fight::Rules {
+            interval: i[0],
+            seed: i[1],
+            reach: f[0],
+            front: f[1],
+            rout_reach: f[2],
+            bands,
+        },
+        land: fight::land::Rules {
+            tuning: landing::LandingTuning::of_slice(tuning.as_slice()),
+            rolls: (i[3] != 0).then_some((i[1], i[2])),
+            reach: f[0],
+            bands,
+        },
+        tick: i[2],
+        blow: f[3],
+        surrender: f[4],
+    }
+}
+
+/// The units buried, three numbers each, as `deaths_bury` returns them.
+fn buried_flat(buried: &[deaths::bury::Buried]) -> impl Iterator<Item = i64> + '_ {
+    buried.iter().flat_map(|b| [b.listed as i64, b.id, b.wounded.unwrap_or(-1)])
+}
+
+/// The bodies taken, five numbers each, as `wounds_step` returns them.
+fn tended_flat(landed: &[wounds::pass::Landed]) -> impl Iterator<Item = i64> + '_ {
+    landed.iter().flat_map(|l| {
+        let (n, id) = l.leader.map_or((-1, -1), |(n, id)| (n as i64, id));
+        [l.listed as i64, l.id, i64::from(l.state), n, id]
+    })
+}
+
+/// What the downed came to, four numbers each, as `recovery_step` returns them.
+fn recovered_flat(landed: &[recovery::pass::Landed]) -> impl Iterator<Item = i64> + '_ {
+    landed.iter().flat_map(|l| {
+        let (what, joins) = match l.came {
+            recovery::pass::Came::DiedOfWounds => (0, -1),
+            recovery::pass::Came::PlayingDead => (1, -1),
+            recovery::pass::Came::Alone => (2, -1),
+            recovery::pass::Came::Joined(n) => (2, n as i64),
+        };
+        [l.listed as i64, l.id, what, joins]
+    })
 }
