@@ -48,6 +48,8 @@ pub struct Ticked {
     pub after: Aftermath,
     pub mustered: Mustered,
     pub ended: Ended,
+    /// The squads listed as the tick leaves them, as GDScript's mirrors leave its lists.
+    pub listed: Vec<usize>,
 }
 
 /// One tick over the squads of `roster` (every unit each holds, living or not), on `over`'s
@@ -78,7 +80,7 @@ pub fn step(
     let listed = ended_listing(&roster, &mustered);
     let ended = ending::step(squads, field, &listed, ground, &rules.ending, log);
     let (back, seek_usec) = (scrummed.back, scrummed.seek_usec);
-    Ticked { opened, back, seek_usec, after, mustered, ended }
+    Ticked { opened, back, seek_usec, after, mustered, ended, listed }
 }
 
 /// Every unit of `roster`, by its store slot.

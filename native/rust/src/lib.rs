@@ -63,6 +63,7 @@ mod parting;
 mod pathing;
 mod paths;
 mod perception;
+mod play;
 mod pursuit;
 mod ranks;
 mod reach;
@@ -4730,6 +4731,42 @@ impl BodyField {
         out.set("combat_width", set.combat_width);
         out.set("map", &GString::from(set.map.unwrap_or("")).to_variant());
         out
+    }
+
+    /// Plays the digest's battle `name` with its `numbers` end to end in the crate (spec 39
+    /// step 8c-vii, `play`): set up as `battle` sets it up, then tick by tick as
+    /// FormationSimulation.step plays it, each tick's events taken and dropped, until the
+    /// digest's rules stop it. `at` = [seed, 1 if blows roll, 1 if threaded, the limit, ticks
+    /// past first contact (-1: no such stop)]. Returns the ticks played, or -1, with nothing
+    /// written, for an unknown battle or definition.
+    #[func]
+    fn battle_play(
+        &mut self,
+        content: Gd<ContentStore>,
+        name: GString,
+        numbers: PackedInt64Array,
+        at: PackedInt64Array,
+    ) -> i64 {
+        let store = content.bind();
+        let (Some(content), Some(battle)) =
+            (store.content.as_ref(), battles::named(&name.to_string(), numbers.as_slice()))
+        else {
+            return -1;
+        };
+        let Ok([seed, rolls, threaded, limit, after]) = <[i64; 5]>::try_from(at.as_slice()) else {
+            return -1;
+        };
+        let crate_ = (&mut self.squads, &mut self.field);
+        let Some(mut play) =
+            play::Play::new(&battle, crate_, content, (seed, rolls != 0, threaded != 0))
+        else {
+            return -1;
+        };
+        let mut watch = play::Watch::new(limit, (after >= 0).then_some(after));
+        let crate_ = (&mut self.squads, &mut self.field);
+        let ticks = play::run(&mut play, crate_, content, &mut self.events, &mut watch);
+        self.edits += 1;
+        ticks
     }
 }
 
