@@ -23,13 +23,11 @@ const Scrum = preload("res://sim/skirmish/formation/formation_scrum.gd")
 const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
-const ScrumSeekField = preload("res://sim/skirmish/formation/scrum_seek_field.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
 const ScrumPursuit = preload("res://sim/skirmish/formation/scrum_pursuit.gd")
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 const ColumnCopies = preload("res://tools/column_copies.gd")
@@ -197,20 +195,15 @@ func _scrum(sim: Sim, events: Array) -> void:
 	events.append_array(_scrum_events(sim, roster))
 	var pace := Sim.TRAVEL_SCALE * Sim.MapLayoutDef.CELLS_PER_TILE
 	var ctx := {
-		"squads": squads,
 		"tick": tick,
 		"seconds": sim.tick_seconds,
 		"pace": pace * sim.tick_seconds,
 		"seed": sim.fight_seed,
 		"terrain": sim.terrain,
-		"lying": GroundBodies.ground(squads),
 		"active": {},
-		"field": sim._field,
 	}
-	_lap("scrum: bodies snapshot")
-	_seek(ctx)
-	_lap("scrum: seek (slot search)")
-	_walk_and_face(ctx)
+	ScrumSeek.step(sim._field, roster, ctx)
+	_lap("scrum: seek, walk and facing")
 	_after_seek(sim, [ctx, roster], events)
 
 
@@ -244,26 +237,6 @@ func _after_seek(sim: Sim, scrum: Array, events: Array) -> void:
 	_lap("scrum: pursuit, stall")
 
 
-## ScrumSeek.plan. ScrumSeekField's own timings are booked to their parts, so the seek's
-## line keeps only the rest.
-func _seek(ctx: Dictionary) -> void:
-	var before := ScrumSeekField.spent.duplicate()
-	ScrumSeek.plan(ctx)
-	var spent := ScrumSeekField.spent
-	var core := spent[3] - before[3]
-	var parts := {
-		"scrum: seek: sync the field": spent[0] - before[0],
-		"scrum: seek: gather the rules' say": spent[1] - before[1],
-		"scrum: seek: the core's work": core,
-		"scrum: seek: the call, less the core": spent[2] - before[2] - core,
-		"scrum: seek: the walk's batch": spent[4] - before[4],
-	}
-	for part in parts:
-		if parts[part] > 0:
-			_spent[part] = _spent.get(part, 0) + parts[part]
-			_last += parts[part]  # booked here, not to the seek's own line
-
-
 func _scrum_events(sim: Sim, roster: Object) -> Array:
 	var events := ScrumEngage.step(sim._field, roster, sim.tick_number(), sim.fight_seed)
 	Scrum._prepare(sim._field, roster, sim.tick_number())
@@ -272,10 +245,3 @@ func _scrum_events(sim: Sim, roster: Object) -> Array:
 	FormationManoeuvre.step(sim._field, roster)
 	_lap("scrum: engage, prepare, stance")
 	return events
-
-
-func _walk_and_face(ctx: Dictionary) -> void:
-	ScrumWalkField.walk(ctx)
-	_lap("scrum: walk (steering)")
-	ScrumFaceField.face(ctx)
-	_lap("scrum: face foes")

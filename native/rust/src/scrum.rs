@@ -633,6 +633,7 @@ fn gap_to(field: &Field, foes: &Foes, at: V2, radius: f64) -> f64 {
 
 pub mod pass;
 pub mod prepare;
+pub mod seek;
 
 #[cfg(test)]
 mod tests;

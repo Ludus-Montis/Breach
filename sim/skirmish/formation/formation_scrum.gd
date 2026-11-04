@@ -28,8 +28,6 @@ const ScrumSeek = preload("res://sim/skirmish/formation/scrum_seek.gd")
 const ScrumEngage = preload("res://sim/skirmish/formation/scrum_engage.gd")
 const ScrumRegroup = preload("res://sim/skirmish/formation/scrum_regroup.gd")
 
-const GroundBodies = preload("res://sim/skirmish/formation/ground_bodies.gd")
-
 const FormationManoeuvre = preload("res://sim/skirmish/formation/formation_manoeuvre.gd")
 const FormationWithdraw = preload("res://sim/skirmish/formation/formation_withdraw.gd")
 const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
@@ -38,14 +36,11 @@ const ScrumStance = preload("res://sim/skirmish/formation/scrum_stance.gd")
 const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const FormationTerrain = preload("res://sim/skirmish/formation/formation_terrain.gd")
 
-const ScrumFaceField = preload("res://sim/skirmish/formation/scrum_face_field.gd")
-const ScrumWalkField = preload("res://sim/skirmish/formation/scrum_walk_field.gd")
-
 
 ## One tick of the scrum. `cells_per_second` is the march pace at speed 1; the seek, the
-## walk and the facing run on the battle's native bodies (`field`, NativeKernels; without
-## one, its squads' store's). The squads' roster (CrateRoster) is made once: nobody falls in
-## the scrum. Returns "engaged", "faced" and "disengaged" events.
+## walk and the facing run in the crate on the battle's native bodies (`field`,
+## NativeKernels; without one, its squads' store's). The squads' roster (CrateRoster) is
+## made once: nobody falls in the scrum. Returns "engaged", "faced" and "disengaged" events.
 static func step(
 	squads: Array,
 	tick: int,
@@ -63,17 +58,14 @@ static func step(
 	ScrumStance.anticipate_all(field, roster, [tick, fight_seed], terrain, events)
 	FormationManoeuvre.step(field, roster)
 	var ctx := {
-		"squads": squads,
 		"tick": tick,
 		"seconds": tick_seconds,
 		"pace": cells_per_second * tick_seconds,
 		"seed": fight_seed,
 		"terrain": terrain,
-		"lying": GroundBodies.ground(squads),
 		"active": {},
-		"field": field,
 	}
-	_seek(ctx)
+	_seek(field, roster, ctx)
 	ScrumRegroup.step(squads, ctx["pace"], tick_seconds, fight_seed, terrain, roster)
 	ScrumPursuit.step(squads, tick, cells_per_second, tick_seconds, fight_seed, terrain, roster)
 	FormationWithdraw.step(
@@ -101,21 +93,13 @@ static func _prepare(field: Object, roster: Object, tick: int) -> void:
 		field.scrum_prepare(roster, tick)
 
 
-## Plans every fighting squad's seekers (ScrumSeek), then walks and turns its units, on the
-## battle's native bodies, ctx["field"] (Decision 129). The walk (ScrumWalkField) steps each
-## from the bodies as they stood before any stepped: one making for a slot towards its next
-## point, one with no slot that touches no foe back towards its place, round the bodies in
-## its way (`steer.rs`), over those lying underfoot (GroundBodies), paying the ground it
-## crosses (ScrumWalkField.pay); units out chasing on their own are left to ScrumPursuit.
-## The facing (ScrumFaceField), after all have moved so a unit stepped up to is seen, turns
-## each towards the nearest foe it touches, or else so as to arrive facing what it will do
-## (`motion::look`).
-static func _seek(ctx: Dictionary) -> void:
-	if ctx["field"] == null:
+## Seeks, walks and turns every fighting squad's units, in the crate over the scrum's
+## roster (ScrumSeek, spec 39 step 8b5-xiii): the squads active this tick go into
+## ctx["active"], for the stall.
+static func _seek(field: Object, roster: Object, ctx: Dictionary) -> void:
+	if field == null:
 		return  # no squads: no field to run on
-	ScrumSeek.plan(ctx)
-	ScrumWalkField.walk(ctx)
-	ScrumFaceField.face(ctx)
+	ScrumSeek.step(field, roster, ctx)
 
 
 ## Releases fights where nobody on either side has touched or sought a foe for a while, in

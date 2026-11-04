@@ -242,107 +242,6 @@ impl BodyField {
         field_parting::commit(&mut self.field, &moved, &points, &nexts);
     }
 
-    /// ScrumSeek.plan on the field, as of a sync of the scrum's snapshot, reading and
-    /// writing the unit store's columns there (spec 35 step 4b). `ints` = [tick, seed,
-    /// combat_contest_die, EntryKeys' touch bit, its foe_at bit], `floats` = [reach_contact,
-    /// scrum_leash]. Per fighting squad, in the sync's order: its id, how many foes, their
-    /// squad ids, whether its units may seek (1: not ordered to retreat), its frame
-    /// ([heading, width, centre shift] and its anchor), how many chasers and their unit ids;
-    /// per unit of the sync (flat index) its speed. `within.call(flat index, point)` is the
-    /// ground's say (an invalid Callable: open ground). Each unit's place, goal and record
-    /// are read on the field, and its outcome written into its loose entry's columns there.
-    /// Returns, for the walk and the facing: [the squads planned (those of `squads` the
-    /// sync named a living unit of), their units' flat indices, units per squad, codes (0
-    /// touch, 1 stand, 2 aim, 3 press, 4 idle), nexts, foe_ats, active (per squad: 1 if any
-    /// unit touches a foe or makes for a slot)].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn seek(
-        &mut self,
-        ints: PackedInt64Array,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        foe_counts: PackedInt32Array,
-        foe_ids: PackedInt64Array,
-        seeking: PackedByteArray,
-        frames: PackedFloat64Array,
-        anchors: PackedVector2Array,
-        chaser_counts: PackedInt32Array,
-        chaser_ids: PackedInt64Array,
-        speeds: PackedFloat64Array,
-        within: Callable,
-    ) -> VarArray {
-        let began = Instant::now();
-        let i = ints.as_slice();
-        let f = floats.as_slice();
-        let params = scrum::Params { tick: i[0], seed: i[1], die: i[2], reach: f[0], leash: f[1] };
-        let anchors = v2s(&anchors);
-        let say = seeking::SquadSay {
-            ids: squads.as_slice(),
-            foe_counts: foe_counts.as_slice(),
-            foe_ids: foe_ids.as_slice(),
-            seeking: seeking.as_slice(),
-            frames: frames.as_slice(),
-            anchors: &anchors,
-            chaser_counts: chaser_counts.as_slice(),
-            chaser_ids: chaser_ids.as_slice(),
-            speeds: speeds.as_slice(),
-        };
-        let ground = within.is_valid();
-        let mut ask = |flat: i32, p: V2| -> bool {
-            !ground || within.callv(&varray![flat as i64, Vector2::new(p.x, p.y)]).to::<bool>()
-        };
-        let bits = [i[3] as i32, i[4] as i32];
-        let (gathered, out, active) = seeking::seek(&mut self.field, &say, &params, &mut ask, bits);
-        self.usec = began.elapsed().as_micros() as i64;
-        varray![
-            &PackedInt64Array::from(gathered.fighters.as_slice()),
-            &PackedInt32Array::from(gathered.members.as_slice()),
-            &PackedInt32Array::from(gathered.member_counts.as_slice()),
-            &PackedByteArray::from(out.codes.as_slice()),
-            &packed(&out.nexts),
-            &packed(&out.foe_ats),
-            &PackedByteArray::from(active.as_slice()),
-        ]
-    }
-
-    /// FormationScrum's facing on the field, after the walk, for the units the tick's
-    /// seek() planned (`squads` = per fighting squad [id, foes, units], `foe_ids`,
-    /// `members` and `speeds` as seek's). `floats` = [reach_contact, the front's least
-    /// dot (ScrumReach.in_front), tick seconds, pace (cells a tick at speed 1),
-    /// scrum_crowding]; `valued` = EntryKeys' bit saying a unit's walk chose a point to
-    /// look towards. Where each unit stands, faces and makes for (next, foe_at, toward)
-    /// are read from the unit store's columns, its turn rate and backward pace from its
-    /// record, and its bearing after its turn is written into the column (spec 35 step
-    /// 4d). Returns every unit's bearing after its turn (tests).
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn face(
-        &mut self,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        foe_ids: PackedInt64Array,
-        members: PackedInt32Array,
-        speeds: PackedFloat64Array,
-        valued: i64,
-    ) -> PackedFloat64Array {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params =
-            facing::Params { reach: f[0], front: f[1], seconds: f[2], pace: f[3], crowding: f[4] };
-        let out = face_store::face(
-            &mut self.field,
-            squads.as_slice(),
-            foe_ids.as_slice(),
-            members.as_slice(),
-            speeds.as_slice(),
-            valued as i32,
-            &params,
-        );
-        self.usec = began.elapsed().as_micros() as i64;
-        PackedFloat64Array::from(out.as_slice())
-    }
-
     /// ScrumBlows.blows' search on the field, as of a sync of the scrum's snapshot:
     /// `floats` = [reach_contact, the front's least dot (ScrumReach.in_front)], `rules` per
     /// squad in the sync's order (1 fighting, 2 ordered to retreat). Returns per unit that
@@ -377,72 +276,6 @@ impl BodyField {
         let out = blows::pressed(&self.field, targets.as_slice(), asked.as_slice(), reach);
         self.usec = began.elapsed().as_micros() as i64;
         PackedInt32Array::from(out.as_slice())
-    }
-
-    /// FormationScrum's walk on the field, before the facing, for the units the tick's
-    /// seek() planned (`squads` and `members` as seek's; where each stands as that
-    /// call's sync left it). `floats` = [tick seconds, bodies_steer_look,
-    /// bodies_steer_clear, bodies_ground_drag, bodies_ground_block]; `bits` = EntryKeys'
-    /// [toward's key bit, its valued bit]; per squad `squad_floats` = [pace (cells a tick at
-    /// speed 1), heading, width, centre shift] and its frame's anchor; per unit: seek()'s
-    /// code and next point, its speed; the bodies lying on the ground and their [radius,
-    /// footprint area]. Each unit's bearing, rank and column are read from the unit store's
-    /// columns, its turn rate, backward pace and footprint from its record (spec 35 step
-    /// 4c), and where it ends and looks is written into its loose entry's columns there.
-    /// Returns [where each unit stands after its step, where it looks: its next point
-    /// making for a slot, UnitShuffle's walking back to its place] (tests).
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn walk(
-        &mut self,
-        seed: i64,
-        floats: PackedFloat64Array,
-        squads: PackedInt64Array,
-        squad_floats: PackedFloat64Array,
-        squad_anchors: PackedVector2Array,
-        members: PackedInt32Array,
-        codes: PackedByteArray,
-        nexts: PackedVector2Array,
-        speeds: PackedFloat64Array,
-        bits: PackedInt32Array,
-        lying_ats: PackedVector2Array,
-        lying_sizes: PackedFloat64Array,
-    ) -> VarArray {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params = walking::Params {
-            seed,
-            seconds: f[0],
-            look: f[1],
-            clear: f[2],
-            drag: f[3],
-            block: f[4],
-        };
-        let sizes = lying_sizes.as_slice();
-        let lying_radii: Vec<f64> = sizes.chunks(2).map(|c| c[0]).collect();
-        let lying_areas: Vec<f64> = sizes.chunks(2).map(|c| c[1]).collect();
-        let (anchors, nexts, lying) = (v2s(&squad_anchors), v2s(&nexts), v2s(&lying_ats));
-        let say = walk_store::WalkSay {
-            squad_floats: squad_floats.as_slice(),
-            squad_anchors: &anchors,
-            lying_ats: &lying,
-            lying_radii: &lying_radii,
-            lying_areas: &lying_areas,
-        };
-        let b = bits.as_slice();
-        let out = walk_store::walk(
-            &mut self.field,
-            squads.as_slice(),
-            &say,
-            members.as_slice(),
-            codes.as_slice(),
-            &nexts,
-            speeds.as_slice(),
-            [b[0], b[1]],
-            &params,
-        );
-        self.usec = began.elapsed().as_micros() as i64;
-        varray![&packed(&out.ats), &packed(&out.towards)]
     }
 
     /// DetMath's `op` ("sin", "cos", "asin", "acos", or "atan2" of a and b) over the
@@ -3142,27 +2975,6 @@ impl BodyField {
         moving::regrouping(&self.squads, squad as usize)
     }
 
-    /// ScrumSeek.foe_ids: the ids of the squads of `listed` (squad slots) the squad fights;
-    /// `factions` each listed squad's faction (as a code), and its own `faction`.
-    #[func]
-    fn squad_foe_ids(
-        &self,
-        squad: i64,
-        listed: PackedInt32Array,
-        factions: PackedInt32Array,
-        faction: i64,
-    ) -> PackedInt64Array {
-        let factions: Vec<u32> = factions.as_slice().iter().map(|&f| f as u32).collect();
-        let foes = locks::foe_ids(
-            &self.squads,
-            squad as usize,
-            &usizes(&listed),
-            &factions,
-            faction as u32,
-        );
-        PackedInt64Array::from(foes.as_slice())
-    }
-
     /// FormationManoeuvre.step over `roster`'s squads: each one's manoeuvre this tick
     /// (`scrum::pass::manoeuvre`).
     #[func]
@@ -3237,6 +3049,47 @@ impl BodyField {
             scrum::prepare::anticipate(squads, field, &roster.roster, g, (&lines, tick), log)
         });
         self.edits += 1;
+    }
+
+    /// FormationScrum._seek over `roster`'s squads on `ground`: the field brought to the
+    /// scrum's snapshot, every fighting squad's units planned, walked and turned
+    /// (`scrum::seek::step`). `ints` = [tick, seed, combat_contest_die]; `floats` =
+    /// [reach_contact, scrum_leash, tick seconds, pace (cells a tick at speed 1),
+    /// scrum_crowding, bodies_steer_look, bodies_steer_clear, bodies_ground_drag,
+    /// bodies_ground_block, the front's least dot (ScrumReach.in_front)]. Returns the ids of
+    /// the fighting squads active this tick (the stall's).
+    #[func]
+    fn scrum_seek(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+    ) -> PackedInt64Array {
+        let began = Instant::now();
+        let (i, f) = (ints.as_slice(), floats.as_slice());
+        let rules = scrum::seek::Rules {
+            tick: i[0],
+            seed: i[1],
+            die: i[2],
+            reach: f[0],
+            leash: f[1],
+            seconds: f[2],
+            pace: f[3],
+            crowding: f[4],
+            look: f[5],
+            clear: f[6],
+            drag: f[7],
+            block: f[8],
+            front: f[9],
+        };
+        let roster = roster.bind();
+        let (squads, field) = (&self.squads, &mut self.field);
+        let active =
+            on_ground(ground, |g| scrum::seek::step(squads, field, &roster.roster, g, &rules));
+        self.usec = began.elapsed().as_micros() as i64;
+        self.edits += 1;
+        PackedInt64Array::from(active.as_slice())
     }
 
     /// SquadRanks.close: the living units (store slots, in the squad's order), each one's

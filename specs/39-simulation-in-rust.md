@@ -2253,6 +2253,37 @@ Decision's conditions.
   GDScript's taking of the log stubbed, then green).
 - **After it**, 8b5-xiii: the seek, the walk and the facing.
 
+### Step 8b5-xiii, the scrum's seek, walk and facing over the roster
+
+- **One call** (`scrum::seek::step`, `scrum_seek(roster, ground, ints, floats)`,
+  ScrumSeek.step from FormationScrum._seek): the field brought to the scrum's snapshot of
+  the roster's squads, in the lists' order (BodyFieldSync.scrum's sync; a unit new to the
+  field enrolled with its radius, footprint, draw, initiative and record); then the seek,
+  the walk and the facing as before (`seeking::seek`, `walk_store::walk`,
+  `face_store::face`).
+- **Read in the crate:** each fighting squad's foes (`locks::foe_ids` over the roster),
+  whether its units may seek (its order isn't to retreat), its frame (its stance's heading
+  and anchor, else its own heading, width, centre shift and position), its chasers, each
+  unit's speed (its SPEED column); the walk's pace (crowded out of a pursuit) and the bodies
+  lying on the field (GroundBodies.ground, as the move's `Bodies`); on terrain, whether a
+  unit may stand on a point (`Ground::crossing` with its walker) and each step paid for the
+  ground it crosses (`mover::pay`). The fighting squads active this tick come back by id,
+  for the stall.
+- **Gone:** the `seek`, `walk`, `face` and `squad_foe_ids` bindings; ScrumSeekField,
+  ScrumWalkField and ScrumFaceField; ScrumSeek.plan and foe_ids; the scrum's own snapshot of
+  the bodies lying (ctx["lying"]). tools/tick_phases.gd and tools/native_bench.gd time the
+  one call.
+- **Identical:** the same slots, steps, bearings and active squads, in the same order. The
+  proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/seek/tests.rs` (a fighting squad's units make for slots beside
+  their foes and step towards them, both squads active; one ordered to retreat seeks no
+  slot; a unit touching a foe turns towards it; squads out of a fight are not walked), red
+  on a stubbed pass, then green. gdUnit `test_formation_scrum.gd`: units within reach touch
+  and keep their fight active (red with the GDScript's call stubbed, then green);
+  `test_body_field.gd`'s list-order test runs the one call.
+- **After it**, 8b5-xiv: the regroup, the chasers, the withdrawal and the pursuit, their
+  events.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
