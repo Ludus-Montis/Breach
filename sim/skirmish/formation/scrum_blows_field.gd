@@ -1,80 +1,38 @@
 class_name ScrumBlowsField
 extends RefCounted
-## The fight's melee search on the native core (NativeKernels, Decision 129; the crate's
-## `blows.rs`, spec 39 step 4a): who strikes whom in the scrum (ScrumBlows: each unit of a
-## squad that strikes picks the foe it touches - one in its front first, then the nearest,
-## then by the seeded draw) worked out on the battle's field, synced to the scrum as it
-## stands when the fight begins; and, for rolled blows, BlowLanding's counts of the foes
-## pressing each target on that same sync. Only the search crosses: cooldowns, the
-## morale's interval, the blows themselves and how they land stay GDScript's, taken unit
-## by unit in the sync's order (native/README.md).
+## The fight's melee counts on the native core (NativeKernels, Decision 129; the crate's
+## `blows.rs`): for rolled blows, BlowLanding's counts of the foes pressing each target, on
+## the sync of the scrum the crate made as it chose the tick's blows (FormationMelee,
+## `fight::choose`, spec 39 step 8b5-xvii), or one made here if it had no need to.
 
 const StoreHolds = preload("res://sim/skirmish/formation/store_holds.gd")
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
-const ScrumBlows = preload("res://sim/skirmish/formation/scrum_blows.gd")
-const FormationCombat = preload("res://sim/skirmish/formation/formation_combat.gd")
-const FormationMorale = preload("res://sim/skirmish/formation/formation_morale.gd")
 const BodyFieldSync = preload("res://sim/skirmish/formation/body_field_sync.gd")
-const DetMath = preload("res://sim/skirmish/formation/det_math.gd")
 
-## A squad's rules, as the core reads them: it is fighting; it is ordered to retreat.
-const FIGHTING := 1
-const RETREAT := 2
-## A pick's flags: it retreats and has turned away from its foe; the blow is a flank blow.
-const AWAY := 1
-const FLANK := 2
-
-## Microseconds since last zeroed: [gathering and the sync, the call, the core's own
-## work, writing back]. The bench reads them; no outcome does.
-static var spent := PackedInt64Array([0, 0, 0, 0])
-## The field the last blows() synced (its instance id; 0: that call had no need to).
+## The field the last FormationMelee.blows synced (its instance id; 0: that call had no
+## need to).
 static var _synced := 0
 
 
-## The scrum's blows on the field: [[attacker, target, damage, flank], ...]; updates each
-## striker's target and cooldown. Clears every living unit's target first, as the fight
-## begins (FormationMelee).
-static func blows(field: Object, squads: Array, interval: int, fight_seed: int) -> Array:
-	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
-	var began := Time.get_ticks_usec()
-	_synced = 0
-	ScrumBlows.clear_targets(squads)
-	if not _any_strike(squads):
-		return []
-	var synced := _sync(field, squads, fight_seed)
-	_synced = field.get_instance_id()
-	var rules := PackedByteArray()
-	for squad in squads:
-		var fighting := FIGHTING if squad.state == SkirmishSquad.State.FIGHTING else 0
-		rules.append(fighting | (RETREAT if squad.order == SkirmishUnit.Order.RETREAT else 0))
-	var front := DetMath.cos(deg_to_rad(BattleTuning.current().reach_front_arc_degrees))
-	var floats := PackedFloat64Array([BattleTuning.current().reach_contact, front - 0.000001])
-	var called := Time.get_ticks_usec()
-	var picks: PackedInt32Array = field.blows(floats, rules)
-	var returned := Time.get_ticks_usec()
-	var out := _struck(picks, synced[0], synced[1], interval)
-	spent[0] += called - began
-	spent[1] += returned - called
-	spent[2] += field.usec()
-	spent[3] += Time.get_ticks_usec() - returned
-	return out
+## Marks whether this tick's blows synced `field` (FormationMelee.blows).
+static func mark(field: Object, synced_now: bool) -> void:
+	_synced = field.get_instance_id() if synced_now else 0
 
 
-## True if this tick's blows() synced `field`, so pressed() may count on it.
+## True if this tick's blows synced `field`, so pressed() may count on it.
 static func synced(field: Object) -> bool:
 	return _synced == field.get_instance_id()
 
 
-## Syncs `field` as blows() does, for pressed() to count on when blows() had no need to.
+## Syncs `field` as the blows do, for pressed() to count on when they had no need to.
 static func sync(field: Object, squads: Array, fight_seed: int) -> void:
 	_sync(field, squads, fight_seed)
 	_synced = field.get_instance_id()
 
 
 ## BlowLanding's [squad_of, pressed] for these blows ([striker, target, ...]), on the sync
-## blows() made: each striker's [unit, squad], and how many touching foes fight each
+## the blows made: each striker's [unit, squad], and how many touching foes fight each
 ## target this tick (by the units' targets now).
 static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 	assert(StoreHolds.none_held(squads), StoreHolds.SPANS)
@@ -98,29 +56,6 @@ static func pressed(field: Object, squads: Array, landing: Array) -> Array:
 		if counts[2 * index + 1] > 0:
 			pressing[landing[index][1].id] = counts[2 * index + 1]
 	return [squad_of, pressing]
-
-
-## True if some squad may strike in the scrum (the crate's search would give it foes),
-## by the squads' states, orders and factions alone: a squad standing (not routing nor
-## destroyed) and fighting or retreating strikes any other faction's standing squad,
-## another only one retreating.
-static func _any_strike(squads: Array) -> bool:
-	var standing := {}  # faction -> true
-	var retreating := {}
-	for squad in squads:
-		if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
-			continue
-		standing[squad.faction_id] = true
-		if squad.order == SkirmishUnit.Order.RETREAT:
-			retreating[squad.faction_id] = true
-	for squad in squads:
-		if squad.state in [SkirmishSquad.State.ROUTING, SkirmishSquad.State.DESTROYED]:
-			continue
-		var fights: bool = squad.state == SkirmishSquad.State.FIGHTING
-		var foes := standing if fights or squad.order == SkirmishUnit.Order.RETREAT else retreating
-		if foes.size() > (1 if foes.has(squad.faction_id) else 0):
-			return true
-	return false
 
 
 ## Brings the field to the scrum as BodyFieldSync.scrum does (where ScrumReach puts each
@@ -160,33 +95,3 @@ static func _trimmed(batch: BodyFieldSync.Batch, size: int) -> BodyFieldSync.Bat
 	batch.owners.resize(size)
 	batch.ids.resize(size)
 	return batch
-
-
-## Each pick taken in the sync's order: the unit's target, its
-## cooldown, and its blow when the cooldown runs out (unless it has turned away).
-static func _struck(picks: PackedInt32Array, units: Array, owners: Array, interval: int) -> Array:
-	var out := []
-	if picks.is_empty():
-		return out
-	var columns: UnitColumns = owners[picks[0]].store.columns  # fetched once, committed once
-	var cooldowns: PackedInt32Array = columns.column(UnitColumns.ATTACK_COOLDOWN)
-	var targets: PackedInt64Array = columns.column(UnitColumns.TARGET_ID)
-	var bands := {}  # squad -> its morale band, read at its first blow (Decision 144)
-	for index in range(0, picks.size(), 3):
-		var unit: SkirmishUnit = units[picks[index]]
-		var target: SkirmishUnit = units[picks[index + 1]]
-		targets[unit.slot] = target.id
-		cooldowns[unit.slot] -= 1
-		if cooldowns[unit.slot] > 0:
-			continue
-		var usual := ScrumBlows.ticks(interval, unit)
-		var owner: SkirmishSquad = owners[picks[index]]
-		if not bands.has(owner):
-			bands[owner] = FormationMorale.band(owner)
-		cooldowns[unit.slot] = FormationMorale.interval(bands[owner], usual)
-		if picks[index + 2] & AWAY == 0:
-			var flank: bool = picks[index + 2] & FLANK != 0
-			out.append([unit, target, FormationCombat.damage(unit), flank])
-	columns.commit(UnitColumns.ATTACK_COOLDOWN, cooldowns)
-	columns.commit(UnitColumns.TARGET_ID, targets)
-	return out

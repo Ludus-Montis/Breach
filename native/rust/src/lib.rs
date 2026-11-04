@@ -29,6 +29,7 @@ mod face_store;
 mod facing;
 mod field;
 mod field_parting;
+mod fight;
 mod frame;
 mod geometry;
 mod ghash;
@@ -242,26 +243,7 @@ impl BodyField {
         field_parting::commit(&mut self.field, &moved, &points, &nexts);
     }
 
-    /// ScrumBlows.blows' search on the field, as of a sync of the scrum's snapshot:
-    /// `floats` = [reach_contact, the front's least dot (ScrumReach.in_front)], `rules` per
-    /// squad in the sync's order (1 fighting, 2 ordered to retreat). Returns per unit that
-    /// touches a foe it strikes, in the sync's order: [its flat index, the foe's, flags (1
-    /// it retreats and has turned away, 2 the blow falls on the foe's flank)].
-    #[func]
-    fn blows(&mut self, floats: PackedFloat64Array, rules: PackedByteArray) -> PackedInt32Array {
-        let began = Instant::now();
-        let f = floats.as_slice();
-        let params = blows::Params { reach: f[0], front: f[1] };
-        let picks = blows::picks(&self.field, rules.as_slice(), &params);
-        let mut out = Vec::with_capacity(picks.len() * 3);
-        for pick in &picks {
-            out.extend_from_slice(&[pick.flat, pick.foe, pick.flags as i32]);
-        }
-        self.usec = began.elapsed().as_micros() as i64;
-        PackedInt32Array::from(out.as_slice())
-    }
-
-    /// BlowLanding's counts on the field, as of the same sync as blows(): `targets` is
+    /// BlowLanding's counts on the field, as of the same sync as `fight_choose`: `targets` is
     /// every unit's target id by flat index, `asked` [striker id, target id] per blow.
     /// Returns per blow [the striker's squad (its place in the sync, -1: none), how many
     /// units touching the target (within `reach`) have it as theirs].
@@ -4630,38 +4612,6 @@ impl BodyField {
             morale::step(&self.squads, &self.field.columns, &roster.roster, &stepping, &tuning);
         PackedInt64Array::from(out.as_slice())
     }
-
-    /// RoutBlows.blows: `routing`, each routing squad's index in `roster`; `fighters`, three a fighter, its squad's
-    /// index in `roster`, its store slot and the cooldown it starts again at. Sets each
-    /// fighter's target and cooldown, and returns three numbers a blow, in order: [the
-    /// fighter's index, the router's squad's index in `routing`, its index in that one's
-    /// living].
-    #[func]
-    fn rout_blows(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        routing: PackedInt32Array,
-        fighters: PackedInt64Array,
-        reach: f64,
-        seed: i64,
-    ) -> PackedInt64Array {
-        let roster = roster.bind();
-        let routing = routings(&self.squads, &roster.roster, &routing);
-        let (rows, _) = fighters.as_slice().as_chunks::<3>();
-        let fighters: Vec<rout_blows::Fighter> = rows
-            .iter()
-            .map(|f| rout_blows::Fighter {
-                listed: f[0] as usize,
-                slot: f[1] as usize,
-                reset: f[2] as i32,
-            })
-            .collect();
-        let columns = &mut self.field.columns;
-        let out = rout_blows::blows(columns, &roster.roster, &routing, &fighters, reach, seed);
-        let flat: Vec<i64> =
-            out.iter().flat_map(|&(f, r, m)| [f, r, m].map(|n| n as i64)).collect();
-        PackedInt64Array::from(flat.as_slice())
-    }
 }
 
 /// Routing formations as RoutBlows and FormationRout hand them in: each one's index in
@@ -4830,29 +4780,46 @@ impl BodyField {
 /// The ranged picks and the blows' landing (spec 39 step 8a1).
 #[godot_api(secondary)]
 impl BodyField {
-    /// FormationCombat.ranged_blows over `roster`'s squads: who may shoot (`shots::shooters`,
-    /// `seconds` each living unit's ranged time in the roster's order, `interval` the ticks a
-    /// second's strike takes), each one's target and cooldown set. Returns four numbers a
-    /// shot, in order: [the shooter's squad's index in the roster, its index in that one's
-    /// living, its target's squad's index, its index in that one's living].
+    /// FormationMelee.blows over `roster`'s squads (`fight::choose`): every living unit's
+    /// target cleared, then the scrum's blows (the field synced to the scrum if some squad
+    /// may strike), the blows on routers and the shots, each striker's target and cooldown
+    /// set. `ints` = [the ticks a second's strike takes, seed]; `floats` = [reach_contact,
+    /// the front's least dot (ScrumReach.in_front), rout_strike_reach]; `bands` as
+    /// BandTuning.of_slice reads it. Returns [1 if the field was synced, how many melee
+    /// blows, then six numbers a blow: the striker's squad's index in the roster, its index
+    /// in that one's living, the target's two, its damage, 1 if from a flank; then five a
+    /// shot: the shooter's two, the target's two, its damage].
     #[func]
-    fn shots(
+    fn fight_choose(
         &mut self,
         roster: Gd<SquadRoster>,
-        seconds: PackedFloat64Array,
-        interval: i64,
-        seed: i64,
+        ints: PackedInt64Array,
+        floats: PackedFloat64Array,
+        bands: PackedInt64Array,
     ) -> PackedInt64Array {
+        let (i, f) = (ints.as_slice(), floats.as_slice());
+        let rules = fight::Rules {
+            interval: i[0],
+            seed: i[1],
+            reach: f[0],
+            front: f[1],
+            rout_reach: f[2],
+            bands: bands::BandTuning::of_slice(bands.as_slice()),
+        };
         let roster = roster.bind();
-        let columns = &mut self.field.columns;
-        let shooters =
-            shots::shooters(&self.squads, columns, &roster.roster, seconds.as_slice(), interval);
-        let out = shots::shots(&self.squads, columns, &roster.roster, &shooters, seed);
-        let flat: Vec<i64> = out
-            .iter()
-            .flat_map(|&(s, n, u)| [shooters[s].listed, shooters[s].member, n, u].map(|v| v as i64))
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
+        let chosen = fight::choose(&mut self.squads, &mut self.field, &roster.roster, &rules);
+        self.edits += 1;
+        let mut out = vec![chosen.synced as i64, chosen.melee.len() as i64];
+        for blow in &chosen.melee {
+            let (s, t) = (blow.striker, blow.target);
+            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, blow.damage]);
+            out.push(blow.flank as i64);
+        }
+        for shot in &chosen.shots {
+            let (s, t) = (shot.striker, shot.target);
+            out.extend([s.0 as i64, s.1 as i64, t.0 as i64, t.1 as i64, shot.damage]);
+        }
+        PackedInt64Array::from(out.as_slice())
     }
 
     /// BlowLanding.land. `ints`, ARMS_INTS numbers a unit: [id, slot, defence, armour, ward,

@@ -6,7 +6,7 @@ extends RefCounted
 ##   99): its units flee from where they stand until it is safe. A ragged one also pays a
 ##   scaled rout: a morale shock in proportion to how far short of drilled it is.
 ## - **Its enemies:** any of their units still touching it strike it as it goes
-##   (ScrumBlows). Each follows it as a whole, to the leash its discipline gives it
+##   (FormationMelee). Each follows it as a whole, to the leash its discipline gives it
 ##   (FormationPursuit, Decision 107), unless ordered not to pursue. And each of their units
 ##   near it may break ranks to chase on its own - decided per unit, by its discipline and a
 ##   seeded roll - as far from where it broke away as its own discipline leashes it, while
