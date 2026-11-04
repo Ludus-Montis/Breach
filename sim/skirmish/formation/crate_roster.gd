@@ -12,7 +12,7 @@ const ROSTER_CLASS := "SquadRoster"
 
 
 ## The roster of `squads` on `terrain` (null: open ground, no walkers). With `every`, each
-## squad lists every unit it holds, living or not (the whole tick, `tick_step`, which reads
+## squad lists every unit it holds, living or not (the whole tick, `tick_run`, which reads
 ## who is living from the members as each pass begins; spec 39 step 8b5-xlii).
 static func of(squads: Array, terrain: FormationTerrain = null, every := false) -> Object:
 	NativeLibrary.load_for(ROSTER_CLASS)

@@ -17,17 +17,17 @@ static var _library: TerrainLibraryDef = null
 
 ## The unit `id` (content/units/<id>.json).
 static func unit(id: String) -> UnitDef:
-	return _store().unit(id)
+	return store().unit(id)
 
 
 ## The weapon `id` (content/weapons/<id>.json).
 static func weapon(id: String) -> WeaponDef:
-	return _store().weapon(id)
+	return store().weapon(id)
 
 
 ## The battle's tuning (content/tuning/battle_tuning.json).
 static func tuning() -> BattleTuning:
-	return _store().tuning()
+	return store().tuning()
 
 
 ## The one shared terrain library (content/terrain/terrain_library.json, Decision 32), which
@@ -35,24 +35,20 @@ static func tuning() -> BattleTuning:
 ## doesn't call back into it.
 static func terrain_library() -> TerrainLibraryDef:
 	if _library == null:
-		_library = _store().terrain_library()
+		_library = store().terrain_library()
 	return _library
 
 
 ## The map `name` (content/maps/<name>.json).
 static func map(name: String) -> MapDef:
 	terrain_library()
-	return _store().map(name)
+	return store().map(name)
 
 
-## A fresh definition of each kind ({"UnitDef": ..., "MapDef": ...}) filled with the crate's
-## defaults, for the test that holds them equal to GDScript's.
-static func defaults() -> Dictionary:
-	return _store().defaults() if _store() else {}
-
-
-## The crate's store, with the content under content/ loaded once.
-static func _store() -> Object:
+## The crate's store, with the content under content/ loaded once: the tick reads the
+## battle's tuning from it (`tick_run`), and its `defaults()` are a fresh definition of each
+## kind filled with the crate's defaults, for the test that holds them equal to GDScript's.
+static func store() -> Object:
 	if _store_made == null:
 		_store_made = loaded_store()
 	return _store_made

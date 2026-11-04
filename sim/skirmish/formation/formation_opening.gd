@@ -33,8 +33,9 @@ static func step(
 	return mirror(squads, flat)
 
 
-## The opening's arguments past the roster and the ground (`opening_step`'s, and the whole
-## tick's part, `tick_step`): `ticks` [tick, seed], `moving` as `step` takes it.
+## The opening's arguments past the roster and the ground (`opening_step`'s; the crate's
+## `tick::given` builds the same for the whole tick): `ticks` [tick, seed], `moving` as
+## `step` takes it.
 static func args(ticks: Array, moving: Array) -> Array:
 	var tuning := BattleTuning.current()
 	return [

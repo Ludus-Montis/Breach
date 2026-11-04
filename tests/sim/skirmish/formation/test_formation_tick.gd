@@ -1,9 +1,10 @@
 extends GdUnitTestSuite
-## The whole tick as one crate call (FormationTick.step, `tick_step`, spec 39 step 8b5-xlii):
+## The whole tick as one crate call (FormationTick.step, `tick_run`, spec 39 step 8b5-xlii):
 ## a clash fought to its end (the fight, the surrender, the downed, carrying, the rout) leaves
 ## the events and GDScript's copies tick by tick as the opening, the scrum, the aftermath,
 ## the mustering and the end called one after another did, and no mirror run after the call
-## writes over what a later pass in it did: each unit's state is the crate's.
+## writes over what a later pass in it did: each unit's state is the crate's. The crate builds
+## each pass's rules from its own battle tuning as each pass's `args` builds them (8c-i).
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
@@ -11,6 +12,7 @@ const FormationScrum = preload("res://sim/skirmish/formation/formation_scrum.gd"
 const FormationAftermath = preload("res://sim/skirmish/formation/formation_aftermath.gd")
 const FormationMustering = preload("res://sim/skirmish/formation/formation_mustering.gd")
 const FormationEnding = preload("res://sim/skirmish/formation/formation_ending.gd")
+const FormationOpening = preload("res://sim/skirmish/formation/formation_opening.gd")
 const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const MapLayoutDef = preload("res://content/definitions/map_layout_def.gd")
@@ -145,3 +147,22 @@ func test_a_body_the_deaths_down_and_carrying_bears_in_one_call_stays_borne() ->
 	assert_int(body.state).is_equal(SkirmishUnit.State.CARRIED)
 	var crate: int = whole[0].store.columns.value(body.slot, UnitColumns.STATE)
 	assert_int(crate).is_equal(SkirmishUnit.State.CARRIED)
+
+
+func test_the_crate_builds_each_pass_s_rules_as_its_args_build_them() -> void:
+	var sim := FormationBench.clash(2, 2, 3)
+	var field: Object = ColumnsLent.field(sim.store.columns)
+	var travel := FormationSimulation.TRAVEL_SCALE
+	var cells := travel * MapLayoutDef.CELLS_PER_TILE
+	var paces := PackedFloat64Array([travel, 0.1, 12.0, cells])
+	for tick in [30, 31]:  # a second's tick (morale steps) and not
+		var at := PackedInt64Array([tick, 3, 10, 1, int(NativeKernels.threaded)])
+		var given: Array = field.tick_given(CrateContent.store(), at, paces)
+		var expected := [
+			FormationOpening.args([tick, 3], [travel, 0.1, 12.0]),
+			FormationScrum.args(tick, cells, 0.1, 3),
+			FormationAftermath.args([10, 3, tick], 0.1, true),
+			FormationMustering.args([tick, 10, 3], [cells, 0.1]),
+			FormationEnding.args([tick, 3], [0.1, travel, cells]),
+		]
+		assert_array(given).is_equal(expected)

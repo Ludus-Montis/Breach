@@ -58,9 +58,9 @@ static func step(
 	return CrateEvents.taken(field)
 
 
-## The scrum's arguments past the roster and the ground (`scrum_step`'s, and the whole
-## tick's part, `tick_step`): `tick`, `cells_per_second`, `tick_seconds` and `fight_seed`
-## as `step` takes them.
+## The scrum's arguments past the roster and the ground (`scrum_step`'s; the crate's
+## `tick::given` builds the same for the whole tick): `tick`, `cells_per_second`,
+## `tick_seconds` and `fight_seed` as `step` takes them.
 static func args(tick: int, cells_per_second: float, tick_seconds: float, fight_seed: int) -> Array:
 	var ctx := {"seconds": tick_seconds, "pace": cells_per_second * tick_seconds}
 	ctx["cells_per_second"] = cells_per_second

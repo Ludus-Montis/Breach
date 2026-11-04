@@ -50,9 +50,9 @@ static func step(
 	return strays
 
 
-## The aftermath's arguments past the roster and before the ground (`aftermath_step`'s,
-## and the whole tick's part, `tick_step`): `ticks`, `seconds` and `rolls` as `step` takes
-## them.
+## The aftermath's arguments past the roster and before the ground (`aftermath_step`'s;
+## the crate's `tick::given` builds the same for the whole tick): `ticks`, `seconds` and
+## `rolls` as `step` takes them.
 static func args(ticks: Array, seconds: float, rolls: bool) -> Array:
 	var tuning := BattleTuning.current()
 	var ints := PackedInt64Array(ticks + [int(rolls), tuning.wounds_messenger_shock])
