@@ -3202,104 +3202,58 @@ impl SquadRoster {
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// ScrumRegroup.step over `roster`'s squads out of the fight, flat in the lists' order:
-    /// per squad its index in the roster, flags (1 a drilled retreat, 2 withdrawing), its
-    /// re-form pace and how many homes follow (`homes`: unit id, and where it walks back to,
-    /// in `home_at`). `rules`: [pace, seconds, reach_contact, reach_front_arc_degrees,
-    /// bodies_steer_look, bodies_steer_clear, scrum_trade_seconds].
+    /// ScrumRegroup.step and ScrumPursuit.step over `roster`'s squads on `ground`: those out
+    /// of the fight walk their units back, then the chasers chase (`scrum::regroup::step`),
+    /// each squad's say read where the crate holds it. `rules`: [pace (cells a tick at speed
+    /// 1), seconds, reach_contact, reach_front_arc_degrees, bodies_steer_look,
+    /// bodies_steer_clear, scrum_trade_seconds, cells a second at speed 1, stamina_give_up,
+    /// discipline_per_leadership, discipline_meets_threats, discipline_march_pace_at,
+    /// discipline_slowest, discipline_fastest, wounds_reach].
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn regroup(
+    fn scrum_regroup(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        flags: PackedByteArray,
-        reforms: PackedFloat64Array,
-        counts: PackedInt32Array,
-        homes: PackedInt64Array,
-        home_at: PackedVector2Array,
         ground: Option<Gd<TerrainGround>>,
         rules: PackedFloat64Array,
         seed: i64,
     ) {
-        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
-        let mut regroupers = Vec::with_capacity(listed.len());
-        let mut from = 0;
-        for n in 0..listed.len() {
-            let to = from + counts.as_slice()[n] as usize;
-            let flag = flags.as_slice()[n];
-            regroupers.push(regroup::Regrouper {
-                listed: listed.as_slice()[n] as usize,
-                drilled: flag & 1 != 0,
-                reform: reforms.as_slice()[n],
-                withdrawing: flag & 2 != 0,
-                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
-            });
-            from = to;
-        }
         let r = rules.as_slice();
-        let rules = regroup::Rules {
-            pace: r[0],
-            seconds: r[1],
+        let steering = near::Steering { look: r[4], clear: r[5], seed };
+        let rules = scrum::regroup::Rules {
+            regroup: regroup::Rules {
+                pace: r[0],
+                seconds: r[1],
+                seed,
+                reach: r[2],
+                arc: r[3],
+                look: r[4],
+                clear: r[5],
+                trade_seconds: r[6],
+            },
+            chase: pursuit::Rules {
+                cells_per_second: r[7],
+                seconds: r[1],
+                give_up: r[8],
+                steering,
+            },
+            discipline: discipline::DisciplineTuning {
+                per_leadership: r[9] as i64,
+                meets_threats: r[10] as i64,
+                ..discipline::DisciplineTuning::default()
+            },
+            reform: [r[11], r[12], r[13]],
             seed,
-            reach: r[2],
-            arc: r[3],
-            look: r[4],
-            clear: r[5],
-            trade_seconds: r[6],
+            wounds_reach: r[14],
         };
         let roster = roster.bind();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        on_ground(ground, |g| {
-            regroup::step(squads, columns, &roster.roster, &regroupers, g, &rules)
-        });
+        let (squads, field) = (&mut self.squads, &mut self.field);
+        on_ground(ground, |g| scrum::regroup::step(squads, field, &roster.roster, g, &rules));
         self.edits += 1;
     }
 }
 
 #[godot_api(secondary)]
 impl BodyField {
-    /// ScrumPursuit.step over `roster`'s squads with units out chasing, flat in the lists'
-    /// order: per squad its index in the roster and how many homes follow (`homes`: unit id,
-    /// and where it walks back to, in `home_at`). `rules`: [cells a second at speed 1,
-    /// seconds, stamina_give_up, bodies_steer_look, bodies_steer_clear].
-    #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn pursue_chasers(
-        &mut self,
-        roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        counts: PackedInt32Array,
-        homes: PackedInt64Array,
-        home_at: PackedVector2Array,
-        ground: Option<Gd<TerrainGround>>,
-        rules: PackedFloat64Array,
-        seed: i64,
-    ) {
-        let (homes, home_at) = (homes.as_slice(), v2s(&home_at));
-        let mut chasing = Vec::with_capacity(listed.len());
-        let mut from = 0;
-        for n in 0..listed.len() {
-            let to = from + counts.as_slice()[n] as usize;
-            chasing.push(pursuit::Chasing {
-                listed: listed.as_slice()[n] as usize,
-                homes: (from..to).map(|h| (homes[h], home_at[h])).collect(),
-            });
-            from = to;
-        }
-        let r = rules.as_slice();
-        let rules = pursuit::Rules {
-            cells_per_second: r[0],
-            seconds: r[1],
-            give_up: r[2],
-            steering: near::Steering { look: r[3], clear: r[4], seed },
-        };
-        let roster = roster.bind();
-        let (squads, columns) = (&mut self.squads, &mut self.field.columns);
-        on_ground(ground, |g| pursuit::chase(squads, columns, &roster.roster, &chasing, g, &rules));
-        self.edits += 1;
-    }
-
     /// FormationOrders.apply over `roster`'s squads: the orders queued (`orders::queue`), in
     /// the order given, which it takes (`orders::pass`). Per listed squad a code naming the
     /// route it holds (-1: none, the straight lane; empty when no order retreats). `rules`:

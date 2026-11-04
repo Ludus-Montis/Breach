@@ -324,7 +324,14 @@ events. After this step no battle phase runs in GDScript.
   and "spat", the surrender and the strike's stamina); **8b5-xvi** deaths. The rest follow,
   renumbered: **8b5-xvii** taking, wounds, recovery and strays; **8b5-xviii** morale, the
   rout and carrying; **8b5-xix** groups, stamina, the bodies, the shuffle and the march's
-  sync; **8b5-xx** one `step()` binding.
+  sync; **8b5-xx** one `step()` binding. **8b5-xiv split further** (2026-10-29, under the
+  same leave), on its survey (the regroup's and the chasers' say all lies in the crate already, but the
+  withdrawal's re-form and the pursuit's return each turn their squad (ScrumTurn), rebuild
+  GDScript's route and build their events): **8b5-xiv** the regroup and the chasers;
+  **8b5-xv** the withdrawal and the pursuit, their turns and events. The rest follow,
+  renumbered: **8b5-xvi** the fight; **8b5-xvii** deaths; **8b5-xviii** taking, wounds,
+  recovery and strays; **8b5-xix** morale, the rout and carrying; **8b5-xx** groups,
+  stamina, the bodies, the shuffle and the march's sync; **8b5-xxi** one `step()` binding.
 
 ### Step 9, the rest of `sim/`
 
@@ -2283,6 +2290,34 @@ Decision's conditions.
   `test_body_field.gd`'s list-order test runs the one call.
 - **After it**, 8b5-xiv: the regroup, the chasers, the withdrawal and the pursuit, their
   events.
+
+### Step 8b5-xiv, the scrum's regroup and chasers over the roster
+
+- **One call** (`scrum::regroup::step`, `scrum_regroup(roster, ground, rules, seed)`,
+  ScrumRegroup.step(field, roster, ctx) from FormationScrum._regroup): the regroup
+  (`regroup::step`), then the chase (`pursuit::chase`), as ScrumRegroup.step and
+  ScrumPursuit.step ran them.
+- **Read in the crate:** which squads are out of the fight (neither fighting nor routing,
+  by the state column), whether each has units loose, whether it is a drilled retreat (its
+  order, and FormationDiscipline.of from its living units' sheets against
+  `discipline_meets_threats`), whether it withdraws (its record), its re-form pace
+  (FormationDiscipline.reform_pace: its discipline over `discipline_march_pace_at`,
+  clamped), which squads have chasers; on terrain, out of a stance, where its living units
+  none fleeing walk back to (TerrainStep.returns: `march::pour::targets` in its frame, each
+  unit's swap under way and the downed foe it is out taking read from the squad,
+  `moving::share::pourers`), the chasers' read after the regroup has walked.
+- **Gone:** the `regroup` and `pursue_chasers` bindings; ScrumPursuit.step (ScrumPursuit
+  keeps `away` and the rules' account); TerrainStep.returns. tools/tick_phases.gd times the
+  one call ("scrum: regroup and chasers").
+- **Identical:** the same walks, trades, chases and returns, in the same order. The proof
+  is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/regroup/tests.rs` (a squad out of the fight walks its loose
+  units back; a fighting squad's are not walked back; a chaser walks after its quarry; a
+  disciplined retreat with units out regroups drilled at its re-form pace), red on a
+  stubbed pass, then green. gdUnit `test_scrum_regroup.gd`: a squad out of the fight walks
+  its loose unit back (red with the GDScript's call stubbed, then green);
+  `test_formation_list_order.gd`'s regroup test runs the one call.
+- **After it**, 8b5-xv: the withdrawal and the pursuit, their turns and events.
 
 ## Open, for the implementing session to settle and record here
 
