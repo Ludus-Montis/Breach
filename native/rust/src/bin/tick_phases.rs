@@ -5,7 +5,8 @@
 //!
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
-//!       [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] [repo=<path>]
+//!       [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
+//!       [repo=<path>]
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
 //! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
@@ -16,6 +17,10 @@
 //! its line of advance (`ground::map::mixed`; spec 38 step 2). It has one lane: with
 //! `squads` above 1 it exits 2, as does a terrain that isn't `open` or `mixed`.
 //!
+//! `counts=1` follows the times with each pass's slots changed against the living, a lap
+//! (`phases::counts`; spec 38 step 2). They are counted on the untimed battle that steps
+//! beside the timed one, so the times are as without it.
+//!
 //! tick_phases.gd's `copies` counts column copies across the Godot boundary, which the crate's
 //! tick doesn't cross: it exits 2. `repo` is the folder holding project.godot (default: the
 //! one this is run in or from).
@@ -25,16 +30,17 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
+use breach_native::phases::counts;
 use breach_native::phases::series::{self, LIMIT};
 use breach_native::phases::{self, Options, WARNING};
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
                      [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] \
-                     [repo=<path>]";
-const KNOWN: [&str; 14] = [
+                     [counts=1] [repo=<path>]";
+const KNOWN: [&str; 15] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
-    "threaded", "series", "limit", "terrain", "repo",
+    "threaded", "series", "limit", "terrain", "counts", "repo",
 ];
 
 fn main() -> ExitCode {
@@ -85,12 +91,15 @@ fn main() -> ExitCode {
     } else {
         (options.fight, phases::timed(&mut timed, options.fight, &content), Vec::new())
     };
-    for _ in 0..ticks {
-        plain.step(&content);
-    }
+    let counted = if flag(&args, "counts") {
+        counts::lines(&counts::counted(&mut plain, ticks, &content))
+    } else {
+        (0..ticks).for_each(|_| _ = plain.step(&content));
+        Vec::new()
+    };
     println!("{}", phases::machine());
     println!("{}", phases::lines(&options, ticks, &spent).join("\n"));
-    for line in spreads {
+    for line in spreads.into_iter().chain(counted) {
         println!("{line}");
     }
     if timed.state() != plain.state() {
@@ -134,7 +143,12 @@ fn refused_terrain(args: &HashMap<String, String>) -> Option<String> {
 
 /// Whether `series` was asked for: given, and not 0 or false.
 fn in_series(args: &HashMap<String, String>) -> bool {
-    args.get("series").is_some_and(|value| value != "0" && value != "false")
+    flag(args, "series")
+}
+
+/// Whether a flag was asked for: given, and not 0 or false.
+fn flag(args: &HashMap<String, String>, key: &str) -> bool {
+    args.get(key).is_some_and(|value| value != "0" && value != "false")
 }
 
 /// A number as GDScript's `int(String)` reads it here: its digits, or 0.

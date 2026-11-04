@@ -59,14 +59,14 @@ pub fn step(
     log: &mut Log,
 ) -> Ended {
     let made = stamina::pass::step(squads, field, listed, rules.seconds, &rules.stamina);
-    lap("stamina");
+    lap("stamina", field);
     let began = Instant::now();
     let parts = (&rules.parting, rules.threaded);
     let parted = parting::pass::step(squads, field, listed, rules.seed, parts);
     let parting_usec = began.elapsed().as_micros() as i64;
-    lap("bodies (parting)");
+    lap("bodies (parting)", field);
     swaps::pass::step(squads, field, listed, (rules.shuffle, rules.tick), log);
-    lap("shuffle (re-form)");
+    lap("shuffle (re-form)", field);
     let given = Given {
         ground,
         timing: Some(rules.timing),
@@ -75,6 +75,6 @@ pub fn step(
         tuning: rules.walk,
     };
     sync::step(squads, field, listed, &given);
-    lap("units walk to places");
+    lap("units walk to places", field);
     Ended { made, parting_usec, passes: parted.passes, pairs: parted.pairs }
 }

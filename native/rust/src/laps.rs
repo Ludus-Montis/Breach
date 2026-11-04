@@ -3,12 +3,22 @@
 //! while `timed` runs on this thread; otherwise `lap` reads one thread-local and returns. A
 //! lap times nothing the simulation reads, so it changes no outcome (`phases::tests` holds a
 //! timed battle equal to an untimed one).
+//!
+//! A lap also shows the field to a watcher while `watched` runs on this thread (spec 39 step
+//! 8c-xxii: `phases::counts` copies the store's columns there). The watcher only reads the
+//! field, and its time is left out of the lap that follows.
 
 use std::cell::RefCell;
 use std::time::Instant;
 
+use crate::field::Field;
+
+/// What `watched` shows the field to at each lap: the phase that just ended, and the field.
+pub type Watcher = Box<dyn FnMut(&'static str, &Field)>;
+
 thread_local! {
     static LAPS: RefCell<Option<Laps>> = const { RefCell::new(None) };
+    static WATCHER: RefCell<Option<Watcher>> = const { RefCell::new(None) };
 }
 
 /// The laps counted so far: the last one's end, and each phase's microseconds in the order
@@ -18,19 +28,34 @@ struct Laps {
     spent: Vec<(&'static str, f64)>,
 }
 
-/// Ends `phase`'s lap: the time since the last lap ended (or `timed` began) is added to it.
-pub fn lap(phase: &'static str) {
-    LAPS.with(|laps| {
-        if let Some(laps) = laps.borrow_mut().as_mut() {
-            let now = Instant::now();
-            let usec = now.duration_since(laps.last).as_secs_f64() * 1e6;
-            match laps.spent.iter_mut().find(|(name, _)| *name == phase) {
-                Some((_, spent)) => *spent += usec,
-                None => laps.spent.push((phase, usec)),
-            }
-            laps.last = now;
+/// Ends `phase`'s lap: the time since the last lap ended (or `timed` began) is added to it,
+/// then a watcher, if any, sees `field`, and the next lap starts after it.
+pub fn lap(phase: &'static str, field: &Field) {
+    let timing = LAPS.with(|laps| {
+        let mut laps = laps.borrow_mut();
+        let laps = laps.as_mut()?;
+        let now = Instant::now();
+        let usec = now.duration_since(laps.last).as_secs_f64() * 1e6;
+        match laps.spent.iter_mut().find(|(name, _)| *name == phase) {
+            Some((_, spent)) => *spent += usec,
+            None => laps.spent.push((phase, usec)),
         }
+        laps.last = now;
+        Some(())
     });
+    let watching = WATCHER.with(|watcher| {
+        let mut watcher = watcher.borrow_mut();
+        let watch = watcher.as_mut()?;
+        watch(phase, field);
+        Some(())
+    });
+    if timing.is_some() && watching.is_some() {
+        LAPS.with(|laps| {
+            if let Some(laps) = laps.borrow_mut().as_mut() {
+                laps.last = Instant::now();
+            }
+        });
+    }
 }
 
 /// Runs `work` with the laps counted, and returns what it returned and each phase's
@@ -40,4 +65,12 @@ pub fn timed<R>(work: impl FnOnce() -> R) -> (R, Vec<(&'static str, f64)>) {
     let out = work();
     let spent = LAPS.with(|laps| laps.borrow_mut().take()).map_or(Vec::new(), |laps| laps.spent);
     (out, spent)
+}
+
+/// Runs `work` with `watcher` shown the field at each lap, and returns what it returned.
+pub fn watched<R>(watcher: Watcher, work: impl FnOnce() -> R) -> R {
+    WATCHER.with(|slot| *slot.borrow_mut() = Some(watcher));
+    let out = work();
+    WATCHER.with(|slot| slot.borrow_mut().take());
+    out
 }

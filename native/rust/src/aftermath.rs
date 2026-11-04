@@ -55,21 +55,21 @@ pub fn step(
     let (tick, seed) = (rules.fight.tick, rules.fight.choose.seed);
     let interval = rules.fight.choose.interval;
     let fought = fighting::step(squads, field, roster, &rules.fight, ground, log);
-    lap("fight (blows)");
+    lap("fight (blows)", field);
     let taken = fought.taken.iter().map(|&(n, m)| (n, roster.listed[n].living[m].id)).collect();
     let listed: Vec<usize> = roster.listed.iter().map(|l| l.squad).collect();
     let buried = bury::bury(squads, field, &listed, (&rules.bands, tick), log);
-    lap("deaths (bury)");
+    lap("deaths (bury)", field);
     let threatened: Vec<bool> = listed.iter().map(|&s| squads.threatened[s]).collect();
     let (lists, at) = ((&listed[..], &threatened[..]), (tick, rules.seconds, seed));
     taking::step(squads, field, lists, at, &rules.taking, log);
-    lap("taking the downed");
+    lap("taking the downed", field);
     let shock = rules.messenger_shock;
     let t = wounds::Tuning { wounds: &rules.wounds, shock, bands: &rules.bands };
     let tended = wounds::step(squads, field, &listed, (tick, interval, seed), &t, log);
-    lap("wounds (tend)");
+    lap("wounds (tend)", field);
     let at = (tick, rules.seconds, seed);
     let recovered = recovery::step(squads, field, &listed, at, &rules.wounds, log);
-    lap("recovery");
+    lap("recovery", field);
     Aftermath { taken, buried, tended, recovered }
 }

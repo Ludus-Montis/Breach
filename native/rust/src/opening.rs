@@ -63,16 +63,16 @@ pub fn step(
 ) -> Opened {
     let (tick, seed) = (rules.tick, rules.seed);
     let pursuers = order(squads, field, roster, rules, log);
-    lap("orders");
+    lap("orders", field);
     let ground = over.as_ref().map(|o| o.ground);
     let seen = perception::see(squads, &field.columns, roster, ground);
     perception::keep(squads, roster, &seen);
-    lap("perception");
+    lap("perception", field);
     contact::engage_fronts(squads, &mut field.columns, roster, (tick, seed), log);
-    lap("engage: fronts");
+    lap("engage: fronts", field);
     let shocks = (&rules.impacts, &rules.bands);
     contact::engage_edges(squads, &mut field.columns, roster, (tick, seed), shocks, log);
-    lap("engage: edges");
+    lap("engage: edges", field);
     let followed = match over.as_deref_mut() {
         Some(over) => {
             let listed: Vec<usize> = roster.listed.iter().map(|l| l.squad).collect();
@@ -80,14 +80,14 @@ pub fn step(
         }
         None => Vec::new(),
     };
-    lap("pathing");
+    lap("pathing", field);
     let routes = routes(squads, roster);
     let given = Given { routes: &routes, ..rules.moving };
     let ground = over.as_ref().map(|o| o.ground);
     let joiners = moving::step(squads, field, roster, ground, &given, log);
-    lap("march (squads move)");
+    lap("march (squads move)", field);
     let joins = joins::step(squads, field, roster, &joiners, seed, tick, log);
-    lap("joins");
+    lap("joins", field);
     Opened { pursuers, followed, seen, joins }
 }
 

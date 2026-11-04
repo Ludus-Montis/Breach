@@ -6,6 +6,7 @@
 //! own passes, named as tick_phases.gd names the GDScript passes they ported where they match.
 //! A second battle steps untimed beside it, and the two must end equal, or it says so.
 
+pub mod counts;
 pub mod series;
 #[cfg(test)]
 pub(crate) mod tests;

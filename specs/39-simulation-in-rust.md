@@ -1036,6 +1036,14 @@ events. After this step no battle phase runs in GDScript.
   DigestState.state's SHA-256 at ticks 130 and 400), which matched first time; the gdUnit
   test in `test_formation_bench.gd` sees the grems in the wood and the militia in the ford.
   Outcomes of the existing battles don't change.
+  **8c-xxii built** (2026-11-04): `counts=1` on `breach_tick_phases`, recorded in spec 38
+  ("Dropped step 2, rebuilt under cargo"). `laps::lap(phase, field)` shows the field to a
+  watcher while `laps::watched` runs (its time left out of the next lap); `phases::counts`
+  (`counted(settled, ticks, content) -> Counts`, `changed(before, after)`, `living(field)`,
+  `lines(counts)`) copies the unit store's columns (`Columns` now derives Clone) and counts
+  each pass's changed slots against the living, a lap. The bin counts its untimed twin, so
+  timed runs don't change. Cargo tests in `phases/counts/tests.rs`, red against stubs, then
+  green. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 
