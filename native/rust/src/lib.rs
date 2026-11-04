@@ -3202,46 +3202,41 @@ impl BodyField {
         self.edits += 1;
     }
 
-    /// ScrumStance.anticipate_all over the listed squads (`slots`): each one's faction (a
-    /// code), flags (1 it has living units, 2 it meets threats as a line), bounds (`boxes`:
-    /// position and size each) and how many of the list it detects follow in `detects` (by
-    /// their indices in the list). Lets go of stances in place; returns each new one to take
-    /// as [index in the list, heading, foe].
+    /// FormationScrum._prepare over `roster`'s squads on `tick`: each readied for the scrum
+    /// (`scrum::prepare::prepare`).
     #[func]
-    #[allow(clippy::too_many_arguments)]
-    fn anticipate(
-        &mut self,
-        squads: PackedInt32Array,
-        factions: PackedInt32Array,
-        flags: PackedByteArray,
-        boxes: PackedVector2Array,
-        counts: PackedInt32Array,
-        detects: PackedInt32Array,
-        scrum_anticipate: f64,
-        seed: i64,
-    ) -> PackedFloat64Array {
-        let boxes = v2s(&boxes);
-        let detects = usizes(&detects);
-        let mut seen = Vec::new();
-        let mut from = 0;
-        for (n, &count) in counts.as_slice().iter().enumerate() {
-            let to = from + count as usize;
-            let flag = flags.as_slice()[n];
-            seen.push(stance::Seen {
-                squad: squads.as_slice()[n] as usize,
-                faction: factions.as_slice()[n] as u32,
-                living: flag & 1 != 0,
-                bounds: rect::Rect::new(boxes[2 * n], boxes[2 * n + 1]),
-                meets_threats: flag & 2 != 0,
-                detects: detects[from..to].to_vec(),
-            });
-            from = to;
-        }
-        let turns = stance::anticipate(&mut self.squads, &seen, (scrum_anticipate, seed));
+    fn scrum_prepare(&mut self, roster: Gd<SquadRoster>, tick: i64) {
+        let roster = roster.bind();
+        scrum::prepare::prepare(&mut self.squads, &mut self.field, &roster.roster, tick);
         self.edits += 1;
-        let flat: Vec<f64> =
-            turns.iter().flat_map(|t| [t.seen as f64, t.heading, t.foe as f64]).collect();
-        PackedFloat64Array::from(flat.as_slice())
+    }
+
+    /// ScrumStance.anticipate_all over `roster`'s squads on `ground`, on `tick`: each meets
+    /// the threats it sees; stances let go are cleared and new ones taken, each its "faced"
+    /// event in the log (`scrum::prepare::anticipate`, `events_take`). `rules`:
+    /// [scrum_anticipate, discipline_per_leadership, discipline_meets_threats].
+    #[func]
+    fn scrum_stance(
+        &mut self,
+        roster: Gd<SquadRoster>,
+        ground: Option<Gd<TerrainGround>>,
+        rules: PackedFloat64Array,
+        tick: i64,
+        seed: i64,
+    ) {
+        let r = rules.as_slice();
+        let discipline = discipline::DisciplineTuning {
+            per_leadership: r[1] as i64,
+            meets_threats: r[2] as i64,
+            ..discipline::DisciplineTuning::default()
+        };
+        let lines = scrum::prepare::Lines { anticipate: r[0], seed, discipline: &discipline };
+        let roster = roster.bind();
+        let (squads, field, log) = (&mut self.squads, &self.field, &mut self.events);
+        on_ground(ground, |g| {
+            scrum::prepare::anticipate(squads, field, &roster.roster, g, (&lines, tick), log)
+        });
+        self.edits += 1;
     }
 
     /// SquadRanks.close: the living units (store slots, in the squad's order), each one's

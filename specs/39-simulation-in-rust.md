@@ -2221,6 +2221,38 @@ Decision's conditions.
   green).
 - **After it**, 8b5-xii: the scrum's preparing and stance ("faced" in the log).
 
+### Step 8b5-xii, the scrum's preparing and stance over the roster
+
+- **Preparing** (`scrum::prepare::prepare`, `scrum_prepare(roster, tick)`, FormationScrum._prepare):
+  each listed squad, in the lists' order. A routing or destroyed one lets its loose units,
+  its stance and its fight go. Otherwise each loose unit no longer standing (its STATE
+  column) leaves its entry; a fight beginning sets `fight_since` to the tick, `fought` and
+  `stall_ticks` 0; one ending closes the squad's ranks over its dead (`ranks::close` over
+  the roster's living, their preferred bands and footprints) and ends its swaps under way;
+  a squad fighting, or holding a stance, sends each living unit not yet loose loose where it
+  stands (its POSITION).
+- **Stance** (`scrum::prepare::anticipate`, `scrum_stance(roster, ground, rules, tick,
+  seed)`, ScrumStance.anticipate_all): each listed squad's bounds read from its shape
+  (`geometry::Shape`), whether it meets threats as a line from its state, its front and its
+  discipline (`discipline::of` against `discipline_meets_threats`), and the hostiles it
+  detects (`perception::detects`, on the ground); then `stance::anticipate` as before. Each
+  new stance's anchor is the face of its footprints towards its heading, as ScrumStance._turn
+  worked it out, and its "faced" event (heading as its f64 bits, then facing) goes to the
+  log (`events::KINDS` gains it). The scrum's one roster serves: ScrumStance's own is gone.
+- **Gone:** the `anticipate` binding; ScrumStance's gathering (`_looks`, `_sees`, `_turn`)
+  and FormationScrum._prepare's GDScript body.
+- **Identical:** the same entries, places, marks, stances and events, in the same order with
+  the same keys and values. The proof is CI's digests against the base. Outcomes unchanged.
+- **Tests:** cargo `scrum/prepare/tests.rs` (a routing squad lets its loose units, stance
+  and fight go; a fight beginning is marked, the fallen unloosed and the living sent loose
+  where they stand; a fight ending closes the ranks over the dead and sends nobody loose; a
+  squad holding a stance sends its units loose out of a fight; a disciplined squad takes a
+  line facing an enemy closing on its flank, "faced" logged; one short of the discipline
+  meets it unit by unit, letting its line go), red on stubbed passes, then green. gdUnit
+  `test_formation_scrum.gd`: a line's facing reads as FormationEvents made it (red with the
+  GDScript's taking of the log stubbed, then green).
+- **After it**, 8b5-xiii: the seek, the walk and the facing.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

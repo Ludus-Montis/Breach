@@ -5,7 +5,7 @@ extends GdUnitTestSuite
 ## flank blows; a led line turns to meet a threat before contact; a fight that can't go on
 ## is released rather than frozen; and when it ends units regroup and march on. A scrum lock
 ## and a stalled fight's release are reported from the crate's log as they always were
-## (spec 39 step 8b5-xi).
+## (spec 39 step 8b5-xi), and so is a line's facing (step 8b5-xii).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
@@ -270,3 +270,19 @@ func test_a_scrum_lock_and_a_stalled_fights_release_are_reported_as_they_were() 
 	theirs_released["faction"] = "the_kingdom"
 	assert_array(released).is_equal([mine_released, theirs_released])
 	assert_int(mine.engaged_with).is_equal(0)
+
+
+func test_a_lines_facing_and_its_fights_beginning_are_reported_as_they_were() -> void:
+	var sim := _sim()
+	var line := _line(sim, 6, 400, 2)
+	_from_north(sim, 2, 400, 1)
+
+	var faced := _of(_run(sim, 250), "faced").slice(0, 1)
+
+	var at: int = faced[0]["tick"] if not faced.is_empty() else -1
+	var expected := {"type": "faced", "tick": at, "squad": line.id, "faction": "the_kingdom"}
+	expected.merge({"heading": 0.0, "facing": SquadFrame.NORTH})
+	assert_array(faced).is_equal([expected])
+	var keys := ["type", "tick", "squad", "faction", "heading", "facing"]
+	assert_array(faced.map(func(e): return e.keys())).is_equal([keys])
+	assert_bool(line.fought).is_true()  # its fight's beginning marked
