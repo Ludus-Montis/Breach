@@ -2639,29 +2639,39 @@ impl BodyField {
     }
 
     /// The squad's pursuit as a whole as [foe, post, post x, y, home, direction, order, 1 if
-    /// returning else 0], or empty for none.
+    /// returning else 0], then the route it held its post on, if any, as [its corridor's
+    /// half width, then its points' x and y]; or empty for none.
     #[func]
     fn squad_pursuit(&self, squad: i64) -> PackedFloat64Array {
-        match self.squads.pursuit[squad as usize] {
-            Some(p) => PackedFloat64Array::from(&[
-                p.foe as f64,
-                p.post,
-                p.post_at.x as f64,
-                p.post_at.y as f64,
-                p.home,
-                p.direction as f64,
-                p.order as f64,
-                if p.returning { 1.0 } else { 0.0 },
-            ]),
-            None => PackedFloat64Array::new(),
+        let s = squad as usize;
+        let Some(p) = self.squads.pursuit[s] else { return PackedFloat64Array::new() };
+        let mut held = vec![
+            p.foe as f64,
+            p.post,
+            p.post_at.x as f64,
+            p.post_at.y as f64,
+            p.home,
+            p.direction as f64,
+            p.order as f64,
+            if p.returning { 1.0 } else { 0.0 },
+        ];
+        if let Some(route) = &self.squads.post_route[s] {
+            held.push(route.half_width);
+            held.extend(route.points.iter().flat_map(|p| [p.x as f64, p.y as f64]));
         }
+        PackedFloat64Array::from(held.as_slice())
     }
 
-    /// Sets the squad's pursuit from what `squad_pursuit` reads, or none from empty.
+    /// Sets the squad's pursuit, and the route it held its post on, from what
+    /// `squad_pursuit` reads, or none from empty.
     #[func]
     fn put_squad_pursuit(&mut self, squad: i64, pursuit: PackedFloat64Array) {
         let p = pursuit.as_slice();
-        self.squads.pursuit[squad as usize] = (p.len() == 8).then(|| squads::Pursuit {
+        self.squads.post_route[squad as usize] = (p.len() > 8).then(|| {
+            let points = p[9..].chunks(2).map(|xy| V2::new(xy[0] as f32, xy[1] as f32));
+            route::Route::new(points.collect(), p[8])
+        });
+        self.squads.pursuit[squad as usize] = (p.len() >= 8).then(|| squads::Pursuit {
             foe: p[0] as i64,
             post: p[1],
             post_at: V2::new(p[2] as f32, p[3] as f32),
@@ -3330,59 +3340,44 @@ impl BodyField {
         self.field.lexicon.words().iter().map(|w| GString::from(w.as_str())).collect()
     }
 
-    /// FormationPursuit.step over `roster`'s pursuing squads (a record set, a unit living), in
-    /// the lists' order: per squad its index in the roster (`listed`), its leash, and the
-    /// route it held its post on, as how many of its points follow in `points` (-1: none);
-    /// the route it is on is the one it holds. `rules`: [cells a second at speed 1, seconds, stamina_give_up,
-    /// reach_pursuit_lag]. Returns three numbers a pursuit that ended or arrived back, in
-    /// order: 0 ended or 1 arrived, the squad's index in the roster, and the way it is to
-    /// face along its own route (arrived; else 0).
+    /// FormationPursuit.step over `roster`'s squads on `tick` (`scrum::pursue::step`): each
+    /// pursuer's routes and leash read in the crate, then it advances after its enemy, gives
+    /// up ("pursuit_ended") or, back at its post, takes up the route it held it on and turns
+    /// to face the way it held it ("turning", "turned"), in the log (`events_take`). `rules`:
+    /// [cells a second at speed 1, seconds, stamina_give_up, reach_pursuit_lag,
+    /// discipline_per_leadership, discipline_expected_max, how many leash shares, the
+    /// shares, then the leash steps]. Returns the listed indices of those back at their
+    /// posts, in order.
     #[func]
-    fn pursue(
+    fn scrum_pursue(
         &mut self,
         roster: Gd<SquadRoster>,
-        listed: PackedInt32Array,
-        leashes: PackedFloat64Array,
-        counts: PackedInt32Array,
-        points: PackedVector2Array,
         rules: PackedFloat64Array,
-    ) -> PackedInt64Array {
-        let points = v2s(&points);
-        let mut from = 0;
-        let mut route = |count: i32| {
-            let count = usize::try_from(count).ok()?;
-            from += count;
-            Some(route::Route::new(points[from - count..from].to_vec(), 0.0))
+        tick: i64,
+    ) -> PackedInt32Array {
+        let r = rules.as_slice();
+        let shares = r[6] as usize;
+        let rules = scrum::pursue::Rules {
+            whole: pursuit::whole::Rules {
+                cells_per_second: r[0],
+                seconds: r[1],
+                give_up: r[2],
+                lag: r[3],
+            },
+            discipline: discipline::DisciplineTuning {
+                per_leadership: r[4] as i64,
+                expected_max: r[5],
+                leash_shares: r[7..7 + shares].to_vec(),
+                leash_steps: r[7 + shares..].to_vec(),
+                ..discipline::DisciplineTuning::default()
+            },
+            tick,
         };
         let roster = roster.bind();
-        let mut pursuing = Vec::with_capacity(listed.len());
-        for n in 0..listed.len() {
-            let index = listed.as_slice()[n] as usize;
-            pursuing.push(pursuit::whole::Pursuing {
-                listed: index,
-                route: self.squads.route[roster.roster.listed[index].squad].clone(),
-                held: route(counts.as_slice()[n]),
-                leash: leashes.as_slice()[n],
-            });
-        }
-        let r = rules.as_slice();
-        let rules = pursuit::whole::Rules {
-            cells_per_second: r[0],
-            seconds: r[1],
-            give_up: r[2],
-            lag: r[3],
-        };
-        let (squads, columns) = (&mut self.squads, &self.field.columns);
-        let out = pursuit::whole::step(squads, columns, &roster.roster, &pursuing, &rules);
+        let (squads, field, log) = (&mut self.squads, &mut self.field, &mut self.events);
+        let back = scrum::pursue::step(squads, field, &roster.roster, &rules, log);
         self.edits += 1;
-        let flat: Vec<i64> = out
-            .iter()
-            .flat_map(|p| match *p {
-                pursuit::whole::Pursued::Ended(n) => [0, n as i64, 0],
-                pursuit::whole::Pursued::Arrived(n, way) => [1, n as i64, way as i64],
-            })
-            .collect();
-        PackedInt64Array::from(flat.as_slice())
+        back.into_iter().map(|n| n as i32).collect()
     }
 }
 

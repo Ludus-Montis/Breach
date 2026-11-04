@@ -157,7 +157,8 @@ pub fn begin_withdraw(squads: &mut Squads, columns: &mut Columns, roster: &Roste
 }
 
 /// FormationPursuit.begin: the listed `enemy` locks onto the listed `foe` and, if it isn't
-/// pursuing already, keeps its post and takes up the route its quarry flees by.
+/// pursuing already, keeps its post (and the route it holds it on, `post_route`) and takes
+/// up the route its quarry flees by.
 fn begin_pursuit(
     squads: &mut Squads,
     columns: &mut Columns,
@@ -182,6 +183,7 @@ fn begin_pursuit(
             order: squads.order[s],
             returning: false,
         });
+        squads.post_route[s] = squads.route[s].clone();
         let towards = squads.position[roster.listed[foe].squad];
         took = take(squads, s, (&retreats.routes[enemy], &retreats.routes[foe]), towards);
         if took {
