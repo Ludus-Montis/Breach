@@ -507,6 +507,27 @@ events. After this step no battle phase runs in GDScript.
   (FormationPursuit.mirror). Each phase's class hands over its own rules (`rules`), and its
   own binding stays for its tests and `tick_phases`, which times each phase. Outcomes don't
   change.
+  **8b5-xxxv split further** (2026-10-29, under the same leave), on its survey (the opening
+  is six crate calls between GDScript's mirrors; the routes reach the crate as codes of
+  GDScript's objects, made twice a tick and changed between the calls by the pursuers'
+  `enemy.route = quarry.route` and pathing's re-routes, and the taking reads the perception
+  as GDScript's dictionary): **8b5-xxxv** the tick's opening (the orders, the perception, the
+  fronts and edges, the pathing and the move with its joins) as one crate call, the routes'
+  codes handed over once and kept by the crate as GDScript's mirrors would leave them, the
+  perception handed back; **8b5-xxxvi** the routes and the perception held by the crate (the
+  routes' codes the crate's own, for the opening and the groups, the pursuers' and
+  re-routed groups' routes no longer mirrored by hand, the taking reading the perception the
+  crate kept); **8b5-xxxvii** the fight through the groups as one call (was 8b5-xxxvi);
+  **8b5-xxxviii** the tick's end and the one `step()` binding (was 8b5-xxxvii).
+  **8b5-xxxv built** (2026-10-29): the tick's opening as one crate call (`opening.rs`, the
+  `opening_step` binding): the orders queued, each squad's perception, the fronts and then the
+  edges, the pathing (on ground only) and the move with its joins, over one roster, every
+  pass's events in the log in that order. Each squad's route comes over once as a code
+  (FormationOrders.route_codes), and the crate keeps the codes as GDScript's mirrors left
+  them between the calls: a pursuer that took its quarry's route holds it and its code, and a
+  group that re-routed a code of its own. FormationOpening makes the call and mirrors after
+  it: the pursuers' and re-routed groups' routes, the perception (handed back) and the joins.
+  The per-pass bindings stay for their tests and `tick_phases`. Outcomes don't change.
 
 ### Step 9, the rest of `sim/`
 

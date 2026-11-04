@@ -28,24 +28,30 @@ static func step(
 ) -> void:
 	if terrain == null or squads.is_empty():
 		return
-	var tuning := BattleTuning.current()
-	var looks := PackedFloat64Array(
-		[tuning.path_relook, tuning.path_look, tuning.path_detour_gain, tuning.sight_budget]
-	)
-	looks.append_array(
-		PackedFloat64Array(
-			[tuning.ground_cliff_quarters, tuning.stamina_climb, tuning.stamina_swim]
-		)
-	)
 	var slots := PackedInt32Array()
 	for squad in squads:
 		slots.append(squad.slot)
 	var field: Object = squads[0].store.field()
-	var followed: PackedInt32Array = field.path_step(terrain.core, slots, tick, fight_seed, looks)
+	var followed: PackedInt32Array = field.path_step(terrain.core, slots, tick, fight_seed, looks())
 	for squad in squads:
 		if squad.slot in followed:
 			_follow(squad, field)
 	events.append_array(CrateEvents.taken(field))
+
+
+## The tuning a look reads: [path_relook, path_look, path_detour_gain, sight_budget,
+## ground_cliff_quarters, stamina_climb, stamina_swim].
+static func looks() -> PackedFloat64Array:
+	var tuning := BattleTuning.current()
+	var out := PackedFloat64Array(
+		[tuning.path_relook, tuning.path_look, tuning.path_detour_gain, tuning.sight_budget]
+	)
+	out.append_array(
+		PackedFloat64Array(
+			[tuning.ground_cliff_quarters, tuning.stamina_climb, tuning.stamina_swim]
+		)
+	)
+	return out
 
 
 ## The group as one walker: its tallest height, swimming or climbing only if every unit
@@ -62,5 +68,9 @@ static func group_walker(squad: SkirmishSquad) -> TerrainWalker:
 
 ## The group's route as the crate re-routed it: its command's, with the command's patches.
 static func _follow(squad: SkirmishSquad, field: Object) -> void:
-	var points: PackedVector2Array = field.squad_route(squad.slot)
-	squad.route = FormationRoute.new(points, squad.command.route.corridor_half_width)
+	squad.route = rerouted(squad, field.squad_route(squad.slot))
+
+
+## `squad`'s route along `points` as the crate re-routed it, as wide as its command's.
+static func rerouted(squad: SkirmishSquad, points: PackedVector2Array) -> FormationRoute:
+	return FormationRoute.new(points, squad.command.route.corridor_half_width)
