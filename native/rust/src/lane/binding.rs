@@ -21,7 +21,8 @@ struct LaneState {
     lane: Lane,
     /// Each moving blocker's `blocker` dictionary, by its id.
     blockers: BTreeMap<i64, VarDictionary>,
-    base: Base<RefCounted>,
+    /// Its Godot object (named so: the derive's `base: base` trips newer clippy).
+    object: Base<RefCounted>,
 }
 
 #[godot_api]
