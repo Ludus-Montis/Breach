@@ -5,7 +5,9 @@
 //! hurried and tending routes set on the player's squads, the builders and the waves, the
 //! battle's tick, and the player's routers home banked. `send` is FormationProduction.send: the
 //! filled places spawned as one squad, a partial wave closed up and centred on its route, and
-//! its units stood on their places.
+//! its units stood on their places. `send_together` is FormationField.send_together: the waves
+//! sent at once, each waiting so that all reach the line together, their marches timed by
+//! rehearsal.
 
 pub mod actions;
 #[cfg(test)]
@@ -19,11 +21,13 @@ use crate::field::Field;
 use crate::maths::V2;
 use crate::play::{self, Play};
 use crate::ranks::{self, Ranked};
+use crate::rehearsal::{self, March};
+use crate::rendezvous;
 use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
 use crate::tick::Ticked;
-use crate::waves::{Builders, Produced, Template, Wave};
+use crate::waves::{Builders, Painted, Produced, Template, Wave};
 
 /// FormationFieldActions.BUILDERS.
 pub const BUILDERS: usize = 4;
@@ -36,6 +40,9 @@ const C_Y: f32 = 62.0;
 pub const A: usize = 0;
 pub const B: usize = 1;
 pub const C: usize = 2;
+/// FormationField.contact_cells, by wave: how far along its route A's front meets the line's
+/// front, and B's the line's north side.
+pub(crate) const CONTACT: [f64; 2] = [79.0, 88.0];
 /// The waves' units (FormationFieldActions.field).
 const GREM: &str = "grem";
 const CHIEFTAIN: &str = "grem_chieftain";
@@ -223,6 +230,33 @@ impl FieldPlay {
         wave.announced = false;
         self.play.listed.push(s);
         Some(s)
+    }
+
+    /// FormationField.send_together: the waves `ws` sent now, each waiting so that all reach
+    /// the line together (planned rendezvous, Decision 87), their marches timed by rehearsal
+    /// (FormationRehearsal) on the field's ground; the squads sent.
+    pub fn send_together(
+        &mut self,
+        ws: &[usize],
+        (squads, field): (&mut Squads, &mut Field),
+        content: &Content,
+    ) -> Vec<usize> {
+        let predicted: Vec<i64> = ws.iter().map(|&w| self.rehearsed(w, content)).collect();
+        let waits = rendezvous::waits(&predicted);
+        let sent = ws.iter().zip(waits);
+        sent.filter_map(|(&w, wait)| self.send(w, wait, (squads, field), content)).collect()
+    }
+
+    /// FormationRehearsal.ticks_to over wave `w`'s preview: the ticks its filled places,
+    /// eight wide on its route on the field's ground, take to bring their front to the line.
+    pub(crate) fn rehearsed(&self, w: usize, content: &Content) -> i64 {
+        let wave = &self.waves[w];
+        let ordered = wave.template.ordered().into_iter().zip(&wave.filled);
+        let painted: Vec<Painted> = ordered.filter(|(_, &filled)| filled).map(|(p, _)| p).collect();
+        let route = &self.routes[wave.route].0;
+        let march = March { painted: &painted, width: WAVE_WIDTH.into(), route, cells: CONTACT[w] };
+        let set = &self.play.set;
+        rehearsal::ticks_to(&march, (set.tick_seconds, set.map, self.play.threaded), content)
     }
 }
 

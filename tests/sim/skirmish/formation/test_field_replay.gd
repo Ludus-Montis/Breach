@@ -4,8 +4,9 @@ extends GdUnitTestSuite
 ## log as FormationRecord.parse does and plays it as the digest does, each tick's commands
 ## given as FormationFieldActions.apply gives them (the kingdom's pursuit, a wave sent, a
 ## route's squads retreating, a wave rerouted, its downed tended), for FIELD_EXTRA ticks past
-## the last. The crate's whole state is then the one GDScript's replay leaves. The logs that
-## send the waves together are 8c-x's.
+## the last, the waves sent together (`send A+B`) timed by rehearsal as FormationField's
+## send_together times them (step 8c-x). The crate's whole state is then the one GDScript's
+## replay leaves.
 
 const BattleTrials = preload("res://sim/skirmish/formation/battle_trials.gd")
 const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
@@ -14,8 +15,8 @@ const Digest = preload("res://tools/formation_digest.gd")
 
 ## The builders' and the waves' events (DomainProduction, FormationProduction).
 const PRODUCED := ["from_reserve", "built", "to_reserve", "wave_full", "departed"]
-## The digest's field logs that don't send the waves together, blows rolled and not.
-const RUNS := [[1, true], [2, false], [4, true]]
+## The digest's field logs, blows rolled and not; 0 and 3 send the waves together.
+const RUNS := [[0, true], [1, true], [2, false], [3, false], [4, true]]
 
 
 ## GDScript's field replayed as the digest's `_field` plays it: the crate's state, the ticks
@@ -65,9 +66,8 @@ func test_the_comparison_tells_one_retreat_from_another() -> void:
 	assert_bool(by_crate[0] == by_gdscript[0]).is_false()
 
 
-func test_a_log_sending_the_waves_together_or_no_record_is_not_replayed() -> void:
+func test_what_is_not_a_record_is_not_replayed() -> void:
 	var at := PackedInt64Array([1, 0, 10])
-	for record in [Digest.FIELD_LOGS[0], "not a record"]:
-		var sim := FormationSimulation.new(2.0, BattleTrials.TICK)
-		var played: PackedInt64Array = sim._field.field_replay(CrateContent.store(), record, at)
-		assert_array(Array(played)).is_equal([-1])
+	var sim := FormationSimulation.new(2.0, BattleTrials.TICK)
+	var played: PackedInt64Array = sim._field.field_replay(CrateContent.store(), "not a record", at)
+	assert_array(Array(played)).is_equal([-1])

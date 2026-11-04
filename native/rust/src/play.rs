@@ -62,11 +62,20 @@ impl Play {
     ) -> Option<Play> {
         let first = squads.count();
         let (set, codes) = battles::set_up_coded(battle, squads, field, content)?;
-        let listed = (first..squads.count()).collect();
+        let mut play = Play::open(set, (seed, rolls, threaded), content);
+        play.listed = (first..squads.count()).collect();
+        play.codes = codes;
+        Some(play)
+    }
+
+    /// A battle made with `set` and nothing set up on it yet (FormationSimulation.new), on its
+    /// map's ground from `content`, seeded `seed`, its blows rolled if `rolls`.
+    pub fn open(set: Set, (seed, rolls, threaded): (i64, bool, bool), content: &Content) -> Play {
         let made = set.map.and_then(|name| crate::ground::map::of(name, &content.tuning));
         let ground =
             made.map(|map| (map.ground(GroundTuning::of(&content.tuning)), Cache::default()));
-        Some(Play { set, listed, tick: 0, seed, rolls, threaded, codes, ground })
+        let (listed, codes) = (Vec::new(), Codes::default());
+        Play { set, listed, tick: 0, seed, rolls, threaded, codes, ground }
     }
 
     /// One tick (FormationSimulation.step), its events in `log`; None, with nothing done but
