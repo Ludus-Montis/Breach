@@ -4,7 +4,7 @@ extends RefCounted
 ## against kingdom militia, head-on along the lane, the same number a side, in blocks of
 ## the given width. Times a tick marching (before any contact) and mid-fight (once the
 ## fight has settled in), so a speed-up can be judged and a slow-down caught
-## (tools/formation_bench.gd). Reads the clock, so not part of any battle.
+## (the crate's benches since spec 39 step 9d-iii). Reads the clock, so not part of any battle.
 
 const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
 const FormationRoute = preload("res://sim/skirmish/formation/formation_route.gd")

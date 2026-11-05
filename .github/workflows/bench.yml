@@ -6,9 +6,8 @@ name: Bench
 # `base` names another branch or commit - the same on it, on the same runner, so the two
 # compare like for like. The last step prints both between SUMMARY markers. GitHub's
 # runners are slower than a desktop: read the comparison, not the absolute times. A `tool`
-# named `breach_<name>` runs the crate's own binary, native/bin/breach_<name> (spec 39 step
-# 8c-xviii: `breach_tick_phases` is tick_phases timed on the crate's tick, with nothing from
-# Godot), with the same `args`.
+# is one of the crate's own binaries, native/bin/breach_<name>, run with nothing from Godot
+# (spec 39 step 9d-iii retired the GDScript benches under tools/).
 #
 # One run each can't tell a 5% change from the swing any change of code brings (an A/A run
 # repeats to within 1%, two commits move phases neither touched by 5 to 20%: spec 35
@@ -22,11 +21,11 @@ on:
   workflow_dispatch:
     inputs:
       tool:
-        description: "tools/<tool>.gd to run (tick_phases, scaling_check, native_bench, ...), or a crate binary (breach_tick_phases, breach_scaling, breach_rout_bench, breach_native_bench)"
-        default: "tick_phases"
+        description: "The crate's binary to run: breach_tick_phases, breach_scaling, breach_rout_bench or breach_native_bench"
+        default: "breach_tick_phases"
       args:
         description: "Its arguments"
-        default: "engine=rust side=4096 squads=4 fight=3"
+        default: "side=4096 squads=4 fight=3"
       head:
         description: "Branch or commit to time as the head (empty: the branch the run is on)"
         default: ""
@@ -37,9 +36,6 @@ on:
         description: "Runs of each, head and base in turn (1 to 20; 5 or more to judge a few %)"
         default: "1"
 
-env:
-  GODOT_VERSION: "4.7.2-stable"
-
 jobs:
   bench:
     runs-on: ubuntu-latest
@@ -48,22 +44,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Cache Godot binary
-        id: godot-cache
-        uses: actions/cache@v6
-        with:
-          path: /opt/godot
-          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
-
-      - name: Download Godot
-        if: steps.godot-cache.outputs.cache-hit != 'true'
-        run: |
-          curl -sL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
-          mkdir -p /opt/godot
-          unzip -q godot.zip -d /opt/godot
-          mv /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot
-          chmod +x /opt/godot/godot
 
       - name: Cache Rust build
         uses: actions/cache@v6
@@ -98,25 +78,17 @@ jobs:
           here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
           case "$ROUNDS" in ''|*[!0-9]*) echo "rounds must be a whole number"; exit 1;; esac
           if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "rounds: 1 to 20"; exit 1; fi
+          case "$TOOL" in breach_*) ;; *) echo "::error::tool must be a crate binary, breach_<name>"; exit 1;; esac
           prepare() {
-            (cd "$1" \
-              && JOBS=4 bash native/build.sh release > /dev/null 2>&1 \
-              && /opt/godot/godot --headless --path . --import > /dev/null 2>&1)
+            (cd "$1" && JOBS=4 bash native/build.sh release > /dev/null 2>&1)
           }
           time_in() {
-            # stderr is kept aside, and shown if the tool printed nothing (#601)
+            # stderr is kept aside, and shown if the tool failed (#601)
             local err="$RUNNER_TEMP/stderr.txt"
-            if [[ "$TOOL" == breach_* ]]; then
-              (cd "$1" && "native/bin/$TOOL" $ARGS 2>"$err") \
-                || { echo "::error::$TOOL failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
-              return
-            fi
-            (cd "$1" \
-              && /opt/godot/godot --headless --path . --script "res://tools/${TOOL}.gd" -- $ARGS \
-                2>"$err" | grep -vE '^(Godot Engine|Initialize godot-rust|WARNING|$)') \
-              || { echo "::error::$TOOL printed nothing in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
+            (cd "$1" && "native/bin/$TOOL" $ARGS 2>"$err") \
+              || { echo "::error::$TOOL failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
           }
-          prepare "$here" || true  # as before: time what was built, even if import complains
+          prepare "$here" || true  # time what was built; a missing binary fails time_in
           if [ -n "$BASE" ]; then prepare base || true; fi
           for round in $(seq 1 "$ROUNDS"); do
             if [ -z "$BASE" ]; then

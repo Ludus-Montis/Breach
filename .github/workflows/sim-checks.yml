@@ -4,8 +4,11 @@ name: Sim checks
 # the Rust core, the tick digests compared with the base's, the mirror trials fought from both
 # sides, and the scaling check. None needs another's output, so after the Rust core is
 # built once (`build`) they run side by side: the suite in shards
-# (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. The `summary` job prints a short summary between
-# SUMMARY markers, so the outcome can be read from the end of its log.
+# (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. Only
+# the suite needs Godot: the digests, trials and scaling check are the crate's own binaries
+# (native/bin/breach_*), the GDScript tools they were checked against retired in spec 39
+# step 9d-iii. The `summary` job prints a short summary between SUMMARY markers, so the
+# outcome can be read from the end of its log.
 
 on:
   pull_request:
@@ -146,10 +149,10 @@ jobs:
           if-no-files-found: ignore
 
   # One job per digest set (a digest is the same wherever it is taken, so splitting the sets
-  # across machines changes nothing). Each takes the base's digest of its set, on the core
+  # across machines changes nothing), played in the crate with nothing from Godot
+  # (native/bin/breach_digest). Each takes the base's digest of its set, on the core
   # `base-build` built, and compares the branch's with it (check_outcomes.py, Decision 151):
-  # it fails unless one of the branch's commits says why (`Outcomes-changed: <why>`). The
-  # run under each engine retired with the last GDScript twin (spec 39 step 6a).
+  # it fails unless one of the branch's commits says why (`Outcomes-changed: <why>`).
   digests:
     needs: [build, base-build]
     runs-on: ubuntu-latest
@@ -171,17 +174,13 @@ jobs:
           name: native-bin
           path: native/bin/
 
-      - uses: ./.github/actions/godot
-        with:
-          version: ${{ env.GODOT_VERSION }}
-
       - name: Digest ${{ matrix.set }}
         run: |
+          set -o pipefail
+          chmod +x native/bin/breach_digest
           mkdir -p digests
-          /opt/godot/godot --headless --path . \
-            --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
-            out=digests/${{ matrix.set }}.branch.txt 2> /dev/null \
-            | grep -E '^.+ ticks +[0-9]+  [0-9a-f]{64}$' > digests/${{ matrix.set }}.branch.runs
+          native/bin/breach_digest set=${{ matrix.set }} \
+            out=digests/${{ matrix.set }}.branch.txt > digests/${{ matrix.set }}.branch.runs
           (cd digests && sha256sum *.txt)
 
       - uses: actions/download-artifact@v7
@@ -190,33 +189,21 @@ jobs:
           path: ${{ runner.temp }}/native-bin-base/
 
       # The base's own digest, from a worktree of the base with its core, against the
-      # branch's. BREACH_NATIVE=rust picks Rust's parting on a base from before spec 39 step
-      # 6a, which still had the switch (later code ignores it); the core must be there.
+      # branch's. A base from before spec 39 step 8c-xiii has no breach_digest: its digest is
+      # empty, and check_outcomes passes the set with a note.
       - name: Digest ${{ matrix.set }} against the base
         run: |
           git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
           mkdir -p ../base/native/bin
           cp "$RUNNER_TEMP"/native-bin-base/* ../base/native/bin/
-          (cd ../base && /opt/godot/godot --headless --path . --import > /dev/null 2>&1 || true)
-          (cd ../base && BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
-            --script res://tools/formation_digest.gd -- set=${{ matrix.set }} \
+          chmod +x ../base/native/bin/breach_* 2>/dev/null || true
+          (cd ../base && native/bin/breach_digest set=${{ matrix.set }} \
             out="$GITHUB_WORKSPACE/digests/${{ matrix.set }}.base.txt" > /dev/null 2>&1 || true)
           python3 ci/godot/scripts/check_outcomes.py ${{ matrix.set }} \
             digests/${{ matrix.set }}.base.txt digests/${{ matrix.set }}.branch.txt "$BASE_REF" \
             --changed digests/${{ matrix.set }}.changed.txt \
             | tee digests/${{ matrix.set }}.outcomes.txt
           exit "${PIPESTATUS[0]}"
-
-      # The same digest played in the crate with nothing from Godot (native/bin/breach_digest,
-      # spec 39 step 8c-xiii): each run's line and every tick's hash must equal Godot's.
-      - name: Digest ${{ matrix.set }} in the crate
-        if: always()
-        run: |
-          chmod +x native/bin/breach_digest
-          native/bin/breach_digest set=${{ matrix.set }} \
-            out=digests/${{ matrix.set }}.crate.txt > digests/${{ matrix.set }}.crate.runs
-          diff digests/${{ matrix.set }}.branch.runs digests/${{ matrix.set }}.crate.runs
-          cmp digests/${{ matrix.set }}.branch.txt digests/${{ matrix.set }}.crate.txt
 
       # When outcomes changed: the first 3 changed runs traced on the base and the branch
       # around their first difference, and diffed (specs/37-outcome-trace.md), into traces/.
@@ -236,6 +223,10 @@ jobs:
           path: digests/
           retention-days: 7
 
+  # The trials fought in the crate (native/bin/breach_trials): the mirrors from both sides,
+  # 50 runs each, for the summary; every scenario over 10 runs, the fatigue trials' four
+  # contacts and the path and sight trials, kept as artifacts. A trial that can't be fought
+  # fails the job.
   trials:
     needs: build
     runs-on: ubuntu-latest
@@ -248,52 +239,19 @@ jobs:
           name: native-bin
           path: native/bin/
 
-      - uses: ./.github/actions/godot
-        with:
-          version: ${{ env.GODOT_VERSION }}
-
-      - name: Mirror trials, both sides
-        run: |
-          for scenario in mirror_headon mirror_flank; do
-            for side in "" swap; do
-              /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
-                scenario=$scenario runs=50 $side 2>/dev/null | tail -1 | sed "s/^/${side:-plain} /"
-            done
-          done | tee trials.txt
-
-      # The same trials fought in the crate with nothing from Godot (native/bin/breach_trials,
-      # spec 39 step 8c-xiv): each line must equal Godot's. Every scenario, field ones too, is
-      # compared over 10 runs as well, the fatigue trials' four contacts (step 8c-xv), and the
-      # path and sight trials (step 8c-xvi): each side times its own searches, so their lines
-      # are compared with the timings blanked (a table row's last number, "N us a plan") and
-      # blank lines dropped, on both sides.
       - name: Trials in the crate
-        if: always()
         run: |
+          set -eo pipefail
           chmod +x native/bin/breach_trials
           for scenario in mirror_headon mirror_flank; do
             for side in "" swap; do
               native/bin/breach_trials scenario=$scenario runs=50 $side \
                 | tail -1 | sed "s/^/${side:-plain} /"
             done
-          done > trials.crate.txt
-          diff trials.txt trials.crate.txt
-          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
-            runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' > trials.all.txt
-          native/bin/breach_trials runs=10 > trials.all.crate.txt
-          diff trials.all.txt trials.all.crate.txt
-          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
-            scenario=fatigue runs=10 2>/dev/null | grep -v '^Godot Engine\|^Initialize\|^$' \
-            > trials.fatigue.txt
-          native/bin/breach_trials scenario=fatigue runs=10 > trials.fatigue.crate.txt
-          diff trials.fatigue.txt trials.fatigue.crate.txt
-          untimed() {
-            grep -v '^Godot Engine\|^Initialize\|^$' | sed -E 's/ +[0-9]+$//; s/, [0-9]+ us a plan/, - us a plan/'
-          }
-          /opt/godot/godot --headless --path . --script res://tools/formation_trials.gd -- \
-            scenario=paths repeats=1 2>/dev/null | untimed > trials.paths.txt
-          native/bin/breach_trials scenario=paths repeats=1 | untimed > trials.paths.crate.txt
-          diff trials.paths.txt trials.paths.crate.txt
+          done | tee trials.txt
+          native/bin/breach_trials runs=10 > trials.all.txt
+          native/bin/breach_trials scenario=fatigue runs=10 > trials.fatigue.txt
+          native/bin/breach_trials scenario=paths repeats=1 > trials.paths.txt
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -302,8 +260,9 @@ jobs:
           path: trials*.txt
           retention-days: 7
 
-  # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
-  # timed on one machine, so the growth it reports holds; sizes never split across jobs.
+  # One job per stage (native/bin/breach_scaling): a stage compares only its own sizes, all
+  # timed on one machine, so the growth it reports holds; sizes never split across jobs. Its
+  # verdict on its own growth gates it.
   scaling:
     needs: build
     runs-on: ubuntu-latest
@@ -320,33 +279,17 @@ jobs:
           name: native-bin
           path: native/bin/
 
-      - uses: ./.github/actions/godot
-        with:
-          version: ${{ env.GODOT_VERSION }}
-
       - name: Scaling check, ${{ matrix.stage }}
         run: |
-          /opt/godot/godot --headless --path . \
-            --script res://tools/scaling_check.gd -- stages=${{ matrix.stage }} 2>/dev/null \
-            | tee scaling.${{ matrix.stage }}.txt
-
-      # The crate's tick timed the same way (spec 39 step 8c-xvii), on this same machine. Its
-      # timings are its own, so its verdict on its own growth gates it, and only its untimed
-      # columns (stage, size, what) are diffed against Godot's.
-      - name: Scaling check in the crate, ${{ matrix.stage }}
-        if: always()
-        run: |
           set -o pipefail
-          untimed() { grep '^  ' | sed -E 's/ +[0-9.]+ ms.*//'; }
           chmod +x native/bin/breach_scaling
-          native/bin/breach_scaling stages=${{ matrix.stage }} | tee scaling.${{ matrix.stage }}.crate.txt
-          diff <(untimed < scaling.${{ matrix.stage }}.txt) <(untimed < scaling.${{ matrix.stage }}.crate.txt)
+          native/bin/breach_scaling stages=${{ matrix.stage }} | tee scaling.${{ matrix.stage }}.txt
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sim-scaling-${{ matrix.stage }}
-          path: scaling.${{ matrix.stage }}*.txt
+          path: scaling.${{ matrix.stage }}.txt
           retention-days: 7
 
   # The outcome in one place, as the single job printed it before: fails if either build

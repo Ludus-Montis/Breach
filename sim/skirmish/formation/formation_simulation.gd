@@ -173,13 +173,13 @@ func _open(events: Array) -> void:
 	_field.orders_clear()  # taken, or nobody was left to take them
 
 
-## The orders alone, as the opening applies them (tools/tick_phases.gd times each pass).
+## The orders alone, as the opening applies them (breach_tick_phases times each pass in the crate).
 func _apply_orders(events: Array) -> void:
 	FormationOrders.apply(_squads, _field.orders_pending(), _tick, fight_seed, events)
 	_field.orders_clear()  # taken, or nobody was left to take them
 
 
-## The move alone, as the opening makes it (tools/tick_phases.gd times each pass). Each
+## The move alone, as the opening makes it (breach_tick_phases times each pass in the crate). Each
 ## squad decides its move from the tick's start; all moves land together (Decision 97).
 ## The move is the crate's (`moving::pass`, spec 39 step 8b5-viii): staging, the march's
 ## ends, the turn, the sweep, the pace, the drag and the landing, its events in the crate's

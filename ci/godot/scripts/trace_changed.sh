@@ -7,7 +7,9 @@
 #   trace_changed.sh <changed file> <base worktree> <out dir> [most runs, default 3]
 #
 # Writes <out dir>/<run>.base.jsonl, .head.jsonl, .diff.txt and .diff.json per run, spaces in
-# the run's label as underscores. A base that can't trace (before spec 37 step 1) says so in
+# the run's label as underscores. Each side traces with its own core's digest,
+# native/bin/breach_digest (Decision 151: outcomes are guarded on Rust); a base whose digest
+# can't trace (before spec 39 step 9d-iii, when the trace was the GDScript digest's) says so in
 # the run's .diff.txt. Never fails: the trace shows a change, check_outcomes judges it.
 set -uo pipefail
 
@@ -15,17 +17,14 @@ changed="$1"
 base="$2"
 out="$3"
 most="${4:-3}"
-godot="${GODOT:-/opt/godot/godot}"
 head_dir="$(pwd)"
 mkdir -p "$out"
 
-# The run's trace from `dir`'s digest (Rust, as check_outcomes compares: Decision 151; the
-# digests job gives the base's worktree its core). BREACH_NATIVE=rust picks Rust's parting on
-# a base from before spec 39 step 6a, which still had the switch; later code ignores it.
+# The run's trace from `dir`'s own digest (the digests job gives the base's worktree its
+# core). A digest that doesn't know trace= refuses it and writes nothing.
 trace() {
 	local dir="$1" run="$2" from="$3" to="$4" file="$5"
-	(cd "$dir" && BREACH_NATIVE=rust "$godot" --headless --path . \
-		--script res://tools/formation_digest.gd -- "only=$run" "trace=$file" \
+	(cd "$dir" && native/bin/breach_digest "only=$run" "trace=$file" \
 		"from=$from" "to=$to" > /dev/null 2>&1)
 }
 
@@ -35,12 +34,9 @@ head -n "$most" "$changed" | while IFS=$'\t' read -r run tick; do
 	from=$((tick > 20 ? tick - 20 : 1))
 	to=$((tick + 40))
 	trace "$head_dir" "$run" "$from" "$to" "$head_dir/$out/$name.head.jsonl"
-	# A base before step 1 ignores `only=` and would play every run: not started.
-	if [ -f "$base/tools/digest_trace.gd" ]; then
-		trace "$base" "$run" "$from" "$to" "$head_dir/$out/$name.base.jsonl"
-	fi
+	trace "$base" "$run" "$from" "$to" "$head_dir/$out/$name.base.jsonl"
 	if [ ! -s "$out/$name.base.jsonl" ]; then
-		echo "$run: the base can't trace yet (before spec 37 step 1)" > "$out/$name.diff.txt"
+		echo "$run: the base's digest can't trace (before spec 39 step 9d-iii)" > "$out/$name.diff.txt"
 		continue
 	fi
 	python3 ci/godot/scripts/trace_diff.py "$out/$name.base.jsonl" "$out/$name.head.jsonl" \

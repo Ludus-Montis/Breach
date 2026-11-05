@@ -46,14 +46,12 @@ An id names a unit or squad. It never ranks one. Ids are handed out in spawn ord
 3. **Trial both ways round** whenever a change can move outcomes:
 
    ```
-   godot --headless --path . --script res://tools/formation_trials.gd -- \
-       scenario=mirror_headon runs=100 first_seed=1
-   godot --headless --path . --script res://tools/formation_trials.gd -- \
-       scenario=mirror_headon runs=100 first_seed=1 swap
+   native/bin/breach_trials scenario=mirror_headon runs=100 first_seed=1
+   native/bin/breach_trials scenario=mirror_headon runs=100 first_seed=1 swap
    ```
 
-   `native/bin/breach_trials` takes the same arguments and prints the same lines in a
-   fraction of the time, with no Godot (spec 39 step 8c-xiv; `bash native/build.sh` builds it).
+   The crate's trials, with no Godot (`bash native/build.sh` builds it; the GDScript
+   `tools/formation_trials.gd` retired in spec 39 step 9d-iii).
 
    Use at least 300 seeds per order (`first_seed=1`, `101`, `201`), and do the same
    for `mirror_flank` if flanks are touched. Compare the first-spawned side's wins
@@ -87,8 +85,8 @@ For each pass the change adds or touches that runs every tick:
    no hold spans a native call. `check_store_reads.py` sees direct calls only: read the
    helpers the loop calls too. A change that moves a field into the store lists every
    reader of it and how each loop will fetch once, before moving it.
-4. **Measure:** `godot --headless --path . --script res://tools/scaling_check.gd` (also
-   in CI) must pass; for a slow pass, `tools/tick_phases.gd` shows which phase grows, and a
+4. **Measure:** `native/bin/breach_scaling` (also in CI) must pass; for a slow pass,
+   `native/bin/breach_tick_phases` shows which phase grows, and a
    `bench` run against the base must show no phase slower beyond noise.
 
 Write the answer to the spec's `bounded-work` row, or a **Bounded** line in the Decision.

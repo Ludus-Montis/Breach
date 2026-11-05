@@ -67,7 +67,7 @@ fn a_battle_s_hash_chains_every_tick_s_record() {
     let mut run = runs("standard").unwrap().remove(0);
     run.limit = 4;
     let mut told = Vec::new();
-    let (ticks, hash) = run.digest(&content, false, &mut |tick, one| told.push((tick, *one)));
+    let (ticks, hash) = run.digest(&content, false, &mut |tick, one, _| told.push((tick, *one)));
 
     let (mut squads, mut field, mut log) = (Squads::default(), Field::default(), Log::default());
     let battle = crate::battles::named("mirror_headon", &[0]).unwrap();
@@ -81,7 +81,7 @@ fn a_battle_s_hash_chains_every_tick_s_record() {
         &content,
         &mut log,
         &mut watch,
-        &mut |r| records.push(r),
+        &mut |r| records.push(r.record()),
     );
     assert_eq!(ticks, 4);
     assert_eq!(hash, Some(Chain::of(&records.concat())));
@@ -96,13 +96,15 @@ fn a_field_s_hash_chains_every_tick_s_record() {
     let content = content();
     let text = "record 1 seed 515557 captain off\n0 kingdom pursue all off\n2 player send B";
     let run = Run { label: "field r".into(), kind: Kind::Field(text), rolls: false, limit: 3 };
-    let (ticks, hash) = run.digest(&content, false, &mut |_, _| {});
+    let (ticks, hash) = run.digest(&content, false, &mut |_, _, _| {});
 
     let (mut squads, mut field, mut log) = (Squads::default(), Field::default(), Log::default());
     let record = crate::record::parse(text).unwrap();
     let mut records = Vec::new();
     let crate_ = (&mut squads, &mut field);
-    digest::field(&record, 3, crate_, &content, (false, false), &mut log, &mut |r| records.push(r));
+    digest::field(&record, 3, crate_, &content, (false, false), &mut log, &mut |r| {
+        records.push(r.record())
+    });
     assert_eq!(ticks, 5);
     assert_eq!(hash, Some(Chain::of(&records.concat())));
 }
@@ -112,5 +114,5 @@ fn a_run_that_can_t_be_set_up_has_no_hash() {
     let content = content();
     let run =
         Run { label: "field r".into(), kind: Kind::Field("not a record"), rolls: true, limit: 3 };
-    assert_eq!(run.digest(&content, false, &mut |_, _| {}), (0, None));
+    assert_eq!(run.digest(&content, false, &mut |_, _, _| {}), (0, None));
 }

@@ -4,7 +4,7 @@
 One bench run can't tell a 5% change from the swing any change of code brings: a run of
 one commit against itself repeats to within 1%, but two commits that differ move phases
 neither touched by 5 to 20% (spec 35 step 5b). So `bench` runs head and base in turn,
-several times on one runner, and this reads each run's output (`tools/tick_phases.gd`: a
+several times on one runner, and this reads each run's output (`breach_tick_phases`: a
 "... ms a tick" line, then one "  <phase>  <ms>" line per phase) and prints, per phase, each
 side's median and range and the change in the medians. A phase is marked `*` when the two
 ranges don't overlap: every head round faster, or every one slower, than every base round.

@@ -30,4 +30,8 @@ if ($LASTEXITCODE -ne 0) { throw "build.ps1: cargo build failed" }
 
 $built = Join-Path $here "rust\target\$dir\breach_native.dll"
 Copy-Item $built (Join-Path $bin "breach_rust.windows.x86_64.dll") -Force
+# The crate's own binaries (src/bin/), as native/build.sh copies them: native\bin\breach_<name>.exe.
+foreach ($name in @("designer", "digest", "trials", "scaling", "tick_phases", "rout_bench", "native_bench")) {
+	Copy-Item (Join-Path $here "rust\target\$dir\$name.exe") (Join-Path $bin "breach_$name.exe") -Force
+}
 Get-ChildItem $bin

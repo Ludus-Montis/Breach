@@ -21,7 +21,7 @@ How sessions work together is `principles/agent-sessions.md`.
   only the test you are writing red, then green (`-a res://tests/<file>.gd`, or for the
   Rust crate `cargo test <name>` in `native/rust/`), plus lint and the static checks.
   Everything else runs in CI: the other test files a change touches, the full suite, the
-  digests (`formation_digest.gd`), the trials, `scaling_check`, `tick_phases` and the other
+  digests (`breach_digest`), the trials, `scaling_check`, `tick_phases` and the other
   benches. CI's `sim-checks` runs the suite and digests on every PR, and its `rust` job the
   crate's format, clippy and cargo tests on every PR that touches `native/`. When CI goes
   red, read the failing test's part of the log and run that one file. For a comparison,

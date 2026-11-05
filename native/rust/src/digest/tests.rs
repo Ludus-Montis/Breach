@@ -65,3 +65,19 @@ fn a_ticks_record_is_its_events_then_its_state_as_one_list() {
     let whole = Plain::List(vec![Plain::List(events.clone()), state.clone()]);
     assert_eq!(recorded(events, state), whole.bytes());
 }
+
+#[test]
+fn a_told_tick_records_the_bytes_recorded_gives() {
+    let events = vec![Plain::str("e"), Plain::Float(0.1), Plain::List(vec![])];
+    let state = Plain::List(vec![Plain::Int(3), Plain::Nil]);
+    let (squads, field) = (Squads::default(), Field::default());
+    let told = Told {
+        events: events.clone(),
+        state: state.clone(),
+        squads: &squads,
+        field: &field,
+        listed: &[],
+    };
+    assert_eq!(told.record(), recorded(events, state));
+    assert!(told.factions().is_empty());
+}

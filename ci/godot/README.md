@@ -65,26 +65,26 @@ Every check that doesn't need another's output runs in its own job, side by side
 
 - **`CI`** (`ci.yml`): `run-baseline` (lint, the static checks, the Python tests and
   commit messages: pre-commit with its `run-tests` hook skipped), `tests` (the gdUnit4
-  suite, in shards) and `scaling` (the scaling check, one job per stage; both on the core,
-  the one engine since spec 39 step 6a).
+  suite, in shards) and `scaling` (the crate's scaling check, `native/bin/breach_scaling`,
+  one job per stage).
 - **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
   as an artifact, and `base-build` does the same for the merge base; then `suite` (the suite
   under Rust, in shards, each failing when a test does: it keeps gdUnit's exit status
   past the `sed` that writes its log), `digests` (one job per set, each comparing
   its digest with the base's from a worktree of the merge base given the base's
   core: `check_outcomes.py`, Decision 151), `trials` and `scaling` (one job per
-  stage) run together; `sim-checks` waits for them all and prints the SUMMARY block.
+  stage) run together; `sim-checks` waits for them all and prints the SUMMARY block. Only
+  the suite needs Godot: the digests, trials and scaling check are the crate's binaries
+  (`native/bin/breach_digest`, `breach_trials`, `breach_scaling`), and the GDScript tools
+  they were checked against line for line retired in spec 39 step 9d-iii.
 - **Why the digests compare with the base:** two engines agreeing doesn't show an outcome
   is kept: a change in shared GDScript rules moves both alike. Spec 35's steps were checked
   only engine against engine until 2026-10-17 (found reviewing step 6c). The run under each
   engine retired with the last twin (spec 39 step 6a).
 - **The scaling check splits by stage, never by size.** It checks how a tick's time grows
   from one size to the next, and timings only compare when taken on one machine: each
-  stage (march, fight, stacks) runs all its sizes in one job (`scaling_check.gd`'s
+  stage (march, fight, stacks) runs all its sizes in one job (`breach_scaling`'s
   `stages=`). Determinism makes the battles the same everywhere, not the runners' speed.
-  Each stage's job then times the crate's tick the same way (`native/bin/breach_scaling`,
-  spec 39 step 8c-xvii) on that same runner: it fails on its own growth, and its untimed
-  columns must equal Godot's.
 - **The diff-scoped checks' base** (Decision 50): a PR's base branch, or for a push the
   commit before it (`github.event.before`). A push checks out the branch itself, and
   `base_ref.py`'s detection would then pick the nearest other branch and count changes
@@ -107,7 +107,7 @@ Every check that doesn't need another's output runs in its own job, side by side
   reference's per-unit seek, walk and facing). Any other reason is flagged (Decision 146).
   It can't see a call hidden in a helper the loop calls, which is how spec 35 step 4a's place
   reads slipped through. Such helpers take the pass's view (`UnitView`) instead, and
-  `bench` (`tick_phases`) against the base is the backstop. A multi-line loop header's
+  `bench` (`breach_tick_phases`) against the base is the backstop. A multi-line loop header's
   reads count as the loop's body.
 
 - `check_id_order.py` — flags an id compared with `<`/`>`, arithmetic on an id, an id

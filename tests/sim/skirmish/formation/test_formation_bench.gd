@@ -1,7 +1,7 @@
 extends GdUnitTestSuite
 ## A tick has 100 ms at 10 ticks a second (spec 30 round 3). The small battle - 40 grems
 ## against 40 militia, 10 wide - takes well under that marching and mid-fight
-## (tools/formation_bench.gd); the bounds here are loose, three times the budget, so a
+## (FormationBench); the bounds here are loose, three times the budget, so a
 ## slower machine passes and only a search gone back to looking at everything fails.
 
 const FormationBench = preload("res://sim/skirmish/formation/formation_bench.gd")
