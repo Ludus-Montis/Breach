@@ -13,6 +13,7 @@ mod blows;
 #[cfg(test)]
 mod build;
 mod carry;
+mod clock;
 mod columns;
 mod commands;
 mod compact;
@@ -76,6 +77,7 @@ mod perception;
 pub mod phases;
 mod play;
 mod pursuit;
+mod queue;
 mod ranks;
 mod reach;
 mod record;

@@ -7,7 +7,8 @@ extends Control
 ## content authors a "wave size" for that count to be measured against either).
 ## Revisit once real wave-forming content exists to drive it.
 
-var command_queue: CommandQueue
+## The lane (`LaneState`), which holds the command queue (spec 39 step 9c).
+var command_queue: Object
 var command_id: int = -1
 
 

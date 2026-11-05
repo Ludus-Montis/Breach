@@ -5,8 +5,6 @@ extends Node2D
 ## no automated coverage of this file itself, per specs/08's own Notes; verified by
 ## the scripted headless run recorded in specs/06 and by manual playtest.
 
-const SimulationClock = preload("res://sim/simulation_clock.gd")
-const CommandQueue = preload("res://sim/command_queue.gd")
 const LaneView = preload("res://presentation/lane_view.gd")
 const ResourceBar = preload("res://presentation/resource_bar.gd")
 const WaveCommandPanel = preload("res://presentation/wave_command_panel.gd")
@@ -32,8 +30,8 @@ const FORT_CAPTURE_SPIKE := 25.0
 
 var _map: MapDef = CrateContent.map("p_f_F_c")
 var _lane: Object
-var _clock: SimulationClock
-var _queue: CommandQueue
+## The crate's SimulationClock (spec 39 step 9c); the command queue is the lane's.
+var _clock: Object
 
 var _wave_form: WaveFormPanel
 var _capture_choice: CaptureChoicePanel
@@ -89,10 +87,10 @@ func _build_simulation() -> void:
 			SimEvents
 		)
 	)
-	_clock = SimulationClock.new()
+	_clock = NativeLibrary.made("SimulationClock")
+	_clock.emit_on(SimEvents)
 	_clock.tick_duration_seconds = _map.tick_duration_seconds
 	_clock.auto_pause_each_tick = true
-	_queue = CommandQueue.new()
 
 
 func _build_presentation() -> void:
@@ -131,7 +129,7 @@ func _build_readouts() -> void:
 	add_child(resource_bar)
 
 	_wave_command_panel = WaveCommandPanel.new()
-	_wave_command_panel.command_queue = _queue
+	_wave_command_panel.command_queue = _lane
 	_wave_command_panel.position = Vector2(20, 140)
 	add_child(_wave_command_panel)
 
@@ -154,7 +152,7 @@ func _build_time_controls() -> void:
 func _build_wave_form_input() -> void:
 	_wave_form = WaveFormPanel.new()
 	_wave_form.economy = _lane.economy()
-	_wave_form.command_queue = _queue
+	_wave_form.command_queue = _lane
 	add_child(_wave_form)
 	_add_button("Queue Grem (8 food)", Vector2(20, 220), _on_queue_grem_button_pressed)
 	_add_button("March wave", Vector2(220, 220), _on_march_pressed)
@@ -195,7 +193,7 @@ func _on_speed_button_pressed(multiplier: float) -> void:
 
 
 func _on_auto_pause_button_pressed() -> void:
-	var new_state := not _clock.auto_pause_each_tick
+	var new_state: bool = not _clock.auto_pause_each_tick
 	_time_controls.on_auto_pause_toggled(new_state)
 	_auto_pause_button.text = "Auto-pause: %s" % ("ON" if new_state else "OFF")
 
@@ -207,7 +205,7 @@ func _on_queue_grem_button_pressed() -> void:
 
 func _on_march_pressed() -> void:
 	_wave_form.on_march_pressed(P, 1)
-	var pending := _queue.pending_commands()
+	var pending: Array = _lane.pending_commands()
 	if pending.size() > 0:
 		_wave_command_panel.command_id = pending[-1]
 	_pending_units_label.text = "Pending: %d" % _wave_form.pending_count()
@@ -224,7 +222,6 @@ func _connect_events() -> void:
 
 
 func _on_tick_advanced(tick_number: int) -> void:
-	_queue.on_tick_advanced(tick_number)
 	_lane.on_tick_advanced(tick_number)
 	_update_choice_button_visibility()
 

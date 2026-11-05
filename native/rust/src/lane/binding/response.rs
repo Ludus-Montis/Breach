@@ -25,7 +25,7 @@ pub(super) struct Response {
     /// Each task force's dictionary, by its mover's id.
     task_forces: BTreeMap<i64, VarDictionary>,
     /// Where its signals are emitted (SimEvents).
-    events: Option<Gd<Object>>,
+    pub(super) events: Option<Gd<Object>>,
 }
 
 impl Default for Response {
