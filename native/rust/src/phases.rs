@@ -7,6 +7,8 @@
 //! A second battle steps untimed beside it, and the two must end equal, or it says so.
 
 pub mod counts;
+pub mod presets;
+pub mod scatter;
 pub mod series;
 #[cfg(test)]
 pub(crate) mod tests;

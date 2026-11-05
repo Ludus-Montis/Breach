@@ -3861,6 +3861,29 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
 - **Identical:** no content and no rule of the battle changed; the build id changes, as the
   definitions are fingerprinted.
 
+### Step 10a, the measuring tools
+
+- **Built** (2026-11-05), on PR #724's branch before it merged (the owner's go-ahead):
+  `breach_tick_phases preset=4096|25k` (`src/phases/presets.rs`), `scatter=1`
+  (`src/phases/scatter.rs`), `bench`'s `base_args` and `scale`, and
+  `ci/godot/scripts/bench_scaling.py`. No outcome changes.
+- **The presets:** a series from contact of 4 and of 24 lanes of 1,024 a side, to the default
+  limit of 600. An argument given beside a preset wins. Lanes the same size mean the tick should
+  grow by the ratio of the squads (×6), so the scaling check expects that factor.
+  `breach_scaling`'s one-squad growth doesn't enter: it is Decision 159's separate ×2.2 bar.
+- **How long the series run** (a probe, release build, threaded, 2026-11-05): a series ends
+  when a side has no squad that isn't routing. At 4096 that is 16 ticks after contact (ticks
+  91 to 107), and at 25k 14 (91 to 105). 600 covers both. The series covers the fight up to the
+  rout, not the pursuit after it. If the pursuit should be timed too, that is a new design
+  question, not a longer limit.
+- **The scaling check:** the tick within a fifth of the factor either way says the small
+  battle can stand in. Phases that grew more than a fifth past it are marked `^`, for 10b.
+  Its exit is 1 when the tick is outside the band, and the `bench` summary says so.
+- **Scatter:** per squad with members, the runs of consecutive unit-store slots its members
+  hold and the slots from its lowest to its highest, summed, where the timing began and where
+  it ended. Both presets start packed (8 runs and 8,192 slots at 4096). How far the fight
+  scatters them is for the 25k bench run to show.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
