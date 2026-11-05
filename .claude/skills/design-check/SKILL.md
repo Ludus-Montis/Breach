@@ -33,11 +33,10 @@ Write the answer to the spec's `general-over-special` row (spec-baseline rubric)
 An id names a unit or squad. It never ranks one. Ids are handed out in spawn order, and
 `squads`/`units` lists are in spawn order too.
 
-1. **Static check:** `python3 ci/godot/scripts/check_id_order.py` (also a pre-commit
-   hook on `sim/`). It catches ids compared, sorted, used in a key or in arithmetic. An
-   id may salt a seeded draw (`hash([seed, ..., unit.id])`, `BattleRolls`,
-   `ScrumContest.draw`).
-2. **Read your diff for what grep can't see:**
+1. **The rules are the crate's** (spec 39; `sim/`'s GDScript and its static id-order check
+   retired in step 9d-iv). Read your diff for ids compared, sorted, used in a key or in
+   arithmetic. An id may salt a seeded draw (the crate's `rolls` and contest draws).
+2. **Read your diff for what a scan can't see:**
    - `if key < best_key` keeping the **first of equals** over a spawn-ordered list.
    - A sequential pass where one squad's update changes what the next one sees. Decide
      from a snapshot, then apply ("orders given together act together").
@@ -77,14 +76,10 @@ For each pass the change adds or touches that runs every tick:
 2. **Does it re-check what can't have changed?** Prefer a work list fed by the changes
    (a dug tile queues the tiles it supports), kept in a deterministic order, if every
    change that matters queues it.
-3. **Does a loop read the store unit by unit?** (Decision 144, `bounded-work.md`
-   Principle 3.) Each scattered store read or write of one unit is a call into the native
-   field under Rust. Hold the pass's columns as a typed view (`UnitView.hold`, Decision
-   146), take its arrays into typed locals, index by slot, release once after; give a
-   helper that reads one unit the view. A scattered mark says `few:` or `reference:`, and
-   no hold spans a native call. `check_store_reads.py` sees direct calls only: read the
-   helpers the loop calls too. A change that moves a field into the store lists every
-   reader of it and how each loop will fetch once, before moving it.
+3. **Is each pass's work local and bounded?** (Decision 144, `bounded-work.md`
+   Principle 3.) A pass reads the store's columns by slot, with no scan of every unit inside
+   a loop over units. A change that moves a field into the store lists every reader of it
+   and how each loop reads it.
 4. **Measure:** `native/bin/breach_scaling` (also in CI) must pass; for a slow pass,
    `native/bin/breach_tick_phases` shows which phase grows, and a
    `bench` run against the base must show no phase slower beyond noise.

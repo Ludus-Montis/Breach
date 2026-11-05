@@ -93,10 +93,10 @@ through a helper? What does the bench say this pass costs against its base?
   answered in the specification or Decision.
 - **At run time:** `rubrics/run-baseline.rubrics.md`'s `bounded-scaling` row: the
   stack's scaling check doubles the battle and fails a doubling that costs more than the
-  limit (Breach: `tools/scaling_check.gd`, run in CI).
-- **Per change (Principle 3):** Breach's `ci/godot/scripts/check_store_reads.py` flags a
-  scattered store call written inside a loop; `bench` (`tick_phases`) against the base
-  catches one hidden in a helper.
-- **When a pass is slow:** time it phase by phase (Breach: `tools/tick_phases.gd`), then
+  limit (Breach: `breach_scaling`, run in CI).
+- **Per change (Principle 3):** Breach's `bench` (`breach_tick_phases`) against the base
+  catches a pass that grew (its GDScript check on scattered store reads retired with the
+  GDScript tick, spec 39 step 9d-iv).
+- **When a pass is slow:** time it phase by phase (Breach: `breach_tick_phases`), then
   read it for unbounded loops and hidden scans before porting it to faster code. A port
   of a quadratic pass is a faster quadratic pass.

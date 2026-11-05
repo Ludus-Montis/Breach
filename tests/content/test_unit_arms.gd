@@ -1,8 +1,9 @@
 extends GdUnitTestSuite
 ## UnitArms and what a unit takes into the field (Decisions 118 to 120, spec 28 parts 4 and
 ## 5): strength scales a weapon over its requirement, a unit wields worse untrained or too
-## weak, armour worn adds to its own, it parries with a held weapon or a shield, and a unit
-## in the field carries its skills. How its blows land is the crate's (`landing.rs`).
+## weak, armour worn adds to its own, and it parries with a held weapon or a shield. What a
+## unit carries into the field is the crate's (`arms.rs`, `sheet.rs`), and how its blows
+## land (`landing.rs`).
 
 const BattleTuning = preload("res://content/definitions/battle_tuning.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
@@ -10,7 +11,6 @@ const UnitArms = preload("res://content/definitions/unit_arms.gd")
 const WeaponDef = preload("res://content/definitions/weapon_def.gd")
 const ArmourDef = preload("res://content/definitions/armour_def.gd")
 const ItemDef = preload("res://content/definitions/item_def.gd")
-const FormationUnits = preload("res://sim/skirmish/formation/formation_units.gd")
 
 
 func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:
@@ -26,19 +26,6 @@ func test_a_unit_parries_with_a_held_weapon_or_a_shield_not_its_claws() -> void:
 	assert_bool(claws.can_parry()).is_false()
 	assert_bool(shielded.can_parry()).is_true()
 	assert_bool(militia.can_parry()).is_true()
-
-
-func test_a_unit_in_the_field_carries_its_skills() -> void:
-	var captain: UnitDef = CrateContent.unit("kingdom_captain")
-	var unit := FormationUnits.make(captain, "the_kingdom", -1, 1)
-
-	assert_int(unit.melee_skill).is_equal(
-		captain.melee_skill + roundi(BattleTuning.current().item_mastered_skill)
-	)  # a mastered polearm
-	assert_int(unit.defence).is_equal(captain.defence)
-	assert_float(unit.critical).is_equal(captain.critical)
-	assert_bool(unit.parries).is_true()
-	assert_bool(FormationUnits.make(CrateContent.unit("grem"), "p", 1, 2).parries).is_false()
 
 
 func test_strength_scales_a_weapon_over_its_requirement() -> void:

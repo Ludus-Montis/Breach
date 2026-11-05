@@ -1,34 +1,26 @@
 # Breach's native core (Rust)
 
-Decision 129: the simulation's hot core moves to Rust, through GDExtension
-(godot-rust/gdext). It owns its state, and GDScript keeps the rules and stays the
-reference behind one switch. The first production piece is in place:
+Decision 129 moved the simulation's hot core to Rust, through GDExtension
+(godot-rust/gdext), and spec 39 moved the rest: since its step 9d-iv the crate is the whole
+simulation, and no GDScript plays the tick. `sim/`'s GDScript (FormationSimulation, its
+glue, the views of the crate's squads and units, FormationField and the GDScript trials and
+bench) and the bindings it called (`BodyField`, `TerrainGround`, `UnitMoves`, `GroundPaths`,
+`GroundMarch`, `ScrumRules` and `SquadRoster`) are gone. The scenes read the crate through
+its bindings (`BattleState`, `FieldState`, `LaneState`, `EconomyState`, `SimulationClock`,
+`SkirmishClock`), each tick as a snapshot of plain arrays and dictionaries, and the content
+through `ContentStore`. CI checks the simulation with the crate's binaries alone.
 
-- **`BodyField`**: the bodies' state, owned natively and kept across ticks.
-- **Body parting** (UnitBodies) runs on the field.
-- **The scrum's slot search** (ScrumSeek; once SlotSearch, ScrumSlots and ScrumNear) runs
-  on the field.
-- **The scrum's facing** (FormationScrum._faces and the turns: ScrumBlows.nearest_touching,
-  UnitShuffle.look, UnitMotion's bearing_to, pace and turn) runs on the field, after the
-  walk, for the units the slot search was given.
-- **The scrum's walk** (FormationScrum._walk: UnitSteer.toward and _round, SquadFrame.place,
-  UnitShuffle.look, UnitMotion.move, GroundBodies.underfoot) runs on the field, between
-  the slot search and the facing, for the same units.
-
-All three reproduced the GDScript reference bit for bit, and since spec 39 step 4a they run
-under either engine: every battle has a field, and the scrum's twins (and `UnitStoreGd`)
-are gone. Body parting was the last pass with a GDScript twin; spec 39 step 6a retired it,
-and the engine switch with it. The C++ kernel from the spike (#174) is retired.
+The rows below name the GDScript each module replaced, as a record of the port.
 
 | | |
 |---|---|
-| Switch | None since spec 39 step 6a: every battle runs on the core, whose library is always loaded (`content/definitions/native_library.gd`), because the content is (below). `sim/skirmish/formation/native_kernels.gd` makes a battle's field and store; `BREACH_NATIVE_THREADS=1` lets body parting use Rayon. `BREACH_NATIVE` is ignored (CI still sets it for a base from before 6a). |
-| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `BodyField`, `ContentStore`, `TerrainGround`, `UnitMoves`, `GroundPaths`, `GroundMarch`, `ScrumRules` and `SquadRoster` |
+| Switch | None since spec 39 step 6a: the core's library is always loaded (`content/definitions/native_library.gd`), because the content is (below). |
+| Rust | `native/rust/` - `godot` 0.5.5 (`api-4-7`), classes `ContentStore`, `BattleState`, `FieldState`, `LaneState`, `EconomyState`, `SimulationClock` and `SkirmishClock` (the GDScript tick's bindings retired in spec 39 step 9d-iv) |
 | Ground | `native/rust/src/ground/` (spec 39 step 3a): the ground a battle is on, its cells and rules (how fast a walker crosses them, its mode, the high ground) and its obscurance (`sight.rs`), and a map's surface with its relief and channels (`surface.rs`). `TerrainGround` holds it; `FormationTerrain` and `TerrainObscurance` are views over it, under both engines, and their GDScript is gone. Its scenarios are cargo tests (`ground/tests.rs`) |
 | Moves | `native/rust/src/route.rs`, `motion.rs`, `mover.rs`, `steer.rs` (spec 39 step 3b): routes and their learned detours, a unit's turning and pace by facing, the one mover and the ground's toll on a step (Decision 139), and steering round bodies (shared with the scrum's walk). `UnitMoves` binds them, stateless and shared (`CrateMoves`); `FormationRoute`, `RoutePatch`, `UnitMotion`, `UnitMover` and `TerrainStep` are views over it, under both engines (steering is the crate's phases' own since step 4c). Their scenarios are cargo tests (`route/`, `mover/`, `steer/`, `motion.rs`) |
 | Content | `native/rust/src/content/` (Decision 153, spec 39 step 2): the serde structs for units, weapons, armour and the tuning are the schema of `content/{units,weapons,armour}/*.json` and `content/tuning/battle_tuning.json`. A file that doesn't match fails naming its field. The JSON Schema under `content/schema/` is generated from them (`BLESS_SCHEMA=1 cargo test schema` rewrites it; a test fails while it is stale). GDScript's definitions are filled from what the crate loaded (`CrateContent`, through `ContentStore`) until their last reader ports |
-| GDScript side | `body_field_sync.gd` (the sync), `body_parting.gd` (parting on the field), `scrum_seek_field.gd` (the slot search on the field), `scrum_face_field.gd` (the facing on the field), `scrum_walk_field.gd` (the walk on the field) |
-| Owner | `FormationSimulation._field`: one field a battle, made when the battle is, under either engine. Its bodies are the slots of the battle's unit store (`FormationSimulation.store`, `UnitStoreNative`; spec 35) |
+| GDScript side | None since spec 39 step 9d-iv: the scenes read the bindings' snapshots |
+| Owner | The crate: `BattlePlay` (the 1D feel test's battle) and `FieldPlay` (the 2D field), each holding its squads and field, behind `BattleState` and `FieldState` |
 | Paths | `native/rust/src/paths/`, `pathing.rs` (spec 39 step 3c): the A* search over the ground (`search.rs`, its ties to geometry in `frontier.rs`), each kind of walker's speed shares (`shares.rs`, held by `TerrainGround` and dropped when it is painted), a pathfinder's sight and memory, climbing on stamina (`climb.rs`), plans, rejoining a route and a way's cost (`mod.rs`), and a marching group's look ahead, its walker and its pathfinder (`pathing.rs`). `GroundPaths` binds them, stateless and shared (`CratePaths`); `TerrainPaths`, `PathSearch`, `PathSight`, `SquadPathfinder`, `ClimbStamina.standable` and `ModeStamina.step_cost` are views over it, and `FormationPathing` keeps only which groups look and their commands' patches. Their scenarios are cargo tests (`paths/tests.rs`, `pathing.rs`) |
 | March | `native/rust/src/march/`, `lying.rs`, `det_pow.rs` (spec 39 step 3d): a squad's march along its route (where its front gets, which way its order takes it, the pace of the ground under its front rank; `mod.rs`), sweeping round bends (`sweep.rs`), its units walking to their places (`walk.rs`) with their climbing, swimming and falls (`modes.rs`), pouring through a gap (`pour.rs`), the frame's slack and wait, and the moves a re-form starts (`shuffle.rs`, `front.rs`), over the bodies lying underfoot (`lying.rs`, shared with the scrum's walk) and DetPow's `pow` (`det_pow.rs`). `GroundMarch` binds them, stateless and shared (`CrateMarch`); `FormationMarch`, `FormationSweep`, `FormationWalk`, `FormationPour`, `FormationShuffle` and `PlaceOrder` are views over it, `WalkModes`, `ShuffleFront` and `SquadPlaces` are gone, and the swaps under way, arrivals and the routers' and the loose's placing stay GDScript. Since step 8b5-xxxiii the units' placing and walking is one call over every squad, `march_sync` (`march/sync.rs`): each living unit's distance along the route, a router on its route, a loose one where it stood, the rest placed or walked a tick to where it makes for, a fall's hurt onto the fell queue. Its scenarios are cargo tests (`march/tests.rs`, `march/sync/tests.rs`) |
 | Scrum | `native/rust/src/scrum.rs`, `seeking.rs`, `walking.rs`, `facing.rs`, `blows.rs`, `contest.rs`, `reach.rs` (spec 39 step 4a): the seek, walk, facing and blows' search on the field, each a phase (`seeking::seek`, `walk_store::walk`, `face_store::face`) that `BodyField` calls, under either engine; ScrumContest's draws and rolls and ScrumReach's bodies, gaps and fronts, which `ScrumRules` binds, stateless and shared (`CrateScrum`), and ScrumContest and ScrumReach are views over. The builders `build::scrum` and `build::reversed` make a scrum for the scenarios, which are cargo tests (`scrum/tests.rs`, `walking/tests.rs`, `facing/tests.rs`, `blows.rs`, `contest.rs`, `reach.rs`) |

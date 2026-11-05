@@ -128,6 +128,7 @@ impl FieldPlay {
 /// tick played (its events taken from `log` and dropped) till `extra` ticks past the last
 /// command. The ticks played and the builders' and waves' events in all; None, with nothing
 /// played, if the field can't be set up.
+#[cfg(test)]
 pub fn replay(
     record: &Record,
     extra: i64,

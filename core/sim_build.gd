@@ -1,17 +1,17 @@
 class_name SimBuild
 extends RefCounted
 ## Which build of the simulation is running (Decision 130): a fingerprint of everything that
-## decides a battle - the scripts under res://sim/ and the content (unit types, items,
-## tuning) under res://content/ - so a record of play can say which build played it, and a
-## replay can say when it isn't this one. Not the commit: an uncommitted edit changes
-## outcomes, a docs-only commit doesn't. Line endings are ignored, so a checkout with CRLF
-## (git on Windows) has the same build as one with LF. Maps and the map-authoring tools are
-## left out: a map is the battle's set-up, not its rules, and a checkout with a map of its
-## own in progress still has the same build. Twelve hex digits; "" where the sources can't
-## be read (an exported game ships compiled scripts).
+## decides a battle - the crate's source under res://native/rust/src/ (the rules, since spec
+## 39 step 9d-iv) and the content (unit types, items, tuning) under res://content/ - so a
+## record of play can say which build played it, and a replay can say when it isn't this
+## one. Not the commit: an uncommitted edit changes outcomes, a docs-only commit doesn't.
+## Line endings are ignored, so a checkout with CRLF (git on Windows) has the same build as
+## one with LF. Maps and the map-authoring tools are left out: a map is the battle's set-up,
+## not its rules, and a checkout with a map of its own in progress still has the same build.
+## Twelve hex digits; "" where none of the sources can be read.
 
-const ROOTS := ["res://sim", "res://content"]
-const KINDS := ["gd", "tres", "tscn", "json", "cfg"]
+const ROOTS := ["res://native/rust/src", "res://content"]
+const KINDS := ["rs", "gd", "tres", "tscn", "json", "cfg"]
 const SKIP := [
 	"res://content/maps",
 	"res://content/maps_src",
@@ -42,13 +42,19 @@ static func compare(recorded: String) -> String:
 	return "Recorded on build %s; this is build %s: it may play out differently." % [recorded, here]
 
 
-static func _fingerprint() -> String:
+## The files the fingerprint reads, sorted; empty where the sources can't be read.
+static func sources() -> Array:
 	var files := []
 	for root in ROOTS:
 		_collect(root, files)
+	files.sort()
+	return files
+
+
+static func _fingerprint() -> String:
+	var files := sources()
 	if files.is_empty():
 		return ""
-	files.sort()
 	var digest := HashingContext.new()
 	digest.start(HashingContext.HASH_SHA256)
 	for path in files:

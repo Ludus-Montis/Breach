@@ -10,7 +10,7 @@ extends Node2D
 const SkirmishRoute = preload("res://presentation/skirmish/skirmish_route.gd")
 const TickInterpolation = preload("res://presentation/tick_interpolation.gd")
 
-## A rank's depth along the lane, in tiles (SkirmishSquad.RANK_DEPTH: a cell).
+## A rank's depth along the lane, in tiles (the crate's rank depth: a cell).
 const RANK_DEPTH := 1.0 / 64.0
 ## Pixels per formation column across the route, and per rank along it (Decision 48: a
 ## fifth of the size they were).

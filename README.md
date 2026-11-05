@@ -4,9 +4,10 @@
 
 A reverse tower defence: you are the overlord, sending waves against a kingdom's forts.
 
-Breach is built in Godot 4.7 (GDScript) with a Rust core for the simulation's hot paths. The
-simulation is deterministic and lives in `sim/`, the scenes in `presentation/`, content and
-its schema in `content/`, and a local web app for designing maps in `tools/designer/`.
+Breach is built in Godot 4.7 (GDScript) with its simulation in Rust. The simulation is
+deterministic and lives in the crate under `native/rust/`, the scenes in `presentation/`,
+content and its schema in `content/`, and a local web app for designing maps in
+`tools/designer/`.
 
 ## Table of Contents
 

@@ -253,6 +253,7 @@ impl Watch {
 
 /// `play` played on until `watch` stops it, each tick's events taken from `log` (and
 /// dropped); the ticks played.
+#[cfg(test)]
 pub fn run(
     play: &mut Play,
     crate_: (&mut Squads, &mut Field),

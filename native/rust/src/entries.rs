@@ -41,25 +41,12 @@ pub enum Value {
     None,
     Int(i64),
     Real(f64),
+    /// Only the tests write a point since the GDScript glue retired (spec 39 step 9d-iv).
+    #[cfg_attr(not(test), allow(dead_code))]
     Point(V2),
 }
 
 impl Key {
-    /// The key by its column's UnitColumns name.
-    pub fn named(name: &str) -> Option<Key> {
-        Some(match name {
-            "foe_at" => Key::FoeAt,
-            "touch" => Key::Touch,
-            "toward" => Key::Toward,
-            "stuck" => Key::Stuck,
-            "closest" => Key::Closest,
-            "caught" => Key::Caught,
-            "held_by" => Key::HeldBy,
-            "fanned" => Key::Fanned,
-            _ => return None,
-        })
-    }
-
     /// `keys`' bit: the entry holds the key.
     pub fn bit(self) -> i32 {
         match self {

@@ -23,7 +23,7 @@ signal auto_departure_toggled(lane_key: String, enabled: bool)
 signal auto_merge_toggled(lane_key: String, enabled: bool)
 signal spawn_kingdom_pressed(lane_key: String)
 
-## SkirmishUnit.Order's codes, as the crate's BattleState takes them.
+## The orders' codes, as the crate's BattleState takes them.
 const ADVANCE := 0
 const HOLD := 1
 const RETREAT := 2

@@ -17,10 +17,6 @@ yet. Every script here was run against a deliberately broken case before being t
 | `srp-size` (function-length half) | `ci/godot/scripts/check_function_length.py` | pre-commit |
 | `dip-direction` | `ci/godot/scripts/check_dependency_direction.py` | pre-commit |
 | `naming-grep-discoverable` | `ci/godot/scripts/check_generic_naming.py` | pre-commit |
-| `order-independent-simulation` (static half) | `ci/godot/scripts/check_id_order.py` | pre-commit and CI, on `sim/` |
-| `one-mover` | `ci/godot/scripts/check_one_mover.py` | pre-commit and CI, on `sim/`: a position written outside UnitMover unless marked `# placement: <why>` (Decision 139) |
-| `one-state` | `ci/godot/scripts/check_one_state.py` | pre-commit and CI, on `sim/`, `tools/`, `presentation/` and `tests/`: a unit's state written outside UnitState (`.state = SkirmishUnit.State.`), `UnitState.start` in `sim/`, or a kept list from `living()` or `UnitState.downed` changed by its caller (Decision 147) |
-| `store-reads-once` | `ci/godot/scripts/check_store_reads.py` | pre-commit and CI, on `sim/`: the unit store read or written unit by unit inside a loop, unless the line or its loop is marked `# store: scattered (few: <why>)` or `(reference: <why>)` (Decisions 144 and 146) |
 | `order-independent-simulation` (trial half) | swapped-spawn-order trial, per `.claude/skills/design-check` | procedural, on any change to simulation outcomes |
 | `isp-method-count` / `isp-stub-detection` | `ci/godot/scripts/check_isp.py` | pre-commit and CI |
 | `no-cross-cutting-helper-violation` | `ci/godot/scripts/check_helper_promotion.py` | pre-commit and CI |
@@ -32,6 +28,12 @@ yet. Every script here was run against a deliberately broken case before being t
 | `commit-message-conforms` (format half) | `ci/godot/scripts/check_commit_message.sh` | commit-msg stage |
 | `commit-message-conforms` (type-vs-diff half) | same script, heuristic warning only — see Heuristic limits | commit-msg stage |
 | `progress-trend` | `ci/godot/scripts/gate1_progress_log.py` | run manually at the end of an implementation pass; see `principles/progress-tracking.md` |
+
+The checks on `sim/`'s GDScript (`check_id_order`, `check_one_mover`, `check_one_health`,
+`check_one_state` and `check_store_reads`, for Decisions 97, 139 and 144 to 147) retired with
+it in spec 39 step 9d-iv: the crate holds those rules now. Decision 97's backstops are the
+swapped-spawn-order trial and the crate's reversed-lists tests (cargo); a slow pass shows in
+`bench` (`breach_tick_phases`) against the base.
 
 Four rows above (`isp-method-count`/`isp-stub-detection`, `no-cross-cutting-helper-violation`,
 `ocp-shotgun-surgery`, and the `extends`-a-Node-type half of `dip-direction`) were ported
@@ -100,27 +102,6 @@ Every check that doesn't need another's output runs in its own job, side by side
 
 ## Heuristic limits (stated plainly, not hidden)
 
-- `check_store_reads.py` — flags a scattered store call (`columns.value`/`put`,
-  `UnitPlace.of`/`rank`/`put`, `UnitHealth.*_one`, `FormationRout.where`,
-  `SquadEntries.loose_at`, `EntryKeys.*`) written directly inside a `for` or `while` body,
-  unless it is marked `few:` (an event's few units) or `reference:` (the GDScript
-  reference's per-unit seek, walk and facing). Any other reason is flagged (Decision 146).
-  It can't see a call hidden in a helper the loop calls, which is how spec 35 step 4a's place
-  reads slipped through. Such helpers take the pass's view (`UnitView`) instead, and
-  `bench` (`breach_tick_phases`) against the base is the backstop. A multi-line loop header's
-  reads count as the loop's body.
-
-- `check_id_order.py` — flags an id compared with `<`/`>`, arithmetic on an id, an id
-  inside an array-literal key (unless the line salts a seeded draw: `hash(`,
-  `BattleRolls.`), and `ids.sort()`. Cannot see a tie kept by list order (`if key <
-  best_key` keeping the first of equals, where the list is in spawn order), nor a
-  sequential update where the first squad processed changes what the second sees.
-  The backstops for both are the swapped-spawn-order trial and the reversed-lists tests
-  (`tests/sim/skirmish/formation/test_formation_list_order.gd` and
-  `test_formation_rout_order.gd`): they step a battle twice, the second time with every
-  squad and unit list reversed (same ids, same seed), and require the same state each
-  tick, which catches a list-order tie the trial's noise would hide. A line may be allowed with
-  `# id-order-ok: <reason>`, reviewed like any other exception.
 - `check_dependency_direction.py` — textual scan for `preload(`/`load(`/`extends`
   references from `sim/` into `presentation/`, plus a fixed list of Godot's common
   Node-family base types to catch a `sim/` file directly `extends`-ing an engine scene
@@ -264,7 +245,7 @@ pre-commit run --all-files
 # Test run only: the full suite with no arguments (CI's job, not a session's - CLAUDE.md),
 # or just the suites named, as the pre-commit hook does with the staged ones
 bash ci/godot/scripts/run_tests.sh
-bash ci/godot/scripts/run_tests.sh tests/sim/skirmish/formation/test_unit_store.gd
+bash ci/godot/scripts/run_tests.sh tests/core/test_sim_build.gd
 
 # OCP shotgun-surgery (diff-scoped). With no argument it compares against BASE_REF if set,
 # else the branch this one is stacked on (e.g. the PR below it), else origin/main -

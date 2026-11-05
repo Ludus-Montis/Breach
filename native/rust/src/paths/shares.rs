@@ -69,6 +69,7 @@ impl Cache {
         self.kinds.entry(kind).or_insert_with(|| Shares::new(ground, walker))
     }
 
+    #[cfg(test)]
     pub fn clear(&mut self) {
         self.kinds.clear();
     }

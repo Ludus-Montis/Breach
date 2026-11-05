@@ -156,7 +156,7 @@ hard, and not skippable:
 2. Run the static checks directly (they also run in `pre-commit`/CI, but run them here
    first to catch anything before pushing): `check_function_length.py`,
    `check_generic_naming.py`, `check_isp.py`, `check_dependency_direction.py`,
-   `check_helper_promotion.py`, `check_id_order.py`, `check_ocp_shotgun_surgery.py origin/main`
+   `check_helper_promotion.py`, `check_ocp_shotgun_surgery.py origin/main`
    (on a PR stacked on an unmerged branch, run it against that base branch instead and say
    so in the PR: against `main` it counts every unmerged step below yours),
    `check_context_locality.py origin/main` (informational — read its output, it won't

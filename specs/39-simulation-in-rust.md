@@ -3662,7 +3662,46 @@ Decision's conditions.
   `// RED-STUB`, then green. `digest/runs/tests.rs` still holds a run's chain to the records
   `Told` gives.
 - **After it**, 9d-iv: FormationSimulation, the tick's glue, the views, FormationField and
-  their gdUnit tests retired.
+  their gdUnit tests retired (below).
+
+### Step 9d-iv, the GDScript tick retired
+
+- **Survey** (2026-11-05): `sim/` held 125 GDScript files (about 9,900 lines), all under
+  `sim/skirmish/`, and 117 gdUnit files under `tests/sim/` tested them. Outside them, only
+  three things read them: `tools/platform_probe.gd` (DetMath and DetPow),
+  `tests/content/test_unit_arms.gd` (FormationUnits.make) and `SimBuild` (Decision 130),
+  whose fingerprint hashed `res://sim/`. The crate's GDScript-facing tick bindings
+  (`BodyField`, `TerrainGround`, `UnitMoves`, `GroundPaths`, `GroundMarch`, `ScrumRules` and
+  `SquadRoster`, about 4,200 lines of `lib.rs`, with the digest bindings `digest_battle`,
+  `digest_field` and `digest_state`) were read only by `sim/` and its tests. Five CI checks
+  (`check_id_order`, `check_one_mover`, `check_one_health`, `check_one_state` and
+  `check_store_reads`) scanned only `sim/`'s GDScript.
+- **Gone:** all of `sim/`; every gdUnit file under `tests/sim/` but the five that test the
+  kept bindings (`test_lane_state`, `test_lane_queue`, `test_lane_response`,
+  `test_economy_state`, `test_clocks`), with their `test_times.json` entries; the seven
+  bindings and the digest bindings from `lib.rs`; and the five checks, their tests and
+  pre-commit hooks. Decision 97's backstops are the swapped-spawn-order trial and the
+  crate's reversed-lists tests; a slow pass shows in `bench`. Crate functions that only the
+  retired bindings called, and that cargo tests still use (`battles::set_up`,
+  `actions::replay`, `play::run`, `mover::slide`, `motion::advance`, `objects::CODES`,
+  `Cache::clear`), are now `#[cfg(test)]`; `Key::named` is gone.
+- **SimBuild** (Decision 130, applied as written: "everything that decides a battle") now
+  hashes the crate's source (`res://native/rust/src/`, `.rs`) and the content, not
+  `res://sim/`. Every build's id changes once, so a record made before this step warns on
+  replay that it was another build.
+- **The probe** keeps Godot's own maths; its `det` lines went with DetMath and DetPow (the
+  crate's `det_math.rs` and `det_pow.rs`, with their cargo tests).
+- **The registry's test** reads the traits the code reads from the crate's source and the
+  definitions, not `sim/`.
+- `test_unit_arms`' "a unit in the field carries its skills" retired with FormationUnits:
+  the crate's `arms/tests.rs` and `made/tests.rs` hold it.
+- **Identical:** no rules changed. The digests hash the same bytes.
+- **Tests:** gdUnit `tests/core/test_sim_build.gd` (moved from
+  `tests/sim/skirmish/formation/test_record_build.gd`, whose record header tests are the
+  crate's, `record/tests.rs`): the build reads the crate's source and the content and
+  nothing under `res://sim/`. Red against the old roots, then green.
+- **After it**, 9e: `content/definitions/` and `content/import/` cut to what presentation
+  reads.
 
 ## Open, for the implementing session to settle and record here
 

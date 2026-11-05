@@ -9,7 +9,7 @@ const DEAD := Color(0.12, 0.1, 0.1, 0.8)
 const WOUND := Color(1, 0.2, 0.2)
 
 
-## Draws a unit in `state` (SkirmishUnit.State's name, as FieldState gives it) on `canvas` if
+## Draws a unit in `state` (a unit state's name, as FieldState gives it) on `canvas` if
 ## it is out of the fight; `centre` and `radius` in pixels, `colour` its side's.
 static func draw(
 	canvas: CanvasItem, state: String, centre: Vector2, radius: float, colour: Color

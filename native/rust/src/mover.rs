@@ -85,6 +85,7 @@ pub fn step(
 }
 
 /// UnitMover.slide: as step, for a unit that doesn't turn as it moves.
+#[cfg(test)]
 pub fn slide(
     ground: Option<&Ground>,
     walker: &Walker,
