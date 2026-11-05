@@ -25,7 +25,7 @@ pub struct Item {
     /// What kind of item it is, for proficiency (axe, polearm, heavy armour...).
     pub tags: Vec<String>,
     /// Its own rated traits, marking what it does, e.g. {"siege": 1} for a weapon that
-    /// damages structures; each must be one an item of its kind may have (ContentRegistry).
+    /// damages structures; each must be one an item of its kind may have (the registry, `content/registry/`).
     pub traits: BTreeMap<String, i64>,
     /// Rated traits it grants whoever carries it, e.g. {"burrower": 1} for a shovel
     /// (Decision 128).

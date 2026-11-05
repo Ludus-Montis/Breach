@@ -38,21 +38,3 @@ func test_errors_and_warnings_reach_gdscript() -> void:
 	assert_bool(Array(DesignerMapImporter.import_map(export_data).errors).is_empty()).is_false()
 	var warnings := DesignerMapImporter.import_map(_export(DEMO_PATH)).warnings
 	assert_bool(Array(warnings).any(func(w): return w.contains("structures"))).is_true()
-
-
-func test_a_designer_plan_is_a_plan_keyed_by_structure_cells() -> void:
-	var plan := DesignerMapImporter.plan(
-		{
-			"solid_cells": {"3,4,0": "ROCK"},
-			"faces":
-			[{"x": 1, "y": 1, "level": 0, "side": "south", "material": "TIMBER", "thickness": 2}],
-			"dug": [[2, 2, -1]],
-			"loads": {"1,1,1": 40}
-		}
-	)
-
-	assert_str(plan.solid_cells[Vector3i(3, 4, 0)]).is_equal("ROCK")
-	assert_str(plan.faces[0].key()).is_equal("face:1,2,0,north")
-	assert_bool(plan.faces[0].into_neighbour).is_true()
-	assert_array(plan.dug).is_equal([Vector3i(2, 2, -1)])
-	assert_int(plan.loads[Vector3i(1, 1, 1)]).is_equal(40)

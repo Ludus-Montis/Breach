@@ -3787,6 +3787,32 @@ Decision's conditions.
   bytes. The game now refuses content the gdUnit tests alone refused before.
 - **Tests:** cargo `content::checks_tests`, red (every bad file loaded) then green.
 
+### Step 9e-ii, the definitions cut to what presentation and the authoring read
+
+- **Built** (2026-11-05): UnitArms, BattleTuning, ContentRegistry, ArmourDef,
+  StructurePlanDef and StructureFaceDef gone, with `ContentStore`'s `tuning`, `armour` and
+  `plan_from_export`, `CrateContent.tuning`, `DesignerMapImporter.plan` and their `defaults()`
+  entries. An armour a unit carries reaches GDScript as a plain ItemDef. UnitDef is cut to
+  `cost_food`, `hp`, `items`, `slots` and `melee_damage()`; ItemDef to `slots` and `innate`;
+  WeaponDef to `damage`, `attack_range`, `innate_weapon()` and `is_melee()`. The map's
+  definitions stay whole, but for NodeDef's `plan`.
+- **Nothing lost on a save:** the crate's `fill` keeps every field of the schema a GDScript class
+  doesn't declare in the object's `schema_kept` metadata (JSON text), and writing it back
+  (`object_fields`, so `MapFiles.write`) puts them back. A node's structure plan rides there.
+  gdUnit `test_writing_a_map_back_keeps_every_field_its_file_holds` reads each checked-in map
+  and one with a plan, writes it, and finds every field the file held.
+- **Moved to cargo:** `test_content_registry`'s scan of the traits the code reads is
+  `content::registry::tests::every_trait_the_code_reads_is_registered`, over the crate's
+  source and `content/definitions/`. Its implicit-trait test went with `UnitDef.trait_level`;
+  the crate's `Registry::implicit` is what the battle reads.
+- **Gone with them:** `test_unit_arms`, `test_battle_tuning`, `test_content_registry`,
+  `test_structure_plan_def`, `test_weapon_def` (and their `test_times.json` entries), and the
+  tests of the removed fields in `test_unit_def`, `test_item_def`, `test_crate_content` and
+  `test_designer_map_importer`. The plan's reading and checks stay the crate's tests
+  (`structure::tests`, `designer`).
+- **Identical:** no content and no rule of the battle changed; the build id changes, as the
+  definitions are fingerprinted.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

@@ -2,11 +2,13 @@ class_name CrateContent
 extends RefCounted
 ## The simulation's content as the Rust crate loaded it (Decision 153, spec 39 step 2): units,
 ## weapons, armour, the battle's tuning, the terrain library and the maps, JSON under content/
-## in the crate's schema (content/schema/). The crate hands GDScript its definitions (UnitDef,
-## WeaponDef, ArmourDef, BattleTuning, TerrainLibraryDef, MapDef and what they hold), filled
-## field for field (ContentStore, native/rust/src/lib.rs), until their last reader ports to
-## Rust; nothing reads them from .tres. Each is made once and shared, as load() shared a
-## .tres: duplicate() one before changing it. The core must be built (bash native/build.sh).
+## in the crate's schema (content/schema/). Every piece of it stays the crate's; GDScript gets
+## the definitions presentation and the authoring read (UnitDef, WeaponDef, TerrainLibraryDef,
+## MapDef and what they hold; spec 39 step 9e-ii), filled field for field by the crate
+## (ContentStore, native/rust/src/lib.rs), which keeps the fields a class doesn't declare so
+## writing a map back loses none. A screen that needs more reads it through the crate's binding
+## as plain data. Each is made once and shared: duplicate() one before changing it. The core
+## must be built (bash native/build.sh).
 
 const STORE_CLASS := "ContentStore"
 const ROOT := "res://content"
@@ -25,11 +27,6 @@ static func weapon(id: String) -> WeaponDef:
 	return store().weapon(id)
 
 
-## The battle's tuning (content/tuning/battle_tuning.json).
-static func tuning() -> BattleTuning:
-	return store().tuning()
-
-
 ## The one shared terrain library (content/terrain/terrain_library.json, Decision 32), which
 ## every map's layout references. Kept here, so a layout made while the crate makes a map
 ## doesn't call back into it.
@@ -45,8 +42,8 @@ static func map(name: String) -> MapDef:
 	return store().map(name)
 
 
-## The crate's store, with the content under content/ loaded once: the tick reads the
-## battle's tuning from it (`tick_run`), and its `defaults()` are a fresh definition of each
+## The crate's store, with the content under content/ loaded once: the battle reads its
+## content from it, and its `defaults()` are a fresh definition of each
 ## kind filled with the crate's defaults, for the test that holds them equal to GDScript's.
 static func store() -> Object:
 	if _store_made == null:

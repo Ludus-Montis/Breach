@@ -191,19 +191,6 @@ impl ContentStore {
         self.item(&format!("weapons/{id}"))
     }
 
-    /// The armour `id`; null if there is none.
-    #[func]
-    fn armour(&mut self, id: GString) -> Variant {
-        self.item(&format!("armour/{id}"))
-    }
-
-    /// The battle's tuning.
-    #[func]
-    fn tuning(&mut self) -> Variant {
-        let fields = self.content.as_ref().map(|c| json_fields(&c.tuning));
-        self.made_once("tuning", "BattleTuning", fields)
-    }
-
     /// The one shared terrain library (Decision 32).
     #[func]
     fn terrain_library(&mut self) -> Variant {
@@ -262,7 +249,6 @@ impl ContentStore {
         unit.remove("items");
         put("UnitDef", unit);
         put("WeaponDef", json_fields(&content::Weapon::default()));
-        put("ArmourDef", json_fields(&content::Armour::default()));
         put("TerrainLibraryDef", json_fields(&content::TerrainLibrary::default()));
         put("TerrainDef", json_fields(&content::Terrain::default()));
         put("LiquidBodyDef", json_fields(&content::LiquidBody::default()));
@@ -273,8 +259,6 @@ impl ContentStore {
         put("NodeDef", json_fields(&content::Node::default()));
         put("GarrisonUnitDef", json_fields(&content::GarrisonUnit::default()));
         put("SubnodeDef", json_fields(&content::Subnode::default()));
-        put("StructurePlanDef", json_fields(&content::StructurePlan::default()));
-        put("StructureFaceDef", json_fields(&content::StructureFace::default()));
         put("MapEdgeDef", json_fields(&content::MapEdge::default()));
         put("FactionDef", json_fields(&content::Faction::default()));
         put("FactionRelationDef", json_fields(&content::FactionRelation::default()));
@@ -307,16 +291,6 @@ impl ContentStore {
         out.set("errors", &variant_of(&read.errors));
         out.set("warnings", &variant_of(&read.warnings));
         out
-    }
-
-    /// A designer structure plan (spec 24) as a StructurePlanDef.
-    #[func]
-    fn plan_from_export(drawn: VarDictionary) -> Variant {
-        let (plan, errors) = designer::plan_from_export(&json_of(&drawn.to_variant()));
-        for error in errors {
-            godot_error!("ContentStore: {error}");
-        }
-        made_from("StructurePlanDef", &json_fields(&plan)).to_variant()
     }
 
     /// The map file at `path` (an OS path), read fresh and checked against the loaded
@@ -358,7 +332,8 @@ impl ContentStore {
 }
 
 impl ContentStore {
-    /// The item at `path` (weapons/<id> or armour/<id>), made once; null if there is none.
+    /// The item at `path` (weapons/<id>, or armour/<id> as the ItemDef it is to presentation),
+    /// made once; null if there is none.
     fn item(&mut self, path: &str) -> Variant {
         if let Some(made) = self.made.get(path) {
             return made.to_variant();
@@ -369,7 +344,7 @@ impl ContentStore {
                 ("WeaponDef", content.and_then(|c| c.weapons.get(id)).map(json_fields))
             }
             Some(("armour", id)) => {
-                ("ArmourDef", content.and_then(|c| c.armour.get(id)).map(json_fields))
+                ("ItemDef", content.and_then(|c| c.armour.get(id)).map(json_fields))
             }
             _ => ("", None),
         };
@@ -478,18 +453,45 @@ fn property_named(made: &Gd<Object>, key: &str) -> Option<VarDictionary> {
         .find(|property| property.get("name").is_some_and(|name| name.to_string() == key))
 }
 
-/// Sets each of `fields` on `made` by name. An item's shared fields ("item") are its own; a
+/// The metadata a definition keeps the schema's fields in that its class doesn't declare (a
+/// node's structure plan, spec 39 step 9e-ii), as JSON text, so writing it back loses none.
+const KEPT: &str = "schema_kept";
+
+/// Sets each of `fields` on `made` by name, keeping those its class doesn't declare (KEPT). An item's shared fields ("item") are its own; a
 /// typed list keeps its type ("inf" in a list of reals is an infinity, and a list of
 /// definitions is made one by one); a name where an enum is kept is the enum's value; a
 /// colour is its "#rrggbb"; a vector its list of numbers; a dictionary keyed by cells its
 /// [cell, value] pairs; and a definition held alone is made from its fields (none for null).
 fn fill(made: &mut Gd<Object>, fields: &serde_json::Map<String, serde_json::Value>) {
+    let declared: Vec<String> = saved_properties(made)
+        .iter()
+        .filter_map(|property| property.get("name").map(|name| name.to_string()))
+        .collect();
+    let mut kept = serde_json::Map::new();
+    fill_declared(made, fields, &declared, &mut kept);
+    if !kept.is_empty() {
+        let text = serde_json::Value::Object(kept).to_string();
+        made.set_meta(KEPT, &GString::from(&text).to_variant());
+    }
+}
+
+/// Sets each of `fields` that `made` declares, and puts the rest in `kept`.
+fn fill_declared(
+    made: &mut Gd<Object>,
+    fields: &serde_json::Map<String, serde_json::Value>,
+    declared: &[String],
+    kept: &mut serde_json::Map<String, serde_json::Value>,
+) {
     use serde_json::Value;
     for (key, value) in fields {
         if key == "item" {
             if let Value::Object(shared) = value {
-                fill(made, shared);
+                fill_declared(made, shared, declared, kept);
             }
+            continue;
+        }
+        if !declared.contains(key) {
+            kept.insert(key.clone(), value.clone());
             continue;
         }
         let current = made.get(key.as_str());
@@ -649,16 +651,25 @@ fn items(list: &Variant) -> Vec<Variant> {
     (0..size).map(|index| list.call("get", &[index.to_variant()])).collect()
 }
 
-/// A definition's saved fields by name, in the schema.
+/// A definition's saved fields by name, in the schema, with those it kept undeclared (KEPT).
 fn object_fields(made: &Gd<Object>) -> serde_json::Map<String, serde_json::Value> {
-    saved_properties(made)
+    let mut fields: serde_json::Map<String, serde_json::Value> = saved_properties(made)
         .iter()
         .map(|property| {
             let name = property.get("name").map(|name| name.to_string()).unwrap_or_default();
             let value = schema_value(&made.get(name.as_str()), Some(property));
             (name, value)
         })
-        .collect()
+        .collect();
+    if made.has_meta(KEPT) {
+        let text = made.get_meta(KEPT).to_string();
+        if let Ok(serde_json::Value::Object(kept)) = serde_json::from_str(&text) {
+            for (key, value) in kept {
+                fields.entry(key).or_insert(value);
+            }
+        }
+    }
+    fields
 }
 
 /// A field's value in the schema: a definition its fields, a vector its numbers, a cell-keyed

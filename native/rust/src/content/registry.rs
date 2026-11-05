@@ -159,3 +159,63 @@ impl Registry {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use super::Registry;
+
+    /// How the code reads a trait by name: the crate's rules, and GDScript's map definitions.
+    const READS: [&str; 3] = ["traits.get(", "trait_level(", "_marches(squad,"];
+
+    /// Every trait the code reads by name (from `trait_level("climber")` and the like), with a
+    /// file that reads it.
+    fn traits_read(dir: &Path, found: &mut Vec<(String, PathBuf)>) {
+        for entry in fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                traits_read(&path, found);
+                continue;
+            }
+            if !path.extension().is_some_and(|ext| ext == "rs" || ext == "gd") {
+                continue;
+            }
+            let text = fs::read_to_string(&path).unwrap();
+            for read in READS {
+                for (at, _) in text.match_indices(read) {
+                    let rest = text[at + read.len()..].trim_start();
+                    let Some(quoted) = rest.strip_prefix('"') else { continue };
+                    let name: String = quoted
+                        .chars()
+                        .take_while(|c| c.is_ascii_lowercase() || *c == '_')
+                        .collect();
+                    if quoted[name.len()..].starts_with('"') && !name.is_empty() {
+                        found.push((name, path.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_trait_the_code_reads_is_registered() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let registry = Registry::load(&repo.join("content")).unwrap();
+        let mut found = Vec::new();
+        traits_read(&repo.join("native/rust/src"), &mut found);
+        traits_read(&repo.join("content/definitions"), &mut found);
+        let mut names: Vec<&String> = found.iter().map(|(name, _)| name).collect();
+        names.sort();
+        names.dedup();
+        assert!(names.len() > 5, "the scan found only {names:?}");
+        for (name, path) in &found {
+            assert!(
+                registry.trait_entry(name).is_some(),
+                "{} reads trait '{name}', which isn't registered",
+                path.display()
+            );
+        }
+    }
+}

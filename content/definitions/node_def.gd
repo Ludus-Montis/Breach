@@ -16,7 +16,6 @@ enum NodeType { ORIGIN, RESOURCE, FORT, NEUTRAL, WAYPOINT }
 ## hardcode "food") is future work, not this field.
 enum ResourceType { FOOD, WOOD, STONE, METAL, CRYSTAL }
 
-const StructurePlanDef = preload("res://content/definitions/structure_plan_def.gd")
 const SubnodeDef = preload("res://content/definitions/subnode_def.gd")
 
 ## Tile value meaning "not placed on a tile" (maps built by hand or imported before
@@ -107,9 +106,8 @@ const NO_TILE := Vector2i(-1, -1)
 ## system consumes this yet.
 @export var capture_reward: String = ""
 
-## The structure's plan of cells, faces and loads (spec 24); null = none drawn yet. Its
-## cells are measured from this node's own tile (Decision 68).
-@export var plan: StructurePlanDef
+## The structure's plan (spec 24) is the crate's alone (`content::Node::plan`): the crate keeps
+## it with the node it fills, so writing the map back (MapFiles.write) keeps it (spec 39 9e-ii).
 ## The map tile (col, row) the node stands on.
 @export var tile: Vector2i = NO_TILE
 ## The tiles the node covers, any connected shape including its own tile (Decision 68);

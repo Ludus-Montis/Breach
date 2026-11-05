@@ -1,7 +1,6 @@
 class_name DesignerMapImporter
-## A designer export (a saved designer map, specs 16 and 19) as a MapDef, and a designer
-## structure plan (spec 24) as a StructurePlanDef, for the tests that build maps and plans as
-## the designer draws them. The reading and the checks are the Rust crate's
+## A designer export (a saved designer map, specs 16 and 19) as a MapDef, for the tests that
+## build maps as the designer draws them. The reading and the checks are the Rust crate's
 ## (native/rust/src/designer/, spec 39 step 2c): the designer's save runs the same, so nothing
 ## here can drift from what the game loads.
 
@@ -27,9 +26,3 @@ static func import_map(export_data: Dictionary) -> DesignerMapImportResult:
 	result.errors = PackedStringArray(read["errors"])
 	result.warnings = PackedStringArray(read["warnings"])
 	return result
-
-
-## The plan the designer drew (solid cells, faces, dug cells, fills and loads).
-static func plan(drawn: Dictionary) -> StructurePlanDef:
-	var store := CrateContent.loaded_store()
-	return store.plan_from_export(drawn) if store else StructurePlanDef.new()
