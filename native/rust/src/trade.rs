@@ -112,7 +112,7 @@ pub fn trade(squads: &mut Squads, columns: &mut Columns, trading: &Trading) {
     if stalled.is_empty() {
         return;
     }
-    stalled.sort_by_key(|&u| contest::draw(trading.seed, units[u].id));
+    stalled.sort_by_cached_key(|&u| contest::draw(trading.seed, units[u].id));
     let frame = Frame::kept(squads, squad); // once: a trade moves units, not the frame
                                             // kept as they trade, unless one stalled holds none: then looked at afresh each time
     let mut kept = stalled

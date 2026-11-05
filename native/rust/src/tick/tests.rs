@@ -149,7 +149,7 @@ fn the_squads_a_join_took_in_leave_the_list_and_the_factions_are_coded_again() {
     let b = fixture(20, false);
     let known = known(&b.roster);
 
-    let roster = relisted(&b.roster, &b.squads, &b.field, &known, &[0], &[]);
+    let roster = relisted(b.roster.clone(), &b.squads, &b.field, &known, &[0], &[]);
 
     let listed: Vec<(usize, u32)> = roster.listed.iter().map(|l| (l.squad, l.faction)).collect();
     assert_eq!(listed, vec![(1, 0)], "the second squad alone, its faction the first listed");
@@ -162,13 +162,24 @@ fn a_unit_down_as_the_tick_began_is_listed_once_it_stands_again() {
     let known = known(&b.roster);
     let slot = b.slot(201);
     b.field.columns.state[slot] = crate::squads::DOWNED;
-    let down = relisted(&b.roster, &b.squads, &b.field, &known, &[], &[]);
+    let down = relisted(b.roster.clone(), &b.squads, &b.field, &known, &[], &[]);
     b.field.columns.state[slot] = 0;
 
-    let up = relisted(&down, &b.squads, &b.field, &known, &[], &[]);
+    let up = relisted(down.clone(), &b.squads, &b.field, &known, &[], &[]);
 
     let ids = |r: &Roster| r.listed[1].living.iter().map(|m| m.id).collect::<Vec<_>>();
     assert_eq!((ids(&down), ids(&up)), (vec![200], vec![200, 201]));
+}
+
+#[test]
+fn a_squad_whose_living_did_not_change_keeps_its_list_without_looking_its_units_up() {
+    let b = fixture(20, false);
+    let none = BTreeMap::new();
+
+    let roster = relisted(b.roster.clone(), &b.squads, &b.field, &none, &[], &[]);
+
+    let ids = |r: &Roster| r.listed.iter().map(|l| l.living.len()).collect::<Vec<_>>();
+    assert_eq!(ids(&roster), ids(&b.roster));
 }
 
 #[test]

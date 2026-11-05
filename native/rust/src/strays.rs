@@ -44,7 +44,7 @@ pub fn set_off(
 /// squads are numbered, by each unit's draw under `seed`.
 pub fn numbered(ids: &[i64], seed: i64) -> Vec<usize> {
     let mut order: Vec<usize> = (0..ids.len()).collect();
-    order.sort_by_key(|&n| contest::draw(seed, ids[n]));
+    order.sort_by_cached_key(|&n| contest::draw(seed, ids[n]));
     order
 }
 
