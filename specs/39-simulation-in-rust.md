@@ -3703,7 +3703,7 @@ Decision's conditions.
 - **After it**, 9e: `content/definitions/` and `content/import/` cut to what presentation
   reads.
 
-### Step 9e, the definitions cut to what presentation reads (survey; split proposed)
+### Step 9e, the definitions cut to what presentation reads (survey and split)
 
 - **Survey** (2026-11-05): `content/definitions/` holds 35 GDScript classes (about 1,800
   lines) and `content/import/` one (DesignerMapImporter, 35 lines); 17 gdUnit files under
@@ -3730,7 +3730,11 @@ Decision's conditions.
     `foundation_max` under `bearing`) is to be confirmed against the crate's terrain checks.
     Cutting the GDScript classes as they stand would drop those checks, so 9e can't be one
     identical cut.
-- **Split proposed** (for the user; standing rule 2 of cascade #716 asks first):
+- **Split** (2026-11-05, approved by the user, #720). The user's condition for 9e as a whole:
+  every piece of content stays available in Rust (the JSON under `content/`, its schema and
+  the crate's structs), and Godot becomes only the game's view and input. A screen that later
+  needs content GDScript no longer defines reads it through the crate's binding as plain
+  data. It doesn't bring back a definition class.
   - **9e-i** the content's checks in the crate: the unit, item, weapon and armour checks
     and the registry's (`content/registry/`, its tags and traits) ported into
     `Content::load`, failing the load naming the file, with cargo tests red then green; the
@@ -3743,6 +3747,12 @@ Decision's conditions.
     whole, since presentation and the authoring read them; `test_crate_content` and
     `test_content_registry`'s trait-read scan narrowed or moved to cargo. Its PR closes
     step 9.
+  - **Correction to the proposal** (2026-11-05): "the map's definitions kept whole" and
+    "StructurePlanDef gone" conflict, because NodeDef holds a `structure_plan`. So 9e-ii also
+    drops `structure_plan` from NodeDef. It adds a test that saving a map through the
+    authoring (`MapFiles.write`, which serialises the GDScript objects and drops any field they
+    don't declare) can't lose a map's structure plans or any other field the schema holds. As
+    surveyed, the authoring never builds structure plans.
 
 ## Open, for the implementing session to settle and record here
 
