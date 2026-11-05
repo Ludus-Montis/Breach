@@ -3615,6 +3615,55 @@ Decision's conditions.
     scripts loading nothing under `sim/`. Red against the GDScript battle, then green.
 - **After it**, 9d-iii: the GDScript digest, trials and benches retired.
 
+### Step 9d-iii, the GDScript digest, trials and benches retired
+
+- **Survey** (2026-11-05): CI's `digests`, `trials` and `scaling` jobs ran each GDScript tool
+  and its crate binary side by side and diffed them; `bench` ran either. The crate's binaries
+  played everything but the digest's `trace=` (outcome traces, spec 37) and `snapshot=`,
+  which `breach_digest cuts=` replaced in step 8d.
+- **In the crate:**
+  - `src/digest/trace.rs`: DigestTrace.line, a tick as a line of JSON: the run, the tick, its
+    events and every squad's and unit's fields by DigestState's names, each squad's faction
+    first; points as [x, y], floats in the shortest form that reads back bit for bit,
+    infinities and NaN as Python's json reads them. `traced` is the `from`/`to` window.
+  - `digest::battle` and `digest::field` hand each tick over as a `Told` (its events and
+    state as plain values, and the squads they were read from for the factions), which
+    `record()` gives the same bytes as before; `Run::digest` tells it beside each tick's hash.
+  - `breach_digest` gains `trace=<file> [from=<tick>] [to=<tick>]`.
+- **CI on the crate's binaries alone:**
+  - `sim-checks`' `digests` jobs take the branch's and the base's digests with
+    `breach_digest`, each core's own, and compare them (`check_outcomes.py`); a base with no
+    `breach_digest` passes with check_outcomes' note. `trace_changed.sh` traces each side with
+    its own `breach_digest`; a base whose digest refuses `trace=` (before this step) says so.
+  - `trials` and `scaling` (in `sim-checks` and `ci.yml`) run `breach_trials` and
+    `breach_scaling` only, with no Godot; their exit status gates them.
+  - `bench` runs only `breach_<name>` binaries, with no Godot: its default is
+    `breach_tick_phases side=4096 squads=4 fight=3`.
+  - Only the suite still installs Godot.
+- **Gone:** `tools/formation_digest.gd`, `digest_state.gd`, `digest_trace.gd`,
+  `formation_trials.gd`, `formation_bench.gd`, `formation_replay.gd`, `native_bench.gd`,
+  `rout_bench.gd`, `scaling_check.gd`, `tick_phases.gd` and `column_copies.gd`;
+  `sim/skirmish/formation/path_trials.gd`, `sight_trials.gd` and `fatigue_trials.gd`; and
+  gdUnit's `tests/tools/test_digest_state.gd`, `test_digest_events.gd`, `test_digest_trace.gd`
+  and `tests/sim/skirmish/formation/test_field_replay.gd`, `test_path_trials.gd` and
+  `test_fatigue_trials.gd`. Their scenarios are cargo's (`digest/`, `trials/`).
+- **Stays, for 9d-iv:** BattleTrials and FormationBench under `sim/` (and their gdUnit
+  tests), which FormationSimulation's own tests set battles up with, and the gdUnit tests
+  that hold the crate's bindings to GDScript's tick (`test_battle_play.gd`,
+  `test_field_play.gd`, `test_digest_battles.gd`). `tools/platform_probe.gd` stays: it
+  probes Godot's maths, not the simulation.
+- **Local benches:** `tools/run_benches.ps1` runs the crate's binaries (`native\build.ps1`
+  now copies them into `native\bin\`, as `build.sh` does), the platform probe only when
+  `-Godot` is given; each digest set's hash is printed to diff between machines, with no
+  reference table (it had gone stale).
+- **Identical:** no rule changes; the digests hash the same bytes. No digest changes.
+- **Tests:** cargo `digest/trace/tests.rs`: a tick naming every squad's and unit's field in
+  order, values reading back bit for bit and strings escaped, and the window. Red against a
+  `// RED-STUB`, then green. `digest/runs/tests.rs` still holds a run's chain to the records
+  `Told` gives.
+- **After it**, 9d-iv: FormationSimulation, the tick's glue, the views, FormationField and
+  their gdUnit tests retired.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

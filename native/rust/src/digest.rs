@@ -13,6 +13,7 @@
 pub mod events;
 pub mod runs;
 pub mod state;
+pub mod trace;
 
 #[cfg(test)]
 mod tests;
@@ -26,9 +27,43 @@ use crate::play::{self, Play, Watch};
 use crate::record::Record;
 use crate::squads::Squads;
 
-/// A tick's record as the digest hashes it (`_record`): `var_to_bytes([events, state])`.
+/// A tick's record as the digest hashes it (`_record`): `var_to_bytes([events, state])`;
+/// `Told::record` writes the same bytes without building the list.
+#[cfg(test)]
 pub fn recorded(events: Vec<Plain>, state: Plain) -> Vec<u8> {
     Plain::List(vec![Plain::List(events), state]).bytes()
+}
+
+/// A tick as the digest takes it: its events and state as plain values, and the squads they
+/// were read from, for the trace's factions.
+pub struct Told<'a> {
+    pub events: Vec<Plain>,
+    pub state: Plain,
+    squads: &'a Squads,
+    field: &'a Field,
+    listed: &'a [usize],
+}
+
+impl Told<'_> {
+    /// The record's bytes, as `recorded` gives them.
+    pub fn record(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        word(ARRAY, &mut out);
+        word(2, &mut out);
+        word(ARRAY, &mut out);
+        word(self.events.len() as u32, &mut out);
+        for event in &self.events {
+            event.put(&mut out);
+        }
+        self.state.put(&mut out);
+        out
+    }
+
+    /// Each listed squad's faction by name, in the state's order (the trace's, not hashed).
+    pub fn factions(&self) -> Vec<String> {
+        let word = |s: usize| self.field.lexicon.word(self.squads.faction[s]).to_string();
+        self.listed.iter().map(|&s| word(s)).collect()
+    }
 }
 
 /// The digest's battle run (formation_digest.gd's `_run`) in the crate: `play` played until
@@ -39,11 +74,12 @@ pub fn battle(
     content: &Content,
     log: &mut Log,
     watch: &mut Watch,
-    out: &mut impl FnMut(Vec<u8>),
+    out: &mut impl FnMut(Told<'_>),
 ) -> i64 {
     play::run_each(play, crate_, content, log, watch, |listed, squads, field, flat| {
-        let told = events::logged(flat, &field.lexicon);
-        out(recorded(told, state::state(squads, field, listed)));
+        let events = events::logged(flat, &field.lexicon);
+        let state = state::state(squads, field, listed);
+        out(Told { events, state, squads, field, listed });
     })
 }
 
@@ -57,7 +93,7 @@ pub fn field(
     content: &Content,
     how: (bool, bool),
     log: &mut Log,
-    out: &mut impl FnMut(Vec<u8>),
+    out: &mut impl FnMut(Told<'_>),
 ) -> Option<i64> {
     actions::replay_each(
         record,
@@ -67,9 +103,10 @@ pub fn field(
         how,
         log,
         |made, listed, squads, field, flat| {
-            let mut told = events::produced(made);
-            told.extend(events::logged(flat, &field.lexicon));
-            out(recorded(told, state::state(squads, field, listed)));
+            let mut events = events::produced(made);
+            events.extend(events::logged(flat, &field.lexicon));
+            let state = state::state(squads, field, listed);
+            out(Told { events, state, squads, field, listed });
         },
     )
 }

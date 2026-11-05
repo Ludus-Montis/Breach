@@ -18,8 +18,7 @@ The scrubber, Play and the step buttons move both sides together.
 
 To trace a run yourself:
 
-    godot --headless --path . --script res://tools/formation_digest.gd -- \
-        "only=mirror_headon s1 rtrue" trace=base.jsonl from=100 to=160
+    native/bin/breach_digest "only=mirror_headon s1 rtrue" trace=base.jsonl from=100 to=160
     python3 ci/godot/scripts/trace_diff.py base.jsonl head.jsonl --json diff.json
 
 ## Files

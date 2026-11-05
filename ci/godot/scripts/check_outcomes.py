@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_outcomes: a PR's battle digests (tools/formation_digest.gd) against its base's.
+"""check_outcomes: a PR's battle digests (native/bin/breach_digest) against its base's.
 
 The digest job compares a branch's two engines with each other, so an outcome change both
 engines share would pass it. This compares the branch's digest of a set with the base's, tick

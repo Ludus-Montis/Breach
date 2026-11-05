@@ -3,7 +3,7 @@ extends RefCounted
 ## The feel test's orders on its field, so a session can be recorded and replayed tick for
 ## tick (Decision 93: the same seed and orders replay a battle). The scene's buttons give
 ## them through here as commands of the record of play (FormationRecord, Decision 115),
-## logged one a line; a record replays the same battle (tools/formation_replay.gd, or the
+## logged one a line; a record replays the same battle (the crate's `FieldState`, or the
 ## scene's Replay button), and so does a version 0 log of the feel test's words. Pure over
 ## the field it is given.
 

@@ -26,7 +26,7 @@ class NeedsGodotTest(unittest.TestCase):
             [".github/workflows/ci.yml"],
             [".pre-commit-config.yaml"],
             ["ci/godot/scripts/run_tests.sh"],
-            ["README.md", "tools/formation_digest.gd"],
+            ["README.md", "tools/platform_probe.gd"],
         ]:
             self.assertTrue(needs_godot(paths), paths)
 

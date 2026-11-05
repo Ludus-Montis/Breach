@@ -144,8 +144,9 @@ jobs:
           path: reports/
           if-no-files-found: ignore
 
-  # One job per stage (tools/scaling_check.gd): a stage compares only its own sizes, all
-  # timed on one machine, so the growth it reports holds; sizes never split across jobs.
+  # One job per stage (native/bin/breach_scaling, the crate's own: the GDScript scaling_check
+  # retired in spec 39 step 9d-iii): a stage compares only its own sizes, all timed on one
+  # machine, so the growth it reports holds; sizes never split across jobs.
   scaling:
     needs: [scope, native]
     if: needs.scope.outputs.godot == 'true'
@@ -162,11 +163,7 @@ jobs:
           name: native-bin-ci
           path: native/bin/
 
-      - uses: ./.github/actions/godot
-        with:
-          version: ${{ env.GODOT_VERSION }}
-
       - name: Scaling check (bounded-scaling, principles/bounded-work.md), ${{ matrix.stage }}
         run: |
-          /opt/godot/godot --headless --path . --script res://tools/scaling_check.gd -- \
-            stages=${{ matrix.stage }}
+          chmod +x native/bin/breach_scaling
+          native/bin/breach_scaling stages=${{ matrix.stage }}

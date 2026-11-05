@@ -9,7 +9,7 @@ mod tests;
 
 use sha2::{Digest as _, Sha256};
 
-use super::{battle, field};
+use super::{battle, field, Told};
 use crate::battles;
 use crate::content::Content;
 use crate::events::Log;
@@ -100,21 +100,22 @@ fn clash(label: &str, (per_side, width): (i64, i64), seed: i64, rolls: bool, aft
 
 impl Run {
     /// The run played on a fresh crate, `threaded` or not, each tick told to `tick` with its
-    /// record's own hash: the ticks played and the chain of every record, or (0, None) if
+    /// record's own hash and the record itself (for the trace): the ticks played and the chain of every record, or (0, None) if
     /// it can't be set up (an unknown battle or definition, a log that isn't a record).
     pub fn digest(
         &self,
         content: &Content,
         threaded: bool,
-        tick: &mut impl FnMut(i64, &[u8; 32]),
+        tick: &mut impl FnMut(i64, &[u8; 32], &Told<'_>),
     ) -> (i64, Option<[u8; 32]>) {
         let (mut squads, mut field_, mut log) =
             (Squads::default(), Field::default(), Log::default());
         let mut chain = Chain::default();
         let mut ticks = 0;
-        let mut out = |record: Vec<u8>| {
+        let mut out = |told: Told<'_>| {
+            let record = told.record();
             ticks += 1;
-            tick(ticks, &Chain::of(&record));
+            tick(ticks, &Chain::of(&record), &told);
             chain.update(&record);
         };
         let crate_ = (&mut squads, &mut field_);

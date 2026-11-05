@@ -4,11 +4,16 @@
 //! the two outputs can be compared line for line (CI's `digests` jobs do).
 //!
 //!   native/bin/breach_digest [set=standard|clash160|wide] [out=<file of every tick's hash>]
-//!       [only=<run label>] [threaded=true|false] [repo=<path>]
+//!       [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>] [threaded=true|false]
+//!       [repo=<path>]
 //!
 //!   native/bin/breach_digest cuts=<dir> [repo=<path>]
 //!
-//! `out` and `only` are the Godot digest's; `trace` and `snapshot` are still only Godot's.
+//! `only` plays that one run (its label as printed, e.g. "mirror_headon s1 rtrue"). `trace`
+//! writes each tick from `from` to `to` (default every tick) as a line of JSON naming every
+//! field (spec 37, `digest::trace`); the hashes are the same with it or without. The Godot
+//! digest, which this was checked against, retired in spec 39 step 9d-iii, and its
+//! `snapshot=` with it: `cuts` took its place (step 8d).
 //! `cuts` writes the snapshot tests' cuts (spec 39 step 8d, `breach_native::cuts::CUTS`) to
 //! `<dir>` instead: each one's state (`<name>.state`) and its run, tick, squads listed and
 //! each lap's print (`<name>.txt`), and a field log's own state (`<name>.field`). Its tests
@@ -24,9 +29,11 @@ use std::process::ExitCode;
 use breach_native::content::Content;
 use breach_native::cuts;
 use breach_native::digest_runs::{line, runs, tick_line};
+use breach_native::digest_trace::{self, traced};
 
 const USAGE: &str = "usage: breach_digest [set=standard|clash160|wide] [out=<file>] \
-                     [only=<run label>] [threaded=true|false] [repo=<path>]\n       \
+                     [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>] \
+                     [threaded=true|false] [repo=<path>]\n       \
                      breach_digest cuts=<dir> [repo=<path>]";
 
 fn main() -> ExitCode {
@@ -40,7 +47,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     if let Some(unknown) = args.keys().find(|key| !KNOWN.contains(&key.as_str())) {
-        eprintln!("breach_digest: unknown argument {unknown} (trace and snapshot are Godot's)");
+        eprintln!("breach_digest: unknown argument {unknown}");
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     }
@@ -63,21 +70,28 @@ fn main() -> ExitCode {
     if let Some(dir) = args.get("cuts") {
         return write_cuts(Path::new(dir), &content);
     }
-    let mut out = match args.get("out").map(File::create).transpose() {
-        Ok(file) => file.map(BufWriter::new),
-        Err(why) => {
-            eprintln!("breach_digest: can't write out=: {why}");
-            return ExitCode::from(1);
-        }
+    let (Ok(mut out), Ok(mut trace)) = (create(&args, "out"), create(&args, "trace")) else {
+        return ExitCode::from(1);
+    };
+    let (Ok(from), Ok(to)) = (tick_of(&args, "from", 1), tick_of(&args, "to", -1)) else {
+        eprintln!("breach_digest: from= and to= are ticks\n{USAGE}");
+        return ExitCode::from(2);
     };
     let threaded = args.get("threaded").is_none_or(|value| value != "false");
     let only = args.get("only").map_or("", String::as_str);
     let mut failed = false;
     for run in runs.iter().filter(|run| only.is_empty() || run.label == only) {
         let mut written = Ok(());
-        let (ticks, hash) = run.digest(&content, threaded, &mut |tick, one| {
+        let (ticks, hash) = run.digest(&content, threaded, &mut |tick, one, told| {
             if let (Some(out), Ok(())) = (out.as_mut(), &written) {
                 written = writeln!(out, "{}", tick_line(&run.label, tick, one));
+            }
+            if let (Some(trace), Ok(()), true) = (trace.as_mut(), &written, traced(tick, from, to))
+            {
+                let factions = told.factions();
+                let traced =
+                    digest_trace::line(&run.label, tick, &told.events, &told.state, &factions);
+                written = writeln!(trace, "{traced}");
             }
         });
         match (hash, written) {
@@ -87,14 +101,16 @@ fn main() -> ExitCode {
                 failed = true;
             }
             (_, Err(why)) => {
-                eprintln!("breach_digest: can't write out=: {why}");
+                eprintln!("breach_digest: can't write out= or trace=: {why}");
                 return ExitCode::from(1);
             }
         }
     }
-    if let Some(Err(why)) = out.as_mut().map(Write::flush) {
-        eprintln!("breach_digest: can't write out=: {why}");
-        return ExitCode::from(1);
+    for file in [out.as_mut(), trace.as_mut()].into_iter().flatten() {
+        if let Err(why) = file.flush() {
+            eprintln!("breach_digest: can't write out= or trace=: {why}");
+            return ExitCode::from(1);
+        }
     }
     if failed {
         ExitCode::from(1)
@@ -103,7 +119,23 @@ fn main() -> ExitCode {
     }
 }
 
-const KNOWN: [&str; 6] = ["set", "out", "only", "threaded", "repo", "cuts"];
+const KNOWN: [&str; 9] = ["set", "out", "only", "trace", "from", "to", "threaded", "repo", "cuts"];
+
+/// The file `key=` names, created (None if not given); Err, told, if it can't be.
+fn create(args: &HashMap<String, String>, key: &str) -> Result<Option<BufWriter<File>>, ()> {
+    match args.get(key).map(File::create).transpose() {
+        Ok(file) => Ok(file.map(BufWriter::new)),
+        Err(why) => {
+            eprintln!("breach_digest: can't write {key}=: {why}");
+            Err(())
+        }
+    }
+}
+
+/// The tick `key=` gives, or `default`.
+fn tick_of(args: &HashMap<String, String>, key: &str, default: i64) -> Result<i64, ()> {
+    args.get(key).map_or(Ok(default), |value| value.parse().map_err(|_| ()))
+}
 
 /// Writes every cut of `CUTS` to `dir`: its state, its text and a field log's own state.
 fn write_cuts(dir: &Path, content: &Content) -> ExitCode {

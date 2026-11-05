@@ -30,6 +30,8 @@ mod detours;
 mod digest;
 /// The digest's runs, for the digest binary (src/bin/digest.rs).
 pub use digest::runs as digest_runs;
+/// The digest's trace, for the digest binary.
+pub use digest::trace as digest_trace;
 mod discipline;
 mod economy;
 mod ending;
@@ -4809,8 +4811,9 @@ impl BodyField {
             return records;
         };
         let crate_ = (&mut self.squads, &mut self.field);
-        let mut out =
-            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        let mut out = |told: digest::Told<'_>| {
+            records.push(&PackedByteArray::from(told.record().as_slice()).to_variant())
+        };
         digest::battle(&mut play, crate_, content, &mut self.events, &mut watch, &mut out);
         self.edits += 1;
         records
@@ -4911,8 +4914,9 @@ impl BodyField {
         let Some(record) = record::parse(&log.to_string()) else { return records };
         let crate_ = (&mut self.squads, &mut self.field);
         let how = (rolls != 0, threaded != 0);
-        let mut out =
-            |bytes: Vec<u8>| records.push(&PackedByteArray::from(bytes.as_slice()).to_variant());
+        let mut out = |told: digest::Told<'_>| {
+            records.push(&PackedByteArray::from(told.record().as_slice()).to_variant())
+        };
         let played =
             digest::field(&record, extra, crate_, content, how, &mut self.events, &mut out);
         if played.is_some() {

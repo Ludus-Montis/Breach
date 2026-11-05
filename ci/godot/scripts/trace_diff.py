@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """trace_diff: two outcome traces of one run, the base's and the head's (specs/37), compared.
 
-A trace is the digest's JSON lines (tools/formation_digest.gd `trace=`), one per tick:
+A trace is the digest's JSON lines (native/bin/breach_digest `trace=`), one per tick:
 {"run", "tick", "events", "squads": [{"id", <fields>, "units": [{"id", <fields>}]}]}.
 Squads and units are matched by id, never by place (Decision 97); "first" is first in the
 base trace's order, which only orders the report. Prints:
