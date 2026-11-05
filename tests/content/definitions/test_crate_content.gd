@@ -26,7 +26,6 @@ func test_the_terrain_library_is_filled_from_its_file() -> void:
 	assert_float(fields.liquids[0].surface_chance).is_equal(0.02)
 	assert_int(library.material("TIMBER").heat_transitions[0].threshold).is_equal(3)
 	assert_bool(library.material("WATER").is_liquid()).is_true()
-	assert_array(library.validate()).is_empty()
 
 
 func test_every_layout_shares_the_one_terrain_library() -> void:

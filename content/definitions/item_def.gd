@@ -27,16 +27,3 @@ extends Resource
 ## Part of the creature (fists, a bite, a claw, its spit): it can't be dropped or taken,
 ## weighs nothing, and its slots are the body parts it belongs to.
 @export var innate: bool = false
-
-
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if weight < 0.0:
-		errors.append("%s: weight must be >= 0, got %f" % [item_name, weight])
-	if strength_requirement < 0:
-		errors.append(
-			"%s: strength_requirement must be >= 0, got %d" % [item_name, strength_requirement]
-		)
-	if innate and weight > 0.0:
-		errors.append("%s: an innate item weighs nothing, got %f" % [item_name, weight])
-	return errors

@@ -19,6 +19,11 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
   `weapons/`, `armour/`, `tuning/battle_tuning.json`), checked against the JSON Schema in
   `content/schema/`. A file with a wrong or unknown field fails to load and names the file and
   the field. The Rust core must be built (`bash native/build.sh`) to run the game.
+- Content that breaks its rules fails to load and names the file and the field: a unit's
+  sheet out of bounds or its items not fitting its body, an item's weight or attack profile
+  out of bounds, a trait or tag that isn't in `content/registry/` or can't sit there, and a
+  terrain library with a repeated id, a stratum or liquid out of bounds or a liquid that
+  doesn't flow. These were checked only by Godot's tests before.
 - The terrain library is one file, `content/terrain/terrain_library.json`, in the same schema.
   The map designer's library page saves it directly, without Godot, and refuses an edit that
   removes a terrain or feature a saved map still uses.

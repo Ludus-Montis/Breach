@@ -40,49 +40,6 @@ func _fields() -> TerrainDef:
 	return terrain
 
 
-func _any(errors: PackedStringArray, needle: String) -> bool:
-	return Array(errors).any(func(m): return m.contains(needle))
-
-
-func test_a_terrain_with_strata_of_known_materials_validates() -> void:
-	assert_array(Array(_library(_fields()).validate())).is_empty()
-
-
 func test_the_library_finds_a_material_by_id() -> void:
 	assert_str(_library(_fields()).material("ROCK").id).is_equal("ROCK")
 	assert_object(_library(_fields()).material("MAGMA")).is_null()
-
-
-func test_a_stratum_naming_an_unknown_material_is_an_error() -> void:
-	var terrain := _fields()
-	terrain.strata.append(_stratum("MAGMA", 1, 2))
-
-	assert_bool(_any(_library(terrain).validate(), "unknown material 'MAGMA'")).is_true()
-
-
-func test_a_stratum_thinner_at_most_than_at_least_is_an_error() -> void:
-	var terrain := _fields()
-	terrain.strata = [_stratum("SOIL", 4, 2)]
-
-	assert_bool(_any(_library(terrain).validate(), "min_cells 4 > max_cells 2")).is_true()
-
-
-func test_foundations_cannot_lower_bearing() -> void:
-	var terrain := _fields()
-	terrain.foundation_max = 2
-
-	assert_bool(_any(_library(terrain).validate(), "foundation_max 2 < bearing 4")).is_true()
-
-
-func test_a_terrain_without_strata_is_valid() -> void:
-	var terrain := _fields()
-	terrain.strata = []
-
-	assert_array(Array(_library(terrain).validate())).is_empty()
-
-
-func test_duplicate_material_ids_are_errors() -> void:
-	var library := _library(_fields())
-	library.materials.append(_material("ROCK"))
-
-	assert_bool(_any(library.validate(), "duplicate material id 'ROCK'")).is_true()

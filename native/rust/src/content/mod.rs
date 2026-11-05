@@ -5,12 +5,16 @@
 //! doesn't match fails to load, naming the file and the field. `schema.rs` writes the JSON
 //! Schema the designer validates against (`content/schema/`).
 
+mod checks;
+#[cfg(test)]
+mod checks_tests;
 mod items;
 mod map;
 mod map_check;
 #[cfg(test)]
 mod map_check_tests;
 mod reals;
+mod registry;
 #[cfg(test)]
 mod schema;
 mod terrain;
@@ -33,6 +37,7 @@ pub use map::{
     StructureFace, StructurePlan, Subnode, Tile,
 };
 pub use map_check::{cell, CELLS_PER_TILE};
+pub use registry::{Registry, Status, Tag, Trait};
 pub use terrain::{
     Colour, HeatTransition, LiquidBody, Material, Stratum, Terrain, TerrainFeature, TerrainLibrary,
 };
@@ -67,6 +72,8 @@ pub struct Content {
     pub tuning: BattleTuning,
     pub terrain: TerrainLibrary,
     pub maps: BTreeMap<String, Map>,
+    /// The tags, traits and statuses the rest is held to (Decision 128).
+    pub registry: Registry,
 }
 
 impl Content {
@@ -81,12 +88,10 @@ impl Content {
             tuning: load_file(&root.join("tuning").join("battle_tuning.json"))?,
             terrain: load_file(&root.join(TERRAIN_LIBRARY))?,
             maps: load_dir(&root.join("maps"))?,
+            registry: Registry::load(root)?,
         };
         content.check_items(root)?;
-        if let Some((field, id)) = content.terrain.missing_material() {
-            let message = format!("no material {id}");
-            return Err(LoadError { file: root.join(TERRAIN_LIBRARY), field, message });
-        }
+        content.check_rules(root)?;
         for (name, map) in &content.maps {
             let file = root.join("maps").join(format!("{name}.json"));
             if let Some((field, id)) = map.missing_reference(&content.terrain) {
@@ -116,13 +121,46 @@ impl Content {
         Ok(())
     }
 
+    /// Fails on the first file that breaks the content's own rules (`checks.rs`): the
+    /// registry, each unit, weapon and armour, then the terrain library.
+    fn check_rules(&self, root: &Path) -> Result<(), LoadError> {
+        let failed =
+            |file: PathBuf, (field, message): checks::Problem| LoadError { file, field, message };
+        if let Some((file, found)) = self.registry.problem() {
+            return Err(failed(root.join(registry::REGISTRY).join(file), found));
+        }
+        for (id, unit) in &self.units {
+            if let Some(found) = self.unit_problem(unit) {
+                return Err(failed(root.join("units").join(format!("{id}.json")), found));
+            }
+        }
+        for (id, weapon) in &self.weapons {
+            if let Some(found) =
+                weapon.problem().or_else(|| self.item_problem(&weapon.item, "weapon"))
+            {
+                return Err(failed(root.join("weapons").join(format!("{id}.json")), found));
+            }
+        }
+        for (id, armour) in &self.armour {
+            if let Some(found) =
+                armour.problem().or_else(|| self.item_problem(&armour.item, "armour"))
+            {
+                return Err(failed(root.join("armour").join(format!("{id}.json")), found));
+            }
+        }
+        let library = root.join(TERRAIN_LIBRARY);
+        if let Some((field, id)) = self.terrain.missing_material() {
+            return Err(failed(library, (field, format!("no material {id}"))));
+        }
+        if let Some(found) = self.terrain.problem(&self.registry) {
+            return Err(failed(library, found));
+        }
+        Ok(())
+    }
+
     /// Whether `path` (`weapons/<id>` or `armour/<id>`) names an item here.
     pub fn has_item(&self, path: &str) -> bool {
-        match path.split_once('/') {
-            Some(("weapons", id)) => self.weapons.contains_key(id),
-            Some(("armour", id)) => self.armour.contains_key(id),
-            _ => false,
-        }
+        self.item(path).is_some()
     }
 }
 
@@ -159,7 +197,7 @@ pub(crate) mod tests {
     use super::*;
 
     /// A fresh directory under the system's temp dir, for files a test writes.
-    fn scratch(name: &str) -> PathBuf {
+    pub(crate) fn scratch(name: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("breach-content-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -364,8 +402,10 @@ pub(crate) mod tests {
     }
 
     /// Copies each of `files` from the repo's `content/` to the same place under `root`.
-    fn copy_required(root: &Path, files: &[&str]) {
-        for file in files {
+    /// The registry's files come too: everything is held to it.
+    pub(crate) fn copy_required(root: &Path, files: &[&str]) {
+        let registry = ["registry/tags.json", "registry/traits.json", "registry/statuses.json"];
+        for file in files.iter().chain(&registry) {
             let to = root.join(file);
             fs::create_dir_all(to.parent().unwrap()).unwrap();
             fs::copy(repo_content().join(file), to).unwrap();

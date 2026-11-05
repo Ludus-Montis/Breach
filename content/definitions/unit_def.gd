@@ -112,40 +112,6 @@ const AVERAGE := 10
 @export var attack_speed: float = 1.0
 
 
-func validate() -> PackedStringArray:
-	var errors := PackedStringArray()
-	if cost_food < 0:
-		errors.append("cost_food must be >= 0, got %d" % cost_food)
-	if hp < 0:
-		errors.append("hp must be >= 0, got %d" % hp)
-	if speed < 0.0:
-		errors.append("speed must be >= 0, got %f" % speed)
-	for field in ["footprint_depth", "footprint_width"]:
-		if get(field) < 1 or get(field) > MAX_FOOTPRINT:
-			errors.append("%s must be 1..%d, got %d" % [field, MAX_FOOTPRINT, get(field)])
-	if position_priority < 0:
-		errors.append("position_priority must be >= 0, got %d" % position_priority)
-	errors.append_array(_item_errors())
-	if build_seconds <= 0.0:
-		errors.append("build_seconds must be > 0, got %f" % build_seconds)
-	for skill in ["melee_skill", "ranged_skill", "defence", "armour", "ward"]:
-		if get(skill) < 0:
-			errors.append("%s must be >= 0, got %d" % [skill, get(skill)])
-	if regeneration < 0.0 or regeneration_limit < 0.0:
-		errors.append("regeneration and its limit must be >= 0")
-	if critical < 1.0:
-		errors.append("critical must be >= 1, got %f" % critical)
-	if attack_speed <= 0.0:
-		errors.append("attack_speed must be > 0, got %f" % attack_speed)
-	for attribute in ATTRIBUTES:
-		if get(attribute) < 0:
-			errors.append("%s must be >= 0, got %d" % [attribute, get(attribute)])
-	for trait_id in traits:
-		if not trait_id is String or not traits[trait_id] is int or traits[trait_id] < 0:
-			errors.append("traits must map names to levels >= 0, got %s" % str(trait_id))
-	return errors
-
-
 ## The level of a rated trait it has, its own or one an item it carries grants, the
 ## higher; one it doesn't list it has at the registry's default (0: not at all).
 func trait_level(trait_id: String) -> int:
@@ -193,22 +159,6 @@ func ranged_weapon() -> WeaponDef:
 	return best
 
 
-## What is wrong with its items: an invalid one, or one its body has no room or part for.
-func _item_errors() -> PackedStringArray:
-	var errors := PackedStringArray()
-	for item in items:
-		if item == null:
-			errors.append("items must not contain an empty entry")
-			continue
-		errors.append_array(item.validate())
-		if item.innate and not _has_slots(slots, item.slots):
-			errors.append("%s: part of a body part it hasn't" % item.item_name)
-	var short := _slots_short()
-	if not short.is_empty():
-		errors.append("its items need slots it hasn't free: %s" % ", ".join(short))
-	return errors
-
-
 ## The weapons it can use: those it carries, and its innate ones free to strike.
 func weapons() -> Array[WeaponDef]:
 	return _weapons()
@@ -233,21 +183,6 @@ func _free_slots() -> Array[String]:
 			for slot in item.slots:
 				free.erase(slot)
 	return free
-
-
-## The slots its carried items need that its body hasn't free (none: they all fit).
-func _slots_short() -> Array[String]:
-	var free := slots.duplicate()
-	var short: Array[String] = []
-	for item in items:
-		if item == null or item.innate:
-			continue
-		for slot in item.slots:
-			if free.has(slot):
-				free.erase(slot)
-			else:
-				short.append(slot)
-	return short
 
 
 ## Whether `have` holds every slot `need` names, as many times as it names it.

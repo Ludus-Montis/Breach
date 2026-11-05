@@ -38,18 +38,3 @@ static func innate_weapon(damage_of: int, named: String = "fists") -> WeaponDef:
 
 func is_melee() -> bool:
 	return attack_range == 0
-
-
-func validate() -> PackedStringArray:
-	var errors := super()
-	if damage < 0:
-		errors.append("%s: damage must be >= 0, got %d" % [item_name, damage])
-	if attack_range < 0:
-		errors.append("%s: attack_range must be >= 0, got %d" % [item_name, attack_range])
-	if damage_floor < 0.0 or damage_floor > 1.0:
-		errors.append("%s: damage_floor must be 0..1, got %f" % [item_name, damage_floor])
-	if strength_scaling < 0.0:
-		errors.append("%s: strength_scaling must be >= 0, got %f" % [item_name, strength_scaling])
-	if attack_seconds <= 0.0:
-		errors.append("%s: attack_seconds must be > 0, got %f" % [item_name, attack_seconds])
-	return errors
