@@ -4,19 +4,18 @@ extends Node2D
 ## as a footprint-sized block (width across the route, depth along it), each lane's
 ## formation laid across its route (SkirmishRoute.normal_at), positions interpolated
 ## between ticks, a flash on flank hits, a dot on ranged units and a line for each spit
-## (Decision 46), and a ring around the selected squad. Read-only.
+## (Decision 46), and a ring around the selected squad. Read-only: it draws each lane's
+## squads as the crate's BattleState gives them after a tick (spec 39 step 9d-ii).
 
-const FormationSimulation = preload("res://sim/skirmish/formation/formation_simulation.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
 const SkirmishRoute = preload("res://presentation/skirmish/skirmish_route.gd")
 const TickInterpolation = preload("res://presentation/tick_interpolation.gd")
-const FormationShuffle = preload("res://sim/skirmish/formation/formation_shuffle.gd")
 
+## A rank's depth along the lane, in tiles (SkirmishSquad.RANK_DEPTH: a cell).
+const RANK_DEPTH := 1.0 / 64.0
 ## Pixels per formation column across the route, and per rank along it (Decision 48: a
 ## fifth of the size they were).
 const COLUMN_PX := 17.0 * 0.2 * 0.25  # a quarter again with 64-cell tiles (Decision 68)
-const RANK_PX := SkirmishSquad.RANK_DEPTH * 64.0 * 1.3
+const RANK_PX := RANK_DEPTH * 64.0 * 1.3
 const FLASH_SECONDS := 0.35
 ## One formation cell's smaller side on screen: outlines, bars and markers scale with it,
 ## so they stay in proportion to the (small) units at any zoom.
@@ -27,32 +26,41 @@ var faction_colors := {"player": Color("#b3761d"), "the_kingdom": Color("#a3372a
 var fraction := 1.0
 ## [lane key, squad id] of the selected squad, or [] for none.
 var selected: Array = []
+## The crate's BattleState the squads are read from.
+var battle: Object
 
-var _lanes := {}  # lane key -> {"sim": FormationSimulation, "points": PackedVector2Array}
-## Keyed "lane:unit id" - unit ids are only unique within one lane's simulation.
+var _lanes := {}  # lane key -> its route's points
+var _squads := {}  # lane key -> its squads (BattleState.squads) after the latest tick
+## Keyed "lane:unit id" - unit ids are only unique within one lane's battle.
 var _previous := {}  # "lane:id" -> distance at the previous tick
 var _current := {}
 var _flashes := {}  # "lane:id" -> seconds left
 var _spits := []  # [lane key, shooter id, target id, seconds left]
 
 
-func add_lane(lane_key: String, sim: FormationSimulation, points: PackedVector2Array) -> void:
-	_lanes[lane_key] = {"sim": sim, "points": points}
+func add_lane(lane_key: String, points: PackedVector2Array) -> void:
+	_lanes[lane_key] = points
+	_squads[lane_key] = []
 
 
-## Call after each tick: the latest distances become the interpolation target.
+## Call after each tick: the squads are read again and the latest distances become the
+## interpolation target.
 func snapshot() -> void:
 	_previous = _current.duplicate()
 	_current = {}
 	for lane_key in _lanes:
-		var sim = _lanes[lane_key]["sim"]
-		var along: PackedFloat64Array = sim.store.columns.column(UnitColumns.DISTANCE)  # once
-		for squad in sim.squads():
-			for unit in squad.units:
-				var unit_key := _key(lane_key, unit.id)
-				_current[unit_key] = along[unit.slot]
+		_squads[lane_key] = battle.squads(lane_key) if battle != null else []
+		for squad in _squads[lane_key]:
+			for unit in squad["units"]:
+				var unit_key := _key(lane_key, unit["id"])
+				_current[unit_key] = unit["distance"]
 				if not _previous.has(unit_key):
-					_previous[unit_key] = along[unit.slot]
+					_previous[unit_key] = unit["distance"]
+
+
+## A lane's squads as read after the latest tick.
+func squads(lane_key: String) -> Array:
+	return _squads.get(lane_key, [])
 
 
 func flash(lane_key: String, unit_id: int) -> void:
@@ -67,13 +75,11 @@ func spit(lane_key: String, shooter_id: int, target_id: int) -> void:
 ## [lane key, squad id] of the squad whose unit is under a point, or [].
 func squad_at(point: Vector2) -> Array:
 	for lane_key in _lanes:
-		for squad in _lanes[lane_key]["sim"].squads():
-			for unit in squad.living():
-				if (
-					_centre(lane_key, squad, unit).distance_to(point)
-					<= COLUMN_PX * unit.footprint_width
-				):
-					return [lane_key, squad.id]
+		for each in squads(lane_key):
+			for unit in each["units"]:
+				var reach: float = COLUMN_PX * unit["footprint_width"]
+				if _centre(lane_key, each, unit).distance_to(point) <= reach:
+					return [lane_key, each["id"]]
 	return []
 
 
@@ -81,9 +87,9 @@ func squad_at(point: Vector2) -> Array:
 func cycle_selection(faction_id: String) -> void:
 	var options := []
 	for lane_key in _lanes:
-		for squad in _lanes[lane_key]["sim"].squads():
-			if squad.faction_id == faction_id and not squad.is_destroyed():
-				options.append([lane_key, squad.id])
+		for each in squads(lane_key):
+			if each["faction"] == faction_id and each["state"] != "DESTROYED":
+				options.append([lane_key, each["id"]])
 	var at := options.find(selected)
 	selected = [] if options.is_empty() else options[(at + 1) % options.size()]
 
@@ -101,13 +107,10 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	for lane_key in _lanes:
-		var sim = _lanes[lane_key]["sim"]
-		var hp: PackedInt32Array = sim.store.columns.column(UnitColumns.HP)  # once a frame
-		var targets: PackedInt64Array = sim.store.columns.column(UnitColumns.TARGET_ID)
-		for squad in sim.squads():
-			var chosen: bool = selected == [lane_key, squad.id]
-			for unit in squad.living():
-				_draw_unit(lane_key, squad, [unit, hp[unit.slot], targets[unit.slot]], chosen)
+		for each in squads(lane_key):
+			var chosen: bool = selected == [lane_key, each["id"]]
+			for unit in each["units"]:
+				_draw_unit(lane_key, each, unit, chosen)
 	for shot in _spits:
 		var ends := [_find(shot[0], shot[1]), _find(shot[0], shot[2])]
 		if not ends.has(null):
@@ -120,30 +123,28 @@ func _draw() -> void:
 			)
 
 
-## `drawn` is [the unit, its hp, its target's id].
-func _draw_unit(lane_key: String, squad: SkirmishSquad, drawn: Array, chosen: bool) -> void:
-	var unit: SkirmishUnit = drawn[0]
-	var points: PackedVector2Array = _lanes[lane_key]["points"]
+func _draw_unit(lane_key: String, squad: Dictionary, unit: Dictionary, chosen: bool) -> void:
+	var points: PackedVector2Array = _lanes[lane_key]
 	var centre := _centre(lane_key, squad, unit)
 	var along := SkirmishRoute.normal_at(points, _distance(lane_key, unit), cell_size).rotated(
 		-PI / 2.0
 	)
 	var size := Vector2(
-		unit.footprint_depth * RANK_PX * 0.85, unit.footprint_width * COLUMN_PX * 0.85
+		unit["footprint_depth"] * RANK_PX * 0.85, unit["footprint_width"] * COLUMN_PX * 0.85
 	)
 	var body := Rect2(-size / 2.0, size)
-	var color: Color = faction_colors.get(unit.faction_id, Color.GRAY)
-	if squad.state == SkirmishSquad.State.ARRIVED:
+	var color: Color = faction_colors.get(squad["faction"], Color.GRAY)
+	if squad["state"] == "ARRIVED":
 		color.a = 0.45
 	draw_set_transform(centre, along.angle())
 	if chosen:
 		draw_rect(body.grow(CELL_PX * 0.4), Color.WHITE, false, CELL_PX * 0.25)
 	draw_rect(body, color)
 	draw_rect(body, Color("#211d15"), false, CELL_PX * 0.12)
-	var share := clampf(float(drawn[1]) / float(maxi(unit.max_hp, 1)), 0.0, 1.0)
+	var share := clampf(float(unit["hp"]) / float(maxi(unit["max_hp"], 1)), 0.0, 1.0)
 	var bar := Vector2(body.size.x * share, CELL_PX * 0.22)
 	draw_rect(Rect2(body.position, bar), Color("#7fbf88"))
-	var unit_key := _key(lane_key, unit.id)
+	var unit_key := _key(lane_key, unit["id"])
 	if _flashes.has(unit_key):
 		draw_rect(
 			body.grow(CELL_PX * 0.3),
@@ -151,33 +152,27 @@ func _draw_unit(lane_key: String, squad: SkirmishSquad, drawn: Array, chosen: bo
 			false,
 			CELL_PX * 0.3
 		)
-	if unit.attack_range > 0:
+	if unit["ranged"]:
 		draw_circle(Vector2.ZERO, CELL_PX * 0.22, Color("#d8f0c0"))
-	if drawn[2] != 0:
-		draw_circle(Vector2(size.x * 0.5 * squad.direction, 0), CELL_PX * 0.15, Color.WHITE)
+	if unit["target"] != 0:
+		draw_circle(Vector2(size.x * 0.5 * squad["direction"], 0), CELL_PX * 0.15, Color.WHITE)
 	draw_set_transform(Vector2.ZERO, 0.0)
 
 
-func _distance(lane_key: String, unit: SkirmishUnit) -> float:
-	var unit_key := _key(lane_key, unit.id)
-	var current: float
-	if _current.has(unit_key):
-		current = _current[unit_key]
-	else:  # not yet snapshotted: where it stands now (scattered: a unit or two)
-		current = _lanes[lane_key]["sim"].store.columns.value(unit.slot, UnitColumns.DISTANCE)
+func _distance(lane_key: String, unit: Dictionary) -> float:
+	var unit_key := _key(lane_key, unit["id"])
+	var current: float = _current.get(unit_key, unit["distance"])
 	var previous: float = _previous.get(unit_key, current)
 	return TickInterpolation.interpolate_position(previous, current, fraction)
 
 
 ## A unit's drawn centre: along the route at its (interpolated) distance, back by half its
-## depth, and across the route at the centre of its lateral span.
-func _centre(lane_key: String, squad: SkirmishSquad, unit: SkirmishUnit) -> Vector2:
-	var points: PackedVector2Array = _lanes[lane_key]["points"]
-	var depth_back := (unit.footprint_depth - 1) * SkirmishSquad.RANK_DEPTH * 0.5
-	var distance := _distance(lane_key, unit) - squad.direction * depth_back
-	var span := squad.lateral_span(unit, Vector2.ZERO, UnitPlace.of(squad, unit))
-	var moving := FormationShuffle.offset(squad, unit).y * squad.direction
-	var lateral := ((span.x + span.y) * 0.5 + moving) * COLUMN_PX
+## depth, and across the route at the centre of its lateral span (a swap's move added).
+func _centre(lane_key: String, squad: Dictionary, unit: Dictionary) -> Vector2:
+	var points: PackedVector2Array = _lanes[lane_key]
+	var depth_back: float = (unit["footprint_depth"] - 1) * RANK_DEPTH * 0.5
+	var distance: float = _distance(lane_key, unit) - squad["direction"] * depth_back
+	var lateral: float = unit["lateral"] * COLUMN_PX
 	return (
 		SkirmishRoute.point_at(points, distance, cell_size)
 		+ SkirmishRoute.normal_at(points, distance, cell_size) * lateral
@@ -186,10 +181,10 @@ func _centre(lane_key: String, squad: SkirmishSquad, unit: SkirmishUnit) -> Vect
 
 ## [squad, unit] for a living unit id in a lane, or null.
 func _find(lane_key: String, unit_id: int) -> Variant:
-	for squad in _lanes[lane_key]["sim"].squads():
-		for unit in squad.living():
-			if unit.id == unit_id:
-				return [squad, unit]
+	for each in squads(lane_key):
+		for unit in each["units"]:
+			if unit["id"] == unit_id:
+				return [each, unit]
 	return null
 
 

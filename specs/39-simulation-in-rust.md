@@ -3560,6 +3560,61 @@ Decision's conditions.
     against the GDScript field, then green.
 - **After it**, 9d-ii: the 1D feel test's battle.
 
+### Step 9d-ii, the 1D feel test's battle held by the crate
+
+- **In the crate:**
+  - `src/battle_play.rs`: `BattlePlay` is FormationBattle with its FormationLanes. Each lane
+    is a battle of its own (`Play::open` on a straight route `route_tiles` long, no map, its
+    blows not rolled and seeded 0, as FormationSimulation.new left them), with its own squads,
+    units and log, so unit ids are per lane. Its combat width is the lane's width, which the
+    scene set by hand before. The player's wave and the kingdom's militia wave (a line of
+    three, departing when full) are `Wave`s by lane. The kingdom's two builders share in turn
+    with no reserve. `step` is FormationBattle.step: the player's builders, the kingdom's when
+    asked, then each lane: its wave announced full and sent if it departs on its own, the
+    kingdom's likewise, then its battle's tick. `paint` and `apply` are FormationLane.paint
+    and FormationBattle.apply: a reshape folds the filled units in (`Wave::reshape`,
+    FormationProduction.set_template), sets the lane's pool share to its cells and banks the
+    rest in the reserve. `send`, `spawn_kingdom_line` and `order` are the lane's.
+  - `src/battle_play/slots.rs`: `SlotPool` is SkirmishSlotPool, by lane index.
+  - `src/battle_play/presets.rs`: WavePresets.to_dict's units and from_dict's fitting, by the
+    kinds' names (grem, brute, spitter; the legacy light and heavy read as grem and brute).
+  - `src/battle_play/seen.rs`: what the scene draws of a lane after a tick: each listed squad
+    (id, faction, state, order, direction) and its living units (id, distance along the lane,
+    the middle of its span across it with a swap's move added, as SquadFrame.span and
+    FormationShuffle.offset gave the layer, footprint, hp, whether it shoots, its target).
+  - `src/battle_play/binding.rs`: `BattleState`, which the scene and HUD read: `open`,
+    `add_lane`, `step` (events by lane key, the domains' under ""), `allowance`, `set_brush`,
+    `paint`, `preset`, `apply_preset`, `wave`, `set_auto_departure`, `set_auto_merge`, `send`,
+    `spawn_kingdom_line`, `order`, the builders (`set_builders`, `builder_count`, `prefer`,
+    `sharing`, `builds`), `pool` and `squads`.
+  - `waves.rs` gains `Template::erase`, `Template::cells` and `Wave::reshape`. `field_play`'s
+    send becomes `sent`, which both fields use: a side, a route and whether the squad merges
+    are given to it.
+- **Presentation:** `formation_skirmish_scene.gd`, its HUD, readout, squad layer and wave
+  painter read only `BattleState`: none of them loads a script under `sim/`. The orders'
+  codes are the HUD's constants. A wave's places carry the unit's preferred position and
+  kind, not its UnitDef. The scene's `_tick` plays one tick.
+- **Gone:** `sim/skirmish/formation/formation_battle.gd`, `formation_lane.gd`,
+  `skirmish_slot_pool.gd` and their gdUnit tests, now cargo's. DomainProduction,
+  WaveTemplate, WavePresets and FormationProduction stay: FormationField still plays them
+  (9d-iii, 9d-iv).
+- **Identical:** the same lanes, builds, reshapes and battles as FormationBattle played. No
+  digest battle is the 1D feel test, so outcomes don't change.
+- **Tests:**
+  - cargo `waves/tests.rs`: a cell erased, a new shape folding its filled units in and
+    handing back the rest, and the announcement kept only while full. Red against a
+    `// RED-STUB`, then green.
+  - cargo `battle_play/tests.rs`: SkirmishSlotPool's caps and clamping; FormationBattle's
+    pool at the start, one builder sharing in turn, a reshape banked, an erase freeing slots
+    and the kingdom building only when asked; FormationLane's paints refused off the lane or
+    past the allowance and erased with no brush; a wave told full and sent; a merging lane's
+    squads; the militia line at the far end with ids per lane; and the presets fitted, legacy
+    and unknown kinds. Red against stubs, then green.
+  - gdUnit `tests/presentation/skirmish/test_formation_skirmish_scene.gd`, rewritten on the
+    binding, with a sent wave marching, an order reaching the selected squad and the scene's
+    scripts loading nothing under `sim/`. Red against the GDScript battle, then green.
+- **After it**, 9d-iii: the GDScript digest, trials and benches retired.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

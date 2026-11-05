@@ -23,7 +23,10 @@ signal auto_departure_toggled(lane_key: String, enabled: bool)
 signal auto_merge_toggled(lane_key: String, enabled: bool)
 signal spawn_kingdom_pressed(lane_key: String)
 
-const SkirmishUnit = preload("res://sim/skirmish/skirmish_unit.gd")
+## SkirmishUnit.Order's codes, as the crate's BattleState takes them.
+const ADVANCE := 0
+const HOLD := 1
+const RETREAT := 2
 const WavePainter = preload("res://presentation/skirmish/formation/wave_painter.gd")
 
 const PANEL_WIDTH := 330.0
@@ -212,11 +215,7 @@ func _build_kingdom_and_orders(box: VBoxContainer, lane_keys: Array) -> void:
 	_toggle(kingdom_row, "Auto", false, func(on): kingdom_auto_toggled.emit(on))
 	_selected = _label(box, "Click a squad (or Tab) to select it")
 	var order_row := _row(box)
-	var orders := [
-		["Advance (A)", SkirmishUnit.Order.ADVANCE],
-		["Hold (H)", SkirmishUnit.Order.HOLD],
-		["Retreat (R)", SkirmishUnit.Order.RETREAT]
-	]
+	var orders := [["Advance (A)", ADVANCE], ["Hold (H)", HOLD], ["Retreat (R)", RETREAT]]
 	for pair in orders:
 		_button(order_row, pair[0], func(): order_chosen.emit(pair[1]))
 	_log = RichTextLabel.new()

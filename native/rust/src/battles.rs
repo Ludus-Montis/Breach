@@ -107,7 +107,7 @@ impl Codes {
         }) as i64
     }
 
-    fn route(&mut self, squads: &mut Squads, key: usize) -> i64 {
+    pub(crate) fn route(&mut self, squads: &mut Squads, key: usize) -> i64 {
         if let Some(&(_, code)) = self.routes.iter().find(|(k, _)| *k == key) {
             return code;
         }
@@ -192,7 +192,7 @@ struct Then {
 type Plan = (Set, Vec<Route>, Vec<(Side, Then)>);
 
 /// The simulation's own route, `tiles` long (FormationRoute.straight).
-fn lane(tiles: f64) -> Route {
+pub(crate) fn lane(tiles: f64) -> Route {
     Route::new(vec![V2::new(0.0, 0.0), V2::new((tiles * CELLS) as f32, 0.0)], 0.0)
 }
 

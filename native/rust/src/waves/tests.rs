@@ -121,3 +121,38 @@ fn fewer_builders_keep_those_furthest_along() {
     builders.set("grem", 0.9, 1);
     assert_eq!(builders.kinds[0].2.iter().map(|b| b.ticks).collect::<Vec<_>>(), vec![5]);
 }
+
+#[test]
+fn erasing_removes_the_unit_covering_a_cell() {
+    let mut template = line(3);
+    template.slot_limit = 8;
+    assert!(template.paint("brute", (2, 2), (0, 4)));
+    assert!(template.erase((1, 5)), "the brute covers ranks 0-1, columns 4-5");
+    assert!(!template.erase((1, 5)), "nothing is left there");
+    assert_eq!(template.ordered().len(), 3);
+    assert_eq!(template.cells(), 3);
+}
+
+#[test]
+fn a_new_shape_folds_the_filled_units_in_and_hands_back_the_rest() {
+    let mut wave = Wave::new(line(3), 0);
+    assert!(wave.fill("grem") && wave.fill("grem"));
+    let mut reshaped = Template::new(8, 8);
+    reshaped.paint("brute", (2, 2), (0, 0));
+    reshaped.paint("grem", ONE, (0, 2));
+    let left = wave.reshape(reshaped);
+    assert_eq!(left, vec!["grem"], "one grem kept, one handed back");
+    assert_eq!(wave.filled, vec![false, true], "the brute's place is open, the grem's filled");
+    assert!(!wave.announced);
+}
+
+#[test]
+fn a_full_wave_reshaped_stays_announced_only_while_full() {
+    let mut wave = Wave::new(line(1), 0);
+    wave.fill("grem");
+    wave.announced = true;
+    wave.reshape(line(1));
+    assert!(wave.announced, "still full");
+    wave.reshape(line(2));
+    assert!(!wave.announced, "a place is open again");
+}

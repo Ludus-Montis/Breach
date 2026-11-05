@@ -327,7 +327,7 @@ fn produced(made: &Produced) -> VarDictionary {
 }
 
 /// An event as CrateEvents made it.
-fn event_of(event: &Told) -> VarDictionary {
+pub(crate) fn event_of(event: &Told) -> VarDictionary {
     let mut out = VarDictionary::new();
     out.set("type", event.kind);
     out.set("tick", event.tick);

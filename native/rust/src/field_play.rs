@@ -10,7 +10,7 @@
 //! rehearsal.
 
 pub mod actions;
-mod binding;
+pub(crate) mod binding;
 pub mod carried;
 pub mod seen;
 #[cfg(test)]
@@ -188,50 +188,18 @@ impl FieldPlay {
         (squads, field): (&mut Squads, &mut Field),
         content: &Content,
     ) -> Option<usize> {
-        let wave = &self.waves[w];
-        if wave.built() == 0 {
-            return None;
-        }
-        let full = wave.full();
-        let (width, painted) = wave.template.layout();
-        let codes = &mut self.play.codes;
-        let placed: Vec<Placed> = painted
-            .iter()
-            .zip(&wave.filled)
-            .filter(|(_, &filled)| filled)
-            .map(|(p, _)| Placed {
-                unit: &content.units[p.id],
-                code: codes.definition(p.id),
-                place: p.at,
-            })
-            .collect();
-        let (route, code) = &self.routes[wave.route];
-        let spawn = Spawn {
-            width: i64::from(width),
-            placed: &placed,
+        let route = self.waves[w].route;
+        let (path, code) = &self.routes[route];
+        let how = Sending {
             faction: "player",
             at_player_end: true,
             wait_ticks,
-            route,
+            route: path,
             route_code: *code,
-            combat_width: self.play.set.combat_width,
+            merges: false, // the field's waves don't merge
         };
-        let s = spawn::squad(squads, field, content, &spawn);
-        let route = wave.route;
+        let s = sent(&mut self.waves[w], &mut self.play, &how, (squads, field), content)?;
         self.routes[route].1 = Some(squads.route_code[s]);
-        if let Some(command) = squads.command[s] {
-            squads.commands.give(command, MERGES, false); // the field's waves don't merge
-        }
-        squads.staging[s].clone_from(&self.waves[w].staging);
-        if !full {
-            close_up(squads, field, s);
-        }
-        centre(squads, field, s);
-        spawn::stand(squads, field, content, s);
-        let wave = &mut self.waves[w];
-        wave.filled.fill(false);
-        wave.announced = false;
-        self.play.listed.push(s);
         Some(s)
     }
 
@@ -261,6 +229,69 @@ impl FieldPlay {
         let set = &self.play.set;
         rehearsal::ticks_to(&march, (set.tick_seconds, set.map, self.play.threaded), content)
     }
+}
+
+/// How a wave is sent: its side, its wait, its route with the code it goes by, and whether
+/// its squad merges into friends it catches up with.
+pub(crate) struct Sending<'a> {
+    pub faction: &'a str,
+    pub at_player_end: bool,
+    pub wait_ticks: i64,
+    pub route: &'a Route,
+    pub route_code: Option<i64>,
+    pub merges: bool,
+}
+
+/// FormationProduction.send: `wave`'s filled places spawned in `play` as one squad, closed up
+/// and centred if the wave isn't full, its units stood on their places, and the wave emptied;
+/// the squad's slot, or None if nothing is built.
+pub(crate) fn sent(
+    wave: &mut Wave,
+    play: &mut Play,
+    how: &Sending,
+    (squads, field): (&mut Squads, &mut Field),
+    content: &Content,
+) -> Option<usize> {
+    if wave.built() == 0 {
+        return None;
+    }
+    let full = wave.full();
+    let (width, painted) = wave.template.layout();
+    let codes = &mut play.codes;
+    let placed: Vec<Placed> = painted
+        .iter()
+        .zip(&wave.filled)
+        .filter(|(_, &filled)| filled)
+        .map(|(p, _)| Placed {
+            unit: &content.units[p.id],
+            code: codes.definition(p.id),
+            place: p.at,
+        })
+        .collect();
+    let spawn = Spawn {
+        width: i64::from(width),
+        placed: &placed,
+        faction: how.faction,
+        at_player_end: how.at_player_end,
+        wait_ticks: how.wait_ticks,
+        route: how.route,
+        route_code: how.route_code,
+        combat_width: play.set.combat_width,
+    };
+    let s = spawn::squad(squads, field, content, &spawn);
+    if let Some(command) = squads.command[s] {
+        squads.commands.give(command, MERGES, how.merges);
+    }
+    squads.staging[s].clone_from(&wave.staging);
+    if !full {
+        close_up(squads, field, s);
+    }
+    centre(squads, field, s);
+    spawn::stand(squads, field, content, s);
+    wave.filled.fill(false);
+    wave.announced = false;
+    play.listed.push(s);
+    Some(s)
 }
 
 /// A partial wave's unbuilt places are holes: the squad in `s` as wide as its front band,
