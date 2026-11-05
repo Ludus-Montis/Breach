@@ -361,6 +361,14 @@ written in order, its rallies' searches and its regroup's enemy search; and tend
 searches, each body's guard read first. What each lands (crushes, panics, joins, takings)
 stays on one thread in order.
 
+**The worker** (spec 39 step 10d-i, `src/worker.rs`): `Worker::start` runs a simulation with
+`Steps` (the field's is `field_play::sim::FieldSim`) on its own thread. The caller owes ticks
+(at most `MOST_OWED`, 2; `owe` says when time was dropped), queues orders (applied at the next
+boundary between ticks and stamped with that tick) or a replay's (`order_at`), pauses, and
+takes the published snapshots (`ready`) without ever waiting; `run_ticks` waits, for tests and
+tools. Each snapshot carries its tick's events, and copies the drawn columns only when they
+changed. The game doesn't use it yet: presentation still calls `FieldState.step` (10d-ii).
+
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):
 
