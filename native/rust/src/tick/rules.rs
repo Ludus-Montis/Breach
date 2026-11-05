@@ -27,7 +27,7 @@ pub fn of(given: &Given) -> Option<(PathTuning, Rules<'static>)> {
     );
     let s = &given.scrum;
     let phases = [floats(s, 2)?, floats(s, 3)?, floats(s, 4)?, floats(s, 5)?, floats(s, 6)?];
-    let scrum = scrum_rules(ints(s, 0)?, real(s, 1)?, phases);
+    let mut scrum = scrum_rules(ints(s, 0)?, real(s, 1)?, phases);
     let a = &given.aftermath;
     let aftermath =
         aftermath_rules(ints(a, 0)?, floats(a, 1)?, ints(a, 2)?, floats(a, 3)?, floats(a, 4)?);
@@ -39,6 +39,7 @@ pub fn of(given: &Given) -> Option<(PathTuning, Rules<'static>)> {
     let e = &given.ending;
     let ending =
         ending_rules(ints(e, 0)?, [floats(e, 1)?, floats(e, 2)?, floats(e, 3)?, floats(e, 4)?]);
+    scrum.seek.threaded = ending.threaded;
     Some((climb, Rules { opening, scrum, aftermath, mustering, ending }))
 }
 
@@ -192,6 +193,7 @@ pub(crate) fn seek_rules(i: &[i64], f: &[f64]) -> scrum::seek::Rules {
         drag: f[7],
         block: f[8],
         front: f[9],
+        threaded: Threads::One, // the tick's, set in `of` from the ending's
     }
 }
 

@@ -4013,6 +4013,27 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   threaded-or-not tests take `Always`, so they thread at their small sizes. CI's both-ways
   digests and trials are the identity check.
 
+### Step 10c-ii, seek, walk and facing on the pool
+
+- **Built** (2026-11-05), on 10c-i's branch before it merged (cascade #727). No outcome
+  changes. Each pass asks `threaded.on(units)` with its units, as parting does, and the tick
+  hands the ending's `Threads` to the scrum's seek rules (`tick::rules::of`):
+  - **The walk** (`walking::walk`) takes each unit's step apart and writes them in member
+    order. Each step reads only the bodies as they stood before the walk.
+  - **The facing** (`facing::face`) writes the walked points first, on one thread. Then it
+    turns each squad apart (its foes indexed, its units' bearings) and joins them in squad
+    order.
+  - **The seek** (`scrum::plan`): each squad's search (`Search::squad`: its seekers, their
+    contest keys, the units touching a foe, and a ring for each radius, with the bodies on
+    each slot) reads only the field and the crowd, so the squads search apart. The rings are
+    then listed in squad order, each seeker's ring index offset to match, as before. The
+    claims (`kept`, `pick`, `aim`, `press`) stay serial in contest order: each reads the
+    claims before it, and a slot found claimed is marked dead for all.
+- **Scenarios:** a 40-unit walk with every code and bodies lying, a three-squad facing of 90
+  units, and a three-squad seek of 44 units are the same on one thread and on the pool
+  (`Threads::Always`) (`walking/tests.rs`, `facing/tests.rs`, `scrum/tests.rs`). CI's both-ways
+  digests and trials are the identity check over whole battles.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

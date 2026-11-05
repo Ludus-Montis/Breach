@@ -40,6 +40,7 @@ pub(crate) fn rules() -> Rules {
             drag: 0.5,
             block: 0.9,
             front: 0.5,
+            threaded: crate::threads::Threads::One,
         },
         regroup: regroup::Rules {
             regroup: regrouping::Rules {

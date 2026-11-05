@@ -22,6 +22,7 @@ use crate::roster::{Member, Roster};
 use crate::scrum::{Params, AIM, PRESS, TOUCH};
 use crate::seeking::{self, SquadSay};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::walk_store::{self, WalkSay};
 use crate::walking;
 
@@ -46,6 +47,9 @@ pub struct Rules {
     pub block: f64,
     /// The least dot for a point to be in front (ScrumReach.in_front).
     pub front: f64,
+    /// Whether the seek's searches, the walk and the facing run on the pool (the tick's,
+    /// as parting's).
+    pub threaded: Threads,
 }
 
 /// FormationScrum._seek over the roster's squads on `ground` (none: open). Returns the ids
@@ -66,6 +70,7 @@ pub fn step(
         die: rules.die,
         reach: rules.reach,
         leash: rules.leash,
+        threaded: rules.threaded,
     };
     let mut within = |flat: i32, p: V2| match ground {
         Some(g) => g.crossing(&synced[flat as usize].walker, p, p) > 0.0,
@@ -95,6 +100,7 @@ pub fn step(
         seconds: rules.seconds,
         pace: rules.pace,
         crowding: rules.crowding,
+        threaded: rules.threaded,
     };
     let valued = Key::Toward.valued();
     let (foe_ids, members) = (&gathered.foe_ids, &gathered.members);
@@ -264,6 +270,7 @@ fn walk(
         clear: rules.clear,
         drag: rules.drag,
         block: rules.block,
+        threaded: rules.threaded,
     };
     let bits = [Key::Toward.bit(), Key::Toward.valued()];
     walk_store::walk(field, planned, &say, members, codes, nexts, speeds, bits, &params);
