@@ -22,7 +22,7 @@ var lane_width := COLUMNS
 ## [[rank, column, depth, width, filled, preferred position, kind, progress], ...] from
 ## FormationSkirmishReadout.lane().
 var places := []
-## Fill colour by the unit's preferred band (UnitDef.Position): front, mid, back.
+## Fill colour by the unit's preferred band (the unit's `preferred_position`): front, mid, back.
 var band_colors := [Color("#b3761d"), Color("#8a6fb3"), Color("#3f8f86")]
 
 var _last_cell := Vector2i(-1, -1)

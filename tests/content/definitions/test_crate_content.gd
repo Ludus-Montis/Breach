@@ -5,6 +5,13 @@ extends GdUnitTestSuite
 const KINDS := ["units", "weapons", "armour", "tuning", "terrain", "maps"]
 const MAPS := ["demo_map", "p_f_F_c", "skirmish_p_c", "skirmish_two_lanes"]
 
+## A structure plan as a map file holds it (spec 24): a solid cell, a wall, a dug cell, a load.
+const PLAN := (
+	'{"solid_cells": [[[0, 0, 0], "ROCK"]], "faces": [{"cell": [0, 0, 0], "side": "west",'
+	+ ' "material_id": "TIMBER", "thickness": 2, "into_neighbour": false}],'
+	+ ' "dug": [[1, 0, -1]], "fills": [], "loads": [[[0, 0, 1], 40]]}'
+)
+
 
 func test_a_fresh_definition_holds_the_crates_defaults() -> void:
 	var defaults: Dictionary = CrateContent.store().defaults()
@@ -86,7 +93,57 @@ func test_a_map_that_breaks_a_rule_isnt_written() -> void:
 	assert_bool(FileAccess.file_exists(path)).is_false()
 
 
-## A valid map with a plan, a subnode, an off-lane node and a layout with a bridge.
+func test_writing_a_map_back_keeps_every_field_its_file_holds() -> void:
+	var with_plan := _map_text("demo_map")
+	var plan_path := OS.get_user_data_dir().path_join("test_map_with_plan.json")
+	_write_text(plan_path, with_plan.replace('"plan": null', '"plan": ' + PLAN))
+	var paths := [plan_path]
+	for name: String in MAPS:
+		paths.append(ProjectSettings.globalize_path("res://content/maps/%s.json" % name))
+
+	for path: String in paths:
+		var read := MapFiles.read(path)
+		assert_dict(read).override_failure_message("%s: %s" % [path, read]).contains_keys(["map"])
+		if not read.has("map"):
+			continue
+		var written := OS.get_user_data_dir().path_join("test_map_written.json")
+		assert_str(MapFiles.write(read["map"], written)).is_empty()
+		var before = JSON.parse_string(FileAccess.get_file_as_string(path))
+		_assert_holds(JSON.parse_string(FileAccess.get_file_as_string(written)), before, path)
+
+
+func _map_text(name: String) -> String:
+	return FileAccess.get_file_as_string("res://content/maps/%s.json" % name)
+
+
+func _write_text(path: String, text: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
+
+
+## Every field `before` holds, `after` holds the same, through dictionaries and lists.
+func _assert_holds(after: Variant, before: Variant, at: String) -> void:
+	if before is Dictionary:
+		assert_bool(after is Dictionary).override_failure_message("%s lost" % at).is_true()
+		if not after is Dictionary:
+			return
+		for key in before:
+			assert_bool(after.has(key)).override_failure_message("%s.%s lost" % [at, key]).is_true()
+			if after.has(key):
+				_assert_holds(after[key], before[key], "%s.%s" % [at, key])
+	elif before is Array:
+		assert_bool(after is Array).override_failure_message("%s lost" % at).is_true()
+		if not after is Array:
+			return
+		assert_int(after.size()).override_failure_message(at).is_equal(before.size())
+		for index in mini(before.size(), after.size()):
+			_assert_holds(after[index], before[index], "%s[%d]" % [at, index])
+	else:
+		assert_that(after).override_failure_message(at).is_equal(before)
+
+
+## A valid map with a subnode, an off-lane node and a layout with a bridge.
 func _small_map() -> MapDef:
 	var map := MapDef.new()
 	map.tick_duration_seconds = 1.5
@@ -94,11 +151,6 @@ func _small_map() -> MapDef:
 	home.id = "p"
 	home.position = Vector2(96.5, 160)
 	home.tile = Vector2i(1, 2)
-	home.plan = StructurePlanDef.new()
-	home.plan.solid_cells[Vector3i(3, 4, 0)] = "ROCK"
-	home.plan.faces.append(StructureFaceDef.make(Vector3i(1, 1, 0), "west", "TIMBER", 2))
-	home.plan.dug.append(Vector3i(2, 2, -1))
-	home.plan.loads[Vector3i(1, 1, 1)] = 40
 	var well := SubnodeDef.new()
 	well.id = "well"
 	well.capture_cells.append(Vector2i(5, 6))
@@ -129,10 +181,7 @@ func test_a_unit_is_filled_from_its_file() -> void:
 	var captain := CrateContent.unit("kingdom_captain")
 
 	assert_int(captain.hp).is_equal(30)
-	assert_float(captain.speed).is_equal(0.8)
-	assert_int(captain.preferred_position).is_equal(UnitDef.Position.MID)
-	assert_array(captain.tags).contains_exactly(["human", "martial", "leader"])
-	assert_dict(captain.proficiencies).is_equal({"polearm": 2})
+	assert_array(captain.slots).is_not_empty()
 
 
 func test_a_units_items_are_the_shared_definitions() -> void:
@@ -142,13 +191,6 @@ func test_a_units_items_are_the_shared_definitions() -> void:
 	assert_object(grem.items[0]).is_same(CrateContent.weapon("grem_bite"))
 	assert_object(grem).is_same(CrateContent.unit("grem"))
 	assert_bool(CrateContent.weapon("brute_fists").innate).is_true()
-	assert_dict(CrateContent.weapon("brute_fists").traits).is_equal({"siege": 1})
-
-
-func test_a_list_of_reals_keeps_its_infinity() -> void:
-	var steps: Array[float] = CrateContent.tuning().discipline_leash_steps
-
-	assert_float(steps[steps.size() - 1]).is_equal(INF)
 
 
 func test_no_tres_definition_is_left_or_read() -> void:

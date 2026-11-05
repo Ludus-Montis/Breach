@@ -215,7 +215,7 @@ impl Default for Subnode {
     }
 }
 
-/// A structure's plan (`StructurePlanDef`, spec 24). Each keyed field is a list of
+/// A structure's plan (spec 24), the crate's alone (spec 39 step 9e-ii). Each keyed field is a list of
 /// `[cell, value]` pairs in the order the designer drew them.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
@@ -231,7 +231,7 @@ pub struct StructurePlan {
     pub loads: Vec<(Cell3, i64)>,
 }
 
-/// A wall or floor (`StructureFaceDef`).
+/// A wall or floor in a structure's plan.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct StructureFace {
