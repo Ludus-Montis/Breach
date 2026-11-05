@@ -352,10 +352,14 @@ default: a pass runs on Rayon's pool from `threads::FROM`, 4,096 units, so a sma
 on one thread), `false` (one thread) or `always` (the pool at any size). `breach_digest` and
 `breach_trials` take it too, and CI's `sim-checks` takes each digest set, every trial scenario
 and the fatigue trials with `threaded=false` and `threaded=always` and requires them equal to
-the default's, to the byte. The game threads only under `BREACH_NATIVE_THREADS=1` until step
-10c-iii turns threads on by default. The passes that thread: parting, and (10c-ii) the walk
-and the facing, whole, and the seek's per-squad search. The seek's claims stay on one thread in
-contest order, since each reads the claims before it.
+the default's, to the byte. The game threads the same way by default (step 10c-iii):
+`BREACH_NATIVE_THREADS=0` keeps it on one thread and `always` puts every pass on the pool. The
+passes that thread: parting, and (10c-ii) the walk and the facing, whole, and the seek's
+per-squad search. The seek's claims stay on one thread in contest order, since each reads the
+claims before it. (10c-iii) The rout's flight, each router's step and crush taken apart and
+written in order, its rallies' searches and its regroup's enemy search; and tend's takers'
+searches, each body's guard read first. What each lands (crushes, panics, joins, takings)
+stays on one thread in order.
 
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):

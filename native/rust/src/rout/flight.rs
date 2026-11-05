@@ -44,16 +44,26 @@ pub struct Flight<'a> {
     pub ground: Option<&'a Ground>,
 }
 
+/// Where a router's step leaves it: its fan out from its route's line, its offset off it
+/// and its cells along it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stepped {
+    pub fanned: f64,
+    pub offset: V2,
+    pub along: f64,
+}
+
 /// A router's step (RoutFlight.step): towards home along its route and out to the side, or
 /// towards its refuge, from `at`, where it stands. `friends` is None when its faction has no
-/// friend standing.
+/// friend standing. Reads only the router's own columns, so the routers step apart (`land`
+/// writes each).
 pub fn step(
-    columns: &mut Columns,
+    columns: &Columns,
     flight: &Flight,
     unit: &Member,
     at: V2,
-    friends: Option<&mut Friends>,
-) {
+    friends: Option<&Friends>,
+) -> Stepped {
     let slot = unit.slot;
     let full = columns.speed[slot] * flight.pace;
     let mut aside = det_math::sin(fan(unit.id, flight.seed, flight.fan_degrees)) * full;
@@ -80,7 +90,16 @@ pub fn step(
     let ahead = (full * full - aside * aside).sqrt() * signf(flight.home - along);
     let stepped = at.add(side.scale(aside)).add(heading.scale(ahead));
     let paid = mover::share(flight.ground, &unit.walker, at, stepped);
-    entries::keep(columns, slot, Key::Fanned, Value::Real(fanned + aside * paid));
-    columns.flee_offset[slot] = columns.flee_offset[slot].add(side.scale(aside).scale(paid));
-    columns.along[slot] = move_toward(along, flight.home, ahead.abs() * paid);
+    Stepped {
+        fanned: fanned + aside * paid,
+        offset: columns.flee_offset[slot].add(side.scale(aside).scale(paid)),
+        along: move_toward(along, flight.home, ahead.abs() * paid),
+    }
+}
+
+/// Writes a router's step into the store slot `slot`.
+pub fn land(columns: &mut Columns, slot: usize, stepped: Stepped) {
+    entries::keep(columns, slot, Key::Fanned, Value::Real(stepped.fanned));
+    columns.flee_offset[slot] = stepped.offset;
+    columns.along[slot] = stepped.along;
 }

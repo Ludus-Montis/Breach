@@ -38,6 +38,16 @@ impl Threads {
         }
     }
 
+    /// The game's `BREACH_NATIVE_THREADS`: unset (the default) or anything else the pool from
+    /// the threshold, `0` one thread, `always` the pool at any size (spec 39 step 10c-iii).
+    pub fn of_env(value: Option<&str>) -> Threads {
+        match value {
+            Some("0") => Threads::One,
+            Some("always") => Threads::Always,
+            _ => Threads::Pool,
+        }
+    }
+
     /// The tick's argument (FormationEnding.args' third int).
     pub fn code(self) -> i64 {
         match self {

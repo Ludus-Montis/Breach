@@ -40,6 +40,9 @@ pub fn of(given: &Given) -> Option<(PathTuning, Rules<'static>)> {
     let ending =
         ending_rules(ints(e, 0)?, [floats(e, 1)?, floats(e, 2)?, floats(e, 3)?, floats(e, 4)?]);
     scrum.seek.threaded = ending.threaded;
+    let (mut aftermath, mut mustering) = (aftermath, mustering);
+    aftermath.wounds.threaded = ending.threaded;
+    mustering.rout.threaded = ending.threaded;
     Some((climb, Rules { opening, scrum, aftermath, mustering, ending }))
 }
 
