@@ -10,7 +10,9 @@
 //! rehearsal.
 
 pub mod actions;
+mod binding;
 pub mod carried;
+pub mod seen;
 #[cfg(test)]
 mod tests;
 

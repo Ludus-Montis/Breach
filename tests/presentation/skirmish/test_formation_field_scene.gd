@@ -1,15 +1,13 @@
 extends GdUnitTestSuite
 ## FormationFieldScene smoke tests, per Decisions 86 and 87 and spec 27: the 2D field
-## builds, its waves fill and can be sent, and squads stand in 2D on their routes. How it
+## builds, its waves fill and can be sent, and squads stand in 2D on their routes. The field
+## is the crate's (`FieldState`, spec 39 step 9d-i), read by the scene and its HUD. How it
 ## plays - marching, wheeling, meeting head-on - is checked by hand.
 
 const FormationFieldScene = preload(
 	"res://presentation/skirmish/formation_2d/formation_field_scene.gd"
 )
-const FormationField = preload("res://sim/skirmish/formation/formation_field.gd")
-const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
 const FormationFieldHud = preload("res://presentation/skirmish/formation_2d/formation_field_hud.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
 const SCENE := "res://presentation/skirmish/formation_2d/formation_field.tscn"
 
 
@@ -20,12 +18,17 @@ func _scene() -> FormationFieldScene:
 	return scene
 
 
+func _hud(scene: FormationFieldScene) -> FormationFieldHud:
+	return scene.get_children().filter(func(c): return c is FormationFieldHud)[0]
+
+
 func test_the_scene_builds_the_field_with_the_kingdom_line() -> void:
 	var scene := _scene()
 
 	assert_object(scene.field()).is_not_null()
-	assert_array(scene.field().routes.keys()).contains_exactly(["A", "B", "C"])
-	assert_int(scene.field().sim.squads().size()).is_equal(2)  # the line and its reserve
+	assert_array(scene.field().routes().keys()).contains_exactly(["A", "B", "C"])
+	assert_int(scene.field().squads().size()).is_equal(2)  # the line and its reserve
+	assert_array(Array(scene.field().kingdom())).has_size(2)
 
 
 func test_a_sent_wave_marches_down_its_route_in_2d() -> void:
@@ -35,26 +38,27 @@ func test_a_sent_wave_marches_down_its_route_in_2d() -> void:
 	scene.act("send A")
 	scene.run_ticks(20)
 
-	var squads := scene.field().sim.squads()
+	var squads: Array = scene.field().squads()
 	assert_int(squads.size()).is_equal(3)
-	var wave = squads[2]
-	assert_float(wave.position.y).is_equal_approx(32.0, 0.01)
-	assert_float(wave.position.x).is_greater(0.0)
-	for unit in wave.living():
-		var at: Vector2 = wave.store.columns.value(unit.slot, UnitColumns.POSITION)
-		assert_float(at.y).is_between(27.0, 37.0)
+	var wave: Dictionary = squads[2]
+	assert_str(wave["faction"]).is_equal("player")
+	assert_float(wave["position"].y).is_equal_approx(32.0, 0.01)
+	assert_float(wave["position"].x).is_greater(0.0)
+	var at: PackedVector2Array = scene.field().positions()
+	for unit in wave["units"]:
+		assert_float(at[unit["slot"]].y).is_between(27.0, 37.0)
 
 
 func test_waves_can_be_sent_together_and_b_can_wait() -> void:
 	var scene := _scene()
-	scene.field().set_wait(true)
+	scene.act("wait on")
 	scene.run_ticks(200)
 
-	var sent: Array = scene.field().send_together(["A", "B"])
+	scene.act("send A+B")
 	scene.run_ticks(5)
 
-	assert_int(sent.size()).is_equal(2)
-	assert_bool(scene.field().waves["B"].staging.is_empty()).is_false()
+	assert_int(scene.field().squads().size()).is_equal(4)
+	assert_object(scene.field().staging_point()).is_equal(Vector2(56, 21))
 
 
 func test_the_line_can_be_given_a_captain() -> void:
@@ -62,8 +66,8 @@ func test_the_line_can_be_given_a_captain() -> void:
 
 	scene.restart(true, 7)
 
-	var line = scene.field().kingdom_line
-	assert_bool(line.living().any(func(u): return u.leadership > 0)).is_true()
+	var line: Dictionary = scene.field().squads()[0]
+	assert_bool(line["units"].any(func(u): return u["leadership"] > 0)).is_true()
 
 
 func test_reset_starts_a_fresh_field_under_a_seed() -> void:
@@ -74,8 +78,8 @@ func test_reset_starts_a_fresh_field_under_a_seed() -> void:
 	scene.restart(false, 42)
 
 	assert_object(scene.field()).is_not_same(before)
-	assert_int(scene.field().sim.fight_seed).is_equal(42)
-	assert_int(scene.field().sim.tick_number()).is_equal(0)
+	assert_int(scene.field().battle_seed()).is_equal(42)
+	assert_int(scene.field().tick_number()).is_equal(0)
 
 
 func test_a_sent_wave_can_be_ordered_to_retreat() -> void:
@@ -85,10 +89,11 @@ func test_a_sent_wave_can_be_ordered_to_retreat() -> void:
 	scene.run_ticks(5)
 
 	scene.act("retreat A")
-	scene.run_ticks(1)
+	var events := scene.run_ticks(1)
 
-	var wave = scene.field().sim.squads()[2]
-	assert_int(wave.order).is_equal(2)  # SkirmishUnit.Order.RETREAT
+	var applied := events.filter(func(e): return e["type"] == "order_applied")
+	assert_array(applied).is_not_empty()
+	assert_str(applied[0]["order"]).is_equal("RETREAT")
 
 
 func test_actions_are_logged_with_their_ticks_after_the_seed() -> void:
@@ -108,21 +113,34 @@ func test_a_pasted_log_replays_live_as_the_headless_replay_does() -> void:
 		% SimBuild.id()
 	)
 	var scene := _scene()
-	var read := FormationFieldActions.parse(log)
+	var read: Dictionary = NativeLibrary.made("FieldState").read_record(log)
 	scene.restart(read["captained"], read["seed"], read["commands"])
 
 	scene.run_ticks(200)
 
-	var headless := FormationFieldActions.replay(log, 200 - 40)
+	var headless: Object = _replayed(read, 200)
 	assert_str(scene.action_log()).is_equal(log)
-	assert_int(scene.field().sim.tick_number()).is_equal(headless.sim.tick_number())
+	assert_int(scene.field().tick_number()).is_equal(headless.tick_number())
 	assert_str(str(_fronts(scene.field()))).is_equal(str(_fronts(headless)))
 
 
-func _fronts(field: FormationField) -> Array:
+## `read`'s field played headless: each command given at its tick, `ticks` ticks in all.
+func _replayed(read: Dictionary, ticks: int) -> Object:
+	var field: Object = NativeLibrary.made("FieldState")
+	field.open(CrateContent.store(), read["seed"], read["captained"], SimBuild.id())
+	var queued: Array = read["commands"].duplicate()
+	for _i in range(ticks):
+		while not queued.is_empty() and queued[0]["tick"] <= field.tick_number():
+			field.give(queued.pop_front())
+		field.step()
+	return field
+
+
+func _fronts(field: Object) -> Array:
 	var rows := []
-	for squad in field.sim.squads():
-		rows.append([squad.state, squad.position, squad.living().size()])
+	for squad in field.squads():
+		var living: int = squad["units"].filter(func(u): return u["alive"]).size()
+		rows.append([squad["state"], squad["position"], living])
 	return rows
 
 
@@ -130,7 +148,7 @@ func test_replay_plays_the_pasted_log_not_this_runs() -> void:
 	var scene := _scene()
 	scene.run_ticks(3)
 	scene.act("send A")
-	var hud: FormationFieldHud = scene.get_children().filter(func(c): return c is FormationFieldHud)[0]
+	var hud := _hud(scene)
 	hud._replay_view.text = "seed 492625 captain off\n22 via_c on\n129 send A+B"
 	hud.show_status(scene.field(), true, 1)  # a frame passes: the pasted log is kept
 
@@ -142,18 +160,30 @@ func test_replay_plays_the_pasted_log_not_this_runs() -> void:
 	assert_str(scene.action_log()).is_equal(recorded)  # an old log, recorded afresh
 
 
+func test_the_hud_counts_the_waves_places_and_the_line() -> void:
+	var scene := _scene()
+	scene.restart(true, 7)
+	var hud := _hud(scene)
+	scene.run_ticks(1)
+
+	hud.show_status(scene.field(), true, 7)
+
+	assert_str(hud._status.text).contains("Waves: A 0/8, B 0/8 + leader 0/1")
+	assert_str(hud._status.text).contains("Line: 12 (holding)")
+
+
 func test_a_pursuing_line_shows_how_far_it_has_gone_of_its_leash() -> void:
 	var scene := _scene()
 	scene.restart(true, 606531)  # a captained line: discipline 50, a 64-cell leash
 	scene.act("pursues on")
-	var hud: FormationFieldHud = scene.get_children().filter(func(c): return c is FormationFieldHud)[0]
-	var wave = null
+	var hud := _hud(scene)
+	var sent := false
 	for _i in range(3000):
-		if wave == null and scene.field().waves["A"].built() == 8:
+		if not sent and scene.field().waves()["A"][0] == 8:
 			scene.act("send A")
-			wave = scene.field().sim.squads()[-1]
+			sent = true
 		scene.run_ticks(1)
-		if wave != null and wave.state == SkirmishSquad.State.FIGHTING:
+		if sent and scene.field().squads()[-1]["state"] == "FIGHTING":
 			break
 	scene.run_ticks(30)
 	scene.act("retreat A")

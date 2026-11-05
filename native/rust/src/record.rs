@@ -9,6 +9,8 @@ mod tests;
 
 pub const PLAYER: &str = "player";
 pub const KINGDOM: &str = "kingdom";
+/// The format's version a record is written in (FormationRecord.VERSION).
+pub const VERSION: i64 = 2;
 
 /// A command: its tick, who gives it, the order, its target and its value ("" where it takes
 /// none).
@@ -42,6 +44,28 @@ pub fn command(tick: i64, who: &str, order: &str, target: &str, value: &str) -> 
         target: owned(target),
         value: owned(value),
     }
+}
+
+/// FormationRecord.header: the record's first line, naming its version, the battle's seed,
+/// whether the line is captained and, if stamped, the build that played it.
+pub fn header(seed: i64, captained: bool, build: &str) -> String {
+    let on = if captained { "on" } else { "off" };
+    let head = format!("record {VERSION} seed {seed} captain {on}");
+    if build.is_empty() {
+        head
+    } else {
+        format!("{head} build {build}")
+    }
+}
+
+/// FormationRecord.line: `given` as one line of a record.
+pub fn line(given: &Command) -> String {
+    let mut words = vec![given.tick.to_string(), given.who.clone(), given.order.clone()];
+    words.push(given.target.clone());
+    if !given.value.is_empty() {
+        words.push(given.value.clone());
+    }
+    words.join(" ")
 }
 
 /// FormationRecord.from_words: the feel test's words ("send A", "via_c on", "pursues off",

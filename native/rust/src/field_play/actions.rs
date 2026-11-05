@@ -22,7 +22,7 @@ use crate::staging::Stage;
 use crate::waves::Produced;
 
 /// Where B's waiting wave holds, along its route (FormationField.STAGING's x), in cells.
-const STAGING_AT: f64 = 56.0;
+pub(super) const STAGING_AT: f64 = 56.0;
 /// How long a waiting wave holds before going anyway, in seconds.
 const WAIT_SECONDS: f64 = 60.0;
 /// Both waves sent at once (FormationField.send_together).
