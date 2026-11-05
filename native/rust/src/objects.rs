@@ -11,6 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The fields that are a code: a command's slot, or a definition's code.
+#[cfg(test)]
 pub const CODES: &[&str] = &["command", "origin", "definition"];
 
 /// One unit's objects, as codes. A slot newly given starts at SkirmishUnit's own defaults:

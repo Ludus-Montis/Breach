@@ -119,6 +119,7 @@ impl Codes {
 
 /// Sets `battle` up in `squads` and `field` from `content`'s definitions; None, with nothing
 /// written, if one of its definitions isn't there.
+#[cfg(test)]
 pub fn set_up(
     battle: &Battle,
     squads: &mut Squads,

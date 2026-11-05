@@ -11,7 +11,9 @@ const ArmourDef = preload("res://content/definitions/armour_def.gd")
 
 const UNITS := "res://content/units/"
 const WEAPONS := "res://content/weapons/"
-const CODE := ["res://sim/", "res://content/definitions/", "res://content/import/"]
+## Where the code that reads traits lives: the crate (the rules, since spec 39 step 9d-iv) and
+## the definitions.
+const CODE := ["res://native/rust/src/", "res://content/definitions/", "res://content/import/"]
 
 
 func test_the_registry_holds_together() -> void:
@@ -103,7 +105,7 @@ func _check_item(item: ItemDef, owner: String) -> void:
 
 func _scan(dir: String, read: RegEx, found: Dictionary) -> void:
 	for file in DirAccess.get_files_at(dir):
-		if file.ends_with(".gd"):
+		if file.ends_with(".gd") or file.ends_with(".rs"):
 			for match in read.search_all(FileAccess.get_file_as_string(dir + file)):
 				found[match.get_string(1)] = dir + file
 	for sub in DirAccess.get_directories_at(dir):

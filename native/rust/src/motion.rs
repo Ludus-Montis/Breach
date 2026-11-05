@@ -116,6 +116,7 @@ pub fn turning_to(unit: &Mover, wanted: f64, seconds: f64) -> (f64, bool) {
 
 /// UnitMotion.move: the unit's next point moving from `at` to `to` with `full_step` cells
 /// at full pace, at the pace its present bearing allows (it turns separately).
+#[cfg(test)]
 pub fn advance(unit: &Mover, at: V2, to: V2, full_step: f64) -> V2 {
     at.move_toward(to, full_step * pace(unit, to.sub(at), unit.bearing))
 }

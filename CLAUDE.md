@@ -2,8 +2,8 @@
 
 A reverse tower defence in Godot 4.7 (GDScript, with a Rust core under `native/`). The
 player is the overlord sending waves against a kingdom's forts. The deterministic
-simulation is in `sim/`, the scenes in `presentation/`, content and schema in `content/`,
-and the map designer (a local web app) in `tools/designer/`.
+simulation is the Rust crate (`native/rust/`), the scenes in `presentation/`, content and
+schema in `content/`, and the map designer (a local web app) in `tools/designer/`.
 
 The process is `AI_First_Development_Kit/`. This file points to it and doesn't repeat it.
 How sessions work together is `principles/agent-sessions.md`.
