@@ -3703,6 +3703,47 @@ Decision's conditions.
 - **After it**, 9e: `content/definitions/` and `content/import/` cut to what presentation
   reads.
 
+### Step 9e, the definitions cut to what presentation reads (survey; split proposed)
+
+- **Survey** (2026-11-05): `content/definitions/` holds 35 GDScript classes (about 1,800
+  lines) and `content/import/` one (DesignerMapImporter, 35 lines); 17 gdUnit files under
+  `tests/content/` (about 1,460 lines) test them. Outside `content/` and the tests:
+  - **Presentation, `main.gd` and the map scene's authoring read:** CrateContent,
+    NativeLibrary and MapFiles; MapDef and all it holds (nodes, lanes, edges, loss groups,
+    the layout, its tiles, elevation, and the terrain library's terrains, strata and
+    features: `map_details.gd`, `map_layout_view.gd`, `map_view*.gd`, `map_art_set.gd`);
+    ResponseUnitDef and FactionDef (`.tres`); and of the units only `grem`'s `hp`,
+    `cost_food` and `melee_damage()` (`main.gd`, `wave_form_panel.gd`), which reads its
+    weapons' `damage`. The authoring (`content/authoring/`) builds MapDefs and writes them
+    through `MapFiles.write`, which serialises the GDScript objects.
+  - **Read by nothing but their tests and the crate's `ContentStore`:** UnitArms,
+    BattleTuning (with `ContentStore.tuning` and `CrateContent.tuning`), ContentRegistry,
+    ArmourDef, StructurePlanDef and StructureFaceDef (with `DesignerMapImporter.plan` and
+    `ContentStore.plan_from_export`), and most of UnitDef's, ItemDef's and WeaponDef's fields.
+  - **The checks the crate doesn't hold:** `UnitDef.validate`, `ItemDef.validate`,
+    `WeaponDef.validate`, `ArmourDef.validate` and ContentRegistry's `tag_errors` and
+    `trait_errors` (hp, footprints, build time, priority, slots that fit, weights and
+    strength, every unit's and item's traits and tags registered) run only in gdUnit
+    (`test_unit_def`, `test_item_def`, `test_weapon_def`, `test_content_registry`).
+    `Content::load` checks fields, types and that each named item exists, not these. Part
+    of `TerrainLibraryDef.validate` (duplicate ids, `min_cells` over `max_cells`,
+    `foundation_max` under `bearing`) is to be confirmed against the crate's terrain checks.
+    Cutting the GDScript classes as they stand would drop those checks, so 9e can't be one
+    identical cut.
+- **Split proposed** (for the user; standing rule 2 of cascade #716 asks first):
+  - **9e-i** the content's checks in the crate: the unit, item, weapon and armour checks
+    and the registry's (`content/registry/`, its tags and traits) ported into
+    `Content::load`, failing the load naming the file, with cargo tests red then green; the
+    terrain library's remaining checks the same. The GDScript `validate()`s and their gdUnit
+    tests retired with them.
+  - **9e-ii** the cut: UnitArms, BattleTuning, ContentRegistry, ArmourDef, StructurePlanDef
+    and StructureFaceDef gone, with the `ContentStore` methods and defaults only they had;
+    UnitDef, ItemDef and WeaponDef cut to what presentation reads; DesignerMapImporter kept
+    to `import_map` (presentation's tests build maps with it); the map's definitions kept
+    whole, since presentation and the authoring read them; `test_crate_content` and
+    `test_content_registry`'s trait-read scan narrowed or moved to cargo. Its PR closes
+    step 9.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in
