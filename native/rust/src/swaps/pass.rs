@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::events::{self, Log};
 use crate::field::Field;
@@ -69,8 +69,9 @@ fn start(squads: &mut Squads, field: &mut Field, s: usize, pace: [f64; 3]) -> bo
         squads.living(s, &field.columns.state).into_iter().map(|u| u as usize).collect();
     let living: Vec<(i64, usize)> =
         slots.iter().map(|&slot| (field.unit_at(slot as u32).unwrap_or(0), slot)).collect();
+    let joined: HashSet<i64> = squads.joined[s].iter().copied().collect(); // not searched a unit
     let ranked: Vec<Ranked> =
-        living.iter().map(|&(id, slot)| ranked(squads, field, s, (id, slot))).collect();
+        living.iter().map(|&(id, slot)| ranked(field, &joined, (id, slot))).collect();
     let (claimed, busy) = super::claims(squads, s, &slots);
     let shape = shuffle::Squad {
         width: squads.width[s],
@@ -144,7 +145,7 @@ impl Reforms {
 }
 
 /// A living unit as `march::shuffle` takes it, read from its columns and sheet.
-fn ranked(squads: &Squads, field: &Field, s: usize, (id, slot): (i64, usize)) -> Ranked {
+fn ranked(field: &Field, joined: &HashSet<i64>, (id, slot): (i64, usize)) -> Ranked {
     let (columns, sheet) = (&field.columns, &field.columns.sheet[slot]);
     Ranked {
         place: (columns.rank[slot], columns.column[slot]),
@@ -153,6 +154,6 @@ fn ranked(squads: &Squads, field: &Field, s: usize, (id, slot): (i64, usize)) ->
         preferred_position: sheet.preferred_position as i32,
         position_priority: sheet.position_priority as i32,
         speed: columns.speed[slot],
-        joined: squads.joined[s].contains(&id),
+        joined: joined.contains(&id),
     }
 }
