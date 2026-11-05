@@ -13,17 +13,6 @@ func _weapon(damage: int, attack_range: int) -> WeaponDef:
 	return weapon
 
 
-func test_a_valid_weapon_has_no_errors() -> void:
-	assert_array(_weapon(3, 0).validate()).is_empty()
-
-
-func test_negative_damage_or_range_is_invalid() -> void:
-	var errors := Array(_weapon(-1, -1).validate())
-
-	assert_bool(errors.any(func(message): return message.contains("damage"))).is_true()
-	assert_bool(errors.any(func(message): return message.contains("attack_range"))).is_true()
-
-
 func test_a_weapon_without_range_is_melee() -> void:
 	assert_bool(_weapon(3, 0).is_melee()).is_true()
 	assert_bool(_weapon(4, 5).is_melee()).is_false()

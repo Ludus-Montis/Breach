@@ -42,6 +42,18 @@ generated from them, for the designer and editors to validate against.
   (`units/grem.json: slots[1]: ...`,
   `terrain/terrain_library.json: terrains[0].strata[1].material_id: ...`,
   `maps/demo_map.json: lanes[0].nodes[1]: ...`).
+- **Rules.** The load also fails, naming the file and the field, on content that breaks the
+  rules in `native/rust/src/content/checks.rs`: a unit's sheet out of bounds (`hp` below 0, a
+  footprint outside 1..8, `build_seconds` or `attack_speed` not above 0, `critical` below 1),
+  its items needing slots its body hasn't free, or an innate one part of a body part it
+  hasn't; an item's weight, strength or attack profile out of bounds; a terrain library with
+  an empty or repeated id, no base terrain, a stratum or liquid body out of its bounds, a
+  liquid of a material that doesn't flow, or a heat transition that does nothing.
+- **The registry.** `content/registry/` (`tags.json`, `traits.json`, `statuses.json`,
+  Decision 128) is loaded with the rest and holds it: every trait a unit, item or material
+  has, and every tag a unit or item has, must be registered and allowed there
+  (`units/grem.json: traits.guile: unknown trait 'guile'`). A trait's tags say where it may
+  sit; an implicit trait (one with a `default`) must be a unit's.
 
 A change to the structs regenerates the schema: `BLESS_SCHEMA=1 cargo test schema` in
 `native/rust/`. A test fails while a checked-in schema is stale. It also updates the designer

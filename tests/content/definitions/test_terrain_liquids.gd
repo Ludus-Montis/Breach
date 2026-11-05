@@ -57,14 +57,6 @@ func _library() -> TerrainLibraryDef:
 	return library
 
 
-func _any(errors: PackedStringArray, needle: String) -> bool:
-	return Array(errors).any(func(m): return m.contains(needle))
-
-
-func test_a_library_of_bodies_and_transitions_validates() -> void:
-	assert_array(Array(_library().validate())).is_empty()
-
-
 func test_a_trait_has_a_level_and_an_absent_trait_is_zero() -> void:
 	var lava := _library().material("LAVA")
 
@@ -75,41 +67,6 @@ func test_a_trait_has_a_level_and_an_absent_trait_is_zero() -> void:
 func test_a_material_that_flows_is_a_liquid() -> void:
 	assert_bool(_library().material("WATER").is_liquid()).is_true()
 	assert_bool(_library().material("ROCK").is_liquid()).is_false()
-
-
-func test_a_body_of_an_unknown_material_is_an_error() -> void:
-	var library := _library()
-	library.terrains[0].liquids.append(_body("MERCURY", 1, 2, 0.5))
-
-	assert_bool(_any(library.validate(), "unknown material 'MERCURY'")).is_true()
-
-
-func test_a_body_of_a_material_that_doesnt_flow_is_an_error() -> void:
-	var library := _library()
-	library.terrains[0].liquids.append(_body("ROCK", 1, 2, 0.5))
-
-	assert_bool(_any(library.validate(), "'ROCK' doesn't flow")).is_true()
-
-
-func test_a_chance_outside_zero_to_one_is_an_error() -> void:
-	var library := _library()
-	library.terrains[0].liquids[0].surface_chance = 1.5
-
-	assert_bool(_any(library.validate(), "chance")).is_true()
-
-
-func test_a_transition_becoming_an_unknown_material_is_an_error() -> void:
-	var library := _library()
-	library.materials[0].heat_transitions.assign([_transition(7, true, "GLASS")])
-
-	assert_bool(_any(library.validate(), "becomes unknown 'GLASS'")).is_true()
-
-
-func test_a_transition_must_become_something_or_gain_a_trait() -> void:
-	var library := _library()
-	library.materials[1].heat_transitions.assign([_transition(3, true, "")])
-
-	assert_bool(_any(library.validate(), "becomes nothing and gains no trait")).is_true()
 
 
 func test_a_transition_reads_as_its_rule() -> void:
