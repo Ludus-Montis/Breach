@@ -5,9 +5,6 @@ extends Node2D
 ## no automated coverage of this file itself, per specs/08's own Notes; verified by
 ## the scripted headless run recorded in specs/06 and by manual playtest.
 
-const SuspicionSystem = preload("res://sim/suspicion_system.gd")
-const TaskForceDispatch = preload("res://sim/task_force_dispatch.gd")
-const ScriptedBeatWatcher = preload("res://sim/scripted_beat_watcher.gd")
 const SimulationClock = preload("res://sim/simulation_clock.gd")
 const CommandQueue = preload("res://sim/command_queue.gd")
 const LaneView = preload("res://presentation/lane_view.gd")
@@ -20,11 +17,11 @@ const NarrativeLog = preload("res://presentation/narrative_log.gd")
 const TickProgressIndicator = preload("res://presentation/tick_progress_indicator.gd")
 const HERO_PARTY_DEF: ResponseUnitDef = preload("res://content/response_units/hero_party.tres")
 
-## The lane, held by the crate (`LaneState`, native/rust/src/lane/, spec 39 step 9b-i).
+## The lane, held by the crate (`LaneState`, native/rust/src/lane/, spec 39 step 9b-i): the
+## one binding this reads. It holds the economy and the captures (`economy()`, an
+## `EconomyState`, step 9b-ii), giving it each capture, and the kingdom's response (`respond`:
+## the suspicion, the task forces and the win and loss, step 9b-iii).
 const LANE_CLASS := "LaneState"
-## The economy and the captures, held by the crate (`EconomyState`, native/rust/src/economy/,
-## spec 39 step 9b-ii).
-const ECONOMY_CLASS := "EconomyState"
 const P := 0
 const FARM := 1
 const FORT := 2
@@ -35,10 +32,6 @@ const FORT_CAPTURE_SPIKE := 25.0
 
 var _map: MapDef = CrateContent.map("p_f_F_c")
 var _lane: Object
-var _economy: Object
-var _suspicion: SuspicionSystem
-var _dispatch: TaskForceDispatch
-var _watcher: ScriptedBeatWatcher
 var _clock: SimulationClock
 var _queue: CommandQueue
 
@@ -81,15 +74,21 @@ func _process(delta: float) -> void:
 func _build_simulation() -> void:
 	_lane = NativeLibrary.made(LANE_CLASS)
 	_lane.start(_map.lanes[0].nodes)
-	_economy = NativeLibrary.made(ECONOMY_CLASS)
-	_suspicion = SuspicionSystem.new(_map.suspicion_tier_thresholds, _map.suspicion_decay_per_tick)
-	_dispatch = TaskForceDispatch.new(
-		_lane,
-		CORE,
-		-1,
-		{SuspicionSystem.Tier.MOBILIZED: {"hp": HERO_PARTY_DEF.hp, "dmg": HERO_PARTY_DEF.dmg}}
+	(
+		_lane
+		. respond(
+			{
+				"thresholds": _map.suspicion_tier_thresholds,
+				"decay_per_tick": _map.suspicion_decay_per_tick,
+				"core": CORE,
+				"spawn_index": CORE,
+				"spawn_direction": -1,
+				"units":
+				{NarrativeLog.Tier.MOBILIZED: {"hp": HERO_PARTY_DEF.hp, "dmg": HERO_PARTY_DEF.dmg}},
+			},
+			SimEvents
+		)
 	)
-	_watcher = ScriptedBeatWatcher.new(CORE)
 	_clock = SimulationClock.new()
 	_clock.tick_duration_seconds = _map.tick_duration_seconds
 	_clock.auto_pause_each_tick = true
@@ -127,7 +126,7 @@ func _build_lane_view() -> void:
 
 func _build_readouts() -> void:
 	var resource_bar := ResourceBar.new()
-	resource_bar.economy = _economy
+	resource_bar.economy = _lane.economy()
 	resource_bar.position = Vector2(20, 20)
 	add_child(resource_bar)
 
@@ -154,7 +153,7 @@ func _build_time_controls() -> void:
 
 func _build_wave_form_input() -> void:
 	_wave_form = WaveFormPanel.new()
-	_wave_form.economy = _economy
+	_wave_form.economy = _lane.economy()
 	_wave_form.command_queue = _queue
 	add_child(_wave_form)
 	_add_button("Queue Grem (8 food)", Vector2(20, 220), _on_queue_grem_button_pressed)
@@ -167,7 +166,7 @@ func _build_wave_form_input() -> void:
 
 func _build_capture_choice_input() -> void:
 	_capture_choice = CaptureChoicePanel.new()
-	_capture_choice.capture_resolution = _economy
+	_capture_choice.capture_resolution = _lane.economy()
 	add_child(_capture_choice)
 	_ravage_button = _add_button(
 		"Ravage Farm", Vector2(20, 260), func(): _capture_choice.on_ravage_pressed(FARM)
@@ -226,38 +225,28 @@ func _connect_events() -> void:
 
 func _on_tick_advanced(tick_number: int) -> void:
 	_queue.on_tick_advanced(tick_number)
-	_economy.on_tick_advanced(tick_number)
-	_suspicion.on_tick_advanced(tick_number)
-	var pre_movers: int = _lane.moving_blockers().size()
-	_lane.advance_positions(SimEvents)
-	if _dispatch.dispatched().size() > 0 and _lane.moving_blockers().size() < pre_movers:
-		_dispatch.mark_consumed(_dispatch.dispatched()[0])
-	_watcher.on_player_unit_count_changed(_player_unit_count())
+	_lane.on_tick_advanced(tick_number)
 	_update_choice_button_visibility()
-
-
-func _player_unit_count() -> int:
-	return _lane.units_of("player")
 
 
 func _update_choice_button_visibility() -> void:
 	_ravage_button.visible = _lane.node_state(FARM)["owner"] == "player"
-	_fortify_button.visible = _economy.is_awaiting_choice(FORT)
-	_dismantle_button.visible = _economy.is_awaiting_choice(FORT)
+	var economy: Object = _lane.economy()
+	_fortify_button.visible = economy.is_awaiting_choice(FORT)
+	_dismantle_button.visible = economy.is_awaiting_choice(FORT)
 
 
+## The lane has given the capture to its economy; its watcher tells a victory after this.
 func _on_node_captured(node_index: int) -> void:
-	_economy.on_node_captured(node_index, _map.lanes[0].nodes[node_index])
 	if node_index == FARM:
 		_lane.harvest(FARM, "player")
 	if node_index == FORT:
-		_suspicion.add_suspicion(FORT_CAPTURE_SPIKE)
-	_watcher.on_node_captured(node_index)
+		_lane.add_suspicion(FORT_CAPTURE_SPIKE)
 
 
 func _on_combat_resolved(node_index: int, _outcome: Dictionary) -> void:
 	if node_index == FORT:
-		_suspicion.add_suspicion(FORT_ENGAGE_SPIKE)
+		_lane.add_suspicion(FORT_ENGAGE_SPIKE)
 
 
 func _on_command_committed(command: Dictionary) -> void:
@@ -268,8 +257,8 @@ func _on_command_committed(command: Dictionary) -> void:
 	)
 
 
+## The lane has sent the tier's task force before telling it.
 func _on_suspicion_tier_changed(tier: int) -> void:
-	_dispatch.on_tier_entered(tier)
 	var message := NarrativeLog.message_for_tier(tier)
 	if message != "":
 		_narrative_label.append_text(message + "\n")

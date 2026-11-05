@@ -3397,6 +3397,59 @@ Decision's conditions.
   and a ravage given once, red against a stub that held no capture, then green.
 - **After it**, 9b-iii: the kingdom's response.
 
+### Step 9b-iii, the kingdom's response in the crate
+
+- **In the crate** (`src/kingdom.rs`, `breach_native::kingdom`): `Suspicion` is
+  SuspicionSystem (a meter clamped to 0..100, less its decay each tick, never below 0; its
+  tier from the map's four thresholds, each change told up or down; the meter read with its
+  fraction dropped, as GDScript's `int`; a threshold not given is never reached, where
+  GDScript's index was an error). `Dispatch` is TaskForceDispatch (a tier's unit spawned as
+  the defenders' mover; a task force held by its mover's id until completed or consumed),
+  with main.gd's rule after a tick (`after_tick`: fewer movers than before it and one
+  dispatched, the first dispatched is consumed). `Watcher` is ScriptedBeatWatcher (the Core
+  captured wins once; no player units left loses once).
+- **One binding** (the spec's "or held by it"): `LaneState` holds the economy and the
+  kingdom's response, so main.gd reads it alone. `economy()` is the `EconomyState` it holds
+  (the resource bar, the wave form and the capture choice are given it); `start` reads each
+  NodeDef's capture fields too, and each capture on the lane is given to the economy before
+  `node_captured` is emitted, then the watcher's `victory` after it, as main.gd's handler
+  ran them. `respond(response, events)` takes {thresholds, decay_per_tick, core,
+  spawn_index, spawn_direction, units {tier: {hp, dmg}}} and SimEvents
+  (`lane/binding/response.rs`). `add_suspicion` sends a change of tier's task force, then
+  emits `suspicion_tier_changed(tier)`, this lane lent while the handlers run (as
+  `advance_positions` lends it), so a spike a handler adds between arrivals sends a task
+  force a later wave meets that tick. `on_tick_advanced` is main.gd's tick after the queue:
+  the harvests, the decay, `advance_positions`, a lost task force consumed, the player's
+  units counted. `dispatched`, `mark_completed`, `mark_consumed`, `suspicion_meter` and
+  `suspicion_tier` as the classes had them.
+- **A tier's unit's dictionary stays its truth**, as GDScript shared it: the task force's
+  mover has that very dictionary as its `blocker`, so each clash's hp is written into it,
+  and a later dispatch for the tier sends what it then holds (0 hp after one destroyed).
+  Kept as it was; whether a second Hero Party should start whole is a design question, not
+  this port's.
+- **The narrative log** stays presentation's (`presentation/narrative_log.gd`): it holds the
+  tiers' names by the crate's numbers (`NarrativeLog.Tier`), which main.gd's `respond` uses
+  too.
+- **Gone:** `sim/suspicion_system.gd`, `sim/task_force_dispatch.gd`,
+  `sim/scripted_beat_watcher.gd` and their gdUnit tests, with the two integration replays
+  (`test_suspicion_task_force_integration.gd`, `test_vertical_slice_win_condition.gd`), now
+  cargo's. main.gd's economy, suspicion, dispatch and watcher, its capture's economy and
+  watcher calls, its tier handler's dispatch and its tick's consumed check and unit count.
+- **Identical:** the same tiers, task forces, wins and losses, in the same order against the
+  handlers. A task force is let go by its mover's id where GDScript erased the first equal
+  dictionary; the dictionaries hold their id since 9b-i, so none were equal. No digest
+  battle has a lane, so outcomes don't change.
+- **Tests:** cargo `kingdom/tests.rs`: SuspicionSystem's seven scenarios, TaskForceDispatch's
+  four, ScriptedBeatWatcher's six, the two integration replays, staying in a tier, the
+  fraction dropped, a threshold not given, only the task force named let go, and main.gd's
+  consumed rule, red against a `// RED-STUB` (no meter, no dispatch, no verdicts), then
+  green. gdUnit `tests/sim/test_lane_response.gd`: a tier emitted and its task force sent, a
+  capture given to the economy held, a handler's spike sending a task force a later wave
+  meets that tick (and the tier's dictionary given its hp), the capture told before the
+  victory, a tick's decay and lost task force, and the defeat told once, red against a stub
+  (no dispatch, no economy or watcher on capture, no tick), then green.
+- **After it**, 9c: the clocks and the command queue.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

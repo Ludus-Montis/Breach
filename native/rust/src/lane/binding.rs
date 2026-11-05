@@ -7,6 +7,14 @@
 //! `advance_positions(events)` is a tick: each wave arrives in turn and its events are
 //! emitted on `events` (SimEvents) before the next arrives, so a handler that spawns,
 //! despawns or harvests acts between arrivals, where it did.
+//!
+//! It is the one binding main.gd reads (step 9b-iii). It holds the economy (`economy()`, an
+//! `EconomyState`), which it gives each capture on the lane before telling it, and the
+//! kingdom's response (`respond`, `binding/response.rs`): the suspicion, whose changes of
+//! tier send their task forces and are told as `suspicion_tier_changed(tier)`, and the
+//! watcher, told as `victory` and `defeat`.
+
+mod response;
 
 use std::collections::BTreeMap;
 
@@ -14,33 +22,47 @@ use godot::prelude::*;
 
 use super::{Blocker, Event, Lane, Mover, Outcome, Unit, Wave};
 use crate::content::Node;
+use crate::economy::{node_of, EconomyState};
+use response::Response;
 
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct LaneState {
     lane: Lane,
+    /// The nodes' fields, for the economy's captures.
+    nodes: Vec<Node>,
     /// Each moving blocker's `blocker` dictionary, by its id.
     blockers: BTreeMap<i64, VarDictionary>,
+    #[init(val = EconomyState::new_gd())]
+    economy: Gd<EconomyState>,
+    response: Response,
     /// Its Godot object (named so: the derive's `base: base` trips newer clippy).
     object: Base<RefCounted>,
 }
 
 #[godot_api]
 impl LaneState {
-    /// A fresh lane over `nodes` (NodeDefs, or anything with their garrison's fields).
+    /// A fresh lane over `nodes` (NodeDefs, or anything with their garrison's and capture's
+    /// fields). The economy held stays the same object.
     #[func]
     fn start(&mut self, nodes: Variant) {
-        let nodes: Vec<Node> = crate::objects(&nodes)
+        self.nodes = crate::objects(&nodes)
             .iter()
             .map(|node| Node {
                 garrison: int_of(&node.get("garrison")),
                 garrison_hp: int_of(&node.get("garrison_hp")),
                 garrison_dmg: int_of(&node.get("garrison_dmg")),
-                ..Node::default()
+                ..node_of(node)
             })
             .collect();
-        self.lane = Lane::new(&nodes);
+        self.lane = Lane::new(&self.nodes);
         self.blockers.clear();
+    }
+
+    /// The economy held, which each capture on the lane is given to.
+    #[func]
+    fn economy(&self) -> Gd<EconomyState> {
+        self.economy.clone()
     }
 
     /// Node `index`: {owner ("" none), garrison_hp}.
@@ -111,28 +133,72 @@ impl LaneState {
         self.lane.units_of(&owner.to_string())
     }
 
+    /// The kingdom's response, its signals emitted on `events` (SimEvents): `response` is
+    /// {thresholds [Wary, Alarmed, Mobilized, Full Alert], decay_per_tick, core (the node
+    /// whose capture wins), spawn_index, spawn_direction, units {tier: {hp, dmg}}}.
+    #[func]
+    fn respond(&mut self, response: VarDictionary, events: Gd<Object>) {
+        self.response = Response::of(&response, events);
+    }
+
+    /// A detection spike: the meter raised, and a change of tier sent and told.
+    #[func]
+    fn add_suspicion(&mut self, amount: f64) {
+        let changed = self.response.suspicion.add(amount);
+        self.retiered(changed);
+    }
+
+    #[func]
+    fn suspicion_meter(&self) -> i64 {
+        self.response.suspicion.meter()
+    }
+
+    /// The tier's number (Calm 0, Wary, Alarmed, Mobilized, Full Alert 4).
+    #[func]
+    fn suspicion_tier(&self) -> i64 {
+        self.response.suspicion.tier().number()
+    }
+
+    /// The task forces dispatched: each its mover's dictionary as its spawn gave it.
+    #[func]
+    fn dispatched(&self) -> VarArray {
+        self.response.task_forces()
+    }
+
+    #[func]
+    fn mark_completed(&mut self, task_force: VarDictionary) {
+        self.let_go(&task_force, true);
+    }
+
+    #[func]
+    fn mark_consumed(&mut self, task_force: VarDictionary) {
+        self.let_go(&task_force, false);
+    }
+
+    /// main.gd's tick, once `respond` has been given: the harvests, the suspicion's decay,
+    /// `advance_positions` on the response's events, a task force lost in it consumed, and
+    /// the player's units counted for the watcher.
+    #[func]
+    fn on_tick_advanced(&mut self, _tick_number: i64) {
+        self.ticked();
+    }
+
     /// A tick: the march, then each wave's arrival, its events emitted on `events` as
-    /// `combat_resolved(node, outcome)` and `node_captured(node)`.
+    /// `combat_resolved(node, outcome)` and `node_captured(node)`. A capture is given to the
+    /// economy before it is told, and the watcher's victory is told after it.
     #[func]
     fn advance_positions(&mut self, events: Gd<Object>) {
         for id in self.lane.march() {
             self.read_blockers();
             let fired = self.lane.arrive(id);
             self.write_blockers(&fired);
-            let mut events = events.clone();
-            // Held while the handlers run: they may call back into this lane.
-            let _calls_back = self.base_mut();
             for event in &fired {
                 match event {
                     Event::Combat { node, outcome, .. } => {
-                        events.emit_signal(
-                            "combat_resolved",
-                            &[node.to_variant(), outcome_variant(outcome)],
-                        );
+                        let args = [node.to_variant(), outcome_variant(outcome)];
+                        self.emit(&events, "combat_resolved", &args);
                     }
-                    Event::Captured { node } => {
-                        events.emit_signal("node_captured", &[node.to_variant()]);
-                    }
+                    Event::Captured { node } => self.captured(*node, &events),
                 }
             }
         }
@@ -140,6 +206,24 @@ impl LaneState {
 }
 
 impl LaneState {
+    /// Emits `signal` on `events`, this lane lent while the handlers run: they may call back.
+    fn emit(&mut self, events: &Gd<Object>, signal: &str, args: &[Variant]) {
+        let mut events = events.clone();
+        let _calls_back = self.base_mut();
+        events.emit_signal(signal, args);
+    }
+
+    /// Node `index` taken: the economy's capture, the event, then the watcher's verdict.
+    fn captured(&mut self, index: i64, events: &Gd<Object>) {
+        if let Some(node) = self.nodes.get(index as usize) {
+            self.economy.bind_mut().captured(index, node);
+        }
+        self.emit(events, "node_captured", &[index.to_variant()]);
+        if self.response.watcher.captured(index) {
+            self.emit(events, "victory", &[]);
+        }
+    }
+
     /// Each mover's blocker as its dictionary holds it now.
     fn read_blockers(&mut self) {
         let read: Vec<(i64, Blocker)> =
