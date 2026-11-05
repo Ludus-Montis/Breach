@@ -6,6 +6,9 @@
 //! and the box its footprints cover. In GDScript's precision: points and extents in f32,
 //! gaps in f64; distances between squads in tiles, everything else in cells.
 
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+
 use crate::columns::Columns;
 use crate::maths::{bearing_vector, V2};
 use crate::motion::fposmod;
@@ -98,6 +101,37 @@ pub struct Shape<'a> {
     pub columns: &'a Columns,
     pub position: V2,
     pub heading: f64,
+    /// Where its extents are kept while nothing moves, by its index in the roster.
+    spans: Option<(&'a Spans, usize)>,
+}
+
+/// Each squad's extents along an axis (its spans across a line, its reach along a way),
+/// worked out once while the squads, their columns and the roster stand still (Q24, spec 39
+/// step 10b-ii). Whoever holds one holds those borrowed, so nothing it keeps can go stale;
+/// a pass that moves anything starts a new one. Each extent is the same sum as worked
+/// out afresh, so outcomes are unchanged.
+#[derive(Default)]
+pub struct Spans {
+    kept: RefCell<HashMap<(usize, bool, u32, u32), Extent>>,
+    worked: Cell<usize>,
+}
+
+impl Spans {
+    /// How many extents were worked out rather than read back.
+    #[cfg(test)]
+    pub fn worked(&self) -> usize {
+        self.worked.get()
+    }
+
+    fn get(&self, key: (usize, bool, u32, u32), work: impl FnOnce() -> Extent) -> Extent {
+        if let Some(&kept) = self.kept.borrow().get(&key) {
+            return kept;
+        }
+        let extent = work();
+        self.worked.set(self.worked.get() + 1);
+        self.kept.borrow_mut().insert(key, extent);
+        extent
+    }
 }
 
 impl<'a> Shape<'a> {
@@ -109,6 +143,24 @@ impl<'a> Shape<'a> {
             columns,
             position: frame.anchor,
             heading: frame.heading,
+            spans: None,
+        }
+    }
+
+    /// The squad listed `n`th, its extents kept in `spans`.
+    pub fn kept(
+        squads: &Squads,
+        columns: &'a Columns,
+        listed: &'a Listed,
+        (spans, n): (&'a Spans, usize),
+    ) -> Shape<'a> {
+        Shape { spans: Some((spans, n)), ..Shape::of(squads, columns, listed) }
+    }
+
+    fn extent_along(&self, reach: bool, axis: V2, work: impl FnOnce() -> Extent) -> Extent {
+        match self.spans {
+            Some((spans, n)) => spans.get((n, reach, axis.x.to_bits(), axis.y.to_bits()), work),
+            None => work(),
         }
     }
 
@@ -123,21 +175,25 @@ impl<'a> Shape<'a> {
 
     /// SquadGeometry.lateral: the squad's extent along `axis` from its living units' spans.
     pub fn lateral(&self, axis: V2) -> Extent {
-        self.living.iter().fold(NO_EXTENT, |(low, high), unit| {
-            let span = extent(&self.corners(unit), axis);
-            (if low < span.0 { low } else { span.0 }, if high > span.1 { high } else { span.1 })
+        self.extent_along(false, axis, || {
+            self.living.iter().fold(NO_EXTENT, |(low, high), unit| {
+                let span = extent(&self.corners(unit), axis);
+                (if low < span.0 { low } else { span.0 }, if high > span.1 { high } else { span.1 })
+            })
         })
     }
 
     /// SquadEdges.reach: how far its living footprints reach along `way`.
     pub fn reach(&self, way: V2) -> Extent {
-        let mut out = NO_EXTENT;
-        for unit in self.living {
-            for p in self.corners(unit) {
-                out = widen(out, p.dot(way));
+        self.extent_along(true, way, || {
+            let mut out = NO_EXTENT;
+            for unit in self.living {
+                for p in self.corners(unit) {
+                    out = widen(out, p.dot(way));
+                }
             }
-        }
-        out
+            out
+        })
     }
 
     /// SquadEdges.bounds: the cells its living units cover (an empty box at the origin for

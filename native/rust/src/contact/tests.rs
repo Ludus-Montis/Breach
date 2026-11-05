@@ -30,7 +30,7 @@ pub(super) struct Built {
 
 impl Built {
     fn field(&self) -> Field<'_> {
-        Field { squads: &self.squads, columns: &self.columns, roster: &self.roster }
+        Field::new(&self.squads, &self.columns, &self.roster)
     }
 }
 
@@ -66,6 +66,23 @@ pub(super) fn built(fronts: &[(V2, f64, u32)]) -> Built {
 pub(super) const EAST: f64 = 90.0;
 pub(super) const WEST: f64 = 270.0;
 pub(super) const NORTH: f64 = 0.0;
+
+#[test]
+fn a_squads_spans_are_worked_out_once_an_axis_while_the_field_stands() {
+    let b = built(&[
+        (V2::new(0.0, 0.0), EAST, 0),
+        (V2::new(1.0, 0.0), WEST, 1),
+        (V2::new(0.0, 5.0), EAST, 0),
+        (V2::new(1.0, 5.0), WEST, 1),
+    ]);
+    let field = b.field();
+    for n in 0..4 {
+        field.nearest_hostile(n, &[0, 1, 2, 3], 7);
+    }
+    // east and west share an axis across them: each squad's span along it once, not once a
+    // pair (16)
+    assert_eq!(field.spans.worked(), 4);
+}
 
 #[test]
 fn two_fronts_face_to_face_within_reach_lock_onto_each_other() {

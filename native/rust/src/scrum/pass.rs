@@ -54,7 +54,7 @@ pub fn manoeuvre(squads: &mut Squads, columns: &mut Columns, roster: &Roster) {
         let withdrawing = squads.withdraw[s].is_some();
         let skirmishing = !withdrawing
             && !manoeuvre::fighting(squads, s)
-            && contact::Field { squads, columns, roster }.skirmishing(n);
+            && contact::Field::new(squads, columns, roster).skirmishing(n);
         let living = if squads.narrow_ticks[s] > 0 {
             listed.living.iter().map(|m| (m.id, m.slot)).collect()
         } else {
