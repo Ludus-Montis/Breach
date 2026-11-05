@@ -69,6 +69,19 @@ impl Template {
         true
     }
 
+    /// WaveTemplate.erase: the unit covering `cell` removed; false if there is none.
+    pub fn erase(&mut self, cell: (i32, i32)) -> bool {
+        let spot = Painted { id: "", foot: (1, 1), at: cell };
+        let before = self.painted.len();
+        self.painted.retain(|p| !overlaps(p, &spot));
+        self.painted.len() != before
+    }
+
+    /// The cells its painted units cover (FormationLane.cells_used).
+    pub fn cells(&self) -> i32 {
+        cells(&self.painted)
+    }
+
     /// The painted units front-first (rank, then column): the build and fold order.
     pub fn ordered(&self) -> Vec<Painted> {
         let mut sorted = self.painted.clone();
@@ -118,6 +131,19 @@ impl Wave {
     pub fn new(template: Template, route: usize) -> Wave {
         let filled = vec![false; template.ordered().len()];
         Wave { template, filled, announced: false, auto: false, route, staging: None }
+    }
+
+    /// FormationProduction.set_template: `template` now, the filled units folded into its
+    /// places of their type, front-first; the units that no longer fit, for the reserve.
+    pub fn reshape(&mut self, template: Template) -> Vec<&'static str> {
+        let places = self.template.ordered();
+        let mut left: Vec<&'static str> =
+            places.iter().zip(&self.filled).filter(|(_, &f)| f).map(|(p, _)| p.id).collect();
+        let mut fold = |id: &str| left.iter().position(|&l| l == id).map(|k| left.remove(k));
+        self.filled = template.ordered().iter().map(|p| fold(p.id).is_some()).collect();
+        self.template = template;
+        self.announced = self.full() && self.announced;
+        left
     }
 
     /// Its unfilled places of `id` (wanted()'s count for that type).

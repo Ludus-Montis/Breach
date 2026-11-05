@@ -8,6 +8,7 @@
 mod aftermath;
 mod arms;
 mod bands;
+mod battle_play;
 mod battles;
 mod blows;
 #[cfg(test)]
