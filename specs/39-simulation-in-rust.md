@@ -1130,6 +1130,18 @@ and `content/definitions/` and `content/import/` keep only what presentation rea
   CaptureResolution), and the resource bar, the wave form and the capture choice reading them;
   **9b-iii** the kingdom's response (SuspicionSystem, TaskForceDispatch,
   ScriptedBeatWatcher), and the narrative log, `main.gd` then reading one binding.
+- **9d split** (2026-11-05, settled with the user on its survey: 128 GDScript files, about
+  10,400 lines, with 118 gdUnit files, 7 presentation scripts and 11 tools reading them; the
+  crate already plays both fields, `Play` and `FieldPlay`, and its digest is checked against
+  GDScript's in CI): **9d-i** the 2D field held by the crate (`FieldState` over `FieldPlay`),
+  its scene and HUD reading it; **9d-ii** the 1D feel test's battle (FormationBattle,
+  FormationLane, SkirmishSlotPool, DomainProduction, WaveTemplate) ported and held by a
+  binding, its scene reading it; **9d-iii** the GDScript digest, trials, benches,
+  `scaling_check`, `tick_phases` and the replay retired, CI on the crate's binaries alone,
+  once no scene plays through GDScript; **9d-iv** FormationSimulation, the tick's glue, the
+  views (SkirmishSquad, SkirmishUnit, UnitView and the rest), FormationField and their gdUnit
+  tests retired, nothing reading them. The scenes read a snapshot a tick (plain arrays and
+  dictionaries), not views of the crate's squads.
 
 ### Step 10, threading, then slot packing (design first)
 
@@ -3496,6 +3508,57 @@ Decision's conditions.
     command, and a commit's wave spawned and marching in the same tick. Red against a stub,
     then green.
 - **After it**, 9d: the skirmish's Godot side.
+
+### Step 9d-i, the 2D field held by the crate
+
+- **In the crate:**
+  - `src/field_play/binding.rs`: `FieldState`, the field `FormationFieldScene` and its HUD
+    read. `open(content, seed, captained, build)` sets FieldPlay up (its blows rolled, as
+    FormationField's are; threaded as `BREACH_NATIVE_THREADS` says). `step()` is
+    FormationField.step, its events the dictionaries CrateEvents made, the builders' and
+    waves' first ("from_reserve", "built", "to_reserve", "wave_full", "departed"). `act(words)`
+    gives the feel test's words now and `give(command)` a record's command now
+    (`actions::apply`), each recorded with its tick when the field takes it; `record()` is the
+    record so far and `read_record(text)` FormationRecord.parse. After a tick the scene reads
+    `squads()` (`seen.rs`), `positions()`, `facings()` (unit vectors) and `ranks()` by slot,
+    `kingdom()` (the line's and reserve's ids), `waves()` (each wave's places, built and in
+    all, leaders apart), `staging_point()`, `routes()` and `ground()` (the field's size and
+    its areas as painted).
+  - `src/field_play/seen.rs`: the snapshot. Each listed squad, in the listed order: its id,
+    faction, state, front, morale and band, blocked, staged, its stance's heading, a
+    pursuit's post with how far it has gone of its leash (FormationPursuit.reach, on the
+    tick's own discipline tuning) and its loose units, then each unit it holds: id, slot,
+    state, footprint, leadership and detection. States are given by SkirmishSquad.State's
+    and SkirmishUnit.State's names.
+  - `src/events/told.rs`: the flat log decoded as CrateEvents.taken decodes it (an order,
+    band or blow by name, a lexicon word, a bool, a heading's bits, a definition's id, a
+    list, a "joined" of none left out).
+  - `src/record.rs` gains `header` and `line`, FormationRecord's writers.
+  - `Play::rules`: the tick's rules, built as `step` built them inline.
+- **Presentation:** `formation_field_scene.gd`, `formation_field_hud.gd` and
+  `fallen_drawing.gd` read only `FieldState`: none of them loads a script under `sim/`. The
+  ground's areas and the routes come from the crate, not FormationField's constants.
+  `run_ticks` returns the ticks' events.
+- **Stays, for now:** FormationField, FormationFieldActions and FormationRecord, which the
+  GDScript digest's field logs, the replay tool and their gdUnit tests still play (9d-iii,
+  9d-iv).
+- **Identical:** the scene plays the field FieldPlay plays, which `test_field_play.gd` and
+  the digests check against GDScript's, from the same seed and commands; the record it
+  writes is the same text. No digest changes.
+- **Tests:**
+  - cargo `record/tests.rs`: a record written reads back as written. Red against a
+    `// RED-STUB`, then green.
+  - cargo `events/told/tests.rs`: a hit told of its unit, an order, a band, a heading, a list,
+    a definition, and a "joined" of none left out. Red against a stub, then green.
+  - cargo `field_play/seen/tests.rs`: the line and reserve seen with their units, a wave
+    counted as it builds and seen once sent, and B's staging point. Red against a stub, then
+    green.
+  - gdUnit `tests/presentation/skirmish/test_formation_field_scene.gd`, rewritten on the
+    binding: the field built, a wave marching on its route, both sent together with B
+    waiting, a captained line, a reset, a retreat told, the record, a pasted record replayed
+    live as a headless `FieldState` plays it, the HUD's counts and the line's leash. Red
+    against the GDScript field, then green.
+- **After it**, 9d-ii: the 1D feel test's battle.
 
 ## Open, for the implementing session to settle and record here
 

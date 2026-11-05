@@ -6,14 +6,13 @@ extends CanvasLayer
 ## seed, pause - and a status row under it: the tick (and seconds of battle), waves built
 ## (leaders counted apart), the line (how far it has pursued, of its leash), the reserve
 ## and the battle seed. Reset starts a fresh field, with the seed typed in or a random
-## one, keeping the ticked options. Below, this run's action log (FormationFieldActions)
+## one, keeping the ticked options. Below, this run's action log (the field's record)
 ## to copy, and a box to paste a log into: Replay restarts on its seed and plays its
-## actions at their ticks, live (pause still works), counting them off. Engine glue.
+## actions at their ticks, live (pause still works), counting them off. Engine glue: it
+## reads the crate's field (`FieldState`, spec 39 step 9d-i).
 
-const FormationField = preload("res://sim/skirmish/formation/formation_field.gd")
-const FormationFieldActions = preload("res://sim/skirmish/formation/formation_field_actions.gd")
-const FormationPursuit = preload("res://sim/skirmish/formation/formation_pursuit.gd")
-const SkirmishSquad = preload("res://sim/skirmish/formation/skirmish_squad.gd")
+## The field's tick, in seconds (the scene's SkirmishClock's).
+const TICK_SECONDS := 0.1
 
 const WAYS := ["north", "east", "south", "west"]
 const TENDING := ["leave", "recover", "carry"]
@@ -95,7 +94,7 @@ func _tend_choice(bar: Container, scene: Node, key: String) -> OptionButton:
 
 ## Restarts on the pasted log's seed and replays its actions; the options are the log's.
 func replay() -> void:
-	var read := FormationFieldActions.parse(_replay_view.text)
+	var read: Dictionary = NativeLibrary.made("FieldState").read_record(_replay_view.text)
 	if read.is_empty():
 		_replay_status.text = 'Not a record: it starts\n"record <n> seed <n> captain <on|off>"'
 		_replaying = 0
@@ -139,28 +138,27 @@ static func _toggle(action: String, on: bool) -> String:
 	return "%s %s" % [action, "on" if on else "off"]
 
 
-func show_status(field: FormationField, paused: bool, battle_seed: int) -> void:
+## `field`: the scene's FieldState.
+func show_status(field: Object, paused: bool, battle_seed: int) -> void:
 	var built := []
-	for key in field.waves:
-		built.append(_built(field, key))
-	var line := field.kingdom_line
-	var state: String = SkirmishSquad.State.keys()[line.state].to_lower()
-	if not line.stance.is_empty():
-		state += ", faced " + WAYS[posmod(roundi(line.stance["heading"] / 90.0), 4)]
-	if not line.pursuit.is_empty() and not line.pursuit["returning"]:
-		var reached := FormationPursuit.reach(line)  # Decision 107's leash
-		var leash := "unleashed" if is_inf(reached[1]) else "%d" % reached[1]
-		state += ", pursuing %d/%s cells" % [reached[0], leash]
-	var halted := field.sim.squads().any(func(s): return s.blocked)
+	var waves: Dictionary = field.waves()
+	for key in waves:
+		built.append(_built(key, waves[key]))
+	var squads := {}
+	for squad in field.squads():
+		squads[squad["id"]] = squad
+	var kingdom: PackedInt64Array = field.kingdom()
+	var line: Dictionary = squads[kingdom[0]]
+	var halted := squads.values().any(func(s): return s["blocked"])
 	_status.text = (
 		"Tick %d (%.1fs)   Waves: %s   Line: %d (%s)   Reserve: %d   Seed: %d%s%s"
 		% [
-			field.sim.tick_number(),
-			field.sim.tick_number() * FormationFieldActions.TICK_SECONDS,
+			field.tick_number(),
+			field.tick_number() * TICK_SECONDS,
 			", ".join(built),
-			line.living().size(),
-			state,
-			field.kingdom_reserve.living().size(),
+			_living(line),
+			_line_state(line),
+			_living(squads[kingdom[1]]),
 			battle_seed,
 			"   BLOCKED" if halted else "",
 			"   (paused)" if paused else "",
@@ -176,17 +174,29 @@ func show_status(field: FormationField, paused: bool, battle_seed: int) -> void:
 		_replay_status.text = "Replaying seed %d\n%d of %d actions played%s" % shown
 
 
-## "B 8/8 + leader 1/1": rank and file and leaders counted apart.
-func _built(field: FormationField, key: String) -> String:
-	var counts := [0, 0, 0, 0]  # rank and file built, places, leaders built, places
-	for place in field.waves[key].preview():
-		var leads: bool = place[5].leadership > 0
-		counts[2 if leads else 0] += 1 if place[4] else 0
-		counts[3 if leads else 1] += 1
+## "B 8/8 + leader 1/1": rank and file and leaders counted apart; `counts` [rank and file
+## built, places, leaders built, places] (FieldState.waves).
+static func _built(key: String, counts: PackedInt64Array) -> String:
 	var text := "%s %d/%d" % [key, counts[0], counts[1]]
 	if counts[3] > 0:
 		text += " + leader %d/%d" % [counts[2], counts[3]]
 	return text
+
+
+## The line's state, the way it faces, and how far it has pursued of its leash (Decision 107).
+static func _line_state(line: Dictionary) -> String:
+	var state: String = line["state"].to_lower()
+	if line["heading"] != null:
+		state += ", faced " + WAYS[posmod(roundi(line["heading"] / 90.0), 4)]
+	if line["pursuit"] != null:
+		var leash: float = line["pursuit"]["leash"]
+		var shown := "unleashed" if is_inf(leash) else "%d" % leash
+		state += ", pursuing %d/%s cells" % [line["pursuit"]["gone"], shown]
+	return state
+
+
+static func _living(squad: Dictionary) -> int:
+	return squad["units"].filter(func(u): return u["alive"]).size()
 
 
 func _log_box(bar: Container, hint: String) -> TextEdit:

@@ -25,7 +25,7 @@ use crate::laps::lap;
 use crate::locks;
 use crate::pathing::pass::walker;
 use crate::paths::shares::Cache;
-use crate::paths::Over;
+use crate::paths::{Over, PathTuning};
 use crate::roster::{Listed, Member, Roster};
 use crate::squads::Squads;
 use crate::tick::{self, given, Ticked};
@@ -92,21 +92,7 @@ impl Play {
         if self.listed.is_empty() {
             return None; // FormationTick.step: nothing to do
         }
-        let seconds = self.set.tick_seconds;
-        let at = given::At {
-            tick: self.tick,
-            seed: self.seed,
-            ticks_a_second: (1.0 / seconds).round().max(1.0) as i64,
-            rolls: self.rolls,
-            threaded: self.threaded,
-        };
-        let paces = given::Paces {
-            travel_scale: TRAVEL_SCALE,
-            seconds,
-            route_length: self.set.route_tiles,
-            cells_a_second: TRAVEL_SCALE * CELLS,
-        };
-        let (climb, rules) = tick::rules::of(&given::of(&content.tuning, &at, &paces))?;
+        let (climb, rules) = self.rules(content)?;
         lap("rules", field, squads);
         let roster = listed(squads, field, &self.listed, self.ground.is_some());
         lap("roster", field, squads);
@@ -122,6 +108,26 @@ impl Play {
         settle(squads, field, &self.listed);
         lap("store settles", field, squads);
         Some(ticked)
+    }
+
+    /// The climb the paths take and the rules the tick plays on this tick (`tick::given`,
+    /// `tick::rules`) from the battle's tuning in `content`; None if they can't be read.
+    pub fn rules(&self, content: &Content) -> Option<(PathTuning, tick::Rules<'static>)> {
+        let seconds = self.set.tick_seconds;
+        let at = given::At {
+            tick: self.tick,
+            seed: self.seed,
+            ticks_a_second: (1.0 / seconds).round().max(1.0) as i64,
+            rolls: self.rolls,
+            threaded: self.threaded,
+        };
+        let paces = given::Paces {
+            travel_scale: TRAVEL_SCALE,
+            seconds,
+            route_length: self.set.route_tiles,
+            cells_a_second: TRAVEL_SCALE * CELLS,
+        };
+        tick::rules::of(&given::of(&content.tuning, &at, &paces))
     }
 
     /// Whether some squad of each side still stands: anyone standing, not routing.

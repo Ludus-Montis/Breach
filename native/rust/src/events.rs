@@ -106,6 +106,8 @@ pub const SPLIT: usize = 43;
 pub const REJOINED: usize = 44;
 pub const SWAPPED: usize = 45;
 
+pub mod told;
+
 /// The fields that are lists: how many, then each ("swapped"'s units passed).
 pub const LISTS: &[&str] = &["passed"];
 

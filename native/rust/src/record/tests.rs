@@ -58,3 +58,17 @@ fn what_isn_t_a_record_reads_as_none() {
     assert_eq!(parse("record 2 seed x captain off"), None);
     assert_eq!(parse("hello world"), None);
 }
+
+#[test]
+fn a_record_written_reads_back_as_written() {
+    let head = header(446_157, true, "3f6800f43e11");
+    assert_eq!(head, "record 2 seed 446157 captain on build 3f6800f43e11");
+    assert_eq!(header(7, false, ""), "record 2 seed 7 captain off");
+    let given = [command(0, PLAYER, "wait", "waves", "on"), command(40, PLAYER, "send", "A+B", "")];
+    assert_eq!(line(&given[0]), "0 player wait waves on");
+    assert_eq!(line(&given[1]), "40 player send A+B");
+    let text = format!("{head}\n{}\n{}", line(&given[0]), line(&given[1]));
+    let read = parse(&text).expect("a record");
+    assert_eq!((read.version, read.seed, read.captained), (VERSION, 446_157, true));
+    assert_eq!(read.commands, given.to_vec());
+}
