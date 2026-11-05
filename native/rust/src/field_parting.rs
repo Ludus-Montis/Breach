@@ -6,6 +6,7 @@
 use crate::field::{Field, DESTROYED, FLEEING, LOOSE};
 use crate::maths::V2;
 use crate::parting::{part, Bodies, Tuning, MOVED};
+use crate::threads::Threads;
 
 /// What a pass over the field did: the bodies it moved (flat indices) and where each now
 /// stands (a fleeing one: its offset; a loose one: its point and next), those it made
@@ -25,7 +26,7 @@ pub struct FieldOutcome {
 pub fn part_field(
     field: &mut Field,
     tuning: &Tuning,
-    threaded: bool,
+    threaded: Threads,
     way: &mut dyn FnMut(i64, i64) -> V2,
 ) -> FieldOutcome {
     let order: Vec<usize> = field

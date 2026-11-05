@@ -11,6 +11,7 @@ use crate::content::Content;
 use crate::events::SWAPPED;
 use crate::locks::MOVING;
 use crate::maths::V2;
+use crate::threads::Threads;
 
 const TICK: i64 = 5;
 const SEED: i64 = 3;
@@ -30,7 +31,7 @@ pub(crate) fn rules() -> Rules {
             resist: t.bodies_resist,
             brush: t.bodies_brush,
         },
-        threaded: false,
+        threaded: Threads::One,
         shuffle: [0.1, 0.125, t.scrum_crowding],
         timing: [0.1, 0.125],
         walk: crate::march::tests::walk_tuning(),

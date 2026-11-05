@@ -5,7 +5,7 @@
 //!
 //!   native/bin/breach_scaling [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] [limit=2.5]
 //!       [stacks=1,2,4] [stack=128] [settle=20] [stages=march,fight,stacks]
-//!       [threaded=true|false] [repo=<path>]
+//!       [threaded=true|false|always] [repo=<path>]
 //!
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
@@ -15,10 +15,11 @@ use std::process::ExitCode;
 
 use breach_native::content::Content;
 use breach_native::scaling::{self, Options, FAILED, HEADING, STAGES};
+use breach_native::threads::Threads;
 
 const USAGE: &str = "usage: breach_scaling [sizes=128,256,512] [ranks=8] [ticks=6] [runs=3] \
                      [limit=2.5] [stacks=1,2,4] [stack=128] [settle=20] \
-                     [stages=march,fight,stacks] [threaded=true|false] [repo=<path>]";
+                     [stages=march,fight,stacks] [threaded=true|false|always] [repo=<path>]";
 const KNOWN: [&str; 11] = [
     "sizes", "ranks", "ticks", "runs", "limit", "stacks", "stack", "settle", "stages", "threaded",
     "repo",
@@ -91,7 +92,7 @@ fn options(args: &HashMap<String, String>) -> Options {
         stacks: counts("stacks", &given.stacks),
         stack: count("stack", given.stack),
         settle: count("settle", given.settle),
-        threaded: args.get("threaded").is_none_or(|value| value != "false"),
+        threaded: Threads::parse(args.get("threaded").map(String::as_str)).unwrap_or(Threads::Pool),
     }
 }
 

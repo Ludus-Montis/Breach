@@ -11,6 +11,7 @@ use crate::field_play::FieldPlay;
 use crate::play::Play;
 use crate::record::{self, Record};
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// A run being played on one thread.
 pub(super) enum Played {
@@ -28,12 +29,12 @@ impl Played {
         match &run.kind {
             Kind::Battle { name, numbers, seed, .. } => {
                 let battle = battles::named(name, numbers)?;
-                let play = Play::new(&battle, crate_, content, (*seed, run.rolls, false))?;
+                let play = Play::new(&battle, crate_, content, (*seed, run.rolls, Threads::One))?;
                 Some(Played::Battle(Box::new(play)))
             }
             Kind::Field(text) => {
                 let record = record::parse(text)?;
-                let at = (record.seed, run.rolls, false);
+                let at = (record.seed, run.rolls, Threads::One);
                 let field = FieldPlay::new(record.captained, crate_, content, at)?;
                 Some(Played::Field(Box::new((field, record))))
             }
@@ -51,7 +52,7 @@ impl Played {
         let (mut squads, mut field) = (Squads::default(), Field::default());
         match Played::opened(run, (&mut squads, &mut field), content)? {
             Played::Battle(opened) => {
-                let mut play = Play::open(opened.set, (seed, run.rolls, false), content);
+                let mut play = Play::open(opened.set, (seed, run.rolls, Threads::One), content);
                 play.listed = listed.to_vec();
                 play.tick = tick;
                 Some(Played::Battle(Box::new(play)))

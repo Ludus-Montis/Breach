@@ -9,6 +9,7 @@ mod tests;
 
 use crate::content::{BattleTuning, CELLS_PER_TILE};
 use crate::det_math;
+use crate::threads::Threads;
 
 /// One of a pass's arguments, as its binding takes it.
 #[derive(Clone, Debug, PartialEq)]
@@ -28,7 +29,7 @@ pub struct At {
     pub seed: i64,
     pub ticks_a_second: i64,
     pub rolls: bool,
-    pub threaded: bool,
+    pub threaded: Threads,
 }
 
 /// FormationTick.step's `paces`: tiles a second at speed 1, the tick's seconds, the lane's
@@ -177,7 +178,7 @@ fn mustering(t: &BattleTuning, at: &At, p: &Paces) -> Vec<Arg> {
     ]
 }
 
-/// FormationEnding.args: [tick, seed, 1 if threaded], [tick seconds, travel scale,
+/// FormationEnding.args: [tick, seed, how threaded (Threads::code)], [tick seconds, travel scale,
 /// scrum_crowding, cells a second], FormationStamina's tuning, the bodies' and the walk's
 /// (CrateMarch.walk_tuning, then wounds_reach).
 fn ending(t: &BattleTuning, at: &At, p: &Paces) -> Vec<Arg> {
@@ -189,7 +190,7 @@ fn ending(t: &BattleTuning, at: &At, p: &Paces) -> Vec<Arg> {
     stamina.extend(&t.load_march_tiring);
     let bodies = vec![t.bodies_passes as f64, t.bodies_resist, t.bodies_brush];
     vec![
-        Arg::Ints(vec![at.tick, at.seed, at.threaded as i64]),
+        Arg::Ints(vec![at.tick, at.seed, at.threaded.code()]),
         Arg::Floats(floats),
         Arg::Floats(stamina),
         Arg::Floats(bodies),

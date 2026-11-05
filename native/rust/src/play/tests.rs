@@ -5,6 +5,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::events::SWAPPED;
+use crate::threads::Threads;
 
 fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
@@ -13,7 +14,7 @@ fn content() -> Content {
 /// `battle` set up on a fresh crate, seed 1, blows rolled.
 fn fresh(battle: &Battle, content: &Content) -> (Squads, Field, Play) {
     let (mut squads, mut field) = (Squads::default(), Field::default());
-    let play = Play::new(battle, (&mut squads, &mut field), content, (1, true, false));
+    let play = Play::new(battle, (&mut squads, &mut field), content, (1, true, Threads::One));
     (squads, field, play.expect("the battle sets up"))
 }
 

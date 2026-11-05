@@ -7,6 +7,7 @@ use super::*;
 use crate::commands::HURRY;
 use crate::record::{command, parse};
 use crate::rehearsal::LIMIT_TICKS;
+use crate::threads::Threads;
 
 #[test]
 fn the_kingdom_has_its_line_and_reserve_pursue_or_not() {
@@ -137,7 +138,7 @@ fn a_record_is_replayed_to_its_last_command_and_on() {
     let record = parse("seed 109563 captain off\n0 via_c on\n87 send A\n229 retreat A").unwrap();
     let mut log = Log::default();
     let crate_ = (&mut squads, &mut field);
-    let played = replay(&record, 20, crate_, &content, (true, false), &mut log);
+    let played = replay(&record, 20, crate_, &content, (true, Threads::One), &mut log);
     let (ticks, produced) = played.expect("replayed");
     assert_eq!(ticks, 249);
     assert!(produced > 0, "the builders built");
@@ -171,7 +172,7 @@ fn a_record_sending_the_waves_together_is_replayed() {
     let record = parse("seed 492625 captain off\n96 via_c on\n158 send A+B").unwrap();
     let mut log = Log::default();
     let crate_ = (&mut squads, &mut field);
-    let played = replay(&record, 20, crate_, &content, (true, false), &mut log);
+    let played = replay(&record, 20, crate_, &content, (true, Threads::One), &mut log);
     assert_eq!(played.map(|p| p.0), Some(178));
     assert_eq!(squads.id.iter().filter(|&&id| id > 0).count(), 4, "the line, the reserve, A, B");
 }

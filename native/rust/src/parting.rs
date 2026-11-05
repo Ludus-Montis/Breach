@@ -15,6 +15,7 @@ pub mod pass;
 
 pub use crate::field::{FLEEING, LOOSE};
 use crate::maths::V2;
+use crate::threads::Threads;
 
 /// Cells a bucket of the pair search spans (UnitBodies.BUCKET).
 const BUCKET: f32 = 2.0;
@@ -92,15 +93,17 @@ fn framed(flags: u8) -> bool {
 
 /// Pushes apart every pair of bodies that overlap, `tuning.passes` times or until none do.
 /// `way(i, j)` gives the seeded way two bodies lying on each other part along (it calls
-/// back into GDScript, so is only ever called on this thread). `threaded` finds pairs and
-/// weighs pushes on Rayon's pool, from the pass's snapshot, applying them in pair order.
+/// back into GDScript, so is only ever called on this thread). With `threaded` on for the
+/// bodies' count (`Threads::on`), pairs are found and pushes weighed on Rayon's pool, from
+/// the pass's snapshot, and applied in pair order.
 pub fn part(
     bodies: &mut Bodies,
     tuning: &Tuning,
-    threaded: bool,
+    threaded: Threads,
     way: &mut dyn FnMut(usize, usize) -> V2,
 ) -> Outcome {
     let count = bodies.points.len();
+    let pooled = threaded.on(count);
     let mut out = Outcome::default();
     let mut moves = vec![V2::ZERO; count];
     let mut has_move = vec![false; count];
@@ -109,9 +112,9 @@ pub fn part(
     let mut order: Vec<usize> = Vec::with_capacity(count);
     for _ in 0..tuning.passes {
         let at = positions(bodies);
-        let pairs = pairs(bodies, &at, threaded);
+        let pairs = pairs(bodies, &at, pooled);
         out.pairs += pairs.len() as i64;
-        let pushes: Vec<Push> = if threaded {
+        let pushes: Vec<Push> = if pooled {
             pairs.par_iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
         } else {
             pairs.iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()

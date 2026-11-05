@@ -7,12 +7,13 @@ use crate::events::Log;
 use crate::field_play::tests::content;
 use crate::record;
 use crate::snapshot;
+use crate::threads::Threads;
 use crate::waves::Produced;
 
 /// `record` played to `tick` on one thread, as `actions::replay_each` plays it.
 fn played_to(record: &Record, tick: i64, content: &Content) -> (Squads, Field, FieldPlay) {
     let (mut squads, mut field) = (Squads::default(), Field::default());
-    let at = (record.seed, true, false);
+    let at = (record.seed, true, Threads::One);
     let mut play = FieldPlay::new(record.captained, (&mut squads, &mut field), content, at)
         .expect("the field sets up");
     while play.play.tick < tick {

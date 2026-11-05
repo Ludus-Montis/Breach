@@ -20,6 +20,7 @@ use std::process::ExitCode;
 
 use breach_native::content::Content;
 use breach_native::native_bench::{self, Options};
+use breach_native::threads::Threads;
 
 const USAGE: &str = "usage: breach_native_bench [engines=rust,rust_threads] \
                      [sizes=160:10,512:32,1024:32] [runs=3] [settle=10] [fight=10] [seed=1] \
@@ -66,7 +67,8 @@ fn main() -> ExitCode {
         let (side, width) = size.split_once(':').unwrap_or((size, "0"));
         let at = (whole(side).max(0) as usize, whole(width).max(0) as usize);
         for engine in engines.split(',') {
-            let threaded = engine.ends_with("_threads");
+            let threaded =
+                if engine.ends_with("_threads") { Threads::Always } else { Threads::One };
             let mut results = Vec::new();
             for run in 1..=runs {
                 let Some(mut clash) =

@@ -20,6 +20,7 @@ use crate::parting::{self, Tuning as PartingTuning};
 use crate::squads::Squads;
 use crate::stamina::{self, StaminaTuning};
 use crate::swaps;
+use crate::threads::Threads;
 
 /// Every pass's tuning: the tick's seconds, the battle's seed, stamina's, the parting's
 /// (and whether it runs threaded), the shuffle's [tick seconds, cells a second at speed 1,
@@ -31,7 +32,7 @@ pub struct Rules {
     pub seed: i64,
     pub stamina: StaminaTuning,
     pub parting: PartingTuning,
-    pub threaded: bool,
+    pub threaded: Threads,
     pub shuffle: [f64; 3],
     pub timing: [f64; 2],
     pub walk: WalkTuning,
