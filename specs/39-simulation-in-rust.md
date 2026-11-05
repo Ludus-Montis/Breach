@@ -3363,6 +3363,40 @@ Decision's conditions.
   same stub, then green.
 - **After it**, 9b-ii: the economy and the captures.
 
+### Step 9b-ii, the economy and the captures in the crate
+
+- **In the crate** (`src/economy.rs`, `breach_native::economy`): `Economy` is EconomySystem
+  (five pools from 0; any other name reads 0 and is made by adding to it, as GDScript's
+  dictionary was; a spend it can't afford spends nothing) and `decayed_yield` its decay (10%
+  each whole interval, by `det_pow::pow` as DetMath gave it, rounded half away from zero as
+  GDScript's `round`, never below the floor; an interval of 0 counts none, where GDScript's
+  division by zero was an error). `economy/captures.rs` is CaptureResolution: a resource node
+  harvests from its capture, each tick its decayed food yield, until ravaged (its lump sum,
+  once); a fort awaits fortify (its cost, nothing when either can't be afforded) or
+  dismantle (its salvage). A node captured again starts afresh; other kinds hold nothing.
+- **The binding** (`src/economy/binding.rs`, `EconomyState`): EconomySystem's and
+  CaptureResolution's methods on one object (`balance`, `add`, `spend`, `decayed_yield`,
+  `on_node_captured(index, node)`, `is_awaiting_choice`, `issue_choice(index, word)`,
+  `on_tick_advanced`), as main.gd held the two together. A NodeDef is read by its fields,
+  its `node_type` by NodeDef.NodeType's number. `NativeLibrary.made("EconomyState")` makes
+  one. It emits nothing, so it holds no `base`.
+- **Gone:** `sim/economy_system.gd`, `sim/capture_resolution.gd` and their gdUnit tests. The
+  resource bar, the wave form and the capture choice hold the binding as an `Object`; their
+  tests make one.
+- **Identical:** the same pools, yields and choices. A tick's harvests are summed into one
+  pool, so their order (GDScript's capture order, the crate's by index) changes nothing. No
+  digest battle has an economy, so outcomes don't change.
+- **Not with 9b-iii** (rule 2's leave to take it along): 9b-iii joins the lane, the economy
+  and the kingdom's response into the one binding main.gd reads, with the suspicion's and
+  the watcher's signals emitted between arrivals; that is a session of its own.
+- **Tests:** cargo `economy/tests.rs`: EconomySystem's nine scenarios, CaptureResolution's
+  eight, a name outside the five, rounding half away, a choice for the other kind of node,
+  a node captured again, other kinds holding nothing, and the choices' words, red against a
+  `// RED-STUB` (no pools, no decay, no captures), then green. gdUnit
+  `tests/sim/test_economy_state.gd`: a farm's figures and a fort's choice word read across,
+  and a ravage given once, red against a stub that held no capture, then green.
+- **After it**, 9b-iii: the kingdom's response.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

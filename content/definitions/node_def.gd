@@ -10,10 +10,10 @@ extends Resource
 ## pure routing point with no type-specific validation.
 enum NodeType { ORIGIN, RESOURCE, FORT, NEUTRAL, WAYPOINT }
 
-## Append-only, per specs/12-node-schema-round-3.md. Matches EconomySystem._pools'
+## Append-only, per specs/12-node-schema-round-3.md. Matches the economy's pools'
 ## existing five keys. Authored ahead of any node using anything but FOOD - a real
-## generic-resource consumer (sim/capture_resolution.gd still hardcodes "food") is
-## future work, not this field.
+## generic-resource consumer (the crate's captures, native/rust/src/economy/captures.rs, still
+## hardcode "food") is future work, not this field.
 enum ResourceType { FOOD, WOOD, STONE, METAL, CRYSTAL }
 
 const StructurePlanDef = preload("res://content/definitions/structure_plan_def.gd")
@@ -41,7 +41,7 @@ const NO_TILE := Vector2i(-1, -1)
 @export var decay_floor_food: int = 0
 
 ## Additive, per specs/12-node-schema-round-3.md - existing Food-specific fields
-## above are untouched (no rename), so sim/capture_resolution.gd's reads keep
+## above are untouched (no rename), so the captures' reads keep
 ## compiling and behaving identically. Authored, not yet read by sim/.
 @export var resource_type: ResourceType = ResourceType.FOOD
 
@@ -93,7 +93,7 @@ const NO_TILE := Vector2i(-1, -1)
 ## ids/faction roster in the crate's map rules.
 @export var garrison_units: Array[GarrisonUnitDef] = []
 
-## CaptureResolution's capture-choice figures. See
+## The captures' capture-choice figures (native/rust/src/economy/captures.rs). See
 ## specs/03-resource-nodes-and-workers.md. Food/Wood/Stone-specific rather than
 ## generic-resource-typed, matching yield_food_per_tick's existing convention - this
 ## slice's only resource node produces Food and its only fort has no resource type.

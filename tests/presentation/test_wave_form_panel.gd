@@ -1,9 +1,8 @@
 extends GdUnitTestSuite
-## Per specs/08's wave-forming input scenarios. Real EconomySystem/CommandQueue
-## instances throughout (cheap to construct), same reasoning as test_time_controls.gd.
+## Per specs/08's wave-forming input scenarios. The crate's economy (`EconomyState`) and
+## a real CommandQueue throughout (cheap to construct), same reasoning as test_time_controls.gd.
 
 const WaveFormPanel = preload("res://presentation/wave_form_panel.gd")
-const EconomySystem = preload("res://sim/economy_system.gd")
 const CommandQueue = preload("res://sim/command_queue.gd")
 const UnitDef = preload("res://content/definitions/unit_def.gd")
 
@@ -17,7 +16,7 @@ func _grem(cost_food: int = 8) -> UnitDef:
 
 
 func test_queueing_an_affordable_grem_spends_food_and_returns_true() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 10)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
@@ -30,7 +29,7 @@ func test_queueing_an_affordable_grem_spends_food_and_returns_true() -> void:
 
 
 func test_queueing_an_unaffordable_grem_spends_nothing_and_returns_false() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 5)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
@@ -45,7 +44,7 @@ func test_queueing_an_unaffordable_grem_spends_nothing_and_returns_false() -> vo
 func test_marching_with_no_queued_units_does_nothing() -> void:
 	var queue := CommandQueue.new()
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
-	panel.economy = EconomySystem.new()
+	panel.economy = NativeLibrary.made("EconomyState")
 	panel.command_queue = queue
 
 	panel.on_march_pressed(0, 1)
@@ -54,7 +53,7 @@ func test_marching_with_no_queued_units_does_nothing() -> void:
 
 
 func test_marching_with_queued_units_enqueues_one_filled_command() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 8)
 	var queue := CommandQueue.new()
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
@@ -70,7 +69,7 @@ func test_marching_with_queued_units_enqueues_one_filled_command() -> void:
 
 
 func test_marching_clears_the_buffer_for_the_next_wave() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 16)
 	var queue := CommandQueue.new()
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
@@ -85,7 +84,7 @@ func test_marching_clears_the_buffer_for_the_next_wave() -> void:
 
 
 func test_pending_count_reflects_queued_units() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 16)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
@@ -98,7 +97,7 @@ func test_pending_count_reflects_queued_units() -> void:
 
 
 func test_marching_resets_pending_count_to_zero() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 8)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy
@@ -111,7 +110,7 @@ func test_marching_resets_pending_count_to_zero() -> void:
 
 
 func test_queueing_beyond_the_cap_does_nothing_and_returns_false() -> void:
-	var economy := EconomySystem.new()
+	var economy: Object = NativeLibrary.made("EconomyState")
 	economy.add("food", 100)
 	var panel: WaveFormPanel = auto_free(WaveFormPanel.new())
 	panel.economy = economy

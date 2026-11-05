@@ -5,8 +5,6 @@ extends Node2D
 ## no automated coverage of this file itself, per specs/08's own Notes; verified by
 ## the scripted headless run recorded in specs/06 and by manual playtest.
 
-const EconomySystem = preload("res://sim/economy_system.gd")
-const CaptureResolution = preload("res://sim/capture_resolution.gd")
 const SuspicionSystem = preload("res://sim/suspicion_system.gd")
 const TaskForceDispatch = preload("res://sim/task_force_dispatch.gd")
 const ScriptedBeatWatcher = preload("res://sim/scripted_beat_watcher.gd")
@@ -24,6 +22,9 @@ const HERO_PARTY_DEF: ResponseUnitDef = preload("res://content/response_units/he
 
 ## The lane, held by the crate (`LaneState`, native/rust/src/lane/, spec 39 step 9b-i).
 const LANE_CLASS := "LaneState"
+## The economy and the captures, held by the crate (`EconomyState`, native/rust/src/economy/,
+## spec 39 step 9b-ii).
+const ECONOMY_CLASS := "EconomyState"
 const P := 0
 const FARM := 1
 const FORT := 2
@@ -34,8 +35,7 @@ const FORT_CAPTURE_SPIKE := 25.0
 
 var _map: MapDef = CrateContent.map("p_f_F_c")
 var _lane: Object
-var _economy: EconomySystem
-var _capture: CaptureResolution
+var _economy: Object
 var _suspicion: SuspicionSystem
 var _dispatch: TaskForceDispatch
 var _watcher: ScriptedBeatWatcher
@@ -81,8 +81,7 @@ func _process(delta: float) -> void:
 func _build_simulation() -> void:
 	_lane = NativeLibrary.made(LANE_CLASS)
 	_lane.start(_map.lanes[0].nodes)
-	_economy = EconomySystem.new()
-	_capture = CaptureResolution.new(_economy)
+	_economy = NativeLibrary.made(ECONOMY_CLASS)
 	_suspicion = SuspicionSystem.new(_map.suspicion_tier_thresholds, _map.suspicion_decay_per_tick)
 	_dispatch = TaskForceDispatch.new(
 		_lane,
@@ -168,7 +167,7 @@ func _build_wave_form_input() -> void:
 
 func _build_capture_choice_input() -> void:
 	_capture_choice = CaptureChoicePanel.new()
-	_capture_choice.capture_resolution = _capture
+	_capture_choice.capture_resolution = _economy
 	add_child(_capture_choice)
 	_ravage_button = _add_button(
 		"Ravage Farm", Vector2(20, 260), func(): _capture_choice.on_ravage_pressed(FARM)
@@ -227,7 +226,7 @@ func _connect_events() -> void:
 
 func _on_tick_advanced(tick_number: int) -> void:
 	_queue.on_tick_advanced(tick_number)
-	_capture.on_tick_advanced(tick_number)
+	_economy.on_tick_advanced(tick_number)
 	_suspicion.on_tick_advanced(tick_number)
 	var pre_movers: int = _lane.moving_blockers().size()
 	_lane.advance_positions(SimEvents)
@@ -243,12 +242,12 @@ func _player_unit_count() -> int:
 
 func _update_choice_button_visibility() -> void:
 	_ravage_button.visible = _lane.node_state(FARM)["owner"] == "player"
-	_fortify_button.visible = _capture.is_awaiting_choice(FORT)
-	_dismantle_button.visible = _capture.is_awaiting_choice(FORT)
+	_fortify_button.visible = _economy.is_awaiting_choice(FORT)
+	_dismantle_button.visible = _economy.is_awaiting_choice(FORT)
 
 
 func _on_node_captured(node_index: int) -> void:
-	_capture.on_node_captured(node_index, _map.lanes[0].nodes[node_index])
+	_economy.on_node_captured(node_index, _map.lanes[0].nodes[node_index])
 	if node_index == FARM:
 		_lane.harvest(FARM, "player")
 	if node_index == FORT:
