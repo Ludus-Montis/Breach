@@ -22,8 +22,9 @@ CI time, writing and usage.
 the content schema, and the designer writes JSON in it) **and 154** (cargo tests, one phase on
 a built state, snapshots cut from the digests). Decisions 97, 130, 138, 139 and 151 still hold.
 Answers #292 (Q33). Takes over spec 38's steps 3 and 4, and spec 38's step 5 (threading, slot
-packing, Q26 #281) as step 10, after step 8. Q24 (#279) and Q32 (#291) stay open: they are
-rule questions, and this round ports the rules as they are.
+packing, Q26 #281) as step 10, after step 8. Steps 1 to 9 port the rules as they are. Step 10
+settles Q26 and Q24's remaining lists (#279) by Decision 159, and benches Q32 (#291) under
+Decision 160, which stays open until a Decision adopts or declines it.
 
 ## Status
 
@@ -31,7 +32,7 @@ Agreed in the design session of 2026-10-22. Before step 1, spec 38 step 2b is bu
 outcome check on Rust), because every step here retires GDScript. Spec 38's steps 1d and 2 are
 dropped. Their benches would time GDScript that this round deletes, and step 2's whole-battle
 series is rebuilt under cargo in step 8. Step 10 (spec 38's step 5, moved here the same day)
-needs a design session before it is built.
+was designed on 2026-11-05 (Decisions 159 and 160) and is built as 10a to 10f.
 
 Each step is built with `/run-phase` as "spec 39 step N", as one PR. A step too large for one
 session splits into lettered PRs (4a, 4b). Each lettered PR keeps the rules below, and the
@@ -1145,17 +1146,64 @@ and `content/definitions/` and `content/import/` keep only what presentation rea
 
 ### Step 10, threading, then slot packing (design first)
 
-Moved from spec 38 step 5 on 2026-10-22. It needs step 8, when the whole tick runs in Rust and
-the benches run under cargo; it does not need step 9. Threads help only work in Rust: with
-about 50 ms of the tick native before this round, threads on every kernel would have saved
-at most about 35 ms (Amdahl's law). Slot packing, too, speeds up only native passes.
+Moved from spec 38 step 5 on 2026-10-22. Designed on 2026-11-05 (Decisions 159 and 160),
+from `bench` runs #56 to #62 on main at 1156225, CI's 4-thread runner:
 
-**Subjects for its design session:** Q26 (#281) as written, measured with step 8's
-`tick_phases` (the series, `terrain=mixed` and per-pass changed counts). Each needs a
-Decision the user authorises. Decision 151 reopens two options Q26 ruled out only because
-they broke identity with the reference: `f32` columns and parallel reductions in a different
-fixed order. Both change outcomes but not behaviour, so each is allowed under that
-Decision's conditions.
+- **4096 a side, 4 squads** (series, from contact): about 95 ms a tick. Seek, walk and facing
+  38 ms (92% of slots changed), wounds' tend 25 to 32 ms (none changed), parting 9 ms threaded
+  and 14 ms not, the roster 2.5 to 3.7 ms (none changed).
+- **24,576 a side, 24 squads of 1,024:** about 566 ms. Tend 163 to 226 ms (none changed),
+  seek 100 ms, rout 75 ms, parting 67 ms threaded and 131 ms not, the roster 24 ms (none
+  changed).
+- **One squad a side** (`breach_scaling`, the fight): 33, 78, 201 and 587 ms from 3,072 to
+  24,576 a side, growing ×2.33, ×2.58 and ×2.92 a doubling. The march grows ×2.05 to ×2.19.
+- **The terrain series** (`terrain=mixed`, 1024 a side): 16.8 ms mean, 22.3 ms worst.
+
+**The target (Decision 159):** 24,576 a side as 24 squads of 1,024, at a 95th-and-99th-percentile
+tick of at most 50 ms on CI's 4-thread runner, and one squad's growth within ×2.2 a doubling.
+The interim bar is 100 ms. The owner's i7-12700K (20 threads) is a comparison by hand. 4096 a
+side stays the daily bench.
+
+Each part is one PR, benched against its base with `rounds` of 5 or more, and gives its numbers
+at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR closes the step.
+
+- **10a, the measuring tools.**
+  - `bench` compares two argument sets on one runner, in turn (threads on and off, and later
+    10f's options), as well as two commits.
+  - A 25k preset: the target's series with a limit long enough to cover the fight, beside the
+    4096 one. A check that the two scale as `breach_scaling` says, so 4096 can stand in.
+  - `tick_phases` reports how scattered each squad's slots are (how far a squad's members are,
+    in slot order, from a run of consecutive slots), so 10e is measured before it is built.
+- **10b, work that follows change** (outcomes identical; `bounded-work.md`).
+  - Tend doesn't build every living unit's record when no unit is down, and a unit's traits
+    and attributes aren't looked up by name in a pass.
+  - The roster isn't rebuilt from scratch four times a tick.
+  - Sorts on a seeded draw take each key once (`sort_by_cached_key`).
+  - Q24's remaining lists (#279): `fighters()` and combat's rank groups, squad edges and
+    spans, the re-form's occupancy, kept by the events that change them.
+  - The per-squad quadratic `breach_scaling` shows is found and fixed.
+- **10c, threads.**
+  - Seek, walk and facing, rout, and tend's search map in parallel into buffers and apply in
+    squad and member order, with any reduction in a fixed order, as parting does. The result
+    doesn't depend on the number of threads.
+  - A kernel whose serial pass reads, within the pass, what an earlier unit wrote isn't
+    identical when threaded. Its PR carries `Outcomes-changed:` and the trials both ways round.
+  - A unit-count threshold keeps small battles on one thread.
+  - CI runs the digests and trials with threads on and off and requires them equal. Then
+    threads are on by default in the game and the tools.
+- **10d, the tick off the main thread.**
+  - Tick N+1 runs on a worker while presentation draws tick N from a snapshot. Commands are
+    taken between ticks, as now.
+  - The snapshot copies only the columns that changed.
+- **10e, slot packing,** if 10a's measure shows scatter worth fixing. A squad's slots are
+  packed together, at enrolment or by a compaction that updates the unit-to-slot map, and
+  hot loops index by slot rather than through `by_unit` (a `HashMap`). Slots are storage only
+  (Decision 97), so packing changes no outcome.
+- **10f, the options that change outcomes,** benched against each other on 10a's comparison:
+  `f32` columns, reductions in a different fixed order, and a uniform cadence for squad-level
+  rules (Q32, #291; Decision 160). Each runs under Decision 151's conditions. Each that is
+  kept needs a Decision of its own, `/design-check`, the trailer and Gate 2. The cadence also
+  needs the owner's feel test.
 
 ## Scenarios
 
