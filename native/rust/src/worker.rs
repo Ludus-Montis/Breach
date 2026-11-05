@@ -7,10 +7,14 @@
 //! clock owes at most `MOST_OWED` ticks; time beyond that is dropped and `owe` says so (the
 //! simulation is behind). Paused, no tick starts, and an order is applied as soon as it comes.
 //! Dropping the worker never waits: a tick running finishes on its own and is thrown away.
-//! `run_ticks` waits, for tests and headless tools, and goes through the same loop.
+//! `run_ticks` waits, for tests and headless tools, and goes through the same loop; it also
+//! waits for every order given before it to be applied (step 10d-ii). `reached` is the tick the
+//! field reaches once what is owed is played, so the frame knows whether the newest snapshot
+//! is the one its clock is drawing towards.
 //!
 //! The inbox is a mutex the worker holds only to take work, never across a tick.
 
+use std::cell::Cell;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
@@ -48,6 +52,8 @@ pub struct Snapshot<S: Steps> {
     pub view: S::View,
     pub told: Option<S::Told>,
     pub taken: Vec<(S::Order, bool)>,
+    /// The orders given by `order` applied so far, this snapshot's included.
+    pub ordered: u64,
 }
 
 /// What the caller has handed the worker and it hasn't taken yet.
@@ -57,6 +63,10 @@ struct Inbox<O> {
     forced: u32,
     paused: bool,
     closed: bool,
+    /// The tick the field reaches once every tick taken or owed is played.
+    reached: i64,
+    /// The orders given by `order` so far.
+    given: u64,
     orders: Vec<O>,
     /// A replay's orders, each with the tick it is applied at.
     replay: Vec<(i64, O)>,
@@ -88,6 +98,8 @@ struct Work<O> {
 pub struct Worker<S: Steps> {
     shared: Arc<Shared<S::Order>>,
     published: Receiver<Snapshot<S>>,
+    /// The orders applied, as the snapshots received so far say.
+    seen: Cell<u64>,
 }
 
 impl<S: Steps> Worker<S> {
@@ -98,6 +110,8 @@ impl<S: Steps> Worker<S> {
             forced: 0,
             paused: false,
             closed: false,
+            reached: sim.tick(),
+            given: 0,
             orders: Vec::new(),
             replay: Vec::new(),
         };
@@ -105,13 +119,14 @@ impl<S: Steps> Worker<S> {
         let (publish, published) = mpsc::channel();
         let theirs = shared.clone();
         std::thread::spawn(move || run(sim, &theirs, &publish));
-        Worker { shared, published }
+        Worker { shared, published, seen: Cell::new(0) }
     }
 
     /// `ticks` more owed by the clock; true if some were dropped (more than `MOST_OWED`).
     pub fn owe(&self, ticks: u32) -> bool {
         self.change(|inbox| {
             let owed = inbox.owed + ticks;
+            inbox.reached += i64::from(owed.min(MOST_OWED) - inbox.owed);
             inbox.owed = owed.min(MOST_OWED);
             owed > MOST_OWED
         })
@@ -119,7 +134,10 @@ impl<S: Steps> Worker<S> {
 
     /// `order` queued, applied at the next boundary between ticks (at once if paused).
     pub fn order(&self, order: S::Order) {
-        self.change(|inbox| inbox.orders.push(order));
+        self.change(|inbox| {
+            inbox.given += 1;
+            inbox.orders.push(order);
+        });
     }
 
     /// A replay's `order`, applied at the boundary where `tick` ticks have been played.
@@ -131,23 +149,43 @@ impl<S: Steps> Worker<S> {
         self.change(|inbox| inbox.paused = paused);
     }
 
-    /// The snapshots published since last asked, oldest first; never waits for one.
-    pub fn ready(&self) -> Vec<Snapshot<S>> {
-        self.published.try_iter().collect()
+    /// The tick the field reaches once every tick taken or owed is played (paused, the owed
+    /// ones wait).
+    pub fn reached(&self) -> i64 {
+        locked(&self.shared.inbox).reached
     }
 
-    /// `count` ticks run, paused or not and past the cap, waiting for them; every snapshot
-    /// published meanwhile, oldest first.
+    /// The snapshots published since last asked, oldest first; never waits for one.
+    pub fn ready(&self) -> Vec<Snapshot<S>> {
+        let shots: Vec<Snapshot<S>> = self.published.try_iter().collect();
+        self.saw(&shots);
+        shots
+    }
+
+    /// `count` ticks run, paused or not and past the cap, waiting for them and for every
+    /// order given before; every snapshot published meanwhile, oldest first.
     pub fn run_ticks(&self, count: u32) -> Vec<Snapshot<S>> {
-        self.change(|inbox| inbox.forced += count);
+        let given = self.change(|inbox| {
+            inbox.forced += count;
+            inbox.reached += i64::from(count);
+            inbox.given
+        });
         let mut out = Vec::new();
         let mut ticked = 0;
-        while ticked < count {
+        while ticked < count || self.seen.get() < given {
             let Ok(shot) = self.published.recv() else { break };
             ticked += u32::from(shot.told.is_some());
+            self.saw(std::slice::from_ref(&shot));
             out.push(shot);
         }
         out
+    }
+
+    /// `shots` received: the orders they applied counted.
+    fn saw(&self, shots: &[Snapshot<S>]) {
+        if let Some(last) = shots.last() {
+            self.seen.set(last.ordered);
+        }
     }
 
     /// `change` made to the inbox, and the worker woken.
@@ -172,11 +210,14 @@ fn locked<O>(inbox: &Mutex<Inbox<O>>) -> MutexGuard<'_, Inbox<O>> {
 
 /// The worker's loop: publish the state as started, then take work until closed.
 fn run<S: Steps>(mut sim: S, shared: &Shared<S::Order>, publish: &Sender<Snapshot<S>>) {
-    let first = Snapshot { tick: sim.tick(), view: sim.view(), told: None, taken: Vec::new() };
+    let (tick, view) = (sim.tick(), sim.view());
+    let first = Snapshot { tick, view, told: None, taken: Vec::new(), ordered: 0 };
     let _ = publish.send(first);
     let mut replay: Vec<(i64, S::Order)> = Vec::new();
+    let mut ordered = 0;
     while let Some(work) = taken(shared) {
         replay.extend(work.replay);
+        ordered += work.orders.len() as u64;
         let mut taken = Vec::new();
         replay.sort_by_key(|r| r.0); // stable: a tick's orders in the order given
         let due = replay.partition_point(|r| r.0 <= sim.tick());
@@ -189,7 +230,7 @@ fn run<S: Steps>(mut sim: S, shared: &Shared<S::Order>, publish: &Sender<Snapsho
         if told.is_none() && taken.is_empty() {
             continue;
         }
-        let shot = Snapshot { tick: sim.tick(), view: sim.view(), told, taken };
+        let shot = Snapshot { tick: sim.tick(), view: sim.view(), told, taken, ordered };
         let _ = publish.send(shot);
     }
 }

@@ -15,6 +15,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- The 2D feel test's battle plays on its own thread: the frame no longer freezes while a tick
+  runs, and orders are still taken between ticks. When the battle can't keep up and time is
+  dropped, the status row says `SIMULATION BEHIND`.
 - Units, weapons, armour and the battle's tuning are JSON files under `content/` (`units/`,
   `weapons/`, `armour/`, `tuning/battle_tuning.json`), checked against the JSON Schema in
   `content/schema/`. A file with a wrong or unknown field fails to load and names the file and

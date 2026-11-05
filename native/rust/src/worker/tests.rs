@@ -181,3 +181,26 @@ fn the_caller_never_waits_on_a_tick_and_a_dropped_worker_finishes_it_alone() {
     let _ = through.send(());
     gone.recv_timeout(PATIENCE).expect("the old tick finished and the simulation was dropped");
 }
+
+#[test]
+fn reached_is_the_tick_the_field_reaches_once_what_is_owed_is_played() {
+    let worker = Worker::start(counter());
+    worker.pause(true);
+    assert_eq!(worker.reached(), 0);
+    worker.owe(1);
+    assert_eq!(worker.reached(), 1);
+    worker.owe(5);
+    assert_eq!(worker.reached(), 2, "owed at most two");
+    let _ = worker.run_ticks(1);
+    assert_eq!(worker.reached(), 3, "a tick run by hand is reached too");
+}
+
+#[test]
+fn run_ticks_waits_for_every_order_given_before_it() {
+    let worker = Worker::start(counter());
+    worker.order(None);
+    let seen = worker.run_ticks(0);
+    let taken: Vec<_> = seen.iter().flat_map(|s| s.taken.clone()).collect();
+    assert_eq!(taken, vec![(Some(0), true)]);
+    assert!(worker.run_ticks(0).is_empty(), "nothing more is waited for");
+}

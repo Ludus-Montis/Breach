@@ -1,15 +1,18 @@
 //! `FieldState`, the 2D feel test's field held by the crate (spec 39 step 9d-i), as its scene
-//! and HUD read it: `open` sets the field up, `step` plays a tick as FormationField.step does
-//! and returns its events as the dictionaries CrateEvents made (the builders' and waves'
-//! first), and `act` and `give` give a command now (the feel test's words, or a record's
-//! command), recorded with its tick when the field takes it (FormationRecord). After each tick
-//! the scene reads what it draws: the squads with their units (`seen.rs`), the units'
-//! positions, facings and ranks, the waves' places, B's staging point, the routes and the
-//! ground. The field itself is a `FieldSim` (step 10d-i), which a worker can also play.
+//! and HUD read it. `open` sets the field up and starts it on a worker (step 10d-ii,
+//! `FieldPlayer`): the frame owes the ticks its clock gives (`owe`), pauses, gives the feel
+//! test's words or a record's commands (`act`, `give`, `replay`; applied at the next boundary
+//! between ticks and recorded with that tick when taken) and takes what was played (`take`),
+//! never waiting. The events are the dictionaries CrateEvents made, the builders' and waves'
+//! first. The reads show the newest snapshot: the squads with their units (`seen.rs`), the
+//! units' positions, facings and ranks, the waves' places and B's staging point. The routes
+//! and the ground don't change, and are read at open. `run_ticks` and `step` wait, for tests
+//! and headless play.
 
 use godot::prelude::*;
 
-use super::sim::FieldSim;
+use super::player::FieldPlayer;
+use super::sim::{FieldSim, FieldTold, FieldView};
 use super::{A, B, C};
 use crate::events::told::{Said, Told};
 use crate::maths::{self, V2};
@@ -31,14 +34,24 @@ const KEYS: [&str; 3] = ["A", "B", "C"];
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct FieldState {
-    sim: Option<FieldSim>,
+    played: Option<Played>,
+}
+
+/// A field opened: played on a worker, and what doesn't change while it plays (the routes
+/// and the ground, read at open).
+struct Played {
+    player: FieldPlayer,
+    seed: i64,
+    captained: bool,
+    routes: VarDictionary,
+    ground: VarArray,
 }
 
 #[godot_api]
 impl FieldState {
     /// A fresh field from `content`, its line `captained` or not, its battle seeded
-    /// `battle_seed`, its record's header stamped with `build`; false, with nothing set up, if
-    /// the content isn't loaded or lacks a unit the field needs.
+    /// `battle_seed`, its record's header stamped with `build`, started on a worker; false,
+    /// with nothing set up, if the content isn't loaded or lacks a unit the field needs.
     #[func]
     fn open(
         &mut self,
@@ -51,68 +64,110 @@ impl FieldState {
         let Some(loaded) = content.bind().content.clone() else { return false };
         let opened = FieldSim::open(loaded, (battle_seed, captained), &build.to_string(), threaded);
         let Some(sim) = opened else { return false };
-        self.sim = Some(sim);
+        let (routes, ground) = (routes_of(&sim), ground_of(&sim));
+        let player = FieldPlayer::start(sim);
+        self.played = Some(Played { player, seed: battle_seed, captained, routes, ground });
         true
     }
 
-    /// The ticks played.
+    /// The ticks played, as the newest snapshot shows them.
     #[func]
     fn tick_number(&self) -> i64 {
-        self.sim.as_ref().map_or(0, |s| s.play.play.tick)
+        self.played.as_ref().map_or(0, |p| p.player.tick)
     }
 
     #[func]
     fn battle_seed(&self) -> i64 {
-        self.sim.as_ref().map_or(0, |s| s.seed)
+        self.played.as_ref().map_or(0, |p| p.seed)
     }
 
     #[func]
     fn captained(&self) -> bool {
-        self.sim.as_ref().is_some_and(|s| s.captained)
+        self.played.as_ref().is_some_and(|p| p.captained)
     }
 
-    /// One tick (FormationField.step): the builders fill the waves, full waves announce (and
-    /// depart if automatic), then the fight. Its events, the builders' and waves' first.
+    /// `ticks` more owed by the frame's clock, played on the worker; true if time was dropped
+    /// (more than two owed: the simulation is behind). Never waits.
+    #[func]
+    fn owe(&self, ticks: i64) -> bool {
+        let ticks = u32::try_from(ticks).unwrap_or(0);
+        self.played.as_ref().is_some_and(|p| p.player.owe(ticks))
+    }
+
+    /// No tick starts while paused; an order given then applies at once.
+    #[func]
+    fn pause(&self, paused: bool) {
+        if let Some(p) = self.played.as_ref() {
+            p.player.pause(paused);
+        }
+    }
+
+    /// True if the newest snapshot is the tick the clock is drawing towards (else the frame
+    /// holds the units at the newest).
+    #[func]
+    fn caught_up(&self) -> bool {
+        self.played.as_ref().is_none_or(|p| p.player.caught_up())
+    }
+
+    /// The ticks the worker has played since last asked, without waiting: their events, in
+    /// order (each tick's builders' and waves' first), as CrateEvents made them. The reads
+    /// below show the newest.
+    #[func]
+    fn take(&mut self) -> Array<VarDictionary> {
+        let Some(p) = self.played.as_mut() else { return Array::new() };
+        events_of(&p.player.take())
+    }
+
+    /// `count` ticks played, and every order given before applied, waiting for them (for
+    /// tests and headless play); their events, in order.
+    #[func]
+    fn run_ticks(&mut self, count: i64) -> Array<VarDictionary> {
+        let Some(p) = self.played.as_mut() else { return Array::new() };
+        events_of(&p.player.run_ticks(u32::try_from(count).unwrap_or(0)))
+    }
+
+    /// One tick (FormationField.step), waiting for it: the builders fill the waves, full waves
+    /// announce (and depart if automatic), then the fight. Its events, the builders' and
+    /// waves' first.
     #[func]
     fn step(&mut self) -> Array<VarDictionary> {
-        let Some(sim) = self.sim.as_mut() else { return Array::new() };
-        let (made, told) = sim.step();
-        let mut out: Array<VarDictionary> = made.iter().map(produced).collect();
-        for event in &told {
-            out.push(&event_of(event));
-        }
-        out
+        self.run_ticks(1)
     }
 
-    /// Gives the feel test's `words` ("send A", "via_c on", "pursues off", ...) now; true,
-    /// and recorded at this tick, if the field takes them.
+    /// Gives the feel test's `words` ("send A", "via_c on", "pursues off", ...) at the next
+    /// boundary between ticks, recorded with that tick if the field takes them; true if they
+    /// are a command (whether it was taken shows in the record).
     #[func]
     fn act(&mut self, words: GString) -> bool {
         match record::from_words(self.tick_number(), &words.to_string()) {
-            Some(given) => self.given(&given),
+            Some(given) => self.given(given),
             None => false,
         }
     }
 
-    /// Gives a record's command (`read_record`'s: tick, who, order, target, value) now, at
-    /// this tick; true, and recorded, if the field takes it.
+    /// Gives a record's command (`read_record`'s: tick, who, order, target, value) at the
+    /// next boundary between ticks, recorded with that tick if the field takes it.
     #[func]
     fn give(&mut self, command: VarDictionary) -> bool {
-        let text = |key: &str| command.get(key).map_or(String::new(), |v| v.to_string());
-        let given = record::command(
-            self.tick_number(),
-            &text("who"),
-            &text("order"),
-            &text("target"),
-            &text("value"),
-        );
-        self.given(&given)
+        let given = command_from(self.tick_number(), &command);
+        self.given(given)
+    }
+
+    /// A replay's commands (`read_record`'s), each given when its tick comes.
+    #[func]
+    fn replay(&mut self, commands: Array<VarDictionary>) {
+        let Some(p) = self.played.as_ref() else { return };
+        let read = commands.iter_shared().map(|c| {
+            let tick = c.get("tick").and_then(|t| t.try_to::<i64>().ok()).unwrap_or(0);
+            command_from(tick, &c)
+        });
+        p.player.replay(read.collect());
     }
 
     /// The record of play so far, to copy out: a replay of it gives the same battle.
     #[func]
     fn record(&self) -> GString {
-        let record = self.sim.as_ref().map_or(String::new(), |s| s.record.join("\n"));
+        let record = self.played.as_ref().map_or(String::new(), |p| p.player.record.join("\n"));
         GString::from(record.as_str())
     }
 
@@ -140,37 +195,36 @@ impl FieldState {
     /// `leadership` and `detection`.
     #[func]
     fn squads(&self) -> Array<VarDictionary> {
-        let Some(sim) = self.sim.as_ref() else { return Array::new() };
-        sim.play.seen(&sim.squads, &sim.field, &sim.content).iter().map(squad_of).collect()
+        let Some(view) = self.view() else { return Array::new() };
+        view.seen.iter().map(squad_of).collect()
     }
 
     /// Where each unit stands, in cells, by its slot.
     #[func]
     fn positions(&self) -> PackedVector2Array {
-        let Some(sim) = self.sim.as_ref() else { return PackedVector2Array::new() };
-        sim.field.columns.position.iter().map(|&p| vector(p)).collect()
+        let Some(view) = self.view() else { return PackedVector2Array::new() };
+        view.positions.iter().map(|&p| vector(p)).collect()
     }
 
     /// The way each unit faces, a unit vector, by its slot.
     #[func]
     fn facings(&self) -> PackedVector2Array {
-        let Some(sim) = self.sim.as_ref() else { return PackedVector2Array::new() };
-        let bearings = sim.field.columns.bearing.iter();
-        bearings.map(|&b| vector(maths::bearing_vector(b))).collect()
+        let Some(view) = self.view() else { return PackedVector2Array::new() };
+        view.bearings.iter().map(|&b| vector(maths::bearing_vector(b))).collect()
     }
 
     /// Each unit's rank (0: the front), by its slot.
     #[func]
     fn ranks(&self) -> PackedInt32Array {
-        let Some(sim) = self.sim.as_ref() else { return PackedInt32Array::new() };
-        PackedInt32Array::from(sim.field.columns.rank.as_slice())
+        let Some(view) = self.view() else { return PackedInt32Array::new() };
+        PackedInt32Array::from(view.ranks.as_slice())
     }
 
     /// The kingdom's line's and reserve's ids.
     #[func]
     fn kingdom(&self) -> PackedInt64Array {
-        let Some(sim) = self.sim.as_ref() else { return PackedInt64Array::new() };
-        sim.play.kingdom.iter().map(|&s| sim.squads.id[s]).collect()
+        let Some(view) = self.view() else { return PackedInt64Array::new() };
+        PackedInt64Array::from(view.kingdom.as_slice())
     }
 
     /// Each wave's places by its key ("A", "B"): [rank and file built, in all, leaders built,
@@ -178,9 +232,9 @@ impl FieldState {
     #[func]
     fn waves(&self) -> VarDictionary {
         let mut waves = VarDictionary::new();
-        let Some(sim) = self.sim.as_ref() else { return waves };
+        let Some(view) = self.view() else { return waves };
         for w in [A, B] {
-            waves.set(KEYS[w], &PackedInt64Array::from(&sim.play.counted(w, &sim.content)[..]));
+            waves.set(KEYS[w], &PackedInt64Array::from(&view.waves[w][..]));
         }
         waves
     }
@@ -188,52 +242,86 @@ impl FieldState {
     /// Where B's waves wait, in cells, or null if they don't.
     #[func]
     fn staging_point(&self) -> Variant {
-        let point = self.sim.as_ref().and_then(|s| s.play.staging_point());
+        let point = self.view().and_then(|v| v.staging);
         point.map_or(Variant::nil(), |p| vector(p).to_variant())
     }
 
     /// The routes by key ("A", "B", "C"): [their points, in cells, their half width].
     #[func]
     fn routes(&self) -> VarDictionary {
-        let mut routes = VarDictionary::new();
-        let Some(sim) = self.sim.as_ref() else { return routes };
-        for r in [A, B, C] {
-            let route = &sim.play.routes[r].0;
-            let points: PackedVector2Array = route.points.iter().map(|&p| vector(p)).collect();
-            routes.set(KEYS[r], &varray![&points, route.half_width]);
-        }
-        routes
+        self.played.as_ref().map_or_else(VarDictionary::new, |p| p.routes.clone())
     }
 
     /// The field's size in cells, and its ground as painted, in order: each [its area, in
     /// cells, what it is ("wood", "depth" or "height") and how deep or high].
     #[func]
     fn ground(&self) -> VarArray {
-        let mut areas = VarArray::new();
-        let Some(sim) = self.sim.as_ref() else { return areas };
-        let map =
-            sim.play.play.set.map.and_then(|n| crate::ground::map::of(n, &sim.content.tuning));
-        let Some(map) = map else { return areas };
-        areas.push(&Vector2i::new(map.size.0, map.size.1).to_variant());
-        for ((x, y, w, h), paint) in &map.areas {
-            let (kind, value) = if paint.blocks_sight == Some(true) {
-                ("wood", 0.0)
-            } else if let Some(depth) = paint.depth {
-                ("depth", depth)
-            } else {
-                ("height", f64::from(paint.height.unwrap_or(0)))
-            };
-            areas.push(&varray![Rect2i::from_components(*x, *y, *w, *h), kind, value].to_variant());
-        }
-        areas
+        self.played.as_ref().map_or_else(VarArray::new, |p| p.ground.clone())
     }
 }
 
 impl FieldState {
-    /// `given` given to the field; recorded, and true, if it takes it.
-    fn given(&mut self, given: &Command) -> bool {
-        self.sim.as_mut().is_some_and(|s| s.given(given))
+    /// `given` queued for the field; true if there is a field.
+    fn given(&mut self, given: Command) -> bool {
+        let Some(p) = self.played.as_ref() else { return false };
+        p.player.order(given);
+        true
     }
+
+    /// The newest snapshot's view.
+    fn view(&self) -> Option<&FieldView> {
+        self.played.as_ref().map(|p| &p.player.newest)
+    }
+}
+
+/// A record's command as a dictionary gives it (who, order, target, value), at `tick`.
+fn command_from(tick: i64, command: &VarDictionary) -> Command {
+    let text = |key: &str| command.get(key).map_or(String::new(), |v| v.to_string());
+    record::command(tick, &text("who"), &text("order"), &text("target"), &text("value"))
+}
+
+/// Ticks' events as `take` gives them, each tick's builders' and waves' first.
+fn events_of(ticks: &[FieldTold]) -> Array<VarDictionary> {
+    let mut out = Array::new();
+    for (made, told) in ticks {
+        for event in made {
+            out.push(&produced(event));
+        }
+        for event in told {
+            out.push(&event_of(event));
+        }
+    }
+    out
+}
+
+/// The routes by key, as `routes` gives them.
+fn routes_of(sim: &FieldSim) -> VarDictionary {
+    let mut routes = VarDictionary::new();
+    for r in [A, B, C] {
+        let route = &sim.play.routes[r].0;
+        let points: PackedVector2Array = route.points.iter().map(|&p| vector(p)).collect();
+        routes.set(KEYS[r], &varray![&points, route.half_width]);
+    }
+    routes
+}
+
+/// The field's size and ground, as `ground` gives them; empty if it has no map.
+fn ground_of(sim: &FieldSim) -> VarArray {
+    let mut areas = VarArray::new();
+    let map = sim.play.play.set.map.and_then(|n| crate::ground::map::of(n, &sim.content.tuning));
+    let Some(map) = map else { return areas };
+    areas.push(&Vector2i::new(map.size.0, map.size.1).to_variant());
+    for ((x, y, w, h), paint) in &map.areas {
+        let (kind, value) = if paint.blocks_sight == Some(true) {
+            ("wood", 0.0)
+        } else if let Some(depth) = paint.depth {
+            ("depth", depth)
+        } else {
+            ("height", f64::from(paint.height.unwrap_or(0)))
+        };
+        areas.push(&varray![Rect2i::from_components(*x, *y, *w, *h), kind, value].to_variant());
+    }
+    areas
 }
 
 fn vector(p: V2) -> Vector2 {
