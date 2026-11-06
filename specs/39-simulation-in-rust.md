@@ -3948,6 +3948,32 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   once a unit's pace changes (`swaps/pass/tests.rs`). The digests and trials, unchanged,
   are the identity check.
 
+### Step 10b-iii, the per-squad quadratics
+
+- **Built** (2026-11-05), on 10b-ii's branch before it merged (the owner's go-ahead). No
+  outcome changes: each answer is the one the pairwise search gave, to the bit. These are the
+  four 10b-ii found; `breach_scaling`'s bench on this branch says whether the one-squad
+  growth is now within Decision 159's ×2.2 a doubling.
+  - **A flank's edge units** (`geometry::beyond`): `Shape::edge_units` compared every unit
+    with every other. It now takes, for each unit, the furthest reach of the lines it
+    overlaps, from a Fenwick tree of maxima over the lines sorted by start and by end
+    (n log n). It is exact because a rounded difference only grows with its first term and
+    shrinks with its second: `overlap(a, b) > EPSILON` holds just when `a.1 - b.0`,
+    `b.1 - a.0` and both widths exceed the tolerance, and each of the first two picks out a
+    prefix of one sorted order.
+  - **The swaps' claims** (`swaps::claims`): a slot's index in the living is read from a
+    map built once, not searched for each unit in a swap. A slot listed twice keeps its first
+    index, as `position` did.
+  - **The busy units** (`shuffle::start_moves`, `through`): a mark each, not a list searched
+    for each unit.
+  - **The joined** (`swaps::pass::ranked`): the squad's joined ids as a set, built once a
+    re-form, not searched for each unit.
+- **Scenarios:** given lines on a grid, nudged off it within and beyond the tolerance, and
+  touching, when each one's furthest overlapping reach is worked out, then it is the one
+  comparing every pair finds (`geometry/tests.rs`, 200 seeded draws). Given lines that only
+  touch or have no width, then none lies beyond them. The other three keep their answers by
+  construction; their modules' tests, the digests and trials are the identity check.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

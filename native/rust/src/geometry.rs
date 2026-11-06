@@ -212,15 +212,9 @@ impl<'a> Shape<'a> {
         let corners: Vec<[V2; 4]> = self.living.iter().map(|u| self.corners(u)).collect();
         let spans: Vec<Extent> = corners.iter().map(|c| extent(c, across)).collect();
         let reaches: Vec<f32> = corners.iter().map(|c| extent(c, outward).1).collect();
-        (0..self.living.len())
-            .filter(|&u| {
-                !(0..self.living.len()).any(|o| {
-                    o != u
-                        && overlap(spans[u], spans[o]) > EPSILON
-                        && reaches[o] as f64 > reaches[u] as f64 + EPSILON
-                })
-            })
-            .collect()
+        let beyond = beyond::furthest(&spans, &reaches); // spec 39 step 10b-iii: not by pairs
+        let outdone = |u: usize| beyond[u] as f64 > reaches[u] as f64 + EPSILON;
+        (0..self.living.len()).filter(|&u| !outdone(u)).collect()
     }
 
     /// How deep the squad is in ranks (FormationContact._back_rows).
@@ -274,6 +268,8 @@ pub fn edge_hit(victim: f64, attacker: f64) -> i32 {
     let from = fposmod(attacker + 180.0 - victim, 360.0);
     ((from / 90.0).round() as i64).rem_euclid(4) as i32
 }
+
+mod beyond;
 
 #[cfg(test)]
 #[path = "geometry/tests.rs"]

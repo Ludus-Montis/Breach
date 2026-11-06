@@ -10,6 +10,8 @@
 
 pub mod pass;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::columns::Columns;
@@ -232,9 +234,16 @@ pub fn claims(
     living: &[usize],
 ) -> (Vec<(Cell, i32, i32)>, Vec<usize>) {
     let (mut claimed, mut busy) = (Vec::new(), Vec::new());
+    if squads.swaps[squad].is_empty() {
+        return (claimed, busy);
+    }
+    let mut index = HashMap::with_capacity(living.len()); // each slot's first index
+    for (n, &slot) in living.iter().enumerate().rev() {
+        index.insert(slot, n);
+    }
     for u in squads.swaps[squad].iter().flat_map(|held| &held.units) {
         claimed.push((u.to, u.foot.0, u.foot.1));
-        busy.extend(living.iter().position(|&slot| slot == u.slot));
+        busy.extend(index.get(&u.slot).copied());
     }
     (claimed, busy)
 }
