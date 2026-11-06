@@ -4157,8 +4157,8 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
     in one frame (only when behind), units move from the newest drawn before the frame.
   - **"Simulation behind":** when `owe` drops time (more than two ticks owed), the HUD's status
     row shows `SIMULATION BEHIND` for a second.
-  - **The scene's frame** is a public `frame(delta)`, which `_process` calls, so its test drives
-    a frame. The ground and the routes are drawn by `GroundDrawing` (`ground_drawing.gd`, as
+  - **The scene's frame** is `_process(delta)`, which its test calls to drive a frame (a public
+    `frame(delta)` took the scene past `check_isp`'s seven public methods). The ground and the routes are drawn by `GroundDrawing` (`ground_drawing.gd`, as
     `FallenDrawing` is), which keeps the scene under gdlint's 300 lines.
   - **Waiting, for tests and headless play:** `run_ticks(count)` (and `step`, one tick) waits
     for the ticks and for every order given before it (`Worker::run_ticks` now also waits for

@@ -112,13 +112,9 @@ func restart(captained: bool, battle_seed: int, queued: Array = []) -> void:
 	_snapshot()
 
 
-func _process(delta: float) -> void:
-	frame(delta)
-
-
 ## A frame of `delta` seconds: the clock's ticks owed to the worker and what it has played
 ## taken, never waiting; then drawn.
-func frame(delta: float) -> void:
+func _process(delta: float) -> void:
 	var due: int = _clock.advance(delta)
 	_field.pause(_clock.is_paused())
 	_behind = BEHIND_SECONDS if _field.owe(due) else maxf(_behind - delta, 0.0)
