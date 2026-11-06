@@ -1228,10 +1228,10 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   `f32` columns, reductions in a different fixed order, and a uniform cadence for squad-level
   rules (Q32, #291; Decision 160).
   **Settled by the owner** (2026-11-06, #738) as one step that changes no outcome: parting's
-  per-body sums run on the pool in the same order, bit for bit. The cadence isn't built (#739
-  item 1), `f32` columns are parked (#739 item 7), a different reduction order isn't needed
-  (#739 item 9), and positions in `f64` are tech debt (#740). See "Step 10f, parting's sums on
-  the pool, and step 10 closed".
+  per-body sums on the pool in the same order, bit for bit. Built, benched slower, and taken
+  back out. The cadence isn't built (#739 item 1), `f32` columns are parked (#739 item 7), a
+  different reduction order isn't needed (#739 item 9), and positions in `f64` are tech debt
+  (#740). See "Step 10f, parting's sums measured (not kept), and step 10 closed".
 
 ## Scenarios
 
@@ -4197,36 +4197,50 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   (Decision 97), so packing would still change no outcome.
 - **Next:** 10f.
 
-### Step 10f, parting's sums on the pool, and step 10 closed
+### Step 10f, parting's sums measured (not kept), and step 10 closed
 
-- **Built** (2026-11-06, cascade #727), on 10e's branch before it merged, as the owner settled
-  it in #738. No outcome changes: no Decision, no `Outcomes-changed:`, no Gate 2.
-- **Parting's sums on the pool** (`src/parting/sums.rs`). Each pass already found pairs and
-  weighed pushes on the pool; adding each body's pushes was serial, in pair order. Now, when
-  the pass is threaded:
-  - pairs lying on one spot ask the seeded way on this thread, in pair order (`way` calls
-    back into GDScript in the game);
-  - every push becomes a key, `body << 40 | pair << 1 | side`, sorted on the pool, so each
-    body's pushes run together in pair order;
-  - each body's run is summed from zero on the pool, taking the first body's push off and
-    adding the second's, as the serial pass does;
-  - the bodies are moved in the order of their first keys, which is where the serial pass
-    first met them.
+- **Measured** (2026-11-06, cascade #727), on 10e's branch before it merged. The owner settled
+  10f in #738: parting's per-body sums on the pool, in the same order, with an estimated gain
+  of 10 to 20 ms at 25k. **They were built, benched slower, and taken back out.** No outcome
+  changes either way: no Decision, no `Outcomes-changed:`, no Gate 2.
+- **What was built** (commit 6f7f9af on this step's branch, kept in its history). Pairs lying
+  on one spot asked the seeded way on this thread, in pair order. Every push became a key,
+  `body << 40 | pair << 1 | side`, sorted on the pool so each body's pushes ran together in
+  pair order. Each body's run was summed from zero on the pool, and the bodies were moved in
+  the order of their first keys. Bit for bit the serial result.
+- **The bench** (`breach_tick_phases`, against 10e's branch, 5 rounds each):
+  - `preset=25k`, run #81 (EPYC 9V74): `bodies (parting)` 51.49 → 62.35 ms (+21.1%, ranges
+    apart), the tick 259.4 → 266.8 ms (+2.9%);
+  - `preset=4096`, run #82 (EPYC 7763): `bodies (parting)` 8.44 → 10.89 ms (+29.0%, ranges
+    apart), the tick 51.4 → 53.9 ms (+4.9%, ranges apart).
+- **Why it lost:** the serial sums were never the cost. A probe (a crowd of 49,152 bodies
+  parted on 4 threads, about 130,000 pairs a pass, 3 passes) timed each pass:
+  - finding the pairs: 12 to 18 ms. Of that, the search (already on the pool) is 9 to 13 ms,
+    the buckets (serial) about 1 ms and the sort about 1 ms;
+  - weighing the pushes (on the pool) and adding them (serial): about 2 ms together;
+  - moving the bodies: under 1 ms.
 
-  Every add happens in the same sequence, so the result is bit for bit the serial one. One
-  thread keeps the serial sums (`src/parting/serial.rs`). **Scenario:** a crowd of 600
-  overlapping bodies (three squads, two factions, loose, fleeing and lying on one spot) parts
-  the same on one thread and on the pool: the points' bits, the flags, the outcome and the
-  order the way was asked in (`parting/tests.rs`). Summing a run in reverse, or moving the
-  bodies in body order, fails it.
-- **Bench** against 10e's branch, 5 rounds each: BENCH_LINES
+  So the serial adds are about 2 ms a pass. Spreading them over the pool costs more than that
+  in allocation and ordering: the sorted keys took about 6 to 8 ms a pass. A second version,
+  without the global sort, still took about 6 ms: each body's own run is contiguous, since the
+  pairs are sorted with `i < j`, and the pairs where it is second were listed per body. The
+  estimate came from the threaded ratio of the whole pass (131 → 67 ms), which the pair search
+  makes, not the sums.
+- **What stays:** a guard that a crowd of 600 overlapping bodies (three squads, two factions,
+  loose, fleeing and lying on one spot) parts the same on one thread and on the pool: the
+  points' bits, the flags, the outcome and the order the way was asked in (`parting/tests.rs`).
+  It failed against the pooled sums with a run summed in reverse, or the bodies moved in body
+  order.
+- **Where parting's time is:** the pair search, already threaded. A cheaper search (a flat grid
+  rather than the `HashMap` of buckets, as `src/grid.rs` does for perception) is the next thing
+  to measure there, with outcomes identical.
 - **Step 10 closed.** What 10f's options came to (the owner, #738):
   - **The cadence for squad-level rules** (Q32, #291; Decision 160): not built. `groups` is
     2.5 ms of a 205 ms tick, so it saves at most about 1%. Parked in #739, item 1, with when
     to look again. Decision 160 is left as it stands.
   - **`f32` scalar columns:** parked in #739, item 7. The tick isn't waiting on memory.
   - **Reductions in a different fixed order:** not needed (#739, item 9). Parting's was the
-    one hot sum, and it runs on the pool in the same order.
+    one hot sum, and it costs about 2 ms a pass serially (above).
   - **Positions in `f64`:** consistency debt, #740, done with the next change that
     re-records the digests.
 - **Where the rest of the gap to 50 ms lies:** seek's claims (#739, item 4) and the rout's and
