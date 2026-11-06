@@ -34,7 +34,12 @@ underway and trigger this once step 1 is done"). Three steps, each its own PR, b
 - **Replaces spec 41 step 2** (seek's search off the serial loop, with claims kept serial).
   Step 2 here takes the search and the claims off the serial loop together, so that work isn't
   done twice. Spec 41 steps 3 and 4 are unchanged and may land in any order with this spec's.
-- Step 1 here may be built at any time.
+- **Step 1 here waits for nothing in spec 41,** and may run beside spec 41 step 1 in its own
+  session. It must land **before step 2**: step 2 is the first change that moves the digests,
+  and step 1's check is what holds "the same on any hardware" once the old digests no longer
+  guard outcomes.
+- **The order:** spec 41 step 1 and this spec's step 1 (either order, or together); then step
+  2; then step 3, judged on spec 41 step 1's rout laps.
 
 ## Rules for every step
 
@@ -214,4 +219,27 @@ two takers reach one body in the same tick.
 
 `main` at 49aa335 (spec 41's design, before any of its steps), CI's 4-thread runner, 3 rounds:
 
-_Filled in from `bench` runs #85 (25k) and #86 (4096) before this spec's PR is opened._
+`bench` runs #85 (25k) and #86 (4096), each `main` against itself (A/A), medians and ranges in
+ms. The two ran on different CPUs, and run #77's 205 ms was on a third (an EPYC 9V45). Compare
+shares, and compare ticks only within one run.
+
+| Phase | 25k (EPYC 7763) | Share | 4096 (Xeon 8370C) | Share |
+|---|---|---|---|---|
+| tick, mean | 315 (311–323) | | 54.2 (53.3–59.4) | |
+| tick, 95th / 99th | 348 / 348 | | 62.4 / 62.4 | |
+| `scrum: seek, walk and facing` | 152 (95th 186) | 48% | 29.5 | 54% |
+| `bodies (parting)` | 66 | 21% | 9.0 | 17% |
+| `rout` | 17.7 (95th 52) | 6% | 1.4 (95th 11.9) | 3% |
+| `wounds (tend)` | 12.0 | 4% | 2.4 | 4% |
+| `units walk to places` | 11.6 | 4% | 1.7 | 3% |
+| `scrum: engage, prepare, stance` | 10.3 | 3% | 1.7 | 3% |
+| `roster` | 8.9 | 3% | 1.9 | 4% |
+| `fight (blows)` | 9.0 | 3% | 1.4 | 3% |
+| the other phases | 27 | 9% | 6 | 11% |
+
+- **A/A noise:** every phase's medians are within 3%, except `strays` (about 6%). The whole
+  tick is within 1%.
+- **Shares are those of run #77.** Seek, walk and facing is still about half the tick at both
+  sizes, which is why step 2 comes first.
+- **Rout's 95th percentile is about 3 times its mean** at 25k, and about 8 times at 4096: its
+  spikes, not its mean, are what step 3 has to take down.
