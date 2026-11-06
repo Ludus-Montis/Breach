@@ -23,6 +23,7 @@ yet. Every script here was run against a deliberately broken case before being t
 | `ocp-shotgun-surgery` | `ci/godot/scripts/check_ocp_shotgun_surgery.py <base-ref>` | CI only — needs a diff against a real base ref, not meaningful on a bare working tree |
 | `ai-first-thresholds-respected` (context-locality half) | `ci/godot/scripts/check_context_locality.py <base-ref>` | CI only, informational (never fails) — see Decision 12 and Heuristic limits below |
 | outcomes kept (not a named rubric row: spec 35's "a speed-up must leave every line the same") | `ci/godot/scripts/check_outcomes.py <set> <base digest> <head digest> <base-ref>` | CI only, in `sim-checks`' `digests` jobs: each set's Rust digest against the base's, tick for tick, the base's core built once by `base-build` (Decision 151); `--engine rust` names the engine in the report. A change fails unless one of the branch's commits says why in an `Outcomes-changed: <why>` trailer (a Decision, a fix, a digest that hashes more). When runs changed, the first 3 are traced on the base and the branch around their first difference and diffed (`trace_changed.sh`, `trace_diff.py`, spec 37): `traces/` in the set's `sim-digests-<set>` artifact, each diff's first line in the SUMMARY |
+| same on any hardware (spec 42 step 1, Decision 161) | `ci/godot/scripts/check_hardware.py <set> <x86-64 digest> <arm64 digest>` | CI only, in `sim-checks`' `hardware` job: the `standard` set (the cheapest that plays seek, the rout and tend) digested on GitHub's arm64 runner (`digests-arm64`, the digest built there) against the `digests` job's x86-64 digest, tick for tick. A difference fails, naming the set and the first run and tick; a digest missing on either side fails too. The other sets are x86-64 only |
 | `branch-name-conforms` | `ci/godot/scripts/check_branch_name.sh` | pre-commit stage |
 | `docs-current` | `AI_First_Development_Kit/scripts/check-docs.sh all <base-ref>` (README structure, changelog format and that it changed with the source, docs index links) | CI (`docs-gate` workflow); skips the changelog check when the PR body says `Changelog: N/A`. Whether the words are still true is procedural: the PR's Documentation block |
 | `commit-message-conforms` (format half) | `ci/godot/scripts/check_commit_message.sh` | commit-msg stage |
@@ -74,7 +75,9 @@ Every check that doesn't need another's output runs in its own job, side by side
   under Rust, in shards, each failing when a test does: it keeps gdUnit's exit status
   past the `sed` that writes its log), `digests` (one job per set, each comparing
   its digest with the base's from a worktree of the merge base given the base's
-  core: `check_outcomes.py`, Decision 151), `trials` and `scaling` (one job per
+  core: `check_outcomes.py`, Decision 151), `digests-arm64` (the `standard` set
+  digested on GitHub's arm64 runner, then `hardware` requires it equal to the x86-64
+  digest: `check_hardware.py`, spec 42 step 1), `trials` and `scaling` (one job per
   stage) run together; `sim-checks` waits for them all and prints the SUMMARY block. Only
   the suite needs Godot: the digests, trials and scaling check are the crate's binaries
   (`native/bin/breach_digest`, `breach_trials`, `breach_scaling`), and the GDScript tools

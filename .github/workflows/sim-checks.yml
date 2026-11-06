@@ -241,6 +241,89 @@ jobs:
           path: digests/
           retention-days: 7
 
+  # The same result on any hardware (spec 42 step 1, Decision 161): the `standard` set, the
+  # cheapest that plays seek, the rout and tend (its field logs tend and retreat), digested
+  # on GitHub's arm64 runner from the crate built there. `hardware` below requires it equal
+  # to the `digests` job's x86-64 digest, tick for tick. The other sets stay x86-64 only.
+  digests-arm64:
+    needs: scope
+    if: needs.scope.outputs.godot == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-digest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-digest-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build the digest on arm64
+        run: |
+          set -o pipefail
+          command -v cargo >/dev/null || {
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          }
+          rustc --version
+          cargo build --release -j 4 --bin digest --manifest-path native/rust/Cargo.toml 2>&1 | tail -3
+
+      - name: Digest standard on arm64
+        run: |
+          mkdir -p digests
+          native/rust/target/release/digest set=standard \
+            out=digests/standard.arm64.txt > /dev/null
+          (cd digests && sha256sum standard.arm64.txt)
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-arm64-standard
+          path: digests/standard.arm64.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  # The arm64 digest against the x86-64 one (check_hardware.py): a difference fails, naming
+  # the set and the first run and tick that differ.
+  hardware:
+    needs: [digests, digests-arm64]
+    if: always() && needs.digests-arm64.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: sim-digests-standard
+          path: digests/
+
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: digest-arm64-standard
+          path: digests/
+
+      - name: standard on x86-64 and arm64
+        run: |
+          mkdir -p hardware
+          python3 ci/godot/scripts/check_hardware.py standard \
+            digests/standard.branch.txt digests/standard.arm64.txt \
+            | tee hardware/standard.hardware.txt
+          exit "${PIPESTATUS[0]}"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sim-hardware-standard
+          path: hardware/
+          retention-days: 7
+
   # The trials fought in the crate (native/bin/breach_trials): the mirrors from both sides,
   # 50 runs each, for the summary; every scenario over 10 runs, the fatigue trials' four
   # contacts and the path and sight trials, kept as artifacts. A trial that can't be fought
@@ -334,7 +417,7 @@ jobs:
   # against its base without saying why). Named as
   # the single job was, so the check keeps its name.
   sim-checks:
-    needs: [scope, build, base-build, suite, digests, trials, scaling]
+    needs: [scope, build, base-build, suite, digests, hardware, trials, scaling]
     if: always() && needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -363,6 +446,7 @@ jobs:
               head -1 $set.outcomes.txt 2>/dev/null || echo "check_outcomes $set: no result"
               cat $set.threads.txt 2>/dev/null || echo "threads $set: no result"
             done
+            cat standard.hardware.txt 2>/dev/null || echo "hardware standard: MISSING a result"
             for diff in traces/*.diff.txt; do
               [ -e "$diff" ] && echo "trace $(head -1 "$diff")"
             done

@@ -100,6 +100,10 @@ own. Today every digest is taken on `ubuntu-latest` (x86-64).
   sets stay x86-64 only.
 - `ci/godot/README.md` lists the job.
 - No outcome changes in this step.
+- **Built:** the set is `standard`. It is the only set that tends (field logs 3 and 4), and its
+  field logs also retreat and its mirrors and clash40 seek. `clash160` and `wide` don't tend.
+  The jobs are `digests-arm64` (the digest built and taken on arm64) and `hardware`
+  (`ci/godot/scripts/check_hardware.py` against the `digests` job's x86-64 digest).
 
 ### Step 2, seek's claims settled in rounds
 
