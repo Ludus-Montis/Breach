@@ -64,8 +64,8 @@ fn seek_on(field: &mut Field, fights: &[Fights], params: Params) -> BTreeMap<i64
         chaser_ids: &[],
         speeds: &speeds,
     };
-    let mut open = |_: i32, _: V2| true;
-    let (gathered, out, _) = seeking::seek(field, &say, &params, &mut open, [1, 2]);
+    let open = |_: i32, _: V2| true;
+    let (gathered, out, _) = seeking::seek(field, &say, &params, &open, [1, 2]);
     let mut by_id = BTreeMap::new();
     for (m, &flat) in gathered.members.iter().enumerate() {
         let id = field.unit_id[field.flat[flat as usize] as usize];
@@ -220,7 +220,7 @@ fn side_taken(seed: i64) -> i32 {
         speeds: &vec![1.0; field.flat.len()],
     };
     let p = Params { seed, ..params(LEASH) };
-    let (_, out, _) = seeking::seek(&mut field, &say, &p, &mut |_, _| true, [1, 2]);
+    let (_, out, _) = seeking::seek(&mut field, &say, &p, &|_, _| true, [1, 2]);
     if out.nexts[0].x > 10.0 {
         1
     } else {
@@ -290,4 +290,91 @@ fn the_seek_is_the_same_on_the_pool() {
     let pooled = seek_on(&mut scrum(&sides, SEED), &fights(), pool);
     assert_eq!(one, pooled);
     assert!(one.values().filter(|o| o.0 == AIM).count() >= 10); // the scrum is under way
+}
+
+/// Six seekers of the player's in a line east of the lone foe, a little south of its front:
+/// every one of them finds the same slot nearest (the front, then the next round it), so
+/// each round settles one of them.
+fn line_of_seekers() -> Vec<Side> {
+    let way = bearing_vector(95.0);
+    let mut sides = duel();
+    sides[1].fighters = (0..6)
+        .map(|n| {
+            let d = 3.0 + n as f32 * 1.01;
+            Fighter::grem(30 + n as i64, v(10.0 + way.x * d, 10.0 + way.y * d), 270.0)
+        })
+        .collect();
+    sides
+}
+
+#[test]
+fn a_seeker_still_unplaced_after_the_rounds_presses_toward_the_nearest_slot() {
+    const { assert!(ROUNDS < 6, "the line settles one seeker a round, round six slots") };
+    let got = seek(&mut scrum(&line_of_seekers(), SEED), &[seeker_fights()], LEASH);
+    let aiming: Vec<i64> = got.iter().filter(|(_, o)| o.0 == AIM).map(|(&id, _)| id).collect();
+    assert_eq!(aiming, (30..30 + ROUNDS as i64).collect::<Vec<_>>()); // the nearest first
+    for id in 30 + ROUNDS as i64..36 {
+        assert_eq!((got[&id].0, got[&id].1), (PRESS, 0), "{id}"); // the front, the nearest
+    }
+}
+
+#[test]
+fn of_two_seekers_wanting_one_slot_the_higher_key_claims_and_the_other_takes_the_next() {
+    let mut sides = line_of_seekers();
+    sides[1].fighters.truncate(2);
+    let got = seek(&mut scrum(&sides, SEED), &[seeker_fights()], LEASH);
+    assert_eq!((got[&30].0, got[&30].1), (AIM, 0)); // the nearer arrives first
+    assert_eq!((got[&31].0, got[&31].1), (AIM, 1)); // the next nearest, a round later
+}
+
+#[test]
+fn seekers_not_contending_aim_where_each_alone_would() {
+    let north = Fighter::grem(5, v(10.0, 7.0), 180.0);
+    let south = Fighter::grem(6, v(10.0, 13.0), 0.0);
+    let alone = |f: &Fighter| {
+        let mut sides = duel();
+        sides[1].fighters = vec![f.clone()];
+        let got = seek(&mut scrum(&sides, SEED), &[seeker_fights()], LEASH);
+        got[&f.id]
+    };
+    let mut sides = duel();
+    sides[1].fighters = vec![north.clone(), south.clone()];
+    let got = seek(&mut scrum(&sides, SEED), &[seeker_fights()], LEASH);
+    assert_eq!(got[&5], alone(&north));
+    assert_eq!(got[&6], alone(&south));
+    assert_eq!((got[&5].0, got[&6].0), (AIM, AIM));
+    assert_ne!(got[&5].1, got[&6].1);
+}
+
+#[test]
+fn a_dense_seek_is_the_same_whatever_the_list_order_and_on_the_pool() {
+    let side = |id: i64, x: f32, bearing: f64| -> Vec<Fighter> {
+        (0..30)
+            .map(|n| {
+                let at = v(x + (n % 5) as f32 * 1.1, (n / 5) as f32 * 1.1);
+                Fighter::grem(id * 100 + n, at, bearing)
+            })
+            .collect()
+    };
+    let sides = vec![
+        Side { id: 1, faction: "player", flags: 0, fighters: side(1, 16.0, 270.0) },
+        Side { id: 2, faction: "kingdom", flags: 0, fighters: side(2, 8.0, 90.0) },
+    ];
+    let fights = |s: &[Side]| -> Vec<Fights> {
+        s.iter()
+            .map(|side| {
+                let (foe, heading, x) =
+                    if side.id == 1 { (2, 270.0, 16.5) } else { (1, 90.0, 12.5) };
+                Fights::against(side.id, &[foe], heading, v(x, 3.0))
+            })
+            .collect()
+    };
+    let forward = seek(&mut scrum(&sides, SEED), &fights(&sides), LEASH);
+    let back = reversed(&sides);
+    assert_eq!(forward, seek(&mut scrum(&back, SEED), &fights(&back), LEASH));
+    let pool = Params { threaded: Threads::Always, ..params(LEASH) };
+    assert_eq!(forward, seek_on(&mut scrum(&sides, SEED), &fights(&sides), pool));
+    let aims = forward.values().filter(|o| o.0 == AIM).count();
+    let presses = forward.values().filter(|o| o.0 == PRESS).count();
+    assert!(aims >= 10 && presses >= 10, "{aims} aim, {presses} press"); // contended
 }

@@ -78,13 +78,12 @@ pub fn step(
         leash: rules.leash,
         threaded: rules.threaded,
     };
-    let mut within = |flat: i32, p: V2| match ground {
+    let within = |flat: i32, p: V2| match ground {
         Some(g) => g.crossing(&synced[flat as usize].walker, p, p) > 0.0,
         None => true,
     };
     let bits = [Key::Touch.bit(), Key::FoeAt.bit()];
-    let (gathered, out, active) =
-        seeking::seek(field, &say.squad_say(), &params, &mut within, bits);
+    let (gathered, out, active) = seeking::seek(field, &say.squad_say(), &params, &within, bits);
     let seek_usec = began.elapsed().as_micros() as i64;
     split("scrum: seek");
     let planned: Vec<i64> = (0..gathered.fighters.len())

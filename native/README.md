@@ -101,8 +101,9 @@ ScrumSeek.step ----------- scrum_seek(roster) -> scrum::seek::step (spec 39 step
                                                    chasers, speeds); then, in order:
                                                  seek (seeking.rs, scrum.rs): who may seek
                                                    and its place (SquadFrame.place_in), its
-                                                   goal; touch, contest order, kept slots,
-                                                   rings, picks, presses; on terrain, where
+                                                   goal; touch, kept slots, rings, picks,
+                                                   claims settled in rounds (settling.rs),
+                                                   presses; on terrain, where
                                                    it may stand (Ground::crossing)
                                                  walk (walk_store.rs, walking.rs): a frame
                                                    and pace per squad, the bodies lying;
@@ -370,8 +371,11 @@ and the fatigue trials with `threaded=false` and `threaded=always` and requires 
 the default's, to the byte. The game threads the same way by default (step 10c-iii):
 `BREACH_NATIVE_THREADS=0` keeps it on one thread and `always` puts every pass on the pool. The
 passes that thread: parting, and (10c-ii) the walk and the facing, whole, and the seek's
-per-squad search. The seek's claims stay on one thread in contest order, since each reads the
-claims before it. (10c-iii) The rout's flight, each router's step and crush taken apart and
+per-squad search. (Spec 42 step 2) The seek's claims, in `ROUNDS` rounds: each seeker not yet
+placed proposes a slot on the pool against the claims settled in earlier rounds, a proposal
+wins unless one of a higher contest key lies within a body's breadth of it (`settling.rs`),
+and the winners are written in squad and member order; after the rounds, the rest press.
+(10c-iii) The rout's flight, each router's step and crush taken apart and
 written in order, its rallies' searches and its regroup's enemy search; and tend's takers'
 searches, each body's guard read first. What each lands (crushes, panics, joins, takings)
 stays on one thread in order.

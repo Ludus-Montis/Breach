@@ -136,6 +136,14 @@ Each one reads the `Claims` made before it. Under the settling rule:
     find a slot a tick later;
   - slot choices differ where two seekers wanted the same one;
   - no change where seekers don't contend.
+- **Built:** `R` (`scrum::ROUNDS`) is 3. A probe on two 400-grem blocks ten deep facing each
+  other (leash 40) placed 80 seekers in round 1, 28 in round 2, then a steady 8 a round, each
+  round a full search for the ~680 still unplaced. The serial plan aimed 204; three rounds aim
+  116 and the rest press. The settling is `src/settling.rs` (`winners`: a proposal's key, point
+  and reach), for step 3 to reuse. `kept` is proposed only in round 1; later rounds `pick`. A
+  pick's claimed slots are marked dead between rounds (marking only speeds later searches; a
+  claimed slot is never chosen either way). The bench (`rounds` 5, `preset=4096` and `25k`)
+  confirms or moves `R`.
 
 ### Step 3, the rout's and tend's landings by the same rule
 

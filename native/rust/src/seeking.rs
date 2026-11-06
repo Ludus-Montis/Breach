@@ -170,7 +170,7 @@ pub fn write_back(
 }
 
 /// The seek, as a phase on the field (BodyField.seek): the fighting squads' units gathered,
-/// planned in contest order (`scrum::plan`) and written back into the store's columns.
+/// planned (`scrum::plan`, its claims settled in rounds) and written back into the store's columns.
 /// `within` answers whether a unit (by its flat index in the last sync) may stand on a
 /// point of the ground; `bits` as `write_back`'s. Returns what was gathered, the plan and, per
 /// fighting squad, whether it was active.
@@ -178,13 +178,13 @@ pub fn seek(
     field: &mut Field,
     say: &SquadSay,
     params: &Params,
-    within: &mut dyn FnMut(i32, V2) -> bool,
+    within: &(dyn Fn(i32, V2) -> bool + Sync),
     bits: [i32; 2],
 ) -> (Gathered, PlanOut, Vec<u8>) {
     let gathered = gather(field, say);
     let members = &gathered.members;
-    let mut ask = |member: usize, point: V2| within(members[member], point);
-    let out = scrum::plan(field, &gathered.input(), params, &mut ask);
+    let ask = |member: usize, point: V2| within(members[member], point);
+    let out = scrum::plan(field, &gathered.input(), params, &ask);
     let active = write_back(field, &gathered, &out, bits);
     (gathered, out, active)
 }

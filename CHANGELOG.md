@@ -15,6 +15,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- In a crowded scrum, units now settle who makes for which slot together rather than one at a
+  time: where several want the same slot the best-placed takes it and the others look again,
+  and a few more wait a body's breadth short for a tick before finding a slot of their own.
 - The 2D feel test's battle plays on its own thread: the frame no longer freezes while a tick
   runs, and orders are still taken between ticks. When the battle can't keep up and time is
   dropped, the status row says `SIMULATION BEHIND`.
