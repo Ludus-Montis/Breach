@@ -7,20 +7,20 @@ fn content() -> Content {
 
 /// tools/scaling_check.gd's `_ready_for` in Godot at ranks 8, stack 16 and settle 20 (seed 1
 /// and 2 for each): the stage, the size, the seed, the tick six ticks after it was ready, and how many events
-/// each of the next six ticks told of.
+/// each of the next six ticks told of. Since spec 42 step 2 (Decision 161) the crate's own.
 const GODOT_S: [(&str, usize, i64, i64, [usize; 6]); 12] = [
     ("march", 16, 1, 9, [0, 0, 0, 0, 0, 0]),
     ("march", 16, 2, 9, [0, 0, 0, 0, 0, 0]),
     ("march", 32, 1, 9, [0, 0, 0, 0, 0, 0]),
     ("march", 32, 2, 9, [0, 0, 0, 0, 0, 0]),
-    ("fight", 16, 1, 101, [0, 0, 0, 0, 0, 0]),
-    ("fight", 16, 2, 101, [0, 0, 0, 1, 0, 0]),
-    ("fight", 32, 1, 101, [0, 0, 0, 0, 0, 2]),
-    ("fight", 32, 2, 101, [0, 0, 0, 0, 0, 2]),
-    ("stacks", 1, 1, 116, [0, 0, 13, 9, 0, 9]),
-    ("stacks", 1, 2, 116, [3, 3, 11, 0, 0, 0]),
-    ("stacks", 2, 1, 116, [2, 0, 33, 11, 9, 9]),
-    ("stacks", 2, 2, 116, [3, 5, 24, 0, 1, 0]),
+    ("fight", 16, 1, 101, [0, 0, 0, 0, 1, 0]),
+    ("fight", 16, 2, 101, [0, 0, 0, 0, 0, 0]),
+    ("fight", 32, 1, 101, [0, 0, 0, 0, 0, 1]),
+    ("fight", 32, 2, 101, [0, 0, 0, 0, 2, 1]),
+    ("stacks", 1, 1, 116, [9, 0, 12, 2, 0, 1]),
+    ("stacks", 1, 2, 116, [11, 2, 22, 0, 0, 0]),
+    ("stacks", 2, 1, 116, [20, 2, 34, 2, 0, 1]),
+    ("stacks", 2, 2, 116, [20, 2, 34, 2, 0, 1]),
 ];
 
 #[test]

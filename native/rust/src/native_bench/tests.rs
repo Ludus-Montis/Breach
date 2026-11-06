@@ -9,10 +9,11 @@ use crate::content::Content;
 use crate::threads::Threads;
 
 /// (side, width), the tick after `_measure`'s ten fight ticks, and the SHA-256 of the
-/// digest's state then, as Godot gave them (seed 1, settle 10).
+/// digest's state then, as Godot gave them (seed 1, settle 10); since spec 42 step 2
+/// (Decision 161) the crate's own.
 const GODOT: [((usize, usize), i64, &str); 2] = [
-    ((64, 8), 110, "45bddae89522c6a74e9a7940b41ecfd4672299c16a214904071c7b7e1571c63d"),
-    ((160, 10), 110, "15b95fc717111141213d7cc32dfbfacd8c9527fb55f01bd76fc319af5163fed0"),
+    ((64, 8), 110, "2d175828133c21fbafce831e8a356758e3f0b998c3a13de71a0b54d096957fc2"),
+    ((160, 10), 110, "c9f1ea2869a108d3c0176f85d7767710af713d5cec9b970f91e2bc9c51c06edd"),
 ];
 
 fn content() -> Content {

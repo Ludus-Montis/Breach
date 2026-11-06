@@ -144,6 +144,13 @@ Each one reads the `Claims` made before it. Under the settling rule:
   pick's claimed slots are marked dead between rounds (marking only speeds later searches; a
   claimed slot is never chosen either way). The bench (`rounds` 5, `preset=4096` and `25k`)
   confirms or moves `R`.
+- **Pins moved:** the crate's tests that held the old serial plan's numbers (`phases`,
+  `phases::counts`, `scaling`, `native_bench`, `trials::fatigue`) now hold this step's, and
+  the cuts are regenerated. The changed battles no longer bury, take the downed, settle the
+  store, stray or carry strays at four of the old cut ticks, so a probe (each standard run's
+  phases changed per tick) moved them: clash40 s1 141 to 169 (taking the downed) and 202 to
+  210 (store settles), clash40 s2 277 to 293 (strays), field3 470 to 461 (carry: strays,
+  deaths, shuffle).
 
 ### Step 3, the rout's and tend's landings by the same rule
 

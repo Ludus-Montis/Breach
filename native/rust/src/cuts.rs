@@ -40,12 +40,12 @@ pub const CUTS: [(&str, i64); 8 + FIELD_CUTS] = [
     ("mirror_headon s1 rtrue", 80),
     ("mirror_flank s2 rtrue", 108),
     ("mirror_headon s3 rtrue", 129),
-    ("clash40 s1 rfalse", 141),
-    ("clash40 s1 rfalse", 202),
-    ("clash40 s2 rfalse", 277),
+    ("clash40 s1 rfalse", 169),
+    ("clash40 s1 rfalse", 210),
+    ("clash40 s2 rfalse", 293),
     ("field1 rtrue", 120),
     ("field2 rtrue", 229),
-    ("field3 rtrue", 470),
+    ("field3 rtrue", 461),
 ];
 
 /// How many of `CUTS` are the field logs' (the last).
