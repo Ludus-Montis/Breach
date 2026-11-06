@@ -97,6 +97,90 @@ ways, and rout's 36 ms spikes can't be traced to a part.
 - **Record the first profile** of the 25k preset in this spec, under "Measured". Steps 2 to
   4 are checked against it, and the measured order decides which of them comes next.
 
+#### Measured (step 1, 2026-11-06)
+
+Built as spec'd, with one choice the spec left open: a part ends with `laps::split`, which
+times it but shows a watcher nothing, and only the phase's last part ends with `lap`. So
+`counts=1` and the cuts still see the state once a phase, under its last part's name (`scrum:
+facing`, `rout: listing`, `bodies: commit`). Shown at every part, the cuts' coverage check
+failed: `rout: breaks` and `rout: re-forms` change the state in none of the committed cuts. The
+cuts' prints are unchanged; only those three laps are renamed.
+
+The laps, in the order the tick runs them:
+- `scrum: seek` (the sync and `seeking::seek`; `seek_usec` and `breach_native_bench`'s `seek`),
+  `scrum: walk` (the walk and the ground's pay), `scrum: facing`.
+- `rout: flight`, `rout: rallies`, `rout: regroup's search`, `rout: re-forms`, `rout: breaks`
+  (only on ticks something routs), then `rout: listing` (the roster listed again).
+- `bodies: sync`, then each pass's `bodies: pair search`, `bodies: pushes` and `bodies: sums
+  and applying`, then `bodies: commit` (the loosened and the moved written back).
+
+`bench` runs [#87](https://github.com/Ludus-Montis/Breach/actions/runs/42157496722) (`preset=25k`, `profile` on, Xeon 8370C) and
+[#88](https://github.com/Ludus-Montis/Breach/actions/runs/42157500121) (`preset=4096`, EPYC 7763), 5 rounds each against `main`:
+- **No cost:** the tick 316.9 against 319.0 ms at 25k (-0.7%) and 50.7 against 50.8 at 4096
+  (-0.2%), ranges overlapping; no phase present on both sides moved outside its range.
+- **The parts sum to the old laps** (round 1, 25k, ms): scrum 123.9 + 19.2 + 5.3 = 148.4 against
+  148.6; parting 4.0 + 46.1 + 5.1 + 5.7 + 1.5 = 62.4 against 62.9; rout 9.9 + 7.8 + 1.3 + 0.0 +
+  1.1 + 0.2 = 20.3 against 20.3.
+
+The 25k series' parts (round 1 of #87, ms):
+
+| Part | Mean | 95th |
+|---|---|---|
+| `scrum: seek` | 123.9 | 154.0 |
+| `bodies: pair search` | 46.1 | 48.0 |
+| `scrum: walk` | 19.2 | 22.5 |
+| `rout: flight` | 9.9 | 44.3 |
+| `rout: rallies` | 7.8 | 16.6 |
+| `bodies: sums and applying` | 5.7 | 6.3 |
+| `scrum: facing` | 5.3 | 6.3 |
+| `bodies: pushes` | 5.1 | 5.4 |
+| `bodies: sync` | 4.0 | 5.9 |
+| `bodies: commit` | 1.5 | 1.6 |
+| `rout: regroup's search` | 1.3 | 3.0 |
+| `rout: breaks` | 1.1 | 4.2 |
+| `rout: listing`, `rout: re-forms` | 0.2, 0.0 | 0.3, 0.1 |
+
+So seek's 92 ms (run #77) is almost all the seek itself, and rout's spikes are its flight
+(44 ms at tick 104) and rallies (17 ms).
+
+**The first profile** (#87, `perf` worked on the runner as built: `linux-tools-$(uname -r)`,
+`task-clock` samples at 99 Hz, about 3,000 of them). It samples the tool's whole run, the
+march and settling before contact as well as the timed series, so its shares are of the run,
+not of the series' tick. Functions over 1%, self time:
+
+| Share | Function |
+|---|---|
+| 30.2% | `parting::pairs::{closure#1}` (each body's neighbour search) |
+| 8.6% | `scrum::Search::squads::{closure#0}` (building the rings) |
+| 3.4% | `walking::walk::{closure#1}` |
+| 2.9% | `Field::sync` |
+| 2.5% | `scrum::Plan::consider` |
+| 2.4% | `march::sync::step` |
+| 2.3% | `tick::step` |
+| 2.0% | `scrum::Plan::pick` |
+| 2.0% | `grid::Grid::build` |
+| 1.9% | `rout::flight::step` |
+| 1.8% | `parting::pass::step` |
+| 1.7%, 1.2% | `floor`, `floorf` (libm) |
+| 1.6% | `BTreeMap<usize, Member>::bulk_build_from_sorted_iter` |
+| 1.6% | `Vec<Listed>::clone` (the roster cloned) |
+| 1.6%, 1.2% | `det_math::sin`, `det_math::cos` |
+| 1.4% | `groups::pass::meet` |
+| 1.2% | `Vec<Recovering>::from_iter` (`recovery::pass::ward`) |
+| 1.2% | `parting::push` |
+| 1.1% | `moving::share::pourers` |
+
+Below 1%: `realloc`, page faults, `Frame::unit_rect`, `play::listed`, `scrum::seek::step`,
+rayon's parallel sort of the pairs (0.6%), `det_math::atan`, `fight::choose`,
+`mustering::listing`.
+
+**What this says about the order.** Seek is first by far, and it is spec 42 step 2's (which
+replaces step 2 here), so that comes next. Parting's pair search (46 ms, and the profile's
+largest function) is step 3. The roster clones, `BTreeMap` builds, `realloc` and libm's `floor`
+are step 4's ground. Rout's flight and rallies spikes are spec 42 step 3's. A `task-clock`
+profile can't tell waiting on memory from arithmetic (the runner's VM gives no hardware
+counters), so it doesn't reopen anything under "Not in this spec".
+
 ### Step 2, seek's search off the serial loop
 
 > **Replaced by spec 42 step 2** (Decision 161, 2026-11-06): seek's search and its claims
