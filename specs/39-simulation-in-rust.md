@@ -3884,6 +3884,30 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   it ended. Both presets start packed (8 runs and 8,192 slots at 4096). How far the fight
   scatters them is for the 25k bench run to show.
 
+### Step 10b-i, tend, the roster, the lookups and the sorts
+
+- **Split** (2026-11-05, the implementing session): 10b is five changes, too many for one
+  session. **10b-i** (this) is the first three bullets. **10b-ii** is Q24's remaining lists
+  (#279): `fighters()` and combat's rank groups, squad edges and spans, the re-form's
+  occupancy, kept by the events that change them. **10b-iii** is the per-squad quadratic
+  `breach_scaling` shows, found and fixed. Each is one PR, on the one before it.
+- **Built** (2026-11-05), on 10a's branch before it merged (the owner's go-ahead). No outcome
+  changes:
+  - Tend (`wounds/pass.rs`) returns before it builds any unit's record when no listed squad
+    has a body lying (`lying`).
+  - A pass codes the words it reads once (`Lexicon::codes`, read by `words::level_of`), not
+    once for every unit it reads: tend, stamina, recovery and carry.
+  - The roster: `mustering::listing` and `tick::relisted` take it by value, and a listed squad
+    whose living are the units already listed keeps its list, so a relisting copies and looks
+    up only the squads whose living changed.
+  - The four sorts on a unit's seeded draw (tend's two, the strays' and the trade's stall)
+    take each key once (`sort_by_cached_key`, stable like `sort_by_key`).
+- **Scenarios:** given a squad whose living did not change, when the roster is relisted with
+  no units known, then it keeps its list (`tick/tests.rs`). Given a body lying and then borne,
+  when tend asks whether any lies, then yes and then no (`wounds/pass/tests.rs`). Given a
+  word coded and one not, when a pass codes both, then their levels read by code are the
+  unit's and none (`words.rs`). The digests and trials, unchanged, are the identity check.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

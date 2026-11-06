@@ -10,6 +10,7 @@ use super::{Gaited, Paced, StaminaTuning, AVERAGE};
 use crate::commands::HURRY;
 use crate::field::Field;
 use crate::squads::Squads;
+use crate::words::level_of;
 
 /// One tick of `seconds` for the listed squads (their slots, in the lists' order). A unit
 /// made by hand, with no fresh speed on its sheet, first takes its speed column's: returns
@@ -22,18 +23,30 @@ pub fn step(
     tuning: &StaminaTuning,
 ) -> Vec<i64> {
     let mut made = vec![];
-    let paced: Vec<Paced> = listed.iter().map(|&s| paced(squads, field, s, &mut made)).collect();
+    let names = ["wits", "constitution", "pursues_at_march", "retreats_at_march"];
+    let codes = field.lexicon.codes(names);
+    let paced: Vec<Paced> =
+        listed.iter().map(|&s| paced(squads, field, (s, &codes), &mut made)).collect();
     super::step(squads, &mut field.columns, &paced, seconds, tuning);
     made
 }
 
+/// The words a unit's gait reads, coded once for the pass: wits, constitution and the
+/// traits "pursues_at_march" and "retreats_at_march".
+type Codes = [Option<u32>; 4];
+
 /// The squad in slot `s` as the pass takes it; a unit made by hand is given its fresh speed
 /// and its id pushed onto `made`.
-fn paced(squads: &Squads, field: &mut Field, s: usize, made: &mut Vec<i64>) -> Paced {
+fn paced(
+    squads: &Squads,
+    field: &mut Field,
+    (s, codes): (usize, &Codes),
+    made: &mut Vec<i64>,
+) -> Paced {
     let pursuit = squads.pursuit[s];
     let hurry = squads.command[s].is_some_and(|c| squads.commands.gives(c, HURRY));
     let living = squads.living(s, &field.columns.state);
-    let living = living.into_iter().map(|u| gaited(field, u as usize, made)).collect();
+    let living = living.into_iter().map(|u| gaited(field, (u as usize, codes), made)).collect();
     Paced {
         squad: s,
         pursuing: pursuit.is_some(),
@@ -43,7 +56,8 @@ fn paced(squads: &Squads, field: &mut Field, s: usize, made: &mut Vec<i64>) -> P
     }
 }
 
-fn gaited(field: &mut Field, slot: usize, made: &mut Vec<i64>) -> Gaited {
+fn gaited(field: &mut Field, (slot, codes): (usize, &Codes), made: &mut Vec<i64>) -> Gaited {
+    let [wits, constitution, pursues, retreats] = *codes;
     let id = field.unit_at(slot as u32).unwrap_or(0);
     let columns = &mut field.columns;
     if columns.sheet[slot].fresh_speed <= 0.0 {
@@ -51,8 +65,7 @@ fn gaited(field: &mut Field, slot: usize, made: &mut Vec<i64>) -> Gaited {
         made.push(id);
     }
     let (sheet, words) = (&columns.sheet[slot], &columns.words[slot]);
-    let level = |said: &[(u32, f64)], name: &str| field.lexicon.level(said, name);
-    let has = |name: &str| level(&words.traits, name).unwrap_or(0.0) > 0.0;
+    let has = |code| level_of(&words.traits, code).unwrap_or(0.0) > 0.0;
     Gaited {
         id,
         slot,
@@ -60,11 +73,11 @@ fn gaited(field: &mut Field, slot: usize, made: &mut Vec<i64>) -> Gaited {
         max_stamina: sheet.max_stamina,
         tiring: sheet.tiring,
         run_pace: sheet.run_pace,
-        wits: level(&words.attributes, "wits").unwrap_or(AVERAGE),
-        constitution: level(&words.attributes, "constitution").unwrap_or(AVERAGE),
+        wits: level_of(&words.attributes, wits).unwrap_or(AVERAGE),
+        constitution: level_of(&words.attributes, constitution).unwrap_or(AVERAGE),
         load_stage: sheet.load_stage,
         leads: sheet.leadership > 0,
-        pursues_at_march: has("pursues_at_march"),
-        retreats_at_march: has("retreats_at_march"),
+        pursues_at_march: has(pursues),
+        retreats_at_march: has(retreats),
     }
 }

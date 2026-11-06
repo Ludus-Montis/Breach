@@ -22,6 +22,7 @@ use crate::joins;
 use crate::locks::{DESTROYED, ROUTING};
 use crate::recovery::{self, Lay, Recovering, Ward};
 use crate::squads::{Squads, DEAD};
+use crate::words::level_of;
 use crate::wounds::{WoundsTuning, AVERAGE};
 
 /// SkirmishUnit.State's MOVING: up again.
@@ -57,7 +58,9 @@ pub fn step(
     tuning: &WoundsTuning,
     log: &mut Log,
 ) -> Vec<Landed> {
-    let wards: Vec<Ward> = listed.iter().map(|&s| ward(squads, field, s)).collect();
+    let names = ["hardened", "cunning", "regenerates_downed", "wits", "constitution"];
+    let codes = field.lexicon.codes(names);
+    let wards: Vec<Ward> = listed.iter().map(|&s| ward(squads, field, &codes, s)).collect();
     let recovered = recovery::step(&mut field.columns, &wards, seconds, seed, tuning);
     for id in recovered.fell {
         field.fell(id);
@@ -93,10 +96,14 @@ pub fn step(
     out
 }
 
+/// The words recovery reads, coded once for the pass: the traits "hardened", "cunning" and
+/// "regenerates_downed", and wits and constitution.
+type Codes = [Option<u32>; 5];
+
 /// The squad in slot `s` as recovery reads it.
-fn ward(squads: &Squads, field: &Field, s: usize) -> Ward {
+fn ward(squads: &Squads, field: &Field, codes: &Codes, s: usize) -> Ward {
     let state = &field.columns.state;
-    let read = |units: Vec<i32>| units.into_iter().map(|u| recovering(field, u as usize));
+    let read = |units: Vec<i32>| units.into_iter().map(|u| recovering(field, codes, u as usize));
     Ward {
         id: squads.id[s],
         joinable: !matches!(squads.state[s], DESTROYED | ROUTING),
@@ -106,24 +113,25 @@ fn ward(squads: &Squads, field: &Field, s: usize) -> Ward {
 }
 
 /// The unit in `slot` as recovery reads it.
-fn recovering(field: &Field, slot: usize) -> Recovering {
+fn recovering(field: &Field, codes: &Codes, slot: usize) -> Recovering {
+    let [hardened, cunning, regenerates_downed, wits, constitution] = *codes;
     let (sheet, words) = (&field.columns.sheet[slot], &field.columns.words[slot]);
-    let trait_of = |name: &str| field.lexicon.level(&words.traits, name).unwrap_or(0.0);
-    let attribute = |name: &str| field.lexicon.level(&words.attributes, name).unwrap_or(AVERAGE);
+    let trait_of = |code| level_of(&words.traits, code).unwrap_or(0.0);
+    let attribute = |code| level_of(&words.attributes, code).unwrap_or(AVERAGE);
     Recovering {
         id: field.unit_at(slot as u32).unwrap_or(0),
         slot,
         faction: words.faction_id,
         wounded: sheet.wounded,
-        hardened: trait_of("hardened") as i64,
-        cunning: trait_of("cunning") as i64,
+        hardened: trait_of(hardened) as i64,
+        cunning: trait_of(cunning) as i64,
         leads: sheet.leadership > 0,
-        regenerates_downed: trait_of("regenerates_downed") > 0.0,
+        regenerates_downed: trait_of(regenerates_downed) > 0.0,
         playing_dead: sheet.playing_dead,
         regeneration: sheet.regeneration,
         max_hp: sheet.max_hp,
-        wits: attribute("wits"),
-        constitution: attribute("constitution"),
+        wits: attribute(wits),
+        constitution: attribute(constitution),
         detection: sheet.detection,
     }
 }

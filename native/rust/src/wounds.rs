@@ -189,8 +189,8 @@ pub fn tend(
         }
     };
     // taken and taking in the units' seeded draws' order, never the list's (Decision 97)
-    standing.sort_by_key(|&at| contest::draw(seed, unit(at, false).id));
-    downed.sort_by_key(|&at| contest::draw(seed, unit(at, true).id));
+    standing.sort_by_cached_key(|&at| contest::draw(seed, unit(at, false).id));
+    downed.sort_by_cached_key(|&at| contest::draw(seed, unit(at, true).id));
     let at = |a: At, lying: bool| columns.position[unit(a, lying).slot];
     let standing_points: Vec<V2> = standing.iter().map(|&a| at(a, false)).collect();
     let downed_points: Vec<V2> = downed.iter().map(|&a| at(a, true)).collect();

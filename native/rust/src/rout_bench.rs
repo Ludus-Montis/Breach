@@ -67,7 +67,8 @@ impl Routs {
             return 0; // nothing routs and nothing breaks
         }
         let every = play::listed(squads, field, &self.listed, false);
-        let roster = tick::relisted(&every, squads, field, &tick::known(&every), &[], &[]);
+        let known = tick::known(&every);
+        let roster = tick::relisted(every, squads, field, &known, &[], &[]);
         let (t, hurt, bands) = &self.rules;
         rout::step(squads, field, &roster, (t, hurt, bands), (tick, SEED), None, &mut self.log);
         starts(&self.log.take()).count()

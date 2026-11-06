@@ -64,22 +64,22 @@ pub fn step(
     log: &mut Log,
 ) -> Ticked {
     let known = known(roster);
-    let roster = relisted(roster, squads, field, &known, &[], &[]);
+    let roster = relisted(roster.clone(), squads, field, &known, &[], &[]);
     lap("roster", field, squads);
     let opened = opening::step(squads, field, &roster, over.as_deref_mut(), &rules.opening, log);
     let joining: Vec<usize> = opened.joins.iter().map(|&(_, j)| j).collect();
-    let roster = relisted(&roster, squads, field, &known, &joining, &[]);
+    let roster = relisted(roster, squads, field, &known, &joining, &[]);
     lap("roster", field, squads);
     let ground = over.as_ref().map(|o| o.ground);
     let scrummed = scrum::step::step(squads, field, &roster, ground, &rules.scrum, log);
-    let roster = relisted(&roster, squads, field, &known, &[], &[]);
+    let roster = relisted(roster, squads, field, &known, &[], &[]);
     lap("roster", field, squads);
     let after = aftermath::step(squads, field, &roster, ground, &rules.aftermath, log);
     let alone = after.recovered.iter().filter(|l| matches!(l.came, Came::Alone));
     let slot = |id| field.slot_of(id).map_or(usize::MAX, |s| s as usize);
     let strays: Vec<(usize, usize)> =
         alone.map(|l| (roster.listed[l.listed].squad, slot(l.id))).collect();
-    let roster = relisted(&roster, squads, field, &known, &[], &[]);
+    let roster = relisted(roster, squads, field, &known, &[], &[]);
     lap("roster", field, squads);
     let mustered = mustering::step(squads, field, &roster, &strays, ground, &rules.mustering, log);
     let listed = ended_listing(&roster, &mustered);
@@ -99,16 +99,19 @@ pub fn known(roster: &Roster) -> BTreeMap<usize, Member> {
 /// from its members, every unit as `known` has it), the factions coded in the list's order
 /// (FormationLocks.factions).
 pub fn relisted(
-    roster: &Roster,
+    mut roster: Roster,
     squads: &Squads,
     field: &Field,
     known: &BTreeMap<usize, Member>,
     dropped: &[usize],
     opened: &[usize],
 ) -> Roster {
-    let kept = roster.listed.iter().enumerate().filter(|(n, _)| !dropped.contains(n));
-    let kept = Roster { listed: kept.map(|(_, l)| l.clone()).collect() };
-    let mut out = mustering::listing(&kept, squads, field, known, opened);
+    let mut n = 0;
+    roster.listed.retain(|_| {
+        n += 1;
+        !dropped.contains(&(n - 1))
+    });
+    let mut out = mustering::listing(roster, squads, field, known, opened);
     let mut codes: Vec<u32> = Vec::new();
     for listed in &mut out.listed {
         let faction = squads.faction[listed.squad];

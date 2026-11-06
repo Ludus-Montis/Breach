@@ -141,3 +141,15 @@ fn a_borne_body_is_not_taken() {
 
     assert!(landed.is_empty() && logged.is_empty());
 }
+
+#[test]
+fn the_pass_looks_for_takers_only_while_a_body_lies() {
+    let mut b = built();
+    let lies = lying(&b.squads, &b.field.columns.state, &[0, 1, 2]);
+    let body = b.slot(1);
+    b.field.columns.state[body] = 8; // CARRIED
+
+    let none = lying(&b.squads, &b.field.columns.state, &[0, 1, 2]);
+
+    assert_eq!((lies, none), (true, false));
+}
