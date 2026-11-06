@@ -151,6 +151,22 @@ reading `metrics/` only.
 
 (Filled in by steps 1 and 5.)
 
+**Step 1, 2026-11-06:**
+- **The archive costs two requests a run** (its jobs, and its log archive, which holds every
+  job's log), oldest first. With 88 bench and 373 `sim-checks` runs that is about 920, near
+  `GITHUB_TOKEN`'s 1000 an hour, so the archiver stops 20 short and a re-run carries on.
+- **A dispatch's inputs are not in the Actions API's run record.** Bench's inputs are read
+  from its log's `env:` blocks into the `.json`'s `inputs_from_log`; once the log expires,
+  they are lost with it.
+- **Whether the API keeps run, job and step records after the logs expire** can't be seen
+  yet: no run is 90 days old before 2027-01-12. The archive keeps every run's job and step
+  records now, so the CI series (Q38) doesn't depend on the answer. The first archive run
+  after 2027-01-12 answers it: a `.json` with `"log": {"na": "not-recorded"}` and its `jobs`
+  filled means yes.
+- **Until `f587f70` (2026-10-22) the scaling check ran in the `CI` workflow** (`ci.yml`'s `scaling`
+  job), not `sim-checks`, so its runs from 2026-10-14 to then are not archived by this step.
+  Adding `ci.yml` is one line in `archive_runs.py`'s `SERIES`.
+
 ## Scenarios
 
 ### Step 1
