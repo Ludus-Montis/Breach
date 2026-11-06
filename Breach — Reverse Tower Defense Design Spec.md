@@ -7536,7 +7536,7 @@ to be explored as options, "even if separately and bench the solutions against e
 **Bounded:** it lowers how often a squad's rule runs; each run stays as bounded as now.
 **Pillar check:** holds only if the feel test does, which is why adoption waits for it.
 
-### Decision 161 — A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test
+### Decision 164 — A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test
 
 **Authorised by:** Simeon Sidey
 **Date:** 2026-11-06
@@ -7563,7 +7563,7 @@ acceptance requires a 'feels test' gate from me if the digest does differ from p
   sense, decide and act by its own rules on its own beat (Decisions 131 and 138).
 - **The gate.** A change whose digests differ from its base's lands only after:
   - its commit says so in the trailer CI's outcome check reads, naming this Decision and what a
-    player would see: `Outcomes-changed: Decision 161, <what changes on playback>`;
+    player would see: `Outcomes-changed: Decision 164, <what changes on playback>`;
   - its PR gives the outcome trace's first differences (spec 37) and the trials' numbers;
   - the owner signs off its playback at Gate 2 (`QUALITATIVE_REVIEW_LOG.md`), the feel test.
   The branch's digests then become the baseline. The older ones are no longer a reference.
@@ -7583,7 +7583,7 @@ acceptance requires a 'feels test' gate from me if the digest does differ from p
 | The digests and trials alone as the gate | They can't tell whether a battle still looks right; the owner judges that by playback. |
 | Reopen every declined option at once | The owner reopened only the state a pass reads; the others change what units are. |
 
-**Consequences:** spec 42 builds it: a cross-hardware digest check, seek's claims settled in
+**Consequences:** spec 43 builds it: a cross-hardware digest check, seek's claims settled in
 rounds (in place of spec 41 step 2), then the rout's and tend's landings by the same rule. Spec
 41 steps 1, 3 and 4 are unchanged.
 

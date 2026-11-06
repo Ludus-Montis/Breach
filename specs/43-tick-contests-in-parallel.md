@@ -4,7 +4,7 @@ status: active
 parent_spec: ../Breach — Reverse Tower Defense Design Spec.md
 ---
 
-# Spec 42: The tick's contests settled in parallel, behaviour judged by playback
+# Spec 43: The tick's contests settled in parallel, behaviour judged by playback
 
 ## Purpose
 
@@ -18,7 +18,7 @@ In run #77 at 25k, `scrum: seek, walk and facing` took 92 ms (95th 114), `rout` 
 and `wounds (tend)` 9, against Decision 159's 50 ms. This spec settles those contests in
 parallel. Each unit proposes what it wants, reading the state as it was when the pass began.
 Then a rule that doesn't depend on order settles who gets what. **This changes behaviour**,
-under **Decision 161**: every step's digests differ from its base's, and every step lands
+under **Decision 164**: every step's digests differ from its base's, and every step lands
 only after the owner's feel test.
 
 The numbers on `main` at 49aa335, before this spec (`bench` runs #85 and #86, A/A, 3 rounds)
@@ -28,7 +28,7 @@ are under "Measured".
 
 Agreed in the design session of 2026-11-06 on #743 (the owner: "Sounds reasonable, I can get 41
 underway and trigger this once step 1 is done"). Three steps, each its own PR, built with
-`/run-phase` as "spec 42 step N".
+`/run-phase` as "spec 43 step N".
 - **Starts after spec 41 step 1.** Its laps and profile split seek's 92 ms, and step 2 here is
   judged against them.
 - **Replaces spec 41 step 2** (seek's search off the serial loop, with claims kept serial).
@@ -43,7 +43,7 @@ underway and trigger this once step 1 is done"). Three steps, each its own PR, b
 
 ## Rules for every step
 
-- **Kept, always** (Decision 161):
+- **Kept, always** (Decision 164):
   - **Deterministic for a version:** the same result run after run, and on x86-64 and arm64
     alike (step 1's check).
   - **Thread-count independent:** CI's both-ways check (threads on and off) finds the digests
@@ -53,8 +53,8 @@ underway and trigger this once step 1 is done"). Three steps, each its own PR, b
     reversed-lists tests gain a case for each contest the step changes.
   - **Bounded:** a fixed number of settling rounds, each a local check within a radius
     through a grid.
-- **The gate** (Decision 161). Each step's commit carries
-  `Outcomes-changed: Decision 161, <what changes on playback>`. Its PR gives:
+- **The gate** (Decision 164). Each step's commit carries
+  `Outcomes-changed: Decision 164, <what changes on playback>`. Its PR gives:
   - the outcome trace's first differences (`traces/` in `sim-digests-<set>`, spec 37);
   - the trials' numbers;
   - **what to watch:** the battles, and what should look the same or different.
@@ -91,7 +91,7 @@ closer to today's serial one.
 
 ### Step 1, the same result on any hardware
 
-Decision 161 drops matching the old digests, so the guarantee it keeps needs a check of its
+Decision 164 drops matching the old digests, so the guarantee it keeps needs a check of its
 own. Today every digest is taken on `ubuntu-latest` (x86-64).
 - `sim-checks` gains a job on GitHub's arm64 runner (`ubuntu-24.04-arm`). It takes one digest
   set on the branch and requires it equal to the x86-64 job's digest of the same set, tick for
@@ -153,7 +153,7 @@ two takers reach one body in the same tick.
 ## Not in this spec
 
 - **Reading the last tick's state across phases** (double-buffered columns), so that phases
-  could overlap: Decision 161 allows it, but no measurement shows a need. Raise it if, after
+  could overlap: Decision 164 allows it, but no measurement shows a need. Raise it if, after
   this spec, the tick is waiting on one phase's end before the next can start.
 - **Still declined** (Decision 151, kept by 161): level of detail, a different tick rate,
   weighted-sum steering, thinning decisions beyond each unit's beat. Decision 160's cadence
@@ -209,7 +209,7 @@ two takers reach one body in the same tick.
 - **dip-direction:** each contest depends on the settling rule and the grid, not on another
   contest's code.
 - **general-over-special:** general. One settling rule for every contest, and one gate for
-  every change in behaviour (Decision 161).
+  every change in behaviour (Decision 164).
 - **order-independent:** proposals rank by the contest's key and the seeded draw. A winner is
   decided by a local comparison, not by when it was proposed. Results apply in squad and
   member order and don't depend on the number of threads (Decisions 97 and 159).
