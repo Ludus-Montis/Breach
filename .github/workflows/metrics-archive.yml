@@ -1,0 +1,57 @@
+name: metrics-archive
+
+# Spec 43 step 1, Decisions 162 and 164. Started by hand: keeps what the `bench` and
+# `sim-checks` logs hold before they expire (90 days; bench run #1's about 2027-01-12),
+# under metrics/raw/ (ci/metrics/archive_runs.py). Each run's record from the Actions API
+# (the run, its jobs and steps) as <run id>.json, and its log as <run id>.log: the whole
+# log for bench, the digest and scaling jobs only for sim-checks. A run already archived on
+# main is skipped, so a re-run only adds what's new. The archiver stops before the token's
+# hourly limit and says so: run it again an hour later to carry on.
+#
+# Delivery, until spec 43 step 3 moves it onto the data-PR route: the files are pushed on a
+# branch chore/metrics-archive-<date>, and the owner opens and merges an ordinary PR.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: metrics-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Archive the runs not yet kept
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/metrics/archive_runs.py metrics/raw | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Push the archive on its own branch
+        run: |
+          if [ -z "$(git status --porcelain -- metrics/raw)" ]; then
+            echo "Nothing new to archive." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="chore/metrics-archive-$(date -u +%F)"
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            branch="$branch-$GITHUB_RUN_NUMBER"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add metrics/raw
+          git commit -q -m "chore(metrics): archive the bench and sim-checks logs" \
+            -m "Spec 43 step 1: metrics-archive run $GITHUB_RUN_ID."
+          git push -u origin "$branch"
+          {
+            echo "Pushed $branch: open a PR from it into main."
+            echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
