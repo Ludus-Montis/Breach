@@ -7535,3 +7535,62 @@ to be explored as options, "even if separately and bench the solutions against e
 **Order:** the same ticks for every squad; nothing by id or spawn order.
 **Bounded:** it lowers how often a squad's rule runs; each run stays as bounded as now.
 **Pillar check:** holds only if the feel test does, which is why adoption waits for it.
+
+### Decision 161 — A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-06
+**Amends:** Decision 151 (a performance change "may change outcomes, never behaviour"; its
+declined list, for reading the last tick's state); settles issue #743
+
+**Rationale:** Spec 39 step 10 and spec 41 keep outcomes identical, and the 25k tick is still
+about 205 ms against Decision 159's 50 ms (`bench` run #77). What is left is mostly serial
+contests: seek's claims (`scrum: seek, walk and facing`, 92 ms), the rout's landings and tend's
+takings. These can only run in parallel if what a unit sees changes. The owner, in the design
+session of 2026-11-06: changes in behaviour are reviewable "as long as the result makes sense on
+visual playback". Asked which guarantees stay: "it should remain consistent for a version between
+runs and between any hardware, the other kept unconditional requirements make sense. Ultimately
+acceptance requires a 'feels test' gate from me if the digest does differ from prior versions".
+- **Kept, always:**
+  - **Deterministic for a version:** one version of the game gives the same result run after
+    run, on any hardware (Decision 130).
+  - **Thread-count independent:** one thread and the pool give the same result (Decision 159).
+  - **No outcome by id or spawn order** (Decision 97), shown by the mirror trials both ways
+    round.
+  - **Local and bounded work per tick** (Decision 144).
+- **Not kept: matching the previous version's digests.** A change may alter what a unit sees
+  within a tick, and the order in which contested things are settled. Each unit must still
+  sense, decide and act by its own rules on its own beat (Decisions 131 and 138).
+- **The gate.** A change whose digests differ from its base's lands only after:
+  - its commit says so in the trailer CI's outcome check reads, naming this Decision and what a
+    player would see: `Outcomes-changed: Decision 161, <what changes on playback>`;
+  - its PR gives the outcome trace's first differences (spec 37) and the trials' numbers;
+  - the owner signs off its playback at Gate 2 (`QUALITATIVE_REVIEW_LOG.md`), the feel test.
+  The branch's digests then become the baseline. The older ones are no longer a reference.
+- **Reopened:** reading the state as it stood at the start of a pass (or of the tick), instead
+  of what earlier units wrote within it. It is what lets a contest be proposed in parallel and
+  settled by a rule that doesn't depend on order.
+- **Still declined** (Decision 151): level of detail away from the fight (Decision 131), a
+  different tick rate, weighted-sum steering, and thinning decisions beyond each unit's beat
+  (Decision 138, with Decision 160's cadence for squad rules still only benched).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep outcomes identical (Decision 151 as it stood) | The serial contests can't run in parallel identically; the 50 ms target would be out of reach. |
+| Determinism on the same machine only | The owner wants a version consistent "between any hardware": replays and reports stay portable. |
+| The digests and trials alone as the gate | They can't tell whether a battle still looks right; the owner judges that by playback. |
+| Reopen every declined option at once | The owner reopened only the state a pass reads; the others change what units are. |
+
+**Consequences:** spec 42 builds it: a cross-hardware digest check, seek's claims settled in
+rounds (in place of spec 41 step 2), then the rout's and tend's landings by the same rule. Spec
+41 steps 1, 3 and 4 are unchanged.
+
+**Rules over cases:** general: one gate for every change in behaviour, and one settling rule for
+every contest.
+**Order:** a contest's settling rule ranks by what things are and where they stand (its contest
+key), never by id, list or processing order; the trials run both ways round.
+**Bounded:** settling runs a fixed number of rounds, each a local check within a radius.
+**Pillar check:** holds, by the feel test. Pillar 6 (legible depth) is served: units keep their
+rules, and what a player would see changed is written down and signed off before it lands.

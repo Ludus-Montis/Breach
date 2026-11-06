@@ -49,6 +49,7 @@ Agreed in the design session of 2026-11-06 (the owner: "Sounds like a plan, lets
 written up as a new spec to follow"), after spec 39 step 10f was settled in #738. Four steps,
 each its own PR, built with `/run-phase` as "spec 41 step N".
 - Step 1 first: its measurements may reorder 2 to 4, and the step that builds next says so.
+- Step 2 is replaced by spec 42 step 2 (Decision 161), which starts once step 1 is in.
 - Step 3 changes `src/parting.rs`, as spec 39 step 10f does. It branches from 10f's branch
   while 10f is unmerged, or from `main` once 10f has merged.
 - This spec's PR is stacked on spec 39 step 10's design (#724), which holds Decisions 159 and
@@ -97,6 +98,9 @@ ways, and rout's 36 ms spikes can't be traced to a part.
   4 are checked against it, and the measured order decides which of them comes next.
 
 ### Step 2, seek's search off the serial loop
+
+> **Replaced by spec 42 step 2** (Decision 161, 2026-11-06): seek's search and its claims
+> come off the serial loop together there, settled in rounds. Not built here.
 
 `scrum::plan` takes seekers one at a time in contest order (`kept`, then `pick`, `aim` and
 `press`), each reading the claims made before it. Only building the rings (`Search::squads`)
