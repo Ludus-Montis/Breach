@@ -1,7 +1,8 @@
 //! tools/native_bench.gd in the crate (spec 39 step 8c-xix), for `breach_native_bench`: a
 //! mid-fight tick of FormationBench's clash on one thread ("rust") and on the core's pool
 //! ("rust_threads"), and the two passes native_bench.gd times inside it - the bodies' parting
-//! and the scrum's seek, walk and facing. The battle is brought to its fight as
+//! and the scrum's seek (its sync and search: the `scrum: seek` lap; the seek, walk and
+//! facing until spec 41 step 1 split them). The battle is brought to its fight as
 //! native_bench.gd brings it (`phases::settled`: to its first engagement, then `settle` ticks),
 //! then `fight` ticks are timed. native_bench.gd's b.sync, b.call and b.write columns time
 //! the Godot boundary, which the crate's tick doesn't cross, and its b.core is the crate's

@@ -145,7 +145,7 @@ impl Built {
             prepare::Lines { anticipate: rules.anticipate, seed, discipline: &rules.stance };
         prepare::anticipate(squads, field, roster, None, (&lines, tick), log);
         pass::manoeuvre(squads, &mut field.columns, roster);
-        let active = seek::step(squads, field, roster, None, &rules.seek);
+        let (active, _) = seek::step(squads, field, roster, None, &rules.seek);
         regroup::step(squads, field, roster, None, &rules.regroup);
         withdraw::step(squads, field, roster, None, &rules.withdraw, log);
         let back = pursue::step(squads, field, roster, &rules.pursue, log);

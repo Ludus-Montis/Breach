@@ -15,6 +15,7 @@ use crate::entries;
 use crate::field::{self, Enrol, Field, SyncIn};
 use crate::field_parting::{self, FieldOutcome};
 use crate::ghash::{self, Key};
+use crate::laps::split;
 use crate::locks::{DESTROYED, ROUTING};
 use crate::maths::{rotated, V2};
 use crate::reach;
@@ -35,6 +36,7 @@ pub fn step(
     (tuning, threaded): (&Tuning, Threads),
 ) -> FieldOutcome {
     let synced = sync(squads, field, listed, seed);
+    split("bodies: sync");
     let mut way = |draw: i64, other: i64| way(seed, draw, other);
     let out = field_parting::part_field(field, tuning, threaded, &mut way);
     for &flat in &out.loosened {

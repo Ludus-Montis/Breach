@@ -22,6 +22,11 @@ name: Bench
 # two presets). `scale` then checks that the base's battle can stand in for the head's
 # (ci/godot/scripts/bench_scaling.py): `args` "preset=25k", `base_args` "preset=4096" and
 # `scale` 6, the ratio of their squads, tell whether the daily 4096 bench tracks the target.
+#
+# `profile` (spec 41 step 1) runs the head's tool once more, built with the crate's
+# `profiling` profile (release with line tables), under Linux `perf record --call-graph
+# dwarf`, and prints `perf report --no-children --percent-limit 0.5` between PROFILE
+# markers inside the summary: the functions that take the time, flat. Its run isn't timed.
 
 on:
   workflow_dispatch:
@@ -47,6 +52,10 @@ on:
       scale:
         description: "The head's expected growth over the base, checked by bench_scaling.py (empty: none)"
         default: ""
+      profile:
+        description: "Also run the head once under perf and print the functions over 0.5% of the samples"
+        type: boolean
+        default: false
 
 jobs:
   bench:
@@ -117,6 +126,32 @@ jobs:
             fi
           done
 
+      - name: Profile the head
+        if: inputs.profile
+        env:
+          TOOL: ${{ inputs.tool }}
+          ARGS: ${{ inputs.args }}
+          HEAD_REF: ${{ inputs.head }}
+        run: |
+          here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
+          report="$PWD/profile.txt"
+          sudo apt-get update -qq > /dev/null
+          if ! sudo apt-get install -y -qq "linux-tools-$(uname -r)" linux-tools-common > /dev/null; then
+            echo "perf can't run here: no linux-tools package for kernel $(uname -r)" | tee "$report"
+            exit 0
+          fi
+          sudo sysctl -q kernel.perf_event_paranoid=1 kernel.kptr_restrict=0
+          bin="${TOOL#breach_}"
+          (cd "$here/native/rust" && cargo build -q --profile profiling --bin "$bin")
+          cd "$here"
+          if ! perf record -q -F 99 --call-graph dwarf -o "$RUNNER_TEMP/perf.data" \
+              -- "native/rust/target/profiling/$bin" $ARGS > /dev/null 2> "$RUNNER_TEMP/perf.err"; then
+            { echo "perf record failed:"; tail -n 20 "$RUNNER_TEMP/perf.err"; } | tee "$report"
+            exit 0
+          fi
+          perf report -i "$RUNNER_TEMP/perf.data" --stdio --no-children -g none --percent-limit 0.5 \
+            --sort symbol 2> /dev/null | grep -v '^$' > "$report" || true
+
       - name: Summary
         if: always()
         env:
@@ -156,6 +191,11 @@ jobs:
             if [ -n "$two" ]; then
               echo "== round 1, base $base_name"
               cat base_1.txt 2>/dev/null
+            fi
+            if [ -f profile.txt ]; then
+              echo "PROFILE BEGIN"
+              cat profile.txt
+              echo "PROFILE END"
             fi
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"

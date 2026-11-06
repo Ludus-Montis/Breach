@@ -178,3 +178,14 @@ fn a_break_routs_drops_its_staging_and_shocks_the_friends_that_see_it() {
     let morale = |n: usize| b.squads.morale[b.squad(n)];
     assert_eq!((morale(friend), morale(far)), (43, 50));
 }
+
+#[test]
+fn a_rout_laps_its_flight_rallies_regroup_and_breaks_in_order() {
+    let mut b = Built::default();
+    let mine = b.formation(locks::ROUTING, 0, None);
+    b.router(mine, 1, 10.0, V2::ZERO);
+    let ((_, _), spent) = crate::laps::timed(|| b.rout());
+    let names: Vec<&str> = spent.iter().map(|(name, _)| *name).collect();
+    let parts = ["rout: flight", "rout: rallies", "rout: regroup's search", "rout: re-forms"];
+    assert_eq!(names, [&parts[..], &["rout: breaks"]].concat());
+}

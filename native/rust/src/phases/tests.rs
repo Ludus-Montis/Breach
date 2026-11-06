@@ -10,7 +10,7 @@ fn small() -> Options {
 }
 
 /// The phases a tick laps, in the order first lapped: the crate's passes, as tick.rs and its
-/// five passes run them.
+/// five passes run them, each named by its last part (what a watcher is shown).
 pub(crate) const PHASES: &[&str] = &[
     "rules",
     "roster",
@@ -22,7 +22,7 @@ pub(crate) const PHASES: &[&str] = &[
     "march (squads move)",
     "joins",
     "scrum: engage, prepare, stance",
-    "scrum: seek, walk and facing",
+    "scrum: facing",
     "scrum: regroup and chasers",
     "scrum: withdraw",
     "scrum: pursuit, stall",
@@ -33,12 +33,53 @@ pub(crate) const PHASES: &[&str] = &[
     "recovery",
     "strays",
     "morale",
-    "rout",
+    "rout: listing",
     "carry",
     "carry: strays",
     "groups (form up, split)",
     "stamina",
-    "bodies (parting)",
+    "bodies: commit",
+    "shuffle (re-form)",
+    "units walk to places",
+    "store settles",
+];
+
+/// The laps a tick times, in the order first lapped: each phase's parts (spec 41 step 1:
+/// the splits, then the lap that ends the phase), as tick.rs and its five passes run them.
+pub(crate) const PARTS: &[&str] = &[
+    "rules",
+    "roster",
+    "orders",
+    "perception",
+    "engage: fronts",
+    "engage: edges",
+    "pathing",
+    "march (squads move)",
+    "joins",
+    "scrum: engage, prepare, stance",
+    "scrum: seek",
+    "scrum: walk",
+    "scrum: facing",
+    "scrum: regroup and chasers",
+    "scrum: withdraw",
+    "scrum: pursuit, stall",
+    "fight (blows)",
+    "deaths (bury)",
+    "taking the downed",
+    "wounds (tend)",
+    "recovery",
+    "strays",
+    "morale",
+    "rout: listing",
+    "carry",
+    "carry: strays",
+    "groups (form up, split)",
+    "stamina",
+    "bodies: sync",
+    "bodies: pair search",
+    "bodies: pushes",
+    "bodies: sums and applying",
+    "bodies: commit",
     "shuffle (re-form)",
     "units walk to places",
     "store settles",
@@ -50,7 +91,7 @@ fn a_tick_laps_each_of_the_crate_s_passes_in_the_order_it_runs_them() {
     let mut settled = settled(&small(), &content).expect("the clash sets up");
     let spent = timed(&mut settled, 1, &content);
     let names: Vec<&str> = spent.iter().map(|(name, _)| *name).collect();
-    assert_eq!(names, PHASES);
+    assert_eq!(names, PARTS);
 }
 
 #[test]

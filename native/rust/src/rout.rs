@@ -25,6 +25,7 @@ use crate::content::CELLS_PER_TILE;
 use crate::contest;
 use crate::entries::{self, Key, Value};
 use crate::ground::Ground;
+use crate::laps::split;
 use crate::locks;
 use crate::maths::{is_equal_approx, is_zero_approx, snapped, V2};
 use crate::motion;
@@ -365,6 +366,7 @@ pub fn regroup(
     } else {
         routing.iter().map(near_of).collect()
     };
+    split("rout: regroup's search");
     let mut out = Vec::new();
     for (r, (formation, near)) in routing.iter().zip(nears).enumerate() {
         let Some(near) = near else { continue };

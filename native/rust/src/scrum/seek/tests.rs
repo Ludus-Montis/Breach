@@ -89,7 +89,7 @@ fn built(gap: f32, state: i32, bearing: f64) -> Built {
 
 impl Built {
     fn step(&mut self) -> Vec<i64> {
-        step(&self.squads, &mut self.field, &self.roster, None, &rules())
+        step(&self.squads, &mut self.field, &self.roster, None, &rules()).0
     }
 
     fn slot(&self, id: i64) -> usize {
