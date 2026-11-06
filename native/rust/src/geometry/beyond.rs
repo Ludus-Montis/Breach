@@ -63,7 +63,7 @@ impl Maxima {
         let mut i = place + 1;
         while i < self.0.len() {
             self.0[i] = self.0[i].max(value);
-            i += i & i.wrapping_neg();
+            i += i.isolate_lowest_one();
         }
     }
 
@@ -72,7 +72,7 @@ impl Maxima {
         let (mut i, mut most) = (count, f32::NEG_INFINITY);
         while i > 0 {
             most = most.max(self.0[i]);
-            i -= i & i.wrapping_neg();
+            i -= i.isolate_lowest_one();
         }
         most
     }
