@@ -32,7 +32,8 @@ Agreed in the design session of 2026-10-22. Before step 1, spec 38 step 2b is bu
 outcome check on Rust), because every step here retires GDScript. Spec 38's steps 1d and 2 are
 dropped. Their benches would time GDScript that this round deletes, and step 2's whole-battle
 series is rebuilt under cargo in step 8. Step 10 (spec 38's step 5, moved here the same day)
-was designed on 2026-11-05 (Decisions 159 and 160) and is built as 10a to 10f.
+was designed on 2026-11-05 (Decisions 159 and 160) and is built as 10a to 10f. Step 10 closed
+with 10f on 2026-11-06.
 
 Each step is built with `/run-phase` as "spec 39 step N", as one PR. A step too large for one
 session splits into lettered PRs (4a, 4b). Each lettered PR keeps the rules below, and the
@@ -1225,9 +1226,12 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   measured".
 - **10f, the options that change outcomes,** benched against each other on 10a's comparison:
   `f32` columns, reductions in a different fixed order, and a uniform cadence for squad-level
-  rules (Q32, #291; Decision 160). Each runs under Decision 151's conditions. Each that is
-  kept needs a Decision of its own, `/design-check`, the trailer and Gate 2. The cadence also
-  needs the owner's feel test.
+  rules (Q32, #291; Decision 160).
+  **Settled by the owner** (2026-11-06, #738) as one step that changes no outcome: parting's
+  per-body sums run on the pool in the same order, bit for bit. The cadence isn't built (#739
+  item 1), `f32` columns are parked (#739 item 7), a different reduction order isn't needed
+  (#739 item 9), and positions in `f64` are tech debt (#740). See "Step 10f, parting's sums on
+  the pool, and step 10 closed".
 
 ## Scenarios
 
@@ -4192,6 +4196,43 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   it with `scatter=1` on such a series before building packing. Slots are storage only
   (Decision 97), so packing would still change no outcome.
 - **Next:** 10f.
+
+### Step 10f, parting's sums on the pool, and step 10 closed
+
+- **Built** (2026-11-06, cascade #727), on 10e's branch before it merged, as the owner settled
+  it in #738. No outcome changes: no Decision, no `Outcomes-changed:`, no Gate 2.
+- **Parting's sums on the pool** (`src/parting/sums.rs`). Each pass already found pairs and
+  weighed pushes on the pool; adding each body's pushes was serial, in pair order. Now, when
+  the pass is threaded:
+  - pairs lying on one spot ask the seeded way on this thread, in pair order (`way` calls
+    back into GDScript in the game);
+  - every push becomes a key, `body << 40 | pair << 1 | side`, sorted on the pool, so each
+    body's pushes run together in pair order;
+  - each body's run is summed from zero on the pool, taking the first body's push off and
+    adding the second's, as the serial pass does;
+  - the bodies are moved in the order of their first keys, which is where the serial pass
+    first met them.
+
+  Every add happens in the same sequence, so the result is bit for bit the serial one. One
+  thread keeps the serial sums (`src/parting/serial.rs`). **Scenario:** a crowd of 600
+  overlapping bodies (three squads, two factions, loose, fleeing and lying on one spot) parts
+  the same on one thread and on the pool: the points' bits, the flags, the outcome and the
+  order the way was asked in (`parting/tests.rs`). Summing a run in reverse, or moving the
+  bodies in body order, fails it.
+- **Bench** against 10e's branch, 5 rounds each: BENCH_LINES
+- **Step 10 closed.** What 10f's options came to (the owner, #738):
+  - **The cadence for squad-level rules** (Q32, #291; Decision 160): not built. `groups` is
+    2.5 ms of a 205 ms tick, so it saves at most about 1%. Parked in #739, item 1, with when
+    to look again. Decision 160 is left as it stands.
+  - **`f32` scalar columns:** parked in #739, item 7. The tick isn't waiting on memory.
+  - **Reductions in a different fixed order:** not needed (#739, item 9). Parting's was the
+    one hot sum, and it runs on the pool in the same order.
+  - **Positions in `f64`:** consistency debt, #740, done with the next change that
+    re-records the digests.
+- **Where the rest of the gap to 50 ms lies:** seek's claims (#739, item 4) and the rout's and
+  tend's landings (item 5) are serial because each reads what the one before it settled.
+- **Next:** a design session on a contest that settles in parallel, for seek's claims and the
+  rout's landings (#739, items 4 and 5). It needs a Decision of its own.
 
 ## Open, for the implementing session to settle and record here
 
