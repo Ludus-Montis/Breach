@@ -7594,3 +7594,130 @@ key), never by id, list or processing order; the trials run both ways round.
 **Bounded:** settling runs a fixed number of rounds, each a local check within a radius.
 **Pillar check:** holds, by the feel test. Pillar 6 (legible depth) is served: units keep their
 rules, and what a player would see changed is written down and signed off before it lands.
+
+### Decision 162 — Measurements are kept in the repo under `metrics/`, one record a file, in one shape for every series
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-06
+**Settles:** Q37 (#603), with Decisions 163 and 164
+
+**Rationale:** The owner asked for a history of the tick's performance, kept in the repo, per
+commit that changed it, from the first bench run on, "with as much detail as possible", and
+drawn by a separate tool (#603). Bench logs and `sim-checks` logs expire after 90 days (the
+first, 2026-10-14's, about 2027-01-12), and the GDScript harnesses that made them retired in
+spec 39 step 9d-iii, so the logs are the only record of what was seen then.
+- **Where:** `metrics/<series>/`, on `main`. `metrics/bench/` is this round's series; the code,
+  CI and other series come later in the same shape. `metrics/raw/` keeps source material
+  verbatim, for importers to read; it holds no records. `metrics/schema/` holds the schema.
+- **One file per record,** named `<date>-<run id>[-<n>].json`, never one growing file, so data
+  PRs don't conflict with each other or with code PRs.
+- **The record:** `schema` (its version), `series`, `commit` (sha, first-parent position on
+  `main`, PR number, title and summary, spec step label, `Outcomes-changed:` trailer),
+  `source` (the harness or importer, its blob sha, args, rounds, build profile), `machine`
+  (runner image and version, CPU model, cores, RAM, OS, Godot and `rustc` versions),
+  `results`, `reference` and `provenance` (workflow run id and URL, date, and `fresh` or
+  `harvested`).
+- **One results shape for every series:** a map from a path to a measure,
+  `"tick/scrum/seek": {"unit": "ms", "values": [...], "median": ...}`. Paths form a tree: a
+  record that timed only `tick/scrum` stands as it is, and a later, finer one adds children
+  under it. Series differ only in their paths and units.
+- **Every field is optional, and a gap is explicit:** `{"na": "<reason>"}` in the value's
+  place, the reason one of `not-recorded`, `not-measured` or `not-applicable`. A gap is never
+  `0` and never left out.
+- **Checked:** a JSON Schema per version in `metrics/schema/`, and a Python check in CI on any
+  PR that touches `metrics/` (skipping `metrics/raw/`). The readers accept every version.
+- **Comparable across runs:** each fresh bench record carries the same measurement of a
+  reference commit, made in the same job, interleaved, and the ratio to it. The reference is
+  per harness era: `eee3e81` for the GDScript harnesses, and the bridge commit (the last that
+  has both the GDScript tools and the crate's `breach_*` binaries, `8ca4227` if the binaries
+  are there) for the cargo era. The bridge is timed with both harnesses, which states the
+  factor between the eras; the drawing breaks its line there and never joins across.
+- **What is benched:** first-parent commits on `main` only (a branch comparison stays in its
+  run's summary). Each merge that touches `native/` or `sim/` is benched automatically, 5
+  rounds; the backfill does the same for every such commit since 2026-10-14.
+- **Harvested records** (parsed from the old logs) go into the same history, marked
+  `harvested`, and are drawn apart from fresh ones, never joined to them.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A data branch the workflow appends to | The owner considers a data branch improper. |
+| `git notes`, a separate metrics repo, release assets | Outside the PR flow or git history, or split from the code they measure (#603). |
+| Workflow artifacts | They expire. |
+| `"NA"` with a separate reasons map | Two places to keep in step; the object carries its reason. |
+| A results shape per series | The drawing tool would need a reader per series. |
+| One reference commit for all | No commit runs both eras' harnesses except the bridge. |
+
+**Consequences:** spec 43 builds it. Old logs are archived raw first, before they expire.
+
+**Rules over cases:** general: one record shape and one gap rule for every series and source.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable to the tick; one bench job per qualifying merge.
+**Pillar check:** not applicable; tooling only.
+
+### Decision 163 — A PR that changes only measurement data runs only the checks data needs
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-06
+**Amends:** `CLAUDE.md`'s non-negotiables ("Documentation is part of done"; CI runs the suite
+and digests on every PR), for data-only PRs
+
+**Rationale:** The owner's direction on #603: CI treats a PR that only touches the metrics
+folder as data, so a data PR is cheap and needs no Documentation block.
+- **A data-only PR** is one whose every changed path is under `metrics/`, but not under
+  `metrics/schema/`. A schema change is code and goes through the normal PR rules.
+- **Its checks:** `sim-checks`, `docs-gate` and `rust` still start, detect the data-only diff
+  and pass at once, so the required checks still report. The real check is the metrics schema
+  check (Decision 162), and a check that the PR is data-only.
+- **No Documentation block** and no `CHANGELOG.md` entry.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| `paths-ignore` on the workflows | A required check skipped by paths never reports, and blocks the merge. |
+| The full checks on every data PR | Each record would cost a full suite run, for a change no test reads. |
+
+**Consequences:** spec 43 step 2 adds the detection to each workflow, and the checks.
+
+**Rules over cases:** general: a PR runs the checks its paths need.
+**Order:** not applicable.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
+
+### Decision 164 — The measuring workflows may merge their own data PRs
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-06
+**Amends:** `CLAUDE.md`'s first non-negotiable ("the user merges"), for data PRs from
+`bench`, `metrics-archive` and `bench-series` only
+
+**Rationale:** The owner's direction on #603: the workflow raises its own PR, and may merge
+it itself when it touches only the metrics folder and has no conflicts, because "it is purely
+measurement".
+- **Who:** `bench`, `metrics-archive` and the `bench-series` backfill. The code and CI series'
+  importers, and anything else, open PRs that wait for the owner.
+- **How:** the PR is opened with the repo's GitHub App token (`PROJECT_APP_ID`, as
+  `project-status` uses; it needs `contents` and `pull_requests` write on this repo, which the
+  owner grants). A PR opened with `GITHUB_TOKEN` would start no checks. The workflow turns on
+  GitHub's auto-merge, so it merges once the schema check and the data-only check pass and
+  there is no conflict.
+- **Not allowed:** a PR from these workflows that touches any path outside `metrics/`, or
+  under `metrics/schema/`, is not data (Decision 163) and waits for the owner.
+- Until step 3 builds this route, `metrics-archive` pushes a branch and the owner opens and
+  merges an ordinary PR.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| The owner merges every data PR | One PR per merge to `main`, for measurement only. |
+| A bot pushing straight to `main` | Outside the PR flow and its checks. |
+
+**Consequences:** spec 43 step 3 builds the route; `CLAUDE.md` names the exception.
+
+**Rules over cases:** special case: the owner's reason, "it is purely measurement" (#603).
+**Order:** not applicable.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.

@@ -168,3 +168,6 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 |  |
 | 160 | A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test | 7507 |  |
 | 161 | A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test | 7539 |  |
+| 162 | Measurements are kept in the repo under `metrics/`, one record a file, in one shape for every series | 7598 |  |
+| 163 | A PR that changes only measurement data runs only the checks data needs | 7659 |  |
+| 164 | The measuring workflows may merge their own data PRs | 7689 |  |
