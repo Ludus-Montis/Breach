@@ -1221,6 +1221,8 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   packed together, at enrolment or by a compaction that updates the unit-to-slot map, and
   hot loops index by slot rather than through `by_unit` (a `HashMap`). Slots are storage only
   (Decision 97), so packing changes no outcome.
+  **Not built** (2026-11-05): the 25k series doesn't scatter. See "Step 10e, slot scatter
+  measured".
 - **10f, the options that change outcomes,** benched against each other on 10a's comparison:
   `f32` columns, reductions in a different fixed order, and a uniform cadence for squad-level
   rules (Q32, #291; Decision 160). Each runs under Decision 151's conditions. Each that is
@@ -4165,6 +4167,31 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   is owed is played; `run_ticks` waits for every order given before it. In the scene
   (`test_formation_field_scene.gd`): a frame owes its clock's ticks and draws what the worker
   has played; the HUD says the simulation is behind when time is dropped.
+
+### Step 10e, slot scatter measured (packing not built)
+
+- **Measured** (2026-11-05, cascade #727), on 10d-ii's branch: `bench` run #80,
+  `breach_tick_phases preset=25k scatter=1` against `preset=25k`, 5 rounds, an AMD EPYC 7763
+  with 4 threads.
+  - **Scatter:** none. Where the timing began and where it ended, the 48 squads' 49,152
+    members are 48 runs spanning 49,152 slots. Every squad stays packed.
+  - **Why:** squads enrol together at the start, and a squad's members stay in the store
+    until they are removed. Nothing enrols during the fight, so no unit takes a freed slot
+    between another squad's members.
+  - **Measuring costs nothing:** tick median 313.6 ms with scatter against 312.6 ms without
+    (+0.3%, ranges overlapping). This runner is slower than run #77's EPYC 9V45 (about 205 ms):
+    compare ticks only within one run.
+- **So 10e isn't built,** as its bullet allows. Packing has nothing to fix in the target's
+  series. Its second half, hot loops indexing by slot rather than through `by_unit`, is mostly
+  done already:
+  - the squads' members are slots;
+  - only the fight's blows (`blows.rs`, about 6 ms of the tick) look a unit up by id
+    (`Field::body_of`).
+- **When to look again:** when the game enrols units into a battle already running (later
+  waves into freed slots, lowest first; `src/field.rs`), a long battle can scatter. Measure
+  it with `scatter=1` on such a series before building packing. Slots are storage only
+  (Decision 97), so packing would still change no outcome.
+- **Next:** 10f.
 
 ## Open, for the implementing session to settle and record here
 
