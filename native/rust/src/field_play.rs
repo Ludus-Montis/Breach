@@ -12,6 +12,7 @@
 pub mod actions;
 pub(crate) mod binding;
 pub mod carried;
+pub mod player;
 pub mod seen;
 pub mod sim;
 #[cfg(test)]

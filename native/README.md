@@ -367,7 +367,10 @@ stays on one thread in order.
 boundary between ticks and stamped with that tick) or a replay's (`order_at`), pauses, and
 takes the published snapshots (`ready`) without ever waiting; `run_ticks` waits, for tests and
 tools. Each snapshot carries its tick's events, and copies the drawn columns only when they
-changed. The game doesn't use it yet: presentation still calls `FieldState.step` (10d-ii).
+changed. `reached` is the tick the field reaches once what is owed is played, and `run_ticks`
+also waits for every order given before it. The 2D feel test plays on it (step 10d-ii):
+`FieldState` wraps a `field_play::player::FieldPlayer`, whose reads show the newest snapshot;
+each frame owes the clock's ticks (`owe`) and takes what was played (`take`), never waiting.
 
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):

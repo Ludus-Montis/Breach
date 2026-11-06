@@ -4127,6 +4127,45 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   positions and bearings and its record; a snapshot shares unchanged columns and copies a
   changed one; it holds what the scene draws.
 
+### Step 10d-ii, presentation reads the snapshot
+
+- **Built** (2026-11-05), on 10d-i's branch before it merged (cascade #727). No outcome
+  changes: the orders are given at the same boundaries, so records and replays are as before.
+  - **`FieldState` plays on the worker,** always: `open` starts the field on one through
+    `FieldPlayer` (`field_play/player.rs`), the plain-Rust half the binding wraps. Every read
+    (`squads`, `positions`, `facings`, `ranks`, `kingdom`, `waves`, `staging_point`,
+    `tick_number`) shows the newest snapshot. The routes and the ground don't change, so they
+    are read once at open. The record is kept from the orders each snapshot says were taken.
+  - **The frame never waits.** Each frame the scene pauses the worker as its clock is paused,
+    owes it the ticks the clock gives (`owe`) and takes what it has published (`take`): every
+    tick's events, oldest first, including those of ticks no frame drew, so none are lost.
+    Flashes start when their event is taken and count down in real seconds. `act`, `give` and
+    `replay` only queue: an order is applied at the next boundary between ticks, and a replay's
+    commands are given to the worker at the restart (`order_at`), each applied when its tick
+    comes, so the scene's own `_queued` loop is gone. `act` and `give` now return true when
+    there is a field to queue for; whether an order was taken shows in the record.
+  - **Easing:** units move from the second-newest tick drawn to the newest by the clock's
+    fraction, as before. When the newest snapshot isn't the tick the clock has reached
+    (`caught_up` false: the worker is still playing what is owed), they hold at the newest.
+    `Worker::reached` gives that tick: the ticks played, taken or owed. When two ticks arrive
+    in one frame (only when behind), units move from the newest drawn before the frame.
+  - **"Simulation behind":** when `owe` drops time (more than two ticks owed), the HUD's status
+    row shows `SIMULATION BEHIND` for a second.
+  - **The scene's frame** is `_process(delta)`, which its test calls to drive a frame (a public
+    `frame(delta)` took the scene past `check_isp`'s seven public methods). The ground and the routes are drawn by `GroundDrawing` (`ground_drawing.gd`, as
+    `FallenDrawing` is), which keeps the scene under gdlint's 300 lines.
+  - **Waiting, for tests and headless play:** `run_ticks(count)` (and `step`, one tick) waits
+    for the ticks and for every order given before it (`Worker::run_ticks` now also waits for
+    the orders, counted by each snapshot's `ordered`). A test that reads an order's outcome
+    straight after giving it calls `run_ticks(0)` first.
+- **Scenarios:** on the field (`field_play/player/tests.rs`): orders given between ticks play
+  and record as `step` does; a replay given at the start plays its orders at their ticks; the
+  frame takes what is ready without waiting, and loses no events; an order is recorded once the
+  worker takes it. On the worker (`worker/tests.rs`): `reached` is the tick reached once what
+  is owed is played; `run_ticks` waits for every order given before it. In the scene
+  (`test_formation_field_scene.gd`): a frame owes its clock's ticks and draws what the worker
+  has played; the HUD says the simulation is behind when time is dropped.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

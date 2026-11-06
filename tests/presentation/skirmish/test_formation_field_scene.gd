@@ -1,8 +1,9 @@
 extends GdUnitTestSuite
 ## FormationFieldScene smoke tests, per Decisions 86 and 87 and spec 27: the 2D field
 ## builds, its waves fill and can be sent, and squads stand in 2D on their routes. The field
-## is the crate's (`FieldState`, spec 39 step 9d-i), read by the scene and its HUD. How it
-## plays - marching, wheeling, meeting head-on - is checked by hand.
+## is the crate's (`FieldState`, spec 39 step 9d-i), played on a worker (step 10d-ii) and read
+## by the scene and its HUD from its newest snapshot. How it plays - marching, wheeling,
+## meeting head-on - is checked by hand.
 
 const FormationFieldScene = preload(
 	"res://presentation/skirmish/formation_2d/formation_field_scene.gd"
@@ -102,6 +103,7 @@ func test_actions_are_logged_with_their_ticks_after_the_seed() -> void:
 	scene.run_ticks(5)
 
 	scene.act("send A")
+	scene.run_ticks(0)  # the order is taken at the next boundary between ticks
 
 	var head := "record 2 seed 42 captain off build %s" % SimBuild.id()
 	assert_str(scene.action_log()).is_equal(head + "\n5 player send A")
@@ -192,3 +194,26 @@ func test_a_pursuing_line_shows_how_far_it_has_gone_of_its_leash() -> void:
 	hud.show_status(scene.field(), true, 606531)
 	assert_str(hud._status.text).contains("pursuing ")
 	assert_str(hud._status.text).contains("/64 cells")
+
+
+func test_a_frame_owes_its_clocks_ticks_and_draws_what_the_worker_has_played() -> void:
+	var scene := _scene()
+	scene.clock().resume()
+
+	scene._process(0.1)  # one tick due: owed to the worker, not waited for
+	var began := Time.get_ticks_msec()
+	while scene.field().tick_number() < 1 and Time.get_ticks_msec() - began < 10000:
+		OS.delay_msec(5)
+		scene._process(0.0)
+
+	assert_int(scene.field().tick_number()).is_greater_equal(1)
+	assert_bool(scene.field().caught_up()).is_true()
+
+
+func test_the_hud_says_the_simulation_is_behind_when_time_is_dropped() -> void:
+	var scene := _scene()
+	scene.clock().resume()
+
+	scene._process(1.0)  # ten ticks due: the worker is owed at most two
+
+	assert_str(_hud(scene)._status.text).contains("SIMULATION BEHIND")
