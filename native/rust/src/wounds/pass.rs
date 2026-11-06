@@ -12,6 +12,8 @@
 #[cfg(test)]
 mod tests;
 
+use rayon::prelude::*;
+
 use crate::bands::BandTuning;
 use crate::events::{self, Log};
 use crate::field::Field;
@@ -55,8 +57,8 @@ pub fn step(
     if !lying(squads, &field.columns.state, listed) {
         return vec![]; // no body to take, so no unit's record to build (10b)
     }
-    let codes = Codes::of(field);
-    let tended: Vec<Tended> = listed.iter().map(|&s| tended(squads, field, &codes, s)).collect();
+    let units = listed.iter().map(|&s| squads.members[s].len()).sum();
+    let tended = tended_all(squads, field, listed, t.wounds.threaded.on(units));
     let tending = wounds::tend(&mut field.columns, &tended, interval, seed, t.wounds);
     for id in tending.fell {
         field.fell(id);
@@ -124,6 +126,18 @@ impl Codes {
         let names = ["captor", "messenger", "cunning", "thorough", "wits", "constitution"];
         let [captor, messenger, cunning, thorough, wits, constitution] = field.lexicon.codes(names);
         Codes { captor, messenger, cunning, thorough, wits, constitution }
+    }
+}
+
+/// The squads in `listed` as the takings read them, in that order. With `threaded`, each
+/// squad's record is read on the pool (spec 42 step 3): each reads only its own units.
+fn tended_all(squads: &Squads, field: &Field, listed: &[usize], threaded: bool) -> Vec<Tended> {
+    let codes = Codes::of(field);
+    let one = |&s: &usize| tended(squads, field, &codes, s);
+    if threaded {
+        listed.par_iter().map(one).collect()
+    } else {
+        listed.iter().map(one).collect()
     }
 }
 

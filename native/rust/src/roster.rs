@@ -98,6 +98,11 @@ impl Roster {
         state == locks::ROUTING || state == locks::DESTROYED
     }
 
+    /// How many living units the listed squads hold.
+    pub fn units(&self) -> usize {
+        self.listed.iter().map(|l| l.living.len()).sum()
+    }
+
     /// Who of each listed squad is loose, by id: ScrumReach.at reads its loose point.
     pub fn loose(&self, squads: &Squads) -> Vec<HashSet<i64>> {
         self.listed.iter().map(|l| squads.loose[l.squad].iter().copied().collect()).collect()

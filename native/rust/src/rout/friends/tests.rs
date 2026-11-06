@@ -81,7 +81,12 @@ fn field() -> Field {
 
 impl Field {
     fn friends(&self) -> Friends<'_> {
-        Friends::new(&self.roster, &self.squads, &self.columns, &self.routing, &self.leaders, SEED)
+        self.friends_on(false)
+    }
+
+    fn friends_on(&self, threaded: bool) -> Friends<'_> {
+        let (roster, squads, columns) = (&self.roster, &self.squads, &self.columns);
+        Friends::new((roster, squads, columns), &self.routing, &self.leaders, SEED, threaded)
     }
 
     /// Every (listed, member) of `n`'s faction, in the lists' order, that `counts` takes.
@@ -263,4 +268,16 @@ fn a_faction_is_alone_with_none_but_its_routing_squads() {
     f.routing = (0..8).collect();
     assert!(f.friends().alone(0));
     assert!(!f.friends().alone(8));
+}
+
+/// Spec 42 step 3: the view built on the pool is the one built on one thread.
+#[test]
+fn the_view_built_on_the_pool_is_the_one_built_on_one_thread() {
+    let f = field();
+    let (one, pool) = (f.friends_on(false), f.friends_on(true));
+    assert_eq!(pool.points, one.points);
+    assert_eq!(pool.bodies, one.bodies);
+    assert_eq!(pool.bodies, f.bodies);
+    assert_eq!(pool.leadership, one.leadership);
+    assert_eq!(pool.states, one.states);
 }
