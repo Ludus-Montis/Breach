@@ -1,0 +1,157 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "engine=rust side=4096 squads=4 fight=3",
+    "BASE": "origin/main",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "chore/alternating-bench",
+    "ROUNDS": "3",
+    "TOOL": "tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-15T22:46:50Z",
+      "conclusion": "success",
+      "id": 116707659843,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261012.601"
+      },
+      "runner_name": "GitHub Actions 1000001882",
+      "started_at": "2026-10-15T22:34:59Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-15T22:35:01Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-15T22:35:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:35:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-15T22:35:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:35:07Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-15T22:35:05Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:35:07Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-15T22:35:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:35:10Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-15T22:35:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:35:11Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 6,
+          "started_at": "2026-10-15T22:35:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:46Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 7,
+          "started_at": "2026-10-15T22:35:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:46Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-10-15T22:46:46Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:47Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 14,
+          "started_at": "2026-10-15T22:46:46Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:47Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 15,
+          "started_at": "2026-10-15T22:46:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:47Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-10-15T22:46:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T22:46:47Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-10-15T22:46:47Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38818080898.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-15T22:34:54Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "chore/alternating-bench",
+    "head_commit_message": "chore(ci): bench alternates head and base over rounds and compares their spread\n\nOne bench run each can't tell a 5% change from the swing any change of code\nbrings: a commit against itself repeats to within 1%, but in spec 35 step 5b\ntwo commits moved phases neither touched by 5 to 20%. `bench` takes a\n`rounds` input (default 1, as before): head and base build once, then run in\nturn, head first in odd rounds and base first in even ones. The summary\nprints each phase's medians, change and ranges (bench_compare.py, tested in\ntest_bench_compare.py), marked `*` where the ranges don't overlap, then round\n1's raw output. CLAUDE.md says to use 5 rounds or more to judge a few percent.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01KKUhViTbS7kfMBSZozDAco",
+    "head_sha": "c9e9ff7c0dfc6372faa8484b619770e19411fb25",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38818080898",
+    "id": 38818080898,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 30,
+    "run_started_at": "2026-10-15T22:34:54Z",
+    "status": "completed",
+    "updated_at": "2026-10-15T22:46:51Z"
+  },
+  "workflow": "bench.yml"
+}

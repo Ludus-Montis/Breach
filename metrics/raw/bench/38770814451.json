@@ -1,0 +1,156 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "engine=rust side=4096 squads=4 fight=3",
+    "BASE": "7733998",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "feature/unit-store-sync-reads-store",
+    "TOOL": "tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-15T16:44:04Z",
+      "conclusion": "success",
+      "id": 116545834635,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261012.601"
+      },
+      "runner_name": "GitHub Actions 1000001500",
+      "started_at": "2026-10-15T16:39:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-15T16:39:27Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-15T16:39:27Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:39:29Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-15T16:39:27Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:39:30Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-15T16:39:29Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:39:30Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-15T16:39:30Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:39:33Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-15T16:39:30Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:39:33Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 6,
+          "started_at": "2026-10-15T16:39:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:43:58Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 7,
+          "started_at": "2026-10-15T16:39:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:43:58Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-10-15T16:43:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:44:02Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 14,
+          "started_at": "2026-10-15T16:43:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:44:02Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 15,
+          "started_at": "2026-10-15T16:44:02Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:44:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-10-15T16:44:02Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T16:44:02Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-10-15T16:44:02Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38770814451.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-15T16:39:22Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "feature/unit-store-sync-reads-store",
+    "head_commit_message": "feat(formation): the field's sync reads how each unit stands from the store\n\nSpec 35 step 4e. BodyField.sync takes the roster (each squad's living\nunits in list order) and a mode, the scrum's or the bodies' snapshot,\ninstead of each unit's flags, next point and bearing. The field reads\nhow each unit stands from the store's flag bits, a loose unit's next\npoint and each bearing from the columns. Since 2a a unit's bit is set\nexactly while its own squad holds the entry, so the bits say what the\nentries said. A fleeing unit's point on its route stays GDScript's.\nThis completes step 4.\n\nTests: test_body_field.gd syncs with only the roster (red on the 4d\nlibrary); field.rs and blows.rs set the bits in the store first.\n\nWaived-by: Decision 142\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7",
+    "head_sha": "2afad19327afa3578cb5f32dc49ee574d664a0fe",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38770814451",
+    "id": 38770814451,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 16,
+    "run_started_at": "2026-10-15T16:39:22Z",
+    "status": "completed",
+    "updated_at": "2026-10-15T16:44:05Z"
+  },
+  "workflow": "bench.yml"
+}

@@ -1,0 +1,196 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "GODOT_VERSION": "4.7.2-stable",
+    "SHARDS": "4"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "success",
+      "id": 119815448842,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "scope",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261021.618"
+      },
+      "runner_name": "GitHub Actions 1000003148",
+      "started_at": "2026-10-22T12:10:07Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-22T12:10:08Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-22T12:10:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-22T12:10:09Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-22T12:10:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-22T12:10:09Z",
+          "conclusion": "success",
+          "name": "Run python3 ci/godot/scripts/needs_godot.py \"origin/main\"",
+          "number": 3,
+          "started_at": "2026-10-22T12:10:09Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-22T12:10:09Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 6,
+          "started_at": "2026-10-22T12:10:09Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-22T12:10:09Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "started_at": "2026-10-22T12:10:09Z",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815511757,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "build",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815512001,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "suite",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815512450,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "scaling",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815512963,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "digests",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815513365,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "trials",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    },
+    {
+      "completed_at": "2026-10-22T12:10:11Z",
+      "conclusion": "skipped",
+      "id": 119815513885,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "sim-checks",
+      "runner_group_name": null,
+      "runner_image": {
+        "na": "not-applicable"
+      },
+      "runner_name": null,
+      "started_at": "2026-10-22T12:10:12Z",
+      "status": "completed",
+      "steps": []
+    }
+  ],
+  "log": {
+    "na": "not-applicable"
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-22T12:10:03Z",
+    "display_title": "docs(decisions): Decisions 152 to 154, spec 39: the simulation in Rust (Q33)",
+    "event": "pull_request",
+    "head_branch": "claude/busy-cray-ge2l34",
+    "head_commit_message": "docs(decisions): Decisions 152 to 154, spec 39: the simulation in Rust (Q33)\n\nThe whole of sim/ moves to a Godot-free Rust crate, and Godot presents it.\nSquads move into the crate first, then the phases port in identical chunks.\nThe crate owns the content schema (JSON, written by the designer). The\nsimulation's tests move to cargo, one phase at a time on a built or\nsnapshot state. Spec 38 keeps step 2b and drops steps 1d and 2; spec 39\ntakes over its steps 3 and 4.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_015mijTZhFycJQ9JhKAuvLBF",
+    "head_sha": "f61bad7982d917b9bc9d433923e1ae384e14c8c2",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/39776138762",
+    "id": 39776138762,
+    "name": "Sim checks",
+    "path": ".github/workflows/sim-checks.yml",
+    "run_attempt": 1,
+    "run_number": 121,
+    "run_started_at": "2026-10-22T12:10:03Z",
+    "status": "completed",
+    "updated_at": "2026-10-22T12:10:12Z"
+  },
+  "workflow": "sim-checks.yml"
+}

@@ -1,0 +1,43 @@
+===== job: sim-checks / Digests, both engines
+2026-10-15T00:53:10.4565827Z ##[group]Run mkdir -p digests
+2026-10-15T00:53:10.4566157Z [36;1mmkdir -p digests[0m
+2026-10-15T00:53:10.4566432Z [36;1mfor set in standard clash160 wide; do[0m
+2026-10-15T00:53:10.4566756Z [36;1m  for engine in gdscript rust; do[0m
+2026-10-15T00:53:10.4567143Z [36;1m    BREACH_NATIVE=$engine /opt/godot/godot --headless --path . \[0m
+2026-10-15T00:53:10.4567718Z [36;1m      --script res://tools/formation_digest.gd -- set=$set out=digests/$set.$engine.txt \[0m
+2026-10-15T00:53:10.4568181Z [36;1m      > /dev/null 2>&1[0m
+2026-10-15T00:53:10.4568422Z [36;1m  done[0m
+2026-10-15T00:53:10.4568633Z [36;1mdone[0m
+2026-10-15T00:53:10.4569155Z [36;1m(cd digests && sha256sum *.txt)[0m
+2026-10-15T00:53:10.4632223Z shell: /usr/bin/bash -e {0}
+2026-10-15T00:53:10.4632486Z env:
+2026-10-15T00:53:10.4632685Z   GODOT_VERSION: 4.7.2-stable
+2026-10-15T00:53:10.4632945Z ##[endgroup]
+2026-10-15T00:55:13.7891553Z 846075a85ef4f9b1ebd6eb8f75205daab8f6dc03cf29382131e4b283d65b58d0  clash160.gdscript.txt
+2026-10-15T00:55:13.7892799Z 846075a85ef4f9b1ebd6eb8f75205daab8f6dc03cf29382131e4b283d65b58d0  clash160.rust.txt
+2026-10-15T00:55:13.7894946Z d027246595efcc1b24a808a5d281ff14686e444f0c07e1b5a63da35840e110cc  standard.gdscript.txt
+2026-10-15T00:55:13.7899199Z d027246595efcc1b24a808a5d281ff14686e444f0c07e1b5a63da35840e110cc  standard.rust.txt
+2026-10-15T00:55:13.7900427Z 0cb41776ecb08e35cccef399d15aa6a3285f9615da043aec9a28cd7a90fd27a9  wide.gdscript.txt
+2026-10-15T00:55:13.7901599Z 0cb41776ecb08e35cccef399d15aa6a3285f9615da043aec9a28cd7a90fd27a9  wide.rust.txt
+
+===== job: sim-checks / Scaling check (Rust)
+2026-10-15T00:56:18.2403923Z ##[group]Run BREACH_NATIVE=rust /opt/godot/godot --headless --path . \
+2026-10-15T00:56:18.2404447Z [36;1mBREACH_NATIVE=rust /opt/godot/godot --headless --path . \[0m
+2026-10-15T00:56:18.2404940Z [36;1m  --script res://tools/scaling_check.gd 2>/dev/null | tee scaling.txt[0m
+2026-10-15T00:56:18.2466548Z shell: /usr/bin/bash -e {0}
+2026-10-15T00:56:18.2466806Z env:
+2026-10-15T00:56:18.2467003Z   GODOT_VERSION: 4.7.2-stable
+2026-10-15T00:56:18.2467247Z ##[endgroup]
+2026-10-15T00:56:18.2735618Z Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+2026-10-15T00:56:18.3008251Z 
+2026-10-15T00:56:18.9554847Z scaling_check (gdscript): ms a tick, and its growth per doubling
+2026-10-15T00:56:19.4649202Z   march    128 a side     16.11 ms  
+2026-10-15T00:56:20.4749716Z   march    256 a side     32.71 ms  x2.03
+2026-10-15T00:56:22.5030373Z   march    512 a side     65.19 ms  x1.99
+2026-10-15T00:56:29.7472831Z   fight    128 a side     80.68 ms  
+2026-10-15T00:56:44.2860570Z   fight    256 a side    166.81 ms  x2.07
+2026-10-15T00:57:12.9830383Z   fight    512 a side    336.67 ms  x2.02
+2026-10-15T00:57:23.8431393Z   stacks     1 stacks     83.55 ms  
+2026-10-15T00:57:48.1013312Z   stacks     2 stacks    184.03 ms  x2.20
+2026-10-15T00:58:37.8601477Z   stacks     4 stacks    387.95 ms  x2.11
+
