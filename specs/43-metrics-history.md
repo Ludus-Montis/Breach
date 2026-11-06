@@ -166,6 +166,14 @@ reading `metrics/` only.
 - **Until `f587f70` (2026-10-22) the scaling check ran in the `CI` workflow** (`ci.yml`'s `scaling`
   job), not `sim-checks`, so its runs from 2026-10-14 to then are not archived by this step.
   Adding `ci.yml` is one line in `archive_runs.py`'s `SERIES`.
+- **The first archive run (#1, 2026-11-06)** wrote 53 bench and 175 `sim-checks` runs in
+  ten minutes, then a log download was cut off (`IncompleteRead`) and the archiver stopped;
+  `| tee` hid the failure, so the run showed green. It also kept nothing for the first 37
+  `sim-checks` runs (2026-10-14 and 15), which did everything in one job, `sim-checks`, and
+  wrote empty `.log` files for runs whose digest and scaling jobs were skipped. Fixed: each
+  download is retried and a failed one leaves its run for later, the step fails visibly,
+  one-job runs keep their digest and scaling steps' sections, and a run with nothing to keep
+  is `{"na": "not-applicable"}`. That run's branch is not to be merged.
 
 ## Scenarios
 

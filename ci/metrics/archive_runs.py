@@ -13,11 +13,13 @@ limit, and a later run carries on where it stopped.
 
 reads GITHUB_REPOSITORY and GITHUB_TOKEN, and GITHUB_RUN_ID for the records' `archived`.
 """
+import http.client
 import io
 import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -28,6 +30,9 @@ from pathlib import Path
 API = "https://api.github.com"
 RESERVE = 20
 GAP = {"na": "not-recorded"}
+NOTHING = {"na": "not-applicable"}
+# What a download can fail with that a later try may not: a dropped or cut-off connection.
+TRANSIENT = (OSError, http.client.HTTPException, zipfile.BadZipFile)
 
 # series: (workflow file, which jobs' logs to keep; None keeps them all).
 SERIES = {
@@ -45,12 +50,14 @@ STEP_FIELDS = ("number", "name", "status", "conclusion", "started_at", "complete
 TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 ENV_LINE = re.compile(r"^\s+([A-Z_][A-Z0-9_]*):\s?(.*)$")
 TOP_LEVEL_JOB = re.compile(r"^\d+_(.+)\.txt$")
+SECTION_START = re.compile(r"##\[group\]Run |Post job cleanup\.")
 
 
 @dataclass
 class Archived:
     files: list = field(default_factory=list)
     stopped: bool = False
+    failed: list = field(default_factory=list)
 
 
 def job_logs(archive_bytes):
@@ -109,12 +116,51 @@ def run_record(run):
 def job_record(job, logs):
     record = {key: job.get(key) for key in JOB_FIELDS}
     record["steps"] = [{key: step.get(key) for key in STEP_FIELDS} for step in job.get("steps") or []]
-    record["runner_image"] = runner_image(logs[job["name"]]) if job.get("name") in logs else dict(GAP)
+    if job.get("conclusion") == "skipped":
+        record["runner_image"] = dict(NOTHING)
+    else:
+        record["runner_image"] = runner_image(logs[job["name"]]) if job.get("name") in logs else dict(GAP)
     return record
 
 
-def kept_jobs(logs, keep):
-    return [name for name in logs if keep is None or keep.search(name)]
+def sections(text):
+    """A job's log cut where each step's output starts (`##[group]Run ...`, `Post job
+    cleanup.`); the first section is `Set up job`'s."""
+    found = []
+    for line in text.splitlines(keepends=True):
+        if not found or SECTION_START.search(line):
+            found.append([])
+        found[-1].append(line)
+    return ["".join(lines) for lines in found]
+
+
+def step_sections(job, text, keep):
+    """The sections of a job's log that its kept steps printed. The first sim-checks runs did
+    everything in one job, `sim-checks`. Every step that ran prints one section, in order,
+    but `Complete job` (and a skipped step) prints none, so the sections are matched to those
+    steps in turn. Where the counts differ, the whole log is kept rather than guessed at."""
+    ran = [step for step in job.get("steps") or []
+           if step.get("conclusion") != "skipped" and step.get("name") != "Complete job"]
+    if not any(keep.search(step.get("name") or "") for step in ran):
+        return []
+    cut = sections(text)
+    if len(cut) != len(ran):
+        return [(f"{job['name']} (whole log: its steps could not be matched)", text)]
+    return [(f"{job['name']} / {step['name']}", chunk)
+            for step, chunk in zip(ran, cut) if keep.search(step.get("name") or "")]
+
+
+def kept_logs(jobs, logs, keep):
+    """(label, text) for each log kept: a whole job's where its name is kept (or every job's,
+    with nothing to match), else its kept steps' sections."""
+    records = {job.get("name"): job for job in jobs}
+    kept = []
+    for name, text in logs.items():
+        if keep is None or keep.search(name):
+            kept.append((name, text))
+        elif name in records:
+            kept.extend(step_sections(records[name], text, keep))
+    return kept
 
 
 def archive_run(client, run, series, folder, archived):
@@ -122,19 +168,25 @@ def archive_run(client, run, series, folder, archived):
     jobs = client.list_jobs(run["id"])
     archive_bytes = client.run_logs(run["id"])
     logs = job_logs(archive_bytes) if archive_bytes else {}
-    kept = kept_jobs(logs, keep)
+    kept = kept_logs(jobs, logs, keep)
+    if not archive_bytes:
+        log = dict(GAP)
+    elif not kept:
+        log = dict(NOTHING)
+    else:
+        log = {"file": f"{run['id']}.log", "jobs": [label for label, _ in kept]}
     record = {
         "workflow": workflow,
         "run": run_record(run),
         "jobs": [job_record(job, logs) for job in jobs],
-        "log": {"file": f"{run['id']}.log", "jobs": kept} if archive_bytes else dict(GAP),
+        "log": log,
         "inputs_from_log": log_env(logs.values()) if archive_bytes else dict(GAP),
         "archived": archived,
     }
     written = []
-    if archive_bytes:
+    if kept:
         log_path = folder / f"{run['id']}.log"
-        log_path.write_text("".join(f"===== job: {name}\n{logs[name]}\n" for name in kept), encoding="utf-8")
+        log_path.write_text("".join(f"===== job: {label}\n{text}\n" for label, text in kept), encoding="utf-8")
         written.append(log_path)
     json_path = folder / f"{run['id']}.json"
     json_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -159,8 +211,24 @@ def archive(client, root, archived_by, today):
             break
         folder = Path(root) / series
         folder.mkdir(parents=True, exist_ok=True)
-        result.files.extend(archive_run(client, run, series, folder, archived))
+        try:
+            result.files.extend(archive_run(client, run, series, folder, archived))
+        except TRANSIENT as error:
+            print(f"run {run['id']}: {type(error).__name__}: {error}; left for a later run")
+            result.failed.append(run["id"])
     return result
+
+
+def with_retries(read, attempts=4, pause=2.0):
+    """`read()`, tried again after a dropped or cut-off connection, waiting 2, 4, 8 s."""
+    for attempt in range(attempts):
+        try:
+            return read()
+        except TRANSIENT as error:
+            refused = isinstance(error, urllib.error.HTTPError) and error.code < 500
+            if refused or attempt == attempts - 1:
+                raise
+            time.sleep(pause * 2 ** attempt)
 
 
 class ActionsClient:
@@ -177,11 +245,15 @@ class ActionsClient:
         self.left = int(left) if left is not None else self.left
         return response
 
+    def _read(self, url, read):
+        with self._open(url) as response:
+            return read(response)
+
     def _list(self, path, key):
         items, page = [], 1
         while True:
-            with self._open(f"{self.base}/{path}?per_page=100&page={page}") as response:
-                batch = json.load(response)[key]
+            url = f"{self.base}/{path}?per_page=100&page={page}"
+            batch = with_retries(lambda: self._read(url, json.load))[key]
             items.extend(batch)
             if len(batch) < 100:
                 return items
@@ -195,8 +267,7 @@ class ActionsClient:
 
     def run_logs(self, run_id):
         try:
-            with self._open(f"{self.base}/actions/runs/{run_id}/logs") as response:
-                return response.read()
+            return with_retries(lambda: self._read(f"{self.base}/actions/runs/{run_id}/logs", lambda r: r.read()))
         except urllib.error.HTTPError as error:
             if error.code in (404, 410):
                 return None
@@ -213,6 +284,10 @@ def main(argv):
     print(f"archived {len(result.files)} files under {root}")
     if result.stopped:
         print(f"stopped with {client.remaining()} requests left this hour: run it again to carry on")
+    if result.failed:
+        print(f"::warning::{len(result.failed)} runs not archived (their download failed): "
+              f"{', '.join(map(str, result.failed))}. Run it again to take them.")
+        return 1
     return 0
 
 
