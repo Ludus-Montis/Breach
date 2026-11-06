@@ -65,7 +65,7 @@ pub fn step(
     let parts = (&rules.parting, rules.threaded);
     let parted = parting::pass::step(squads, field, listed, rules.seed, parts);
     let parting_usec = began.elapsed().as_micros() as i64;
-    lap("bodies (parting)", field, squads);
+    lap("bodies: commit", field, squads);
     swaps::pass::step(squads, field, listed, (rules.shuffle, rules.tick), log);
     lap("shuffle (re-form)", field, squads);
     let given = Given {

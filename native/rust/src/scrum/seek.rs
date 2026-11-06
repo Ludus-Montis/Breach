@@ -6,7 +6,10 @@
 //! (`seeking::seek`), the walk (`walk_store::walk`, over the bodies lying on the field),
 //! each step paid for the ground it crosses (`mover::pay`), and the facing
 //! (`face_store::face`): the phases ScrumSeekField, ScrumWalkField and ScrumFaceField ran
-//! from GDScript, bit for bit.
+//! from GDScript, bit for bit. Each ends a lap (`scrum: seek`, `scrum: walk`, `scrum:
+//! facing`, spec 41 step 1).
+
+use std::time::Instant;
 
 use crate::contest;
 use crate::entries::Key;
@@ -14,6 +17,7 @@ use crate::face_store;
 use crate::facing;
 use crate::field::{self, Enrol, Field, SyncIn};
 use crate::ground::{Ground, Walker};
+use crate::laps::{lap, split};
 use crate::locks::{self, DESTROYED, FIGHTING, ROUTING};
 use crate::maths::V2;
 use crate::mover;
@@ -53,15 +57,17 @@ pub struct Rules {
 }
 
 /// FormationScrum._seek over the roster's squads on `ground` (none: open). Returns the ids
-/// of the fighting squads active this tick: one of whose units touches a foe or makes for a
-/// slot (the stall's `active`).
+/// of the fighting squads active this tick (one of whose units touches a foe or makes for a
+/// slot: the stall's `active`) and the seek's time in microseconds (the sync and the
+/// search, its lap; for the benches, it decides nothing).
 pub fn step(
     squads: &Squads,
     field: &mut Field,
     roster: &Roster,
     ground: Option<&Ground>,
     rules: &Rules,
-) -> Vec<i64> {
+) -> (Vec<i64>, i64) {
+    let began = Instant::now();
     let synced = sync(squads, field, roster, rules.seed);
     let say = Say::of(squads, field, roster, &synced);
     let params = Params {
@@ -79,6 +85,8 @@ pub fn step(
     let bits = [Key::Touch.bit(), Key::FoeAt.bit()];
     let (gathered, out, active) =
         seeking::seek(field, &say.squad_say(), &params, &mut within, bits);
+    let seek_usec = began.elapsed().as_micros() as i64;
+    split("scrum: seek");
     let planned: Vec<i64> = (0..gathered.fighters.len())
         .flat_map(|n| {
             let foes = gathered.foe_counts[n] as i64;
@@ -94,6 +102,7 @@ pub fn step(
         let walker = |m: usize| &synced[gathered.members[m] as usize].walker;
         pay(field, (&slots, &from), &out.codes, walker, ground);
     }
+    split("scrum: walk");
     let facing = facing::Params {
         reach: rules.reach,
         front: rules.front,
@@ -105,7 +114,9 @@ pub fn step(
     let valued = Key::Toward.valued();
     let (foe_ids, members) = (&gathered.foe_ids, &gathered.members);
     face_store::face(field, &planned, foe_ids, members, &gathered.speeds, valued, &facing);
-    (0..gathered.fighters.len()).filter(|&n| active[n] == 1).map(|n| gathered.fighters[n]).collect()
+    lap("scrum: facing", field, squads);
+    let active = (0..gathered.fighters.len()).filter(|&n| active[n] == 1);
+    (active.map(|n| gathered.fighters[n]).collect(), seek_usec)
 }
 
 /// BodyFieldSync.scrum: the field brought to the listed squads' living units, in the lists'

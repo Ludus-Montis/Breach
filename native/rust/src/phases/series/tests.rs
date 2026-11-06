@@ -14,7 +14,7 @@ fn a_series_times_each_tick_from_where_it_was_settled_up_to_the_limit() {
     let series = timed(&mut battle, 5, &content);
     assert_eq!(series.ticks, (from + 1..=from + 5).collect::<Vec<_>>());
     assert!(series.spent.iter().all(|(_, usec)| usec.len() == 5), "a phase missed a tick");
-    assert_eq!(series.spent.len(), crate::phases::tests::PHASES.len());
+    assert_eq!(series.spent.len(), crate::phases::tests::PARTS.len());
 }
 
 #[test]

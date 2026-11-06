@@ -6,8 +6,6 @@
 //! (`pursue::step`) and the stall (`pass::stall`, quiet unless the seek found its squad or a
 //! foe active). Every phase's events go to the log in that order.
 
-use std::time::Instant;
-
 use crate::discipline::DisciplineTuning;
 use crate::events::Log;
 use crate::field::Field;
@@ -33,8 +31,8 @@ pub struct Rules {
 }
 
 /// What the scrum hands back: the listed indices of the pursuers back at their posts, in
-/// order (they hold their own routes again), and the seek's time in microseconds (for the
-/// benches; it decides nothing).
+/// order (they hold their own routes again), and the seek's time in microseconds (its lap,
+/// `scrum: seek`, for the benches; it decides nothing).
 pub struct Scrummed {
     pub back: Vec<usize>,
     pub seek_usec: i64,
@@ -56,10 +54,7 @@ pub fn step(
     prepare::anticipate(squads, field, roster, ground, (&lines, tick), log);
     pass::manoeuvre(squads, &mut field.columns, roster);
     lap("scrum: engage, prepare, stance", field, squads);
-    let began = Instant::now();
-    let active = seek::step(squads, field, roster, ground, &rules.seek);
-    let seek_usec = began.elapsed().as_micros() as i64;
-    lap("scrum: seek, walk and facing", field, squads);
+    let (active, seek_usec) = seek::step(squads, field, roster, ground, &rules.seek);
     regroup::step(squads, field, roster, ground, &rules.regroup);
     lap("scrum: regroup and chasers", field, squads);
     withdraw::step(squads, field, roster, ground, &rules.withdraw, log);

@@ -26,6 +26,7 @@ use crate::events::{self, Log};
 use crate::field::Field;
 use crate::ground::Ground;
 use crate::joins;
+use crate::laps::split;
 use crate::locks;
 use crate::roster::{Member, Roster};
 use crate::rout_blows::{where_on, Routing};
@@ -79,10 +80,14 @@ pub fn step(
     for f in fled {
         land_flight(squads, field, (roster, &routing), f, (hurt, bands, tick), log, &mut moved);
     }
+    split("rout: flight");
     let mut roster = refreshed(roster, squads, field);
     if !routing.is_empty() {
         rally(squads, field, (&roster, &routing), (t, bands), (tick, seed), log, &mut moved);
         roster = refreshed(&roster, squads, field);
+    }
+    split("rout: rallies");
+    if !routing.is_empty() {
         let leaders = leaders_of(field, &roster);
         let slots: BTreeMap<i64, Option<usize>> = routing
             .iter()
@@ -95,6 +100,7 @@ pub fn step(
             log.squad(events::REFORMED, tick, squads, roster.listed[routing[r].listed].squad, &[]);
         }
     }
+    split("rout: re-forms");
     if !broke.is_empty() {
         let breaking: Vec<Routing> = broke
             .iter()
@@ -111,6 +117,7 @@ pub fn step(
             }
         }
     }
+    split("rout: breaks");
     moved
 }
 

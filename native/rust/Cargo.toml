@@ -28,6 +28,12 @@ opt-level = 3
 lto = "thin"
 codegen-units = 1
 
+# For `bench`'s sampling profile (spec 41 step 1): release with line tables, so `perf report`
+# names the functions, inlined ones too. The code is release's; only the debug info differs.
+[profile.profiling]
+inherits = "release"
+debug = 1
+
 # For iterating (native/build.sh dev): optimised, but no LTO, so a rebuild takes seconds.
 # Results are the same bit for bit: Rust never contracts to FMA nor reorders float maths.
 [profile.fast]

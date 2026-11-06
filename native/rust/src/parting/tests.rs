@@ -243,3 +243,11 @@ fn a_crowd_parts_the_same_on_one_thread_and_on_the_pool() {
     assert!(!one.5.is_empty(), "some bodies should lie on one spot");
     assert_eq!(one, pool);
 }
+
+#[test]
+fn a_parting_laps_its_pair_search_its_pushes_and_its_sums_each_pass() {
+    let given = [grem(0.0, 0.0, 1, 1, true), brute(1.2, 0.0, 1, 1, true)];
+    let (_, spent) = crate::laps::timed(|| parted(&given));
+    let names: Vec<&str> = spent.iter().map(|(name, _)| *name).collect();
+    assert_eq!(names, ["bodies: pair search", "bodies: pushes", "bodies: sums and applying"]);
+}

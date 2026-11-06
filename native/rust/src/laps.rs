@@ -8,6 +8,11 @@
 //! (spec 39 step 8c-xxii: `phases::counts` copies the store's columns there; step 8d:
 //! `cuts` fingerprints the whole state there). The watcher only reads them, and its time is
 //! left out of the lap that follows.
+//!
+//! A phase's own parts are laps too (spec 41 step 1): each part but the last ends with
+//! `split`, which counts its time but shows the watcher nothing, and the last ends the phase
+//! with `lap`. So the watcher still sees the state once a phase, as the phase ends, and the
+//! counts and the cuts stay a phase's: a split's work shows in the lap that ends its phase.
 
 use std::cell::RefCell;
 use std::time::Instant;
@@ -34,18 +39,7 @@ struct Laps {
 /// Ends `phase`'s lap: the time since the last lap ended (or `timed` began) is added to it,
 /// then a watcher, if any, sees `field` and `squads`, and the next lap starts after it.
 pub fn lap(phase: &'static str, field: &Field, squads: &Squads) {
-    let timing = LAPS.with(|laps| {
-        let mut laps = laps.borrow_mut();
-        let laps = laps.as_mut()?;
-        let now = Instant::now();
-        let usec = now.duration_since(laps.last).as_secs_f64() * 1e6;
-        match laps.spent.iter_mut().find(|(name, _)| *name == phase) {
-            Some((_, spent)) => *spent += usec,
-            None => laps.spent.push((phase, usec)),
-        }
-        laps.last = now;
-        Some(())
-    });
+    let timing = counted(phase);
     let watching = WATCHER.with(|watcher| {
         let mut watcher = watcher.borrow_mut();
         let watch = watcher.as_mut()?;
@@ -59,6 +53,28 @@ pub fn lap(phase: &'static str, field: &Field, squads: &Squads) {
             }
         });
     }
+}
+
+/// Ends `part`'s lap without showing the watcher the state: the time since the last lap
+/// ended is added to it.
+pub fn split(part: &'static str) {
+    counted(part);
+}
+
+/// Adds the time since the last lap ended to `part`'s, if laps are counted on this thread.
+fn counted(part: &'static str) -> Option<()> {
+    LAPS.with(|laps| {
+        let mut laps = laps.borrow_mut();
+        let laps = laps.as_mut()?;
+        let now = Instant::now();
+        let usec = now.duration_since(laps.last).as_secs_f64() * 1e6;
+        match laps.spent.iter_mut().find(|(name, _)| *name == part) {
+            Some((_, spent)) => *spent += usec,
+            None => laps.spent.push((part, usec)),
+        }
+        laps.last = now;
+        Some(())
+    })
 }
 
 /// Runs `work` with the laps counted, and returns what it returned and each phase's
@@ -77,3 +93,6 @@ pub fn watched<R>(watcher: Watcher, work: impl FnOnce() -> R) -> R {
     WATCHER.with(|slot| slot.borrow_mut().take());
     out
 }
+
+#[cfg(test)]
+mod tests;

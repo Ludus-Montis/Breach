@@ -91,7 +91,7 @@ pub fn step(
         routed = rout::step(squads, field, &roster, tuning, (tick, seed), ground, log);
         roster = listing(roster, squads, field, &known, &[]);
     }
-    lap("rout", field, squads);
+    lap("rout: listing", field, squads);
     let homes: Vec<i64> = routed.iter().filter(|m| m.into.is_none()).map(|m| m.id).collect();
     let listed: Vec<usize> = roster.listed.iter().map(|l| l.squad).collect();
     let tuning = (&rules.carry, &rules.loads);

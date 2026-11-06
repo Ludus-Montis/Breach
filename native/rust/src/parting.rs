@@ -14,6 +14,7 @@ use rayon::prelude::*;
 pub mod pass;
 
 pub use crate::field::{FLEEING, LOOSE};
+use crate::laps::split;
 use crate::maths::V2;
 use crate::threads::Threads;
 
@@ -114,11 +115,13 @@ pub fn part(
         let at = positions(bodies);
         let pairs = pairs(bodies, &at, pooled);
         out.pairs += pairs.len() as i64;
+        split("bodies: pair search");
         let pushes: Vec<Push> = if pooled {
             pairs.par_iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
         } else {
             pairs.iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
         };
+        split("bodies: pushes");
         order.clear();
         for (&(i, j), p) in pairs.iter().zip(pushes) {
             let loosening = !(framed(bodies.flags[i]) && framed(bodies.flags[j]));
@@ -142,6 +145,7 @@ pub fn part(
             }
         }
         if order.is_empty() {
+            split("bodies: sums and applying");
             break;
         }
         out.passes += 1;
@@ -151,6 +155,7 @@ pub fn part(
             has_move[index] = false;
             loosens[index] = false;
         }
+        split("bodies: sums and applying");
     }
     out
 }
