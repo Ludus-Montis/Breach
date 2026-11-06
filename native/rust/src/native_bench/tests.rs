@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 
 use super::{heading, line, measure, pick, settled, Options};
 use crate::content::Content;
+use crate::threads::Threads;
 
 /// (side, width), the tick after `_measure`'s ten fight ticks, and the SHA-256 of the
 /// digest's state then, as Godot gave them (seed 1, settle 10).
@@ -28,11 +29,11 @@ fn each_measured_clash_ends_where_godot_s_did_on_one_thread_or_the_pool() {
     let content = content();
     let options = Options::default();
     for ((side, width), tick, sha) in GODOT {
-        for threaded in [false, true] {
+        for threaded in [Threads::One, Threads::Always] {
             let mut clash = settled(side, width, threaded, &options, &content).expect("sets up");
             let columns = measure(&mut clash, options.fight, &content);
-            assert_eq!(clash.play.tick, tick, "{side}:{width} threaded {threaded}: the tick");
-            assert_eq!(hex(&Sha256::digest(clash.state())), sha, "{side}:{width} {threaded}");
+            assert_eq!(clash.play.tick, tick, "{side}:{width} {threaded:?}: the tick");
+            assert_eq!(hex(&Sha256::digest(clash.state())), sha, "{side}:{width} {threaded:?}");
             let [all, rest, bodies, seek] = columns;
             assert!(bodies > 0.0 && seek > 0.0, "{columns:?}: the passes are timed");
             assert!(

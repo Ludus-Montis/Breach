@@ -16,6 +16,7 @@ use crate::field::Field;
 use crate::maths::{self, V2};
 use crate::record::{self, Command};
 use crate::squads::{Squads, DEAD};
+use crate::threads::Threads;
 use crate::waves::Produced;
 use crate::ContentStore;
 
@@ -56,7 +57,10 @@ impl FieldState {
         build: GString,
     ) -> bool {
         let (mut squads, mut field) = (Squads::default(), Field::default());
-        let threaded = std::env::var("BREACH_NATIVE_THREADS").is_ok_and(|v| v == "1");
+        let threaded = match std::env::var("BREACH_NATIVE_THREADS").as_deref() {
+            Ok("1") => Threads::Pool,
+            _ => Threads::One,
+        };
         let at = (battle_seed, true, threaded);
         let made = {
             let store = content.bind();

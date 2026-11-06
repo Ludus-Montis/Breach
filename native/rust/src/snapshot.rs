@@ -45,6 +45,7 @@ mod tests {
     use crate::field_parting::part_field;
     use crate::maths::V2;
     use crate::parting::Tuning;
+    use crate::threads::Threads;
 
     /// UnitBodies.part_way's stand-in: a fixed way for each pair of draws.
     fn way(a: i64, b: i64) -> V2 {
@@ -87,8 +88,8 @@ mod tests {
         let (mut field, squads) = build::crowd(12, 3);
         let mut back = read(&write(40, 3, &field, &squads)).unwrap();
         let tuning = Tuning { passes: 4, resist: 0.5, brush: 0.1 };
-        let first = part_field(&mut field, &tuning, false, &mut way);
-        let second = part_field(&mut back.field, &tuning, false, &mut way);
+        let first = part_field(&mut field, &tuning, Threads::One, &mut way);
+        let second = part_field(&mut back.field, &tuning, Threads::One, &mut way);
         assert!(!first.moved.is_empty(), "the crowd parts");
         assert_eq!(first.moved, second.moved);
         assert_eq!(first.points, second.points);

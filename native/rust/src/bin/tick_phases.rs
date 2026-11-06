@@ -5,7 +5,7 @@
 //!
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
-//!       [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
+//!       [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
 //!       [scatter=1] [preset=4096|25k] [repo=<path>]
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
@@ -40,10 +40,11 @@ use breach_native::content::Content;
 use breach_native::phases::series::{self, LIMIT};
 use breach_native::phases::{self, Options, WARNING};
 use breach_native::phases::{counts, presets, scatter};
+use breach_native::threads::Threads;
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
-                     [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] \
+                     [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] \
                      [counts=1] [scatter=1] [preset=4096|25k] [repo=<path>]";
 const KNOWN: [&str; 17] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
@@ -139,7 +140,7 @@ fn options(args: &HashMap<String, String>) -> Options {
         retreat: args.get("retreat").map(|v| whole(v)),
         squads: count("squads", given.squads),
         archers: count("archers", given.archers),
-        threaded: args.get("threaded").is_none_or(|value| value != "false"),
+        threaded: Threads::parse(args.get("threaded").map(String::as_str)).unwrap_or(Threads::Pool),
         mixed: args.get("terrain").is_some_and(|terrain| terrain == "mixed"),
     }
 }

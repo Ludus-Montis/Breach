@@ -19,6 +19,7 @@ use crate::orders;
 use crate::record::{Command, Record, KINGDOM, PLAYER};
 use crate::squads::Squads;
 use crate::staging::Stage;
+use crate::threads::Threads;
 use crate::waves::Produced;
 
 /// Where B's waiting wave holds, along its route (FormationField.STAGING's x), in cells.
@@ -134,7 +135,7 @@ pub fn replay(
     extra: i64,
     crate_: (&mut Squads, &mut Field),
     content: &Content,
-    how: (bool, bool),
+    how: (bool, Threads),
     log: &mut Log,
 ) -> Option<(i64, i64)> {
     let mut produced = 0;
@@ -153,7 +154,7 @@ pub fn replay_each(
     extra: i64,
     (squads, field): (&mut Squads, &mut Field),
     content: &Content,
-    (rolls, threaded): (bool, bool),
+    (rolls, threaded): (bool, Threads),
     log: &mut Log,
     mut each: impl FnMut(&[Produced], &[usize], &Squads, &Field, &[i64]),
 ) -> Option<i64> {

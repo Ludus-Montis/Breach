@@ -7,6 +7,7 @@ use crate::content::tests::repo_content;
 use crate::content::Content;
 use crate::field::{Enrol, Field, SyncIn, BODIES};
 use crate::reach;
+use crate::threads::Threads;
 
 fn tuning() -> Tuning {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
@@ -45,7 +46,7 @@ fn parted(given: &[B]) -> (Vec<V2>, Vec<u8>, Outcome) {
         factions: &factions,
     };
     let mut way = |_: usize, _: usize| V2::new(1.0, 0.0);
-    let outcome = part(&mut bodies, &tuning(), false, &mut way);
+    let outcome = part(&mut bodies, &tuning(), Threads::One, &mut way);
     let flags = bodies.flags.iter().map(|f| f & !MOVED).collect();
     (bodies.points, flags, outcome)
 }
@@ -156,7 +157,7 @@ fn field_parted(xs: &[f32], order: &[usize]) -> Vec<(i64, V2)> {
     });
     let mut way =
         |draw: i64, other: i64| if draw < other { V2::new(0.0, 1.0) } else { V2::new(1.0, 0.0) };
-    let out = crate::field_parting::part_field(&mut field, &tuning(), false, &mut way);
+    let out = crate::field_parting::part_field(&mut field, &tuning(), Threads::One, &mut way);
     let mut moved: Vec<(i64, V2)> =
         out.moved.iter().zip(&out.points).map(|(&flat, &p)| (ids[flat as usize], p)).collect();
     moved.sort_by_key(|&(id, _)| id);

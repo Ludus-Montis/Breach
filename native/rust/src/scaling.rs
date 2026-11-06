@@ -17,6 +17,7 @@ use crate::events::{Log, ENGAGED};
 use crate::field::Field;
 use crate::play::{starts, told, Play};
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// scaling_check.gd's STAGES, in the order it runs them.
 pub const STAGES: [&str; 3] = ["march", "fight", "stacks"];
@@ -38,7 +39,7 @@ pub struct Options {
     pub stacks: Vec<usize>,
     pub stack: usize,
     pub settle: usize,
-    pub threaded: bool,
+    pub threaded: Threads,
 }
 
 impl Default for Options {
@@ -52,7 +53,7 @@ impl Default for Options {
             stacks: vec![1, 2, 4],
             stack: 128,
             settle: 20,
-            threaded: true,
+            threaded: Threads::Pool,
         }
     }
 }

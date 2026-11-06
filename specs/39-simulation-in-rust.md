@@ -3974,6 +3974,45 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   touch or have no width, then none lies beyond them. The other three keep their answers by
   construction; their modules' tests, the digests and trials are the identity check.
 
+### Step 10c-i, the guard: the threshold, and threads checked both ways
+
+- **Split** (2026-11-05, the owner's answer on #730): 10c is too big for one session.
+  **10c-i** (this) is the threshold and CI's check that threads change nothing, before any
+  kernel is threaded. **10c-ii** is seek, walk and facing: walk (`walking::walk`) and facing
+  (`facing::face`) read only what was settled before their pass, so they thread whole; seek's
+  slot claims (`scrum::plan`: `kept`, `pick`, `aim`, `press`) are taken one unit at a time in
+  contest order, each reading the claims before it, so only each seeker's own search (the
+  seekers and their keys, the ring and candidate search) goes to the pool, and the claims stay
+  serial. **10c-iii** is rout, tend's search map, and threads on by default in the game and the
+  tools. Each is one PR, on the one before it.
+- **Built** (2026-11-05), on 10b-iii's branch before it merged (the owner's go-ahead). No
+  outcome changes:
+  - **`Threads`** (`src/threads.rs`) replaces the tick's `threaded: bool`: `One`, `Pool` (a
+    pass on Rayon's pool from `threads::FROM` units) and `Always` (the pool at any size). A
+    pass asks `threads.on(units)` with the count it works on; parting asks with its bodies.
+    The tick's argument carries it as 0, 1 and 2, so GDScript's 0 and 1 read as before.
+  - **The threshold, 4,096 units:** parting on the pool was within noise or slower at every
+    size up to 1,024 a side (`native/README.md`, the Rayon line), and faster at 4,096 a side
+    (step 10's design: 9 ms threaded, 14 not). So a battle of 2,048 a side or more threads, and
+    the daily bench (4,096 a side) and the 25k preset both do. 10c-ii and 10c-iii's benches
+    say whether it moves; it is a constant, and changes no outcome.
+  - **The tools' `threaded=`** is `true` (the default, `Pool`), `false` or `always`, on
+    `breach_digest`, `breach_trials`, `breach_scaling` and `breach_tick_phases`;
+    `breach_native_bench`'s `rust_threads` engine is `Always`. The game keeps
+    `BREACH_NATIVE_THREADS=1` for `Pool` until 10c-iii.
+  - **CI** (`sim-checks`): each digest job takes its set again with `threaded=false` and
+    `threaded=always`, and the trials job every scenario (10 runs) and the fatigue trials the
+    same two ways. Each must equal the default's to the byte; the summary prints a `threads`
+    line for each and fails on `DIFFER`. `always` is what makes the check reach the small
+    battles the threshold keeps on one thread.
+- **Scenarios:** given a pass below, at and above the threshold, when `Pool` asks, then one
+  thread, then the pool; `One` never and `Always` always. Given the tools' `true`, `false`,
+  `always`, nothing and anything else, then `Pool`, `One`, `Always`, `Pool` and none. Given
+  each way, when carried as the tick's argument and read back, then the same, with 0 and 1
+  read as before (`threads/tests.rs`). The fatigue trials' and `native_bench`'s
+  threaded-or-not tests take `Always`, so they thread at their small sizes. CI's both-ways
+  digests and trials are the identity check.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

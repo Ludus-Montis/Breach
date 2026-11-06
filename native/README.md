@@ -260,7 +260,7 @@ gates them (the GDScript `scaling_check.gd` retired in spec 39 step 9d-iii).
 ### Tick phases (`breach_tick_phases`, where a tick's time goes)
 
 `native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
-[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false]` brings
+[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false|always]` brings
 the same battle to its fight as tick_phases.gd does and times `fight` of the crate's own ticks
 pass by pass, with no Godot (spec 39 step 8c-xviii). Each pass of the tick ends a lap
 (`src/laps.rs`), counted only while the bench times it, and the lines are printed as
@@ -346,6 +346,14 @@ Windows.
 
 Each set gives the same file under the release and the dev build, with and without
 `BREACH_NATIVE_THREADS=1`.
+
+**Threads** (spec 39 step 10c, `src/threads.rs`): the tools' `threaded=` is `true` (the
+default: a pass runs on Rayon's pool from `threads::FROM`, 4,096 units, so a small battle stays
+on one thread), `false` (one thread) or `always` (the pool at any size). `breach_digest` and
+`breach_trials` take it too, and CI's `sim-checks` takes each digest set, every trial scenario
+and the fatigue trials with `threaded=false` and `threaded=always` and requires them equal to
+the default's, to the byte. The game threads only under `BREACH_NATIVE_THREADS=1` until step
+10c-iii turns threads on by default.
 
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):

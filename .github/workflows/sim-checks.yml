@@ -2,7 +2,8 @@ name: Sim checks
 
 # The heavy simulation checks, run here rather than in an agent's session: the suite under
 # the Rust core, the tick digests compared with the base's, the mirror trials fought from both
-# sides, and the scaling check. None needs another's output, so after the Rust core is
+# sides, the digests and trials required equal on one thread and on the pool, and the scaling
+# check. None needs another's output, so after the Rust core is
 # built once (`build`) they run side by side: the suite in shards
 # (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. Only
 # the suite needs Godot: the digests, trials and scaling check are the crate's own binaries
@@ -183,6 +184,23 @@ jobs:
             out=digests/${{ matrix.set }}.branch.txt > digests/${{ matrix.set }}.branch.runs
           (cd digests && sha256sum *.txt)
 
+      # Threads change nothing (spec 39 step 10c): the set again on one thread and on the
+      # pool at every size (`threaded=always`, past the threshold that keeps small battles on
+      # one thread), each required equal to the default's, to the byte.
+      - name: Digest ${{ matrix.set }} on one thread and on the pool
+        run: |
+          verdict="threads ${{ matrix.set }}: equal on one thread and on the pool"
+          for how in false always; do
+            native/bin/breach_digest set=${{ matrix.set }} threaded=$how \
+              out=digests/${{ matrix.set }}.threads-$how.txt > /dev/null
+            if ! cmp -s digests/${{ matrix.set }}.branch.txt digests/${{ matrix.set }}.threads-$how.txt; then
+              verdict="threads ${{ matrix.set }}: DIFFER with threaded=$how"
+              diff digests/${{ matrix.set }}.branch.txt digests/${{ matrix.set }}.threads-$how.txt | head -4
+            fi
+          done
+          echo "$verdict" | tee digests/${{ matrix.set }}.threads.txt
+          ! grep -q DIFFER digests/${{ matrix.set }}.threads.txt
+
       - uses: actions/download-artifact@v7
         with:
           name: native-bin-base
@@ -252,6 +270,24 @@ jobs:
           native/bin/breach_trials runs=10 > trials.all.txt
           native/bin/breach_trials scenario=fatigue runs=10 > trials.fatigue.txt
           native/bin/breach_trials scenario=paths repeats=1 > trials.paths.txt
+
+      # Threads change nothing (spec 39 step 10c): every scenario and the fatigue trials again
+      # on one thread and on the pool at every size, each required equal to the default's.
+      - name: Trials on one thread and on the pool
+        run: |
+          verdict="threads trials: equal on one thread and on the pool"
+          for how in false always; do
+            native/bin/breach_trials runs=10 threaded=$how > trials.all.$how.txt
+            native/bin/breach_trials scenario=fatigue runs=10 threaded=$how > trials.fatigue.$how.txt
+            for kind in all fatigue; do
+              if ! cmp -s trials.$kind.txt trials.$kind.$how.txt; then
+                verdict="threads trials: DIFFER in $kind with threaded=$how"
+                diff trials.$kind.txt trials.$kind.$how.txt | head -4
+              fi
+            done
+          done
+          echo "$verdict" | tee trials.threads.txt
+          ! grep -q DIFFER trials.threads.txt
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -325,11 +361,13 @@ jobs:
               verdict=$([ -s $set.branch.txt ] && echo taken || echo MISSING)
               echo "digest $set: $b $verdict"
               head -1 $set.outcomes.txt 2>/dev/null || echo "check_outcomes $set: no result"
+              cat $set.threads.txt 2>/dev/null || echo "threads $set: no result"
             done
             for diff in traces/*.diff.txt; do
               [ -e "$diff" ] && echo "trace $(head -1 "$diff")"
             done
             cat trials.txt 2>/dev/null
+            cat trials.threads.txt 2>/dev/null || echo "threads trials: no result"
             for stage in march fight stacks; do
               grep -E "a side|stacks|FAILED" scaling.$stage.txt 2>/dev/null \
                 || echo "scaling $stage: no result"
@@ -339,3 +377,4 @@ jobs:
           [ "${{ needs.build.result }}" = "success" ]
           [ "${{ needs.base-build.result }}" = "success" ]
           ! grep -q MISSING "$GITHUB_STEP_SUMMARY"
+          ! grep -q DIFFER "$GITHUB_STEP_SUMMARY"

@@ -17,6 +17,7 @@ use crate::field::Field;
 use crate::record::Record;
 use crate::squads::Squads;
 use crate::staging::Stage;
+use crate::threads::Threads;
 use crate::waves::Builder;
 
 /// A wave's state: its places filled, whether it was announced full and departs when full,
@@ -91,7 +92,7 @@ impl FieldPlay {
         content: &Content,
     ) -> Option<FieldPlay> {
         let (mut squads, mut field) = (Squads::default(), Field::default());
-        let at = (record.seed, rolls, false);
+        let at = (record.seed, rolls, Threads::One);
         let mut played = FieldPlay::new(record.captained, (&mut squads, &mut field), content, at)?;
         let fits = carried.waves.len() == played.waves.len()
             && carried.route_codes.len() == played.routes.len()

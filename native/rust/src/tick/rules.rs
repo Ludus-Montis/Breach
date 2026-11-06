@@ -10,6 +10,7 @@ use super::given::{Arg, Given};
 use super::Rules;
 use crate::parting::Tuning;
 use crate::paths::PathTuning;
+use crate::threads::Threads;
 use crate::{
     aftermath, bands, carry, contact, discipline, ending, fight, landing, march, morale, moving,
     mustering, near, opening, pathing, pursuit, regroup, rout, scrum, split, stamina, taking,
@@ -374,7 +375,7 @@ pub(crate) fn ending_rules(i: &[i64], floats: [&[f64]; 4]) -> ending::Rules {
         seed: i[1],
         stamina: stamina_tuning(stamina),
         parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
-        threaded: i[2] != 0,
+        threaded: Threads::of_code(i[2]),
         shuffle: [f[0], f[1], f[2]],
         timing: [f[0], f[3]],
         walk: walk_tuning_of(walk),

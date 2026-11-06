@@ -25,6 +25,7 @@ use crate::rout::RoutTuning;
 use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::tick::{self, given, rules};
 
 /// FormationSimulation.new's tick seconds, as rout_bench.gd makes it.
@@ -157,7 +158,13 @@ fn place(squads: &mut Squads, route: &Route, s: usize, front: f64) {
 /// FormationRout.rules on rout_bench.gd's pace, with the bands: the mustering's rules as the
 /// tick's are read (`tick::given`, then `tick::rules`).
 fn rules_of(content: &Content, length: f64) -> Option<(RoutTuning, RoutShocks, BandTuning)> {
-    let at = given::At { tick: 1, seed: SEED, ticks_a_second: 10, rolls: false, threaded: true };
+    let at = given::At {
+        tick: 1,
+        seed: SEED,
+        ticks_a_second: 10,
+        rolls: false,
+        threaded: Threads::Pool,
+    };
     let paces = given::Paces {
         travel_scale: TRAVEL_SCALE,
         seconds: SECONDS,

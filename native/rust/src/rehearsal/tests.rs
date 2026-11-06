@@ -4,6 +4,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::field_play::{routes, A, B};
+use crate::threads::Threads;
 use crate::waves::Template;
 
 fn content() -> Content {
@@ -21,7 +22,7 @@ fn rehearsed(painted: &[Painted], route: usize, cells: f64, map: Option<&'static
     let content = content();
     let routes = routes();
     let march = March { painted, width: 8, route: &routes[route], cells };
-    ticks_to(&march, (0.1, map, false), &content)
+    ticks_to(&march, (0.1, map, Threads::One), &content)
 }
 
 #[test]

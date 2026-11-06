@@ -9,13 +9,14 @@ use crate::entries::Key;
 use crate::maths::V2;
 use crate::play::Play;
 use crate::squads::{Chaser, Flank};
+use crate::threads::Threads;
 
 /// The head-on mirror set up on a fresh crate.
 fn fresh() -> (Squads, Field, Vec<usize>) {
     let content = Content::load(&repo_content()).expect("the repo's content loads");
     let (mut squads, mut field) = (Squads::default(), Field::default());
     let battle = Battle::Mirror { flank: false, swap: false };
-    let play = Play::new(&battle, (&mut squads, &mut field), &content, (1, true, false));
+    let play = Play::new(&battle, (&mut squads, &mut field), &content, (1, true, Threads::One));
     (squads, field, play.expect("the battle sets up").listed)
 }
 

@@ -112,6 +112,7 @@ mod strays;
 pub mod structure;
 mod swaps;
 mod taking;
+pub mod threads;
 mod tick;
 mod trade;
 pub mod trials;

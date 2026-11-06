@@ -15,6 +15,7 @@ use crate::play::Play;
 use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::waves::Painted;
 
 /// No march is rehearsed for longer (FormationRehearsal.LIMIT_TICKS).
@@ -36,7 +37,7 @@ pub struct March<'a> {
 /// FormationSimulation's; 0 for no units, LIMIT_TICKS if it never gets there.
 pub fn ticks_to(
     march: &March,
-    (tick_seconds, map, threaded): (f64, Option<&'static str>, bool),
+    (tick_seconds, map, threaded): (f64, Option<&'static str>, Threads),
     content: &Content,
 ) -> i64 {
     if march.painted.is_empty() {

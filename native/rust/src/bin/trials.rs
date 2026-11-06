@@ -4,7 +4,7 @@
 //! outputs can be compared line for line (CI's `trials` job does).
 //!
 //!   native/bin/breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain]
-//!       [first_seed=1] [swap] [repeats=20] [threaded=true|false] [repo=<path>]
+//!       [first_seed=1] [swap] [repeats=20] [threaded=true|false|always] [repo=<path>]
 //!
 //! The scenarios are BattleTrials': mirror_headon, mirror_flank, field_a, field_b,
 //! field_b_waits and field_together; and `fatigue` (FatigueTrials, step 8c-xv): how far a line
@@ -18,11 +18,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
+use breach_native::threads::Threads;
 use breach_native::trials::paths::{self, wall};
 use breach_native::trials::{self, columns, fatigue, heading, row, summary, Options, SCENARIOS};
 
 const USAGE: &str = "usage: breach_trials [scenario=all|<name>] [runs=50] [rolls=off] [captain] \
-                     [first_seed=1] [swap] [repeats=20] [threaded=true|false] [repo=<path>]";
+                     [first_seed=1] [swap] [repeats=20] [threaded=true|false|always] [repo=<path>]";
 const KNOWN: [&str; 9] =
     ["scenario", "runs", "rolls", "captain", "first_seed", "swap", "repeats", "threaded", "repo"];
 
@@ -59,7 +60,10 @@ fn main() -> ExitCode {
         }
     };
     let runs_given = args.get("runs").map_or("50", String::as_str);
-    let threaded = args.get("threaded").is_none_or(|value| value != "false");
+    let Some(threaded) = Threads::parse(args.get("threaded").map(String::as_str)) else {
+        eprintln!("breach_trials: threaded= is true, false or always\n{USAGE}");
+        return ExitCode::from(2);
+    };
     let first_seed = whole(args.get("first_seed").map_or("1", String::as_str));
     if ways {
         return find_ways(whole(args.get("repeats").map_or("20", String::as_str)), &content);
@@ -87,7 +91,7 @@ fn main() -> ExitCode {
 }
 
 /// formation_trials.gd's `_fatigue`: a line a contact, each over `runs` battles.
-fn tire(runs: i64, first_seed: i64, threaded: bool, content: &Content) -> ExitCode {
+fn tire(runs: i64, first_seed: i64, threaded: Threads, content: &Content) -> ExitCode {
     println!("{}", fatigue::columns());
     for seconds in fatigue::CONTACTS {
         let Some(result) = fatigue::run(seconds, runs, first_seed, threaded, content) else {

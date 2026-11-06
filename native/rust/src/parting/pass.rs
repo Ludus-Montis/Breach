@@ -20,6 +20,7 @@ use crate::maths::{rotated, V2};
 use crate::reach;
 use crate::rout_blows;
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// A synced unit: its squad's slot, its id and its store slot, by the sync's flat index.
 type Synced = (usize, i64, usize);
@@ -31,7 +32,7 @@ pub fn step(
     field: &mut Field,
     listed: &[usize],
     seed: i64,
-    (tuning, threaded): (&Tuning, bool),
+    (tuning, threaded): (&Tuning, Threads),
 ) -> FieldOutcome {
     let synced = sync(squads, field, listed, seed);
     let mut way = |draw: i64, other: i64| way(seed, draw, other);
