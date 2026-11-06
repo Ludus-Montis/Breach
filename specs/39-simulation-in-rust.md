@@ -4034,6 +4034,42 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   (`Threads::Always`) (`walking/tests.rs`, `facing/tests.rs`, `scrum/tests.rs`). CI's both-ways
   digests and trials are the identity check over whole battles.
 
+### Step 10c-iii, rout, tend's search map, and threads on by default
+
+- **Built** (2026-11-05), on 10c-ii's branch before it merged (cascade #727). No outcome
+  changes. The tick hands the ending's `Threads` to the rout (`RoutTuning::threaded`) and to
+  tend (`WoundsTuning::threaded`) in `tick::rules::of`, as it does the seek's; each pass asks
+  `threaded.on` with the routers or the standing it searches for:
+  - **The flight** (`rout::flee`): each router's step (`flight::step`, which now only reads
+    and returns a `Stepped`) and the friend it crushes, read from the step's landing, are
+    taken apart. They read only the router's own columns and the friends' indexes, built
+    where everyone stood as the call began. Then, in routing and member order, each step is
+    written (`flight::land`), its crush and first panic logged, and a router home unflees.
+    The friends' indexes are built once on first asking (`OnceLock`), so the searches take
+    `&self` and any thread may ask.
+  - **The rallies** (`rout::rallies`): each router's searches (a led friend near; else who
+    holds it) are taken apart. Whether a friend is steady (read once, first reads in order),
+    the caught count, the joins and their order stay serial.
+  - **The regroup** (`rout::regroup`): whether an enemy is near each led rout is taken
+    apart; the counting and the re-forms stay serial in routing order.
+  - **Tend** (`wounds::tend`): each standing unit's search for a body to take is taken
+    apart. On one thread a body's guard is read when first asked, as before; on the pool
+    every body's guard is read first, apart. A guard reads only where the units stood, so
+    both give the same. The takings (`take`) stay serial in the order found.
+  - **The breaks** stay on one thread: each break's flight entries are written before the
+    next break's friends are asked whether they saw it, and they come only on the ticks a
+    squad breaks.
+  - **The game** threads by default: `BREACH_NATIVE_THREADS` unset (or anything else) is
+    `Pool`, `0` is `One` and `always` is `Always` (`Threads::of_env`). The tools already
+    defaulted to `Pool` (10c-i).
+- **Scenarios:** two routs of 30 fleeing through a led steady friend and a shaken one, a rout
+  alone in its faction and a foe near, taken through the flight, the rallies and the regroup,
+  decide and write the same on one thread and on the pool, with a crush and a rally among
+  them (`rout/tests.rs`). Forty bodies along a line of both sides, some taken by two and some
+  guarded, are tended the same both ways (`wounds/tests.rs`). The game's setting: unset, `1`
+  and anything else `Pool`, `0` `One`, `always` `Always` (`threads/tests.rs`). CI's both-ways
+  digests and trials are the identity check over whole battles.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

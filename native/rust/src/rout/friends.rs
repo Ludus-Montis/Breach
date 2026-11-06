@@ -12,6 +12,8 @@
 //! 97). Squads the rout passes stand where they are through it, so the indexes hold for the
 //! call.
 
+use std::sync::OnceLock;
+
 use crate::columns::Columns;
 use crate::contest;
 use crate::grid::{self, Grid};
@@ -83,9 +85,10 @@ pub struct Friends<'a> {
     /// Each listed squad: whether it was routing as the tick's rout began.
     routing: Vec<bool>,
     seed: i64,
-    /// By faction code: its crush and stand indexes, once asked for.
-    crush: Vec<Option<Index>>,
-    stand: Vec<Option<Index>>,
+    /// By faction code: its crush and stand indexes, built when first asked for (by any
+    /// thread: the searches take `&self`, so the flight can share them, spec 39 step 10c-iii).
+    crush: Vec<OnceLock<Index>>,
+    stand: Vec<OnceLock<Index>>,
 }
 
 impl<'a> Friends<'a> {
@@ -132,8 +135,8 @@ impl<'a> Friends<'a> {
             leadership,
             routing: flags,
             seed,
-            crush: (0..factions).map(|_| None).collect(),
-            stand: (0..factions).map(|_| None).collect(),
+            crush: (0..factions).map(|_| OnceLock::new()).collect(),
+            stand: (0..factions).map(|_| OnceLock::new()).collect(),
         }
     }
 
@@ -158,18 +161,18 @@ impl<'a> Friends<'a> {
         state != locks::ROUTING && state != locks::DESTROYED
     }
 
-    fn crush_index(&mut self, faction: u32) -> &Index {
+    fn crush_index(&self, faction: u32) -> &Index {
         let (roster, routing, points) = (self.roster, &self.routing, &self.points);
-        self.crush[faction as usize].get_or_insert_with(|| {
+        self.crush[faction as usize].get_or_init(|| {
             let counts = |n: usize| roster.listed[n].faction == faction && !routing[n];
             Index::gathered(roster, points, counts)
         })
     }
 
-    fn stand_index(&mut self, faction: u32) -> &Index {
+    fn stand_index(&self, faction: u32) -> &Index {
         let (roster, routing, bodies, states) =
             (self.roster, &self.routing, &self.bodies, &self.states);
-        self.stand[faction as usize].get_or_insert_with(|| {
+        self.stand[faction as usize].get_or_init(|| {
             let counts = |n: usize| {
                 roster.listed[n].faction == faction && !routing[n] && states[n] != locks::DESTROYED
             };
@@ -183,12 +186,10 @@ impl<'a> Friends<'a> {
 
     /// The friend's unit nearest a router of `n` at `at`, one it runs into (nearer than a
     /// cell), ties by their draws (RoutFriends.crushed): (listed index, member index).
-    pub fn crushed(&mut self, n: usize, at: V2) -> Option<(usize, usize)> {
-        let faction = self.roster.listed[n].faction;
-        let index = self.crush_index(faction);
+    pub fn crushed(&self, n: usize, at: V2) -> Option<(usize, usize)> {
+        let index = self.crush_index(self.roster.listed[n].faction);
         let mut best: Option<((f64, i64), usize)> = None;
         let found = index.near(at, 1.0 + grid::MARGIN);
-        let index = self.crush[faction as usize].as_ref().expect("built above");
         for f in found {
             let gap = index.points[f].distance_to(at) as f64;
             if gap >= 1.0 || index.units[f].0 == n {
@@ -206,17 +207,15 @@ impl<'a> Friends<'a> {
     /// body's edge, Decision 106), that a router there has got behind; if `led`, only one
     /// with a leader (RoutCatch.friend_near). `route` and `home` are the router's squad's.
     pub fn friend_near(
-        &mut self,
+        &self,
         n: usize,
         (route, home): (Option<&Route>, f64),
         at: V2,
         reach: f64,
         led: bool,
     ) -> Option<usize> {
-        let faction = self.roster.listed[n].faction;
-        let index = self.stand_index(faction);
+        let index = self.stand_index(self.roster.listed[n].faction);
         let found = index.near(at, reach + index.widest + grid::MARGIN);
-        let index = self.stand[faction as usize].as_ref().expect("built above");
         let mut best: Option<((f64, i64), usize)> = None;
         for f in found {
             let (o, u) = index.units[f];
@@ -240,15 +239,13 @@ impl<'a> Friends<'a> {
     /// and home on its route - `along` its distance along it, `home` home's - (RoutFriends.
     /// refuge): looked for ring by ring outwards.
     pub fn refuge(
-        &mut self,
+        &self,
         n: usize,
         route: &Route,
         at: V2,
         (along, home): (f64, f64),
     ) -> Option<usize> {
-        let faction = self.roster.listed[n].faction;
-        self.stand_index(faction);
-        let index = self.stand[faction as usize].as_ref().expect("built above");
+        let index = self.stand_index(self.roster.listed[n].faction);
         let centre = grid::cell_of(at);
         // (snapped gap, draw, index, distance)
         let mut best: Option<(f64, i64, usize, f64)> = None;

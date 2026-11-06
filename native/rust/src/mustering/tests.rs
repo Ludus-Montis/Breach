@@ -32,6 +32,7 @@ pub(crate) fn rules(second: bool) -> Rules {
             enemy_near: 6.0,
             reformed_morale: 30,
             steady_at: 50,
+            threaded: crate::threads::Threads::One,
         },
         shocks: RoutShocks { crush: 2, panic: 5, seen: 7 },
         bands: BandTuning {

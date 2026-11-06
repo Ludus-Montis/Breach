@@ -25,3 +25,12 @@ fn the_ticks_arguments_carry_each_way_and_back() {
     assert_eq!(Threads::of_code(0), Threads::One, "0, as GDScript's 'not threaded'");
     assert_eq!(Threads::of_code(1), Threads::Pool, "1, as GDScript's 'threaded'");
 }
+
+#[test]
+fn the_game_threads_from_the_threshold_unless_told_otherwise() {
+    assert_eq!(Threads::of_env(None), Threads::Pool);
+    assert_eq!(Threads::of_env(Some("1")), Threads::Pool);
+    assert_eq!(Threads::of_env(Some("0")), Threads::One);
+    assert_eq!(Threads::of_env(Some("always")), Threads::Always);
+    assert_eq!(Threads::of_env(Some("anything")), Threads::Pool);
+}

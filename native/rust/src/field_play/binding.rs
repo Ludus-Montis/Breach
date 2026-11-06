@@ -57,10 +57,7 @@ impl FieldState {
         build: GString,
     ) -> bool {
         let (mut squads, mut field) = (Squads::default(), Field::default());
-        let threaded = match std::env::var("BREACH_NATIVE_THREADS").as_deref() {
-            Ok("1") => Threads::Pool,
-            _ => Threads::One,
-        };
+        let threaded = Threads::of_env(std::env::var("BREACH_NATIVE_THREADS").ok().as_deref());
         let at = (battle_seed, true, threaded);
         let made = {
             let store = content.bind();
