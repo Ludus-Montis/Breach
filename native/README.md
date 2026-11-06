@@ -304,6 +304,21 @@ so `breach_scaling`'s one-squad growth doesn't enter) say whether the 4096 bench
 for the target: the tick within a fifth of ×6 either way, and phases that grew past that
 marked `^`.
 
+The three passes that take most of the tick are timed in parts (spec 41 step 1): the scrum's
+`scrum: seek`, `scrum: walk` and `scrum: facing`; the rout's `rout: flight`, `rout: rallies`,
+`rout: regroup's search`, `rout: re-forms` and `rout: breaks` (only on ticks something routs),
+then `rout: listing`; and the parting's `bodies: sync`, then each of its passes' `bodies: pair
+search`, `bodies: pushes` and `bodies: sums and applying`, then `bodies: commit`. A part but
+the last ends with `laps::split`, which shows a watcher nothing, so `counts=1` and the cuts
+still see the state once a phase, under its last part's name. `breach_native_bench`'s `seek`
+column is the `scrum: seek` part.
+
+The `bench` workflow's `profile` input runs the head's tool once more, built with the crate's
+`profiling` profile (`release` with line tables), under Linux `perf record --call-graph
+dwarf`, and prints `perf report --no-children --percent-limit 0.5` between `PROFILE BEGIN`
+and `PROFILE END` inside the summary: the functions that take the time, flat. That run isn't
+timed.
+
 ### Rout and native benches (`breach_rout_bench`, `breach_native_bench`)
 
 The GDScript `tools/rout_bench.gd`, `native_bench.gd` and `tick_phases.gd` named below retired
