@@ -12,6 +12,8 @@ use std::hash::{BuildHasherDefault, Hasher};
 use rayon::prelude::*;
 
 pub mod pass;
+mod serial;
+mod sums;
 
 pub use crate::field::{FLEEING, LOOSE};
 use crate::maths::V2;
@@ -58,6 +60,7 @@ pub struct Outcome {
 }
 
 /// One pair's push: the move of each body (None: not moved), or "parts along a seeded way".
+#[derive(Clone, Copy)]
 enum Push {
     None,
     Moves(Option<V2>, Option<V2>),
@@ -94,8 +97,8 @@ fn framed(flags: u8) -> bool {
 /// Pushes apart every pair of bodies that overlap, `tuning.passes` times or until none do.
 /// `way(i, j)` gives the seeded way two bodies lying on each other part along (it calls
 /// back into GDScript, so is only ever called on this thread). With `threaded` on for the
-/// bodies' count (`Threads::on`), pairs are found and pushes weighed on Rayon's pool, from
-/// the pass's snapshot, and applied in pair order.
+/// bodies' count (`Threads::on`), pairs are found, pushes weighed and each body's pushes
+/// summed on Rayon's pool, from the pass's snapshot, in pair order (`sums`).
 pub fn part(
     bodies: &mut Bodies,
     tuning: &Tuning,
@@ -105,71 +108,36 @@ pub fn part(
     let count = bodies.points.len();
     let pooled = threaded.on(count);
     let mut out = Outcome::default();
-    let mut moves = vec![V2::ZERO; count];
-    let mut has_move = vec![false; count];
-    // pushed by a body out of its frame: one in its frame leaves it (UnitBodies._move)
-    let mut loosens = vec![false; count];
-    let mut order: Vec<usize> = Vec::with_capacity(count);
+    let mut serial = serial::Serial::new(count);
     for _ in 0..tuning.passes {
         let at = positions(bodies);
         let pairs = pairs(bodies, &at, pooled);
         out.pairs += pairs.len() as i64;
-        let pushes: Vec<Push> = if pooled {
-            pairs.par_iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
+        let moved = if pooled {
+            let mut pushes: Vec<Push> =
+                pairs.par_iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect();
+            sums::resolve(&pairs, &mut pushes, way);
+            sums::summed(bodies, &pairs, &pushes)
         } else {
-            pairs.iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
+            let pushes = pairs.iter().map(|&(i, j)| push(bodies, &at, tuning, i, j));
+            serial.summed(bodies, &pairs, pushes, way)
         };
-        order.clear();
-        for (&(i, j), p) in pairs.iter().zip(pushes) {
-            let loosening = !(framed(bodies.flags[i]) && framed(bodies.flags[j]));
-            let (one, two) = match p {
-                Push::None => continue,
-                Push::Moves(one, two) => (one, two),
-                Push::Coincident { depth, share } => {
-                    let w = way(i, j);
-                    let one = (share > 0.0).then(|| w.scale(depth).scale(share));
-                    let two = (share < 1.0).then(|| w.scale(depth).scale(1.0 - share));
-                    (one, two)
-                }
-            };
-            if let Some(v) = one {
-                accumulate(&mut moves, &mut has_move, &mut order, i, v, true);
-                loosens[i] |= loosening;
-            }
-            if let Some(v) = two {
-                accumulate(&mut moves, &mut has_move, &mut order, j, v, false);
-                loosens[j] |= loosening;
-            }
-        }
-        if order.is_empty() {
+        if moved.is_empty() {
             break;
         }
         out.passes += 1;
-        for &index in &order {
-            apply(bodies, index, moves[index], loosens[index], &mut out.loosened);
-            moves[index] = V2::ZERO;
-            has_move[index] = false;
-            loosens[index] = false;
+        for (index, push, loosens) in moved {
+            apply(bodies, index, push, loosens, &mut out.loosened);
         }
     }
     out
 }
 
-/// `moves[i] = moves.get(i, Vector2.ZERO) -/+ v`, noting the order keys first appear.
-#[inline]
-fn accumulate(
-    moves: &mut [V2],
-    has_move: &mut [bool],
-    order: &mut Vec<usize>,
-    index: usize,
-    v: V2,
-    minus: bool,
-) {
-    if !has_move[index] {
-        has_move[index] = true;
-        order.push(index);
-    }
-    moves[index] = if minus { moves[index].sub(v) } else { moves[index].add(v) };
+/// A coincident pair's moves along the seeded way `w`.
+fn moves_along(w: V2, depth: f64, share: f64) -> Push {
+    let one = (share > 0.0).then(|| w.scale(depth).scale(share));
+    let two = (share < 1.0).then(|| w.scale(depth).scale(1.0 - share));
+    Push::Moves(one, two)
 }
 
 /// Where every body stands (UnitBodies.at).
