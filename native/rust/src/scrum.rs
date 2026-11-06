@@ -15,12 +15,15 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 use crate::contest::{self, Contest};
 use crate::field::{Field, DESTROYED, ROUTING};
 use crate::ghash::{self, Key};
 use crate::grid::{cell_of, floor_of, Grid, MARGIN};
 use crate::maths::{bearing_vector, snapped, V2};
 use crate::reach;
+use crate::threads::Threads;
 
 /// Tolerance for bodies just touching (ScrumSlots.EPSILON).
 const EPSILON: f64 = 0.001;
@@ -49,6 +52,9 @@ pub struct Params {
     pub die: i64,
     pub reach: f64,
     pub leash: f64,
+    /// Whether each squad's search (its seekers, their keys and rings) runs on the pool.
+    /// The claims are taken one seeker at a time in contest order either way.
+    pub threaded: Threads,
 }
 
 /// The fighting squads and their units, from GDScript's rules (see BodyField.seek).
@@ -157,7 +163,7 @@ struct Plan<'a> {
     field: &'a Field,
     input: &'a PlanIn<'a>,
     params: &'a Params,
-    crowd: Crowd,
+    crowd: &'a Crowd,
     rings: Vec<Ring>,
     claims: Claims,
     within: &'a mut dyn FnMut(usize, V2) -> bool,
@@ -172,11 +178,14 @@ pub fn plan(
     within: &mut dyn FnMut(usize, V2) -> bool,
 ) -> PlanOut {
     let count = input.members.len();
+    let crowd = crowd(field);
+    let search = Search { field, input, params, crowd: &crowd };
+    let squads = search.squads();
     let mut plan = Plan {
         field,
         input,
         params,
-        crowd: crowd(field),
+        crowd: &crowd,
         rings: Vec::new(),
         claims: Claims::default(),
         within,
@@ -188,7 +197,7 @@ pub fn plan(
             foe_ats: vec![V2::ZERO; count],
         },
     };
-    let mut seekers = plan.seekers();
+    let mut seekers = plan.take(squads);
     seekers.sort_by(|a, b| contest::order(&a.key, &b.key));
     let mut picking = Vec::new();
     for seeker in &seekers {
@@ -244,146 +253,20 @@ struct Best {
 }
 
 impl<'a> Plan<'a> {
-    /// The fighting squads' units: those touching a foe stand, those not free to seek keep
-    /// to their places, the rest seek (ScrumSeek._seekers_of).
-    fn seekers(&mut self) -> Vec<Seeker> {
+    /// The squads' searches taken in squad order: their rings listed one after another,
+    /// each seeker pointing at its own, and the units touching a foe standing.
+    fn take(&mut self, squads: Vec<Squad>) -> Vec<Seeker> {
         let mut out = Vec::new();
-        let (mut member, mut foe_at) = (0usize, 0usize);
-        for (f, _) in self.input.fighters.iter().enumerate() {
-            let foe_ids = &self.input.foe_ids[foe_at..foe_at + self.input.foe_counts[f] as usize];
-            foe_at += foe_ids.len();
-            let foes = self.foes(foe_ids);
-            let mut rings: Vec<(u64, usize)> = Vec::new();
-            for _ in 0..self.input.member_counts[f] {
-                if let Some(mut s) = self.seeker(member, &foes) {
-                    let radius = self.field.radius[s.body as usize];
-                    s.ring = match rings.iter().find(|r| r.0 == radius.to_bits()) {
-                        Some(r) => r.1,
-                        None => {
-                            let ring = self.ring(&foes, radius);
-                            rings.push((radius.to_bits(), ring));
-                            ring
-                        }
-                    };
-                    out.push(s);
-                }
-                member += 1;
+        for squad in squads {
+            let first = self.rings.len();
+            self.rings.extend(squad.rings);
+            for (member, at) in squad.touching {
+                self.out.codes[member] = TOUCH;
+                self.out.nexts[member] = at;
             }
+            out.extend(squad.seekers.into_iter().map(|s| Seeker { ring: first + s.ring, ..s }));
         }
         out
-    }
-
-    fn foes(&self, ids: &[i64]) -> Foes {
-        foes_of(self.field, ids)
-    }
-
-    /// One unit: it stands touching a foe, keeps to its place, or seeks (Some).
-    fn seeker(&mut self, member: usize, foes: &Foes) -> Option<Seeker> {
-        let field = self.field;
-        let body = field.flat[self.input.members[member] as usize];
-        let b = body as usize;
-        let (at, radius) = (field.at[b], field.radius[b]);
-        if self.touches(at, radius, foes) {
-            self.out.codes[member] = TOUCH;
-            self.out.nexts[member] = at;
-            return None;
-        }
-        if self.input.may_seek[member] == 0 || foes.bodies.is_empty() {
-            return None; // STAND
-        }
-        let speed = self.input.speeds[member];
-        let arrival = gap_to(field, foes, at, radius) / speed.max(0.01);
-        let p = self.params;
-        let rolled = contest::roll(p.seed, p.tick, field.unit_id[b], p.die);
-        let key = Contest::of(arrival, speed, field.initiative[b], rolled, field.draw[b]);
-        Some(Seeker { member, body, ring: 0, key })
-    }
-
-    /// ScrumBlows.touches_any: a foe's body within reach_contact of the unit's.
-    fn touches(&self, at: V2, radius: f64, foes: &Foes) -> bool {
-        let field = self.field;
-        let reach = self.params.reach;
-        let mut touching = false;
-        foes.grid.near(at, radius + reach + foes.widest + MARGIN, |i| {
-            let f = foes.bodies[i as usize] as usize;
-            let apart = at.distance_to(field.at[f]) as f64;
-            touching = reach::apart(apart, radius, field.radius[f]) <= reach;
-            !touching
-        });
-        touching
-    }
-
-    /// SlotSearch.ring: the slots round the foes for a seeker of `radius`, with the bodies
-    /// standing on each (none: free; only one: its own).
-    fn ring(&mut self, foes: &Foes, radius: f64) -> usize {
-        let field = self.field;
-        let mut slots = Vec::new();
-        let mut by_foe = HashMap::new();
-        for &foe in &foes.bodies {
-            let f = foe as usize;
-            let reach = field.radius[f] + radius;
-            let count = slot_count(reach, radius);
-            by_foe.entry(field.unit_id[f]).or_insert((slots.len() as u32, count as u32));
-            for number in 0..count {
-                let way = bearing_vector(field.bearing[f] + number as f64 * 360.0 / count as f64);
-                slots.push(Slot {
-                    point: field.at[f].add(way.scale(reach)),
-                    foe,
-                    number: number as i32,
-                });
-            }
-        }
-        let mut status = Vec::with_capacity(slots.len());
-        let mut own = Vec::with_capacity(slots.len());
-        for slot in &slots {
-            let (on, first) = self.standing_on(slot.point, radius);
-            status.push(on);
-            own.push(first);
-        }
-        let points: Vec<V2> = slots.iter().map(|s| s.point).collect();
-        let dead = vec![false; slots.len()];
-        let mut owned: HashMap<u32, Vec<u32>> = HashMap::new();
-        let mut free = Vec::new();
-        for (i, &on) in status.iter().enumerate() {
-            match on {
-                FREE => free.push(i as u32),
-                OWN => owned.entry(own[i]).or_default().push(i as u32),
-                _ => {}
-            }
-        }
-        let free_points: Vec<V2> = free.iter().map(|&i| points[i as usize]).collect();
-        self.rings.push(Ring {
-            radius,
-            grid: Grid::build(&points),
-            slots,
-            by_foe,
-            status,
-            own,
-            dead,
-            owned,
-            free_grid: Grid::build(&free_points),
-            free,
-            gone: 0,
-        });
-        self.rings.len() - 1
-    }
-
-    /// Whether bodies stand on `point` for a seeker of `radius`: FREE, OWN (with whose) or
-    /// TAKEN (SlotSearch._standing_on, which stops at two).
-    fn standing_on(&self, point: V2, radius: f64) -> (u8, u32) {
-        let field = self.field;
-        let crowd = &self.crowd;
-        let (mut on, mut first) = (0u8, u32::MAX);
-        crowd.grid.near(point, crowd.widest + radius + MARGIN, |i| {
-            let b = crowd.bodies[i as usize];
-            let r = field.radius[b as usize];
-            if (field.at[b as usize].distance_to(point) as f64) < r + radius - EPSILON {
-                on += 1;
-                first = b;
-            }
-            on < 2
-        });
-        (on.min(TAKEN), first)
     }
 
     /// SlotSearch.open: in the seeker's leash on ground it can cross, no other body on it,
@@ -393,7 +276,7 @@ impl<'a> Plan<'a> {
             return false;
         }
         let field = self.field;
-        let crowd = &self.crowd;
+        let crowd = self.crowd;
         let mut clear = true;
         crowd.grid.near(point, crowd.widest + radius + MARGIN, |i| {
             let b = crowd.bodies[i as usize];
@@ -588,6 +471,181 @@ impl<'a> Plan<'a> {
             s.point.add(back.normalized().scale(breadth))
         };
         self.out.foe_ats[m] = field.at[s.foe as usize];
+    }
+}
+
+/// What a squad's search reads: nothing it or another squad's search writes.
+struct Search<'a> {
+    field: &'a Field,
+    input: &'a PlanIn<'a>,
+    params: &'a Params,
+    crowd: &'a Crowd,
+}
+
+/// One squad's search: its seekers (each `ring` its own, from 0), their rings, and the
+/// units touching a foe, with where they stand.
+#[derive(Default)]
+struct Squad {
+    seekers: Vec<Seeker>,
+    rings: Vec<Ring>,
+    touching: Vec<(usize, V2)>,
+}
+
+impl Search<'_> {
+    /// The fighting squads' units: those touching a foe stand, those not free to seek keep
+    /// to their places, the rest seek (ScrumSeek._seekers_of).
+    /// Each squad apart, in squad order (on the pool, with `Params::threaded`).
+    fn squads(&self) -> Vec<Squad> {
+        let mut squads = Vec::with_capacity(self.input.fighters.len());
+        let (mut member, mut foe_at) = (0usize, 0usize);
+        for f in 0..self.input.fighters.len() {
+            let foe_ids = &self.input.foe_ids[foe_at..foe_at + self.input.foe_counts[f] as usize];
+            foe_at += foe_ids.len();
+            let units = self.input.member_counts[f] as usize;
+            squads.push((member, units, foe_ids));
+            member += units;
+        }
+        let one = |&(first, units, ids): &(usize, usize, &[i64])| self.squad(first, units, ids);
+        if self.params.threaded.on(self.input.members.len()) {
+            squads.par_iter().map(one).collect()
+        } else {
+            squads.iter().map(one).collect()
+        }
+    }
+
+    /// One squad's units from `first`: a ring for each radius among its seekers.
+    fn squad(&self, first: usize, units: usize, foe_ids: &[i64]) -> Squad {
+        let foes = foes_of(self.field, foe_ids);
+        let mut out = Squad::default();
+        let mut radii: Vec<u64> = Vec::new();
+        for member in first..first + units {
+            let Some(mut s) = self.seeker(member, &foes, &mut out.touching) else {
+                continue;
+            };
+            let radius = self.field.radius[s.body as usize];
+            s.ring = match radii.iter().position(|&r| r == radius.to_bits()) {
+                Some(ring) => ring,
+                None => {
+                    out.rings.push(self.ring(&foes, radius));
+                    radii.push(radius.to_bits());
+                    radii.len() - 1
+                }
+            };
+            out.seekers.push(s);
+        }
+        out
+    }
+
+    /// One unit: it stands touching a foe, keeps to its place, or seeks (Some).
+    fn seeker(
+        &self,
+        member: usize,
+        foes: &Foes,
+        touching: &mut Vec<(usize, V2)>,
+    ) -> Option<Seeker> {
+        let field = self.field;
+        let body = field.flat[self.input.members[member] as usize];
+        let b = body as usize;
+        let (at, radius) = (field.at[b], field.radius[b]);
+        if self.touches(at, radius, foes) {
+            touching.push((member, at));
+            return None;
+        }
+        if self.input.may_seek[member] == 0 || foes.bodies.is_empty() {
+            return None; // STAND
+        }
+        let speed = self.input.speeds[member];
+        let arrival = gap_to(field, foes, at, radius) / speed.max(0.01);
+        let p = self.params;
+        let rolled = contest::roll(p.seed, p.tick, field.unit_id[b], p.die);
+        let key = Contest::of(arrival, speed, field.initiative[b], rolled, field.draw[b]);
+        Some(Seeker { member, body, ring: 0, key })
+    }
+
+    /// ScrumBlows.touches_any: a foe's body within reach_contact of the unit's.
+    fn touches(&self, at: V2, radius: f64, foes: &Foes) -> bool {
+        let field = self.field;
+        let reach = self.params.reach;
+        let mut touching = false;
+        foes.grid.near(at, radius + reach + foes.widest + MARGIN, |i| {
+            let f = foes.bodies[i as usize] as usize;
+            let apart = at.distance_to(field.at[f]) as f64;
+            touching = reach::apart(apart, radius, field.radius[f]) <= reach;
+            !touching
+        });
+        touching
+    }
+
+    /// SlotSearch.ring: the slots round the foes for a seeker of `radius`, with the bodies
+    /// standing on each (none: free; only one: its own).
+    fn ring(&self, foes: &Foes, radius: f64) -> Ring {
+        let field = self.field;
+        let mut slots = Vec::new();
+        let mut by_foe = HashMap::new();
+        for &foe in &foes.bodies {
+            let f = foe as usize;
+            let reach = field.radius[f] + radius;
+            let count = slot_count(reach, radius);
+            by_foe.entry(field.unit_id[f]).or_insert((slots.len() as u32, count as u32));
+            for number in 0..count {
+                let way = bearing_vector(field.bearing[f] + number as f64 * 360.0 / count as f64);
+                slots.push(Slot {
+                    point: field.at[f].add(way.scale(reach)),
+                    foe,
+                    number: number as i32,
+                });
+            }
+        }
+        let mut status = Vec::with_capacity(slots.len());
+        let mut own = Vec::with_capacity(slots.len());
+        for slot in &slots {
+            let (on, first) = self.standing_on(slot.point, radius);
+            status.push(on);
+            own.push(first);
+        }
+        let points: Vec<V2> = slots.iter().map(|s| s.point).collect();
+        let dead = vec![false; slots.len()];
+        let mut owned: HashMap<u32, Vec<u32>> = HashMap::new();
+        let mut free = Vec::new();
+        for (i, &on) in status.iter().enumerate() {
+            match on {
+                FREE => free.push(i as u32),
+                OWN => owned.entry(own[i]).or_default().push(i as u32),
+                _ => {}
+            }
+        }
+        let free_points: Vec<V2> = free.iter().map(|&i| points[i as usize]).collect();
+        Ring {
+            radius,
+            grid: Grid::build(&points),
+            slots,
+            by_foe,
+            status,
+            own,
+            dead,
+            owned,
+            free_grid: Grid::build(&free_points),
+            free,
+            gone: 0,
+        }
+    }
+
+    /// Whether bodies stand on `point` for a seeker of `radius`: FREE, OWN (with whose) or
+    /// TAKEN (SlotSearch._standing_on, which stops at two).
+    fn standing_on(&self, point: V2, radius: f64) -> (u8, u32) {
+        let field = self.field;
+        let crowd = self.crowd;
+        let (mut on, mut first) = (0u8, u32::MAX);
+        crowd.grid.near(point, crowd.widest + radius + MARGIN, |i| {
+            let b = crowd.bodies[i as usize];
+            let r = field.radius[b as usize];
+            if (field.at[b as usize].distance_to(point) as f64) < r + radius - EPSILON {
+                on += 1;
+                first = b;
+            }
+            on < 2
+        });
+        (on.min(TAKEN), first)
     }
 }
 

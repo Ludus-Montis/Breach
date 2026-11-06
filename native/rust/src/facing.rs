@@ -6,6 +6,10 @@
 //! choices and bearings are the GDScript reference's, bit for bit: the same maths in the
 //! same precision (`motion`, `det_math`), and the touching foe the least by the full key
 //! [front, distance, draw], which never ties, so the grid's visiting order can't matter.
+//! Each squad's turns read only the points written before them, so the squads are turned
+//! apart (on the pool, with `Params::threaded`) and their bearings written in member order.
+
+use rayon::prelude::*;
 
 use crate::field::Field;
 use crate::grid::MARGIN;
@@ -13,6 +17,7 @@ use crate::maths::{bearing_vector, V2};
 use crate::motion::{self, Mover};
 use crate::reach;
 use crate::scrum::{foes_of, Foes};
+use crate::threads::Threads;
 
 /// The unit makes for a slot: it has a next point and a foe there.
 pub const GOAL: u8 = 1;
@@ -29,6 +34,8 @@ pub struct Params {
     /// Cells a tick at speed 1 (ctx["pace"]).
     pub pace: f64,
     pub crowding: f64,
+    /// Whether the squads are turned on the pool.
+    pub threaded: Threads,
 }
 
 /// The fighting squads' units, as the slot search's call had them (BodyField.seek),
@@ -56,18 +63,26 @@ pub fn face(field: &mut Field, input: &FaceIn, params: &Params) -> Vec<f64> {
         let body = field.flat[flat as usize] as usize;
         field.at[body] = input.ats[m];
     }
-    let mut out = Vec::with_capacity(input.members.len());
+    let field = &*field;
+    // Per squad: its first member and its foes' ids.
+    let mut squads = Vec::with_capacity(input.member_counts.len());
     let (mut member, mut foe_at) = (0usize, 0usize);
     for (f, &count) in input.member_counts.iter().enumerate() {
         let ids = &input.foe_ids[foe_at..foe_at + input.foe_counts[f] as usize];
+        squads.push((member, count as usize, ids));
         foe_at += ids.len();
-        let foes = foes_of(field, ids);
-        for _ in 0..count {
-            out.push(bearing_after(field, &foes, input, params, member));
-            member += 1;
-        }
+        member += count as usize;
     }
-    out
+    let turned = |&(first, count, ids): &(usize, usize, &[i64])| -> Vec<f64> {
+        let foes = foes_of(field, ids);
+        (first..first + count).map(|m| bearing_after(field, &foes, input, params, m)).collect()
+    };
+    let bearings: Vec<Vec<f64>> = if params.threaded.on(input.members.len()) {
+        squads.par_iter().map(turned).collect()
+    } else {
+        squads.iter().map(turned).collect()
+    };
+    bearings.concat()
 }
 
 /// One unit's bearing after its turn.

@@ -353,7 +353,9 @@ on one thread), `false` (one thread) or `always` (the pool at any size). `breach
 `breach_trials` take it too, and CI's `sim-checks` takes each digest set, every trial scenario
 and the fatigue trials with `threaded=false` and `threaded=always` and requires them equal to
 the default's, to the byte. The game threads only under `BREACH_NATIVE_THREADS=1` until step
-10c-iii turns threads on by default.
+10c-iii turns threads on by default. The passes that thread: parting, and (10c-ii) the walk
+and the facing, whole, and the seek's per-squad search. The seek's claims stay on one thread in
+contest order, since each reads the claims before it.
 
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):

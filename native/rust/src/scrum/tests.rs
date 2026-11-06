@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::build::{reversed, scrum, Fighter, Side};
 use crate::seeking::{self, SquadSay};
+use crate::threads::Threads;
 
 const SEED: i64 = 3;
 /// BattleTuning's reach_contact and scrum_leash in the scenarios.
@@ -18,7 +19,7 @@ fn v(x: f32, y: f32) -> V2 {
 }
 
 fn params(leash: f64) -> Params {
-    Params { tick: 7, seed: SEED, die: 0, reach: REACH, leash }
+    Params { tick: 7, seed: SEED, die: 0, reach: REACH, leash, threaded: Threads::One }
 }
 
 /// A fighting squad as the rules say of it: its id, its foes, whether it may seek, its
@@ -40,6 +41,11 @@ impl Fights {
 /// Unit id -> [what it does, its goal slot, its next point], after one seek of the
 /// fighting squads (`fights`, in that order) on `field`, every unit at speed 1.
 fn seek(field: &mut Field, fights: &[Fights], leash: f64) -> BTreeMap<i64, (u8, i32, V2)> {
+    seek_on(field, fights, Params { leash, ..params(leash) })
+}
+
+/// `seek`, with `params` (how threaded, say).
+fn seek_on(field: &mut Field, fights: &[Fights], params: Params) -> BTreeMap<i64, (u8, i32, V2)> {
     let ids: Vec<i64> = fights.iter().map(|f| f.id).collect();
     let foe_counts: Vec<i32> = fights.iter().map(|f| f.foes.len() as i32).collect();
     let foe_ids: Vec<i64> = fights.iter().flat_map(|f| f.foes.clone()).collect();
@@ -59,7 +65,7 @@ fn seek(field: &mut Field, fights: &[Fights], leash: f64) -> BTreeMap<i64, (u8, 
         speeds: &speeds,
     };
     let mut open = |_: i32, _: V2| true;
-    let (gathered, out, _) = seeking::seek(field, &say, &params(leash), &mut open, [1, 2]);
+    let (gathered, out, _) = seeking::seek(field, &say, &params, &mut open, [1, 2]);
     let mut by_id = BTreeMap::new();
     for (m, &flat) in gathered.members.iter().enumerate() {
         let id = field.unit_id[field.flat[flat as usize] as usize];
@@ -213,7 +219,7 @@ fn side_taken(seed: i64) -> i32 {
         chaser_ids: &[],
         speeds: &vec![1.0; field.flat.len()],
     };
-    let p = Params { tick: 7, seed, die: 0, reach: REACH, leash: LEASH };
+    let p = Params { seed, ..params(LEASH) };
     let (_, out, _) = seeking::seek(&mut field, &say, &p, &mut |_, _| true, [1, 2]);
     if out.nexts[0].x > 10.0 {
         1
@@ -252,4 +258,36 @@ fn the_seek_is_the_same_whatever_the_list_order() {
     let backward = seek(&mut scrum(&back, SEED), &fights(&back), LEASH);
     assert_eq!(forward, backward);
     assert!(forward.values().filter(|o| o.0 == AIM).count() >= 3); // the scrum is under way
+}
+
+#[test]
+fn the_seek_is_the_same_on_the_pool() {
+    let side = |id: i64, x: f32, bearing: f64, units: i64| -> Vec<Fighter> {
+        (0..units)
+            .map(|n| {
+                Fighter::grem(
+                    id * 100 + n,
+                    v(x + (n % 4) as f32 * 1.1, (n / 4) as f32 * 1.2),
+                    bearing,
+                )
+            })
+            .collect()
+    };
+    let sides = vec![
+        Side { id: 1, faction: "player", flags: 0, fighters: side(1, 14.0, 270.0, 24) },
+        Side { id: 2, faction: "kingdom", flags: 0, fighters: side(2, 6.0, 90.0, 12) },
+        Side { id: 3, faction: "kingdom", flags: 0, fighters: side(3, 22.0, 270.0, 8) },
+    ];
+    let fights = || {
+        vec![
+            Fights::against(1, &[2, 3], 270.0, v(15.5, 4.0)),
+            Fights::against(2, &[1], 90.0, v(7.5, 2.0)),
+            Fights::against(3, &[1], 270.0, v(23.0, 1.0)),
+        ]
+    };
+    let one = seek_on(&mut scrum(&sides, SEED), &fights(), params(LEASH));
+    let pool = Params { threaded: Threads::Always, ..params(LEASH) };
+    let pooled = seek_on(&mut scrum(&sides, SEED), &fights(), pool);
+    assert_eq!(one, pooled);
+    assert!(one.values().filter(|o| o.0 == AIM).count() >= 10); // the scrum is under way
 }

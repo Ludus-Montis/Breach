@@ -42,6 +42,7 @@ fn rules() -> Rules {
         drag: 0.5,
         block: 2.0,
         front: 0.0,
+        threaded: crate::threads::Threads::One,
     }
 }
 

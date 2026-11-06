@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::build::{reversed, scrum, Fighter, Side, TURN_RATE};
 use crate::face_store;
+use crate::threads::Threads;
 
 const SEED: i64 = 5;
 const SECONDS: f64 = 0.1;
@@ -15,12 +16,18 @@ fn v(x: f32, y: f32) -> V2 {
 }
 
 fn params() -> Params {
-    Params { reach: 0.25, front: reach::front(60.0), seconds: SECONDS, pace: 0.3, crowding: 1.0 }
+    let (front, threaded) = (reach::front(60.0), Threads::One);
+    Params { reach: 0.25, front, seconds: SECONDS, pace: 0.3, crowding: 1.0, threaded }
 }
 
 /// Unit id -> its bearing after one facing of the fighting squads (`fights`: [squad, its
 /// foe]), every unit of theirs making for nothing.
 fn faced(field: &mut Field, fights: &[(i64, i64)]) -> BTreeMap<i64, f64> {
+    faced_on(field, fights, Threads::One)
+}
+
+/// `faced`, the facing threaded as `threaded` says.
+fn faced_on(field: &mut Field, fights: &[(i64, i64)], threaded: Threads) -> BTreeMap<i64, f64> {
     let mut squads = Vec::new();
     let mut members = Vec::new();
     for &(id, _) in fights {
@@ -31,7 +38,15 @@ fn faced(field: &mut Field, fights: &[(i64, i64)]) -> BTreeMap<i64, f64> {
     }
     let foe_ids: Vec<i64> = fights.iter().map(|f| f.1).collect();
     let speeds = vec![1.0; members.len()];
-    let out = face_store::face(field, &squads, &foe_ids, &members, &speeds, 4, &params());
+    let out = face_store::face(
+        field,
+        &squads,
+        &foe_ids,
+        &members,
+        &speeds,
+        4,
+        &Params { threaded, ..params() },
+    );
     let ids = members.iter().map(|&flat| field.unit_id[field.flat[flat as usize] as usize]);
     ids.zip(out).collect()
 }
@@ -97,4 +112,27 @@ fn the_facing_is_the_same_whatever_the_list_order() {
     assert!(
         forward.iter().filter(|(&id, &b)| id < 200 && b != 60.0 * (id - 100) as f64).count() >= 3
     );
+}
+
+#[test]
+fn the_facing_is_the_same_on_the_pool() {
+    let side = |id: i64, x: f32, bearing: f64| -> Vec<Fighter> {
+        (0..30)
+            .map(|n| {
+                let at = v(x + (n % 3) as f32 * 0.9, (n / 3) as f32 * 1.05);
+                Fighter::grem(id * 100 + n, at, bearing + 7.0 * n as f64)
+            })
+            .collect()
+    };
+    let sides = vec![
+        Side { id: 1, faction: "player", flags: 0, fighters: side(1, 0.0, 30.0) },
+        Side { id: 2, faction: "kingdom", flags: 0, fighters: side(2, 3.0, 250.0) },
+        Side { id: 3, faction: "kingdom", flags: 0, fighters: side(3, -3.0, 80.0) },
+    ];
+    let fights = [(1, 2), (2, 1), (3, 1)];
+    let one = faced_on(&mut scrum(&sides, SEED), &fights, Threads::One);
+    let pool = faced_on(&mut scrum(&sides, SEED), &fights, Threads::Always);
+    assert_eq!(one, pool);
+    let turned = one.iter().filter(|(&id, &b)| id < 200 && b != 30.0 + 7.0 * (id - 100) as f64);
+    assert!(turned.count() >= 10);
 }

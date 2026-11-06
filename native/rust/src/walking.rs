@@ -9,7 +9,9 @@
 //! the full key [distance along, draw], which never ties, and the footing a least over the
 //! bodies lying near, so the grids' visiting order can't matter. Every unit reads the
 //! bodies as they stood before any stepped (the scrum's snapshot), so the walk's own
-//! order can't either.
+//! order can't either, nor the number of threads it runs on (`Params::threaded`).
+
+use rayon::prelude::*;
 
 use crate::field::{Field, DESTROYED, ROUTING};
 use crate::grid::{Grid, MARGIN};
@@ -18,6 +20,7 @@ use crate::maths::{bearing_vector, V2};
 use crate::motion::{self, Mover};
 use crate::scrum::{AIM, IDLE, PRESS, STAND, TOUCH};
 use crate::steer::{Body, Way};
+use crate::threads::Threads;
 
 /// UnitMotion.EPSILON.
 const EPSILON: f64 = 0.000001;
@@ -32,6 +35,8 @@ pub struct Params {
     /// bodies_ground_drag, bodies_ground_block.
     pub drag: f64,
     pub block: f64,
+    /// Whether the units' steps are taken on the pool.
+    pub threaded: Threads,
 }
 
 /// The fighting squads' units, as the slot search's call had them (BodyField.seek), with
@@ -74,37 +79,40 @@ struct Index {
     widest: f64,
 }
 
-/// Every unit's step this tick.
+/// Every unit's step this tick. Each reads only what stood before the walk, so the steps
+/// are taken apart (on the pool, with `threaded`) and written in member order.
 pub fn walk(field: &Field, input: &WalkIn, params: &Params) -> WalkOut {
     let crowd = crowd(field);
     let lying = Lying::new(input.lying_ats, input.lying_radii, input.lying_areas);
-    let count = input.members.len();
-    let ats = input.members.iter().map(|&flat| field.at[field.flat[flat as usize] as usize]);
-    let mut out = WalkOut { ats: ats.collect(), towards: vec![V2::ZERO; count] };
-    let mut member = 0usize;
-    for (s, &units) in input.member_counts.iter().enumerate() {
-        for _ in 0..units {
-            if input.codes[member] != TOUCH {
-                step(field, &crowd, &lying, input, params, s, member, &mut out);
-            }
-            member += 1;
+    let squad_of: Vec<usize> = (input.member_counts.iter().enumerate())
+        .flat_map(|(s, &units)| std::iter::repeat_n(s, units as usize))
+        .collect();
+    let one = |m: usize| -> (V2, V2) {
+        let at = field.at[field.flat[input.members[m] as usize] as usize];
+        if input.codes[m] == TOUCH {
+            return (at, V2::ZERO);
         }
-    }
-    out
+        step(field, (&crowd, &lying), input, params, squad_of[m], m)
+    };
+    let steps: Vec<(V2, V2)> = if params.threaded.on(squad_of.len()) {
+        (0..squad_of.len()).into_par_iter().map(one).collect()
+    } else {
+        (0..squad_of.len()).map(one).collect()
+    };
+    let (ats, towards) = steps.into_iter().unzip();
+    WalkOut { ats, towards }
 }
 
-/// One unit's step (and look, back to its place).
-#[allow(clippy::too_many_arguments)]
+/// One unit's step (and look, back to its place): where it stands after it, and where it
+/// looks.
 fn step(
     field: &Field,
-    crowd: &Index,
-    lying: &Lying,
+    (crowd, lying): (&Index, &Lying),
     input: &WalkIn,
     params: &Params,
     s: usize,
     m: usize,
-    out: &mut WalkOut,
-) {
+) -> (V2, V2) {
     let body = field.flat[input.members[m] as usize] as usize;
     let at = field.at[body];
     let unit = Mover {
@@ -114,20 +122,18 @@ fn step(
     };
     let full = input.speeds[m] * input.squad_floats[4 * s];
     let code = input.codes[m];
-    let goal = if code == AIM || code == PRESS {
-        out.towards[m] = input.nexts[m];
-        input.nexts[m]
+    let (goal, towards) = if code == AIM || code == PRESS {
+        (input.nexts[m], input.nexts[m])
     } else {
         debug_assert!(code == STAND || code == IDLE);
         let heading = input.squad_floats[4 * s + 1];
         let place = place(input, s, m, heading);
-        out.towards[m] = motion::look(&unit, at, place, heading, full / params.seconds);
-        place
+        (place, motion::look(&unit, at, place, heading, full / params.seconds))
     };
     let to = toward(field, crowd, body, at, goal, params);
     let footing = footing(lying, field, body, at, to, params);
     let full_step = full * footing;
-    out.ats[m] = at.move_toward(to, full_step * motion::pace(&unit, to.sub(at), unit.bearing));
+    (at.move_toward(to, full_step * motion::pace(&unit, to.sub(at), unit.bearing)), towards)
 }
 
 /// ScrumSlots.bodies: the bodies standing (not a routing or destroyed squad's), indexed.
