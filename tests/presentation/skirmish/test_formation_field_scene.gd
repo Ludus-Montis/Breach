@@ -200,11 +200,11 @@ func test_a_frame_owes_its_clocks_ticks_and_draws_what_the_worker_has_played() -
 	var scene := _scene()
 	scene.clock().resume()
 
-	scene.frame(0.1)  # one tick due: owed to the worker, not waited for
+	scene._process(0.1)  # one tick due: owed to the worker, not waited for
 	var began := Time.get_ticks_msec()
 	while scene.field().tick_number() < 1 and Time.get_ticks_msec() - began < 10000:
 		OS.delay_msec(5)
-		scene.frame(0.0)
+		scene._process(0.0)
 
 	assert_int(scene.field().tick_number()).is_greater_equal(1)
 	assert_bool(scene.field().caught_up()).is_true()
@@ -214,6 +214,6 @@ func test_the_hud_says_the_simulation_is_behind_when_time_is_dropped() -> void:
 	var scene := _scene()
 	scene.clock().resume()
 
-	scene.frame(1.0)  # ten ticks due: the worker is owed at most two
+	scene._process(1.0)  # ten ticks due: the worker is owed at most two
 
 	assert_str(_hud(scene)._status.text).contains("SIMULATION BEHIND")
