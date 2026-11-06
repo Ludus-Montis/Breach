@@ -5,17 +5,16 @@
 //! command), recorded with its tick when the field takes it (FormationRecord). After each tick
 //! the scene reads what it draws: the squads with their units (`seen.rs`), the units'
 //! positions, facings and ranks, the waves' places, B's staging point, the routes and the
-//! ground.
+//! ground. The field itself is a `FieldSim` (step 10d-i), which a worker can also play.
 
 use godot::prelude::*;
 
-use super::{FieldPlay, A, B, C};
-use crate::events::told::{self, Said, Told};
-use crate::events::Log;
-use crate::field::Field;
+use super::sim::FieldSim;
+use super::{A, B, C};
+use crate::events::told::{Said, Told};
 use crate::maths::{self, V2};
 use crate::record::{self, Command};
-use crate::squads::{Squads, DEAD};
+use crate::squads::DEAD;
 use crate::threads::Threads;
 use crate::waves::Produced;
 use crate::ContentStore;
@@ -32,15 +31,7 @@ const KEYS: [&str; 3] = ["A", "B", "C"];
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct FieldState {
-    squads: Squads,
-    field: Field,
-    play: Option<FieldPlay>,
-    content: Option<Gd<ContentStore>>,
-    events: Log,
-    seed: i64,
-    captained: bool,
-    /// The record of play: its header, then each command taken, a line each.
-    record: Vec<String>,
+    sim: Option<FieldSim>,
 }
 
 #[godot_api]
@@ -56,59 +47,39 @@ impl FieldState {
         captained: bool,
         build: GString,
     ) -> bool {
-        let (mut squads, mut field) = (Squads::default(), Field::default());
         let threaded = Threads::of_env(std::env::var("BREACH_NATIVE_THREADS").ok().as_deref());
-        let at = (battle_seed, true, threaded);
-        let made = {
-            let store = content.bind();
-            let Some(loaded) = store.content.as_ref() else { return false };
-            FieldPlay::new(captained, (&mut squads, &mut field), loaded, at)
-        };
-        let Some(play) = made else { return false };
-        *self = FieldState {
-            squads,
-            field,
-            play: Some(play),
-            content: Some(content),
-            events: Log::default(),
-            seed: battle_seed,
-            captained,
-            record: vec![record::header(battle_seed, captained, &build.to_string())],
-        };
+        let Some(loaded) = content.bind().content.clone() else { return false };
+        let opened = FieldSim::open(loaded, (battle_seed, captained), &build.to_string(), threaded);
+        let Some(sim) = opened else { return false };
+        self.sim = Some(sim);
         true
     }
 
     /// The ticks played.
     #[func]
     fn tick_number(&self) -> i64 {
-        self.play.as_ref().map_or(0, |p| p.play.tick)
+        self.sim.as_ref().map_or(0, |s| s.play.play.tick)
     }
 
     #[func]
     fn battle_seed(&self) -> i64 {
-        self.seed
+        self.sim.as_ref().map_or(0, |s| s.seed)
     }
 
     #[func]
     fn captained(&self) -> bool {
-        self.captained
+        self.sim.as_ref().is_some_and(|s| s.captained)
     }
 
     /// One tick (FormationField.step): the builders fill the waves, full waves announce (and
     /// depart if automatic), then the fight. Its events, the builders' and waves' first.
     #[func]
     fn step(&mut self) -> Array<VarDictionary> {
-        let Some(content) = self.content.clone() else { return Array::new() };
-        let store = content.bind();
-        let (Some(loaded), Some(play)) = (store.content.as_ref(), self.play.as_mut()) else {
-            return Array::new();
-        };
-        let (made, _) = play.step(&mut self.squads, &mut self.field, loaded, &mut self.events);
+        let Some(sim) = self.sim.as_mut() else { return Array::new() };
+        let (made, told) = sim.step();
         let mut out: Array<VarDictionary> = made.iter().map(produced).collect();
-        let flat = self.events.take();
-        let words = self.field.lexicon.words();
-        for event in told::decoded(&flat, words, &play.play.codes.definitions) {
-            out.push(&event_of(&event));
+        for event in &told {
+            out.push(&event_of(event));
         }
         out
     }
@@ -118,7 +89,7 @@ impl FieldState {
     #[func]
     fn act(&mut self, words: GString) -> bool {
         match record::from_words(self.tick_number(), &words.to_string()) {
-            Some(given) => self.given(given),
+            Some(given) => self.given(&given),
             None => false,
         }
     }
@@ -135,13 +106,14 @@ impl FieldState {
             &text("target"),
             &text("value"),
         );
-        self.given(given)
+        self.given(&given)
     }
 
     /// The record of play so far, to copy out: a replay of it gives the same battle.
     #[func]
     fn record(&self) -> GString {
-        GString::from(self.record.join("\n").as_str())
+        let record = self.sim.as_ref().map_or(String::new(), |s| s.record.join("\n"));
+        GString::from(record.as_str())
     }
 
     /// The record `text` holds (FormationRecord.parse): its seed, whether its line is
@@ -168,38 +140,37 @@ impl FieldState {
     /// `leadership` and `detection`.
     #[func]
     fn squads(&self) -> Array<VarDictionary> {
-        let Some(content) = self.content.as_ref() else { return Array::new() };
-        let store = content.bind();
-        let (Some(loaded), Some(play)) = (store.content.as_ref(), self.play.as_ref()) else {
-            return Array::new();
-        };
-        play.seen(&self.squads, &self.field, loaded).iter().map(squad_of).collect()
+        let Some(sim) = self.sim.as_ref() else { return Array::new() };
+        sim.play.seen(&sim.squads, &sim.field, &sim.content).iter().map(squad_of).collect()
     }
 
     /// Where each unit stands, in cells, by its slot.
     #[func]
     fn positions(&self) -> PackedVector2Array {
-        self.field.columns.position.iter().map(|&p| vector(p)).collect()
+        let Some(sim) = self.sim.as_ref() else { return PackedVector2Array::new() };
+        sim.field.columns.position.iter().map(|&p| vector(p)).collect()
     }
 
     /// The way each unit faces, a unit vector, by its slot.
     #[func]
     fn facings(&self) -> PackedVector2Array {
-        let bearings = self.field.columns.bearing.iter();
+        let Some(sim) = self.sim.as_ref() else { return PackedVector2Array::new() };
+        let bearings = sim.field.columns.bearing.iter();
         bearings.map(|&b| vector(maths::bearing_vector(b))).collect()
     }
 
     /// Each unit's rank (0: the front), by its slot.
     #[func]
     fn ranks(&self) -> PackedInt32Array {
-        PackedInt32Array::from(self.field.columns.rank.as_slice())
+        let Some(sim) = self.sim.as_ref() else { return PackedInt32Array::new() };
+        PackedInt32Array::from(sim.field.columns.rank.as_slice())
     }
 
     /// The kingdom's line's and reserve's ids.
     #[func]
     fn kingdom(&self) -> PackedInt64Array {
-        let Some(play) = self.play.as_ref() else { return PackedInt64Array::new() };
-        play.kingdom.iter().map(|&s| self.squads.id[s]).collect()
+        let Some(sim) = self.sim.as_ref() else { return PackedInt64Array::new() };
+        sim.play.kingdom.iter().map(|&s| sim.squads.id[s]).collect()
     }
 
     /// Each wave's places by its key ("A", "B"): [rank and file built, in all, leaders built,
@@ -207,13 +178,9 @@ impl FieldState {
     #[func]
     fn waves(&self) -> VarDictionary {
         let mut waves = VarDictionary::new();
-        let Some(content) = self.content.as_ref() else { return waves };
-        let store = content.bind();
-        let (Some(loaded), Some(play)) = (store.content.as_ref(), self.play.as_ref()) else {
-            return waves;
-        };
+        let Some(sim) = self.sim.as_ref() else { return waves };
         for w in [A, B] {
-            waves.set(KEYS[w], &PackedInt64Array::from(&play.counted(w, loaded)[..]));
+            waves.set(KEYS[w], &PackedInt64Array::from(&sim.play.counted(w, &sim.content)[..]));
         }
         waves
     }
@@ -221,7 +188,7 @@ impl FieldState {
     /// Where B's waves wait, in cells, or null if they don't.
     #[func]
     fn staging_point(&self) -> Variant {
-        let point = self.play.as_ref().and_then(FieldPlay::staging_point);
+        let point = self.sim.as_ref().and_then(|s| s.play.staging_point());
         point.map_or(Variant::nil(), |p| vector(p).to_variant())
     }
 
@@ -229,9 +196,9 @@ impl FieldState {
     #[func]
     fn routes(&self) -> VarDictionary {
         let mut routes = VarDictionary::new();
-        let Some(play) = self.play.as_ref() else { return routes };
+        let Some(sim) = self.sim.as_ref() else { return routes };
         for r in [A, B, C] {
-            let route = &play.routes[r].0;
+            let route = &sim.play.routes[r].0;
             let points: PackedVector2Array = route.points.iter().map(|&p| vector(p)).collect();
             routes.set(KEYS[r], &varray![&points, route.half_width]);
         }
@@ -243,15 +210,10 @@ impl FieldState {
     #[func]
     fn ground(&self) -> VarArray {
         let mut areas = VarArray::new();
-        let Some(content) = self.content.as_ref() else { return areas };
-        let store = content.bind();
-        let (Some(loaded), Some(play)) = (store.content.as_ref(), self.play.as_ref()) else {
-            return areas;
-        };
-        let Some(map) = play.play.set.map.and_then(|n| crate::ground::map::of(n, &loaded.tuning))
-        else {
-            return areas;
-        };
+        let Some(sim) = self.sim.as_ref() else { return areas };
+        let map =
+            sim.play.play.set.map.and_then(|n| crate::ground::map::of(n, &sim.content.tuning));
+        let Some(map) = map else { return areas };
         areas.push(&Vector2i::new(map.size.0, map.size.1).to_variant());
         for ((x, y, w, h), paint) in &map.areas {
             let (kind, value) = if paint.blocks_sight == Some(true) {
@@ -269,17 +231,8 @@ impl FieldState {
 
 impl FieldState {
     /// `given` given to the field; recorded, and true, if it takes it.
-    fn given(&mut self, given: Command) -> bool {
-        let Some(content) = self.content.clone() else { return false };
-        let store = content.bind();
-        let (Some(loaded), Some(play)) = (store.content.as_ref(), self.play.as_mut()) else {
-            return false;
-        };
-        let taken = play.apply(&given, (&mut self.squads, &mut self.field), loaded);
-        if taken {
-            self.record.push(record::line(&given));
-        }
-        taken
+    fn given(&mut self, given: &Command) -> bool {
+        self.sim.as_mut().is_some_and(|s| s.given(given))
     }
 }
 

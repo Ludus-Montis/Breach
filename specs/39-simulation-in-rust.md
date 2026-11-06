@@ -1195,6 +1195,28 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   - Tick N+1 runs on a worker while presentation draws tick N from a snapshot. Commands are
     taken between ticks, as now.
   - The snapshot copies only the columns that changed.
+  - **Split by the owner** (2026-11-05, #734): 10d-i is the crate (the content shared through
+    an `Arc`, the change-marked snapshot, the tick on a worker beside the current `step`;
+    presentation unchanged). 10d-ii is presentation (the scene, the HUD and the fallen drawing
+    read the snapshot; the frame never waits on the worker). The owner's rules, from #734:
+    - **The main thread never blocks on the worker.** An order only queues; drawing reads the
+      newest snapshot; whether a tick finished is checked without waiting. A restart or a
+      replay load makes a fresh field: the old tick finishes in the background and is dropped.
+    - **Orders given while a tick runs** are applied at the next boundary between ticks and
+      stamped with the tick they were applied at, not the tick pressed in, so a replay gives
+      them at the same point through the existing `_queued` loop. Outcomes, records and replays
+      are as today; only the frame no longer freezes. Paused, no tick starts and an order
+      applies at once; a tick already running finishes and is shown.
+    - **Several ticks due:** while the clock owes a tick, the worker applies the queued and the
+      replay's due orders, runs the tick and publishes a snapshot. The frame draws the newest,
+      moving between the last two by the clock's fraction; units hold at the newest when the
+      next isn't ready (slow motion when behind). The clock owes at most **2** ticks and drops
+      more time, as the 20-tick catch-up cap does now; while it drops time the HUD shows a
+      "simulation behind" notice. Decision 159's target still aims for that never to show.
+    - **Events** are stored with their tick's snapshot, in order and marked with the tick, and
+      delivered in the frame that first draws that tick, with those of ticks never drawn,
+      oldest first, so none are lost. Flashes start on delivery and count down in real seconds.
+      `run_ticks(count)` still waits, for tests and headless tools, through the same worker.
 - **10e, slot packing,** if 10a's measure shows scatter worth fixing. A squad's slots are
   packed together, at enrolment or by a compaction that updates the unit-to-slot map, and
   hot loops index by slot rather than through `by_unit` (a `HashMap`). Slots are storage only
@@ -4069,6 +4091,41 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   guarded, are tended the same both ways (`wounds/tests.rs`). The game's setting: unset, `1`
   and anything else `Pool`, `0` `One`, `always` `Always` (`threads/tests.rs`). CI's both-ways
   digests and trials are the identity check over whole battles.
+
+### Step 10d-i, the tick on a worker, in the crate
+
+- **Built** (2026-11-05), on 10c-iii's branch before it merged (cascade #727). No outcome
+  changes, and presentation is unchanged: the game still plays through `FieldState.step`.
+  - **The content is shared:** `ContentStore` holds it in an `Arc`, so a field holds its own
+    handle and no longer borrows the store's `Gd` each `step` (a worker can't hold a `Gd`).
+  - **The field is one simulation,** `FieldSim` (`field_play/sim.rs`): the content, squads,
+    units, play, events and record. `FieldState` holds one and plays it in place.
+  - **The worker** (`worker.rs`) runs any simulation with `Steps` (tick, apply, step, view)
+    on its own thread, under #734's rules above: `owe` (capped at `MOST_OWED`, 2; true when
+    time was dropped), `order` (queued to the next boundary, stamped there; at once when
+    paused), `order_at` (a replay's order, at its tick, before the boundary's queued orders),
+    `pause`, `ready` (the snapshots published, oldest first, never waiting) and `run_ticks`
+    (waits). Each snapshot holds its tick, the view, that tick's events (none when only orders
+    were applied) and the orders applied, stamped, each with whether it was taken. The inbox
+    is a mutex the worker holds only to take work, never across a tick; snapshots come back
+    over a channel. Dropping a worker closes it without waiting: the tick running finishes
+    and is thrown away with the field.
+  - **The snapshot** (`FieldView`): the units' positions, bearings and ranks by slot, the
+    squads as seen, the kingdom's ids, A's and B's places and B's staging point. The three
+    columns are copied only when they changed: each is compared with the last snapshot's copy
+    and shared (`Arc`) when equal. Nothing in the passes marks a change; the comparison reads
+    each column once a tick, as a copy would, and allocates nothing when it is unchanged.
+  - Not in 10d-i: the scene, HUD and fallen drawing reading the snapshot, the clock's fraction,
+    the "simulation behind" notice and the events delivered by frame (10d-ii).
+- **Scenarios:** on a stand-in whose tick can be held open (`worker/tests.rs`): the first
+  snapshot is the state as started; each tick's events come with its snapshot; an order given
+  during a tick is applied after it, stamped with the tick applied at; the clock owes at most
+  two ticks and says when time is dropped; paused, no tick starts and an order applies at
+  once; a replay's order is applied when its tick comes; the caller never waits on a running
+  tick, and a dropped worker finishes it alone. On the field (`field_play/sim/tests.rs`): a
+  feel-test record played 300 ticks on the worker gives `step`'s events tick by tick, its
+  positions and bearings and its record; a snapshot shares unchanged columns and copies a
+  changed one; it holds what the scene draws.
 
 ## Open, for the implementing session to settle and record here
 

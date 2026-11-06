@@ -13,6 +13,7 @@ pub mod actions;
 pub(crate) mod binding;
 pub mod carried;
 pub mod seen;
+pub mod sim;
 #[cfg(test)]
 mod tests;
 
