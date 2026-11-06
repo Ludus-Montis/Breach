@@ -1,10 +1,12 @@
 """Tests for archive_runs (spec 43 step 1): each run's log and record under metrics/raw/,
 skipped by run id, a gap where the log has expired."""
+import http.client
 import io
 import json
 import sys
 import tempfile
 import unittest
+import urllib.error
 import zipfile
 from pathlib import Path
 
@@ -55,18 +57,34 @@ def run(run_id, status="completed", sha="abc123"):
     }
 
 
-def job(job_id, name):
+def step(number, name, started, completed, conclusion="success"):
+    return {"number": number, "name": name, "status": "completed", "conclusion": conclusion,
+            "started_at": f"2026-10-14T{started}Z", "completed_at": f"2026-10-14T{completed}Z"}
+
+
+ONE_JOB_STEPS = [
+    step(1, "Set up job", "15:51:34", "15:51:35"),
+    step(8, "Suite under the Rust core", "15:53:41", "15:57:28"),
+    step(9, "Digests, both engines", "15:57:28", "15:59:29"),
+    step(10, "Mirror trials, both sides", "15:59:29", "16:00:32", conclusion="skipped"),
+    step(11, "Scaling check (Rust)", "16:00:32", "16:01:28"),
+    step(24, "Post Run actions/checkout@v7", "16:01:33", "16:01:33"),
+    step(25, "Complete job", "16:01:33", "16:01:33"),
+]
+
+
+def job(job_id, name, steps=None, conclusion="success"):
     return {
         "id": job_id,
         "name": name,
         "status": "completed",
-        "conclusion": "success",
+        "conclusion": conclusion,
         "started_at": "2026-10-14T10:00:00Z",
         "completed_at": "2026-10-14T10:05:00Z",
         "runner_name": "GitHub Actions 7",
         "labels": ["ubuntu-latest"],
         "runner_group_name": "GitHub Actions",
-        "steps": [
+        "steps": steps if steps is not None else [
             {"number": 1, "name": "Set up job", "status": "completed", "conclusion": "success",
              "started_at": "2026-10-14T10:00:00Z", "completed_at": "2026-10-14T10:00:01Z"},
         ],
@@ -91,7 +109,10 @@ class FakeActions:
     def run_logs(self, run_id):
         self.left -= 1
         self.log_reads.append(run_id)
-        return self.logs.get(run_id)
+        found = self.logs.get(run_id)
+        if isinstance(found, Exception):
+            raise found
+        return found
 
     def remaining(self):
         return self.left
@@ -202,6 +223,76 @@ class ArchiveTest(unittest.TestCase):
         second = self.archive(actions())
         self.assertFalse(second.stopped)
         self.assertEqual(len(files(self.root)), 5)
+
+
+    def test_one_job_runs_keep_their_digest_and_scaling_steps(self):
+        """The first sim-checks runs did everything in one job, `sim-checks`: its digest and
+        scaling steps are kept by their times, the suite's output is not."""
+        client = actions(
+            runs={"sim-checks.yml": [run(301)]},
+            jobs={301: [job(6, "sim-checks", steps=ONE_JOB_STEPS)]},
+            logs={301: log_zip({"sim-checks": fixture("sim_checks_one_job.txt")})},
+        )
+        self.archive(client)
+        log = (self.root / "sim-checks" / "301.log").read_text(encoding="utf-8")
+        self.assertIn("core: outcomes unchanged", log)
+        self.assertIn("tick_ms=0.8", log)
+        self.assertNotIn("gdUnit4", log)
+        self.assertEqual(self.record("sim-checks", 301)["log"]["jobs"],
+                         ["sim-checks / Digests, both engines", "sim-checks / Scaling check (Rust)"])
+
+    def test_a_job_whose_steps_cannot_be_matched_is_kept_whole(self):
+        steps = [one for one in ONE_JOB_STEPS if one["number"] != 24]
+        client = actions(
+            runs={"sim-checks.yml": [run(303)]},
+            jobs={303: [job(9, "sim-checks", steps=steps)]},
+            logs={303: log_zip({"sim-checks": fixture("sim_checks_one_job.txt")})},
+        )
+        self.archive(client)
+        self.assertIn("gdUnit4", (self.root / "sim-checks" / "303.log").read_text(encoding="utf-8"))
+        self.assertEqual(self.record("sim-checks", 303)["log"]["jobs"],
+                         ["sim-checks (whole log: its steps could not be matched)"])
+
+    def test_a_run_with_nothing_to_keep_has_no_log_file(self):
+        client = actions(
+            runs={"sim-checks.yml": [run(302)]},
+            jobs={302: [job(7, "suite (1)"), job(8, "digests", conclusion="skipped", steps=[])]},
+            logs={302: log_zip({"suite (1)": fixture("sim_checks_suite_job.txt")})},
+        )
+        self.archive(client)
+        self.assertEqual(files(self.root), ["sim-checks/302.json"])
+        record = self.record("sim-checks", 302)
+        self.assertEqual(record["log"], {"na": "not-applicable"})
+        self.assertEqual(record["jobs"][1]["runner_image"], {"na": "not-applicable"})
+
+    def test_a_failed_download_skips_that_run_and_a_rerun_takes_it(self):
+        broken = actions(logs={101: http.client.IncompleteRead(b"partial"), 201: None, 202: None})
+        result = self.archive(broken)
+        self.assertEqual(result.failed, [101])
+        self.assertNotIn("bench/101.json", files(self.root))
+        self.assertIn("sim-checks/201.json", files(self.root))
+        self.archive(actions())
+        self.assertIn("bench/101.json", files(self.root))
+
+
+class RetryTest(unittest.TestCase):
+    def test_a_dropped_read_is_tried_again(self):
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 3:
+                raise http.client.IncompleteRead(b"")
+            return b"whole"
+
+        self.assertEqual(archive_runs.with_retries(flaky, attempts=3, pause=0), b"whole")
+
+    def test_it_gives_up_after_its_attempts(self):
+        def broken():
+            raise urllib.error.URLError("reset")
+
+        with self.assertRaises(urllib.error.URLError):
+            archive_runs.with_retries(broken, attempts=2, pause=0)
 
 
 if __name__ == "__main__":

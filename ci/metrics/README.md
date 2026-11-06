@@ -15,15 +15,20 @@ folder holds the tools that write it.
      as its log printed it) and bench's inputs as its log's `env:` blocks show them (the API
      doesn't keep a dispatch's inputs);
    - `<run id>.log`: the whole log for `bench`; only the digest and scaling jobs' logs for
-     `sim-checks`, not the gdUnit output.
-   A log already expired is `{"na": "not-recorded"}` in the `.json`, and has no `.log`.
+     `sim-checks`, not the gdUnit output. The first `sim-checks` runs did everything in one
+     job: their digest and scaling steps' parts of its log are kept (matched to the steps in
+     turn; where they can't be, the whole job's log is kept).
+   A log already expired is `{"na": "not-recorded"}` in the `.json`, and has no `.log`; a
+   run whose digest and scaling jobs were all skipped is `{"na": "not-applicable"}`.
 3. It pushes them on a branch `chore/metrics-archive-<date>` and links a PR from it in the
    run's summary. Open that PR and merge it (until spec 43 step 3, which lets the workflow
    merge its own data PRs, Decision 164).
 4. Each run costs two API requests; with hundreds of runs the archiver may reach the
    token's hourly limit. It then stops, says so in the summary, and keeps what it has.
    Merge that PR and start the workflow again an hour later: runs already on `main` are
-   skipped.
+   skipped. A download that still fails after three retries leaves its run out, names it,
+   and turns the run red; what was archived is pushed all the same, and the next run takes
+   the runs left out.
 
 Run it once more just before spec 43 step 4 lands, so the archive reaches bench's last
 run before records start.
