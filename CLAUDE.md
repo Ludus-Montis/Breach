@@ -11,7 +11,9 @@ How sessions work together is `principles/agent-sessions.md`.
 ## Non-negotiables
 
 - **Every change goes on a branch and through a PR, and the user merges.** Never merge,
-  and don't poll CI after opening a PR. Use `/run-phase` (`.claude/skills/run-phase/`).
+  and don't poll CI after opening a PR. The one exception: `bench`, `metrics-archive` and
+  `bench-series` merge their own data-only PRs under `metrics/` (Decisions 163 and 164).
+  Use `/run-phase` (`.claude/skills/run-phase/`).
   The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;
   `/run-phase` step 1); a design session's `docs:` PR goes on `chore/`. A cloud session's
   assigned `claude/…` or `ccr-…` branch is not one: create your own from `main`, push that.
