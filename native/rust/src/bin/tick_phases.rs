@@ -6,7 +6,7 @@
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
 //!       [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
-//!       [repo=<path>]
+//!       [scatter=1] [preset=4096|25k] [repo=<path>]
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
 //! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
@@ -21,6 +21,13 @@
 //! (`phases::counts`; spec 38 step 2). They are counted on the untimed battle that steps
 //! beside the timed one, so the times are as without it.
 //!
+//! `preset=4096` and `preset=25k` are the daily bench and the target (Decision 159): a series
+//! from contact of 4 and of 24 lanes of 1,024 a side (`phases::presets`). An argument given
+//! beside a preset wins over its own.
+//!
+//! `scatter=1` follows with how scattered each squad's slots are, where the timing began and
+//! where it ended, measured on the untimed battle (`phases::scatter`; spec 39 step 10a).
+//!
 //! tick_phases.gd's `copies` counts column copies across the Godot boundary, which the crate's
 //! tick doesn't cross: it exits 2. `repo` is the folder holding project.godot (default: the
 //! one this is run in or from).
@@ -30,17 +37,17 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use breach_native::content::Content;
-use breach_native::phases::counts;
 use breach_native::phases::series::{self, LIMIT};
 use breach_native::phases::{self, Options, WARNING};
+use breach_native::phases::{counts, presets, scatter};
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
                      [threaded=true|false] [series=1] [limit=600] [terrain=open|mixed] \
-                     [counts=1] [repo=<path>]";
-const KNOWN: [&str; 15] = [
+                     [counts=1] [scatter=1] [preset=4096|25k] [repo=<path>]";
+const KNOWN: [&str; 17] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
-    "threaded", "series", "limit", "terrain", "counts", "repo",
+    "threaded", "series", "limit", "terrain", "counts", "scatter", "preset", "repo",
 ];
 
 fn main() -> ExitCode {
@@ -59,6 +66,10 @@ fn main() -> ExitCode {
     }
     if let Some(unknown) = args.keys().find(|key| !KNOWN.contains(&key.as_str())) {
         eprintln!("breach_tick_phases: unknown argument {unknown}\n{USAGE}");
+        return ExitCode::from(2);
+    }
+    if let Err(why) = presets::expand(&mut args) {
+        eprintln!("breach_tick_phases: {why}\n{USAGE}");
         return ExitCode::from(2);
     }
     if let Some(why) = refused_terrain(&args) {
@@ -83,6 +94,7 @@ fn main() -> ExitCode {
         eprintln!("breach_tick_phases: the battle can't be set up");
         return ExitCode::from(1);
     };
+    let scattered_before = scatter::measured(&plain.squads);
     let (ticks, spent, spreads) = if in_series(&args) {
         let limit = args.get("limit").map_or(LIMIT, |v| whole(v).max(0) as usize);
         let timed_series = series::timed(&mut timed, limit, &content);
@@ -101,6 +113,10 @@ fn main() -> ExitCode {
     println!("{}", phases::lines(&options, ticks, &spent).join("\n"));
     for line in spreads.into_iter().chain(counted) {
         println!("{line}");
+    }
+    if flag(&args, "scatter") {
+        println!("{}", scatter::line("where the timing began", &scattered_before));
+        println!("{}", scatter::line("where it ended", &scatter::measured(&plain.squads)));
     }
     if timed.state() != plain.state() {
         println!("{WARNING}");

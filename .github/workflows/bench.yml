@@ -16,6 +16,12 @@ name: Bench
 # phase's medians, change and ranges (ci/godot/scripts/bench_compare.py), `*` where the
 # ranges don't overlap, then round 1's raw output. With 3 rounds, two sides that don't
 # differ still fall apart that way for about 1 phase in 10; with 5, about 1 in 125.
+#
+# `base_args` (spec 39 step 10a) gives the base side its own arguments: with no `base`, the
+# two sides are one commit run two ways, in turn on one runner (threads on and off, say, or
+# two presets). `scale` then checks that the base's battle can stand in for the head's
+# (ci/godot/scripts/bench_scaling.py): `args` "preset=25k", `base_args` "preset=4096" and
+# `scale` 6, the ratio of their squads, tell whether the daily 4096 bench tracks the target.
 
 on:
   workflow_dispatch:
@@ -35,6 +41,12 @@ on:
       rounds:
         description: "Runs of each, head and base in turn (1 to 20; 5 or more to judge a few %)"
         default: "1"
+      base_args:
+        description: "The base side's arguments (empty: args); with no base, the head run with these"
+        default: ""
+      scale:
+        description: "The head's expected growth over the base, checked by bench_scaling.py (empty: none)"
+        default: ""
 
 jobs:
   bench:
@@ -74,8 +86,11 @@ jobs:
           BASE: ${{ inputs.base }}
           ROUNDS: ${{ inputs.rounds }}
           HEAD_REF: ${{ inputs.head }}
+          BASE_ARGS: ${{ inputs.base_args }}
         run: |
           here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
+          there=base; if [ -z "$BASE" ]; then there="$here"; fi
+          base_args="${BASE_ARGS:-$ARGS}"
           case "$ROUNDS" in ''|*[!0-9]*) echo "rounds must be a whole number"; exit 1;; esac
           if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "rounds: 1 to 20"; exit 1; fi
           case "$TOOL" in breach_*) ;; *) echo "::error::tool must be a crate binary, breach_<name>"; exit 1;; esac
@@ -85,18 +100,20 @@ jobs:
           time_in() {
             # stderr is kept aside, and shown if the tool failed (#601)
             local err="$RUNNER_TEMP/stderr.txt"
-            (cd "$1" && "native/bin/$TOOL" $ARGS 2>"$err") \
+            (cd "$1" && "native/bin/$TOOL" $2 2>"$err") \
               || { echo "::error::$TOOL failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
           }
           prepare "$here" || true  # time what was built; a missing binary fails time_in
           if [ -n "$BASE" ]; then prepare base || true; fi
           for round in $(seq 1 "$ROUNDS"); do
-            if [ -z "$BASE" ]; then
-              time_in "$here" > "head_$round.txt"
+            if [ -z "$BASE" ] && [ -z "$BASE_ARGS" ]; then
+              time_in "$here" "$ARGS" > "head_$round.txt"
             elif [ $((round % 2)) -eq 1 ]; then
-              time_in "$here" > "head_$round.txt"; time_in base > "base_$round.txt"
+              time_in "$here" "$ARGS" > "head_$round.txt"
+              time_in "$there" "$base_args" > "base_$round.txt"
             else
-              time_in base > "base_$round.txt"; time_in "$here" > "head_$round.txt"
+              time_in "$there" "$base_args" > "base_$round.txt"
+              time_in "$here" "$ARGS" > "head_$round.txt"
             fi
           done
 
@@ -109,22 +126,35 @@ jobs:
           ROUNDS: ${{ inputs.rounds }}
           HEAD_NAME: ${{ inputs.head || github.ref_name }}
           HEAD_REF: ${{ inputs.head }}
+          BASE_ARGS: ${{ inputs.base_args }}
+          SCALE: ${{ inputs.scale }}
         run: |
           here=.; if [ -n "$HEAD_REF" ]; then here=head; fi
+          there=base; if [ -z "$BASE" ]; then there="$here"; fi
+          base_args="${BASE_ARGS:-$ARGS}"
+          base_name="${BASE:-$HEAD_NAME}"
+          two=""; if [ -n "$BASE" ] || [ -n "$BASE_ARGS" ]; then two=1; fi
           {
             echo "SUMMARY BEGIN"
             echo "== $HEAD_NAME ($(git -C "$here" rev-parse --short HEAD)): $TOOL $ARGS"
-            if [ -n "$BASE" ]; then
-              echo "== base $BASE ($(git -C base rev-parse --short HEAD 2>/dev/null))"
+            if [ -n "$two" ]; then
+              echo "== base $base_name ($(git -C "$there" rev-parse --short HEAD 2>/dev/null)): $TOOL $base_args"
             fi
-            if [ -n "$BASE" ] && [ "$ROUNDS" -gt 1 ] 2>/dev/null; then
+            if [ -n "$two" ] && [ "$ROUNDS" -gt 1 ] 2>/dev/null; then
               heads=$(ls head_*.txt | sort -V); bases=$(ls base_*.txt | sort -V)
               python3 ci/godot/scripts/bench_compare.py --head $heads --base $bases
+            fi
+            if [ -n "$two" ] && [ -n "$SCALE" ]; then
+              heads=$(ls head_*.txt | sort -V); bases=$(ls base_*.txt | sort -V)
+              python3 ci/godot/scripts/bench_scaling.py --factor "$SCALE" --large $heads --small $bases \
+                || echo "== the base's battle doesn't stand in for the head's (above)"
+            fi
+            if [ -n "$two" ] && [ "$ROUNDS" -gt 1 ] 2>/dev/null; then
               echo "== round 1, $HEAD_NAME"
             fi
             cat head_1.txt 2>/dev/null
-            if [ -n "$BASE" ]; then
-              echo "== round 1, base $BASE"
+            if [ -n "$two" ]; then
+              echo "== round 1, base $base_name"
               cat base_1.txt 2>/dev/null
             fi
             echo "SUMMARY END"

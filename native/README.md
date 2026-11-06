@@ -286,6 +286,24 @@ shows the field to a watcher (`laps::watched`), which copies the store's columns
 under `counts=1`, on the untimed battle, so the timed one is timed as without it. The count
 lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
 
+`preset=4096` and `preset=25k` (spec 39 step 10a, Decision 159, `src/phases/presets.rs`) are
+the daily bench and the target: a series from contact of 4 and of 24 lanes of 1,024 a side,
+to the default limit. An argument given beside a preset wins over its own. Each series ends
+when a side has no squad left that isn't routing: 16 ticks after contact at 4096 and 14 at
+25k (both from tick 91), well inside the limit. `scatter=1` (`src/phases/scatter.rs`) follows
+with how scattered each squad's unit-store slots are, where the timing began and where it
+ended: its runs of consecutive slots and the slots it spans, each beside what packed would
+be. Both presets start packed. The lines start `scatter`, which `bench_compare.py` skips.
+
+The `bench` workflow's `base_args` runs the base side with its own arguments. With no
+`base`, that is one commit run two ways in turn on one runner (threads on and off, or the two
+presets). `scale` then runs `ci/godot/scripts/bench_scaling.py`, which sets each phase's
+median at the head's size over its median at the base's. `args=preset=25k`,
+`base_args=preset=4096` and `scale=6` (the ratio of their squads; each lane is the same size,
+so `breach_scaling`'s one-squad growth doesn't enter) say whether the 4096 bench can stand in
+for the target: the tick within a fifth of ×6 either way, and phases that grew past that
+marked `^`.
+
 ### Rout and native benches (`breach_rout_bench`, `breach_native_bench`)
 
 The GDScript `tools/rout_bench.gd`, `native_bench.gd` and `tick_phases.gd` named below retired
