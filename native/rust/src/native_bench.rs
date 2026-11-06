@@ -14,6 +14,7 @@ use std::time::Instant;
 
 use crate::content::Content;
 use crate::phases::{self, Settled};
+use crate::threads::Threads;
 
 /// The columns, ms a tick each. "rest" is the tick less the bodies and the seek.
 pub const COLUMNS: [&str; 4] = ["tick", "rest", "bodies", "seek"];
@@ -37,7 +38,7 @@ impl Default for Options {
 pub fn settled(
     per_side: usize,
     width: usize,
-    threaded: bool,
+    threaded: Threads,
     options: &Options,
     content: &Content,
 ) -> Option<Settled> {

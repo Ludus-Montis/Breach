@@ -75,7 +75,7 @@ pub fn step(
         roster.listed.iter().flat_map(|l| l.living.iter().map(|m| (m.slot, m.clone()))).collect();
     let adopted = strays::adopt(squads, field, strays, seed);
     let opened: Vec<usize> = adopted.iter().map(|&(_, s)| s).collect();
-    let mut roster = listing(roster, squads, field, &known, &opened);
+    let mut roster = listing(roster.clone(), squads, field, &known, &opened);
     lap("strays", field, squads);
     if let Some(t) = &rules.morale {
         morale::step((squads, &field.columns), &roster, (t, &rules.bands), tick, log);
@@ -89,7 +89,7 @@ pub fn step(
     if routs {
         let tuning = (&rules.rout, &rules.shocks, &rules.bands);
         routed = rout::step(squads, field, &roster, tuning, (tick, seed), ground, log);
-        roster = listing(&roster, squads, field, &known, &[]);
+        roster = listing(roster, squads, field, &known, &[]);
     }
     lap("rout", field, squads);
     let homes: Vec<i64> = routed.iter().filter(|m| m.into.is_none()).map(|m| m.id).collect();
@@ -104,7 +104,7 @@ pub fn step(
         .collect();
     let bearers = strays::adopt(squads, field, &setting_off, seed);
     let opened: Vec<usize> = bearers.iter().map(|&(_, s)| s).collect();
-    let roster = listing(&roster, squads, field, &known, &opened);
+    let roster = listing(roster, squads, field, &known, &opened);
     lap("carry: strays", field, squads);
     let grouped = groups::step(squads, field, &roster, &rules.groups, tick, log);
     let split = groups::split_ids(&grouped, &roster);
@@ -122,15 +122,17 @@ fn known_slot(known: &BTreeMap<usize, Member>, id: i64) -> usize {
 /// is (FormationLocks.factions) and merging as its command does; each one's living read from
 /// its members, every unit as `known` (the roster first given) has it.
 pub fn listing(
-    roster: &Roster,
+    roster: Roster,
     squads: &Squads,
     field: &Field,
     known: &BTreeMap<usize, Member>,
     opened: &[usize],
 ) -> Roster {
-    let mut out = roster.clone();
+    let given = roster.listed.len();
+    let mut out = roster;
     for &slot in opened {
-        let kin = roster.listed.iter().find(|l| squads.faction[l.squad] == squads.faction[slot]);
+        let kin =
+            out.listed[..given].iter().find(|l| squads.faction[l.squad] == squads.faction[slot]);
         let merges = squads.command[slot].is_some_and(|c| squads.commands.gives(c, MERGES));
         let faction = kin.map_or(squads.faction[slot], |l| l.faction);
         let id = squads.id[slot];
@@ -138,7 +140,13 @@ pub fn listing(
     }
     for listed in &mut out.listed {
         let living = squads.living(listed.squad, &field.columns.state);
-        listed.living = living.iter().filter_map(|u| known.get(&(*u as usize))).cloned().collect();
+        // a squad whose living are those listed keeps its list (10b, work that follows change)
+        let same = living.len() == listed.living.len()
+            && living.iter().zip(&listed.living).all(|(&u, m)| u as usize == m.slot);
+        if !same {
+            let known = living.iter().filter_map(|u| known.get(&(*u as usize)));
+            listed.living = known.cloned().collect();
+        }
         listed.joined = !squads.joined[listed.squad].is_empty();
     }
     out

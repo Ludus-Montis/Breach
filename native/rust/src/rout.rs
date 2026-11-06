@@ -18,6 +18,8 @@
 //! them in order over the tick and lands what each decided: the hurts, the shocks, the joins
 //! and the events. The searches are `friends.rs`'s.
 
+use rayon::prelude::*;
+
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;
 use crate::contest;
@@ -30,6 +32,7 @@ use crate::perception;
 use crate::roster::Roster;
 use crate::rout_blows::{where_on, Routing};
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 pub mod flight;
 pub mod friends;
@@ -55,6 +58,9 @@ pub struct RoutTuning {
     pub enemy_near: f64,
     pub reformed_morale: i64,
     pub steady_at: i64,
+    /// Whether the flight, the rallies' searches and the regroup's run on the pool (the
+    /// tick's, set in `tick::rules::of`; spec 39 step 10c-iii).
+    pub threaded: Threads,
 }
 
 impl RoutTuning {
@@ -73,6 +79,7 @@ impl RoutTuning {
             enemy_near: t[7],
             reformed_morale: t[8] as i64,
             steady_at: t[9] as i64,
+            threaded: Threads::One,
         }
     }
 }
@@ -98,6 +105,9 @@ pub struct Rallied {
     pub joins: Vec<(usize, usize, usize)>,
     pub first_read: Vec<usize>,
 }
+
+/// A router's step and the friend's unit it crushed (listed index, member index).
+type RouterStep = (flight::Stepped, Option<(usize, usize)>);
 
 /// A join's place in line: its router's gap to the friend (snapped), then its draw.
 type JoinKey = (f64, i64);
@@ -134,42 +144,59 @@ pub fn flee(
     ground: Option<&Ground>,
 ) -> Vec<Fled> {
     let listed: Vec<usize> = routing.iter().map(|r| r.listed).collect();
-    let mut friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
-    let mut out = Vec::new();
-    for (r, formation) in routing.iter().enumerate() {
-        let n = formation.listed;
-        let s = roster.listed[n].squad;
-        let route = formation.route.as_ref();
-        let flight = Flight {
-            listed: n,
-            route,
-            home: squads.home_distance[s] * CELLS,
+    let friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let flights: Vec<Flight> = routing
+        .iter()
+        .map(|formation| Flight {
+            listed: formation.listed,
+            route: formation.route.as_ref(),
+            home: squads.home_distance[roster.listed[formation.listed].squad] * CELLS,
             pace: tuning.pace,
             seed,
             fan_degrees: tuning.fan_degrees,
             fan_cells: tuning.fan_cells,
             ground,
-        };
-        let alone = friends.alone(n);
+        })
+        .collect();
+    let alone: Vec<bool> = listed.iter().map(|&n| friends.alone(n)).collect();
+    let routers = routers_of(roster, routing);
+    // each router's step and the friend it crushes, apart (None: held by a steady friend)
+    let step_of = |&(r, u): &(usize, usize)| {
+        let flight = &flights[r];
+        let m = &roster.listed[flight.listed].living[u];
+        if columns.caught[m.slot] > 0 {
+            return None; // held by a steady friend it ran into
+        }
+        let at = where_on(flight.route, columns.along[m.slot], columns.flee_offset[m.slot]);
+        let friends = (!alone[r]).then_some(&friends);
+        let stepped = flight::step(columns, flight, m, at, friends);
+        let at = where_on(flight.route, stepped.along, stepped.offset);
+        Some((stepped, friends.and_then(|f| f.crushed(flight.listed, at))))
+    };
+    let steps: Vec<Option<RouterStep>> = if tuning.threaded.on(routers.len()) {
+        routers.par_iter().map(step_of).collect()
+    } else {
+        routers.iter().map(step_of).collect()
+    };
+    let mut steps = steps.into_iter();
+    let mut out = Vec::new();
+    for (r, flight) in flights.iter().enumerate() {
+        let s = roster.listed[flight.listed].squad;
         let mut panicked: Vec<i64> = Vec::new();
-        let living = &roster.listed[n].living;
+        let living = &roster.listed[flight.listed].living;
         let mut fled = 0;
         for (u, m) in living.iter().enumerate() {
-            if columns.caught[m.slot] > 0 {
-                continue; // held by a steady friend it ran into
-            }
-            let at = where_on(route, columns.along[m.slot], columns.flee_offset[m.slot]);
-            flight::step(columns, &flight, m, at, (!alone).then_some(&mut friends));
-            if !alone {
-                let at = where_on(route, columns.along[m.slot], columns.flee_offset[m.slot]);
-                if let Some(hit) = friends.crushed(n, at) {
-                    let id = roster.listed[hit.0].id;
-                    let panic = !panicked.contains(&id);
-                    if panic {
-                        panicked.push(id);
-                    }
-                    out.push(Fled::Crushed { routing: r, member: u, hit, panic });
+            let Some((stepped, hit)) = steps.next().expect("a step for each router") else {
+                continue;
+            };
+            flight::land(columns, m.slot, stepped);
+            if let Some(hit) = hit {
+                let id = roster.listed[hit.0].id;
+                let panic = !panicked.contains(&id);
+                if panic {
+                    panicked.push(id);
                 }
+                out.push(Fled::Crushed { routing: r, member: u, hit, panic });
             }
             if is_equal_approx(columns.along[m.slot], flight.home) {
                 entries::unflee(squads, columns, s, (m.id, m.slot));
@@ -181,6 +208,16 @@ pub fn flee(
             squads.state[s] = locks::DESTROYED;
             out.push(Fled::Scattered { routing: r });
         }
+    }
+    out
+}
+
+/// Every router as (routing index, member index), in the routing's order and each
+/// formation's members'.
+fn routers_of(roster: &Roster, routing: &[Routing]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    for (r, formation) in routing.iter().enumerate() {
+        out.extend((0..roster.listed[formation.listed].living.len()).map(|u| (r, u)));
     }
     out
 }
@@ -201,54 +238,61 @@ pub fn rallies(
     seed: i64,
 ) -> Rallied {
     let listed: Vec<usize> = routing.iter().map(|r| r.listed).collect();
-    let mut friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let alone: Vec<bool> = listed.iter().map(|&n| friends.alone(n)).collect();
+    let routers = routers_of(roster, routing);
+    // each router's search, apart: where it is, a led friend near it, else who holds it
+    let search = |&(r, u): &(usize, usize)| {
+        let n = routing[r].listed;
+        let way = (routing[r].route.as_ref(), squads.home_distance[roster.listed[n].squad] * CELLS);
+        let m = &roster.listed[n].living[u];
+        let at = where_on(way.0, columns.along[m.slot], columns.flee_offset[m.slot]);
+        if alone[r] {
+            return (at, None, None);
+        }
+        let leader = friends.friend_near(n, way, at, tuning.rally_reach, true);
+        let friend = match leader {
+            Some(_) => None,
+            None => holder(&friends, columns, roster, (n, m.slot), way, at, 2.0 * m.radius()),
+        };
+        (at, leader, friend)
+    };
+    let found: Vec<(V2, Option<usize>, Option<usize>)> = if tuning.threaded.on(routers.len()) {
+        routers.par_iter().map(search).collect()
+    } else {
+        routers.iter().map(search).collect()
+    };
     let mut steady: Vec<Option<bool>> = vec![None; roster.listed.len()];
     let mut out = Rallied::default();
     let mut joins: Vec<(JoinKey, (usize, usize, usize))> = Vec::new();
-    for (r, formation) in routing.iter().enumerate() {
-        let n = formation.listed;
-        let s = roster.listed[n].squad;
-        let way = (formation.route.as_ref(), squads.home_distance[s] * CELLS);
-        let alone = friends.alone(n);
-        for (u, m) in roster.listed[n].living.iter().enumerate() {
-            let at = where_on(way.0, columns.along[m.slot], columns.flee_offset[m.slot]);
-            let draw = contest::draw(seed, m.id);
-            let leader = if alone {
-                None
-            } else {
-                friends.friend_near(n, way, at, tuning.rally_reach, true)
-            };
-            if let Some(leader) = leader {
-                joins.push(((snapped(friends.gap(leader, at), 0.000001), draw), (r, u, leader)));
-                continue;
-            }
-            let friend = if alone {
-                None
-            } else {
-                holder(&mut friends, columns, roster, (n, m.slot), way, at, 2.0 * m.radius())
-            };
-            let calm = friend.is_some_and(|f| {
-                *steady[f].get_or_insert_with(|| {
-                    let (now, ceiling) = morale[f];
-                    if now < 0 {
-                        out.first_read.push(f);
-                    }
-                    (if now < 0 { ceiling } else { now }) >= tuning.steady_at
-                })
-            });
-            let held = columns.caught[m.slot];
-            let caught = match friend {
-                None => 0,
-                Some(_) if calm => held + 1,
-                Some(_) => held.max(1),
-            };
-            entries::keep(columns, m.slot, Key::Caught, Value::Int(caught));
-            let by = friend.map_or(Value::None, |f| Value::Int(roster.listed[f].id));
-            entries::keep(columns, m.slot, Key::HeldBy, by);
-            let long = caught as f64 * tuning.tick_seconds >= tuning.steady_rally_seconds;
-            if let (Some(friend), true, true) = (friend, calm, long) {
-                joins.push(((snapped(friends.gap(friend, at), 0.000001), draw), (r, u, friend)));
-            }
+    for (&(r, u), (at, leader, friend)) in routers.iter().zip(found) {
+        let m = &roster.listed[routing[r].listed].living[u];
+        let draw = contest::draw(seed, m.id);
+        if let Some(leader) = leader {
+            joins.push(((snapped(friends.gap(leader, at), 0.000001), draw), (r, u, leader)));
+            continue;
+        }
+        let calm = friend.is_some_and(|f| {
+            *steady[f].get_or_insert_with(|| {
+                let (now, ceiling) = morale[f];
+                if now < 0 {
+                    out.first_read.push(f);
+                }
+                (if now < 0 { ceiling } else { now }) >= tuning.steady_at
+            })
+        });
+        let held = columns.caught[m.slot];
+        let caught = match friend {
+            None => 0,
+            Some(_) if calm => held + 1,
+            Some(_) => held.max(1),
+        };
+        entries::keep(columns, m.slot, Key::Caught, Value::Int(caught));
+        let by = friend.map_or(Value::None, |f| Value::Int(roster.listed[f].id));
+        entries::keep(columns, m.slot, Key::HeldBy, by);
+        let long = caught as f64 * tuning.tick_seconds >= tuning.steady_rally_seconds;
+        if let (Some(friend), true, true) = (friend, calm, long) {
+            joins.push(((snapped(friends.gap(friend, at), 0.000001), draw), (r, u, friend)));
         }
     }
     joins.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("gaps are numbers"));
@@ -260,7 +304,7 @@ pub fn rallies(
 /// else the nearest friend within `reach` of `at` it has got behind. `who`: the router's
 /// squad's listed index and the router's store slot.
 fn holder(
-    friends: &mut Friends,
+    friends: &Friends,
     columns: &Columns,
     roster: &Roster,
     (n, slot): (usize, usize),
@@ -301,20 +345,33 @@ pub fn regroup(
         starts.push(from);
         from += l.living.len();
     }
-    let mut out = Vec::new();
-    for (r, formation) in routing.iter().enumerate() {
+    // whether an enemy is near each led rout, apart (None: no one living, or no leader)
+    let near_of = |formation: &Routing| {
         let n = formation.listed;
         let living = &roster.listed[n].living;
         if living.is_empty() || friends.leadership(n) == 0 {
-            continue;
+            return None;
         }
         let route = formation.route.as_ref();
         let points: Vec<V2> = living
             .iter()
             .map(|m| where_on(route, columns.along[m.slot], columns.flee_offset[m.slot]))
             .collect();
+        Some(friends.enemy_near(n, &points, tuning.enemy_near))
+    };
+    let routers: usize = routing.iter().map(|f| roster.listed[f.listed].living.len()).sum();
+    let nears: Vec<Option<bool>> = if tuning.threaded.on(routers) {
+        routing.par_iter().map(near_of).collect()
+    } else {
+        routing.iter().map(near_of).collect()
+    };
+    let mut out = Vec::new();
+    for (r, (formation, near)) in routing.iter().zip(nears).enumerate() {
+        let Some(near) = near else { continue };
+        let n = formation.listed;
+        let living = &roster.listed[n].living;
+        let route = formation.route.as_ref();
         let s = roster.listed[n].squad;
-        let near = friends.enemy_near(n, &points, tuning.enemy_near);
         squads.rally_ticks[s] = if near { 0 } else { squads.rally_ticks[s] + 1 };
         if squads.rally_ticks[s] as f64 * tuning.tick_seconds < tuning.rally_seconds {
             continue;

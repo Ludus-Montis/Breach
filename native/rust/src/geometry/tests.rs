@@ -188,3 +188,61 @@ fn the_face_gap_reaches_a_turned_squads_nearest_corner() {
     assert!((face_gap(&s[0], &s[1]) * CELLS - (6.0 - 0.5f64.sqrt())).abs() < 0.0001);
     assert!(overlap_across(&s[0], &s[1]));
 }
+
+// Spec 39 step 10b-iii: the furthest reach over each unit's line, worked out without
+// comparing every unit with every other, is the same as comparing them.
+
+/// Each unit's furthest overlapping reach, by comparing it with every unit.
+fn furthest_by_pairs(spans: &[Extent], reaches: &[f32]) -> Vec<f32> {
+    spans
+        .iter()
+        .map(|&a| {
+            (0..spans.len())
+                .filter(|&o| overlap(a, spans[o]) > EPSILON)
+                .fold(f32::NEG_INFINITY, |most, o| most.max(reaches[o]))
+        })
+        .collect()
+}
+
+/// Lines of `n` units from a seeded draw: on a grid, nudged off it, turned, and touching.
+fn drawn_lines(seed: u64, n: usize) -> (Vec<Extent>, Vec<f32>) {
+    let mut state = seed;
+    let mut draw = move |below: u64| {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (state >> 33) % below
+    };
+    let mut spans = Vec::new();
+    let mut reaches = Vec::new();
+    for _ in 0..n {
+        let column = draw(12) as f32;
+        let width = 1.0 + draw(3) as f32;
+        let nudge = match draw(4) {
+            0 => 0.0,
+            1 => 0.0000005, // inside the tolerance: still touching
+            2 => draw(1000) as f32 * 0.0001,
+            _ => -0.000002,
+        };
+        spans.push((column + nudge, column + width + nudge));
+        reaches.push(draw(20) as f32 * 0.5 + if draw(5) == 0 { 0.0000004 } else { 0.0 });
+    }
+    (spans, reaches)
+}
+
+#[test]
+fn the_furthest_reach_over_each_units_line_is_the_one_comparing_every_pair_finds() {
+    for seed in 0..200 {
+        let (spans, reaches) = drawn_lines(seed, 1 + seed as usize % 60);
+        let fast = beyond::furthest(&spans, &reaches);
+        let pairs = furthest_by_pairs(&spans, &reaches);
+        let bits = |v: &[f32]| v.iter().map(|r| r.to_bits()).collect::<Vec<_>>();
+        assert_eq!(bits(&fast), bits(&pairs), "seed {seed}");
+    }
+}
+
+#[test]
+fn a_unit_with_no_width_or_only_touching_lines_has_none_beyond_it() {
+    let spans = [(0.0, 1.0), (1.0, 2.0), (0.5, 0.5), (0.9999995, 3.0)];
+    let reaches = [1.0, 2.0, 3.0, 4.0];
+    let none = f32::NEG_INFINITY;
+    assert_eq!(beyond::furthest(&spans, &reaches), vec![1.0, 4.0, none, 4.0]);
+}

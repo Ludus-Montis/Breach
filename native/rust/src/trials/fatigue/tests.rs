@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::content::tests::repo_content;
+use crate::threads::Threads;
 
 fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
@@ -22,7 +23,7 @@ fn the_runs_equal_godot_s() {
     let content = content();
     let rows: Vec<String> = CONTACTS
         .iter()
-        .map(|&seconds| row(seconds, &run(seconds, 2, 1, false, &content).expect("a grem")))
+        .map(|&seconds| row(seconds, &run(seconds, 2, 1, Threads::One, &content).expect("a grem")))
         .collect();
     assert_eq!(rows, GODOT);
 }
@@ -30,8 +31,8 @@ fn the_runs_equal_godot_s() {
 #[test]
 fn a_battle_is_the_same_threaded_or_not() {
     let content = content();
-    let alone = battle(30.0, 4, false, &content);
-    assert_eq!(battle(30.0, 4, true, &content), alone);
+    let alone = battle(30.0, 4, Threads::One, &content);
+    assert_eq!(battle(30.0, 4, Threads::Always, &content), alone);
 }
 
 /// Godot's lines for `scenario=fatigue runs=2`.

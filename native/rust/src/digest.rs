@@ -26,6 +26,7 @@ use crate::maths::V2;
 use crate::play::{self, Play, Watch};
 use crate::record::Record;
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// A tick's record as the digest hashes it (`_record`): `var_to_bytes([events, state])`;
 /// `Told::record` writes the same bytes without building the list.
@@ -91,7 +92,7 @@ pub fn field(
     extra: i64,
     crate_: (&mut Squads, &mut Field),
     content: &Content,
-    how: (bool, bool),
+    how: (bool, Threads),
     log: &mut Log,
     out: &mut impl FnMut(Told<'_>),
 ) -> Option<i64> {

@@ -147,6 +147,10 @@ pub struct Field {
     /// The store's fell queue (spec 35 step 5b, Decision 145): the ids of units an hp write
     /// took from above 0 to 0 or below, in the order they fell, till deaths takes them.
     fallen: Vec<i64>,
+    /// The re-forms that last planned nothing, kept so they aren't planned again till what
+    /// they read changes (spec 39 step 10b-ii). Not state: a snapshot doesn't carry it.
+    #[serde(skip)]
+    pub reforms: crate::swaps::pass::Reforms,
 }
 
 impl Field {

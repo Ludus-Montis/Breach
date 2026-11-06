@@ -5,6 +5,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::events::KINDS;
+use crate::threads::Threads;
 
 pub(super) fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
@@ -12,7 +13,7 @@ pub(super) fn content() -> Content {
 
 pub(super) fn fresh(content: &Content) -> (Squads, Field, FieldPlay) {
     let (mut squads, mut field) = (Squads::default(), Field::default());
-    let play = FieldPlay::new(false, (&mut squads, &mut field), content, (1, true, false));
+    let play = FieldPlay::new(false, (&mut squads, &mut field), content, (1, true, Threads::One));
     (squads, field, play.expect("the field sets up"))
 }
 

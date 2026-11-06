@@ -5,6 +5,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::content::Content;
+use crate::threads::Threads;
 
 const SEED: i64 = 9;
 
@@ -44,7 +45,7 @@ impl Built {
 
     fn part(&mut self) -> FieldOutcome {
         let listed: Vec<usize> = (0..self.squads.id.len()).collect();
-        step(&mut self.squads, &mut self.field, &listed, SEED, (&tuning(), false))
+        step(&mut self.squads, &mut self.field, &listed, SEED, (&tuning(), Threads::One))
     }
 }
 

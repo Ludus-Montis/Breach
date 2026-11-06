@@ -81,6 +81,28 @@ pub fn front_first(places: &[Cell]) -> Vec<usize> {
     order
 }
 
+/// The living units in a move, by index: a mark each, so asking is not a search of the list
+/// (spec 39 step 10b-iii).
+struct Busy(Vec<bool>);
+
+impl Busy {
+    fn of(busy: &[usize], units: usize) -> Busy {
+        let mut marks = Busy(vec![false; units]);
+        busy.iter().for_each(|&unit| marks.add(unit));
+        marks
+    }
+
+    fn add(&mut self, unit: usize) {
+        if let Some(mark) = self.0.get_mut(unit) {
+            *mark = true;
+        }
+    }
+
+    fn has(&self, unit: usize) -> bool {
+        self.0.get(unit).copied().unwrap_or(false)
+    }
+}
+
 /// FormationShuffle._start_moves: every move the squad can start, front first, given the
 /// moves under way (`swaps`: where each of their units goes, with its footprint's width and
 /// depth; `busy`: the living units in them). `pace` is [ticks' seconds, cells a second at speed 1, crowding in a fight].
@@ -96,7 +118,7 @@ pub fn start_moves(
     for &(place, width, depth) in swaps {
         claimed.claim(place, width, depth);
     }
-    let mut busy = busy.to_vec();
+    let mut busy = Busy::of(busy, units.len());
     let occupied = Occupancy::of(units);
     let places: Vec<Cell> = units.iter().map(|unit| unit.place).collect();
     let order = front_first(&places);
@@ -104,7 +126,7 @@ pub fn start_moves(
     let open = front::open(squad, &ordered, &claimed, &occupied);
     let mut started = Vec::new();
     for &me in &order {
-        if units[me].place.0 == 0 || busy.contains(&me) {
+        if units[me].place.0 == 0 || busy.has(me) {
             continue;
         }
         let plan = front::free_place(squad, units, me, &claimed, &occupied, &open)
@@ -122,7 +144,7 @@ pub fn start_moves(
         let seconds = plan.distance as f64 * RANK_DEPTH / pace;
         let ticks = ((seconds / tick_seconds - EPSILON).ceil() as i64).max(1);
         for &(unit, place) in &plan.to {
-            busy.push(unit);
+            busy.add(unit);
             claimed.claim(place, units[unit].footprint_width, units[unit].footprint_depth);
         }
         started.push(Started { plan, ticks });
@@ -136,13 +158,13 @@ fn through(
     squad: &Squad,
     units: &[Ranked],
     me: usize,
-    busy: &[usize],
+    busy: &Busy,
     claimed: &Claimed,
     occupied: &Occupancy,
 ) -> Option<Plan> {
     let ahead = occupied.ahead(units, me);
     let unit = &units[me];
-    if ahead.is_empty() || ahead.iter().any(|&a| busy.contains(&a) || !stronger(unit, &units[a])) {
+    if ahead.is_empty() || ahead.iter().any(|&a| busy.has(a) || !stronger(unit, &units[a])) {
         return None;
     }
     let at = unit.place;

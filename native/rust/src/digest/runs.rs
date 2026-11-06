@@ -17,6 +17,7 @@ use crate::field::Field;
 use crate::play::{Play, Watch};
 use crate::record;
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// The feel-test field logs the digest replays (formation_digest.gd's FIELD_LOGS).
 pub const FIELD_LOGS: [&str; 5] = [
@@ -105,7 +106,7 @@ impl Run {
     pub fn digest(
         &self,
         content: &Content,
-        threaded: bool,
+        threaded: Threads,
         tick: &mut impl FnMut(i64, &[u8; 32], &Told<'_>),
     ) -> (i64, Option<[u8; 32]>) {
         let (mut squads, mut field_, mut log) =

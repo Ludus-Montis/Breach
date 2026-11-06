@@ -24,6 +24,7 @@ use crate::play::Play;
 use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::waves::{Builders, Produced, Template, Wave, MAX_RANKS};
 use slots::SlotPool;
 
@@ -129,7 +130,7 @@ impl BattlePlay {
             combat_width: i64::from(width),
             map: None,
         };
-        let play = Play::open(set, (0, false, false), content);
+        let play = Play::open(set, (0, false, Threads::One), content);
         let route = battles::lane(route_tiles);
         let (squads, field, log) = (Squads::default(), Field::default(), Log::default());
         let lane = Lane {

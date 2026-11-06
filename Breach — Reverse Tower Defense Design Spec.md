@@ -7438,3 +7438,100 @@ whatever the spec.
 **Order:** no outcome changes: process only.
 **Bounded:** not applicable: no per-tick work.
 **Pillar check:** holds. Process only.
+
+### Decision 159 — The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-05
+**Amends:** none; it settles issue #281 (Q26) for spec 39 step 10, and takes up issue #279
+(Q24)'s remaining lists there
+
+**Rationale:** After spec 39 the whole tick is Rust. On CI's 4-thread runner (`bench` runs
+#56 to #62, main at 1156225) a 4096-a-side fight (4 squads) costs about 95 ms a tick, and
+24,576 a side (24 squads of 1,024) about 566 ms. The tick grows linearly with the number of
+squads but almost quadratically with one squad's size: a single squad of 24,576 a side costs
+587 ms, growing ×2.33, ×2.58 and ×2.92 per doubling. About 44% of the 25k tick is two passes
+that changed no slot: wounds' tend (163 to 226 ms; it builds every living unit's record, with
+its traits looked up by name, before it checks whether any unit is down) and the roster (24 ms).
+Only body parting uses threads (131 ms to 67 ms with them). The game calls the tick on the
+main thread (`formation_field_scene.gd`), ten times a second. The owner: other games with
+similar battles "can manage in the realms of 50k (I expect 25k vs 25k) on a given map", "ideally
+we should at least be frame safe at that 60fps at that target".
+- **The target:** 24,576 a side, as 24 squads of 1,024, at a 95th-and-99th-percentile tick of at
+  most 50 ms over `tick_phases`' series, on CI's 4-thread runner. One squad's growth must also
+  stay within ×2.2 a doubling (`breach_scaling`), so no per-squad pass stays quadratic. An
+  interim bar of 100 ms (the tick's own slot at 10 Hz, once it is off the main thread) lets the
+  game play 25k battles before the target is met. The owner's i7-12700K (20 threads) is a
+  comparison run by hand, not the gate. 4096 a side stays the daily bench, and the scaling
+  between it and 25k is checked so it can stand in.
+- **The order:** measuring tools first; then work that follows change, with outcomes identical
+  (tend, the roster, sorts that hash on every comparison, Q24's remaining lists, the per-squad
+  quadratic); then threads; then the tick off the main thread; then slot packing if measured
+  scatter warrants it; last, the options that change outcomes, benched against each other.
+- **Threads:** a threaded kernel maps in parallel into a buffer and applies in squad and member
+  order, with any reduction in a fixed order. Its result doesn't depend on the number of threads.
+  A kernel whose serial pass reads, within the pass, what an earlier unit wrote isn't identical
+  when threaded. It changes outcomes under Decision 151, and its PR says so. Threads are on by
+  default once CI runs the digests and trials with threads on and off and finds them equal. A
+  unit-count threshold keeps small battles on one thread.
+- **Off the main thread:** tick N+1 runs on a worker while presentation draws tick N from a
+  snapshot. Commands are taken between ticks, as now. The snapshot copies only the columns that
+  changed.
+- **The options that change outcomes:** `f32` columns and reductions in a different fixed order
+  are benched against each other and against Q32's cadence (Decision 160), each under Decision
+  151's conditions and each with a Decision of its own before it lands.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep 4096 a side as the target | The owner aims at what comparable games reach; 4096 stays the daily bench. |
+| Threads first, as Q26 ordered them | Two passes that change nothing are 44% of the 25k tick; 4 threads can't hide them. |
+| A mean-tick target | Spikes (rout's worst tick is about 8 times its mean) would still drop ticks. |
+| The owner's PC as the gate | Not repeatable in CI; 4 threads passing means more threads only help. |
+| Cap a squad's size as a rule | The quadratic is a cost to fix, not a rule of the game. |
+
+**Consequences:** spec 39 step 10 splits into 10a to 10f. The `bench` workflow gains a
+comparison of two argument sets on one runner, a 25k preset and a measure of slot scatter.
+Q24 (#279) and Q26 (#281) are settled by this Decision. Q32 (#291) stays open until 10f benches it.
+
+**Rules over cases:** general: one target, one order, and one pattern for every threaded kernel.
+**Order:** a parallel kernel applies in squad and member order and is thread-count independent.
+Where threading changes what a unit reads within a pass, it changes outcomes, and the trials run
+both ways round (Decision 97).
+**Bounded:** this Decision is about bounding the tick: passes do work in proportion to what
+changed, and no per-squad pass stays quadratic.
+**Pillar check:** holds. Pillar 6 (legible depth) is served: every unit stays fully simulated
+(Decision 131) at a scale the owner wants.
+
+### Decision 160 — A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-05
+**Amends:** Decision 151 (its declined list: "thinning decisions beyond each unit's own beat"),
+for benching only; issue #291 (Q32) stays open
+
+**Rationale:** Q32 asks whether slow-changing squad rules (the split, forming up, regroup's
+steering) could run every N ticks rather than every tick. Decision 151 declines thinning
+decisions beyond each unit's beat because it changes behaviour. The owner asked for Q24 and Q32
+to be explored as options, "even if separately and bench the solutions against each other".
+- **Allowed:** spec 39 step 10f may build and bench a cadence for squad-level rules: the same N
+  for every squad, all running on the same ticks, or when something happens to the squad.
+  Staggering by id or spawn order stays ruled out (Decision 97). Per-unit decisions keep their
+  own beats (Decision 138).
+- **Not allowed without more:** a cadence lands only with a Decision of its own, the
+  `Outcomes-changed:` trailer and the owner's Gate 2 feel test of it.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Reopen it fully, for any rule | Per-unit thinning touches what units perceive; the owner kept it to squad rules. |
+| Keep it declined | The owner asked to bench it against the other options. |
+
+**Consequences:** 10f benches the cadence beside `f32` columns and reordered reductions.
+
+**Rules over cases:** general: one cadence for every squad and every rule it covers.
+**Order:** the same ticks for every squad; nothing by id or spawn order.
+**Bounded:** it lowers how often a squad's rule runs; each run stays as bounded as now.
+**Pillar check:** holds only if the feel test does, which is why adoption waits for it.

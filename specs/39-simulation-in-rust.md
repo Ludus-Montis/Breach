@@ -22,8 +22,9 @@ CI time, writing and usage.
 the content schema, and the designer writes JSON in it) **and 154** (cargo tests, one phase on
 a built state, snapshots cut from the digests). Decisions 97, 130, 138, 139 and 151 still hold.
 Answers #292 (Q33). Takes over spec 38's steps 3 and 4, and spec 38's step 5 (threading, slot
-packing, Q26 #281) as step 10, after step 8. Q24 (#279) and Q32 (#291) stay open: they are
-rule questions, and this round ports the rules as they are.
+packing, Q26 #281) as step 10, after step 8. Steps 1 to 9 port the rules as they are. Step 10
+settles Q26 and Q24's remaining lists (#279) by Decision 159, and benches Q32 (#291) under
+Decision 160, which stays open until a Decision adopts or declines it.
 
 ## Status
 
@@ -31,7 +32,8 @@ Agreed in the design session of 2026-10-22. Before step 1, spec 38 step 2b is bu
 outcome check on Rust), because every step here retires GDScript. Spec 38's steps 1d and 2 are
 dropped. Their benches would time GDScript that this round deletes, and step 2's whole-battle
 series is rebuilt under cargo in step 8. Step 10 (spec 38's step 5, moved here the same day)
-needs a design session before it is built.
+was designed on 2026-11-05 (Decisions 159 and 160) and is built as 10a to 10f. Step 10 closed
+with 10f on 2026-11-06.
 
 Each step is built with `/run-phase` as "spec 39 step N", as one PR. A step too large for one
 session splits into lettered PRs (4a, 4b). Each lettered PR keeps the rules below, and the
@@ -1145,17 +1147,91 @@ and `content/definitions/` and `content/import/` keep only what presentation rea
 
 ### Step 10, threading, then slot packing (design first)
 
-Moved from spec 38 step 5 on 2026-10-22. It needs step 8, when the whole tick runs in Rust and
-the benches run under cargo; it does not need step 9. Threads help only work in Rust: with
-about 50 ms of the tick native before this round, threads on every kernel would have saved
-at most about 35 ms (Amdahl's law). Slot packing, too, speeds up only native passes.
+Moved from spec 38 step 5 on 2026-10-22. Designed on 2026-11-05 (Decisions 159 and 160),
+from `bench` runs #56 to #62 on main at 1156225, CI's 4-thread runner:
 
-**Subjects for its design session:** Q26 (#281) as written, measured with step 8's
-`tick_phases` (the series, `terrain=mixed` and per-pass changed counts). Each needs a
-Decision the user authorises. Decision 151 reopens two options Q26 ruled out only because
-they broke identity with the reference: `f32` columns and parallel reductions in a different
-fixed order. Both change outcomes but not behaviour, so each is allowed under that
-Decision's conditions.
+- **4096 a side, 4 squads** (series, from contact): about 95 ms a tick. Seek, walk and facing
+  38 ms (92% of slots changed), wounds' tend 25 to 32 ms (none changed), parting 9 ms threaded
+  and 14 ms not, the roster 2.5 to 3.7 ms (none changed).
+- **24,576 a side, 24 squads of 1,024:** about 566 ms. Tend 163 to 226 ms (none changed),
+  seek 100 ms, rout 75 ms, parting 67 ms threaded and 131 ms not, the roster 24 ms (none
+  changed).
+- **One squad a side** (`breach_scaling`, the fight): 33, 78, 201 and 587 ms from 3,072 to
+  24,576 a side, growing ×2.33, ×2.58 and ×2.92 a doubling. The march grows ×2.05 to ×2.19.
+- **The terrain series** (`terrain=mixed`, 1024 a side): 16.8 ms mean, 22.3 ms worst.
+
+**The target (Decision 159):** 24,576 a side as 24 squads of 1,024, at a 95th-and-99th-percentile
+tick of at most 50 ms on CI's 4-thread runner, and one squad's growth within ×2.2 a doubling.
+The interim bar is 100 ms. The owner's i7-12700K (20 threads) is a comparison by hand. 4096 a
+side stays the daily bench.
+
+Each part is one PR, benched against its base with `rounds` of 5 or more, and gives its numbers
+at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR closes the step.
+
+- **10a, the measuring tools.**
+  - `bench` compares two argument sets on one runner, in turn (threads on and off, and later
+    10f's options), as well as two commits.
+  - A 25k preset: the target's series with a limit long enough to cover the fight, beside the
+    4096 one. A check that the two scale as `breach_scaling` says, so 4096 can stand in.
+  - `tick_phases` reports how scattered each squad's slots are (how far a squad's members are,
+    in slot order, from a run of consecutive slots), so 10e is measured before it is built.
+- **10b, work that follows change** (outcomes identical; `bounded-work.md`).
+  - Tend doesn't build every living unit's record when no unit is down, and a unit's traits
+    and attributes aren't looked up by name in a pass.
+  - The roster isn't rebuilt from scratch four times a tick.
+  - Sorts on a seeded draw take each key once (`sort_by_cached_key`).
+  - Q24's remaining lists (#279): `fighters()` and combat's rank groups, squad edges and
+    spans, the re-form's occupancy, kept by the events that change them.
+  - The per-squad quadratic `breach_scaling` shows is found and fixed.
+- **10c, threads.**
+  - Seek, walk and facing, rout, and tend's search map in parallel into buffers and apply in
+    squad and member order, with any reduction in a fixed order, as parting does. The result
+    doesn't depend on the number of threads.
+  - A kernel whose serial pass reads, within the pass, what an earlier unit wrote isn't
+    identical when threaded. Its PR carries `Outcomes-changed:` and the trials both ways round.
+  - A unit-count threshold keeps small battles on one thread.
+  - CI runs the digests and trials with threads on and off and requires them equal. Then
+    threads are on by default in the game and the tools.
+- **10d, the tick off the main thread.**
+  - Tick N+1 runs on a worker while presentation draws tick N from a snapshot. Commands are
+    taken between ticks, as now.
+  - The snapshot copies only the columns that changed.
+  - **Split by the owner** (2026-11-05, #734): 10d-i is the crate (the content shared through
+    an `Arc`, the change-marked snapshot, the tick on a worker beside the current `step`;
+    presentation unchanged). 10d-ii is presentation (the scene, the HUD and the fallen drawing
+    read the snapshot; the frame never waits on the worker). The owner's rules, from #734:
+    - **The main thread never blocks on the worker.** An order only queues; drawing reads the
+      newest snapshot; whether a tick finished is checked without waiting. A restart or a
+      replay load makes a fresh field: the old tick finishes in the background and is dropped.
+    - **Orders given while a tick runs** are applied at the next boundary between ticks and
+      stamped with the tick they were applied at, not the tick pressed in, so a replay gives
+      them at the same point through the existing `_queued` loop. Outcomes, records and replays
+      are as today; only the frame no longer freezes. Paused, no tick starts and an order
+      applies at once; a tick already running finishes and is shown.
+    - **Several ticks due:** while the clock owes a tick, the worker applies the queued and the
+      replay's due orders, runs the tick and publishes a snapshot. The frame draws the newest,
+      moving between the last two by the clock's fraction; units hold at the newest when the
+      next isn't ready (slow motion when behind). The clock owes at most **2** ticks and drops
+      more time, as the 20-tick catch-up cap does now; while it drops time the HUD shows a
+      "simulation behind" notice. Decision 159's target still aims for that never to show.
+    - **Events** are stored with their tick's snapshot, in order and marked with the tick, and
+      delivered in the frame that first draws that tick, with those of ticks never drawn,
+      oldest first, so none are lost. Flashes start on delivery and count down in real seconds.
+      `run_ticks(count)` still waits, for tests and headless tools, through the same worker.
+- **10e, slot packing,** if 10a's measure shows scatter worth fixing. A squad's slots are
+  packed together, at enrolment or by a compaction that updates the unit-to-slot map, and
+  hot loops index by slot rather than through `by_unit` (a `HashMap`). Slots are storage only
+  (Decision 97), so packing changes no outcome.
+  **Not built** (2026-11-05): the 25k series doesn't scatter. See "Step 10e, slot scatter
+  measured".
+- **10f, the options that change outcomes,** benched against each other on 10a's comparison:
+  `f32` columns, reductions in a different fixed order, and a uniform cadence for squad-level
+  rules (Q32, #291; Decision 160).
+  **Settled by the owner** (2026-11-06, #738) as one step that changes no outcome: parting's
+  per-body sums on the pool in the same order, bit for bit. Built, benched slower, and taken
+  back out. The cadence isn't built (#739 item 1), `f32` columns are parked (#739 item 7), a
+  different reduction order isn't needed (#739 item 9), and positions in `f64` are tech debt
+  (#740). See "Step 10f, parting's sums measured (not kept), and step 10 closed".
 
 ## Scenarios
 
@@ -3812,6 +3888,365 @@ Decision's conditions.
   (`structure::tests`, `designer`).
 - **Identical:** no content and no rule of the battle changed; the build id changes, as the
   definitions are fingerprinted.
+
+### Step 10a, the measuring tools
+
+- **Built** (2026-11-05), on PR #724's branch before it merged (the owner's go-ahead):
+  `breach_tick_phases preset=4096|25k` (`src/phases/presets.rs`), `scatter=1`
+  (`src/phases/scatter.rs`), `bench`'s `base_args` and `scale`, and
+  `ci/godot/scripts/bench_scaling.py`. No outcome changes.
+- **The presets:** a series from contact of 4 and of 24 lanes of 1,024 a side, to the default
+  limit of 600. An argument given beside a preset wins. Lanes the same size mean the tick should
+  grow by the ratio of the squads (×6), so the scaling check expects that factor.
+  `breach_scaling`'s one-squad growth doesn't enter: it is Decision 159's separate ×2.2 bar.
+- **How long the series run** (a probe, release build, threaded, 2026-11-05): a series ends
+  when a side has no squad that isn't routing. At 4096 that is 16 ticks after contact (ticks
+  91 to 107), and at 25k 14 (91 to 105). 600 covers both. The series covers the fight up to the
+  rout, not the pursuit after it. If the pursuit should be timed too, that is a new design
+  question, not a longer limit.
+- **The scaling check:** the tick within a fifth of the factor either way says the small
+  battle can stand in. Phases that grew more than a fifth past it are marked `^`, for 10b.
+  Its exit is 1 when the tick is outside the band, and the `bench` summary says so.
+- **Scatter:** per squad with members, the runs of consecutive unit-store slots its members
+  hold and the slots from its lowest to its highest, summed, where the timing began and where
+  it ended. Both presets start packed (8 runs and 8,192 slots at 4096). How far the fight
+  scatters them is for the 25k bench run to show.
+
+### Step 10b-i, tend, the roster, the lookups and the sorts
+
+- **Split** (2026-11-05, the implementing session): 10b is five changes, too many for one
+  session. **10b-i** (this) is the first three bullets. **10b-ii** is Q24's remaining lists
+  (#279): `fighters()` and combat's rank groups, squad edges and spans, the re-form's
+  occupancy, kept by the events that change them. **10b-iii** is the per-squad quadratic
+  `breach_scaling` shows, found and fixed. Each is one PR, on the one before it.
+- **Built** (2026-11-05), on 10a's branch before it merged (the owner's go-ahead). No outcome
+  changes:
+  - Tend (`wounds/pass.rs`) returns before it builds any unit's record when no listed squad
+    has a body lying (`lying`).
+  - A pass codes the words it reads once (`Lexicon::codes`, read by `words::level_of`), not
+    once for every unit it reads: tend, stamina, recovery and carry.
+  - The roster: `mustering::listing` and `tick::relisted` take it by value, and a listed squad
+    whose living are the units already listed keeps its list, so a relisting copies and looks
+    up only the squads whose living changed.
+  - The four sorts on a unit's seeded draw (tend's two, the strays' and the trade's stall)
+    take each key once (`sort_by_cached_key`, stable like `sort_by_key`).
+- **Scenarios:** given a squad whose living did not change, when the roster is relisted with
+  no units known, then it keeps its list (`tick/tests.rs`). Given a body lying and then borne,
+  when tend asks whether any lies, then yes and then no (`wounds/pass/tests.rs`). Given a
+  word coded and one not, when a pass codes both, then their levels read by code are the
+  unit's and none (`words.rs`). The digests and trials, unchanged, are the identity check.
+
+### Step 10b-ii, Q24's remaining lists
+
+- **Built** (2026-11-05), on 10b-i's branch before it merged (the owner's go-ahead). No
+  outcome changes: each list below is worked out from the same inputs, by the same sums, as
+  before, only fewer times.
+  - **Squad spans and edges** (`geometry::Spans`): a `contact::Field` keeps each squad's
+    extent along an axis (its span across a line, its reach along a way) the first time a
+    decision asks for it. Fronts, edges, the advance's limit, skirmishing and joins asked for
+    them once a pair of squads, so a pass worked every squad's units out once for each other
+    squad. The field borrows the squads, the columns and the roster, so nothing can move
+    while it keeps them: a pass that moves anything builds a new field. This is the "kept by
+    the events that change them" of Q24 at the length the borrow allows. Across ticks it
+    would need every writer of a squad's frame, rank and column (a dozen passes) to say so,
+    for a list each fighting squad's walk changes most ticks anyway.
+  - **Combat's rank groups** (`shots::Aim`): which hostile squads a shot may strike, their
+    ranks and each rank's gap ahead of the shooter's front depend on the shooting squad, not
+    the shooter. They are worked out once a squad, not once for each of its shooters.
+  - **The re-form's occupancy** (`swaps::pass::Reforms`): a re-forming squad whose planning
+    started nothing keeps what that planning read (its shape, each living unit's place,
+    footprint, band, priority, pace and whether it joined, the swaps under way, the pace),
+    and isn't planned again while it reads the same, to the bit. So its occupancy and plan
+    are worked out when a swap ends, a unit falls or anything else it reads changes. The memo
+    is not state: the field doesn't write it to a snapshot, and one read back plans afresh,
+    to the same end.
+  - **`fighters()`** is left as it is. In the crate, the rout blows' front ranks are built
+    only on a tick some squad routs (`fight::on_routers`), with one pass over the living and
+    a sort of the front rank, and the scrum's fighters are seek's own input, gathered in the
+    pass that walks every member to seek. Neither repeats work another pass already did.
+- **Found for 10b-iii** (each a per-squad quadratic): `Shape::edge_units` compares every
+  unit with every other on a flank lock; `swaps::claims` looks each unit in a swap up in the
+  living by `position`; `shuffle::start_moves` checks `busy` with `contains` for every unit;
+  `swaps::pass::ranked` checks `joined` with `contains` for every unit.
+- **Scenarios:** given four squads, two facing two, when each looks for the nearest hostile
+  front, then each squad's span is worked out once, not once a pair (`contact/tests.rs`).
+  Given two shooters in one squad and one in another, when their aims are worked out, then
+  there are two (`shots/tests.rs`). Given a re-forming squad whose swap is under way, when
+  it is stepped with nothing changed, then it is planned twice, not once a tick, and again
+  once a unit's pace changes (`swaps/pass/tests.rs`). The digests and trials, unchanged,
+  are the identity check.
+
+### Step 10b-iii, the per-squad quadratics
+
+- **Built** (2026-11-05), on 10b-ii's branch before it merged (the owner's go-ahead). No
+  outcome changes: each answer is the one the pairwise search gave, to the bit. These are the
+  four 10b-ii found; `breach_scaling`'s bench on this branch says whether the one-squad
+  growth is now within Decision 159's ×2.2 a doubling.
+  - **A flank's edge units** (`geometry::beyond`): `Shape::edge_units` compared every unit
+    with every other. It now takes, for each unit, the furthest reach of the lines it
+    overlaps, from a Fenwick tree of maxima over the lines sorted by start and by end
+    (n log n). It is exact because a rounded difference only grows with its first term and
+    shrinks with its second: `overlap(a, b) > EPSILON` holds just when `a.1 - b.0`,
+    `b.1 - a.0` and both widths exceed the tolerance, and each of the first two picks out a
+    prefix of one sorted order.
+  - **The swaps' claims** (`swaps::claims`): a slot's index in the living is read from a
+    map built once, not searched for each unit in a swap. A slot listed twice keeps its first
+    index, as `position` did.
+  - **The busy units** (`shuffle::start_moves`, `through`): a mark each, not a list searched
+    for each unit.
+  - **The joined** (`swaps::pass::ranked`): the squad's joined ids as a set, built once a
+    re-form, not searched for each unit.
+- **Scenarios:** given lines on a grid, nudged off it within and beyond the tolerance, and
+  touching, when each one's furthest overlapping reach is worked out, then it is the one
+  comparing every pair finds (`geometry/tests.rs`, 200 seeded draws). Given lines that only
+  touch or have no width, then none lies beyond them. The other three keep their answers by
+  construction; their modules' tests, the digests and trials are the identity check.
+
+### Step 10c-i, the guard: the threshold, and threads checked both ways
+
+- **Split** (2026-11-05, the owner's answer on #730): 10c is too big for one session.
+  **10c-i** (this) is the threshold and CI's check that threads change nothing, before any
+  kernel is threaded. **10c-ii** is seek, walk and facing: walk (`walking::walk`) and facing
+  (`facing::face`) read only what was settled before their pass, so they thread whole; seek's
+  slot claims (`scrum::plan`: `kept`, `pick`, `aim`, `press`) are taken one unit at a time in
+  contest order, each reading the claims before it, so only each seeker's own search (the
+  seekers and their keys, the ring and candidate search) goes to the pool, and the claims stay
+  serial. **10c-iii** is rout, tend's search map, and threads on by default in the game and the
+  tools. Each is one PR, on the one before it.
+- **Built** (2026-11-05), on 10b-iii's branch before it merged (the owner's go-ahead). No
+  outcome changes:
+  - **`Threads`** (`src/threads.rs`) replaces the tick's `threaded: bool`: `One`, `Pool` (a
+    pass on Rayon's pool from `threads::FROM` units) and `Always` (the pool at any size). A
+    pass asks `threads.on(units)` with the count it works on; parting asks with its bodies.
+    The tick's argument carries it as 0, 1 and 2, so GDScript's 0 and 1 read as before.
+  - **The threshold, 4,096 units:** parting on the pool was within noise or slower at every
+    size up to 1,024 a side (`native/README.md`, the Rayon line), and faster at 4,096 a side
+    (step 10's design: 9 ms threaded, 14 not). So a battle of 2,048 a side or more threads, and
+    the daily bench (4,096 a side) and the 25k preset both do. 10c-ii and 10c-iii's benches
+    say whether it moves; it is a constant, and changes no outcome.
+  - **The tools' `threaded=`** is `true` (the default, `Pool`), `false` or `always`, on
+    `breach_digest`, `breach_trials`, `breach_scaling` and `breach_tick_phases`;
+    `breach_native_bench`'s `rust_threads` engine is `Always`. The game keeps
+    `BREACH_NATIVE_THREADS=1` for `Pool` until 10c-iii.
+  - **CI** (`sim-checks`): each digest job takes its set again with `threaded=false` and
+    `threaded=always`, and the trials job every scenario (10 runs) and the fatigue trials the
+    same two ways. Each must equal the default's to the byte; the summary prints a `threads`
+    line for each and fails on `DIFFER`. `always` is what makes the check reach the small
+    battles the threshold keeps on one thread.
+- **Scenarios:** given a pass below, at and above the threshold, when `Pool` asks, then one
+  thread, then the pool; `One` never and `Always` always. Given the tools' `true`, `false`,
+  `always`, nothing and anything else, then `Pool`, `One`, `Always`, `Pool` and none. Given
+  each way, when carried as the tick's argument and read back, then the same, with 0 and 1
+  read as before (`threads/tests.rs`). The fatigue trials' and `native_bench`'s
+  threaded-or-not tests take `Always`, so they thread at their small sizes. CI's both-ways
+  digests and trials are the identity check.
+
+### Step 10c-ii, seek, walk and facing on the pool
+
+- **Built** (2026-11-05), on 10c-i's branch before it merged (cascade #727). No outcome
+  changes. Each pass asks `threaded.on(units)` with its units, as parting does, and the tick
+  hands the ending's `Threads` to the scrum's seek rules (`tick::rules::of`):
+  - **The walk** (`walking::walk`) takes each unit's step apart and writes them in member
+    order. Each step reads only the bodies as they stood before the walk.
+  - **The facing** (`facing::face`) writes the walked points first, on one thread. Then it
+    turns each squad apart (its foes indexed, its units' bearings) and joins them in squad
+    order.
+  - **The seek** (`scrum::plan`): each squad's search (`Search::squad`: its seekers, their
+    contest keys, the units touching a foe, and a ring for each radius, with the bodies on
+    each slot) reads only the field and the crowd, so the squads search apart. The rings are
+    then listed in squad order, each seeker's ring index offset to match, as before. The
+    claims (`kept`, `pick`, `aim`, `press`) stay serial in contest order: each reads the
+    claims before it, and a slot found claimed is marked dead for all.
+- **Scenarios:** a 40-unit walk with every code and bodies lying, a three-squad facing of 90
+  units, and a three-squad seek of 44 units are the same on one thread and on the pool
+  (`Threads::Always`) (`walking/tests.rs`, `facing/tests.rs`, `scrum/tests.rs`). CI's both-ways
+  digests and trials are the identity check over whole battles.
+
+### Step 10c-iii, rout, tend's search map, and threads on by default
+
+- **Built** (2026-11-05), on 10c-ii's branch before it merged (cascade #727). No outcome
+  changes. The tick hands the ending's `Threads` to the rout (`RoutTuning::threaded`) and to
+  tend (`WoundsTuning::threaded`) in `tick::rules::of`, as it does the seek's; each pass asks
+  `threaded.on` with the routers or the standing it searches for:
+  - **The flight** (`rout::flee`): each router's step (`flight::step`, which now only reads
+    and returns a `Stepped`) and the friend it crushes, read from the step's landing, are
+    taken apart. They read only the router's own columns and the friends' indexes, built
+    where everyone stood as the call began. Then, in routing and member order, each step is
+    written (`flight::land`), its crush and first panic logged, and a router home unflees.
+    The friends' indexes are built once on first asking (`OnceLock`), so the searches take
+    `&self` and any thread may ask.
+  - **The rallies** (`rout::rallies`): each router's searches (a led friend near; else who
+    holds it) are taken apart. Whether a friend is steady (read once, first reads in order),
+    the caught count, the joins and their order stay serial.
+  - **The regroup** (`rout::regroup`): whether an enemy is near each led rout is taken
+    apart; the counting and the re-forms stay serial in routing order.
+  - **Tend** (`wounds::tend`): each standing unit's search for a body to take is taken
+    apart. On one thread a body's guard is read when first asked, as before; on the pool
+    every body's guard is read first, apart. A guard reads only where the units stood, so
+    both give the same. The takings (`take`) stay serial in the order found.
+  - **The breaks** stay on one thread: each break's flight entries are written before the
+    next break's friends are asked whether they saw it, and they come only on the ticks a
+    squad breaks.
+  - **The game** threads by default: `BREACH_NATIVE_THREADS` unset (or anything else) is
+    `Pool`, `0` is `One` and `always` is `Always` (`Threads::of_env`). The tools already
+    defaulted to `Pool` (10c-i).
+- **Scenarios:** two routs of 30 fleeing through a led steady friend and a shaken one, a rout
+  alone in its faction and a foe near, taken through the flight, the rallies and the regroup,
+  decide and write the same on one thread and on the pool, with a crush and a rally among
+  them (`rout/tests.rs`). Forty bodies along a line of both sides, some taken by two and some
+  guarded, are tended the same both ways (`wounds/tests.rs`). The game's setting: unset, `1`
+  and anything else `Pool`, `0` `One`, `always` `Always` (`threads/tests.rs`). CI's both-ways
+  digests and trials are the identity check over whole battles.
+
+### Step 10d-i, the tick on a worker, in the crate
+
+- **Built** (2026-11-05), on 10c-iii's branch before it merged (cascade #727). No outcome
+  changes, and presentation is unchanged: the game still plays through `FieldState.step`.
+  - **The content is shared:** `ContentStore` holds it in an `Arc`, so a field holds its own
+    handle and no longer borrows the store's `Gd` each `step` (a worker can't hold a `Gd`).
+  - **The field is one simulation,** `FieldSim` (`field_play/sim.rs`): the content, squads,
+    units, play, events and record. `FieldState` holds one and plays it in place.
+  - **The worker** (`worker.rs`) runs any simulation with `Steps` (tick, apply, step, view)
+    on its own thread, under #734's rules above: `owe` (capped at `MOST_OWED`, 2; true when
+    time was dropped), `order` (queued to the next boundary, stamped there; at once when
+    paused), `order_at` (a replay's order, at its tick, before the boundary's queued orders),
+    `pause`, `ready` (the snapshots published, oldest first, never waiting) and `run_ticks`
+    (waits). Each snapshot holds its tick, the view, that tick's events (none when only orders
+    were applied) and the orders applied, stamped, each with whether it was taken. The inbox
+    is a mutex the worker holds only to take work, never across a tick; snapshots come back
+    over a channel. Dropping a worker closes it without waiting: the tick running finishes
+    and is thrown away with the field.
+  - **The snapshot** (`FieldView`): the units' positions, bearings and ranks by slot, the
+    squads as seen, the kingdom's ids, A's and B's places and B's staging point. The three
+    columns are copied only when they changed: each is compared with the last snapshot's copy
+    and shared (`Arc`) when equal. Nothing in the passes marks a change; the comparison reads
+    each column once a tick, as a copy would, and allocates nothing when it is unchanged.
+  - Not in 10d-i: the scene, HUD and fallen drawing reading the snapshot, the clock's fraction,
+    the "simulation behind" notice and the events delivered by frame (10d-ii).
+- **Scenarios:** on a stand-in whose tick can be held open (`worker/tests.rs`): the first
+  snapshot is the state as started; each tick's events come with its snapshot; an order given
+  during a tick is applied after it, stamped with the tick applied at; the clock owes at most
+  two ticks and says when time is dropped; paused, no tick starts and an order applies at
+  once; a replay's order is applied when its tick comes; the caller never waits on a running
+  tick, and a dropped worker finishes it alone. On the field (`field_play/sim/tests.rs`): a
+  feel-test record played 300 ticks on the worker gives `step`'s events tick by tick, its
+  positions and bearings and its record; a snapshot shares unchanged columns and copies a
+  changed one; it holds what the scene draws.
+
+### Step 10d-ii, presentation reads the snapshot
+
+- **Built** (2026-11-05), on 10d-i's branch before it merged (cascade #727). No outcome
+  changes: the orders are given at the same boundaries, so records and replays are as before.
+  - **`FieldState` plays on the worker,** always: `open` starts the field on one through
+    `FieldPlayer` (`field_play/player.rs`), the plain-Rust half the binding wraps. Every read
+    (`squads`, `positions`, `facings`, `ranks`, `kingdom`, `waves`, `staging_point`,
+    `tick_number`) shows the newest snapshot. The routes and the ground don't change, so they
+    are read once at open. The record is kept from the orders each snapshot says were taken.
+  - **The frame never waits.** Each frame the scene pauses the worker as its clock is paused,
+    owes it the ticks the clock gives (`owe`) and takes what it has published (`take`): every
+    tick's events, oldest first, including those of ticks no frame drew, so none are lost.
+    Flashes start when their event is taken and count down in real seconds. `act`, `give` and
+    `replay` only queue: an order is applied at the next boundary between ticks, and a replay's
+    commands are given to the worker at the restart (`order_at`), each applied when its tick
+    comes, so the scene's own `_queued` loop is gone. `act` and `give` now return true when
+    there is a field to queue for; whether an order was taken shows in the record.
+  - **Easing:** units move from the second-newest tick drawn to the newest by the clock's
+    fraction, as before. When the newest snapshot isn't the tick the clock has reached
+    (`caught_up` false: the worker is still playing what is owed), they hold at the newest.
+    `Worker::reached` gives that tick: the ticks played, taken or owed. When two ticks arrive
+    in one frame (only when behind), units move from the newest drawn before the frame.
+  - **"Simulation behind":** when `owe` drops time (more than two ticks owed), the HUD's status
+    row shows `SIMULATION BEHIND` for a second.
+  - **The scene's frame** is `_process(delta)`, which its test calls to drive a frame (a public
+    `frame(delta)` took the scene past `check_isp`'s seven public methods). The ground and the routes are drawn by `GroundDrawing` (`ground_drawing.gd`, as
+    `FallenDrawing` is), which keeps the scene under gdlint's 300 lines.
+  - **Waiting, for tests and headless play:** `run_ticks(count)` (and `step`, one tick) waits
+    for the ticks and for every order given before it (`Worker::run_ticks` now also waits for
+    the orders, counted by each snapshot's `ordered`). A test that reads an order's outcome
+    straight after giving it calls `run_ticks(0)` first.
+- **Scenarios:** on the field (`field_play/player/tests.rs`): orders given between ticks play
+  and record as `step` does; a replay given at the start plays its orders at their ticks; the
+  frame takes what is ready without waiting, and loses no events; an order is recorded once the
+  worker takes it. On the worker (`worker/tests.rs`): `reached` is the tick reached once what
+  is owed is played; `run_ticks` waits for every order given before it. In the scene
+  (`test_formation_field_scene.gd`): a frame owes its clock's ticks and draws what the worker
+  has played; the HUD says the simulation is behind when time is dropped.
+
+### Step 10e, slot scatter measured (packing not built)
+
+- **Measured** (2026-11-05, cascade #727), on 10d-ii's branch: `bench` run #80,
+  `breach_tick_phases preset=25k scatter=1` against `preset=25k`, 5 rounds, an AMD EPYC 7763
+  with 4 threads.
+  - **Scatter:** none. Where the timing began and where it ended, the 48 squads' 49,152
+    members are 48 runs spanning 49,152 slots. Every squad stays packed.
+  - **Why:** squads enrol together at the start, and a squad's members stay in the store
+    until they are removed. Nothing enrols during the fight, so no unit takes a freed slot
+    between another squad's members.
+  - **Measuring costs nothing:** tick median 313.6 ms with scatter against 312.6 ms without
+    (+0.3%, ranges overlapping). This runner is slower than run #77's EPYC 9V45 (about 205 ms):
+    compare ticks only within one run.
+- **So 10e isn't built,** as its bullet allows. Packing has nothing to fix in the target's
+  series. Its second half, hot loops indexing by slot rather than through `by_unit`, is mostly
+  done already:
+  - the squads' members are slots;
+  - only the fight's blows (`blows.rs`, about 6 ms of the tick) look a unit up by id
+    (`Field::body_of`).
+- **When to look again:** when the game enrols units into a battle already running (later
+  waves into freed slots, lowest first; `src/field.rs`), a long battle can scatter. Measure
+  it with `scatter=1` on such a series before building packing. Slots are storage only
+  (Decision 97), so packing would still change no outcome.
+- **Next:** 10f.
+
+### Step 10f, parting's sums measured (not kept), and step 10 closed
+
+- **Measured** (2026-11-06, cascade #727), on 10e's branch before it merged. The owner settled
+  10f in #738: parting's per-body sums on the pool, in the same order, with an estimated gain
+  of 10 to 20 ms at 25k. **They were built, benched slower, and taken back out.** No outcome
+  changes either way: no Decision, no `Outcomes-changed:`, no Gate 2.
+- **What was built** (commit 6f7f9af on this step's branch, kept in its history). Pairs lying
+  on one spot asked the seeded way on this thread, in pair order. Every push became a key,
+  `body << 40 | pair << 1 | side`, sorted on the pool so each body's pushes ran together in
+  pair order. Each body's run was summed from zero on the pool, and the bodies were moved in
+  the order of their first keys. Bit for bit the serial result.
+- **The bench** (`breach_tick_phases`, against 10e's branch, 5 rounds each):
+  - `preset=25k`, run #81 (EPYC 9V74): `bodies (parting)` 51.49 → 62.35 ms (+21.1%, ranges
+    apart), the tick 259.4 → 266.8 ms (+2.9%);
+  - `preset=4096`, run #82 (EPYC 7763): `bodies (parting)` 8.44 → 10.89 ms (+29.0%, ranges
+    apart), the tick 51.4 → 53.9 ms (+4.9%, ranges apart).
+- **Why it lost:** the serial sums were never the cost. A probe (a crowd of 49,152 bodies
+  parted on 4 threads, about 130,000 pairs a pass, 3 passes) timed each pass:
+  - finding the pairs: 12 to 18 ms. Of that, the search (already on the pool) is 9 to 13 ms,
+    the buckets (serial) about 1 ms and the sort about 1 ms;
+  - weighing the pushes (on the pool) and adding them (serial): about 2 ms together;
+  - moving the bodies: under 1 ms.
+
+  So the serial adds are about 2 ms a pass. Spreading them over the pool costs more than that
+  in allocation and ordering: the sorted keys took about 6 to 8 ms a pass. A second version,
+  without the global sort, still took about 6 ms: each body's own run is contiguous, since the
+  pairs are sorted with `i < j`, and the pairs where it is second were listed per body. The
+  estimate came from the threaded ratio of the whole pass (131 → 67 ms), which the pair search
+  makes, not the sums.
+- **What stays:** a guard that a crowd of 600 overlapping bodies (three squads, two factions,
+  loose, fleeing and lying on one spot) parts the same on one thread and on the pool: the
+  points' bits, the flags, the outcome and the order the way was asked in (`parting/tests.rs`).
+  It failed against the pooled sums with a run summed in reverse, or the bodies moved in body
+  order.
+- **Where parting's time is:** the pair search, already threaded. A cheaper search (a flat grid
+  rather than the `HashMap` of buckets, as `src/grid.rs` does for perception) is the next thing
+  to measure there, with outcomes identical.
+- **Step 10 closed.** What 10f's options came to (the owner, #738):
+  - **The cadence for squad-level rules** (Q32, #291; Decision 160): not built. `groups` is
+    2.5 ms of a 205 ms tick, so it saves at most about 1%. Parked in #739, item 1, with when
+    to look again. Decision 160 is left as it stands.
+  - **`f32` scalar columns:** parked in #739, item 7. The tick isn't waiting on memory.
+  - **Reductions in a different fixed order:** not needed (#739, item 9). Parting's was the
+    one hot sum, and it costs about 2 ms a pass serially (above).
+  - **Positions in `f64`:** consistency debt, #740, done with the next change that
+    re-records the digests.
+- **Where the rest of the gap to 50 ms lies:** seek's claims (#739, item 4) and the rout's and
+  tend's landings (item 5) are serial because each reads what the one before it settled.
+- **Next:** a design session on a contest that settles in parallel, for seek's claims and the
+  rout's landings (#739, items 4 and 5). It needs a Decision of its own.
 
 ## Open, for the implementing session to settle and record here
 

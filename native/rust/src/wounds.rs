@@ -16,6 +16,8 @@ use crate::contest;
 use crate::ghash::{self, Key};
 use crate::grid::{Grid, MARGIN};
 use crate::maths::{clampf, V2};
+use crate::threads::Threads;
+use rayon::prelude::*;
 
 /// An attribute's ordinary value (UnitDef.AVERAGE).
 pub const AVERAGE: f64 = 10.0;
@@ -37,6 +39,9 @@ pub struct WoundsTuning {
     pub condition_cap: f64,
     pub drain_below: f64,
     pub drain: f64,
+    /// Whether the takers' searches run on the pool (the tick's, set in `tick::rules::of`;
+    /// spec 39 step 10c-iii).
+    pub threaded: Threads,
 }
 
 impl WoundsTuning {
@@ -57,6 +62,7 @@ impl WoundsTuning {
             condition_cap: t[12],
             drain_below: t[13],
             drain: t[14],
+            threaded: Threads::One,
         }
     }
 
@@ -189,8 +195,8 @@ pub fn tend(
         }
     };
     // taken and taking in the units' seeded draws' order, never the list's (Decision 97)
-    standing.sort_by_key(|&at| contest::draw(seed, unit(at, false).id));
-    downed.sort_by_key(|&at| contest::draw(seed, unit(at, true).id));
+    standing.sort_by_cached_key(|&at| contest::draw(seed, unit(at, false).id));
+    downed.sort_by_cached_key(|&at| contest::draw(seed, unit(at, true).id));
     let at = |a: At, lying: bool| columns.position[unit(a, lying).slot];
     let standing_points: Vec<V2> = standing.iter().map(|&a| at(a, false)).collect();
     let downed_points: Vec<V2> = downed.iter().map(|&a| at(a, true)).collect();
@@ -202,11 +208,10 @@ pub fn tend(
         standing_points: &standing_points,
         downed_points: &downed_points,
     };
-    let mut guarded: Vec<Option<bool>> = vec![None; downed.len()];
+    let found = takers(squads, &near, seed, tuning);
     // each body's takers, the bodies in the order a taker first found them
     let mut taken: Vec<(usize, Vec<At>)> = vec![];
-    for (n, &taker) in standing.iter().enumerate() {
-        let found = within_reach(squads, &near, n, &mut guarded, seed, tuning);
+    for (&taker, found) in standing.iter().zip(found) {
         if let Some(body) = found {
             match taken.iter_mut().find(|(b, _)| *b == body) {
                 Some((_, takers)) => takers.push(taker),
@@ -237,13 +242,36 @@ struct Near<'a> {
     downed_points: &'a [V2],
 }
 
+/// Each standing unit's downed foe to take (`within_reach`), in `near.standing`'s order. With
+/// `tuning.threaded` the searches run on the pool, each body's guard read first; otherwise
+/// on one thread, each body's guard read when first asked. A body's guard and each search
+/// read only where the units stood as the tending began, so both give the same.
+fn takers(squads: &[Tended], near: &Near, seed: i64, tuning: &WoundsTuning) -> Vec<Option<usize>> {
+    let standing = 0..near.standing.len();
+    if tuning.threaded.on(near.standing.len()) {
+        let guarded: Vec<bool> = (0..near.downed.len())
+            .into_par_iter()
+            .map(|b| is_guarded(squads, near, b, tuning))
+            .collect();
+        standing
+            .into_par_iter()
+            .map(|n| within_reach(squads, near, n, &mut |b| guarded[b], seed, tuning))
+            .collect()
+    } else {
+        let mut known: Vec<Option<bool>> = vec![None; near.downed.len()];
+        let mut guarded =
+            |b: usize| *known[b].get_or_insert_with(|| is_guarded(squads, near, b, tuning));
+        standing.map(|n| within_reach(squads, near, n, &mut guarded, seed, tuning)).collect()
+    }
+}
+
 /// The downed foe (its index in `near.downed`) the `n`th standing unit would take, or none:
-/// none unguarded within reach, or a foe still near it.
+/// none unguarded within reach, or a foe still near it. `guarded` says whether a body is.
 fn within_reach(
     squads: &[Tended],
     near: &Near,
     n: usize,
-    guarded: &mut [Option<bool>],
+    guarded: &mut dyn FnMut(usize) -> bool,
     seed: i64,
     tuning: &WoundsTuning,
 ) -> Option<usize> {
@@ -263,7 +291,7 @@ fn within_reach(
             continue;
         }
         let gap = near.downed_points[b].distance_to(here) as f64;
-        if gap > tuning.reach || is_guarded(squads, near, b, guarded, tuning) {
+        if gap > tuning.reach || guarded(b) {
             continue;
         }
         if body.playing_dead && fooled(taker, body, seed, tuning) {
@@ -307,17 +335,8 @@ pub fn fooled(taker: &Taking, body: &Taking, seed: i64, tuning: &WoundsTuning) -
     guile - sight + (roll - 0.5) * tuning.believe_die > 0.0
 }
 
-/// True if a friend of the `b`th downed body stands within `guard_reach` of it (once a body).
-fn is_guarded(
-    squads: &[Tended],
-    near: &Near,
-    b: usize,
-    guarded: &mut [Option<bool>],
-    tuning: &WoundsTuning,
-) -> bool {
-    if let Some(known) = guarded[b] {
-        return known;
-    }
+/// True if a friend of the `b`th downed body stands within `guard_reach` of it.
+fn is_guarded(squads: &[Tended], near: &Near, b: usize, tuning: &WoundsTuning) -> bool {
     let (s, u) = near.downed[b];
     let faction = squads[s].downed[u].faction;
     let there = near.downed_points[b];
@@ -328,7 +347,6 @@ fn is_guarded(
             && near.standing_points[i as usize].distance_to(there) as f64 <= tuning.guard_reach;
         !found
     });
-    guarded[b] = Some(found);
     found
 }
 

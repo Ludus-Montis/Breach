@@ -41,7 +41,7 @@ mod face_store;
 mod facing;
 mod field;
 mod field_parting;
-mod field_play;
+pub mod field_play;
 mod fight;
 mod frame;
 mod geometry;
@@ -112,6 +112,7 @@ mod strays;
 pub mod structure;
 mod swaps;
 mod taking;
+pub mod threads;
 mod tick;
 mod trade;
 pub mod trials;
@@ -121,6 +122,7 @@ mod walking;
 mod waves;
 mod withdraw;
 mod words;
+pub mod worker;
 mod wounds;
 
 use godot::prelude::*;
@@ -134,11 +136,12 @@ unsafe impl ExtensionLibrary for BreachNative {}
 /// GDScript as its definitions (`UnitDef`, `MapDef`...), filled field for field by name, until
 /// their last reader ports. Each is made once and shared, as `load()` shared a `.tres`. Also
 /// what reads and writes a map file and reads the designer's exports for GDScript. CrateContent
-/// is GDScript's way in.
+/// is GDScript's way in. The content is shared (`Arc`, step 10d-i), so a field on a worker
+/// thread holds it without borrowing the store.
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 struct ContentStore {
-    content: Option<content::Content>,
+    content: Option<std::sync::Arc<content::Content>>,
     made: std::collections::BTreeMap<String, Gd<Object>>,
 }
 
@@ -153,7 +156,7 @@ impl ContentStore {
         }
         match content::Content::load(std::path::Path::new(&root.to_string())) {
             Ok(loaded) => {
-                self.content = Some(loaded);
+                self.content = Some(std::sync::Arc::new(loaded));
                 GString::new()
             }
             Err(error) => GString::from(&error.to_string()),

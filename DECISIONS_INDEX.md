@@ -157,7 +157,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 148 | Open questions are GitHub issues; the rest of the project's memory stays in the repo | 6871 | amended by 155, 158 |
 | 149 | Documentation is part of done: README, changelog and docs/ in every PR | 6929 |  |
 | 150 | A pass reads each column and builds each index once, not once per squad or per pair | 6970 |  |
-| 151 | A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour | 7015 |  |
+| 151 | A ported pass retires its GDScript twin; a performance change may change outcomes, never behaviour | 7015 | amended by 160 |
 | 152 | The whole simulation is a Rust library; Godot presents it | 7069 |  |
 | 153 | The Rust crate owns the content schema; the designer writes it | 7124 |  |
 | 154 | The simulation is tested under cargo, one phase at a time on a built state | 7161 |  |
@@ -165,3 +165,5 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
 | 157 | Spec 39's ports may open more files than the OCP check allows | 7341 |  |
 | 158 | A long series of steps runs as a cascade: a coordinator, and one record edited in place | 7380 |  |
+| 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 |  |
+| 160 | A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test | 7507 |  |

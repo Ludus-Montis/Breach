@@ -6,6 +6,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::content::Content;
+use crate::threads::Threads;
 
 const SECOND: i64 = 10;
 
@@ -197,4 +198,36 @@ fn a_struck_router_may_surrender_unless_it_never_does() {
     assert!(surrenders(&columns, &brave, 1, 1, 0.5).iter().all(|&t| !t));
     columns.hp.iter_mut().for_each(|hp| *hp = 0);
     assert!(surrenders(&columns, &caught, 1, 1, 0.5).iter().all(|&t| !t));
+}
+
+// Threads (spec 39 step 10c-iii).
+
+/// 40 bodies along a line, 12 cells apart, of both sides, each with a foe beside it and some
+/// with a second, some guarded by a friend, tended with `threaded`: what was taken, what
+/// fell, and every unit's hp.
+fn crowded(threaded: Threads) -> (Vec<Taken>, Vec<i64>, Vec<i32>) {
+    let mut b = Built::default();
+    for i in 0..40i64 {
+        let x = i as f32 * 12.0;
+        let (side, foe) = if i % 4 == 1 { (1, 0) } else { (0, 1) };
+        b.unit(side as usize, 1000 + i, side, (x, 0.0), -((i % 3) as i32));
+        b.unit(2 + foe as usize, 2000 + i, foe, (x + 1.0, 0.0), 10);
+        if i % 3 == 0 {
+            b.unit(4 + foe as usize, 3000 + i, foe, (x, 1.5), 10);
+        }
+        if i % 5 == 0 {
+            b.unit(6 + side as usize, 4000 + i, side, (x - 3.0, -2.0), 10);
+        }
+    }
+    let mut t = tuning();
+    t.threaded = threaded;
+    let tending = b.tend(&t);
+    (tending.taken, tending.fell, b.columns.hp.clone())
+}
+
+#[test]
+fn the_tending_is_the_same_on_the_pool() {
+    let one = crowded(Threads::One);
+    assert!(one.0.len() > 1, "takings to compare");
+    assert_eq!(one, crowded(Threads::Always));
 }

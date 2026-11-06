@@ -16,6 +16,7 @@ use crate::events::{self, Log};
 use crate::field::Field;
 use crate::locks;
 use crate::squads::{Squads, CARRIED, DEAD, DOWNED};
+use crate::words::level_of;
 
 /// BattleTuning's load_pace, load_tiring and load_dodge: each by load stage.
 #[derive(Clone, Debug, Default)]
@@ -152,7 +153,8 @@ fn hold(
         return;
     }
     field.columns.sheet[bearer.slot].carrying = 0;
-    let unit = bearer_of(field, bearer.slot, bearer.id);
+    let codes = field.lexicon.codes(["strength", "hauler"]);
+    let unit = bearer_of(field, &codes, bearer.slot, bearer.id);
     bear(field, &unit, None, tuning);
     changed(out, bearer);
 }
@@ -170,7 +172,9 @@ fn picked(
     if !listed.iter().any(|&s| tending(squads, s)) {
         return;
     }
-    let carrying: Vec<Carrying> = listed.iter().map(|&s| carrying_of(squads, field, s)).collect();
+    let codes = field.lexicon.codes(["strength", "hauler"]);
+    let carrying: Vec<Carrying> =
+        listed.iter().map(|&s| carrying_of(squads, field, &codes, s)).collect();
     for (body, bearer) in pick_up(&field.columns, &carrying, seed, tuning.0) {
         let (b, r) = (&carrying[body.0].downed[body.1], &carrying[bearer.0].living[bearer.1]);
         let sheets = &mut field.columns.sheet;
@@ -188,8 +192,11 @@ fn picked(
     }
 }
 
+/// The words a bearer reads, coded once for the pass: strength and "hauler".
+type Codes = [Option<u32>; 2];
+
 /// The squad in slot `s` as the pick-up is given it: its living, and its downed lying.
-fn carrying_of(squads: &Squads, field: &Field, s: usize) -> Carrying {
+fn carrying_of(squads: &Squads, field: &Field, codes: &Codes, s: usize) -> Carrying {
     let columns = &field.columns;
     let living = squads.living(s, &columns.state).into_iter().map(|u| u as usize);
     let downed = squads.downed(s, &columns.state).into_iter().map(|u| u as usize);
@@ -197,7 +204,7 @@ fn carrying_of(squads: &Squads, field: &Field, s: usize) -> Carrying {
     Carrying {
         faction: squads.faction[s],
         tending: tending(squads, s),
-        living: living.map(|slot| bearer_of(field, slot, id(slot))).collect(),
+        living: living.map(|slot| bearer_of(field, codes, slot, id(slot))).collect(),
         downed: downed
             .filter(|&slot| columns.state[slot] == DOWNED)
             .map(|slot| {
@@ -211,17 +218,18 @@ fn carrying_of(squads: &Squads, field: &Field, s: usize) -> Carrying {
 
 /// The unit in `slot` as a bearer: its faction, whether it bears a body, its gear, its
 /// strength (10 if none is said) and its "hauler".
-fn bearer_of(field: &Field, slot: usize, id: i64) -> Bearer {
+fn bearer_of(field: &Field, codes: &Codes, slot: usize, id: i64) -> Bearer {
+    let [strength, hauler] = *codes;
     let (sheet, words) = (&field.columns.sheet[slot], &field.columns.words[slot]);
-    let level = |levels, word, none: f64| field.lexicon.level(levels, word).unwrap_or(none);
+    let level = |levels, code, none: f64| level_of(levels, code).unwrap_or(none);
     Bearer {
         id,
         slot,
         faction: words.faction_id,
         carrying: sheet.carrying != 0,
         gear_weight: sheet.gear_weight,
-        strength: level(&words.attributes, "strength", 10.0) as i64,
-        hauler: level(&words.traits, "hauler", 0.0) as i64,
+        strength: level(&words.attributes, strength, 10.0) as i64,
+        hauler: level(&words.traits, hauler, 0.0) as i64,
     }
 }
 

@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::build::{reversed, scrum, Fighter, Side};
 use crate::scrum::IDLE;
+use crate::threads::Threads;
 use crate::walk_store::{self, WalkSay};
 
 const SEED: i64 = 9;
@@ -18,7 +19,8 @@ fn v(x: f32, y: f32) -> V2 {
 
 fn params() -> Params {
     // BattleTuning's bodies_steer_look, bodies_steer_clear, bodies_ground_drag and _block.
-    Params { seed: SEED, seconds: 0.1, look: 3.0, clear: 0.05, drag: 1.0, block: 8.0 }
+    let threaded = Threads::One;
+    Params { seed: SEED, seconds: 0.1, look: 3.0, clear: 0.05, drag: 1.0, block: 8.0, threaded }
 }
 
 /// What the walk is told of one unit: its id, what the seek made of it, its next point.
@@ -31,6 +33,16 @@ struct Told {
 /// Unit id -> where it stands after one walk of the units `told` of squad 1 (its frame
 /// facing east from the origin), over the bodies `lying`.
 fn walked(field: &mut Field, told: &[Told], lying: &[V2]) -> BTreeMap<i64, V2> {
+    walked_on(field, told, lying, Threads::One)
+}
+
+/// `walked`, the walk threaded as `threaded` says.
+fn walked_on(
+    field: &mut Field,
+    told: &[Told],
+    lying: &[V2],
+    threaded: Threads,
+) -> BTreeMap<i64, V2> {
     let members: Vec<i32> =
         told.iter().map(|t| field.flat_of[field.body_of(t.id).unwrap() as usize] as i32).collect();
     for t in told {
@@ -48,7 +60,7 @@ fn walked(field: &mut Field, told: &[Told], lying: &[V2]) -> BTreeMap<i64, V2> {
     };
     let squads = [1, 1, told.len() as i64];
     let speeds = vec![1.0; told.len()];
-    let p = params();
+    let p = Params { threaded, ..params() };
     let out = walk_store::walk(field, &squads, &say, &members, &codes, &nexts, &speeds, [1, 2], &p);
     told.iter().map(|t| t.id).zip(out.ats).collect()
 }
@@ -136,4 +148,28 @@ fn the_walk_is_the_same_whatever_the_list_order() {
         told.iter().rev().map(|t| Told { id: t.id, code: t.code, next: t.next }).collect();
     let backward = walked(&mut scrum(&sides, SEED), &told_back, &[v(0.7, 1.0)]);
     assert_eq!(forward, backward);
+}
+
+#[test]
+fn the_walk_is_the_same_on_the_pool() {
+    let player: Vec<Fighter> = (0..40)
+        .map(|n| Fighter::grem(100 + n, v((n % 8) as f32 * 0.9, (n / 8) as f32 * 0.9), 90.0))
+        .collect();
+    let foes = (0..4).map(|n| Fighter::grem(200 + n, v(8.0, n as f32 * 1.1), 270.0)).collect();
+    let sides = vec![
+        Side { id: 1, faction: "player", flags: 0, fighters: player },
+        Side { id: 2, faction: "kingdom", flags: 0, fighters: foes },
+    ];
+    let code = |n: i64| [AIM, PRESS, STAND, IDLE][(n % 4) as usize];
+    let told: Vec<Told> = (0..40)
+        .map(|n| Told { id: 100 + n, code: code(n), next: v(7.5, (n % 5) as f32 * 0.8) })
+        .collect();
+    let lying = [v(2.0, 1.0), v(4.5, 2.0)];
+    let one = walked_on(&mut scrum(&sides, SEED), &told, &lying, Threads::One);
+    let pool = walked_on(&mut scrum(&sides, SEED), &told, &lying, Threads::Always);
+    assert_eq!(one, pool);
+    assert!(
+        one.iter().filter(|(&id, at)| **at != sides[0].fighters[(id - 100) as usize].at).count()
+            >= 20
+    );
 }

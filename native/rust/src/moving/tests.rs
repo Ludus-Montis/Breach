@@ -36,7 +36,7 @@ struct Built {
 
 impl Built {
     fn field(&self) -> Field<'_> {
-        Field { squads: &self.squads, columns: &self.columns, roster: &self.roster }
+        Field::new(&self.squads, &self.columns, &self.roster)
     }
 }
 

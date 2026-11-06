@@ -10,6 +10,7 @@ use super::given::{Arg, Given};
 use super::Rules;
 use crate::parting::Tuning;
 use crate::paths::PathTuning;
+use crate::threads::Threads;
 use crate::{
     aftermath, bands, carry, contact, discipline, ending, fight, landing, march, morale, moving,
     mustering, near, opening, pathing, pursuit, regroup, rout, scrum, split, stamina, taking,
@@ -26,7 +27,7 @@ pub fn of(given: &Given) -> Option<(PathTuning, Rules<'static>)> {
     );
     let s = &given.scrum;
     let phases = [floats(s, 2)?, floats(s, 3)?, floats(s, 4)?, floats(s, 5)?, floats(s, 6)?];
-    let scrum = scrum_rules(ints(s, 0)?, real(s, 1)?, phases);
+    let mut scrum = scrum_rules(ints(s, 0)?, real(s, 1)?, phases);
     let a = &given.aftermath;
     let aftermath =
         aftermath_rules(ints(a, 0)?, floats(a, 1)?, ints(a, 2)?, floats(a, 3)?, floats(a, 4)?);
@@ -38,6 +39,10 @@ pub fn of(given: &Given) -> Option<(PathTuning, Rules<'static>)> {
     let e = &given.ending;
     let ending =
         ending_rules(ints(e, 0)?, [floats(e, 1)?, floats(e, 2)?, floats(e, 3)?, floats(e, 4)?]);
+    scrum.seek.threaded = ending.threaded;
+    let (mut aftermath, mut mustering) = (aftermath, mustering);
+    aftermath.wounds.threaded = ending.threaded;
+    mustering.rout.threaded = ending.threaded;
     Some((climb, Rules { opening, scrum, aftermath, mustering, ending }))
 }
 
@@ -191,6 +196,7 @@ pub(crate) fn seek_rules(i: &[i64], f: &[f64]) -> scrum::seek::Rules {
         drag: f[7],
         block: f[8],
         front: f[9],
+        threaded: Threads::One, // the tick's, set in `of` from the ending's
     }
 }
 
@@ -374,7 +380,7 @@ pub(crate) fn ending_rules(i: &[i64], floats: [&[f64]; 4]) -> ending::Rules {
         seed: i[1],
         stamina: stamina_tuning(stamina),
         parting: Tuning { passes: b[0] as i64, resist: b[1], brush: b[2] },
-        threaded: i[2] != 0,
+        threaded: Threads::of_code(i[2]),
         shuffle: [f[0], f[1], f[2]],
         timing: [f[0], f[3]],
         walk: walk_tuning_of(walk),

@@ -55,7 +55,8 @@ pub fn regrouping(squads: &Squads, slot: usize) -> bool {
 /// hold, or skirmishing (Decision 47). Its state becomes holding or moving.
 pub fn hold(squads: &mut Squads, columns: &Columns, roster: &Roster, listed: usize) -> bool {
     let slot = roster.listed[listed].squad;
-    let holds = squads.order[slot] == HOLD || Field { squads, columns, roster }.skirmishing(listed);
+    let holds =
+        squads.order[slot] == HOLD || Field::new(squads, columns, roster).skirmishing(listed);
     squads.state[slot] = if holds { HOLDING } else { MOVING };
     holds
 }

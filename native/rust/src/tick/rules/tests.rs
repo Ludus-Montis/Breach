@@ -4,6 +4,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::content::{BattleTuning, Content};
+use crate::threads::Threads;
 use crate::tick::given::{self, At, Paces};
 
 fn tuning() -> BattleTuning {
@@ -11,7 +12,7 @@ fn tuning() -> BattleTuning {
 }
 
 fn given(tick: i64) -> Given {
-    let at = At { tick, seed: 7, ticks_a_second: 10, rolls: true, threaded: false };
+    let at = At { tick, seed: 7, ticks_a_second: 10, rolls: true, threaded: Threads::One };
     let paces = Paces { travel_scale: 0.5, seconds: 0.1, route_length: 12.0, cells_a_second: 32.0 };
     given::of(&tuning(), &at, &paces)
 }

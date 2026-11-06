@@ -21,6 +21,7 @@ use crate::field_play::{FieldPlay, A, B};
 use crate::locks;
 use crate::play::{starts, Play};
 use crate::squads::Squads;
+use crate::threads::Threads;
 
 /// BattleTrials.SCENARIOS, in its order.
 pub const SCENARIOS: [&str; 6] =
@@ -46,12 +47,12 @@ pub struct Options {
     pub captain: bool,
     pub first_seed: i64,
     pub swap: bool,
-    pub threaded: bool,
+    pub threaded: Threads,
 }
 
 impl Default for Options {
     fn default() -> Options {
-        Options { rolls: true, captain: false, first_seed: 1, swap: false, threaded: true }
+        Options { rolls: true, captain: false, first_seed: 1, swap: false, threaded: Threads::Pool }
     }
 }
 

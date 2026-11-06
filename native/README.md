@@ -260,7 +260,7 @@ gates them (the GDScript `scaling_check.gd` retired in spec 39 step 9d-iii).
 ### Tick phases (`breach_tick_phases`, where a tick's time goes)
 
 `native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
-[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false]` brings
+[stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] [threaded=true|false|always]` brings
 the same battle to its fight as tick_phases.gd does and times `fight` of the crate's own ticks
 pass by pass, with no Godot (spec 39 step 8c-xviii). Each pass of the tick ends a lap
 (`src/laps.rs`), counted only while the bench times it, and the lines are printed as
@@ -285,6 +285,24 @@ slots it changed and the living units as it began, a lap, and the share changed.
 shows the field to a watcher (`laps::watched`), which copies the store's columns; it runs only
 under `counts=1`, on the untimed battle, so the timed one is timed as without it. The count
 lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
+
+`preset=4096` and `preset=25k` (spec 39 step 10a, Decision 159, `src/phases/presets.rs`) are
+the daily bench and the target: a series from contact of 4 and of 24 lanes of 1,024 a side,
+to the default limit. An argument given beside a preset wins over its own. Each series ends
+when a side has no squad left that isn't routing: 16 ticks after contact at 4096 and 14 at
+25k (both from tick 91), well inside the limit. `scatter=1` (`src/phases/scatter.rs`) follows
+with how scattered each squad's unit-store slots are, where the timing began and where it
+ended: its runs of consecutive slots and the slots it spans, each beside what packed would
+be. Both presets start packed. The lines start `scatter`, which `bench_compare.py` skips.
+
+The `bench` workflow's `base_args` runs the base side with its own arguments. With no
+`base`, that is one commit run two ways in turn on one runner (threads on and off, or the two
+presets). `scale` then runs `ci/godot/scripts/bench_scaling.py`, which sets each phase's
+median at the head's size over its median at the base's. `args=preset=25k`,
+`base_args=preset=4096` and `scale=6` (the ratio of their squads; each lane is the same size,
+so `breach_scaling`'s one-squad growth doesn't enter) say whether the 4096 bench can stand in
+for the target: the tick within a fifth of ×6 either way, and phases that grew past that
+marked `^`.
 
 ### Rout and native benches (`breach_rout_bench`, `breach_native_bench`)
 
@@ -328,6 +346,31 @@ Windows.
 
 Each set gives the same file under the release and the dev build, with and without
 `BREACH_NATIVE_THREADS=1`.
+
+**Threads** (spec 39 step 10c, `src/threads.rs`): the tools' `threaded=` is `true` (the
+default: a pass runs on Rayon's pool from `threads::FROM`, 4,096 units, so a small battle stays
+on one thread), `false` (one thread) or `always` (the pool at any size). `breach_digest` and
+`breach_trials` take it too, and CI's `sim-checks` takes each digest set, every trial scenario
+and the fatigue trials with `threaded=false` and `threaded=always` and requires them equal to
+the default's, to the byte. The game threads the same way by default (step 10c-iii):
+`BREACH_NATIVE_THREADS=0` keeps it on one thread and `always` puts every pass on the pool. The
+passes that thread: parting, and (10c-ii) the walk and the facing, whole, and the seek's
+per-squad search. The seek's claims stay on one thread in contest order, since each reads the
+claims before it. (10c-iii) The rout's flight, each router's step and crush taken apart and
+written in order, its rallies' searches and its regroup's enemy search; and tend's takers'
+searches, each body's guard read first. What each lands (crushes, panics, joins, takings)
+stays on one thread in order.
+
+**The worker** (spec 39 step 10d-i, `src/worker.rs`): `Worker::start` runs a simulation with
+`Steps` (the field's is `field_play::sim::FieldSim`) on its own thread. The caller owes ticks
+(at most `MOST_OWED`, 2; `owe` says when time was dropped), queues orders (applied at the next
+boundary between ticks and stamped with that tick) or a replay's (`order_at`), pauses, and
+takes the published snapshots (`ready`) without ever waiting; `run_ticks` waits, for tests and
+tools. Each snapshot carries its tick's events, and copies the drawn columns only when they
+changed. `reached` is the tick the field reaches once what is owed is played, and `run_ticks`
+also waits for every order given before it. The 2D feel test plays on it (step 10d-ii):
+`FieldState` wraps a `field_play::player::FieldPlayer`, whose reads show the newest snapshot;
+each frame owes the clock's ticks (`owe`) and takes what was played (`take`), never waiting.
 
 The suite proved the same while the twin lived (history: since spec 39 step 6a there is one
 engine, and these tests keep only what doesn't compare engines):

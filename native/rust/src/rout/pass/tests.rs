@@ -23,6 +23,7 @@ const TUNING: RoutTuning = RoutTuning {
     enemy_near: 6.0,
     reformed_morale: 30,
     steady_at: 50,
+    threaded: crate::threads::Threads::One,
 };
 const HURT: RoutShocks = RoutShocks { crush: 2, panic: 5, seen: 7 };
 const BANDS: BandTuning =

@@ -8,8 +8,9 @@ extends CanvasLayer
 ## and the battle seed. Reset starts a fresh field, with the seed typed in or a random
 ## one, keeping the ticked options. Below, this run's action log (the field's record)
 ## to copy, and a box to paste a log into: Replay restarts on its seed and plays its
-## actions at their ticks, live (pause still works), counting them off. Engine glue: it
-## reads the crate's field (`FieldState`, spec 39 step 9d-i).
+## actions at their ticks, live (pause still works), counting them off. "SIMULATION BEHIND"
+## shows when the simulation couldn't keep up and time was dropped. Engine glue: it reads the
+## crate's field (`FieldState`, spec 39 step 9d-i), its newest snapshot (step 10d-ii).
 
 ## The field's tick, in seconds (the scene's SkirmishClock's).
 const TICK_SECONDS := 0.1
@@ -138,8 +139,9 @@ static func _toggle(action: String, on: bool) -> String:
 	return "%s %s" % [action, "on" if on else "off"]
 
 
-## `field`: the scene's FieldState.
-func show_status(field: Object, paused: bool, battle_seed: int) -> void:
+## `field`: the scene's FieldState; `behind`: time was dropped lately (the worker was owed
+## more than it could play).
+func show_status(field: Object, paused: bool, battle_seed: int, behind := false) -> void:
 	var built := []
 	var waves: Dictionary = field.waves()
 	for key in waves:
@@ -151,7 +153,7 @@ func show_status(field: Object, paused: bool, battle_seed: int) -> void:
 	var line: Dictionary = squads[kingdom[0]]
 	var halted := squads.values().any(func(s): return s["blocked"])
 	_status.text = (
-		"Tick %d (%.1fs)   Waves: %s   Line: %d (%s)   Reserve: %d   Seed: %d%s%s"
+		"Tick %d (%.1fs)   Waves: %s   Line: %d (%s)   Reserve: %d   Seed: %d%s%s%s"
 		% [
 			field.tick_number(),
 			field.tick_number() * TICK_SECONDS,
@@ -162,6 +164,7 @@ func show_status(field: Object, paused: bool, battle_seed: int) -> void:
 			battle_seed,
 			"   BLOCKED" if halted else "",
 			"   (paused)" if paused else "",
+			"   SIMULATION BEHIND" if behind else "",
 		]
 	)
 	var log: String = _scene.action_log()

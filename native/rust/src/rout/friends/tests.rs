@@ -146,7 +146,7 @@ fn least<K: PartialOrd>(
 #[test]
 fn crushing_finds_the_friend_every_unit_would() {
     let f = field();
-    let mut friends = f.friends();
+    let friends = f.friends();
     let n = f.routing[0];
     let mut hits = 0;
     for at in points() {
@@ -168,7 +168,7 @@ fn crushing_finds_the_friend_every_unit_would() {
 #[test]
 fn catching_finds_the_friend_every_unit_would() {
     let f = field();
-    let mut friends = f.friends();
+    let friends = f.friends();
     let n = f.routing[1];
     let home = 0.0;
     let mut found = 0;
@@ -202,7 +202,7 @@ fn catching_finds_the_friend_every_unit_would() {
 #[test]
 fn a_refuge_is_the_friend_every_unit_gives_and_turning_aside_its_ranks_edge() {
     let f = field();
-    let mut friends = f.friends();
+    let friends = f.friends();
     let n = f.routing[2];
     let mut found = 0;
     for (along, home) in [(14.0, 0.0), (2.0, 20.0)] {

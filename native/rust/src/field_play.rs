@@ -12,7 +12,9 @@
 pub mod actions;
 pub(crate) mod binding;
 pub mod carried;
+pub mod player;
 pub mod seen;
+pub mod sim;
 #[cfg(test)]
 mod tests;
 
@@ -29,6 +31,7 @@ use crate::rendezvous;
 use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::tick::Ticked;
 use crate::waves::{Builders, Painted, Produced, Template, Wave};
 
@@ -86,7 +89,7 @@ impl FieldPlay {
         captained: bool,
         (squads, field): (&mut Squads, &mut Field),
         content: &Content,
-        (seed, rolls, threaded): (i64, bool, bool),
+        (seed, rolls, threaded): (i64, bool, Threads),
     ) -> Option<FieldPlay> {
         let (grem, chieftain) = (content.units.get(GREM)?, content.units.get(CHIEFTAIN)?);
         let battle = Battle::Field { captained };

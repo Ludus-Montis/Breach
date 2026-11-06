@@ -7,6 +7,8 @@
 //! A second battle steps untimed beside it, and the two must end equal, or it says so.
 
 pub mod counts;
+pub mod presets;
+pub mod scatter;
 pub mod series;
 #[cfg(test)]
 pub(crate) mod tests;
@@ -21,6 +23,7 @@ use crate::locks::RETREAT;
 use crate::orders;
 use crate::play::{starts, told, Play};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::tick::Ticked;
 
 /// FormationBench.CONTACT_LIMIT: ticks a battle may take to come to contact.
@@ -42,7 +45,7 @@ pub struct Options {
     pub retreat: Option<i64>,
     pub squads: usize,
     pub archers: usize,
-    pub threaded: bool,
+    pub threaded: Threads,
     /// `terrain=mixed`: the clash on FormationBench's mixed ground (one lane only).
     pub mixed: bool,
 }
@@ -59,7 +62,7 @@ impl Default for Options {
             retreat: None,
             squads: 1,
             archers: 0,
-            threaded: true,
+            threaded: Threads::Pool,
             mixed: false,
         }
     }

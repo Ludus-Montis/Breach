@@ -47,8 +47,13 @@ impl Lexicon {
 
     /// The level `said` (a unit's traits or attributes) gives `word`, if it names it.
     pub fn level(&self, said: &[(u32, f64)], word: &str) -> Option<f64> {
-        let code = self.find(word)?;
-        said.iter().find(|&&(named, _)| named == code).map(|&(_, level)| level)
+        level_of(said, self.find(word))
+    }
+
+    /// The codes of `names`, in their order: a pass looks its words up once, not once a unit
+    /// (spec 39 step 10b).
+    pub fn codes<const N: usize>(&self, names: [&str; N]) -> [Option<u32>; N] {
+        names.map(|name| self.find(name))
     }
 
     /// Every word, by its code.
@@ -60,6 +65,12 @@ impl Lexicon {
     pub fn word(&self, code: u32) -> &str {
         self.words.get(code as usize).map_or("", String::as_str)
     }
+}
+
+/// The level `said` (a unit's traits or attributes) gives the word coded `code`, if any.
+pub fn level_of(said: &[(u32, f64)], code: Option<u32>) -> Option<f64> {
+    let code = code?;
+    said.iter().find(|&&(named, _)| named == code).map(|&(_, level)| level)
 }
 
 /// One of a weapon's parts: its damage, its damage type's code and whether it is magical.
@@ -153,6 +164,18 @@ mod tests {
         assert_eq!(lexicon.code("player"), 1);
         assert_eq!((lexicon.find("fire"), lexicon.find("wits")), (Some(2), None));
         assert_eq!((lexicon.word(2), lexicon.word(0), lexicon.word(9)), ("fire", "", ""));
+    }
+
+    #[test]
+    fn a_pass_codes_its_words_once_and_reads_levels_by_code() {
+        let mut lexicon = Lexicon::default();
+        let wits = lexicon.code("wits");
+        let said = [(wits, 7.0)];
+
+        let [found, missing] = lexicon.codes(["wits", "cunning"]);
+
+        assert_eq!((found, missing), (Some(wits), None));
+        assert_eq!((level_of(&said, found), level_of(&said, missing)), (Some(7.0), None));
     }
 
     #[test]

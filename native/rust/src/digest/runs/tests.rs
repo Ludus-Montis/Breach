@@ -3,6 +3,7 @@
 use super::*;
 use crate::content::tests::repo_content;
 use crate::digest;
+use crate::threads::Threads;
 
 fn content() -> Content {
     Content::load(&repo_content()).expect("the repo's content loads")
@@ -67,12 +68,13 @@ fn a_battle_s_hash_chains_every_tick_s_record() {
     let mut run = runs("standard").unwrap().remove(0);
     run.limit = 4;
     let mut told = Vec::new();
-    let (ticks, hash) = run.digest(&content, false, &mut |tick, one, _| told.push((tick, *one)));
+    let (ticks, hash) =
+        run.digest(&content, Threads::One, &mut |tick, one, _| told.push((tick, *one)));
 
     let (mut squads, mut field, mut log) = (Squads::default(), Field::default(), Log::default());
     let battle = crate::battles::named("mirror_headon", &[0]).unwrap();
     let mut play =
-        Play::new(&battle, (&mut squads, &mut field), &content, (1, true, false)).unwrap();
+        Play::new(&battle, (&mut squads, &mut field), &content, (1, true, Threads::One)).unwrap();
     let mut records = Vec::new();
     let mut watch = Watch::new(4, None);
     digest::battle(
@@ -96,13 +98,13 @@ fn a_field_s_hash_chains_every_tick_s_record() {
     let content = content();
     let text = "record 1 seed 515557 captain off\n0 kingdom pursue all off\n2 player send B";
     let run = Run { label: "field r".into(), kind: Kind::Field(text), rolls: false, limit: 3 };
-    let (ticks, hash) = run.digest(&content, false, &mut |_, _, _| {});
+    let (ticks, hash) = run.digest(&content, Threads::One, &mut |_, _, _| {});
 
     let (mut squads, mut field, mut log) = (Squads::default(), Field::default(), Log::default());
     let record = crate::record::parse(text).unwrap();
     let mut records = Vec::new();
     let crate_ = (&mut squads, &mut field);
-    digest::field(&record, 3, crate_, &content, (false, false), &mut log, &mut |r| {
+    digest::field(&record, 3, crate_, &content, (false, Threads::One), &mut log, &mut |r| {
         records.push(r.record())
     });
     assert_eq!(ticks, 5);
@@ -114,5 +116,5 @@ fn a_run_that_can_t_be_set_up_has_no_hash() {
     let content = content();
     let run =
         Run { label: "field r".into(), kind: Kind::Field("not a record"), rolls: true, limit: 3 };
-    assert_eq!(run.digest(&content, false, &mut |_, _, _| {}), (0, None));
+    assert_eq!(run.digest(&content, Threads::One, &mut |_, _, _| {}), (0, None));
 }

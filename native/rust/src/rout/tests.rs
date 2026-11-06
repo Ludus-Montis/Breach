@@ -10,6 +10,7 @@ use crate::det_math;
 use crate::ground::{GroundTuning, Paint, Walker};
 use crate::roster::{Listed, Member};
 use crate::route::Route;
+use crate::threads::Threads;
 
 pub(crate) const SEED: i64 = 7;
 const GREM: Walker = Walker { height: 1.0, swimmer: 0, climber: 0, swims: false, climbs: false };
@@ -24,6 +25,7 @@ const TUNING: RoutTuning = RoutTuning {
     enemy_near: 6.0,
     reformed_morale: 30,
     steady_at: 50,
+    threaded: Threads::One,
 };
 
 pub(crate) fn member(id: i64, slot: usize) -> Member {
@@ -488,4 +490,69 @@ fn an_enemy_near_keeps_a_rout_from_re_forming_and_a_leaderless_one_never_does() 
     assert!(b.regroup().is_empty());
     assert_eq!(b.squads.rally_ticks[s], 49);
     assert_eq!(b.regroup(), vec![0]);
+}
+
+// Threads (spec 39 step 10c-iii).
+
+/// Two routs of 30 fleeing along one route through a led steady friend and a shaken one, a
+/// third rout alone in its faction, and a foe near one rout, taken through the flight, the
+/// rallies and the regroup with `threaded`: what each decided and wrote.
+#[allow(clippy::type_complexity)]
+fn crowded(threaded: Threads) -> (Vec<Fled>, Rallied, Vec<usize>, Vec<(f64, V2, f64, i64, i64)>) {
+    let mut b = Built::default();
+    let route = east(80.0);
+    let routs = [b.routing(0, route.clone(), 0.0), b.routing(0, route, 0.0)];
+    for (k, &n) in routs.iter().enumerate() {
+        for i in 0..30 {
+            let id = 100 * (k as i64 + 1) + i;
+            let offset = v(0.0, ((i * 7 + k as i64 * 3) % 11) as f32 * 0.4 - 2.0);
+            b.router(n, id, 12.0 + (i as f64) * 1.7 + k as f64 * 0.6, offset, i % 3);
+        }
+    }
+    let lone = b.routing(1, None, 0.0);
+    for i in 0..6 {
+        b.router(lone, 900 + i, 20.0 + i as f64, V2::ZERO, 1);
+    }
+    let steady = b.formation(0, locks::HOLDING, 60);
+    let shaken = b.formation(0, locks::HOLDING, 10);
+    for i in 0..20 {
+        let at = v(14.0 + (i as f32) * 2.3, ((i * 5) % 7) as f32 * 0.5 - 1.5);
+        b.unit(if i % 2 == 0 { steady } else { shaken }, 500 + i, at, (i % 4 == 0) as i64);
+    }
+    let foe = b.formation(2, locks::MOVING, 50);
+    b.unit(foe, 700, v(40.0, 3.0), 0);
+    for n in [routs[0], routs[1], lone] {
+        let s = b.squad(n);
+        b.squads.rally_ticks[s] = 49;
+        let slot = b.roster.listed[n].living[0].slot;
+        b.columns.caught[slot] = 1;
+    }
+    let mut tuning = TUNING;
+    tuning.threaded = threaded;
+    let leaders = b.leaders();
+    let (squads, columns) = (&mut b.squads, &mut b.columns);
+    let fled = flee(squads, columns, &b.roster, &b.routing, &leaders, &tuning, SEED, None);
+    let morale: Vec<(i64, i64)> =
+        b.roster.listed.iter().map(|l| (b.squads.morale[l.squad] as i64, 0)).collect();
+    let (squads, columns) = (&b.squads, &mut b.columns);
+    let rallied = rallies(squads, columns, &b.roster, &b.routing, &leaders, &morale, &tuning, SEED);
+    let slots: Vec<(i64, usize)> =
+        b.roster.listed.iter().flat_map(|l| l.living.iter().map(|m| (m.id, m.slot))).collect();
+    let slot_of = |id: i64| slots.iter().find(|s| s.0 == id).map(|s| s.1);
+    let (squads, columns) = (&mut b.squads, &mut b.columns);
+    let regrouped =
+        regroup(squads, columns, &b.roster, &b.routing, &leaders, &tuning, SEED, slot_of);
+    let c = &b.columns;
+    let units = (0..c.position.len())
+        .map(|u| (c.along[u], c.flee_offset[u], c.fanned[u], c.caught[u], c.keys[u] as i64))
+        .collect();
+    (fled, rallied, regrouped, units)
+}
+
+#[test]
+fn the_rout_is_the_same_on_the_pool() {
+    let (one, pool) = (crowded(Threads::One), crowded(Threads::Always));
+    assert!(one.0.iter().any(|f| matches!(f, Fled::Crushed { .. })), "a crush to compare");
+    assert!(!one.1.joins.is_empty(), "a rally to compare");
+    assert_eq!(one, pool);
 }

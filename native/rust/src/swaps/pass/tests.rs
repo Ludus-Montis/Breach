@@ -93,3 +93,24 @@ fn a_squad_not_re_forming_starts_no_move() {
     assert!(b.squads.swaps[0].is_empty());
     assert_eq!((b.rank(100), b.rank(101)), (0, 1));
 }
+
+#[test]
+fn a_re_form_that_started_nothing_is_not_planned_again_till_what_it_reads_changes() {
+    let mut b = built(1);
+    for id in [100, 101] {
+        let slot = b.field.slot_of(id).unwrap() as usize;
+        b.field.columns.speed[slot] = 0.01; // a swap of many ticks
+    }
+    b.step(); // the swap begins
+    b.step(); // nothing more can start
+    for _ in 0..3 {
+        b.step();
+    }
+    assert_eq!(b.squads.reforming[0], 1, "still re-forming while its swap is under way");
+    assert_eq!(b.field.reforms.planned(), 2, "planned twice, not once a tick");
+
+    let slot = b.field.slot_of(100).unwrap() as usize;
+    b.field.columns.speed[slot] = 0.02; // what it reads changed
+    b.step();
+    assert_eq!(b.field.reforms.planned(), 3);
+}

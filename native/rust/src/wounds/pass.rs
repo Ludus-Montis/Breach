@@ -18,6 +18,7 @@ use crate::field::Field;
 use crate::fight::surrender::TAKEN;
 use crate::shocks;
 use crate::squads::{Squads, DEAD, DOWNED};
+use crate::words::level_of as level;
 use crate::wounds::{self, Taken, Taking, Tended, WoundsTuning, AVERAGE};
 
 /// SkirmishUnit.State's RELEASED: sent home.
@@ -51,7 +52,11 @@ pub fn step(
     t: &Tuning,
     log: &mut Log,
 ) -> Vec<Landed> {
-    let tended: Vec<Tended> = listed.iter().map(|&s| tended(squads, field, s)).collect();
+    if !lying(squads, &field.columns.state, listed) {
+        return vec![]; // no body to take, so no unit's record to build (10b)
+    }
+    let codes = Codes::of(field);
+    let tended: Vec<Tended> = listed.iter().map(|&s| tended(squads, field, &codes, s)).collect();
     let tending = wounds::tend(&mut field.columns, &tended, interval, seed, t.wounds);
     for id in tending.fell {
         field.fell(id);
@@ -98,34 +103,58 @@ pub fn step(
     out
 }
 
+/// Whether any squad in `listed` has a body lying (DOWNED, not borne).
+pub fn lying(squads: &Squads, state: &[i32], listed: &[usize]) -> bool {
+    listed.iter().any(|&s| squads.members[s].iter().any(|&u| state[u as usize] == DOWNED))
+}
+
+/// The words the takings read, each coded once for the pass rather than looked up by name
+/// for every unit (10b).
+struct Codes {
+    captor: Option<u32>,
+    messenger: Option<u32>,
+    cunning: Option<u32>,
+    thorough: Option<u32>,
+    wits: Option<u32>,
+    constitution: Option<u32>,
+}
+
+impl Codes {
+    fn of(field: &Field) -> Codes {
+        let names = ["captor", "messenger", "cunning", "thorough", "wits", "constitution"];
+        let [captor, messenger, cunning, thorough, wits, constitution] = field.lexicon.codes(names);
+        Codes { captor, messenger, cunning, thorough, wits, constitution }
+    }
+}
+
 /// The squad in slot `s` as the takings read it: its living units and its bodies lying.
-fn tended(squads: &Squads, field: &Field, s: usize) -> Tended {
+fn tended(squads: &Squads, field: &Field, codes: &Codes, s: usize) -> Tended {
     let state = &field.columns.state;
     let lying = squads.members[s].iter().copied().filter(|&u| state[u as usize] == DOWNED);
+    let taking = |u: i32| taking(field, codes, u as usize);
     Tended {
-        living: squads.living(s, state).into_iter().map(|u| taking(field, u as usize)).collect(),
-        downed: lying.map(|u| taking(field, u as usize)).collect(),
+        living: squads.living(s, state).into_iter().map(taking).collect(),
+        downed: lying.map(taking).collect(),
     }
 }
 
 /// The unit in `slot` as the takings read it.
-fn taking(field: &Field, slot: usize) -> Taking {
+fn taking(field: &Field, codes: &Codes, slot: usize) -> Taking {
     let (sheet, words) = (&field.columns.sheet[slot], &field.columns.words[slot]);
-    let level = |said: &[(u32, f64)], name: &str| field.lexicon.level(said, name);
-    let trait_of = |name: &str| level(&words.traits, name).unwrap_or(0.0);
+    let trait_of = |code| level(&words.traits, code).unwrap_or(0.0);
     Taking {
         id: field.unit_at(slot as u32).unwrap_or(0),
         slot,
         faction: words.faction_id,
-        captor: trait_of("captor") > 0.0,
+        captor: trait_of(codes.captor) > 0.0,
         leads: sheet.leadership > 0,
         playing_dead: sheet.playing_dead,
-        messengers: trait_of("messenger") as i64,
+        messengers: trait_of(codes.messenger) as i64,
         dmg: sheet.dmg,
-        cunning: trait_of("cunning") as i64,
-        thorough: trait_of("thorough") as i64,
-        wits: level(&words.attributes, "wits").unwrap_or(AVERAGE),
-        constitution: level(&words.attributes, "constitution").unwrap_or(AVERAGE),
+        cunning: trait_of(codes.cunning) as i64,
+        thorough: trait_of(codes.thorough) as i64,
+        wits: level(&words.attributes, codes.wits).unwrap_or(AVERAGE),
+        constitution: level(&words.attributes, codes.constitution).unwrap_or(AVERAGE),
         melee_seconds: sheet.melee_seconds,
     }
 }

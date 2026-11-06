@@ -242,3 +242,16 @@ fn a_squad_that_arrived_holds_its_fire() {
     let all = seconds(&built);
     assert_eq!(chosen(&built, &all, 10), vec![(theirs, spitter, 10)]);
 }
+
+#[test]
+fn a_squads_aim_at_the_ranks_it_may_strike_is_worked_out_once_for_all_its_shooters() {
+    let (mut built, ours, theirs) = Built::facing(3.0);
+    let a = built.unit(ours, 1, (1, 0), 5);
+    let b = built.unit(ours, 2, (2, 0), 5);
+    let back = built.unit(theirs, 3, (1, 0), 5);
+    built.unit(theirs, 4, (0, 0), 0);
+    let marks = marks(&built.squads, &built.columns, &built.roster);
+    let shooters = [shooter(ours, a), shooter(ours, b), shooter(theirs, back)];
+    let aims = aims(&built.squads, &built.columns, &built.roster, &marks, &shooters);
+    assert_eq!(aims.iter().flatten().count(), 2);
+}

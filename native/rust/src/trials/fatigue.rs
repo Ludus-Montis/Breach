@@ -24,6 +24,7 @@ use crate::route::Route;
 use crate::spawn::{self, Placed, Spawn};
 use crate::squads::Squads;
 use crate::stamina;
+use crate::threads::Threads;
 
 /// FatigueTrials.LIMIT_TICKS: the most ticks a run plays.
 pub const LIMIT_TICKS: i64 = 3000;
@@ -62,7 +63,7 @@ pub fn run(
     contact_seconds: f64,
     runs: i64,
     first_seed: i64,
-    threaded: bool,
+    threaded: Threads,
     content: &Content,
 ) -> Option<Fatigue> {
     let mut out = Fatigue { pursued: 0.0, ticks: 0.0, stamina: 0.0, tired: 0, runs };
@@ -81,7 +82,7 @@ pub fn run(
 pub fn battle(
     contact_seconds: f64,
     seed: i64,
-    threaded: bool,
+    threaded: Threads,
     content: &Content,
 ) -> Option<Battle> {
     let (mut squads, mut field, mut log) = (Squads::default(), Field::default(), Log::default());

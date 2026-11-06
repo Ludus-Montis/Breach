@@ -10,7 +10,7 @@
 
 use crate::columns::Columns;
 use crate::contest;
-use crate::geometry::{self, Shape, RANK_DEPTH};
+use crate::geometry::{self, Shape, Spans, RANK_DEPTH};
 use crate::locks::{self, Locking};
 use crate::maths::snapped;
 use crate::roster::Roster;
@@ -22,16 +22,22 @@ const EPSILON: f64 = 0.000001;
 /// SkirmishUnit.Order.ADVANCE.
 const ADVANCE: i32 = 0;
 
-/// The squads as one decision reads them: the store's, and the roster's.
+/// The squads as one decision reads them: the store's, and the roster's, with each squad's
+/// spans kept while it stands (they can't change while it borrows them).
 pub struct Field<'a> {
     pub squads: &'a Squads,
     pub columns: &'a Columns,
     pub roster: &'a Roster,
+    spans: Spans,
 }
 
 impl<'a> Field<'a> {
-    fn shape(&self, n: usize) -> Shape<'a> {
-        Shape::of(self.squads, self.columns, &self.roster.listed[n])
+    pub fn new(squads: &'a Squads, columns: &'a Columns, roster: &'a Roster) -> Field<'a> {
+        Field { squads, columns, roster, spans: Spans::default() }
+    }
+
+    fn shape(&self, n: usize) -> Shape<'_> {
+        Shape::kept(self.squads, self.columns, &self.roster.listed[n], (&self.spans, n))
     }
 
     fn slot(&self, n: usize) -> usize {
@@ -241,7 +247,7 @@ pub fn fronts(
     let everyone: Vec<usize> = (0..roster.listed.len()).collect();
     let mut picks = Vec::new();
     {
-        let field = Field { squads, columns, roster };
+        let field = Field::new(squads, columns, roster);
         for attacker in 0..roster.listed.len() {
             let slot = roster.listed[attacker].squad;
             if !field.can_engage(attacker) || squads.engaged_with[slot] != 0 {
@@ -256,7 +262,7 @@ pub fn fronts(
         lock(squads, columns, roster, attacker, foe);
     }
     for &(_, foe) in &picks {
-        let field = Field { squads, columns, roster };
+        let field = Field::new(squads, columns, roster);
         if squads.engaged_with[roster.listed[foe].squad] != 0 || !field.can_engage(foe) {
             continue; // one getting away doesn't turn to fight (Decision 111)
         }
@@ -289,7 +295,7 @@ pub fn edges(
 ) -> Vec<Flanked> {
     let mut picks: Vec<((f64, i64, i64), usize, usize)> = Vec::new();
     {
-        let field = Field { squads, columns, roster };
+        let field = Field::new(squads, columns, roster);
         for attacker in 0..roster.listed.len() {
             let slot = roster.listed[attacker].squad;
             if !field.can_engage(attacker) || squads.engaged_with[slot] != 0 {

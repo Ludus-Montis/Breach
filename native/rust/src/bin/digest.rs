@@ -4,7 +4,7 @@
 //! the two outputs can be compared line for line (CI's `digests` jobs do).
 //!
 //!   native/bin/breach_digest [set=standard|clash160|wide] [out=<file of every tick's hash>]
-//!       [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>] [threaded=true|false]
+//!       [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>] [threaded=true|false|always]
 //!       [repo=<path>]
 //!
 //!   native/bin/breach_digest cuts=<dir> [repo=<path>]
@@ -30,10 +30,11 @@ use breach_native::content::Content;
 use breach_native::cuts;
 use breach_native::digest_runs::{line, runs, tick_line};
 use breach_native::digest_trace::{self, traced};
+use breach_native::threads::Threads;
 
 const USAGE: &str = "usage: breach_digest [set=standard|clash160|wide] [out=<file>] \
                      [only=<run label>] [trace=<file>] [from=<tick>] [to=<tick>] \
-                     [threaded=true|false] [repo=<path>]\n       \
+                     [threaded=true|false|always] [repo=<path>]\n       \
                      breach_digest cuts=<dir> [repo=<path>]";
 
 fn main() -> ExitCode {
@@ -77,7 +78,10 @@ fn main() -> ExitCode {
         eprintln!("breach_digest: from= and to= are ticks\n{USAGE}");
         return ExitCode::from(2);
     };
-    let threaded = args.get("threaded").is_none_or(|value| value != "false");
+    let Some(threaded) = Threads::parse(args.get("threaded").map(String::as_str)) else {
+        eprintln!("breach_digest: threaded= is true, false or always\n{USAGE}");
+        return ExitCode::from(2);
+    };
     let only = args.get("only").map_or("", String::as_str);
     let mut failed = false;
     for run in runs.iter().filter(|run| only.is_empty() || run.label == only) {

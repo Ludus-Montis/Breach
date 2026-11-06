@@ -28,6 +28,7 @@ use crate::paths::shares::Cache;
 use crate::paths::{Over, PathTuning};
 use crate::roster::{Listed, Member, Roster};
 use crate::squads::Squads;
+use crate::threads::Threads;
 use crate::tick::{self, given, Ticked};
 
 /// FormationSimulation.TRAVEL_SCALE: tiles a second at speed 1.
@@ -46,7 +47,7 @@ pub struct Play {
     pub tick: i64,
     pub seed: i64,
     pub rolls: bool,
-    pub threaded: bool,
+    pub threaded: Threads,
     /// The codes the set-up gave, for what is spawned later.
     pub(crate) codes: Codes,
     ground: Option<(Ground, Cache)>,
@@ -59,7 +60,7 @@ impl Play {
         battle: &Battle,
         (squads, field): (&mut Squads, &mut Field),
         content: &Content,
-        (seed, rolls, threaded): (i64, bool, bool),
+        (seed, rolls, threaded): (i64, bool, Threads),
     ) -> Option<Play> {
         let first = squads.count();
         let (set, codes) = battles::set_up_coded(battle, squads, field, content)?;
@@ -71,7 +72,11 @@ impl Play {
 
     /// A battle made with `set` and nothing set up on it yet (FormationSimulation.new), on its
     /// map's ground from `content`, seeded `seed`, its blows rolled if `rolls`.
-    pub fn open(set: Set, (seed, rolls, threaded): (i64, bool, bool), content: &Content) -> Play {
+    pub fn open(
+        set: Set,
+        (seed, rolls, threaded): (i64, bool, Threads),
+        content: &Content,
+    ) -> Play {
         let made = set.map.and_then(|name| crate::ground::map::of(name, &content.tuning));
         let ground =
             made.map(|map| (map.ground(GroundTuning::of(&content.tuning)), Cache::default()));

@@ -7,6 +7,7 @@ use crate::content::tests::repo_content;
 use crate::content::Content;
 use crate::field::{Enrol, Field, SyncIn, BODIES};
 use crate::reach;
+use crate::threads::Threads;
 
 fn tuning() -> Tuning {
     let content = Content::load(&repo_content()).unwrap_or_else(|error| panic!("{error}"));
@@ -45,7 +46,7 @@ fn parted(given: &[B]) -> (Vec<V2>, Vec<u8>, Outcome) {
         factions: &factions,
     };
     let mut way = |_: usize, _: usize| V2::new(1.0, 0.0);
-    let outcome = part(&mut bodies, &tuning(), false, &mut way);
+    let outcome = part(&mut bodies, &tuning(), Threads::One, &mut way);
     let flags = bodies.flags.iter().map(|f| f & !MOVED).collect();
     (bodies.points, flags, outcome)
 }
@@ -156,7 +157,7 @@ fn field_parted(xs: &[f32], order: &[usize]) -> Vec<(i64, V2)> {
     });
     let mut way =
         |draw: i64, other: i64| if draw < other { V2::new(0.0, 1.0) } else { V2::new(1.0, 0.0) };
-    let out = crate::field_parting::part_field(&mut field, &tuning(), false, &mut way);
+    let out = crate::field_parting::part_field(&mut field, &tuning(), Threads::One, &mut way);
     let mut moved: Vec<(i64, V2)> =
         out.moved.iter().zip(&out.points).map(|(&flat, &p)| (ids[flat as usize], p)).collect();
     moved.sort_by_key(|&(id, _)| id);
@@ -172,4 +173,73 @@ fn bodies_on_one_spot_part_the_same_whatever_the_list_order() {
     assert_eq!(forward.len(), 3);
     assert_eq!(field_parted(&xs, &[2, 1, 0]), forward);
     assert_eq!(field_parted(&xs, &[1, 2, 0]), forward);
+}
+
+/// A crowd of `n` bodies packed tight, of three squads in two factions, some loose, some
+/// fleeing, some lying on one spot, parted with `threaded`: the points' bits, the flags, the
+/// outcome and the order the seeded way was asked in.
+#[allow(clippy::type_complexity)]
+fn crowd_parted(
+    n: usize,
+    threaded: Threads,
+) -> (Vec<(u32, u32)>, Vec<u8>, i64, i64, Vec<i32>, Vec<(usize, usize)>) {
+    let mut seed: u32 = 12345;
+    let mut next = || {
+        seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        (seed >> 8) as f32 / (1u32 << 24) as f32
+    };
+    let side = (n as f32).sqrt() * 0.6;
+    let mut points = Vec::with_capacity(n);
+    for k in 0..n {
+        if k % 17 == 3 && k > 0 {
+            points.push(points[k - 1]); // lying on the one before
+        } else {
+            points.push(V2::new(next() * side, next() * side));
+        }
+    }
+    let flags: Vec<u8> = (0..n)
+        .map(|k| match k % 7 {
+            0 | 4 => LOOSE,
+            5 => FLEEING,
+            _ => 0,
+        })
+        .collect();
+    let bases: Vec<V2> =
+        (0..n).map(|k| if k % 7 == 5 { V2::new(0.25, 0.0) } else { V2::ZERO }).collect();
+    let radii: Vec<f64> = (0..n).map(|k| if k % 5 == 0 { 1.0 } else { 0.5 }).collect();
+    let areas: Vec<f64> = radii.iter().map(|r| (r * 2.0) * (r * 2.0)).collect();
+    let squads: Vec<i32> = (0..n).map(|k| (k % 3) as i32).collect();
+    let factions: Vec<i32> = (0..n).map(|k| (k % 3 == 2) as i32).collect();
+    let mut bodies = Bodies {
+        nexts: points.clone(),
+        points,
+        flags,
+        bases: &bases,
+        radii: &radii,
+        areas: &areas,
+        squads: &squads,
+        factions: &factions,
+    };
+    let mut asked = Vec::new();
+    let mut way = |i: usize, j: usize| {
+        asked.push((i, j));
+        if (i + j).is_multiple_of(2) {
+            V2::new(0.6, 0.8)
+        } else {
+            V2::new(-1.0, 0.0)
+        }
+    };
+    let out = part(&mut bodies, &tuning(), threaded, &mut way);
+    let bits = bodies.points.iter().map(|p| (p.x.to_bits(), p.y.to_bits())).collect();
+    (bits, bodies.flags, out.passes, out.pairs, out.loosened, asked)
+}
+
+#[test]
+fn a_crowd_parts_the_same_on_one_thread_and_on_the_pool() {
+    let one = crowd_parted(600, Threads::One);
+    let pool = crowd_parted(600, Threads::Always);
+
+    assert!(one.3 > 600, "the crowd should overlap a lot: {} pairs", one.3);
+    assert!(!one.5.is_empty(), "some bodies should lie on one spot");
+    assert_eq!(one, pool);
 }
