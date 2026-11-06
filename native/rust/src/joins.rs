@@ -40,7 +40,7 @@ pub fn step(
     if movers.is_empty() {
         return Vec::new();
     }
-    let joins = contact::Field { squads, columns: &field.columns, roster }.joins(movers, seed);
+    let joins = contact::Field::new(squads, &field.columns, roster).joins(movers, seed);
     for &(leader, joining) in &joins {
         let (l, j) = (roster.listed[leader].squad, roster.listed[joining].squad);
         let kind = if squads.state[l] == FIGHTING { events::REINFORCED } else { events::MERGED };

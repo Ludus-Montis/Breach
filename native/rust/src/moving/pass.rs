@@ -252,7 +252,7 @@ fn paced(
 /// FormationSimulation._march's landing: each march's front as it lands; returns the
 /// listed squads that advanced.
 fn landed(squads: &mut Squads, field: &Field, roster: &Roster, plans: &[Plan]) -> Vec<usize> {
-    let judged = land(&contact::Field { squads, columns: &field.columns, roster }, plans);
+    let judged = land(&contact::Field::new(squads, &field.columns, roster), plans);
     let mut joiners = Vec::new();
     for (plan, (front, advances)) in plans.iter().zip(judged) {
         put_front(squads, roster.listed[plan.listed].squad, front);

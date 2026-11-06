@@ -3908,6 +3908,46 @@ at both sizes. 10a to 10e change no outcome unless the part says so. 10f's PR cl
   word coded and one not, when a pass codes both, then their levels read by code are the
   unit's and none (`words.rs`). The digests and trials, unchanged, are the identity check.
 
+### Step 10b-ii, Q24's remaining lists
+
+- **Built** (2026-11-05), on 10b-i's branch before it merged (the owner's go-ahead). No
+  outcome changes: each list below is worked out from the same inputs, by the same sums, as
+  before, only fewer times.
+  - **Squad spans and edges** (`geometry::Spans`): a `contact::Field` keeps each squad's
+    extent along an axis (its span across a line, its reach along a way) the first time a
+    decision asks for it. Fronts, edges, the advance's limit, skirmishing and joins asked for
+    them once a pair of squads, so a pass worked every squad's units out once for each other
+    squad. The field borrows the squads, the columns and the roster, so nothing can move
+    while it keeps them: a pass that moves anything builds a new field. This is the "kept by
+    the events that change them" of Q24 at the length the borrow allows. Across ticks it
+    would need every writer of a squad's frame, rank and column (a dozen passes) to say so,
+    for a list each fighting squad's walk changes most ticks anyway.
+  - **Combat's rank groups** (`shots::Aim`): which hostile squads a shot may strike, their
+    ranks and each rank's gap ahead of the shooter's front depend on the shooting squad, not
+    the shooter. They are worked out once a squad, not once for each of its shooters.
+  - **The re-form's occupancy** (`swaps::pass::Reforms`): a re-forming squad whose planning
+    started nothing keeps what that planning read (its shape, each living unit's place,
+    footprint, band, priority, pace and whether it joined, the swaps under way, the pace),
+    and isn't planned again while it reads the same, to the bit. So its occupancy and plan
+    are worked out when a swap ends, a unit falls or anything else it reads changes. The memo
+    is not state: the field doesn't write it to a snapshot, and one read back plans afresh,
+    to the same end.
+  - **`fighters()`** is left as it is. In the crate, the rout blows' front ranks are built
+    only on a tick some squad routs (`fight::on_routers`), with one pass over the living and
+    a sort of the front rank, and the scrum's fighters are seek's own input, gathered in the
+    pass that walks every member to seek. Neither repeats work another pass already did.
+- **Found for 10b-iii** (each a per-squad quadratic): `Shape::edge_units` compares every
+  unit with every other on a flank lock; `swaps::claims` looks each unit in a swap up in the
+  living by `position`; `shuffle::start_moves` checks `busy` with `contains` for every unit;
+  `swaps::pass::ranked` checks `joined` with `contains` for every unit.
+- **Scenarios:** given four squads, two facing two, when each looks for the nearest hostile
+  front, then each squad's span is worked out once, not once a pair (`contact/tests.rs`).
+  Given two shooters in one squad and one in another, when their aims are worked out, then
+  there are two (`shots/tests.rs`). Given a re-forming squad whose swap is under way, when
+  it is stepped with nothing changed, then it is planned twice, not once a tick, and again
+  once a unit's pace changes (`swaps/pass/tests.rs`). The digests and trials, unchanged,
+  are the identity check.
+
 ## Open, for the implementing session to settle and record here
 
 - ~~The squad store's layout and which fields stay per-squad objects (step 1).~~ Settled in

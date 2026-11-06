@@ -81,9 +81,13 @@ pub fn shots(
 ) -> Vec<(usize, usize, usize)> {
     let marks = marks(squads, columns, roster);
     let mut picks = Vec::new();
-    for (s, shooter) in shooters.iter().enumerate() {
-        if let Some(target) = pick(squads, columns, roster, &marks, shooter, seed) {
-            picks.push((s, target));
+    {
+        let aims = aims(squads, columns, roster, &marks, shooters);
+        for (s, shooter) in shooters.iter().enumerate() {
+            let aim = aims[shooter.listed].as_ref().expect("each shooter's squad has its aim");
+            if let Some(target) = pick(columns, roster, aim, shooter, seed) {
+                picks.push((s, target));
+            }
         }
     }
     let mut out = Vec::new();
@@ -131,33 +135,64 @@ fn unit_gap(from: &Frame, to: &Frame, rank: i32) -> f64 {
     point.sub(from.anchor).dot(bearing_vector(from.heading)) as f64 / CELLS
 }
 
+/// What a shooting squad aims at: its own shape, and each hostile squad a shot may strike
+/// with its ranks and how far each rank stands ahead of the shooter's front. They depend on
+/// the squad, not the shooter, so they are worked out once for all its shooters (Q24's rank
+/// groups, spec 39 step 10b-ii).
+pub struct Aim<'a> {
+    mine: Shape<'a>,
+    hostile: Vec<(usize, Shape<'a>, &'a Ranks, Vec<f64>)>,
+}
+
+/// Each squad's aim by its index in the roster, for the squads with a shooter.
+fn aims<'a>(
+    squads: &Squads,
+    columns: &'a Columns,
+    roster: &'a Roster,
+    marks: &'a [(usize, Ranks)],
+    shooters: &[Shooter],
+) -> Vec<Option<Aim<'a>>> {
+    let mut out: Vec<Option<Aim<'a>>> = (0..roster.listed.len()).map(|_| None).collect();
+    for shooter in shooters {
+        let n = shooter.listed;
+        if out[n].is_some() {
+            continue;
+        }
+        let own = &roster.listed[n];
+        let mine = Shape::of(squads, columns, own);
+        let hostile = marks
+            .iter()
+            .filter(|(k, _)| roster.listed[*k].faction != own.faction)
+            .map(|(k, ranks)| {
+                let theirs = Shape::of(squads, columns, &roster.listed[*k]);
+                let gaps: Vec<f64> = ranks
+                    .iter()
+                    .map(|(rank, _)| unit_gap(&mine.frame, &theirs.frame, *rank))
+                    .collect();
+                (*k, theirs, ranks, gaps)
+            })
+            .collect();
+        out[n] = Some(Aim { mine, hostile });
+    }
+    out
+}
+
 /// The nearest enemy unit within the shooter's range, as (its squad's index in the roster,
 /// its index in that one's living).
 fn pick(
-    squads: &Squads,
     columns: &Columns,
     roster: &Roster,
-    marks: &[(usize, Ranks)],
+    aim: &Aim,
     shooter: &Shooter,
     seed: i64,
 ) -> Option<(usize, usize)> {
     let own = &roster.listed[shooter.listed];
     let unit: &Member = &own.living[shooter.member];
-    let mine = Shape::of(squads, columns, own);
-    let hostile: Vec<(usize, Shape, &Ranks, Vec<f64>)> = marks
-        .iter()
-        .filter(|(n, _)| roster.listed[*n].faction != own.faction)
-        .map(|(n, ranks)| {
-            let theirs = Shape::of(squads, columns, &roster.listed[*n]);
-            let gaps = ranks.iter().map(|(rank, _)| unit_gap(&mine.frame, &theirs.frame, *rank));
-            let gaps = gaps.collect();
-            (*n, theirs, ranks, gaps)
-        })
-        .collect();
+    let (mine, hostile) = (&aim.mine, &aim.hostile);
     let reach = unit.attack_range as f64 * RANK_DEPTH + EPSILON;
     let here = unit_gap(&mine.frame, &mine.frame, columns.rank[unit.slot]);
     let mut nearest = f64::INFINITY;
-    for (_, _, _, gaps) in &hostile {
+    for (_, _, _, gaps) in hostile {
         for gap in gaps {
             let gap = (gap - here).abs();
             if gap <= reach {
@@ -171,7 +206,7 @@ fn pick(
     let axis = lateral_axis(mine.frame.heading);
     let span = geometry::extent(&mine.corners(unit), axis);
     let mut best: Option<(Choice, (usize, usize))> = None;
-    for &(n, ref theirs, ranks, ref gaps) in &hostile {
+    for &(n, ref theirs, ranks, ref gaps) in hostile {
         for ((_, row), gap) in ranks.iter().zip(gaps) {
             let gap = (gap - here).abs();
             if gap > reach || snapped(gap, EPSILON) != nearest {
