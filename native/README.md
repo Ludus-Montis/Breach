@@ -609,6 +609,14 @@ by Godot, the squad store, the snapshot read back, the cuts stepped), with no Go
 with `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` on every PR that
 touches `native/`.
 
+The crate allocates through mimalloc (`#[global_allocator]` in `src/lib.rs`, spec 41 step 4),
+in the library and every binary: the pool's threads allocate and free in parallel, and the
+system allocator's locks are shared. The `mimalloc` crate builds it from C with `cc`, so each
+platform needs a C compiler: Linux's `gcc` or `clang`, the MSVC toolchain's (the Build Tools'
+C++ workload) or the GNU toolchain's MinGW `gcc` on Windows, the Xcode command-line tools on
+macOS. Its maps hash with foldhash, seeded at random per process (`src/hashing.rs`);
+`clippy.toml` refuses std's `HashMap` and `HashSet` elsewhere.
+
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export
 would need the library and the `.gdextension` added.
