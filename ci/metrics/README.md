@@ -88,7 +88,7 @@ python3 ci/metrics/check_records.py metrics metrics/schema
 
 A PR is data-only when every path it changes is under `metrics/` and none is under
 `metrics/schema/` (Decision 163; `ci/metrics/data_only.py`). The `metrics` workflow checks
-the records on any PR that touches `metrics/` and says in its summary whether the PR is
+the records on every PR and says in its summary whether the PR is
 data-only. On a data-only PR, `sim-checks`, `docs-gate` and `rust` start, see it and pass at
 once, so the required checks still report; no Documentation block or changelog entry is
 needed. A schema change is code: the normal checks apply.

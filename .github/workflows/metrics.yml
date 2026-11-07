@@ -1,7 +1,6 @@
 name: metrics
 
-# Spec 43 step 2, Decisions 162 and 163. On any PR that touches metrics/ (or this check's own
-# code): every record under metrics/, apart from metrics/raw/, is validated against the
+# Spec 43 step 2, Decisions 162 and 163. On every PR: every record under metrics/, apart from metrics/raw/, is validated against the
 # schema its `schema` field names (ci/metrics/check_records.py), and the PR is reported as
 # data-only or not (ci/metrics/data_only.py: every path under metrics/, none under
 # metrics/schema/). A data-only PR's sim-checks, docs-gate and rust jobs pass at once; this
@@ -9,11 +8,10 @@ name: metrics
 # .github/actions/metrics-pr) merge only when it passes.
 
 on:
+  # Every PR, not only those touching metrics/: `records` is a required check (spec 43
+  # step 3), and a required check skipped by a path filter never reports and blocks the
+  # merge (Decision 163). The job takes seconds.
   pull_request:
-    paths:
-      - "metrics/**"
-      - "ci/metrics/**"
-      - ".github/workflows/metrics.yml"
   workflow_dispatch:
 
 permissions:
