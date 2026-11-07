@@ -1,0 +1,6 @@
+# std's maps hash with SipHash: the crate's own code takes `crate::hashing`'s aliases instead,
+# foldhash's fast hasher with a random seed per process (spec 41 step 4).
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "use crate::hashing::HashMap (foldhash, randomly seeded)" },
+    { path = "std::collections::HashSet", reason = "use crate::hashing::HashSet (foldhash, randomly seeded)" },
+]

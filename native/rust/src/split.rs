@@ -7,8 +7,8 @@
 //! draws, never by ids or lists (Decision 97). Nobody moves until every split is found, so
 //! this decides them all; `groups::pass` makes the new groups (spec 39 step 8b5-xxx).
 
+use crate::hashing::HashSet;
 use std::cmp::Ordering;
-use std::collections::HashSet;
 
 use crate::columns::Columns;
 use crate::contest;

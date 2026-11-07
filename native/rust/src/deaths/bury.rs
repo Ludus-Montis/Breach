@@ -10,7 +10,7 @@
 //! left with no one standing, it is DESTROYED, released (`locks::release`) and "destroyed"
 //! logged. GDScript mirrors the units' states and wounds.
 
-use std::collections::HashSet;
+use crate::hashing::{HashSet, HashSetExt};
 
 use crate::bands::{self, BandTuning};
 use crate::compact;

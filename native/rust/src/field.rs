@@ -15,8 +15,9 @@
 //! keys) live here by slot, so a sync reads them where they are instead of GDScript
 //! sending them.
 
+use crate::hashing::HashMap;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 
 use serde::{Deserialize, Serialize};
 

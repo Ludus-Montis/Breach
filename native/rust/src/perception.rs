@@ -6,7 +6,7 @@
 //! hidden). Gathered once a tick before anything moves; a pair too far apart for either's
 //! widest sight to reach is skipped before any unit is looked at.
 
-use std::collections::HashSet;
+use crate::hashing::{HashSet, HashSetExt};
 
 use crate::columns::Columns;
 use crate::grid::{self, Grid};
