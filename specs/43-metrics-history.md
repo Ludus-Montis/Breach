@@ -174,6 +174,10 @@ reading `metrics/` only.
   download is retried and a failed one leaves its run for later, the step fails visibly,
   one-job runs keep their digest and scaling steps' sections, and a run with nothing to keep
   is `{"na": "not-applicable"}`. That run's branch is not to be merged.
+- **Later (2026-11-07), at the owner's word:** a run with nothing to keep keeps no files,
+  only its id in `metrics/raw/<series>/skipped.txt`; the 50 `not-applicable` `.json` files
+  archived until then moved there. Every data PR starts a `sim-checks` run whose jobs skip,
+  so they would otherwise add one empty record each.
 
 **Step 2, 2026-11-07:**
 - **The record's version is the one required field.** The check can't choose a schema

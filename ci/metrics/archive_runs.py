@@ -31,6 +31,7 @@ API = "https://api.github.com"
 RESERVE = 20
 GAP = {"na": "not-recorded"}
 NOTHING = {"na": "not-applicable"}
+SKIPPED = "skipped.txt"
 # What a download can fail with that a later try may not: a dropped or cut-off connection.
 TRANSIENT = (OSError, http.client.HTTPException, zipfile.BadZipFile)
 
@@ -169,10 +170,15 @@ def archive_run(client, run, series, folder, archived):
     archive_bytes = client.run_logs(run["id"])
     logs = job_logs(archive_bytes) if archive_bytes else {}
     kept = kept_logs(jobs, logs, keep)
+    if archive_bytes and not kept:
+        # Nothing to keep (its digest and scaling jobs were all skipped): only its id is
+        # kept, in skipped.txt, so a later run doesn't read it again.
+        skipped = folder / SKIPPED
+        with skipped.open("a", encoding="utf-8") as out:
+            out.write(f"{run['id']}\n")
+        return [skipped]
     if not archive_bytes:
         log = dict(GAP)
-    elif not kept:
-        log = dict(NOTHING)
     else:
         log = {"file": f"{run['id']}.log", "jobs": [label for label, _ in kept]}
     record = {
@@ -193,12 +199,19 @@ def archive_run(client, run, series, folder, archived):
     return written + [json_path]
 
 
+def skipped_ids(folder):
+    path = Path(folder) / SKIPPED
+    return set(path.read_text(encoding="utf-8").split()) if path.exists() else set()
+
+
 def pending(client, root):
-    """Every completed run not yet archived, oldest first, with its series."""
+    """Every completed run not yet archived or skipped, oldest first, with its series."""
     found = []
     for series, (workflow, _) in SERIES.items():
+        skipped = skipped_ids(Path(root) / series)
         for run in client.list_runs(workflow):
-            if run.get("status") == "completed" and not (Path(root) / series / f"{run['id']}.json").exists():
+            done = str(run["id"]) in skipped or (Path(root) / series / f"{run['id']}.json").exists()
+            if run.get("status") == "completed" and not done:
                 found.append((run.get("created_at") or "", run["id"], series, run))
     return [(series, run) for _, _, series, run in sorted(found, key=lambda item: item[:2])]
 

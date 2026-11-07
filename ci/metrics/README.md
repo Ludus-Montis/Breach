@@ -18,8 +18,10 @@ folder holds the tools that write it and check it.
      `sim-checks`, not the gdUnit output. The first `sim-checks` runs did everything in one
      job: their digest and scaling steps' parts of its log are kept (matched to the steps in
      turn; where they can't be, the whole job's log is kept).
-   A log already expired is `{"na": "not-recorded"}` in the `.json`, and has no `.log`; a
-   run whose digest and scaling jobs were all skipped is `{"na": "not-applicable"}`.
+   A log already expired is `{"na": "not-recorded"}` in the `.json`, and has no `.log`. A
+   run with nothing to keep (its digest and scaling jobs all skipped, as on a docs-only or
+   data-only PR) keeps no files: only its id, in `<series>/skipped.txt`, so it isn't read
+   again.
 3. It sends them through [the data-PR route](#the-data-pr-route): a PR on
    `chore/metrics-archive-<run id>` that merges itself once its checks pass.
 4. Each run costs two API requests; with hundreds of runs the archiver may reach the
