@@ -5,7 +5,8 @@ name: metrics
 # schema its `schema` field names (ci/metrics/check_records.py), and the PR is reported as
 # data-only or not (ci/metrics/data_only.py: every path under metrics/, none under
 # metrics/schema/). A data-only PR's sim-checks, docs-gate and rust jobs pass at once; this
-# is its real check. Step 3 makes the `records` check required for the self-merging data PRs.
+# is its real check. The `records` check is required, so the self-merging data PRs (step 3,
+# .github/actions/metrics-pr) merge only when it passes.
 
 on:
   pull_request:

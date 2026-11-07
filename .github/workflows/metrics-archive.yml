@@ -9,15 +9,16 @@ name: metrics-archive
 # hourly limit and says so: run it again an hour later to carry on. A download that fails
 # after its retries leaves that run for a later run, and turns this one red.
 #
-# Delivery, until spec 43 step 3 moves it onto the data-PR route: the files are pushed on a
-# branch chore/metrics-archive-<date>, and the owner opens and merges an ordinary PR.
+# Delivery (spec 43 step 3): the new files go through the data-PR route
+# (.github/actions/metrics-pr): a PR on chore/metrics-archive-<run id> that merges itself
+# once the metrics checks pass (Decision 164).
 
 on:
   workflow_dispatch:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 concurrency:
   group: metrics-archive
@@ -37,27 +38,19 @@ jobs:
         run: |
           set -o pipefail
           python3 ci/metrics/archive_runs.py metrics/raw | tee -a "$GITHUB_STEP_SUMMARY"
-      # Pushed even when the archiver failed part way, so what it kept isn't lost; the run
+      # Gathered even when the archiver failed part way, so what it kept isn't lost; the run
       # still shows red.
-      - name: Push the archive on its own branch
+      - name: Gather the new files
         if: ${{ !cancelled() }}
         run: |
-          if [ -z "$(git status --porcelain -- metrics/raw)" ]; then
-            echo "Nothing new to archive." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          branch="chore/metrics-archive-$(date -u +%F)"
-          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
-            branch="$branch-$GITHUB_RUN_NUMBER"
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add metrics/raw
-          git commit -q -m "chore(metrics): archive the bench and sim-checks logs" \
-            -m "Spec 43 step 1: metrics-archive run $GITHUB_RUN_ID."
-          git push -u origin "$branch"
-          {
-            echo "Pushed $branch: open a PR from it into main."
-            echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$RUNNER_TEMP/metrics-new"
+          git ls-files -z --others --modified -- metrics/raw \
+            | xargs -0 -r cp --parents -t "$RUNNER_TEMP/metrics-new"
+      - name: Open the data PR
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/metrics-pr
+        with:
+          folder: ${{ runner.temp }}/metrics-new
+          series: archive
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}

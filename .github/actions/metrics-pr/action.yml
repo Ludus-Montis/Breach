@@ -1,0 +1,92 @@
+name: metrics-pr
+description: >
+  The data-PR route (spec 43 step 3, Decisions 163 and 164). Copies a folder of new files
+  into the checkout under metrics/ (refusing the whole folder if any path leaves metrics/ or
+  lies under metrics/schema/), pushes them on chore/metrics-<series>-<run id> with the
+  repo's GitHub App token, opens a PR titled "chore(metrics): <series> <run id>" and turns on
+  auto-merge (squash). The PR merges itself once metrics.yml's checks pass and it has no
+  conflict. Only bench, metrics-archive and bench-series use it (Decision 164).
+
+inputs:
+  folder:
+    description: The new files, each at its path in the repo (metrics/<series>/...).
+    required: true
+  series:
+    description: The series, for the branch and the PR title (bench, archive, bench-series).
+    required: true
+  run-id:
+    description: The measuring run, for the branch and the PR title.
+    required: false
+    default: ${{ github.run_id }}
+  summary:
+    description: A line for the PR body, after the standard text.
+    required: false
+    default: ""
+  app-id:
+    description: The repo's GitHub App id (vars.PROJECT_APP_ID).
+    required: true
+  private-key:
+    description: The App's private key (secrets.PROJECT_APP_PRIVATE_KEY).
+    required: true
+
+outputs:
+  pr:
+    description: The data PR's URL, or empty when there was nothing new.
+    value: ${{ steps.pr.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    # The guard comes first: a refused folder stops the action before any token or branch.
+    - name: Stage the new files under metrics/
+      id: stage
+      shell: bash
+      env:
+        FOLDER: ${{ inputs.folder }}
+      run: |
+        set -o pipefail
+        python3 "$GITHUB_ACTION_PATH/../../../ci/metrics/stage_data.py" "$FOLDER" . > "$RUNNER_TEMP/metrics-staged.txt"
+        count=$(grep -c . "$RUNNER_TEMP/metrics-staged.txt" || true)
+        echo "count=$count" >> "$GITHUB_OUTPUT"
+        echo "Staged $count new files under metrics/." >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Mint the App token
+      id: app
+      if: steps.stage.outputs.count != '0'
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ github.event.repository.name }}
+
+    - name: Push the branch and open the self-merging PR
+      id: pr
+      if: steps.stage.outputs.count != '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.app.outputs.token }}
+        SERIES: ${{ inputs.series }}
+        RUN_ID: ${{ inputs.run-id }}
+        SUMMARY: ${{ inputs.summary }}
+      run: |
+        set -euo pipefail
+        branch="chore/metrics-$SERIES-$RUN_ID"
+        title="chore(metrics): $SERIES $RUN_ID"
+        # A re-run of the same run gets its own branch: the first attempt's may still be open.
+        if [ "${GITHUB_RUN_ATTEMPT:-1}" != "1" ]; then branch="$branch-$GITHUB_RUN_ATTEMPT"; fi
+        git config user.name "github-actions[bot]"
+        git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+        git checkout -b "$branch"
+        xargs -d '\n' git add -- < "$RUNNER_TEMP/metrics-staged.txt"
+        git commit -q -m "$title" \
+          -m "Data only (Decision 163), opened by $GITHUB_WORKFLOW run $GITHUB_RUN_ID; it merges itself once its checks pass (Decision 164)."
+        # Pushed with the App's token, not the checkout's GITHUB_TOKEN, so the PR's checks start.
+        git -c http.https://github.com/.extraheader= push \
+          "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
+        body="Measurement data from [$GITHUB_WORKFLOW run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID), every path under \`metrics/\` and none under \`metrics/schema/\` (Decision 163). It merges itself (squash) once the \`metrics\` checks pass and it has no conflict (Decision 164, spec 43 step 3)."
+        if [ -n "$SUMMARY" ]; then body="$body"$'\n\n'"$SUMMARY"; fi
+        url=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "$title" --body "$body")
+        gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash "$url"
+        echo "url=$url" >> "$GITHUB_OUTPUT"
+        echo "Opened $url, set to merge itself once its checks pass." >> "$GITHUB_STEP_SUMMARY"

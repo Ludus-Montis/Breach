@@ -20,14 +20,13 @@ folder holds the tools that write it and check it.
      turn; where they can't be, the whole job's log is kept).
    A log already expired is `{"na": "not-recorded"}` in the `.json`, and has no `.log`; a
    run whose digest and scaling jobs were all skipped is `{"na": "not-applicable"}`.
-3. It pushes them on a branch `chore/metrics-archive-<date>` and links a PR from it in the
-   run's summary. Open that PR and merge it (until spec 43 step 3, which lets the workflow
-   merge its own data PRs, Decision 164).
+3. It sends them through [the data-PR route](#the-data-pr-route): a PR on
+   `chore/metrics-archive-<run id>` that merges itself once its checks pass.
 4. Each run costs two API requests; with hundreds of runs the archiver may reach the
    token's hourly limit. It then stops, says so in the summary, and keeps what it has.
-   Merge that PR and start the workflow again an hour later: runs already on `main` are
+   Start the workflow again an hour later, once its PR has merged: runs already on `main` are
    skipped. A download that still fails after three retries leaves its run out, names it,
-   and turns the run red; what was archived is pushed all the same, and the next run takes
+   and turns the run red; what was archived goes into its data PR all the same, and the next run takes
    the runs left out.
 
 Run it once more just before spec 43 step 4 lands, so the archive reaches bench's last
@@ -96,3 +95,38 @@ needed. A schema change is code: the normal checks apply.
 
 Its tests: `python3 -m unittest discover -s ci/metrics -p "test_*.py"` (the check's tests are
 skipped where `jsonschema` isn't installed; CI installs it).
+
+## The data-PR route
+
+`bench`, `metrics-archive` and `bench-series` deliver their files through one composite
+action, [`.github/actions/metrics-pr`](../../.github/actions/metrics-pr/action.yml) (spec 43
+step 3, Decision 164):
+
+```yaml
+- uses: ./.github/actions/metrics-pr
+  with:
+    folder: ${{ runner.temp }}/metrics-new   # files at their repo paths: metrics/bench/…
+    series: bench
+    app-id: ${{ vars.PROJECT_APP_ID }}
+    private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+```
+
+1. `ci/metrics/stage_data.py` copies the folder's files into the checkout at the same paths.
+   If any path is not data (outside `metrics/`, or under `metrics/schema/`) or is a link, it
+   refuses the whole folder, copies nothing, and the action stops before any token or PR.
+   An empty folder opens no PR.
+2. It mints the repo's GitHub App token, pushes `chore/metrics-<series>-<run id>` with it (a
+   re-run adds `-<attempt>`), and opens `chore(metrics): <series> <run id>`. A PR opened with
+   `GITHUB_TOKEN` would start no checks.
+3. It turns on auto-merge (squash): the PR merges once its required checks pass and it has
+   no conflict, with no one's approval.
+
+**The owner's set-up, once:**
+- The App (`PROJECT_APP_ID`) has **Contents: read and write** and **Pull requests: read and
+  write** on this repo.
+- Settings → General → **Allow auto-merge** is on.
+- The `main` branch rule requires the `metrics` workflow's **records** check. If it also
+  requires an approving review, the App must be allowed to bypass it, or the data PRs wait.
+
+Anything else that writes under `metrics/` (the code and CI series' importers) opens a PR
+that waits for the owner.
