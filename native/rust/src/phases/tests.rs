@@ -123,13 +123,14 @@ fn the_lines_put_the_battle_first_and_the_phases_largest_first() {
 
 /// tools/tick_phases.gd's `_settled` in Godot (side 64, width 8): each case's settle, squads,
 /// march, retreat, seed and archers a squad, the tick six ticks after it was settled, and how
-/// many events each of those six told of.
+/// many events each of those six told of. Since spec 42 step 2 (Decision 161: seek's claims
+/// settled in rounds) these are the crate's own, its digests the baseline.
 #[allow(clippy::type_complexity)]
 const GODOT_S: [((usize, usize, bool, Option<i64>, i64, usize), i64, [usize; 6]); 5] = [
-    ((3, 1, false, None, 1, 0), 99, [8, 2, 0, 0, 0, 0]),
-    ((3, 1, false, Some(1), 2, 0), 99, [8, 0, 0, 0, 0, 0]),
-    ((10, 2, false, None, 1, 0), 106, [2, 0, 17, 17, 9, 2]),
-    ((3, 1, false, None, 1, 2), 99, [6, 2, 0, 0, 0, 0]),
+    ((3, 1, false, None, 1, 0), 99, [4, 0, 0, 0, 0, 0]),
+    ((3, 1, false, Some(1), 2, 0), 99, [7, 0, 0, 0, 0, 0]),
+    ((10, 2, false, None, 1, 0), 106, [1, 1, 26, 14, 1, 8]),
+    ((3, 1, false, None, 1, 2), 99, [4, 0, 0, 0, 0, 0]),
     ((10, 1, true, None, 1, 0), 16, [0, 0, 0, 0, 0, 0]),
 ];
 
@@ -147,30 +148,31 @@ fn each_battle_is_settled_on_the_tick_godot_s_is_and_tells_of_as_much() {
 /// FormationBench.mixed (spec 38 step 2's `terrain=mixed`) as Godot played it from the start,
 /// from a throwaway probe (spec 39 step 8c-xxi): (side, width, seed, archers), the events told
 /// over its first 400 ticks, the first tick that told of any, and the SHA-256 of
-/// DigestState.state at tick 130 (the fight) and at tick 400 (long after it ended).
+/// DigestState.state at tick 130 (the fight) and at tick 400 (long after it ended). Since
+/// spec 42 step 2 (Decision 161) the crate's own.
 type Mixed = ((usize, usize, i64, usize), usize, i64, &'static str, &'static str);
 
 const GODOT_MIXED: [Mixed; 3] = [
     (
         (64, 8, 1, 0),
-        447,
+        449,
         108,
-        "65322c7b9d200e5243668e5d17d46b154158188607adcb8dbe14ae5880c78cdf",
-        "e3b511ff556c4a9389cfd0adab9987089f313426acb734361f683db8154d69bb",
+        "52b3a3fe751b99fda14850fb372bfd0c7415a4a7a23cb82edca29e90c6c2d837",
+        "1ebb08c448521a2499942dcda0d3ee902425384d87956c68a0b6c3abefbf98b8",
     ),
     (
         (64, 8, 2, 0),
-        463,
+        474,
         108,
-        "702f148c53862530aa799ae0f3962f314a6090692e6c0d1942134c5fc1cb6d98",
-        "fc3dd57b5862009def0974bd2ada258233de7325062ddb837a58555f6883cf93",
+        "2f9bfdaff4af66c920a0d3f756d2f39cdb4b51ccbe9ccfd85bc476027bb1eb1d",
+        "ac0b2224bc5c54aee058c7caaa129a36dcf8d62d37a3c7fbc4d51d4ac87abfea",
     ),
     (
         (96, 12, 1, 4),
-        553,
+        549,
         108,
-        "c31f47f8d9b5ffdc1d38e15302821453af207f39ea5aa5115a37a2a6eccd99aa",
-        "b26640a5cd0b3e8f59ed3029d60673ab11a0ab866afda16284104518ecdb68ea",
+        "4a97bc12889f9483c52b6ec95a4899dc491896bd11e06f048bf55671dccfd950",
+        "9e41295bd97d811270a1c2849318a6653d436a982d77768dc0e753e304107e53",
     ),
 ];
 

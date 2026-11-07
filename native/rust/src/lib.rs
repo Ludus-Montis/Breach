@@ -97,6 +97,7 @@ mod route;
 pub mod scaling;
 mod scrum;
 mod seeking;
+mod settling;
 mod sheet;
 mod shocks;
 mod shots;

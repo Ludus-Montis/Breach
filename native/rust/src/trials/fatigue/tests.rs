@@ -35,10 +35,11 @@ fn a_battle_is_the_same_threaded_or_not() {
     assert_eq!(battle(30.0, 4, Threads::Always, &content), alone);
 }
 
-/// Godot's lines for `scenario=fatigue runs=2`.
+/// Godot's lines for `scenario=fatigue runs=2`; since spec 42 step 2 (Decision 161) the
+/// crate's own.
 const GODOT: [&str; 4] = [
-    "3 s        97%        127.0            178.5        0 / 2",
-    "30 s       70%        126.9            195.5        0 / 2",
-    "60 s       40%        50.4             80.0         2 / 2",
+    "3 s        97%        127.0            181.5        0 / 2",
+    "30 s       70%        127.0            196.0        0 / 2",
+    "60 s       40%        49.4             80.0         2 / 2",
     "90 s       10%        0.0              0.0          2 / 2",
 ];

@@ -136,6 +136,38 @@ Each one reads the `Claims` made before it. Under the settling rule:
     find a slot a tick later;
   - slot choices differ where two seekers wanted the same one;
   - no change where seekers don't contend.
+- **Built:** `R` (`scrum::ROUNDS`) is 3. A probe on two 400-grem blocks ten deep facing each
+  other (leash 40) placed 80 seekers in round 1, 28 in round 2, then a steady 8 a round, each
+  round a full search for the ~680 still unplaced. The serial plan aimed 204; three rounds aim
+  116 and the rest press. The settling is `src/settling.rs` (`winners`: a proposal's key, point
+  and reach), for step 3 to reuse. `kept` is proposed only in round 1; later rounds `pick`. A
+  pick's claimed slots are marked dead between rounds (marking only speeds later searches; a
+  claimed slot is never chosen either way).
+- **Benched** (`bench` runs #91 and #92, this step against `main` at f0e1a4c, 5 rounds, the
+  same EPYC 7763, 4 threads; medians in ms, `*` ranges apart):
+
+  | Phase | 25k base | 25k head | Change | 4096 base | 4096 head | Change |
+  |---|---|---|---|---|---|---|
+  | tick, mean | 309.3 | 259.6 | −16.1% * | 50.4 | 40.5 | −19.6% * |
+  | tick, 95th | 344.7 | 280.4 | | 59.0 | 48.9 | |
+  | `scrum: seek` | 129.2 | 79.3 | −38.6% * | 24.9 | 14.4 | −42.2% * |
+  | `scrum: seek`, 95th | 159.9 | 84.3 | | 25.9 | 15.6 | |
+  | `scrum: walk` | 16.7 | 17.8 | +6.4% * | 2.71 | 2.55 | −5.9% * |
+  | `scrum: facing` | 4.68 | 5.52 | +17.9% * | 0.98 | 0.99 | |
+  | `rout: flight` | 7.86 | 4.50 | −42.7% * | 0.61 | 0.94 | +54.1% * |
+  | `rout: rallies` | 6.83 | 6.19 | −9.4% | 0.56 | 0.81 | +44.6% * |
+
+  Seek's own work fell by about two fifths at both sizes, the pass on the pool doing what the
+  serial claims did plus up to three rounds of searches. The other moves are the battle
+  playing differently (more units press and walk, routs start at other ticks), not their code:
+  only seek's changed. `R` = 3 stands.
+- **Pins moved:** the crate's tests that held the old serial plan's numbers (`phases`,
+  `phases::counts`, `scaling`, `native_bench`, `trials::fatigue`) now hold this step's, and
+  the cuts are regenerated. The changed battles no longer bury, take the downed, settle the
+  store, stray or carry strays at four of the old cut ticks, so a probe (each standard run's
+  phases changed per tick) moved them: clash40 s1 141 to 169 (taking the downed) and 202 to
+  210 (store settles), clash40 s2 277 to 293 (strays), field3 470 to 461 (carry: strays,
+  deaths, shuffle).
 
 ### Step 3, the rout's and tend's landings by the same rule
 

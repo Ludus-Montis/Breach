@@ -101,7 +101,7 @@ const SMALL_CLASH: &[(&str, usize, usize)] = &[
     ("scrum: regroup and chasers", 3, 0),
     ("scrum: withdraw", 3, 0),
     ("scrum: pursuit, stall", 3, 0),
-    ("fight (blows)", 3, 46),
+    ("fight (blows)", 3, 48),
     ("deaths (bury)", 3, 0),
     ("taking the downed", 3, 0),
     ("wounds (tend)", 3, 0),

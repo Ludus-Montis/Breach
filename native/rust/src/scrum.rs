@@ -1,8 +1,11 @@
 //! The scrum's seeking (ScrumSeek.plan with SlotSearch, ScrumSlots and ScrumNear) on the
 //! field's own state. Each fighting squad's free units touch a foe and stand, or make for
-//! the nearest open slot round their foes' bodies in contest order, or wait a body's
-//! breadth short of the nearest taken one. The choices are the GDScript reference's, bit
-//! for bit:
+//! the nearest open slot round their foes' bodies, or wait a body's breadth short of the
+//! nearest taken one. The claims are settled in rounds (spec 42, Decision 161): every
+//! seeker not yet placed proposes a slot against the claims settled so far, and a proposal
+//! wins unless one with a higher contest key lies within a body's breadth of it
+//! (`settling`). Losers propose again; after `ROUNDS`, the rest press. A seeker's own
+//! search is the GDScript reference's:
 //! - slots, keys and claims in the same precision (`maths`);
 //! - the same keys compared item by item, a full tie going to the slot listed first;
 //! - the seeded draws by Godot's own `hash()` (`ghash`), drawn only when a tie needs them
@@ -23,6 +26,7 @@ use crate::ghash::{self, Key};
 use crate::grid::{cell_of, floor_of, Grid, MARGIN};
 use crate::maths::{bearing_vector, snapped, V2};
 use crate::reach;
+use crate::settling::{self, Proposal};
 use crate::threads::Threads;
 
 /// Tolerance for bodies just touching (ScrumSlots.EPSILON).
@@ -41,6 +45,9 @@ pub const PRESS: u8 = 3;
 /// A seeker with nowhere to go: goal null, next where it is.
 pub const IDLE: u8 = 4;
 
+/// Rounds of proposing and settling claims before the rest fall back to pressing (spec 42).
+const ROUNDS: usize = 3;
+
 const FREE: u8 = 0;
 const OWN: u8 = 1;
 const TAKEN: u8 = 2;
@@ -52,8 +59,8 @@ pub struct Params {
     pub die: i64,
     pub reach: f64,
     pub leash: f64,
-    /// Whether each squad's search (its seekers, their keys and rings) runs on the pool.
-    /// The claims are taken one seeker at a time in contest order either way.
+    /// Whether each squad's search (its seekers, their keys and rings) and each round's
+    /// proposals and settling run on the pool; the plan is the same either way.
     pub threaded: Threads,
 }
 
@@ -129,33 +136,40 @@ struct Crowd {
     widest: f64,
 }
 
-/// Points claimed this tick, by cell.
+/// Points claimed this tick, in a grid remade after each round's claims.
 #[derive(Default)]
-struct Claims(HashMap<(i32, i32), Vec<V2>>);
+struct Claims {
+    points: Vec<V2>,
+    grid: Grid,
+}
 
 impl Claims {
-    fn add(&mut self, point: V2) {
-        self.0.entry(cell_of(point)).or_default().push(point);
+    fn extend(&mut self, points: impl IntoIterator<Item = V2>) {
+        self.points.extend(points);
+        self.grid = Grid::build(&self.points);
     }
 
     /// True if a claim lies within a body's breadth of `point` (SlotSearch._claimed).
     fn near(&self, point: V2, radius: f64) -> bool {
-        let reach = (2.0 * radius + MARGIN) as f32;
-        let from = cell_of(V2::new(point.x - reach, point.y - reach));
-        let to = cell_of(V2::new(point.x + reach, point.y + reach));
-        for y in from.1..=to.1 {
-            for x in from.0..=to.0 {
-                if let Some(points) = self.0.get(&(x, y)) {
-                    for c in points {
-                        if (c.distance_to(point) as f64) < 2.0 * radius - EPSILON {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
+        let mut near = false;
+        self.grid.near(point, 2.0 * radius + MARGIN, |i| {
+            near = (self.points[i as usize].distance_to(point) as f64) < breadth(radius);
+            !near
+        });
+        near
     }
+}
+
+/// How near two claims of seekers of `radius` may lie: a body's breadth, just touching.
+fn breadth(radius: f64) -> f64 {
+    2.0 * radius - EPSILON
+}
+
+/// What a seeker proposes in a round: to aim at a slot, or (no slot open) to press toward
+/// the nearest one, or idle (None). Each with the slots it found claimed.
+enum Choice {
+    Aim(usize),
+    Press(Option<usize>),
 }
 
 /// Everything one plan works over.
@@ -166,16 +180,16 @@ struct Plan<'a> {
     crowd: &'a Crowd,
     rings: Vec<Ring>,
     claims: Claims,
-    within: &'a mut dyn FnMut(usize, V2) -> bool,
+    within: &'a (dyn Fn(usize, V2) -> bool + Sync),
     out: PlanOut,
 }
 
-/// ScrumSeek.plan: every fighting squad's units, in contest order.
+/// ScrumSeek.plan: every fighting squad's units, their claims settled in rounds.
 pub fn plan(
     field: &Field,
     input: &PlanIn,
     params: &Params,
-    within: &mut dyn FnMut(usize, V2) -> bool,
+    within: &(dyn Fn(usize, V2) -> bool + Sync),
 ) -> PlanOut {
     let count = input.members.len();
     let crowd = crowd(field);
@@ -197,23 +211,19 @@ pub fn plan(
             foe_ats: vec![V2::ZERO; count],
         },
     };
-    let mut seekers = plan.take(squads);
-    seekers.sort_by(|a, b| contest::order(&a.key, &b.key));
-    let mut picking = Vec::new();
-    for seeker in &seekers {
-        match plan.kept(seeker) {
-            Some(slot) => plan.aim(seeker, slot),
-            None => picking.push(seeker),
+    let seekers = plan.take(squads);
+    let threaded = params.threaded.on(count);
+    let mut left: Vec<&Seeker> = seekers.iter().collect();
+    for round in 0..ROUNDS {
+        if left.is_empty() {
+            break;
         }
+        let proposed = plan.each(&left, threaded, |plan, s| plan.propose(s, round == 0));
+        left = plan.settle(left, proposed, threaded);
     }
-    for seeker in picking {
-        match plan.pick(seeker, false) {
-            Some(slot) => plan.aim(seeker, slot),
-            None => {
-                let slot = plan.pick(seeker, true);
-                plan.press(seeker, slot);
-            }
-        }
+    let fallbacks = plan.each(&left, threaded, |plan, s| plan.pick(s, true, &mut Vec::new()));
+    for (seeker, slot) in left.into_iter().zip(fallbacks) {
+        plan.press(seeker, slot);
     }
     plan.out
 }
@@ -269,9 +279,92 @@ impl<'a> Plan<'a> {
         out
     }
 
+    /// `propose` (or another search) for each seeker, in their order, on the pool or not.
+    fn each<T: Send>(
+        &self,
+        seekers: &[&Seeker],
+        threaded: bool,
+        search: impl Fn(&Self, &Seeker) -> T + Sync,
+    ) -> Vec<T> {
+        if threaded {
+            seekers.par_iter().map(|s| search(self, s)).collect()
+        } else {
+            seekers.iter().map(|s| search(self, s)).collect()
+        }
+    }
+
+    /// A seeker's proposal against the claims settled so far: in the first round the slot
+    /// it made for if still open (ScrumSeek._kept), else the nearest open slot; with none
+    /// open, it presses. Returns the slots found claimed on the way.
+    fn propose(&self, seeker: &Seeker, first: bool) -> (Choice, Vec<usize>) {
+        let mut dead = Vec::new();
+        if let Some(slot) = first.then(|| self.kept(seeker)).flatten() {
+            return (Choice::Aim(slot), dead);
+        }
+        let choice = match self.pick(seeker, false, &mut dead) {
+            Some(slot) => Choice::Aim(slot),
+            None => Choice::Press(self.pick(seeker, true, &mut dead)),
+        };
+        (choice, dead)
+    }
+
+    /// One round settled: the aims no higher-keyed aim lies within a body's breadth of
+    /// claim, and with the presses are written out in the seekers' order; the slots found
+    /// claimed are marked dead for all. Returns the seekers whose aims lost.
+    fn settle<'s>(
+        &mut self,
+        seekers: Vec<&'s Seeker>,
+        proposed: Vec<(Choice, Vec<usize>)>,
+        threaded: bool,
+    ) -> Vec<&'s Seeker> {
+        let proposals: Vec<Proposal<Contest>> = seekers
+            .iter()
+            .zip(&proposed)
+            .filter_map(|(s, (choice, _))| match *choice {
+                Choice::Aim(slot) => {
+                    let ring = &self.rings[s.ring];
+                    let reach = breadth(ring.radius);
+                    Some(Proposal { key: s.key, at: ring.slots[slot].point, reach })
+                }
+                Choice::Press(_) => None,
+            })
+            .collect();
+        let before = |a: &Contest, b: &Contest| contest::order(a, b) == Ordering::Less;
+        let mut wins = settling::winners(&proposals, before, threaded).into_iter();
+        let (mut left, mut claimed) = (Vec::new(), Vec::new());
+        for (seeker, (choice, dead)) in seekers.into_iter().zip(proposed) {
+            self.bury(seeker.ring, &dead);
+            match choice {
+                Choice::Aim(slot) if wins.next() == Some(true) => {
+                    claimed.push(self.aim(seeker, slot));
+                }
+                Choice::Aim(_) => left.push(seeker),
+                Choice::Press(slot) => self.press(seeker, slot),
+            }
+        }
+        self.claims.extend(claimed);
+        for ring in 0..self.rings.len() {
+            self.refresh(ring);
+        }
+        left
+    }
+
+    /// The slots found claimed are gone for all.
+    fn bury(&mut self, ring: usize, dead: &[usize]) {
+        let ring = &mut self.rings[ring];
+        for &slot in dead {
+            if !ring.dead[slot] {
+                ring.dead[slot] = true;
+                if ring.status[slot] == FREE {
+                    ring.gone += 1;
+                }
+            }
+        }
+    }
+
     /// SlotSearch.open: in the seeker's leash on ground it can cross, no other body on it,
     /// no claim near it.
-    fn open(&mut self, seeker: &Seeker, point: V2, radius: f64) -> bool {
+    fn open(&self, seeker: &Seeker, point: V2, radius: f64) -> bool {
         if !self.within(seeker, point) {
             return false;
         }
@@ -289,7 +382,7 @@ impl<'a> Plan<'a> {
     }
 
     /// ScrumSlots._within: within the leash of its place, on ground it can cross.
-    fn within(&mut self, seeker: &Seeker, point: V2) -> bool {
+    fn within(&self, seeker: &Seeker, point: V2) -> bool {
         let place = self.input.anchors[seeker.member];
         if point.distance_to(place) as f64 > self.params.leash {
             return false;
@@ -298,7 +391,7 @@ impl<'a> Plan<'a> {
     }
 
     /// ScrumSeek._kept: the slot it made for, if it is still open.
-    fn kept(&mut self, seeker: &Seeker) -> Option<usize> {
+    fn kept(&self, seeker: &Seeker) -> Option<usize> {
         let goal = self.input.goal_slots[seeker.member];
         let ring = &self.rings[seeker.ring];
         let &(first, count) = ring.by_foe.get(&self.input.goal_foes[seeker.member])?;
@@ -311,8 +404,9 @@ impl<'a> Plan<'a> {
     }
 
     /// SlotSearch.pick: the nearest open slot (crowded: the nearest within its leash,
-    /// open or not), equals by key, then the slot listed first.
-    fn pick(&mut self, seeker: &Seeker, crowded: bool) -> Option<usize> {
+    /// open or not), equals by key, then the slot listed first. The slots it finds claimed
+    /// go to `dead`.
+    fn pick(&self, seeker: &Seeker, crowded: bool, dead: &mut Vec<usize>) -> Option<usize> {
         let field = self.field;
         let at = field.at[seeker.body as usize];
         let place = self.input.anchors[seeker.member];
@@ -321,14 +415,12 @@ impl<'a> Plan<'a> {
         let centre = cell_of(at);
         let frame = (at, place, ahead);
         let mut best: Option<Best> = None;
-        if !crowded {
-            let mine = self.rings[seeker.ring].owned.get(&seeker.body).cloned().unwrap_or_default();
-            for slot in mine {
-                self.consider(seeker, slot as usize, false, frame, &mut best);
-            }
-            self.refresh(seeker.ring);
-        }
         let ring = &self.rings[seeker.ring];
+        if !crowded {
+            for &slot in ring.owned.get(&seeker.body).into_iter().flatten() {
+                self.consider(seeker, slot as usize, false, frame, (&mut best, dead));
+            }
+        }
         let last =
             if crowded { ring.grid.last_ring(centre) } else { ring.free_grid.last_ring(centre) };
         let mut found = Vec::new();
@@ -338,14 +430,13 @@ impl<'a> Plan<'a> {
                 break;
             }
             found.clear();
-            let ring = &self.rings[seeker.ring];
             if crowded {
                 ring.grid.ring(centre, number, |i| found.push(i as usize));
             } else {
                 ring.free_grid.ring(centre, number, |i| found.push(ring.free[i as usize] as usize));
             }
             for &slot in &found {
-                self.consider(seeker, slot, crowded, frame, &mut best);
+                self.consider(seeker, slot, crowded, frame, (&mut best, dead));
             }
         }
         best.map(|b| b.slot)
@@ -365,14 +456,14 @@ impl<'a> Plan<'a> {
     }
 
     /// SlotSearch._consider: the slot becomes the best if it qualifies and its key is
-    /// lower, or the same and it is listed first.
+    /// lower, or the same and it is listed first; found claimed, it goes to `dead`.
     fn consider(
-        &mut self,
+        &self,
         seeker: &Seeker,
         slot: usize,
         crowded: bool,
         (at, place, ahead): (V2, V2, V2),
-        best: &mut Option<Best>,
+        (best, dead): (&mut Option<Best>, &mut Vec<usize>),
     ) {
         let ring = &self.rings[seeker.ring];
         let point = ring.slots[slot].point;
@@ -389,16 +480,10 @@ impl<'a> Plan<'a> {
         if !self.within(seeker, point) {
             return;
         }
-        let radius = self.rings[seeker.ring].radius;
-        if !crowded && self.claims.near(point, radius) {
-            let ring = &mut self.rings[seeker.ring];
-            ring.dead[slot] = true; // claimed: gone for all
-            if ring.status[slot] == FREE {
-                ring.gone += 1;
-            }
+        if !crowded && self.claims.near(point, ring.radius) {
+            dead.push(slot); // claimed: gone for all
             return;
         }
-        let ring = &self.rings[seeker.ring];
         let key = [
             distance,
             -snapped(point.sub(at).dot(ahead) as f64, SNAP),
@@ -436,8 +521,8 @@ impl<'a> Plan<'a> {
         ghash::uniform(self.params.seed, &keys)
     }
 
-    /// ScrumSeek._aim: the seeker makes for the slot, and claims it.
-    fn aim(&mut self, seeker: &Seeker, slot: usize) {
+    /// ScrumSeek._aim: the seeker makes for the slot; returns the point it claims.
+    fn aim(&mut self, seeker: &Seeker, slot: usize) -> V2 {
         let s = &self.rings[seeker.ring].slots[slot];
         let m = seeker.member;
         self.out.codes[m] = AIM;
@@ -445,8 +530,7 @@ impl<'a> Plan<'a> {
         self.out.goal_slots[m] = s.number;
         self.out.nexts[m] = s.point;
         self.out.foe_ats[m] = self.field.at[s.foe as usize];
-        let point = s.point;
-        self.claims.add(point);
+        s.point
     }
 
     /// ScrumSeek._press: it waits a body's breadth short of the slot, claiming nothing.
