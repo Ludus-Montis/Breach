@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ludus-montis/breach/metrics/schema/record-v1.schema.json",
+  "title": "A metrics record, version 1 (Decision 162)",
+  "description": "One measurement run of one commit. Every field but `schema` is optional, and any value may be a gap, {\"na\": <reason>}, in its place. A gap is never 0 and never left out by a writer that knows of the field (spec 43 step 2).",
+  "type": "object",
+  "required": [
+    "schema"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "record-v1"
+    },
+    "series": {
+      "$ref": "#/$defs/text"
+    },
+    "commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "machine": {
+      "$ref": "#/$defs/machine"
+    },
+    "results": {
+      "$ref": "#/$defs/results"
+    },
+    "reference": {
+      "$ref": "#/$defs/reference"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "required": [
+        "na"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "na": {
+          "enum": [
+            "not-recorded",
+            "not-measured",
+            "not-applicable"
+          ]
+        }
+      }
+    },
+    "text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "count": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "flag": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "args": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "commit": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "sha": {
+              "$ref": "#/$defs/text"
+            },
+            "position": {
+              "$ref": "#/$defs/count"
+            },
+            "pr": {
+              "$ref": "#/$defs/count"
+            },
+            "title": {
+              "$ref": "#/$defs/text"
+            },
+            "summary": {
+              "$ref": "#/$defs/text"
+            },
+            "step": {
+              "$ref": "#/$defs/text"
+            },
+            "outcomes_changed": {
+              "$ref": "#/$defs/flag"
+            }
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "harness": {
+              "$ref": "#/$defs/text"
+            },
+            "blob": {
+              "$ref": "#/$defs/text"
+            },
+            "args": {
+              "$ref": "#/$defs/args"
+            },
+            "rounds": {
+              "$ref": "#/$defs/count"
+            },
+            "profile": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "machine": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "runner_image": {
+              "$ref": "#/$defs/text"
+            },
+            "runner_version": {
+              "$ref": "#/$defs/text"
+            },
+            "cpu": {
+              "$ref": "#/$defs/text"
+            },
+            "cores": {
+              "$ref": "#/$defs/count"
+            },
+            "ram_mb": {
+              "$ref": "#/$defs/count"
+            },
+            "os": {
+              "$ref": "#/$defs/text"
+            },
+            "godot": {
+              "$ref": "#/$defs/text"
+            },
+            "rustc": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "number": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/text"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number"
+              }
+            },
+            {
+              "$ref": "#/$defs/gap"
+            }
+          ]
+        },
+        "median": {
+          "$ref": "#/$defs/number"
+        }
+      },
+      "not": {
+        "required": [
+          "na"
+        ]
+      }
+    },
+    "results": {
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z0-9_-]+(/[a-z0-9_-]+)*$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/measure"
+              },
+              {
+                "$ref": "#/$defs/gap"
+              }
+            ]
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "ratios": {
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z0-9_-]+(/[a-z0-9_-]+)*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/number"
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "commit": {
+              "$ref": "#/$defs/text"
+            },
+            "results": {
+              "$ref": "#/$defs/results"
+            },
+            "ratio": {
+              "$ref": "#/$defs/ratios"
+            }
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "run_id": {
+              "$ref": "#/$defs/count"
+            },
+            "url": {
+              "$ref": "#/$defs/text"
+            },
+            "date": {
+              "$ref": "#/$defs/text"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "fresh",
+                    "harvested"
+                  ]
+                },
+                {
+                  "$ref": "#/$defs/gap"
+                }
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "na"
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    }
+  }
+}
