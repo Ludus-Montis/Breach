@@ -111,6 +111,10 @@ times each with its own harness.
   `tools/formation_bench.gd` for the whole tick, and `tools/tick_phases.gd` for phases where it
   parses. A phase that doesn't parse is `{"na": "not-measured"}`. A commit before 2026-10-17
   whose `formation_bench` takes other args uses its own, recorded in `source.args`.
+  (Settled 2026-11-07 with the owner: a GDScript-era commit has **two records**, each from one
+  battle. `tick_phases.gd` with `engine=rust side=4096 squads=4 fight=3` (its own tick and
+  phases, the cargo records' battle) and, as `-n`, `formation_bench.gd` with `sizes=1024` (its
+  mid-fight average as `tick`).)
 - **References:** `eee3e81` for GDScript-era commits, and the bridge commit for cargo-era ones.
   The bridge is also timed with the GDScript harnesses against `eee3e81`, so the history
   states the factor between the eras.
@@ -209,6 +213,19 @@ reading `metrics/` only.
   `nproc`, `/proc/meminfo`, `/etc/os-release` and `rustc --version`; Godot is
   `not-applicable`. Its step label and summary come from its PR through the API, and a merge
   with no step label has `step` `not-applicable`.
+
+**Step 5, 2026-11-07:**
+- **67 commits** touched `sim/` or `native/` on `main`'s first-parent line since 2026-10-14:
+  49 have only the GDScript tools, 8 both (the bridge, `8ca4227`, is the last of them) and 10
+  only `breach_tick_phases`. The earliest with the binary, `827b8ea`, builds it and takes
+  `squads`.
+- **`formation_bench.gd`'s args never changed** in the window (`sizes`, `width`, `march`,
+  `settle`, `fight`, `seed`), so no commit needs its own; `tick_phases.gd` took `engine`,
+  `side` and `squads` from the start.
+- **A harness that prints nothing readable** (it doesn't parse at that commit, or fails) has
+  each of the reference's paths as `{"na": "not-measured"}`.
+- **Record names** are `<date>-<run id>-<n>`, `n` counting harnesses across the whole list of
+  commits (and 1000 more for each re-run), so the matrix's jobs never collide.
 
 ## Scenarios
 

@@ -106,6 +106,23 @@ summary compares the commit with the reference and draws the last 20 records' ti
 (`ci/metrics/bench_chart.py`). To record `main`'s head by hand, start **Bench** on `main`
 with **record** ticked; on any other branch it writes no record.
 
+## The backfill
+
+`bench-series` (spec 43 step 5) fills the history from before step 4: start it from the
+Actions tab. With no inputs it takes each first-parent commit on `main` that touched `sim/`
+or `native/` since 2026-10-14 (67), three to a job (`ci/metrics/bench_series.py`).
+
+| A commit's tree holds | It is timed with | Against |
+|---|---|---|
+| `native/rust/src/bin/tick_phases.rs` | `breach_tick_phases side=4096 squads=4 fight=3` | the bridge, `8ca4227` |
+| only the GDScript tools | `tools/tick_phases.gd engine=rust side=4096 squads=4 fight=3`, and `tools/formation_bench.gd sizes=1024` (its mid-fight average as `tick`), a record each | `eee3e81` |
+| both, and it is the bridge | all three | as above |
+
+Each commit and its reference run in turn for 5 rounds. A harness that prints nothing
+readable at a commit has the reference's paths as `{"na": "not-measured"}`. Each job's records
+go through [the data-PR route](#the-data-pr-route), so the backfill lands as one data PR a job.
+`commits` takes a list instead (a re-run of the commits a job missed, say).
+
 ## Data-only PRs
 
 A PR is data-only when every path it changes is under `metrics/` and none is under

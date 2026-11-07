@@ -48,9 +48,9 @@ def phase_path(name: str) -> str:
     return "/".join(["tick"] + parts)
 
 
-def measures(texts: list) -> dict:
+def measures(texts: list, parse=phases) -> dict:
     """{path: measure} over the rounds' outputs, for every phase each round printed."""
-    runs = [phases(text) for text in texts]
+    runs = [parse(text) for text in texts]
     shared = set.intersection(*(set(run) for run in runs)) if runs else set()
     out = {}
     for name in sorted(shared):
@@ -90,8 +90,13 @@ def build_record(head_texts: list, reference_texts: list, context: dict) -> dict
     }
 
 
-def write_record(record: dict, out, date: str, run_id, attempt) -> Path:
-    suffix = "" if str(attempt) in ("", "1") else f"-{attempt}"
+def write_record(record: dict, out, date: str, run_id, attempt, number=None) -> Path:
+    """`metrics/bench/<date>-<run id>[-<n>].json`: `n` is `number` when given (a run that
+    writes several records), else the attempt of a re-run."""
+    if number is not None:
+        suffix = f"-{number}"
+    else:
+        suffix = "" if str(attempt) in ("", "1") else f"-{attempt}"
     path = Path(out) / "metrics" / "bench" / f"{date}-{run_id}{suffix}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -21,6 +21,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [The metrics records, their schema and check, and data-only PRs](../ci/metrics/README.md#the-records-and-their-check)
 - [The data-PR route: measuring workflows merge their own data PRs](../ci/metrics/README.md#the-data-pr-route)
 - [The bench history: a record for each merge that touches the simulation](../ci/metrics/README.md#bench-records)
+- [The bench history's backfill, from 2026-10-14](../ci/metrics/README.md#the-backfill)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 

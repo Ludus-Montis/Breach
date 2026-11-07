@@ -1,0 +1,88 @@
+name: bench-series
+
+# Spec 43 step 5, Decisions 162 and 164. Started by hand: the backfill of the bench history.
+# Each first-parent commit on main that touched sim/ or native/ since 2026-10-14 (or the
+# commits given) is timed with its own harness against its era's reference, in turn for 5
+# rounds (ci/metrics/bench_series.py): the crate's breach_tick_phases against the bridge,
+# 8ca4227, where the commit has it; otherwise tools/tick_phases.gd and tools/formation_bench.gd
+# against eee3e81, a record each. The bridge is timed with all three, so the history states
+# the factor between the eras. The commits are spread over a matrix of jobs, a few each, and
+# each job's records go through the data-PR route (.github/actions/metrics-pr), so the
+# backfill lands as several data PRs that merge themselves.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commits:
+        description: "Commits to time, space-separated (empty: every first-parent commit on main touching sim/ or native/ since 2026-10-14)"
+        default: ""
+      per_job:
+        description: "Commits per job"
+        default: "3"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  GODOT_VERSION: "4.7.2-stable"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: The jobs
+        id: plan
+        env:
+          COMMITS: ${{ inputs.commits }}
+          PER_JOB: ${{ inputs.per_job }}
+        run: |
+          set -o pipefail
+          jobs=$(python3 ci/metrics/bench_series.py plan --commits "$COMMITS" --per-job "$PER_JOB")
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "$jobs" | python3 -c "import json,sys; j=json.load(sys.stdin); print(f'{sum(len(x[\"commits\"].split()) for x in j)} commits in {len(j)} jobs')" >> "$GITHUB_STEP_SUMMARY"
+
+  bench:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Time the commits and write their records
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMITS: ${{ matrix.job.commits }}
+          OFFSET: ${{ matrix.job.offset }}
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/metrics-new"
+          python3 ci/metrics/bench_series.py run --commits "$COMMITS" --offset "$OFFSET" \
+            --out "$RUNNER_TEMP/metrics-new" --godot /opt/godot/godot | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Open the data PR
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/metrics-pr
+        with:
+          folder: ${{ runner.temp }}/metrics-new
+          series: bench-series
+          run-id: ${{ github.run_id }}-${{ matrix.job.index }}
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
