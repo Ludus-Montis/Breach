@@ -89,9 +89,12 @@ A composite action (`.github/actions/metrics-pr/`) that every measuring workflow
 - **Machine:** a step gathers the runner image and version, CPU model (`lscpu`), cores
   (`nproc`), RAM (`/proc/meminfo`), OS, `rustc` and (where used) Godot versions.
 - **Records:** `ci/godot/scripts/bench_compare.py` (or a sibling) writes one record per run
-  of a commit on `main`'s first-parent line, with each round's values for every phase path
-  from `breach_tick_phases` and the whole tick from `breach_formation_bench`, their medians,
-  the reference's same measurement, and the ratio. A run on a branch writes none.
+  of a commit on `main`'s first-parent line, with each round's values for the whole tick and
+  every phase path from `breach_tick_phases`, their medians, the reference's same
+  measurement, and the ratio. A run on a branch writes none. (Amended 2026-11-07 with the
+  owner: this read "the whole tick from `breach_formation_bench`", a binary that never
+  existed; `formation_bench.gd` retired in spec 39 step 9d-iii with no cargo port, and
+  `breach_tick_phases` prints the whole tick of the same battle above its phases.)
 - **The reference:** the cargo era's (Decision 162: the bridge commit), measured in the same
   job, interleaved, 5 rounds.
 - **The summary:** a Mermaid `xychart` of the last records' ratio to the reference, read from
@@ -149,7 +152,7 @@ reading `metrics/` only.
 
 ## Measured
 
-(Filled in by steps 1, 2 and 5.)
+(Filled in by steps 1, 2, 4 and 5.)
 
 **Step 1, 2026-11-06:**
 - **The archive costs two requests a run** (its jobs, and its log archive, which holds every
@@ -191,6 +194,21 @@ reading `metrics/` only.
 - **`rust` never starts on a data-only PR** (its `paths` hold nothing under `metrics/`), so
   its data-only step is a guard only. `sim-checks`' existing `scope` job takes the rule
   (`needs_godot.py` calls `data_only.py`), so its jobs skip, which counts as passing.
+
+**Step 4, 2026-11-07:**
+- **The bridge holds:** `8ca4227` has `tools/formation_bench.gd`, `tools/tick_phases.gd` and
+  `breach_tick_phases` (built by its `native/build.sh`), so it is the cargo era's reference.
+- **The args are `side=4096 squads=4 fight=3`,** `bench`'s default, not `preset=4096`
+  (Decision 159's daily bench): the reference's `breach_tick_phases` has no `preset`.
+- **Phase names become paths** by splitting on `:`, lowercasing, dropping apostrophes and
+  joining other runs of characters with `-`, under `tick`: `scrum: engage, prepare, stance` is
+  `tick/scrum/engage-prepare-stance`, `rout: regroup's search` is `tick/rout/regroups-search`.
+- **`breach_tick_phases` prints two decimals,** so a phase under 0.005 ms prints `0.00`. Such
+  a phase is `{"na": "not-measured"}` in that record, with no ratio, never `0`.
+- **Each record's machine** comes from the runner's `ImageOS` and `ImageVersion`, `lscpu`,
+  `nproc`, `/proc/meminfo`, `/etc/os-release` and `rustc --version`; Godot is
+  `not-applicable`. Its step label and summary come from its PR through the API, and a merge
+  with no step label has `step` `not-applicable`.
 
 ## Scenarios
 
