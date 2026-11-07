@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Whether a change needs Godot: the gdUnit4 suite, the scaling check and the sim checks
 (digests, trials, the suite under Rust). Docs, specs, skills, the kit and Python-only
-tools don't; game code, tests, content, scenes, the Rust core and the CI wiring itself
+tools don't, nor a data-only change (metrics/ only, Decision 163); game code, tests, content, scenes, the Rust core and the CI wiring itself
 do. Decided by the files changed, not by the commit type: a `chore` can touch any of
 them.
 
@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "metrics"))
+from data_only import is_data_only  # noqa: E402  (spec 43 step 2, Decision 163)
 
 GODOT_SUFFIXES = (".gd", ".tres", ".tscn", ".gdextension", ".gdshader", ".import", ".uid")
 GODOT_DIRS = ("native/", "content/", "addons/", "presentation/", "sim/", "tests/", ".github/")
@@ -21,6 +23,8 @@ GODOT_FILES = {"project.godot", ".pre-commit-config.yaml", "ci/godot/scripts/run
 
 
 def needs_godot(paths: list) -> bool:
+    if is_data_only(paths):
+        return False
     for path in paths:
         if path in GODOT_FILES or path.endswith(GODOT_SUFFIXES):
             return True

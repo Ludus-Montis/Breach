@@ -149,7 +149,7 @@ reading `metrics/` only.
 
 ## Measured
 
-(Filled in by steps 1 and 5.)
+(Filled in by steps 1, 2 and 5.)
 
 **Step 1, 2026-11-06:**
 - **The archive costs two requests a run** (its jobs, and its log archive, which holds every
@@ -174,6 +174,19 @@ reading `metrics/` only.
   download is retried and a failed one leaves its run for later, the step fails visibly,
   one-job runs keep their digest and scaling steps' sections, and a run with nothing to keep
   is `{"na": "not-applicable"}`. That run's branch is not to be merged.
+
+**Step 2, 2026-11-07:**
+- **The record's version is the one required field.** The check can't choose a schema
+  without it; every other field is optional, as Decision 162 says.
+- **"The suite runs" for a PR that also touches `metrics/schema/` or another path** is read
+  as "the normal checks apply" (Decision 163: a schema change is code). `needs_godot.py`
+  still decides whether Godot is needed: a schema-and-check change, being JSON and Python,
+  runs no suite, while one that also touches `sim/` does.
+- **`0` is refused in any measure,** whatever its unit, as the step says. A later series
+  whose measure can truly be `0` (a count) needs a new schema version that says so.
+- **`rust` never starts on a data-only PR** (its `paths` hold nothing under `metrics/`), so
+  its data-only step is a guard only. `sim-checks`' existing `scope` job takes the rule
+  (`needs_godot.py` calls `data_only.py`), so its jobs skip, which counts as passing.
 
 ## Scenarios
 

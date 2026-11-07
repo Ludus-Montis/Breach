@@ -1,7 +1,7 @@
 # The metrics history's tools
 
 Spec 43 builds a history of the tick's performance under `metrics/` (Decision 162). This
-folder holds the tools that write it.
+folder holds the tools that write it and check it.
 
 ## Archive the old logs before they expire
 
@@ -39,4 +39,60 @@ Locally (`GITHUB_REPOSITORY` and `GITHUB_TOKEN` set):
 python3 ci/metrics/archive_runs.py metrics/raw
 ```
 
-Its tests: `python3 -m unittest discover -s ci/metrics -p "test_*.py"`.
+## The records and their check
+
+A record is one measurement run of one commit, one file under `metrics/<series>/` named
+`<date>-<run id>[-<n>].json` (Decision 162). Its shape is
+[`metrics/schema/record-v1.schema.json`](../../metrics/schema/record-v1.schema.json):
+
+```json
+{
+  "schema": "record-v1",
+  "series": "bench",
+  "commit": {"sha": "…", "position": 812, "pr": 777, "title": "…", "summary": "…",
+             "step": "step:43-1", "outcomes_changed": false},
+  "source": {"harness": "breach_tick_phases", "blob": "…", "args": ["…"], "rounds": 5,
+             "profile": "release"},
+  "machine": {"runner_image": "…", "runner_version": "…", "cpu": "…", "cores": 4,
+              "ram_mb": 15990, "os": "…", "godot": {"na": "not-applicable"}, "rustc": "…"},
+  "results": {"tick": {"unit": "ms", "values": [12.1, 12.3], "median": 12.2},
+              "tick/scrum/seek": {"na": "not-measured"}},
+  "reference": {"commit": "8ca4227", "results": {"tick": {"…": "…"}}, "ratio": {"tick": 1.21}},
+  "provenance": {"run_id": 19203344, "url": "…", "date": "2026-11-07", "kind": "fresh"}
+}
+```
+
+- Every field but `schema` is optional, and any value may be a gap in its place:
+  `{"na": "not-recorded" | "not-measured" | "not-applicable"}`. A gap is never `0`.
+- `results` (and `reference.results`) map a path, lowercase words joined by `/`
+  (`^[a-z0-9_-]+(/[a-z0-9_-]+)*$`), to `{"unit", "values", "median"}`. A finer record adds
+  children under a path (`tick/scrum/seek` under `tick/scrum`).
+- The record, and each measure, take no fields beyond those listed; `commit`, `source`,
+  `machine`, `reference` and `provenance` may carry more. A new top-level field, or a change
+  to a listed one, is a new version: `metrics/schema/record-v2.schema.json`, and records
+  naming it in `schema`. Readers accept every version.
+
+`ci/metrics/check_records.py` checks every record (not `metrics/raw/`, not
+`metrics/schema/`): its file name, its schema version (an unknown one fails), the schema
+itself, and that no measure's `values` or `median` is `0`. Each problem names the file and
+the field. It needs `jsonschema`:
+
+```bash
+pip install "jsonschema==4.*"
+```
+
+```bash
+python3 ci/metrics/check_records.py metrics metrics/schema
+```
+
+## Data-only PRs
+
+A PR is data-only when every path it changes is under `metrics/` and none is under
+`metrics/schema/` (Decision 163; `ci/metrics/data_only.py`). The `metrics` workflow checks
+the records on any PR that touches `metrics/` and says in its summary whether the PR is
+data-only. On a data-only PR, `sim-checks`, `docs-gate` and `rust` start, see it and pass at
+once, so the required checks still report; no Documentation block or changelog entry is
+needed. A schema change is code: the normal checks apply.
+
+Its tests: `python3 -m unittest discover -s ci/metrics -p "test_*.py"` (the check's tests are
+skipped where `jsonschema` isn't installed; CI installs it).
