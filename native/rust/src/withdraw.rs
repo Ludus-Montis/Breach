@@ -11,7 +11,7 @@
 //! where its units stand (`reform`), and GDScript turns it to face home (ScrumTurn) and lands
 //! the events.
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;

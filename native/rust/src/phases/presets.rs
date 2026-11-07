@@ -10,7 +10,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use crate::hashing::HashMap;
 
 pub use super::series::LIMIT;
 

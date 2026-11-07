@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::battles::{self, Battle, Codes, Set};
 use crate::commands::MERGES;

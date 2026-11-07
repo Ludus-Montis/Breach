@@ -6,6 +6,8 @@
 //! `Vector2 * float` narrowing the float to f32 first, the same summation order, no fused
 //! multiply-add (Rust never contracts `a * b + c` on its own).
 
+// Parting's buckets are left to spec 41 step 3, which replaces them with a flat grid.
+#[allow(clippy::disallowed_types)]
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hasher};
 
@@ -85,6 +87,7 @@ impl Hasher for Fx {
     }
 }
 
+#[allow(clippy::disallowed_types)]
 type Buckets = HashMap<(i32, i32), Vec<u32>, BuildHasherDefault<Fx>>;
 
 #[inline]

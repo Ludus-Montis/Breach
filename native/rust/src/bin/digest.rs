@@ -20,7 +20,7 @@
 //! read them from `native/rust/cuts`.
 //! `repo` is the folder holding project.godot (default: the one this is run in or from).
 
-use std::collections::HashMap;
+use breach_native::hashing::{HashMap, HashMapExt};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};

@@ -15,8 +15,8 @@
 //! each squad (`seeking.rs`); the ground a slot lies on is asked of GDScript (`within`) only
 //! when there is terrain.
 
+use crate::hashing::{HashMap, HashMapExt};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 
 use rayon::prelude::*;
 

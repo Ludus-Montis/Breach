@@ -8,7 +8,7 @@
 
 pub mod pass;
 
-use std::collections::HashSet;
+use crate::hashing::{HashSet, HashSetExt};
 
 use crate::columns::Columns;
 #[cfg(test)]

@@ -10,7 +10,7 @@
 
 pub mod pass;
 
-use std::collections::HashMap;
+use crate::hashing::{HashMap, HashMapExt};
 
 use serde::{Deserialize, Serialize};
 

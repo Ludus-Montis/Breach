@@ -50,6 +50,7 @@ mod ghash;
 mod grid;
 pub mod ground;
 mod groups;
+pub mod hashing;
 mod hurts;
 mod joins;
 mod kingdom;
