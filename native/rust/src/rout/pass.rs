@@ -17,6 +17,7 @@
 #[cfg(test)]
 mod tests;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use super::{breaking, breaks, flee, rallies, regroup, Fled, RoutTuning, CELLS};
@@ -73,18 +74,25 @@ pub fn step(
         .filter(|(_, l)| squads.state[l.squad] == locks::ROUTING)
         .map(|(n, l)| Routing { listed: n, route: squads.route[l.squad].clone() })
         .collect();
-    let leaders = leaders_of(field, roster);
     let broke = breaking(squads, roster);
-    let fled = flee(squads, &mut field.columns, roster, &routing, &leaders, t, seed, ground);
     let mut moved = Vec::new();
-    for f in fled {
-        land_flight(squads, field, (roster, &routing), f, (hurt, bands, tick), log, &mut moved);
+    if !routing.is_empty() {
+        let leaders = leaders_of(field, roster);
+        let fled = flee(squads, &mut field.columns, roster, &routing, &leaders, t, seed, ground);
+        for f in fled {
+            land_flight(squads, field, (roster, &routing), f, (hurt, bands, tick), log, &mut moved);
+        }
     }
     split("rout: flight");
-    let mut roster = refreshed(roster, squads, field);
+    // read again only for the rallies, re-forms and breaks that read it (spec 42 step 3)
+    let mut roster = if routing.is_empty() && broke.is_empty() {
+        Cow::Borrowed(roster)
+    } else {
+        Cow::Owned(refreshed(roster, squads, field))
+    };
     if !routing.is_empty() {
         rally(squads, field, (&roster, &routing), (t, bands), (tick, seed), log, &mut moved);
-        roster = refreshed(&roster, squads, field);
+        roster = Cow::Owned(refreshed(&roster, squads, field));
     }
     split("rout: rallies");
     if !routing.is_empty() {

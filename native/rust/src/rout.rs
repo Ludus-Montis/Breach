@@ -144,8 +144,12 @@ pub fn flee(
     seed: i64,
     ground: Option<&Ground>,
 ) -> Vec<Fled> {
+    if routing.is_empty() {
+        return Vec::new(); // no router: nothing flees, so no view of the field to build
+    }
     let listed: Vec<usize> = routing.iter().map(|r| r.listed).collect();
-    let friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let pool = tuning.threaded.on(roster.units());
+    let friends = Friends::new((roster, squads, columns), &listed, leaders, seed, pool);
     let flights: Vec<Flight> = routing
         .iter()
         .map(|formation| Flight {
@@ -239,7 +243,8 @@ pub fn rallies(
     seed: i64,
 ) -> Rallied {
     let listed: Vec<usize> = routing.iter().map(|r| r.listed).collect();
-    let friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let pool = tuning.threaded.on(roster.units());
+    let friends = Friends::new((roster, squads, columns), &listed, leaders, seed, pool);
     let alone: Vec<bool> = listed.iter().map(|&n| friends.alone(n)).collect();
     let routers = routers_of(roster, routing);
     // each router's search, apart: where it is, a led friend near it, else who holds it
@@ -339,7 +344,8 @@ pub fn regroup(
     mut slot_of: impl FnMut(i64) -> Option<usize>,
 ) -> Vec<usize> {
     let listed: Vec<usize> = routing.iter().map(|r| r.listed).collect();
-    let friends = Friends::new(roster, squads, columns, &listed, leaders, seed);
+    let pool = tuning.threaded.on(roster.units());
+    let friends = Friends::new((roster, squads, columns), &listed, leaders, seed, pool);
     let mut starts = Vec::with_capacity(roster.listed.len());
     let mut from = 0;
     for l in &roster.listed {

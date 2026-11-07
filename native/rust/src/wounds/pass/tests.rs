@@ -153,3 +153,17 @@ fn the_pass_looks_for_takers_only_while_a_body_lies() {
 
     assert_eq!((lies, none), (true, false));
 }
+
+/// Spec 42 step 3: the squads' records the takings read, built on the pool, are those built
+/// on one thread.
+#[test]
+fn the_records_built_on_the_pool_are_those_built_on_one_thread() {
+    let mut b = built();
+    b.leader();
+    let listed = [0, 1, 2];
+    let one = tended_all(&b.squads, &b.field, &listed, false);
+    let pool = tended_all(&b.squads, &b.field, &listed, true);
+    assert_eq!(format!("{pool:?}"), format!("{one:?}"));
+    assert_eq!(one[1].living.len(), 2);
+    assert_eq!(one[0].downed.len(), 1);
+}

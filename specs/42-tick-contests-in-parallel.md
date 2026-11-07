@@ -186,6 +186,35 @@ reduction in a fixed order with no rounds. **Expected on playback:** routers joi
 a tick later at most when several reach the same squad at once. Takings differ only where
 two takers reach one body in the same tick.
 
+**Built, rescoped with outcomes unchanged** (the owner's choice in the step's session,
+2026-11-06). Read against the code, the landings this step names aren't contested:
+- **The joins have no room.** `joins::take_in` takes in every router, so two routers joining
+  one squad never conflict. They already apply nearest first, then by the seeded draw.
+- **Every taker on a body strikes it.** The only limit shared across bodies is a leader's
+  messengers, spent in the takers' seeded draws' order (the captor too, first by draw).
+- **The caught count and the re-forms' counting** each write only the unit's or the squad's
+  own record. The steady friends' first reads set a squad's morale to its ceiling, the same
+  value whoever reads it first.
+
+So there was nothing for the settling rule to decide, and no reason to change behaviour. The
+cost under spec 41 step 1's `rout: flight` (9.9 ms) and `rout: rallies` (7.8 ms) laps is
+serial work that isn't a landing. The step takes that off the serial path instead:
+- `flee` returns at once with no router. Before, every tick built the rout's view of the
+  field (`Friends::new`: every listed unit's point and body, about 50k at 25k) with nothing to
+  read it.
+- The view reads each listed squad's points and bodies on the pool (`threaded.on` the
+  roster's units). It's built for the flight, the rallies and the regroup.
+- The pass reads the roster again (`refreshed`: a clone and a map of every unit) only when
+  the rallies, re-forms or breaks will read it. A quiet tick doesn't.
+- Tend reads its squads' records (each unit's sheet and words) on the pool. Its takers group
+  by body through an index, rather than by searching the list of bodies for each taker.
+
+Scenarios for the rescoped step: the view built on the pool is the one built on one thread
+(`rout/friends/tests.rs`); the squads' records built on the pool are those built on one thread
+(`wounds/pass/tests.rs`). Every digest equals the base's (step 2), so no Decision 161 gate
+applies. The bench (`rounds` 5, `preset=25k` and `4096`) shows what it took off the rout's
+and tend's laps.
+
 ## Not in this spec
 
 - **Reading the last tick's state across phases** (double-buffered columns), so that phases
@@ -217,6 +246,7 @@ two takers reach one body in the same tick.
   wins differ by no more than about 2 standard deviations.
 
 ### Step 3
+As spec'd (superseded by the rescope under "Step 3", above; kept for the record):
 - Given two routers reaching one squad with room for one, when settled, then the nearer
   joins (the seeded draw on a tie), whatever the lists' order.
 - Given two takers on one downed body, then the one first in the seeded draws' order takes

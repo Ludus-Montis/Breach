@@ -211,11 +211,15 @@ pub fn tend(
     let found = takers(squads, &near, seed, tuning);
     // each body's takers, the bodies in the order a taker first found them
     let mut taken: Vec<(usize, Vec<At>)> = vec![];
+    let mut place: Vec<Option<usize>> = vec![None; downed.len()]; // each body's in `taken`
     for (&taker, found) in standing.iter().zip(found) {
         if let Some(body) = found {
-            match taken.iter_mut().find(|(b, _)| *b == body) {
-                Some((_, takers)) => takers.push(taker),
-                None => taken.push((body, vec![taker])),
+            match place[body] {
+                Some(p) => taken[p].1.push(taker),
+                None => {
+                    place[body] = Some(taken.len());
+                    taken.push((body, vec![taker]));
+                }
             }
         }
     }

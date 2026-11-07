@@ -14,12 +14,14 @@
 
 use std::sync::OnceLock;
 
+use rayon::prelude::*;
+
 use crate::columns::Columns;
 use crate::contest;
 use crate::grid::{self, Grid};
 use crate::locks;
 use crate::maths::{clampf, snapped, V2};
-use crate::roster::{self, Roster};
+use crate::roster::{self, Listed, Roster};
 use crate::route::Route;
 use crate::squads::Squads;
 
@@ -92,14 +94,15 @@ pub struct Friends<'a> {
 }
 
 impl<'a> Friends<'a> {
-    /// `leaders`: every listed squad's living units' leadership, in the lists' order.
+    /// `leaders`: every listed squad's living units' leadership, in the lists' order. With
+    /// `threaded`, each listed squad's points and bodies are read on the pool (spec 42 step
+    /// 3): each reads only its own units, so the view is the same either way.
     pub fn new(
-        roster: &'a Roster,
-        squads: &Squads,
-        columns: &Columns,
+        (roster, squads, columns): (&'a Roster, &Squads, &Columns),
         routing: &[usize],
         leaders: &[i64],
         seed: i64,
+        threaded: bool,
     ) -> Friends<'a> {
         let mut from = 0;
         let leadership = roster
@@ -118,20 +121,22 @@ impl<'a> Friends<'a> {
         }
         let factions = roster.listed.iter().map(|l| l.faction as usize + 1).max().unwrap_or(0);
         let loose = roster.loose(squads);
+        // each listed squad's units' points and bodies, read apart
+        let placed = |(n, l): (usize, &Listed)| {
+            let points = l.living.iter().map(|m| columns.position[m.slot]).collect();
+            let bodies = l.living.iter().map(|m| roster::at(columns, &loose[n], m)).collect();
+            (points, bodies)
+        };
+        let (points, bodies): (Vec<Vec<V2>>, Vec<Vec<V2>>) = if threaded {
+            roster.listed.par_iter().enumerate().map(placed).unzip()
+        } else {
+            roster.listed.iter().enumerate().map(placed).unzip()
+        };
         Friends {
             roster,
             states: roster.listed.iter().map(|l| squads.state[l.squad]).collect(),
-            points: roster
-                .listed
-                .iter()
-                .map(|l| l.living.iter().map(|m| columns.position[m.slot]).collect())
-                .collect(),
-            bodies: roster
-                .listed
-                .iter()
-                .enumerate()
-                .map(|(n, l)| l.living.iter().map(|m| roster::at(columns, &loose[n], m)).collect())
-                .collect(),
+            points,
+            bodies,
             leadership,
             routing: flags,
             seed,
