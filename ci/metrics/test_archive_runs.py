@@ -253,17 +253,24 @@ class ArchiveTest(unittest.TestCase):
         self.assertEqual(self.record("sim-checks", 303)["log"]["jobs"],
                          ["sim-checks (whole log: its steps could not be matched)"])
 
-    def test_a_run_with_nothing_to_keep_has_no_log_file(self):
-        client = actions(
+    def skipped_run(self):
+        return actions(
             runs={"sim-checks.yml": [run(302)]},
             jobs={302: [job(7, "suite (1)"), job(8, "digests", conclusion="skipped", steps=[])]},
             logs={302: log_zip({"suite (1)": fixture("sim_checks_suite_job.txt")})},
         )
-        self.archive(client)
-        self.assertEqual(files(self.root), ["sim-checks/302.json"])
-        record = self.record("sim-checks", 302)
-        self.assertEqual(record["log"], {"na": "not-applicable"})
-        self.assertEqual(record["jobs"][1]["runner_image"], {"na": "not-applicable"})
+
+    def test_a_run_with_nothing_to_keep_is_only_listed_as_skipped(self):
+        self.archive(self.skipped_run())
+        self.assertEqual(files(self.root), ["sim-checks/skipped.txt"])
+        self.assertEqual((self.root / "sim-checks" / "skipped.txt").read_text(encoding="utf-8"), "302\n")
+
+    def test_a_skipped_run_is_not_read_again(self):
+        self.archive(self.skipped_run())
+        client = self.skipped_run()
+        self.assertEqual(self.archive(client).files, [])
+        self.assertEqual(client.log_reads, [])
+        self.assertEqual((self.root / "sim-checks" / "skipped.txt").read_text(encoding="utf-8"), "302\n")
 
     def test_a_failed_download_skips_that_run_and_a_rerun_takes_it(self):
         broken = actions(logs={101: http.client.IncompleteRead(b"partial"), 201: None, 202: None})
