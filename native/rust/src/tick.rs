@@ -54,17 +54,18 @@ pub struct Ticked {
 }
 
 /// One tick over the squads of `roster` (every unit each holds, living or not), on `over`'s
-/// ground (None: open ground). Their events in `log`.
+/// ground (None: open ground). Their events in `log`. The roster is taken, not cloned: each
+/// relisting updates what changed (spec 41 step 4).
 pub fn step(
     squads: &mut Squads,
     field: &mut Field,
-    roster: &Roster,
+    roster: Roster,
     mut over: Option<&mut Over>,
     rules: &Rules,
     log: &mut Log,
 ) -> Ticked {
-    let known = known(roster);
-    let roster = relisted(roster.clone(), squads, field, &known, &[], &[]);
+    let known = known(&roster);
+    let roster = relisted(roster, squads, field, &known, &[], &[]);
     lap("roster", field, squads);
     let opened = opening::step(squads, field, &roster, over.as_deref_mut(), &rules.opening, log);
     let joining: Vec<usize> = opened.joins.iter().map(|&(_, j)| j).collect();
