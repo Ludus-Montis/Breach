@@ -19,6 +19,7 @@ Task-oriented. Steps to achieve a specific goal.
   (`/cascade`; why it works this way: [agent sessions, rule 8](../AI_First_Development_Kit/principles/agent-sessions.md#8-a-long-series-of-steps-runs-as-a-cascade))
 - [Archive the bench and sim-checks logs before they expire](../ci/metrics/README.md)
 - [The metrics records, their schema and check, and data-only PRs](../ci/metrics/README.md#the-records-and-their-check)
+- [The data-PR route: measuring workflows merge their own data PRs](../ci/metrics/README.md#the-data-pr-route)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 
