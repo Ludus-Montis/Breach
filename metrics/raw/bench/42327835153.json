@@ -1,0 +1,151 @@
+{
+  "archived": {
+    "by_run": "42412663531",
+    "date": "2026-11-07"
+  },
+  "inputs_from_log": {
+    "ARGS": "preset=4096",
+    "BASE": "main",
+    "BASE_ARGS": "",
+    "HEAD_NAME": "feature/parting-pair-search",
+    "HEAD_REF": "",
+    "ROUNDS": "5",
+    "SCALE": "",
+    "TOOL": "breach_tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-11-07T02:20:55Z",
+      "conclusion": "success",
+      "id": 128267169788,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-26.04",
+        "version": "20261028.624"
+      },
+      "runner_name": "GitHub Actions 1000007532",
+      "started_at": "2026-11-07T02:09:58Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-11-07T02:09:59Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-11-07T02:09:59Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:10:01Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-11-07T02:09:59Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:10:10Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 3,
+          "started_at": "2026-11-07T02:10:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:10:10Z",
+          "conclusion": "skipped",
+          "name": "Check out the head",
+          "number": 4,
+          "started_at": "2026-11-07T02:10:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:10:11Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 5,
+          "started_at": "2026-11-07T02:10:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:45Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 6,
+          "started_at": "2026-11-07T02:10:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:45Z",
+          "conclusion": "skipped",
+          "name": "Profile the head",
+          "number": 7,
+          "started_at": "2026-11-07T02:20:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:45Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-11-07T02:20:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:53Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 15,
+          "started_at": "2026-11-07T02:20:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:53Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-11-07T02:20:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-07T02:20:53Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-11-07T02:20:53Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "42327835153.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-11-07T02:09:55Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "feature/parting-pair-search",
+    "head_commit_message": "perf(native): parting's pair search on the flat grid with a neighbour list (spec 41 step 3)\n\nThe pair search moves to parting/pairs.rs. Pairs are found through grid::Grid, not a hashed\nbucket map. Each chunk of bodies fills one buffer with each body's partners sorted, so there\nis no global sort and no per-body Vec. A neighbour list with a 0.25-cell skin is shared by a\ntick's passes and rebuilt when a body moves more than half the skin. Each pass applies\nUnitBodies._pairs' test in list order, so the pairs and their order are unchanged.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_011AyPi58viunhUkxUyZXV1T",
+    "head_sha": "bba5d65d2656e3447532401026ab1df5f1d1b105",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/42327835153",
+    "id": 42327835153,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 94,
+    "run_started_at": "2026-11-07T02:09:55Z",
+    "status": "completed",
+    "updated_at": "2026-11-07T02:20:56Z"
+  },
+  "workflow": "bench.yml"
+}
