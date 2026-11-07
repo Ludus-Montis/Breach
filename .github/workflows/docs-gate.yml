@@ -2,6 +2,8 @@
 # from the kit's templates/ci/docs-gate.yml.
 # `edited` re-runs the gate when the PR description changes, so adding
 # "Changelog: N/A (<reason>)" to the Documentation block takes effect without a push.
+# A data-only PR (every path under metrics/, none under metrics/schema/; Decision 163)
+# needs no Documentation block: its first step detects that and the gate passes at once.
 name: docs-gate
 on:
   pull_request:
@@ -12,7 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
+      - name: Data-only?
+        id: data
+        run: python3 ci/metrics/data_only.py origin/${{ github.base_ref }}
       - name: Documentation gate
+        if: steps.data.outputs.data_only != 'true'
         env:
           DOCS_SKIP_CHANGELOG: "${{ contains(github.event.pull_request.body, 'Changelog: N/A') && '1' || '0' }}"
         run: bash AI_First_Development_Kit/scripts/check-docs.sh all origin/${{ github.base_ref }}

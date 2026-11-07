@@ -30,6 +30,18 @@ class NeedsGodotTest(unittest.TestCase):
         ]:
             self.assertTrue(needs_godot(paths), paths)
 
+    def test_a_data_only_change_does_not(self):
+        # Decision 163: records and raw material under metrics/ are data, whatever their
+        # names end with.
+        for paths in [
+            ["metrics/bench/2026-11-07-19203344.json"],
+            ["metrics/raw/bench/19203344.log", "metrics/raw/sim-checks/1.gd"],
+        ]:
+            self.assertFalse(needs_godot(paths), paths)
+
+    def test_data_with_game_code_does(self):
+        self.assertTrue(needs_godot(["metrics/bench/2026-11-07-1.json", "sim/a.gd"]))
+
     def test_nothing_changed_needs_nothing(self):
         self.assertFalse(needs_godot([]))
 
