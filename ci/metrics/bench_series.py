@@ -13,6 +13,7 @@ and writes a record per harness under `metrics/bench/`.
   each of the reference's paths as `{"na": "not-measured"}`.
 
     bench_series.py plan [--commits "<sha> ..."] [--per-job 3]   # the jobs, as JSON
+    bench_series.py build [--commits "<sha> ..."]   # build them (default: the references)
     bench_series.py run --commits "<sha> ..." --offset <n> --out <folder> [--godot <bin>]
 """
 import json
@@ -20,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +36,8 @@ GAP = {"na": "not-measured"}
 NOT_APPLICABLE = {"na": "not-applicable"}
 FIGHT_SIZE = 1024
 NOISE = ("Godot Engine", "Initialize godot-rust", "WARNING")
+SHARED_TARGET = Path(os.environ.get("BENCH_TARGET", "target-shared"))
+REFERENCES = [GDSCRIPT_REFERENCE, BRIDGE]
 
 
 def whole_tick(text: str) -> dict:
@@ -121,15 +125,37 @@ def tree(sha: str) -> set:
     return set(bench_record.git(".", "ls-tree", "--name-only", sha, "--", *files).split())
 
 
+def link_target(folder: Path, shared: Path) -> None:
+    """Point the worktree's `native/rust/target` at the one shared build folder: cargo then
+    builds the dependencies once a job, and each commit only what it changed."""
+    shared.mkdir(parents=True, exist_ok=True)
+    target = folder / "native" / "rust" / "target"
+    if target.is_symlink():
+        return
+    if target.exists():
+        shutil.rmtree(target)
+    target.symlink_to(shared.resolve(), target_is_directory=True)
+
+
+def needs_build(folder: Path) -> bool:
+    """False when the worktree's binaries are there (the references, built once a run)."""
+    built = folder / "native" / "bin"
+    return not (built.is_dir() and any(built.iterdir()))
+
+
 def checkout(sha: str, needs_godot: bool, godot: str) -> Path:
-    """A worktree of `sha` under trees/, built (and imported for Godot), once."""
+    """A worktree of `sha` under trees/, built into the shared folder (and imported for
+    Godot), once."""
     folder = Path("trees") / sha[:12]
     if not folder.exists():
         subprocess.run(["git", "worktree", "add", "-q", "--detach", str(folder), sha], check=True)
-        subprocess.run(["bash", "native/build.sh", "release"], cwd=folder,
-                       env={**os.environ, "JOBS": "4"}, capture_output=True)
-        # build.sh copied what runs into native/bin; the build folder only costs disk.
-        shutil.rmtree(folder / "native" / "rust" / "target", ignore_errors=True)
+    if needs_build(folder):
+        link_target(folder, SHARED_TARGET)
+        started = time.monotonic()
+        built = subprocess.run(["bash", "native/build.sh", "release"], cwd=folder,
+                               env={**os.environ, "JOBS": "4"}, capture_output=True, text=True)
+        outcome = "built" if built.returncode == 0 else f"build failed:\n{built.stderr[-2000:]}"
+        print(f"{sha[:7]} {outcome} in {time.monotonic() - started:.0f} s")
     marker = folder / ".imported"
     if needs_godot and not marker.exists():
         subprocess.run([godot, "--headless", "--path", ".", "--import"], cwd=folder,
@@ -211,6 +237,10 @@ def main(argv: list) -> int:
     if command == "plan":
         per_job = int(bench_record.option(argv, "--per-job", "3"))
         print(json.dumps(plan(commits or default_commits(), per_job)))
+        return 0
+    if command == "build":
+        for sha in commits or REFERENCES:
+            print(checkout(bench_record.git(".", "rev-parse", sha), False, ""))
         return 0
     if command == "run":
         run(commits, int(bench_record.option(argv, "--offset", "0")),

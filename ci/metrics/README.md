@@ -123,6 +123,13 @@ readable at a commit has the reference's paths as `{"na": "not-measured"}`. Each
 go through [the data-PR route](#the-data-pr-route), so the backfill lands as one data PR a job.
 `commits` takes a list instead (a re-run of the commits a job missed, say).
 
+To keep builds short and disk free: a `references` job builds `eee3e81` and `8ca4227` once
+and hands their binaries to every timing job; within a job every commit builds into one
+shared folder, so the dependencies are compiled once and each commit recompiles only what
+changed; that folder is restored from one cache entry the `references` job writes once
+(`bench-series-target-v1`; bump it to rebuild); and each job first deletes runner tools it
+doesn't use. Each job's summary gives every build's time, the job's time and its free disk.
+
 ## Data-only PRs
 
 A PR is data-only when every path it changes is under `metrics/` and none is under
