@@ -86,6 +86,26 @@ pip install "jsonschema==4.*"
 python3 ci/metrics/check_records.py metrics metrics/schema
 ```
 
+## Bench records
+
+Each merge to `main` that touches `native/` or `sim/` starts `bench`'s `record` job (spec 43
+step 4). It times the merged commit with `breach_tick_phases side=4096 squads=4 fight=3`
+against the cargo era's reference, `8ca4227`, in turn for 5 rounds, and writes one record,
+`metrics/bench/<date>-<run id>.json` (`ci/metrics/bench_record.py`):
+
+- `results`: the whole tick as `tick` and each phase under it (`scrum: seek` is
+  `tick/scrum/seek`), each with its 5 rounds and median, in ms. A phase printed `0.00` (under
+  0.005 ms) is `{"na": "not-measured"}`.
+- `reference`: the reference commit, its same measurement, and each median's `ratio` to the
+  reference's (below 1 is faster).
+- `machine`, `commit` (with its PR, step label and `Outcomes-changed:` trailer), `source` and
+  `provenance`, as the schema has them.
+
+The record goes through [the data-PR route](#the-data-pr-route) and merges itself. The run's
+summary compares the commit with the reference and draws the last 20 records' tick ratio
+(`ci/metrics/bench_chart.py`). To record `main`'s head by hand, start **Bench** on `main`
+with **record** ticked; on any other branch it writes no record.
+
 ## Data-only PRs
 
 A PR is data-only when every path it changes is under `metrics/` and none is under

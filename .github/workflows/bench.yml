@@ -27,10 +27,28 @@ name: Bench
 # `profiling` profile (release with line tables), under Linux `perf record --call-graph
 # dwarf`, and prints `perf report --no-children --percent-limit 0.5` between PROFILE
 # markers inside the summary: the functions that take the time, flat. Its run isn't timed.
+#
+# The `record` job (spec 43 step 4, Decision 162) writes the bench history: on each merge to
+# main that touches native/ or sim/ (or by hand with `record`), it times the merged commit
+# with breach_tick_phases against the cargo era's reference, the bridge commit, in turn for 5
+# rounds, and writes one record, metrics/bench/<date>-<run id>.json, with each phase's rounds
+# and median, the reference's and the ratio, and the machine (ci/metrics/bench_record.py).
+# The record goes through the data-PR route (.github/actions/metrics-pr), which merges itself
+# (Decision 164). A commit off main's first-parent line (a branch) writes none. Its summary
+# draws the last records' ratio to the reference (ci/metrics/bench_chart.py).
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "native/**"
+      - "sim/**"
   workflow_dispatch:
     inputs:
+      record:
+        description: "Instead: time this branch's head against the reference and write its record, as a merge to main does (a commit off main's first-parent line writes none)"
+        type: boolean
+        default: false
       tool:
         description: "The crate's binary to run: breach_tick_phases, breach_scaling, breach_rout_bench or breach_native_bench"
         default: "breach_tick_phases"
@@ -59,6 +77,7 @@ on:
 
 jobs:
   bench:
+    if: github.event_name == 'workflow_dispatch' && !inputs.record
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -199,3 +218,82 @@ jobs:
             fi
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  record:
+    if: github.event_name == 'push' || inputs.record
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      # The cargo era's reference (Decision 162): the bridge, the last commit with both the
+      # GDScript harnesses and the crate's breach_* binaries.
+      REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
+      RECORD_ARGS: side=4096 squads=4 fight=3
+      RECORD_ROUNDS: "5"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Check out the reference
+        run: git worktree add reference "$REFERENCE"
+
+      - name: Time the commit and the reference in turn
+        run: |
+          (JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          (cd reference && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          time_in() {
+            local err="$RUNNER_TEMP/stderr.txt"
+            (cd "$1" && native/bin/breach_tick_phases $RECORD_ARGS 2>"$err") \
+              || { echo "::error::breach_tick_phases failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
+          }
+          for round in $(seq 1 "$RECORD_ROUNDS"); do
+            if [ $((round % 2)) -eq 1 ]; then
+              time_in . > "head_$round.txt"
+              time_in reference > "reference_$round.txt"
+            else
+              time_in reference > "reference_$round.txt"
+              time_in . > "head_$round.txt"
+            fi
+          done
+
+      - name: Write the record
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/metrics-new"
+          python3 ci/metrics/bench_record.py --head $(ls head_*.txt | sort -V) \
+            --reference $(ls reference_*.txt | sort -V) --sha "$GITHUB_SHA" \
+            --reference-sha "$REFERENCE" --args "$RECORD_ARGS" --out "$RUNNER_TEMP/metrics-new"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "SUMMARY BEGIN"
+            echo "== $(git rev-parse --short HEAD) against the reference $(git -C reference rev-parse --short HEAD): breach_tick_phases $RECORD_ARGS"
+            python3 ci/godot/scripts/bench_compare.py --head $(ls head_*.txt | sort -V) \
+              --base $(ls reference_*.txt | sort -V) || true
+            python3 ci/metrics/bench_chart.py metrics/bench "$RUNNER_TEMP/metrics-new/metrics/bench"
+            echo "SUMMARY END"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Open the data PR
+        uses: ./.github/actions/metrics-pr
+        with:
+          folder: ${{ runner.temp }}/metrics-new
+          series: bench
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}

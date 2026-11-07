@@ -1,0 +1,149 @@
+"""Tests for bench_record (spec 43 step 4, Decision 162): a bench run of a commit on main's
+first-parent line becomes one record, holding every phase's rounds and median from
+breach_tick_phases, the reference's same measurement and the ratio; a run of any other commit
+writes none."""
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import bench_record  # noqa: E402
+import check_records  # noqa: E402
+
+SCHEMA_DIR = HERE.parent.parent / "metrics" / "schema"
+
+try:
+    import jsonschema  # noqa: F401
+    HAVE_JSONSCHEMA = True
+except ImportError:  # CI installs it (metrics.yml); a bare local Python may not
+    HAVE_JSONSCHEMA = os.environ.get("METRICS_REQUIRE_JSONSCHEMA") == "1"
+
+ROUND = """machine: AMD EPYC 7763 64-Core Processor, 4 threads, Linux
+rust, 4096 a side, 32 wide: {tick} ms a tick
+  scrum: seek                             {seek}
+  deaths (bury)                            0.24
+  rout: regroup's search                   {regroup}
+  scrum: engage, prepare, stance           1.64
+"""
+
+
+def rounds(*ticks, seek=11.0, regroup="0.07"):
+    return [ROUND.format(tick=t, seek=seek + i, regroup=regroup) for i, t in enumerate(ticks)]
+
+
+def context():
+    return {
+        "commit": {"sha": "a" * 40, "position": 812, "pr": 781, "title": "chore: x",
+                   "summary": {"na": "not-recorded"}, "step": "step:43-3",
+                   "outcomes_changed": False},
+        "source": {"harness": "breach_tick_phases", "blob": "b" * 40,
+                   "args": ["side=4096", "squads=4", "fight=3"], "rounds": 3,
+                   "profile": "release"},
+        "machine": {"runner_image": "ubuntu24", "runner_version": "20261101.1",
+                    "cpu": "AMD EPYC 7763 64-Core Processor", "cores": 4, "ram_mb": 15990,
+                    "os": "Ubuntu 24.04.3 LTS", "godot": {"na": "not-applicable"},
+                    "rustc": "rustc 1.92.0"},
+        "provenance": {"run_id": 42412663531, "url": "https://example/run",
+                       "date": "2026-11-07", "kind": "fresh"},
+        "reference_commit": "8ca422726e68909554eddad7eeee2199e0fe656d",
+    }
+
+
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+class PathTest(unittest.TestCase):
+    def test_phase_names_become_paths_under_the_tick(self):
+        self.assertEqual(bench_record.phase_path("tick"), "tick")
+        self.assertEqual(bench_record.phase_path("scrum: seek"), "tick/scrum/seek")
+        self.assertEqual(bench_record.phase_path("deaths (bury)"), "tick/deaths-bury")
+        self.assertEqual(bench_record.phase_path("rout: regroup's search"),
+                         "tick/rout/regroups-search")
+        self.assertEqual(bench_record.phase_path("scrum: engage, prepare, stance"),
+                         "tick/scrum/engage-prepare-stance")
+
+
+class RecordTest(unittest.TestCase):
+    def setUp(self):
+        self.out = Path(tempfile.mkdtemp())
+
+    def record(self, **overrides):
+        head = overrides.get("head", rounds("30.3", "30.1", "30.5"))
+        reference = overrides.get("reference", rounds("33.4", "33.3", "33.7", seek=12.0))
+        return bench_record.build_record(head, reference, context())
+
+    def test_each_phase_has_its_rounds_and_median(self):
+        results = self.record()["results"]
+        self.assertEqual(results["tick"], {"unit": "ms", "values": [30.3, 30.1, 30.5],
+                                           "median": 30.3})
+        self.assertEqual(results["tick/scrum/seek"]["values"], [11.0, 12.0, 13.0])
+        self.assertEqual(results["tick/scrum/seek"]["median"], 12.0)
+
+    def test_the_reference_is_measured_the_same_and_the_ratio_is_head_over_it(self):
+        reference = self.record()["reference"]
+        self.assertEqual(reference["commit"], context()["reference_commit"])
+        self.assertEqual(reference["results"]["tick"]["median"], 33.4)
+        self.assertAlmostEqual(reference["ratio"]["tick"], 30.3 / 33.4, places=4)
+        self.assertAlmostEqual(reference["ratio"]["tick/scrum/seek"], 12.0 / 13.0, places=4)
+
+    def test_a_phase_under_the_printed_resolution_is_a_gap_not_zero(self):
+        record = self.record(head=rounds("30.3", "30.1", "30.5", regroup="0.00"))
+        gap = {"na": "not-measured"}
+        self.assertEqual(record["results"]["tick/rout/regroups-search"],
+                         {"unit": "ms", "values": gap, "median": gap})
+        self.assertNotIn("tick/rout/regroups-search", record["reference"]["ratio"])
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "jsonschema isn't installed")
+    def test_the_written_record_validates(self):
+        path = bench_record.write_record(self.record(), self.out, "2026-11-07", 42412663531, 1)
+        self.assertEqual(path, self.out / "metrics" / "bench" / "2026-11-07-42412663531.json")
+        self.assertEqual(check_records.check_file(path, self.out / "metrics", SCHEMA_DIR, {}), [])
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["series"], "bench")
+
+    def test_a_rerun_gets_its_own_name(self):
+        path = bench_record.write_record(self.record(), self.out, "2026-11-07", 42412663531, 2)
+        self.assertEqual(path.name, "2026-11-07-42412663531-2.json")
+
+
+class CommitTest(unittest.TestCase):
+    def test_the_pr_and_the_outcomes_trailer_are_read_from_the_message(self):
+        self.assertEqual(bench_record.pr_number("fix(sim): x (#775)"), 775)
+        self.assertEqual(bench_record.pr_number("fix(sim): x"), {"na": "not-recorded"})
+        self.assertEqual(bench_record.title("fix(sim): x (#775)"), "fix(sim): x")
+        self.assertTrue(bench_record.outcomes_changed("s\n\nOutcomes-changed: Decision 161, y\n"))
+        self.assertFalse(bench_record.outcomes_changed("s\n\nbody\n"))
+
+
+class FirstParentTest(unittest.TestCase):
+    """A run of a commit on main's first-parent line writes a record; a branch's writes none."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp())
+        git(self.repo, "init", "-q", "-b", "main")
+        git(self.repo, "config", "user.email", "t@example.com")
+        git(self.repo, "config", "user.name", "t")
+        git(self.repo, "commit", "-q", "--allow-empty", "-m", "root")
+        git(self.repo, "checkout", "-q", "-b", "feature/x")
+        git(self.repo, "commit", "-q", "--allow-empty", "-m", "on the branch")
+        self.branch = git(self.repo, "rev-parse", "HEAD")
+        git(self.repo, "checkout", "-q", "main")
+        git(self.repo, "merge", "-q", "--no-ff", "-m", "merge (#1)", "feature/x")
+        self.merge = git(self.repo, "rev-parse", "HEAD")
+
+    def test_a_merge_on_main_is_on_the_line_and_a_branch_commit_is_not(self):
+        self.assertTrue(bench_record.on_first_parent(self.merge, "main", self.repo))
+        self.assertFalse(bench_record.on_first_parent(self.branch, "main", self.repo))
+
+    def test_its_position_counts_the_first_parent_line(self):
+        self.assertEqual(bench_record.position(self.merge, self.repo), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()
