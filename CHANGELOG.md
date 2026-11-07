@@ -46,9 +46,6 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Fixed
 
-- The native crate builds again on stable Rust toolchains older than the one CI uses: the
-  furthest-reach index in `geometry/beyond.rs` no longer calls `isolate_lowest_one`, which is
-  unstable there.
 - A unit making for home on its own (one that came to alone, or a bearer taking the wounded
   home) goes by its own squad's number everywhere in the battle, so the draws its fights make
   and the battle log's entries for it are its own, not those of a squad numbered 0.
