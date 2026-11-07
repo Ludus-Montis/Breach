@@ -10,6 +10,7 @@ mod bands;
 mod battle_play;
 mod battles;
 mod blows;
+mod buffers;
 #[cfg(test)]
 mod build;
 mod carry;

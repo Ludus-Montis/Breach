@@ -151,6 +151,9 @@ pub struct Field {
     /// they read changes (spec 39 step 10b-ii). Not state: a snapshot doesn't carry it.
     #[serde(skip)]
     pub reforms: crate::swaps::pass::Reforms,
+    /// The passes' scratch space, kept between ticks (spec 41 step 4). Not state either.
+    #[serde(skip)]
+    pub buffers: crate::buffers::Buffers,
 }
 
 impl Field {
