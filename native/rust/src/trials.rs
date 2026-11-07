@@ -11,7 +11,7 @@ pub mod paths;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::battles::Battle;
 use crate::content::Content;

@@ -19,8 +19,8 @@
 
 pub mod pass;
 
+use crate::hashing::{HashSet, HashSetExt};
 use std::cmp::Ordering;
-use std::collections::HashSet;
 
 use crate::columns::Columns;
 use crate::contest;

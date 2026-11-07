@@ -270,6 +270,15 @@ The step changes it in four ways:
     parting's buffers) are kept on the field between ticks and cleared. A buffer is scratch
     space, not state: the snapshot doesn't write it, and a field read back from a snapshot
     starts it empty, to the same results.
+- **As built** (the owner, 2026-11-07: leave parting alone if step 3 hasn't merged by the
+  time step 4 is done; it hadn't):
+  - the hasher is `foldhash`'s `fast::RandomState`, behind `src/hashing.rs`'s aliases;
+  - the kept buffers are the field's `buffers` (`src/buffers.rs`): the seek's crowd (its
+    bodies, points and grid), its claims and its seekers. `Grid::rebuild` refills a grid in
+    its own buffers;
+  - parting's `Buckets` (std's map with its own fixed hasher) and its buffers are left to
+    step 3, behind a `clippy::disallowed_types` allow. Step 3 removes the allow with the map,
+    and keeps its buffers in the field's `buffers`.
 
 ## Not in this spec
 

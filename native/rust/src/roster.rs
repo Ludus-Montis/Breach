@@ -5,7 +5,7 @@
 //! keeps who is living (UnitState, Decision 147), so it hands them in; where each stands,
 //! how it faces and its place are the store's columns, read where they live.
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::columns::Columns;
 use crate::ground::Walker;

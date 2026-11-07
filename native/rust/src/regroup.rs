@@ -8,7 +8,7 @@
 //! first and changes what a later one sees (Decision 97). Chasers and withdrawing units are
 //! left to the pursuit and the withdrawal.
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::columns::Columns;
 use crate::entries;

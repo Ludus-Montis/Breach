@@ -8,7 +8,7 @@
 //! free to fight; then the shots (`shots`). Each blow's damage is its striker's sheet's: its
 //! melee damage, or its ranged damage for a shot. How each lands stays GDScript's.
 
-use std::collections::{HashMap, HashSet};
+use crate::hashing::{HashMap, HashMapExt, HashSet, HashSetExt};
 
 use crate::bands::{self, BandTuning};
 use crate::blows::{self, AWAY, FLANK};

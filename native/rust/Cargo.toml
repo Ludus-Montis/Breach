@@ -22,6 +22,12 @@ serde_path_to_error = "0.1.20"
 # The digest binary's chain (src/bin/digest.rs), as formation_digest.gd's HashingContext.
 sha2 = "0.10"
 schemars = "1.2.3"
+# The crate's maps' hasher (src/hashing.rs, spec 41 step 4): fast, and seeded at random per
+# process as std's is, so a result that came to hang on a map's order shows in the digests.
+foldhash = "0.2"
+# The global allocator (src/lib.rs, spec 41 step 4); built from its C source by `cc`, so a C
+# compiler is needed (MSVC's on Windows, Xcode's tools on macOS).
+mimalloc = { version = "0.1.52", default-features = false }
 
 [profile.release]
 opt-level = 3
