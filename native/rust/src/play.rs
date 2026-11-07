@@ -104,9 +104,9 @@ impl Play {
         let ticked = match self.ground.as_mut() {
             Some((ground, cache)) => {
                 let mut over = Over { ground, cache, tuning: climb };
-                tick::step(squads, field, &roster, Some(&mut over), &rules, log)
+                tick::step(squads, field, roster, Some(&mut over), &rules, log)
             }
-            None => tick::step(squads, field, &roster, None, &rules, log),
+            None => tick::step(squads, field, roster, None, &rules, log),
         };
         self.listed.clone_from(&ticked.listed);
         squads.pending.clear(); // taken, or nobody was left to take them
