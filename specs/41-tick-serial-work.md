@@ -249,6 +249,36 @@ The step changes it in four ways:
 - Spec 39 step 10f (parting's per-body sums on the pool) lands first. Step 3 keeps its
   orders exactly: the pair order, and the order bodies first appear.
 
+#### Built (step 3, 2026-11-07)
+
+Built as spec'd in `src/parting/pairs.rs`, on `main` (spec 39 step 10f closed with parting's
+sums measured and not kept, so there were no orders of its to keep). The choices the spec left
+open:
+- **The flat grid** is `src/grid.rs`'s own `Grid`: its `CELL` is 2, as `UnitBodies.BUCKET` is,
+  and its cells hold their indices ascending, as the buckets did. `BUCKET`, parting's own
+  hasher (`Fx`) and `Buckets` are gone.
+- **No per-body `Vec`:** each chunk of 1,024 bodies (`CHUNK`) fills one buffer, each body's
+  partners sorted in place, and the chunks are joined in order. That is the "reused buffer"
+  option, with one allocation per chunk and no dependence on the number of threads.
+- **The skin** (`SKIN`) is 0.25 cells. Step 1 gave the pair search as a whole (46 ms over 3
+  passes) but no movement per pass, so 0.25 is a judgement: about half a grem's radius. A
+  pass's pushes move a body by a share of its overlaps, so the list should last a tick's three
+  passes. The listed pairs grow by about half again for two grems ((1.25 / 1)²). It changes speed only; `bench` judges it.
+- **The list holds more than the overlap test needs.** It lists every pair within their radii
+  plus the skin of each other, searched as far as the body's radius, the widest radius, the
+  skin and `grid::MARGIN`, without the frames' test. A pass applies UnitBodies._pairs' whole
+  test to each listed pair, in list order: buckets next to each other (it matters only for
+  bodies wider than a bucket together), not in two squads' frames (flags change between
+  passes), overlapping.
+- **Rebuilt** before a pass when any body's position has moved more than half the skin, less
+  `grid::MARGIN`, since the list was built. The margin is far above float rounding, so a pair
+  that overlaps is always listed. The list is a tick's: `part` starts a new one.
+
+Tests: `parting/pairs/tests.rs` (a crowd of 3,000 with bodies wider than a bucket, against a
+search of every pair, on one thread and on the pool; the list kept while bodies move less
+than half the skin, with some made loose, and rebuilt after one moves further). The existing
+`parting` tests and the digests guard the outcomes.
+
 ### Step 4, the crate's general habits
 
 - **A faster hasher that stays randomly seeded:**

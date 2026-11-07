@@ -6,11 +6,9 @@
 //! `Vector2 * float` narrowing the float to f32 first, the same summation order, no fused
 //! multiply-add (Rust never contracts `a * b + c` on its own).
 
-use std::collections::HashMap;
-use std::hash::{BuildHasherDefault, Hasher};
-
 use rayon::prelude::*;
 
+pub mod pairs;
 pub mod pass;
 
 pub use crate::field::{FLEEING, LOOSE};
@@ -18,8 +16,6 @@ use crate::laps::split;
 use crate::maths::V2;
 use crate::threads::Threads;
 
-/// Cells a bucket of the pair search spans (UnitBodies.BUCKET).
-const BUCKET: f32 = 2.0;
 /// Overlaps shallower than this are left (UnitBodies.EPSILON).
 const EPSILON: f64 = 0.001;
 
@@ -65,28 +61,6 @@ enum Push {
     Coincident { depth: f64, share: f64 },
 }
 
-#[derive(Default)]
-struct Fx(u64);
-
-impl Hasher for Fx {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-    fn write(&mut self, bytes: &[u8]) {
-        for b in bytes {
-            self.write_u64(*b as u64);
-        }
-    }
-    fn write_i32(&mut self, v: i32) {
-        self.write_u64(v as u32 as u64);
-    }
-    fn write_u64(&mut self, v: u64) {
-        self.0 = (self.0.rotate_left(5) ^ v).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
-    }
-}
-
-type Buckets = HashMap<(i32, i32), Vec<u32>, BuildHasherDefault<Fx>>;
-
 #[inline]
 fn framed(flags: u8) -> bool {
     flags & (LOOSE | FLEEING) == 0
@@ -111,9 +85,10 @@ pub fn part(
     // pushed by a body out of its frame: one in its frame leaves it (UnitBodies._move)
     let mut loosens = vec![false; count];
     let mut order: Vec<usize> = Vec::with_capacity(count);
+    let mut neighbours = pairs::Neighbours::default();
     for _ in 0..tuning.passes {
         let at = positions(bodies);
-        let pairs = pairs(bodies, &at, pooled);
+        let pairs = neighbours.pairs(bodies, &at, pooled);
         out.pairs += pairs.len() as i64;
         split("bodies: pair search");
         let pushes: Vec<Push> = if pooled {
@@ -188,56 +163,6 @@ fn positions(bodies: &Bodies) -> Vec<V2> {
             }
         })
         .collect()
-}
-
-/// [(i, j), ...] sorted, for bodies that overlap, not in two squads' frames
-/// (UnitBodies._pairs).
-fn pairs(bodies: &Bodies, at: &[V2], threaded: bool) -> Vec<(usize, usize)> {
-    let count = at.len();
-    let homes: Vec<(i32, i32)> =
-        at.iter().map(|p| ((p.x / BUCKET).floor() as i32, (p.y / BUCKET).floor() as i32)).collect();
-    let mut buckets = Buckets::default();
-    for (index, home) in homes.iter().enumerate() {
-        buckets.entry(*home).or_default().push(index as u32);
-    }
-    let found_from = |index: usize| -> Vec<u64> {
-        let mut found = Vec::new();
-        let home = homes[index];
-        for dy in -1..=1 {
-            for dx in -1..=1 {
-                let Some(bucket) = buckets.get(&(home.0 + dx, home.1 + dy)) else {
-                    continue;
-                };
-                for &other in bucket {
-                    let other = other as usize;
-                    if other <= index {
-                        continue;
-                    }
-                    let both_framed = framed(bodies.flags[index]) && framed(bodies.flags[other]);
-                    if both_framed && bodies.squads[index] != bodies.squads[other] {
-                        continue; // two squads' frames keep them apart
-                    }
-                    let apart = at[other].sub(at[index]);
-                    if bodies.radii[index] + bodies.radii[other] - apart.length() as f64 > EPSILON {
-                        found.push((index * count + other) as u64);
-                    }
-                }
-            }
-        }
-        found
-    };
-    let mut found: Vec<u64> = if threaded {
-        (0..count).into_par_iter().flat_map_iter(found_from).collect()
-    } else {
-        (0..count).flat_map(found_from).collect()
-    };
-    if threaded {
-        found.par_sort_unstable();
-    } else {
-        found.sort_unstable();
-    }
-    let count = count as u64;
-    found.into_iter().map(|k| ((k / count) as usize, (k % count) as usize)).collect()
 }
 
 /// The pair's push (UnitBodies._push): each body out along the line between them - friends
