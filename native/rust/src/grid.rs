@@ -19,6 +19,8 @@ pub struct Grid {
     /// Where each cell's indices start in `items` (row by row; one past the last at the end).
     start: Vec<u32>,
     items: Vec<u32>,
+    /// Each point's cell, kept for the next rebuild.
+    cells: Vec<(i32, i32)>,
 }
 
 #[inline]
@@ -35,35 +37,50 @@ pub fn floor_of(ring: i32) -> f64 {
 
 impl Grid {
     pub fn build(points: &[V2]) -> Grid {
+        let mut grid = Grid::default();
+        grid.rebuild(points);
+        grid
+    }
+
+    /// The grid over `points` afresh, in this grid's own buffers (spec 41 step 4): the same
+    /// grid `build` makes, without allocating once the buffers are big enough.
+    pub fn rebuild(&mut self, points: &[V2]) {
+        (self.low, self.width, self.height) = ((0, 0), 0, 0);
+        self.start.clear();
+        self.items.clear();
+        self.cells.clear();
         if points.is_empty() {
-            return Grid::default();
+            return;
         }
-        let cells: Vec<(i32, i32)> = points.iter().map(|&p| cell_of(p)).collect();
-        let mut low = cells[0];
-        let mut high = cells[0];
-        for &(x, y) in &cells {
+        self.cells.extend(points.iter().map(|&p| cell_of(p)));
+        let mut low = self.cells[0];
+        let mut high = low;
+        for &(x, y) in &self.cells {
             low = (low.0.min(x), low.1.min(y));
             high = (high.0.max(x), high.1.max(y));
         }
         let width = high.0 - low.0 + 1;
         let height = high.1 - low.1 + 1;
         let size = (width as usize) * (height as usize);
-        let mut start = vec![0u32; size + 1];
         let index = |c: (i32, i32)| ((c.1 - low.1) * width + (c.0 - low.0)) as usize;
-        for &c in &cells {
+        let start = &mut self.start;
+        start.resize(size + 1, 0);
+        for &c in &self.cells {
             start[index(c) + 1] += 1;
         }
         for i in 0..size {
             start[i + 1] += start[i];
         }
-        let mut fill = start.clone();
-        let mut items = vec![0u32; points.len()];
-        for (i, &c) in cells.iter().enumerate() {
-            let at = &mut fill[index(c)];
-            items[*at as usize] = i as u32;
+        // each cell's indices in ascending order, its start moved one cell on as it fills
+        self.items.resize(points.len(), 0);
+        for (i, &c) in self.cells.iter().enumerate() {
+            let at = &mut start[index(c)];
+            self.items[*at as usize] = i as u32;
             *at += 1;
         }
-        Grid { low, width, height, start, items }
+        start.copy_within(0..size, 1);
+        start[0] = 0;
+        (self.low, self.width, self.height) = (low, width, height);
     }
 
     #[inline]

@@ -130,10 +130,28 @@ struct Seeker {
 }
 
 /// The bodies standing (ScrumSlots.bodies: not a routing or destroyed squad's), indexed.
+#[derive(Default)]
 struct Crowd {
     bodies: Vec<u32>,
+    points: Vec<V2>,
     grid: Grid,
     widest: f64,
+}
+
+/// What the plan keeps on the field between ticks (`buffers.rs`): its crowd, claims and
+/// seekers, each cleared and filled afresh by every plan.
+#[derive(Default)]
+pub struct Buffers {
+    crowd: Crowd,
+    claims: Claims,
+    seekers: Vec<Seeker>,
+}
+
+impl Buffers {
+    /// True once a plan has kept something in them.
+    pub fn warm(&self) -> bool {
+        self.crowd.bodies.capacity() > 0 || self.seekers.capacity() > 0
+    }
 }
 
 /// Points claimed this tick, in a grid remade after each round's claims.
@@ -144,9 +162,14 @@ struct Claims {
 }
 
 impl Claims {
+    fn clear(&mut self) {
+        self.points.clear();
+        self.grid.rebuild(&self.points);
+    }
+
     fn extend(&mut self, points: impl IntoIterator<Item = V2>) {
         self.points.extend(points);
-        self.grid = Grid::build(&self.points);
+        self.grid.rebuild(&self.points);
     }
 
     /// True if a claim lies within a body's breadth of `point` (SlotSearch._claimed).
@@ -184,24 +207,28 @@ struct Plan<'a> {
     out: PlanOut,
 }
 
-/// ScrumSeek.plan: every fighting squad's units, their claims settled in rounds.
+/// ScrumSeek.plan: every fighting squad's units, their claims settled in rounds, in buffers
+/// kept from an earlier plan (or new ones): the plan is the same either way.
 pub fn plan(
     field: &Field,
     input: &PlanIn,
     params: &Params,
     within: &(dyn Fn(usize, V2) -> bool + Sync),
+    kept: &mut Buffers,
 ) -> PlanOut {
     let count = input.members.len();
-    let crowd = crowd(field);
-    let search = Search { field, input, params, crowd: &crowd };
+    let Buffers { crowd, claims, seekers } = kept;
+    fill_crowd(field, crowd);
+    claims.clear();
+    let search = Search { field, input, params, crowd };
     let squads = search.squads();
     let mut plan = Plan {
         field,
         input,
         params,
-        crowd: &crowd,
+        crowd,
         rings: Vec::new(),
-        claims: Claims::default(),
+        claims: std::mem::take(claims),
         within,
         out: PlanOut {
             codes: vec![STAND; count],
@@ -211,7 +238,7 @@ pub fn plan(
             foe_ats: vec![V2::ZERO; count],
         },
     };
-    let seekers = plan.take(squads);
+    plan.take(squads, seekers);
     let threaded = params.threaded.on(count);
     let mut left: Vec<&Seeker> = seekers.iter().collect();
     for round in 0..ROUNDS {
@@ -225,20 +252,23 @@ pub fn plan(
     for (seeker, slot) in left.into_iter().zip(fallbacks) {
         plan.press(seeker, slot);
     }
+    *claims = plan.claims;
     plan.out
 }
 
-fn crowd(field: &Field) -> Crowd {
-    let mut bodies = Vec::new();
+/// The crowd as the field stands, in `crowd`'s buffers.
+fn fill_crowd(field: &Field, crowd: &mut Crowd) {
+    crowd.bodies.clear();
     for &sq in &field.order {
         let squad = &field.squads[sq as usize];
         if squad.flags & (ROUTING | DESTROYED) == 0 {
-            bodies.extend_from_slice(&squad.members);
+            crowd.bodies.extend_from_slice(&squad.members);
         }
     }
-    let points: Vec<V2> = bodies.iter().map(|&b| field.at[b as usize]).collect();
-    let widest = bodies.iter().map(|&b| field.radius[b as usize]).fold(0.0, f64::max);
-    Crowd { grid: Grid::build(&points), bodies, widest }
+    crowd.points.clear();
+    crowd.points.extend(crowd.bodies.iter().map(|&b| field.at[b as usize]));
+    crowd.widest = crowd.bodies.iter().map(|&b| field.radius[b as usize]).fold(0.0, f64::max);
+    crowd.grid.rebuild(&crowd.points);
 }
 
 /// Compares two f64 keys item by item, as GDScript compares Arrays.
@@ -263,10 +293,10 @@ struct Best {
 }
 
 impl<'a> Plan<'a> {
-    /// The squads' searches taken in squad order: their rings listed one after another,
-    /// each seeker pointing at its own, and the units touching a foe standing.
-    fn take(&mut self, squads: Vec<Squad>) -> Vec<Seeker> {
-        let mut out = Vec::new();
+    /// The squads' searches taken in squad order into `out`: their rings listed one after
+    /// another, each seeker pointing at its own, and the units touching a foe standing.
+    fn take(&mut self, squads: Vec<Squad>, out: &mut Vec<Seeker>) {
+        out.clear();
         for squad in squads {
             let first = self.rings.len();
             self.rings.extend(squad.rings);
@@ -276,7 +306,6 @@ impl<'a> Plan<'a> {
             }
             out.extend(squad.seekers.into_iter().map(|s| Seeker { ring: first + s.ring, ..s }));
         }
-        out
     }
 
     /// `propose` (or another search) for each seeker, in their order, on the pool or not.

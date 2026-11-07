@@ -378,3 +378,41 @@ fn a_dense_seek_is_the_same_whatever_the_list_order_and_on_the_pool() {
     let presses = forward.values().filter(|o| o.0 == PRESS).count();
     assert!(aims >= 10 && presses >= 10, "{aims} aim, {presses} press"); // contended
 }
+
+#[test]
+fn a_seek_on_a_field_read_back_plans_as_the_field_whose_buffers_are_warm() {
+    let side = |id: i64, x: f32, bearing: f64| -> Vec<Fighter> {
+        (0..30)
+            .map(|n| {
+                Fighter::grem(
+                    id * 100 + n,
+                    v(x + (n % 5) as f32 * 1.1, (n / 5) as f32 * 1.1),
+                    bearing,
+                )
+            })
+            .collect()
+    };
+    let sides = vec![
+        Side { id: 1, faction: "player", flags: 0, fighters: side(1, 16.0, 270.0) },
+        Side { id: 2, faction: "kingdom", flags: 0, fighters: side(2, 8.0, 90.0) },
+    ];
+    let fights = || {
+        vec![
+            Fights::against(1, &[2], 270.0, v(16.5, 3.0)),
+            Fights::against(2, &[1], 90.0, v(12.5, 3.0)),
+        ]
+    };
+    let mut field = scrum(&sides, SEED);
+    seek(&mut field, &fights(), LEASH);
+    assert!(field.buffers.warm(), "the seek keeps its buffers on the field");
+    let squads = crate::squads::Squads::default();
+    let mut back = crate::snapshot::read(&crate::snapshot::write(0, SEED, &field, &squads))
+        .expect("the snapshot reads back")
+        .field;
+    assert!(!back.buffers.warm(), "a field read back starts its buffers empty");
+    let warm = seek(&mut field, &fights(), LEASH);
+    assert_eq!(seek(&mut back, &fights(), LEASH), warm);
+    assert!(warm.values().filter(|o| o.0 == AIM).count() >= 10); // the scrum is under way
+    let bytes = |f: &Field| crate::snapshot::write(0, SEED, f, &squads);
+    assert!(bytes(&field) == bytes(&back), "the two fields are left the same");
+}
