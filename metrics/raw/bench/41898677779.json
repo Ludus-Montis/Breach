@@ -1,0 +1,166 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "side=4096 squads=4 settle=40 fight=10",
+    "BASE": "",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "main",
+    "HEAD_REF": "",
+    "ROUNDS": "3",
+    "TOOL": "breach_tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-11-04T19:42:34Z",
+      "conclusion": "success",
+      "id": 126814940422,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-26.04",
+        "version": "20261021.618"
+      },
+      "runner_name": "GitHub Actions 1000005954",
+      "started_at": "2026-11-04T19:37:11Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-11-04T19:37:12Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-11-04T19:37:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:14Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-11-04T19:37:12Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:15Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-11-04T19:37:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:15Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-11-04T19:37:15Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:23Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-11-04T19:37:15Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:23Z",
+          "conclusion": "skipped",
+          "name": "Check out the head",
+          "number": 6,
+          "started_at": "2026-11-04T19:37:23Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:37:23Z",
+          "conclusion": "skipped",
+          "name": "Check out the base",
+          "number": 7,
+          "started_at": "2026-11-04T19:37:23Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:30Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 8,
+          "started_at": "2026-11-04T19:37:23Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:30Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 9,
+          "started_at": "2026-11-04T19:42:30Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:32Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 16,
+          "started_at": "2026-11-04T19:42:30Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:32Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 17,
+          "started_at": "2026-11-04T19:42:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:33Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 18,
+          "started_at": "2026-11-04T19:42:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-04T19:42:33Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 19,
+          "started_at": "2026-11-04T19:42:33Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "41898677779.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-11-04T19:37:08Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "head_commit_message": "refactor(sim): the structures' load paths in the crate (spec 39 step 9a) (#704)\n\nLoadPaths and StructureSupports port to the crate as they were\n(native/rust/src/structure.rs, structure/supports.rs): solve gives each\nelement's and ground column's load and what fails, in the order found;\nsettle follows the collapse through on a copy. Keys stay GDScript's\nstrings, so every sort is the same, and the plan's keyed lists are read as\nGDScript's dictionaries held them. The shared load cases now run in cargo\nand, unchanged, against the designer's load_paths.js. sim/structure/ and\nits gdUnit tests are gone; nothing in the game called them. Outcomes\nunchanged: no digest battle has a structure.\n\nStep 9 split under the user's standing leave: the lane and the strategy\naround it, the clocks and command queue, the skirmish's Godot side and the\ncontent definitions follow as 9b to 9e.\n\n\nClaude-Session: https://claude.ai/code/session_011AyPi4h3VWLP1UCx1NsmQk\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+    "head_sha": "ee3afd950f436bd12d8171e43b7beaa19976bd2d",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/41898677779",
+    "id": 41898677779,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 55,
+    "run_started_at": "2026-11-04T19:37:08Z",
+    "status": "completed",
+    "updated_at": "2026-11-04T19:42:37Z"
+  },
+  "workflow": "bench.yml"
+}

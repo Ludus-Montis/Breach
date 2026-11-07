@@ -1,0 +1,185 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "GODOT_VERSION": "4.7.2-stable"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-14T16:01:34Z",
+      "conclusion": "success",
+      "id": 115952506020,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "sim-checks",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261012.601"
+      },
+      "runner_name": "GitHub Actions 1000001046",
+      "started_at": "2026-10-14T15:51:33Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-14T15:51:35Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-14T15:51:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:51:36Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-14T15:51:35Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:51:37Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-14T15:51:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:51:37Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-14T15:51:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:51:37Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-14T15:51:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:53:35Z",
+          "conclusion": "success",
+          "name": "Build the Rust core",
+          "number": 6,
+          "started_at": "2026-10-14T15:51:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:53:41Z",
+          "conclusion": "success",
+          "name": "Import project",
+          "number": 7,
+          "started_at": "2026-10-14T15:53:35Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:57:28Z",
+          "conclusion": "success",
+          "name": "Suite under the Rust core",
+          "number": 8,
+          "started_at": "2026-10-14T15:53:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T15:59:29Z",
+          "conclusion": "success",
+          "name": "Digests, both engines",
+          "number": 9,
+          "started_at": "2026-10-14T15:57:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:00:32Z",
+          "conclusion": "success",
+          "name": "Mirror trials, both sides",
+          "number": 10,
+          "started_at": "2026-10-14T15:59:29Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:28Z",
+          "conclusion": "success",
+          "name": "Scaling check (Rust)",
+          "number": 11,
+          "started_at": "2026-10-14T16:00:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:28Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 12,
+          "started_at": "2026-10-14T16:01:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:32Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 22,
+          "started_at": "2026-10-14T16:01:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:33Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 23,
+          "started_at": "2026-10-14T16:01:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:33Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 24,
+          "started_at": "2026-10-14T16:01:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T16:01:33Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "started_at": "2026-10-14T16:01:33Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38593014141.log",
+    "jobs": [
+      "sim-checks / Digests, both engines",
+      "sim-checks / Scaling check (Rust)"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-14T15:51:28Z",
+    "display_title": "fix(formation): field-test bugs, Decisions 134-138, sim-checks workflow",
+    "event": "pull_request",
+    "head_branch": "fix/field-test-bugs",
+    "head_commit_message": "chore(ci): sim checks workflow - Rust suite, both digests, mirror trials, scaling\n\nThe heavy checks run on GitHub rather than in an agent session; the last\nstep prints a short summary between markers.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YcTW8o7t6QUEXUN9XNU6yv",
+    "head_sha": "a02f658aa4a5a521836ed3365adf86b1094f5025",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38593014141",
+    "id": 38593014141,
+    "name": "Sim checks",
+    "path": ".github/workflows/sim-checks.yml",
+    "run_attempt": 1,
+    "run_number": 1,
+    "run_started_at": "2026-10-14T15:51:28Z",
+    "status": "completed",
+    "updated_at": "2026-10-14T16:01:35Z"
+  },
+  "workflow": "sim-checks.yml"
+}

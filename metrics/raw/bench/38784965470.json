@@ -1,0 +1,156 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "engine=rust side=4096 squads=4 fight=3",
+    "BASE": "",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "main",
+    "TOOL": "tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-15T18:23:47Z",
+      "conclusion": "success",
+      "id": 116594495254,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261012.601"
+      },
+      "runner_name": "GitHub Actions 1000001630",
+      "started_at": "2026-10-15T18:21:44Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-15T18:21:45Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-15T18:21:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:21:47Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-15T18:21:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:21:48Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-15T18:21:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:21:48Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-15T18:21:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:21:51Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-15T18:21:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:21:51Z",
+          "conclusion": "skipped",
+          "name": "Check out the base",
+          "number": 6,
+          "started_at": "2026-10-15T18:21:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:41Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 7,
+          "started_at": "2026-10-15T18:21:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:41Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-10-15T18:23:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:45Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 14,
+          "started_at": "2026-10-15T18:23:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:45Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 15,
+          "started_at": "2026-10-15T18:23:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:45Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-10-15T18:23:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T18:23:45Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-10-15T18:23:45Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38784965470.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-15T18:21:39Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "head_commit_message": "fix(formation): read and write the unit store once a pass (Decision 144) (#229)\n\n* fix(formation): passes read units' places once instead of per unit\n\nStep 4's bench showed 4a's scattered place reads costing 22.6% on the\nRust engine (deaths, blows, the re-form's occupancy, units walking to\nplaces): each UnitPlace.of or rank was two store reads, and under Rust\neach read is a call into the field. UnitPlace.table fetches a squad's\nranks and columns once and UnitPlace.read reads a unit's place from\nthem. fighters(), ranged combat, SquadCompact (which now commits its\nranks once), the march's distances and pour targets, the re-form's\noccupancy and front-first order, SquadEdges, SquadGeometry, the trade,\nSquadRanks and the back-row counts fetch once a pass. No outcome\nchanges.\n\nTests: test_unit_place.gd checks a table reads each place as the store\nholds it on both backends (red on 4e's UnitPlace).\n\nWaived-by: Decision 142\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n* docs(spec): record step 4's bench and the place-read fix's\n\nStep 4 with the fix against main before it: 353.2 to 281.6 ms a tick\n(-20.3%); the fix alone, 315.9 to 283.1 (-10.4%). 4a alone had cost\n22.6%, and 4a to 4e 2.9%, before the fix.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n* fix(formation): passes write the store once, not unit by unit\n\nBody parting's write-back is now the field's own: BodyField.commit_part\nwrites every moved body into the store's columns once GDScript has\nloosened the units parting made loose, instead of four puts a unit\nfrom GDScript. The march's write-back puts the routers', loose and\nplaced points into fetched columns and commits them once, then the\nunits in their places walk. The native walk's paying for the ground\nmoves to ScrumWalkField.pay and fetches and commits once. The other\nloops that read the store unit by unit are marked with why: per-event\nloops, the GDScript reference's own seek, walk and facing, and the\nrout's, pursuit's and regroup's per-unit steps, small at the bench.\nNo outcome changes.\n\nWaived-by: Decision 142\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n* chore(ci): check that no loop reads the unit store unit by unit\n\ncheck_store_reads.py flags, in sim/, a scattered store call written in\na loop's body (columns.value/put, UnitPlace.of/rank/put,\nSquadEntries.loose_at, EntryKeys.*) unless the line or its loop is\nmarked '# store: scattered (<why>)'. Run by pre-commit and CI, with\nits tests; its heuristic limit (reads hidden in helpers) is stated in\nci/godot/README.md.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n* docs(principles): a pass reads the unit store once (Decision 144)\n\nbounded-work.md gains Principle 3: a loop over units never reads or\nwrites the store one unit at a time; helpers take an optional fetched\ntable; scattered reads are marked with their reason. Recorded as\nDecision 144 and added to the design-check skill. Spec 35's steps 5 to\n7 each begin with a readers list and a fetch-once plan, and the bench\nagainst the base must show no phase slower. OPEN_QUESTIONS Q24 lists\nthe per-tick passes that could become work lists fed by events.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n* docs(spec): record #229's bench with Decision 144's write-backs\n\nAgainst main before step 4, on an EPYC 7763 runner: 378.2 to 322.1 ms\na tick (-14.8%); body parting -42% and units walking to places -40%.\nDeaths and the re-form's occupancy came in above main on this runner;\na second run settles whether that is noise.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+    "head_sha": "311896914f6e9fe36c8d91fa251aff6ccd2a096a",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38784965470",
+    "id": 38784965470,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 21,
+    "run_started_at": "2026-10-15T18:21:39Z",
+    "status": "completed",
+    "updated_at": "2026-10-15T18:23:47Z"
+  },
+  "workflow": "bench.yml"
+}

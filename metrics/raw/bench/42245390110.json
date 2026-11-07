@@ -1,0 +1,151 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "preset=4096",
+    "BASE": "main",
+    "BASE_ARGS": "",
+    "HEAD_NAME": "feature/seek-claims-settled-in-rounds",
+    "HEAD_REF": "feature/seek-claims-settled-in-rounds",
+    "ROUNDS": "5",
+    "SCALE": "",
+    "TOOL": "breach_tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-11-06T15:41:52Z",
+      "conclusion": "failure",
+      "id": 127986153539,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-26.04",
+        "version": "20261028.624"
+      },
+      "runner_name": "GitHub Actions 1000007243",
+      "started_at": "2026-11-06T15:41:34Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-11-06T15:41:36Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-11-06T15:41:35Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:38Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-11-06T15:41:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:48Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 3,
+          "started_at": "2026-11-06T15:41:38Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "success",
+          "name": "Check out the head",
+          "number": 4,
+          "started_at": "2026-11-06T15:41:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "failure",
+          "name": "Check out the base",
+          "number": 5,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "skipped",
+          "name": "Run on this branch and the base",
+          "number": 6,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "skipped",
+          "name": "Profile the head",
+          "number": 7,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:49Z",
+          "conclusion": "skipped",
+          "name": "Post Cache Rust build",
+          "number": 15,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-11-06T15:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T15:41:50Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-11-06T15:41:50Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "42245390110.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "failure",
+    "created_at": "2026-11-06T15:41:31Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "head_commit_message": "chore(sim-checks): require the standard digest equal on arm64 and x86-64 (#749)\n\nSpec 42 step 1 (Decision 161): with outcomes allowed to change, matching\nthe base's digests no longer guards them, so \"the same result on any\nhardware\" gets a check of its own. `digests-arm64` builds the digest on\nGitHub's arm64 runner and takes the `standard` set (the only set that\ntends; it also seeks and routs). `hardware` compares it with the\n`digests` job's x86-64 digest via check_hardware.py, failing with the\nset and the first run and tick that differ. The other sets stay x86-64.\n\n\nClaude-Session: https://claude.ai/code/session_011AyPi5atBJUT4QtmFCeGA3\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+    "head_sha": "6654ff329cc940e5caa8ec6c074179e54fc61ebc",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/42245390110",
+    "id": 42245390110,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 90,
+    "run_started_at": "2026-11-06T15:41:31Z",
+    "status": "completed",
+    "updated_at": "2026-11-06T15:41:53Z"
+  },
+  "workflow": "bench.yml"
+}

@@ -1,0 +1,156 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "engine=rust side=4096 squads=4 fight=3",
+    "BASE": "7733998",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "ccr-60c2e90e-c38g4d",
+    "TOOL": "tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-15T15:27:16Z",
+      "conclusion": "success",
+      "id": 116506557739,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261002.596"
+      },
+      "runner_name": "GitHub Actions 1000001382",
+      "started_at": "2026-10-15T15:20:35Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-15T15:20:37Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-15T15:20:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:20:39Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-15T15:20:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:20:41Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-15T15:20:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:20:41Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-15T15:20:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:20:47Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-15T15:20:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:20:47Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 6,
+          "started_at": "2026-10-15T15:20:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:08Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 7,
+          "started_at": "2026-10-15T15:20:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:08Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-10-15T15:27:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:13Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 14,
+          "started_at": "2026-10-15T15:27:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:14Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 15,
+          "started_at": "2026-10-15T15:27:13Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:14Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-10-15T15:27:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-15T15:27:14Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-10-15T15:27:14Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38759449023.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-15T15:20:28Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "ccr-60c2e90e-c38g4d",
+    "head_commit_message": "feat(formation): each unit's rank and column live in the unit store\n\nSpec 35 step 4a (Decision 143, amending 142). Rank and column change\nmid-battle (trades, re-forms, closing up, turning about, routs,\nrecovery, strays, splits), so they can't be enrolled once for the\nnative seek and walk. They move off SkirmishUnit into two int columns,\nUnitColumns.RANK and COLUMN, on both backends: the GDScript store and\nRust's Columns on the BodyField. A new slot reads (0, 0). Every reader\nand writer switched in this change: UnitPlace serves scattered use,\nand the native seek's and walk's gathers, the front-first sort and\npresentation fetch the columns once. FormationUnits.make no longer\ntakes a place; spawn_squad puts it once the squad enrols the unit.\ncompact() moves to SquadCompact, as skirmish_squad.gd was at its\nline limit.\n\nTests: test_unit_place.gd (new) holds the columns to one contract on\nboth backends; test_unit_store.gd's battle compares every unit's place\non both engines every tick.\n\nWaived-by: Decision 142\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YWpV2AHWr3d2v4fKRki8G7",
+    "head_sha": "ada823b985f4e0670c845a460498444cd1496f65",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38759449023",
+    "id": 38759449023,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 12,
+    "run_started_at": "2026-10-15T15:20:28Z",
+    "status": "completed",
+    "updated_at": "2026-10-15T15:27:17Z"
+  },
+  "workflow": "bench.yml"
+}

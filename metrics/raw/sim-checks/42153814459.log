@@ -1,0 +1,1632 @@
+===== job: scaling (stacks)
+﻿2026-11-06T03:08:13.6296883Z Current runner version: '2.338.2'
+2026-11-06T03:08:13.6315329Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:13.6316172Z Hosted Compute Agent
+2026-11-06T03:08:13.6316652Z Version: 20261028.624
+2026-11-06T03:08:13.6317040Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:13.6317511Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:13.6317938Z Worker ID: {cc3117c1-7142-4346-9074-99cb313fc34a}
+2026-11-06T03:08:13.6318416Z Region: centralus
+2026-11-06T03:08:13.6318808Z Cloud: Azure
+2026-11-06T03:08:13.6319146Z ##[endgroup]
+2026-11-06T03:08:13.6320053Z ##[group]Operating System
+2026-11-06T03:08:13.6320440Z Ubuntu
+2026-11-06T03:08:13.6320801Z 26.04.1
+2026-11-06T03:08:13.6321155Z LTS
+2026-11-06T03:08:13.6321480Z ##[endgroup]
+2026-11-06T03:08:13.6321809Z ##[group]Runner Image
+2026-11-06T03:08:13.6322233Z Image: ubuntu-26.04
+2026-11-06T03:08:13.6322649Z Version: 20261101.186.1
+2026-11-06T03:08:13.6323448Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:13.6324360Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:13.6325003Z ##[endgroup]
+2026-11-06T03:08:13.6325745Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:13.6327462Z Contents: read
+2026-11-06T03:08:13.6327820Z Metadata: read
+2026-11-06T03:08:13.6328219Z Packages: read
+2026-11-06T03:08:13.6328607Z ##[endgroup]
+2026-11-06T03:08:13.6329996Z Secret source: Actions
+2026-11-06T03:08:13.6330628Z Cache mode: write
+2026-11-06T03:08:13.6331297Z Prepare workflow directory
+2026-11-06T03:08:13.6586441Z Prepare all required actions
+2026-11-06T03:08:13.6620306Z Getting action download info
+2026-11-06T03:08:13.8589303Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:13.9519476Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:14.3503679Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:14.4982304Z Complete job name: scaling (stacks)
+2026-11-06T03:08:14.5492336Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:14.5492796Z with:
+2026-11-06T03:08:14.5493063Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:14.5495470Z   token: ***
+2026-11-06T03:08:14.5495724Z   ssh-strict: true
+2026-11-06T03:08:14.5496196Z   ssh-user: git
+2026-11-06T03:08:14.5496461Z   persist-credentials: true
+2026-11-06T03:08:14.5496747Z   clean: true
+2026-11-06T03:08:14.5497012Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:14.5497319Z   fetch-depth: 1
+2026-11-06T03:08:14.5497608Z   fetch-tags: false
+2026-11-06T03:08:14.5497869Z   show-progress: true
+2026-11-06T03:08:14.5498132Z   lfs: false
+2026-11-06T03:08:14.5498381Z   submodules: false
+2026-11-06T03:08:14.5498651Z   set-safe-directory: true
+2026-11-06T03:08:14.5498950Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:14.5499340Z env:
+2026-11-06T03:08:14.5499584Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:14.5499890Z   SHARDS: 4
+2026-11-06T03:08:14.5500126Z ##[endgroup]
+2026-11-06T03:08:14.8037480Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:14.8038788Z ##[group]Getting Git version info
+2026-11-06T03:08:14.8039172Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:14.8039715Z [command]/usr/bin/git version
+2026-11-06T03:08:14.8070925Z git version 2.56.0
+2026-11-06T03:08:14.8086987Z ##[endgroup]
+2026-11-06T03:08:14.8096175Z Temporarily overriding HOME='/home/runner/work/_temp/3af378f3-f208-40da-a962-7c68438728b8' before making global git config changes
+2026-11-06T03:08:14.8097195Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:14.8100086Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:14.8169557Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:14.8171740Z ##[group]Determining repository object format
+2026-11-06T03:08:14.8173034Z ##[endgroup]
+2026-11-06T03:08:14.8173438Z ##[group]Initializing the repository
+2026-11-06T03:08:14.8177065Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:14.8267589Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:14.8268719Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:14.8269674Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:14.8270457Z hint: call:
+2026-11-06T03:08:14.8270911Z hint:
+2026-11-06T03:08:14.8271376Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:14.8271851Z hint:
+2026-11-06T03:08:14.8272181Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:14.8272697Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:14.8273109Z hint:
+2026-11-06T03:08:14.8273352Z hint: 	git branch -m <name>
+2026-11-06T03:08:14.8273658Z hint:
+2026-11-06T03:08:14.8274010Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:14.8278478Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:14.8289537Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:14.8338511Z ##[endgroup]
+2026-11-06T03:08:14.8338961Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:14.8341983Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:14.8374155Z ##[endgroup]
+2026-11-06T03:08:14.8375130Z ##[group]Setting up auth
+2026-11-06T03:08:14.8375543Z Removing SSH command configuration
+2026-11-06T03:08:14.8379492Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:14.8429295Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:14.8854276Z Removing HTTP extra header
+2026-11-06T03:08:14.8860023Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:14.8889053Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:14.9109884Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:14.9113870Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:14.9143093Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:14.9366621Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:14.9398975Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:14.9425957Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:14.9458854Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:14.9484572Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:14.9509887Z ##[endgroup]
+2026-11-06T03:08:14.9510562Z ##[group]Fetching the repository
+2026-11-06T03:08:14.9514383Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:15.4588991Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:15.4589883Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:15.4627059Z ##[endgroup]
+2026-11-06T03:08:15.4627835Z ##[group]Determining the checkout info
+2026-11-06T03:08:15.4628516Z ##[endgroup]
+2026-11-06T03:08:15.4628998Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:15.4655728Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:15.4693126Z ##[group]Checking out the ref
+2026-11-06T03:08:15.4696460Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:15.5376084Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:15.5377130Z 
+2026-11-06T03:08:15.5377730Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:15.5378882Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:15.5380092Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:15.5380786Z 
+2026-11-06T03:08:15.5381441Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:15.5382512Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:15.5383107Z 
+2026-11-06T03:08:15.5383387Z   git switch -c <new-branch-name>
+2026-11-06T03:08:15.5383802Z 
+2026-11-06T03:08:15.5384074Z Or undo this operation with:
+2026-11-06T03:08:15.5384461Z 
+2026-11-06T03:08:15.5384710Z   git switch -
+2026-11-06T03:08:15.5385048Z 
+2026-11-06T03:08:15.5385557Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:15.5386405Z 
+2026-11-06T03:08:15.5387291Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:15.5390238Z ##[endgroup]
+2026-11-06T03:08:15.5434949Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:15.5460461Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:15.5783896Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:15.5784720Z with:
+2026-11-06T03:08:15.5785311Z   name: native-bin
+2026-11-06T03:08:15.5786039Z   path: native/bin/
+2026-11-06T03:08:15.5786684Z   merge-multiple: false
+2026-11-06T03:08:15.5787379Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:15.5788108Z   run-id: 42153814459
+2026-11-06T03:08:15.5788752Z env:
+2026-11-06T03:08:15.5789342Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:15.5790017Z   SHARDS: 4
+2026-11-06T03:08:15.5790590Z ##[endgroup]
+2026-11-06T03:08:15.6822589Z Downloading single artifact
+2026-11-06T03:08:15.8706230Z Preparing to download the following artifacts:
+2026-11-06T03:08:15.8706890Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:16.2045681Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:16.2046681Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:16.3974178Z (node:2182) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:16.3975130Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:17.1067892Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:17.1068734Z Artifact download completed successfully.
+2026-11-06T03:08:17.1069088Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:17.1071822Z Download artifact has finished successfully
+2026-11-06T03:08:17.1216479Z ##[group]Run set -o pipefail
+2026-11-06T03:08:17.1216771Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:17.1216954Z [36;1mchmod +x native/bin/breach_scaling[0m
+2026-11-06T03:08:17.1217214Z [36;1mnative/bin/breach_scaling stages=stacks | tee scaling.stacks.txt[0m
+2026-11-06T03:08:17.1263240Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:17.1263432Z env:
+2026-11-06T03:08:17.1263567Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:17.1263727Z   SHARDS: 4
+2026-11-06T03:08:17.1263860Z ##[endgroup]
+2026-11-06T03:08:17.1387167Z scaling_check: ms a tick, and its growth per doubling
+2026-11-06T03:08:18.1743975Z   stacks     1 stacks      0.94 ms  
+2026-11-06T03:08:18.1744383Z   stacks     2 stacks      2.20 ms  x2.33
+2026-11-06T03:08:18.1744649Z   stacks     4 stacks      4.39 ms  x2.00
+2026-11-06T03:08:18.1810459Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:18.1810662Z with:
+2026-11-06T03:08:18.1810799Z   name: sim-scaling-stacks
+2026-11-06T03:08:18.1810953Z   path: scaling.stacks.txt
+2026-11-06T03:08:18.1811112Z   retention-days: 7
+2026-11-06T03:08:18.1811250Z   if-no-files-found: warn
+2026-11-06T03:08:18.1811413Z   compression-level: 6
+2026-11-06T03:08:18.1811556Z   overwrite: false
+2026-11-06T03:08:18.1811691Z   include-hidden-files: false
+2026-11-06T03:08:18.1811867Z   archive: true
+2026-11-06T03:08:18.1811995Z env:
+2026-11-06T03:08:18.1812114Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:18.1812258Z   SHARDS: 4
+2026-11-06T03:08:18.1812376Z ##[endgroup]
+2026-11-06T03:08:18.2806698Z With the provided path, there will be 1 file uploaded
+2026-11-06T03:08:18.2811225Z Artifact name is valid!
+2026-11-06T03:08:18.2811908Z Root directory input is valid!
+2026-11-06T03:08:18.5977663Z Uploading artifact: sim-scaling-stacks.zip
+2026-11-06T03:08:18.6001989Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:18.7529698Z Uploaded bytes 250
+2026-11-06T03:08:18.7899805Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:18.7900350Z SHA256 digest of uploaded artifact is aec9eab97cf7314fcab44a90992e0a7239a5691a0c0ec6bdb51ee4a2187d1894
+2026-11-06T03:08:18.7900863Z Finalizing artifact upload
+2026-11-06T03:08:19.2901058Z Artifact sim-scaling-stacks successfully finalized. Artifact ID 13474310558
+2026-11-06T03:08:19.2901833Z Artifact sim-scaling-stacks has been successfully uploaded! Final size is 250 bytes. Artifact ID is 13474310558
+2026-11-06T03:08:19.2904014Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13474310558
+2026-11-06T03:08:19.3244276Z Post job cleanup.
+2026-11-06T03:08:19.3870019Z [command]/usr/bin/git version
+2026-11-06T03:08:19.3896544Z git version 2.56.0
+2026-11-06T03:08:19.3919513Z Temporarily overriding HOME='/home/runner/work/_temp/29798a5e-4f4a-485a-89f0-3e62595da909' before making global git config changes
+2026-11-06T03:08:19.3920265Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:19.3922339Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:19.3955760Z Removing SSH command configuration
+2026-11-06T03:08:19.3960767Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:19.4001539Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:19.4256164Z Removing HTTP extra header
+2026-11-06T03:08:19.4261061Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:19.4294850Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:19.4530886Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:19.4536204Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:19.4558716Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:19.4559164Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:19.4559511Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:19.4559737Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:19.4565439Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:19.4586699Z /home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:19.4594666Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-dd619e41\-f99b\-423c\-ba30\-67a89a1b962f\.config
+2026-11-06T03:08:19.4626400Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:19.4647801Z /home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:19.4655295Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-dd619e41\-f99b\-423c\-ba30\-67a89a1b962f\.config
+2026-11-06T03:08:19.4684435Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:19.4704793Z /github/runner_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:19.4710620Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-dd619e41\-f99b\-423c\-ba30\-67a89a1b962f\.config
+2026-11-06T03:08:19.4739235Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:19.4758754Z /github/runner_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config
+2026-11-06T03:08:19.4764544Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-dd619e41\-f99b\-423c\-ba30\-67a89a1b962f\.config
+2026-11-06T03:08:19.4794948Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:19.5020703Z Removing credentials config '/home/runner/work/_temp/git-credentials-dd619e41-f99b-423c-ba30-67a89a1b962f.config'
+2026-11-06T03:08:19.5154685Z Cleaning up orphan processes
+
+===== job: digests (wide)
+﻿2026-11-06T03:08:48.8901804Z Current runner version: '2.338.2'
+2026-11-06T03:08:48.8923226Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:48.8924012Z Hosted Compute Agent
+2026-11-06T03:08:48.8924392Z Version: 20261028.624
+2026-11-06T03:08:48.8924777Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:48.8925252Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:48.8925661Z Worker ID: {f0e432e1-f165-444e-9a44-ef2374cce94a}
+2026-11-06T03:08:48.8926104Z Region: centralus
+2026-11-06T03:08:48.8926492Z Cloud: Azure
+2026-11-06T03:08:48.8926822Z ##[endgroup]
+2026-11-06T03:08:48.8927711Z ##[group]Operating System
+2026-11-06T03:08:48.8928155Z Ubuntu
+2026-11-06T03:08:48.8928471Z 26.04.1
+2026-11-06T03:08:48.8928849Z LTS
+2026-11-06T03:08:48.8929186Z ##[endgroup]
+2026-11-06T03:08:48.8929567Z ##[group]Runner Image
+2026-11-06T03:08:48.8930303Z Image: ubuntu-26.04
+2026-11-06T03:08:48.8930691Z Version: 20261101.186.1
+2026-11-06T03:08:48.8931608Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:48.8932592Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:48.8933309Z ##[endgroup]
+2026-11-06T03:08:48.8934118Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:48.8935821Z Contents: read
+2026-11-06T03:08:48.8936201Z Metadata: read
+2026-11-06T03:08:48.8936622Z Packages: read
+2026-11-06T03:08:48.8937044Z ##[endgroup]
+2026-11-06T03:08:48.8938715Z Secret source: Actions
+2026-11-06T03:08:48.8939297Z Cache mode: write
+2026-11-06T03:08:48.8940228Z Prepare workflow directory
+2026-11-06T03:08:48.9372930Z Prepare all required actions
+2026-11-06T03:08:48.9412010Z Getting action download info
+2026-11-06T03:08:49.1723203Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:49.2969089Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:49.6388643Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:49.7798941Z Complete job name: digests (wide)
+2026-11-06T03:08:49.8365747Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:49.8366198Z with:
+2026-11-06T03:08:49.8366435Z   fetch-depth: 0
+2026-11-06T03:08:49.8366695Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:49.8368885Z   token: ***
+2026-11-06T03:08:49.8369131Z   ssh-strict: true
+2026-11-06T03:08:49.8369378Z   ssh-user: git
+2026-11-06T03:08:49.8369631Z   persist-credentials: true
+2026-11-06T03:08:49.8370032Z   clean: true
+2026-11-06T03:08:49.8370283Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:49.8370572Z   fetch-tags: false
+2026-11-06T03:08:49.8370819Z   show-progress: true
+2026-11-06T03:08:49.8371140Z   lfs: false
+2026-11-06T03:08:49.8371371Z   submodules: false
+2026-11-06T03:08:49.8371622Z   set-safe-directory: true
+2026-11-06T03:08:49.8371908Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:49.8372283Z env:
+2026-11-06T03:08:49.8372520Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:49.8372810Z   SHARDS: 4
+2026-11-06T03:08:49.8373178Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:49.8373569Z ##[endgroup]
+2026-11-06T03:08:50.0939261Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:50.0941039Z ##[group]Getting Git version info
+2026-11-06T03:08:50.0941463Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:50.0942054Z [command]/usr/bin/git version
+2026-11-06T03:08:50.0942378Z git version 2.56.0
+2026-11-06T03:08:50.0951846Z ##[endgroup]
+2026-11-06T03:08:50.0964220Z Temporarily overriding HOME='/home/runner/work/_temp/b7e70e82-8957-45b0-8f9b-e1ca8715993b' before making global git config changes
+2026-11-06T03:08:50.0965494Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:50.0970202Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:50.1048620Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:50.1052484Z ##[group]Determining repository object format
+2026-11-06T03:08:50.1053945Z ##[endgroup]
+2026-11-06T03:08:50.1054553Z ##[group]Initializing the repository
+2026-11-06T03:08:50.1058462Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:50.1184654Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:50.1191115Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:50.1191924Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:50.1192495Z hint: call:
+2026-11-06T03:08:50.1192939Z hint:
+2026-11-06T03:08:50.1193530Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:50.1194028Z hint:
+2026-11-06T03:08:50.1194626Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:50.1195666Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:50.1196226Z hint:
+2026-11-06T03:08:50.1196640Z hint: 	git branch -m <name>
+2026-11-06T03:08:50.1197072Z hint:
+2026-11-06T03:08:50.1197642Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:50.1202859Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:50.1322401Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:50.1324503Z ##[endgroup]
+2026-11-06T03:08:50.1325341Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:50.1326255Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:50.1350325Z ##[endgroup]
+2026-11-06T03:08:50.1351170Z ##[group]Setting up auth
+2026-11-06T03:08:50.1351853Z Removing SSH command configuration
+2026-11-06T03:08:50.1357195Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:50.1406660Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:50.1859651Z Removing HTTP extra header
+2026-11-06T03:08:50.1865779Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:50.1905724Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:50.2173026Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:50.2177556Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:50.2217655Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:50.2487892Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:50.2534975Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:50.2574523Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:50.2617444Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:50.2659376Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:50.2698659Z ##[endgroup]
+2026-11-06T03:08:50.2699383Z ##[group]Fetching the repository
+2026-11-06T03:08:50.2705424Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:51.5153685Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:51.5154857Z  * [new branch]      main                                     -> origin/main
+2026-11-06T03:08:51.5155806Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:51.5183019Z ##[endgroup]
+2026-11-06T03:08:51.5184247Z ##[group]Determining the checkout info
+2026-11-06T03:08:51.5185362Z ##[endgroup]
+2026-11-06T03:08:51.5186371Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:51.5222233Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:51.5264749Z ##[group]Checking out the ref
+2026-11-06T03:08:51.5267896Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:51.5986991Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:51.5987802Z 
+2026-11-06T03:08:51.5988356Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:51.5989483Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:51.5990895Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:51.5991589Z 
+2026-11-06T03:08:51.5992037Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:51.5993089Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:51.5993688Z 
+2026-11-06T03:08:51.5993960Z   git switch -c <new-branch-name>
+2026-11-06T03:08:51.5994376Z 
+2026-11-06T03:08:51.5994652Z Or undo this operation with:
+2026-11-06T03:08:51.5995039Z 
+2026-11-06T03:08:51.5995299Z   git switch -
+2026-11-06T03:08:51.5995613Z 
+2026-11-06T03:08:51.5996111Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:51.5996842Z 
+2026-11-06T03:08:51.5997872Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:51.6009498Z ##[endgroup]
+2026-11-06T03:08:51.6060465Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:51.6090596Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:51.6363326Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:51.6364177Z with:
+2026-11-06T03:08:51.6364787Z   name: native-bin
+2026-11-06T03:08:51.6365430Z   path: native/bin/
+2026-11-06T03:08:51.6366091Z   merge-multiple: false
+2026-11-06T03:08:51.6366798Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:51.6367567Z   run-id: 42153814459
+2026-11-06T03:08:51.6368196Z env:
+2026-11-06T03:08:51.6368797Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:51.6369487Z   SHARDS: 4
+2026-11-06T03:08:51.6370487Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:51.6371457Z ##[endgroup]
+2026-11-06T03:08:51.7564569Z Downloading single artifact
+2026-11-06T03:08:51.9137335Z Preparing to download the following artifacts:
+2026-11-06T03:08:51.9137945Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:52.2562348Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:52.2563668Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:52.4804519Z (node:2199) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:52.4805541Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:53.1870010Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:53.1870676Z Artifact download completed successfully.
+2026-11-06T03:08:53.1870970Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:53.1873499Z Download artifact has finished successfully
+2026-11-06T03:08:53.2034687Z ##[group]Run set -o pipefail
+2026-11-06T03:08:53.2035027Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:53.2035222Z [36;1mchmod +x native/bin/breach_digest[0m
+2026-11-06T03:08:53.2035425Z [36;1mmkdir -p digests[0m
+2026-11-06T03:08:53.2035706Z [36;1mnative/bin/breach_digest set=wide \[0m
+2026-11-06T03:08:53.2035971Z [36;1m  out=digests/wide.branch.txt > digests/wide.branch.runs[0m
+2026-11-06T03:08:53.2036193Z [36;1m(cd digests && sha256sum *.txt)[0m
+2026-11-06T03:08:53.2085874Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:53.2086116Z env:
+2026-11-06T03:08:53.2086281Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:53.2086436Z   SHARDS: 4
+2026-11-06T03:08:53.2086662Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:53.2086906Z ##[endgroup]
+2026-11-06T03:08:53.3943993Z 0cb41776ecb08e35cccef399d15aa6a3285f9615da043aec9a28cd7a90fd27a9  wide.branch.txt
+2026-11-06T03:08:53.3991722Z ##[group]Run verdict="threads wide: equal on one thread and on the pool"
+2026-11-06T03:08:53.3992101Z [36;1mverdict="threads wide: equal on one thread and on the pool"[0m
+2026-11-06T03:08:53.3992322Z [36;1mfor how in false always; do[0m
+2026-11-06T03:08:53.3992522Z [36;1m  native/bin/breach_digest set=wide threaded=$how \[0m
+2026-11-06T03:08:53.3992747Z [36;1m    out=digests/wide.threads-$how.txt > /dev/null[0m
+2026-11-06T03:08:53.3993056Z [36;1m  if ! cmp -s digests/wide.branch.txt digests/wide.threads-$how.txt; then[0m
+2026-11-06T03:08:53.3993334Z [36;1m    verdict="threads wide: DIFFER with threaded=$how"[0m
+2026-11-06T03:08:53.3993603Z [36;1m    diff digests/wide.branch.txt digests/wide.threads-$how.txt | head -4[0m
+2026-11-06T03:08:53.3993895Z [36;1m  fi[0m
+2026-11-06T03:08:53.3994022Z [36;1mdone[0m
+2026-11-06T03:08:53.3994179Z [36;1mecho "$verdict" | tee digests/wide.threads.txt[0m
+2026-11-06T03:08:53.3994454Z [36;1m! grep -q DIFFER digests/wide.threads.txt[0m
+2026-11-06T03:08:53.4040093Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:53.4040322Z env:
+2026-11-06T03:08:53.4040485Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:53.4040654Z   SHARDS: 4
+2026-11-06T03:08:53.4040879Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:53.4041134Z ##[endgroup]
+2026-11-06T03:08:53.8112718Z threads wide: equal on one thread and on the pool
+2026-11-06T03:08:53.8189527Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:53.8189925Z with:
+2026-11-06T03:08:53.8190059Z   name: native-bin-base
+2026-11-06T03:08:53.8190230Z   path: /home/runner/work/_temp/native-bin-base/
+2026-11-06T03:08:53.8190430Z   merge-multiple: false
+2026-11-06T03:08:53.8190581Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:53.8190763Z   run-id: 42153814459
+2026-11-06T03:08:53.8190900Z env:
+2026-11-06T03:08:53.8191034Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:53.8191181Z   SHARDS: 4
+2026-11-06T03:08:53.8191365Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:53.8191579Z ##[endgroup]
+2026-11-06T03:08:53.9340488Z Downloading single artifact
+2026-11-06T03:08:54.1119237Z Preparing to download the following artifacts:
+2026-11-06T03:08:54.1120147Z - native-bin-base (ID: 13473843299, Size: 17540118, Expected Digest: sha256:ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039)
+2026-11-06T03:08:54.4013722Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-e8a12462-65d1-58b1-aa63-1b742ef4dc9f/artifacts/8bb7d250bb4df9a369f9018c4d3bb3f602164b929dc321269f70ab13e86a329b.zip
+2026-11-06T03:08:54.4014861Z Starting download of artifact to: /home/runner/work/_temp/native-bin-base
+2026-11-06T03:08:54.6126642Z (node:2229) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:54.6127814Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:55.3622339Z SHA256 digest of downloaded artifact is ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039
+2026-11-06T03:08:55.3622758Z Artifact download completed successfully.
+2026-11-06T03:08:55.3622950Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:55.3627423Z Download artifact has finished successfully
+2026-11-06T03:08:55.3838555Z ##[group]Run git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
+2026-11-06T03:08:55.3838931Z [36;1mgit worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"[0m
+2026-11-06T03:08:55.3839177Z [36;1mmkdir -p ../base/native/bin[0m
+2026-11-06T03:08:55.3839402Z [36;1mcp "$RUNNER_TEMP"/native-bin-base/* ../base/native/bin/[0m
+2026-11-06T03:08:55.3839885Z [36;1mchmod +x ../base/native/bin/breach_* 2>/dev/null || true[0m
+2026-11-06T03:08:55.3840237Z [36;1m(cd ../base && native/bin/breach_digest set=wide \[0m
+2026-11-06T03:08:55.3840512Z [36;1m  out="$GITHUB_WORKSPACE/digests/wide.base.txt" > /dev/null 2>&1 || true)[0m
+2026-11-06T03:08:55.3840800Z [36;1mpython3 ci/godot/scripts/check_outcomes.py wide \[0m
+2026-11-06T03:08:55.3841049Z [36;1m  digests/wide.base.txt digests/wide.branch.txt "$BASE_REF" \[0m
+2026-11-06T03:08:55.3841291Z [36;1m  --changed digests/wide.changed.txt \[0m
+2026-11-06T03:08:55.3841481Z [36;1m  | tee digests/wide.outcomes.txt[0m
+2026-11-06T03:08:55.3841737Z [36;1mexit "${PIPESTATUS[0]}"[0m
+2026-11-06T03:08:55.3889962Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:55.3890173Z env:
+2026-11-06T03:08:55.3890322Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:55.3890470Z   SHARDS: 4
+2026-11-06T03:08:55.3890666Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.3890902Z ##[endgroup]
+2026-11-06T03:08:55.3979932Z fatal: Not a valid object name origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.3999330Z fatal: invalid reference: 
+2026-11-06T03:08:55.4015478Z ##[error]Process completed with exit code 128.
+2026-11-06T03:08:55.4062532Z ##[group]Run if [ -s digests/wide.changed.txt ]; then
+2026-11-06T03:08:55.4062835Z [36;1mif [ -s digests/wide.changed.txt ]; then[0m
+2026-11-06T03:08:55.4063091Z [36;1m  bash ci/godot/scripts/trace_changed.sh digests/wide.changed.txt \[0m
+2026-11-06T03:08:55.4063322Z [36;1m    ../base digests/traces 3[0m
+2026-11-06T03:08:55.4063521Z [36;1m  head -qn 1 digests/traces/*.diff.txt 2>/dev/null || true[0m
+2026-11-06T03:08:55.4063725Z [36;1mfi[0m
+2026-11-06T03:08:55.4111899Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:55.4112098Z env:
+2026-11-06T03:08:55.4112246Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:55.4112396Z   SHARDS: 4
+2026-11-06T03:08:55.4112596Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.4112849Z ##[endgroup]
+2026-11-06T03:08:55.4259025Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:55.4259241Z with:
+2026-11-06T03:08:55.4259379Z   name: sim-digests-wide
+2026-11-06T03:08:55.4259520Z   path: digests/
+2026-11-06T03:08:55.4259660Z   retention-days: 7
+2026-11-06T03:08:55.4260181Z   if-no-files-found: warn
+2026-11-06T03:08:55.4260379Z   compression-level: 6
+2026-11-06T03:08:55.4260521Z   overwrite: false
+2026-11-06T03:08:55.4260662Z   include-hidden-files: false
+2026-11-06T03:08:55.4260817Z   archive: true
+2026-11-06T03:08:55.4260947Z env:
+2026-11-06T03:08:55.4261069Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:55.4261213Z   SHARDS: 4
+2026-11-06T03:08:55.4261403Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.4261621Z ##[endgroup]
+2026-11-06T03:08:55.5365007Z With the provided path, there will be 5 files uploaded
+2026-11-06T03:08:55.5365869Z Artifact name is valid!
+2026-11-06T03:08:55.5366885Z Root directory input is valid!
+2026-11-06T03:08:55.8117649Z Uploading artifact: sim-digests-wide.zip
+2026-11-06T03:08:55.8144657Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:56.0346153Z Uploaded bytes 18993
+2026-11-06T03:08:56.0756427Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:56.0757001Z SHA256 digest of uploaded artifact is 63bca97e4932d7beb1e4935ab1d888b9880618395645436f676bb2fe0958c81f
+2026-11-06T03:08:56.0757509Z Finalizing artifact upload
+2026-11-06T03:08:56.6034722Z Artifact sim-digests-wide successfully finalized. Artifact ID 13473858780
+2026-11-06T03:08:56.6035383Z Artifact sim-digests-wide has been successfully uploaded! Final size is 18993 bytes. Artifact ID is 13473858780
+2026-11-06T03:08:56.6038428Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13473858780
+2026-11-06T03:08:56.6292628Z Post job cleanup.
+2026-11-06T03:08:56.6954295Z [command]/usr/bin/git version
+2026-11-06T03:08:56.6998647Z git version 2.56.0
+2026-11-06T03:08:56.7027358Z Temporarily overriding HOME='/home/runner/work/_temp/28e228df-0df9-4183-afe9-bc8d5606e1c9' before making global git config changes
+2026-11-06T03:08:56.7028255Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:56.7029972Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:56.7071061Z Removing SSH command configuration
+2026-11-06T03:08:56.7078117Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:56.7128879Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:56.7434994Z Removing HTTP extra header
+2026-11-06T03:08:56.7441103Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:56.7479574Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:56.7735406Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:56.7742914Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:56.7772264Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:56.7772725Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:56.7773013Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:56.7773232Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:56.7780879Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:56.7808386Z /home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:56.7818647Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-6ce28102\-0c0e\-4763\-ab47\-f9bd23bb38af\.config
+2026-11-06T03:08:56.7867920Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:56.7897434Z /home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:56.7907576Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-6ce28102\-0c0e\-4763\-ab47\-f9bd23bb38af\.config
+2026-11-06T03:08:56.7947090Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:56.7973556Z /github/runner_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:56.7982152Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-6ce28102\-0c0e\-4763\-ab47\-f9bd23bb38af\.config
+2026-11-06T03:08:56.8019565Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:56.8045919Z /github/runner_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config
+2026-11-06T03:08:56.8052917Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-6ce28102\-0c0e\-4763\-ab47\-f9bd23bb38af\.config
+2026-11-06T03:08:56.8089110Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:56.8338409Z Removing credentials config '/home/runner/work/_temp/git-credentials-6ce28102-0c0e-4763-ab47-f9bd23bb38af.config'
+2026-11-06T03:08:56.8487133Z Cleaning up orphan processes
+
+===== job: digests (clash160)
+﻿2026-11-06T03:08:49.3964216Z Current runner version: '2.338.2'
+2026-11-06T03:08:49.3989268Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:49.3990185Z Hosted Compute Agent
+2026-11-06T03:08:49.3990753Z Version: 20261028.624
+2026-11-06T03:08:49.3991347Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:49.3992042Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:49.3992734Z Worker ID: {1206ca80-691c-44a6-a650-a0ab668a2c60}
+2026-11-06T03:08:49.3993425Z Region: westus3
+2026-11-06T03:08:49.3993962Z Cloud: Azure
+2026-11-06T03:08:49.3994456Z ##[endgroup]
+2026-11-06T03:08:49.3995894Z ##[group]Operating System
+2026-11-06T03:08:49.3996478Z Ubuntu
+2026-11-06T03:08:49.3996962Z 26.04.1
+2026-11-06T03:08:49.3997472Z LTS
+2026-11-06T03:08:49.3998136Z ##[endgroup]
+2026-11-06T03:08:49.3998663Z ##[group]Runner Image
+2026-11-06T03:08:49.3999289Z Image: ubuntu-26.04
+2026-11-06T03:08:49.3999827Z Version: 20261101.186.1
+2026-11-06T03:08:49.4001019Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:49.4002370Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:49.4003452Z ##[endgroup]
+2026-11-06T03:08:49.4004554Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:49.4006791Z Contents: read
+2026-11-06T03:08:49.4007331Z Metadata: read
+2026-11-06T03:08:49.4008049Z Packages: read
+2026-11-06T03:08:49.4008714Z ##[endgroup]
+2026-11-06T03:08:49.4010854Z Secret source: Actions
+2026-11-06T03:08:49.4011733Z Cache mode: write
+2026-11-06T03:08:49.4012695Z Prepare workflow directory
+2026-11-06T03:08:49.4613130Z Prepare all required actions
+2026-11-06T03:08:49.4664088Z Getting action download info
+2026-11-06T03:08:49.7639399Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:49.9048091Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:50.4661604Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:50.6765761Z Complete job name: digests (clash160)
+2026-11-06T03:08:50.7792694Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:50.7793737Z with:
+2026-11-06T03:08:50.7794252Z   fetch-depth: 0
+2026-11-06T03:08:50.7794845Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:50.7803453Z   token: ***
+2026-11-06T03:08:50.7803989Z   ssh-strict: true
+2026-11-06T03:08:50.7804520Z   ssh-user: git
+2026-11-06T03:08:50.7805085Z   persist-credentials: true
+2026-11-06T03:08:50.7805731Z   clean: true
+2026-11-06T03:08:50.7806289Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:50.7807006Z   fetch-tags: false
+2026-11-06T03:08:50.7807573Z   show-progress: true
+2026-11-06T03:08:50.7808296Z   lfs: false
+2026-11-06T03:08:50.7808802Z   submodules: false
+2026-11-06T03:08:50.7809390Z   set-safe-directory: true
+2026-11-06T03:08:50.7810211Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:50.7811635Z env:
+2026-11-06T03:08:50.7812328Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:50.7813363Z   SHARDS: 4
+2026-11-06T03:08:50.7814852Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:50.7816890Z ##[endgroup]
+2026-11-06T03:08:51.3241621Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:51.3245943Z ##[group]Getting Git version info
+2026-11-06T03:08:51.3248276Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:51.3251504Z [command]/usr/bin/git version
+2026-11-06T03:08:51.3253162Z git version 2.56.0
+2026-11-06T03:08:51.3258830Z ##[endgroup]
+2026-11-06T03:08:51.3270056Z Temporarily overriding HOME='/home/runner/work/_temp/05aad82a-0d25-411b-90ae-34a867499f95' before making global git config changes
+2026-11-06T03:08:51.3274560Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:51.3278488Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:51.3490886Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:51.3494336Z ##[group]Determining repository object format
+2026-11-06T03:08:51.3496809Z ##[endgroup]
+2026-11-06T03:08:51.3499607Z ##[group]Initializing the repository
+2026-11-06T03:08:51.3520710Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:51.3641283Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:51.3643933Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:51.3647255Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:51.3649340Z hint: call:
+2026-11-06T03:08:51.3650419Z hint:
+2026-11-06T03:08:51.3651666Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:51.3653122Z hint:
+2026-11-06T03:08:51.3654488Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:51.3656534Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:51.3658385Z hint:
+2026-11-06T03:08:51.3659701Z hint: 	git branch -m <name>
+2026-11-06T03:08:51.3660880Z hint:
+2026-11-06T03:08:51.3663126Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:51.3666783Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:51.3679123Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:51.3738824Z ##[endgroup]
+2026-11-06T03:08:51.3741531Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:51.3743849Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:51.3776866Z ##[endgroup]
+2026-11-06T03:08:51.3780010Z ##[group]Setting up auth
+2026-11-06T03:08:51.3782248Z Removing SSH command configuration
+2026-11-06T03:08:51.3785260Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:51.3811980Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:51.4710542Z Removing HTTP extra header
+2026-11-06T03:08:51.4714263Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:51.4757159Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:51.4971078Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:51.4976213Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:51.5005133Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:51.5223949Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:51.5262253Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:08:51.5291789Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:08:51.5320991Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:08:51.5347288Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:08:51.5371258Z ##[endgroup]
+2026-11-06T03:08:51.5372770Z ##[group]Fetching the repository
+2026-11-06T03:08:51.5378783Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:53.1279805Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:53.1281005Z  * [new branch]      main                                     -> origin/main
+2026-11-06T03:08:53.1281603Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:53.1284703Z ##[endgroup]
+2026-11-06T03:08:53.1285691Z ##[group]Determining the checkout info
+2026-11-06T03:08:53.1286777Z ##[endgroup]
+2026-11-06T03:08:53.1290099Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:53.1337991Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:53.1365172Z ##[group]Checking out the ref
+2026-11-06T03:08:53.1369538Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:53.2037343Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:53.2038140Z 
+2026-11-06T03:08:53.2038650Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:53.2039312Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:53.2039912Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:53.2040298Z 
+2026-11-06T03:08:53.2040558Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:53.2041115Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:53.2041420Z 
+2026-11-06T03:08:53.2041597Z   git switch -c <new-branch-name>
+2026-11-06T03:08:53.2041818Z 
+2026-11-06T03:08:53.2041982Z Or undo this operation with:
+2026-11-06T03:08:53.2042194Z 
+2026-11-06T03:08:53.2042350Z   git switch -
+2026-11-06T03:08:53.2042537Z 
+2026-11-06T03:08:53.2042823Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:53.2043216Z 
+2026-11-06T03:08:53.2043899Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:53.2057745Z ##[endgroup]
+2026-11-06T03:08:53.2101893Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:53.2124971Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:53.2357373Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:53.2357998Z with:
+2026-11-06T03:08:53.2358378Z   name: native-bin
+2026-11-06T03:08:53.2358695Z   path: native/bin/
+2026-11-06T03:08:53.2359023Z   merge-multiple: false
+2026-11-06T03:08:53.2359372Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:53.2359750Z   run-id: 42153814459
+2026-11-06T03:08:53.2360050Z env:
+2026-11-06T03:08:53.2360349Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:53.2360776Z   SHARDS: 4
+2026-11-06T03:08:53.2361212Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:53.2361686Z ##[endgroup]
+2026-11-06T03:08:53.3824100Z Downloading single artifact
+2026-11-06T03:08:53.6323496Z Preparing to download the following artifacts:
+2026-11-06T03:08:53.6324884Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:54.0646945Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:54.0649412Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:54.3244857Z (node:2403) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:54.3245772Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:55.3603994Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:55.3604858Z Artifact download completed successfully.
+2026-11-06T03:08:55.3605639Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:55.3609524Z Download artifact has finished successfully
+2026-11-06T03:08:55.3734050Z ##[group]Run set -o pipefail
+2026-11-06T03:08:55.3734429Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:55.3734719Z [36;1mchmod +x native/bin/breach_digest[0m
+2026-11-06T03:08:55.3735048Z [36;1mmkdir -p digests[0m
+2026-11-06T03:08:55.3735348Z [36;1mnative/bin/breach_digest set=clash160 \[0m
+2026-11-06T03:08:55.3735775Z [36;1m  out=digests/clash160.branch.txt > digests/clash160.branch.runs[0m
+2026-11-06T03:08:55.3736165Z [36;1m(cd digests && sha256sum *.txt)[0m
+2026-11-06T03:08:55.3772534Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:55.3772829Z env:
+2026-11-06T03:08:55.3773168Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:55.3773423Z   SHARDS: 4
+2026-11-06T03:08:55.3773762Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.3774129Z ##[endgroup]
+2026-11-06T03:08:55.6773319Z 846075a85ef4f9b1ebd6eb8f75205daab8f6dc03cf29382131e4b283d65b58d0  clash160.branch.txt
+2026-11-06T03:08:55.6812270Z ##[group]Run verdict="threads clash160: equal on one thread and on the pool"
+2026-11-06T03:08:55.6812824Z [36;1mverdict="threads clash160: equal on one thread and on the pool"[0m
+2026-11-06T03:08:55.6813214Z [36;1mfor how in false always; do[0m
+2026-11-06T03:08:55.6813564Z [36;1m  native/bin/breach_digest set=clash160 threaded=$how \[0m
+2026-11-06T03:08:55.6813972Z [36;1m    out=digests/clash160.threads-$how.txt > /dev/null[0m
+2026-11-06T03:08:55.6814450Z [36;1m  if ! cmp -s digests/clash160.branch.txt digests/clash160.threads-$how.txt; then[0m
+2026-11-06T03:08:55.6814933Z [36;1m    verdict="threads clash160: DIFFER with threaded=$how"[0m
+2026-11-06T03:08:55.6815402Z [36;1m    diff digests/clash160.branch.txt digests/clash160.threads-$how.txt | head -4[0m
+2026-11-06T03:08:55.6815831Z [36;1m  fi[0m
+2026-11-06T03:08:55.6816035Z [36;1mdone[0m
+2026-11-06T03:08:55.6816305Z [36;1mecho "$verdict" | tee digests/clash160.threads.txt[0m
+2026-11-06T03:08:55.6816728Z [36;1m! grep -q DIFFER digests/clash160.threads.txt[0m
+2026-11-06T03:08:55.6845566Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:55.6845829Z env:
+2026-11-06T03:08:55.6846044Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:55.6846297Z   SHARDS: 4
+2026-11-06T03:08:55.6846605Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:55.6846968Z ##[endgroup]
+2026-11-06T03:08:56.3303399Z threads clash160: equal on one thread and on the pool
+2026-11-06T03:08:56.3398630Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:56.3398937Z with:
+2026-11-06T03:08:56.3399146Z   name: native-bin-base
+2026-11-06T03:08:56.3399423Z   path: /home/runner/work/_temp/native-bin-base/
+2026-11-06T03:08:56.3399749Z   merge-multiple: false
+2026-11-06T03:08:56.3400013Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:56.3400270Z   run-id: 42153814459
+2026-11-06T03:08:56.3400479Z env:
+2026-11-06T03:08:56.3400687Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:56.3400927Z   SHARDS: 4
+2026-11-06T03:08:56.3401229Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:56.3401589Z ##[endgroup]
+2026-11-06T03:08:56.4855659Z Downloading single artifact
+2026-11-06T03:08:56.7420851Z Preparing to download the following artifacts:
+2026-11-06T03:08:56.7422197Z - native-bin-base (ID: 13473843299, Size: 17540118, Expected Digest: sha256:ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039)
+2026-11-06T03:08:57.1810885Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-e8a12462-65d1-58b1-aa63-1b742ef4dc9f/artifacts/8bb7d250bb4df9a369f9018c4d3bb3f602164b929dc321269f70ab13e86a329b.zip
+2026-11-06T03:08:57.1812883Z Starting download of artifact to: /home/runner/work/_temp/native-bin-base
+2026-11-06T03:08:57.4225395Z (node:2433) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:57.4226824Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:58.4075790Z SHA256 digest of downloaded artifact is ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039
+2026-11-06T03:08:58.4076776Z Artifact download completed successfully.
+2026-11-06T03:08:58.4077274Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:58.4080290Z Download artifact has finished successfully
+2026-11-06T03:08:58.4268875Z ##[group]Run git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
+2026-11-06T03:08:58.4269818Z [36;1mgit worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"[0m
+2026-11-06T03:08:58.4270464Z [36;1mmkdir -p ../base/native/bin[0m
+2026-11-06T03:08:58.4271075Z [36;1mcp "$RUNNER_TEMP"/native-bin-base/* ../base/native/bin/[0m
+2026-11-06T03:08:58.4271747Z [36;1mchmod +x ../base/native/bin/breach_* 2>/dev/null || true[0m
+2026-11-06T03:08:58.4272412Z [36;1m(cd ../base && native/bin/breach_digest set=clash160 \[0m
+2026-11-06T03:08:58.4273149Z [36;1m  out="$GITHUB_WORKSPACE/digests/clash160.base.txt" > /dev/null 2>&1 || true)[0m
+2026-11-06T03:08:58.4273652Z [36;1mpython3 ci/godot/scripts/check_outcomes.py clash160 \[0m
+2026-11-06T03:08:58.4274109Z [36;1m  digests/clash160.base.txt digests/clash160.branch.txt "$BASE_REF" \[0m
+2026-11-06T03:08:58.4274536Z [36;1m  --changed digests/clash160.changed.txt \[0m
+2026-11-06T03:08:58.4274918Z [36;1m  | tee digests/clash160.outcomes.txt[0m
+2026-11-06T03:08:58.4275225Z [36;1mexit "${PIPESTATUS[0]}"[0m
+2026-11-06T03:08:58.4303472Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:58.4303777Z env:
+2026-11-06T03:08:58.4304002Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.4304259Z   SHARDS: 4
+2026-11-06T03:08:58.4304592Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.4304966Z ##[endgroup]
+2026-11-06T03:08:58.4369350Z fatal: Not a valid object name origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.4437430Z fatal: invalid reference: 
+2026-11-06T03:08:58.4452312Z ##[error]Process completed with exit code 128.
+2026-11-06T03:08:58.4505693Z ##[group]Run if [ -s digests/clash160.changed.txt ]; then
+2026-11-06T03:08:58.4506159Z [36;1mif [ -s digests/clash160.changed.txt ]; then[0m
+2026-11-06T03:08:58.4506597Z [36;1m  bash ci/godot/scripts/trace_changed.sh digests/clash160.changed.txt \[0m
+2026-11-06T03:08:58.4507020Z [36;1m    ../base digests/traces 3[0m
+2026-11-06T03:08:58.4507365Z [36;1m  head -qn 1 digests/traces/*.diff.txt 2>/dev/null || true[0m
+2026-11-06T03:08:58.4507699Z [36;1mfi[0m
+2026-11-06T03:08:58.4536081Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:58.4536362Z env:
+2026-11-06T03:08:58.4536612Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.4536891Z   SHARDS: 4
+2026-11-06T03:08:58.4537211Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.4537595Z ##[endgroup]
+2026-11-06T03:08:58.4633152Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:58.4633473Z with:
+2026-11-06T03:08:58.4633709Z   name: sim-digests-clash160
+2026-11-06T03:08:58.4633963Z   path: digests/
+2026-11-06T03:08:58.4634198Z   retention-days: 7
+2026-11-06T03:08:58.4634441Z   if-no-files-found: warn
+2026-11-06T03:08:58.4634696Z   compression-level: 6
+2026-11-06T03:08:58.4634941Z   overwrite: false
+2026-11-06T03:08:58.4635173Z   include-hidden-files: false
+2026-11-06T03:08:58.4635438Z   archive: true
+2026-11-06T03:08:58.4635647Z env:
+2026-11-06T03:08:58.4635852Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.4636109Z   SHARDS: 4
+2026-11-06T03:08:58.4636426Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.4636797Z ##[endgroup]
+2026-11-06T03:08:58.6089092Z With the provided path, there will be 5 files uploaded
+2026-11-06T03:08:58.6094220Z Artifact name is valid!
+2026-11-06T03:08:58.6094693Z Root directory input is valid!
+2026-11-06T03:08:58.9400671Z Uploading artifact: sim-digests-clash160.zip
+2026-11-06T03:08:58.9438523Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:59.1941293Z Uploaded bytes 8340
+2026-11-06T03:08:59.2500990Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:59.2501737Z SHA256 digest of uploaded artifact is 09c926ecb349e9a5ffbd055ba3f7cd2d3d6d7ae2dc74feadc27b7355a6c883fb
+2026-11-06T03:08:59.2502252Z Finalizing artifact upload
+2026-11-06T03:08:59.8139165Z Artifact sim-digests-clash160 successfully finalized. Artifact ID 13473988081
+2026-11-06T03:08:59.8140944Z Artifact sim-digests-clash160 has been successfully uploaded! Final size is 8340 bytes. Artifact ID is 13473988081
+2026-11-06T03:08:59.8143668Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13473988081
+2026-11-06T03:08:59.8307090Z Post job cleanup.
+2026-11-06T03:08:59.9230486Z [command]/usr/bin/git version
+2026-11-06T03:08:59.9271045Z git version 2.56.0
+2026-11-06T03:08:59.9303905Z Temporarily overriding HOME='/home/runner/work/_temp/40eb8229-3610-45fd-bf07-baf8e430fd2e' before making global git config changes
+2026-11-06T03:08:59.9305267Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:59.9310076Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:59.9340076Z Removing SSH command configuration
+2026-11-06T03:08:59.9347188Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:59.9382617Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:59.9628152Z Removing HTTP extra header
+2026-11-06T03:08:59.9635318Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:59.9669058Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:59.9908604Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:59.9909643Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:59.9927684Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:59.9928687Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:59.9929523Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:59.9930413Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:59.9936418Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:59.9960737Z /home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:08:59.9970733Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-2164d822\-f7e5\-432f\-97bc\-4581e721ff7b\.config
+2026-11-06T03:09:00.0010349Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:09:00.0030157Z /home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:09:00.0039741Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-2164d822\-f7e5\-432f\-97bc\-4581e721ff7b\.config
+2026-11-06T03:09:00.0067761Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:09:00.0088304Z /github/runner_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:09:00.0099043Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-2164d822\-f7e5\-432f\-97bc\-4581e721ff7b\.config
+2026-11-06T03:09:00.0131987Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:09:00.0150298Z /github/runner_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config
+2026-11-06T03:09:00.0156713Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-2164d822\-f7e5\-432f\-97bc\-4581e721ff7b\.config
+2026-11-06T03:09:00.0184738Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:09:00.0425507Z Removing credentials config '/home/runner/work/_temp/git-credentials-2164d822-f7e5-432f-97bc-4581e721ff7b.config'
+2026-11-06T03:09:00.0554712Z Cleaning up orphan processes
+
+===== job: digests (standard)
+﻿2026-11-06T03:08:48.1003377Z Current runner version: '2.338.2'
+2026-11-06T03:08:48.1036915Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:48.1038472Z Hosted Compute Agent
+2026-11-06T03:08:48.1039034Z Version: 20261028.624
+2026-11-06T03:08:48.1039609Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:48.1040874Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:48.1041824Z Worker ID: {2f255bb7-9b91-46fa-9d38-29c8af999463}
+2026-11-06T03:08:48.1042456Z Region: centralus
+2026-11-06T03:08:48.1042973Z Cloud: Azure
+2026-11-06T03:08:48.1043418Z ##[endgroup]
+2026-11-06T03:08:48.1044891Z ##[group]Operating System
+2026-11-06T03:08:48.1045453Z Ubuntu
+2026-11-06T03:08:48.1045873Z 26.04.1
+2026-11-06T03:08:48.1046324Z LTS
+2026-11-06T03:08:48.1046834Z ##[endgroup]
+2026-11-06T03:08:48.1047331Z ##[group]Runner Image
+2026-11-06T03:08:48.1047846Z Image: ubuntu-26.04
+2026-11-06T03:08:48.1048316Z Version: 20261101.186.1
+2026-11-06T03:08:48.1050030Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:48.1051934Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:48.1052876Z ##[endgroup]
+2026-11-06T03:08:48.1054607Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:48.1057421Z Contents: read
+2026-11-06T03:08:48.1058193Z Metadata: read
+2026-11-06T03:08:48.1058727Z Packages: read
+2026-11-06T03:08:48.1059389Z ##[endgroup]
+2026-11-06T03:08:48.1062484Z Secret source: Actions
+2026-11-06T03:08:48.1063673Z Cache mode: write
+2026-11-06T03:08:48.1064679Z Prepare workflow directory
+2026-11-06T03:08:48.1683612Z Prepare all required actions
+2026-11-06T03:08:48.1725996Z Getting action download info
+2026-11-06T03:08:48.3982747Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:48.5288929Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:48.8472292Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:49.0488693Z Complete job name: digests (standard)
+2026-11-06T03:08:49.1126629Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:49.1127394Z with:
+2026-11-06T03:08:49.1127831Z   fetch-depth: 0
+2026-11-06T03:08:49.1128326Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:49.1132103Z   token: ***
+2026-11-06T03:08:49.1132529Z   ssh-strict: true
+2026-11-06T03:08:49.1133053Z   ssh-user: git
+2026-11-06T03:08:49.1133494Z   persist-credentials: true
+2026-11-06T03:08:49.1133987Z   clean: true
+2026-11-06T03:08:49.1134434Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:49.1134919Z   fetch-tags: false
+2026-11-06T03:08:49.1135408Z   show-progress: true
+2026-11-06T03:08:49.1135847Z   lfs: false
+2026-11-06T03:08:49.1136259Z   submodules: false
+2026-11-06T03:08:49.1136712Z   set-safe-directory: true
+2026-11-06T03:08:49.1137201Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:49.1137910Z env:
+2026-11-06T03:08:49.1138324Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:49.1138826Z   SHARDS: 4
+2026-11-06T03:08:49.1139475Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:49.1140439Z ##[endgroup]
+2026-11-06T03:08:49.4378550Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:49.4381360Z ##[group]Getting Git version info
+2026-11-06T03:08:49.4382157Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:49.4383297Z [command]/usr/bin/git version
+2026-11-06T03:08:49.4384247Z git version 2.56.0
+2026-11-06T03:08:49.4387328Z ##[endgroup]
+2026-11-06T03:08:49.4395960Z Temporarily overriding HOME='/home/runner/work/_temp/fec6e343-db1b-4290-8012-ae0ad99cbe17' before making global git config changes
+2026-11-06T03:08:49.4397869Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:49.4399238Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:49.4459646Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:49.4462735Z ##[group]Determining repository object format
+2026-11-06T03:08:49.4464368Z ##[endgroup]
+2026-11-06T03:08:49.4465471Z ##[group]Initializing the repository
+2026-11-06T03:08:49.4468752Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:49.4565625Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:49.4567221Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:49.4568609Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:49.4569447Z hint: call:
+2026-11-06T03:08:49.4570354Z hint:
+2026-11-06T03:08:49.4571020Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:49.4571856Z hint:
+2026-11-06T03:08:49.4572531Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:49.4573475Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:49.4574321Z hint:
+2026-11-06T03:08:49.4574792Z hint: 	git branch -m <name>
+2026-11-06T03:08:49.4575302Z hint:
+2026-11-06T03:08:49.4576045Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:49.4578938Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:49.4588547Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:49.4633676Z ##[endgroup]
+2026-11-06T03:08:49.4635108Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:49.4636610Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:49.4662908Z ##[endgroup]
+2026-11-06T03:08:49.4664517Z ##[group]Setting up auth
+2026-11-06T03:08:49.4665489Z Removing SSH command configuration
+2026-11-06T03:08:49.4667113Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:49.4694293Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:49.5071260Z Removing HTTP extra header
+2026-11-06T03:08:49.5073310Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:49.5104716Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:49.5294321Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:49.5298639Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:49.5323261Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:49.5513961Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:49.5541654Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:49.5565790Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:49.5592858Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:49.5617047Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:49.5640173Z ##[endgroup]
+2026-11-06T03:08:49.5641469Z ##[group]Fetching the repository
+2026-11-06T03:08:49.5647149Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:50.7997314Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:50.8000673Z  * [new branch]      main                                     -> origin/main
+2026-11-06T03:08:50.8003235Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:50.8008327Z ##[endgroup]
+2026-11-06T03:08:50.8010478Z ##[group]Determining the checkout info
+2026-11-06T03:08:50.8012874Z ##[endgroup]
+2026-11-06T03:08:50.8014305Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:50.8116588Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:50.8155916Z ##[group]Checking out the ref
+2026-11-06T03:08:50.8158787Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:50.8868484Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:50.8870088Z 
+2026-11-06T03:08:50.8871510Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:50.8874460Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:50.8877457Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:50.8879167Z 
+2026-11-06T03:08:50.8880451Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:50.8882497Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:50.8884053Z 
+2026-11-06T03:08:50.8884661Z   git switch -c <new-branch-name>
+2026-11-06T03:08:50.8885628Z 
+2026-11-06T03:08:50.8886204Z Or undo this operation with:
+2026-11-06T03:08:50.8887029Z 
+2026-11-06T03:08:50.8887569Z   git switch -
+2026-11-06T03:08:50.8888206Z 
+2026-11-06T03:08:50.8889247Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:50.8890883Z 
+2026-11-06T03:08:50.8892632Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:50.8897522Z ##[endgroup]
+2026-11-06T03:08:50.8926280Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:50.8949167Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:50.9239510Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:50.9240907Z with:
+2026-11-06T03:08:50.9242061Z   name: native-bin
+2026-11-06T03:08:50.9242990Z   path: native/bin/
+2026-11-06T03:08:50.9243888Z   merge-multiple: false
+2026-11-06T03:08:50.9244849Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:50.9245880Z   run-id: 42153814459
+2026-11-06T03:08:50.9246733Z env:
+2026-11-06T03:08:50.9247535Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:50.9248460Z   SHARDS: 4
+2026-11-06T03:08:50.9249618Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:50.9251178Z ##[endgroup]
+2026-11-06T03:08:51.0509899Z Downloading single artifact
+2026-11-06T03:08:51.2273833Z Preparing to download the following artifacts:
+2026-11-06T03:08:51.2274947Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:51.5505322Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:51.7723244Z (node:2176) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:51.7724551Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:51.7727100Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:52.5491316Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:52.5492827Z Artifact download completed successfully.
+2026-11-06T03:08:52.5493497Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:52.5496477Z Download artifact has finished successfully
+2026-11-06T03:08:52.5618686Z ##[group]Run set -o pipefail
+2026-11-06T03:08:52.5619210Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:52.5619572Z [36;1mchmod +x native/bin/breach_digest[0m
+2026-11-06T03:08:52.5620238Z [36;1mmkdir -p digests[0m
+2026-11-06T03:08:52.5620574Z [36;1mnative/bin/breach_digest set=standard \[0m
+2026-11-06T03:08:52.5621050Z [36;1m  out=digests/standard.branch.txt > digests/standard.branch.runs[0m
+2026-11-06T03:08:52.5621481Z [36;1m(cd digests && sha256sum *.txt)[0m
+2026-11-06T03:08:52.5653738Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:52.5654105Z env:
+2026-11-06T03:08:52.5654413Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:52.5654723Z   SHARDS: 4
+2026-11-06T03:08:52.5655097Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:52.5655499Z ##[endgroup]
+2026-11-06T03:08:53.6103858Z 3658a72c4c6b95610d5f7e749f9cec724c11c0271cb41fcf2a077d581c834c58  standard.branch.txt
+2026-11-06T03:08:53.6150137Z ##[group]Run verdict="threads standard: equal on one thread and on the pool"
+2026-11-06T03:08:53.6150729Z [36;1mverdict="threads standard: equal on one thread and on the pool"[0m
+2026-11-06T03:08:53.6151111Z [36;1mfor how in false always; do[0m
+2026-11-06T03:08:53.6151536Z [36;1m  native/bin/breach_digest set=standard threaded=$how \[0m
+2026-11-06T03:08:53.6151966Z [36;1m    out=digests/standard.threads-$how.txt > /dev/null[0m
+2026-11-06T03:08:53.6152471Z [36;1m  if ! cmp -s digests/standard.branch.txt digests/standard.threads-$how.txt; then[0m
+2026-11-06T03:08:53.6152937Z [36;1m    verdict="threads standard: DIFFER with threaded=$how"[0m
+2026-11-06T03:08:53.6153443Z [36;1m    diff digests/standard.branch.txt digests/standard.threads-$how.txt | head -4[0m
+2026-11-06T03:08:53.6153874Z [36;1m  fi[0m
+2026-11-06T03:08:53.6154146Z [36;1mdone[0m
+2026-11-06T03:08:53.6154496Z [36;1mecho "$verdict" | tee digests/standard.threads.txt[0m
+2026-11-06T03:08:53.6154958Z [36;1m! grep -q DIFFER digests/standard.threads.txt[0m
+2026-11-06T03:08:53.6185743Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:53.6186147Z env:
+2026-11-06T03:08:53.6186435Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:53.6186706Z   SHARDS: 4
+2026-11-06T03:08:53.6187141Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:53.6187521Z ##[endgroup]
+2026-11-06T03:08:56.7426646Z threads standard: equal on one thread and on the pool
+2026-11-06T03:08:56.7509055Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:56.7509380Z with:
+2026-11-06T03:08:56.7509898Z   name: native-bin-base
+2026-11-06T03:08:56.7510221Z   path: /home/runner/work/_temp/native-bin-base/
+2026-11-06T03:08:56.7510575Z   merge-multiple: false
+2026-11-06T03:08:56.7510879Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:56.7511235Z   run-id: 42153814459
+2026-11-06T03:08:56.7511506Z env:
+2026-11-06T03:08:56.7511754Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:56.7512043Z   SHARDS: 4
+2026-11-06T03:08:56.7512406Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:56.7512803Z ##[endgroup]
+2026-11-06T03:08:56.8813846Z Downloading single artifact
+2026-11-06T03:08:57.0561117Z Preparing to download the following artifacts:
+2026-11-06T03:08:57.0562035Z - native-bin-base (ID: 13473843299, Size: 17540118, Expected Digest: sha256:ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039)
+2026-11-06T03:08:57.3487229Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-e8a12462-65d1-58b1-aa63-1b742ef4dc9f/artifacts/8bb7d250bb4df9a369f9018c4d3bb3f602164b929dc321269f70ab13e86a329b.zip
+2026-11-06T03:08:57.3488993Z Starting download of artifact to: /home/runner/work/_temp/native-bin-base
+2026-11-06T03:08:57.5941426Z (node:2209) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:57.5942809Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:58.2928826Z SHA256 digest of downloaded artifact is ea81d90925b416e137c2cfcc4fedf1f09437f48db729b169ca12265088496039
+2026-11-06T03:08:58.2929850Z Artifact download completed successfully.
+2026-11-06T03:08:58.2930306Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:58.2933684Z Download artifact has finished successfully
+2026-11-06T03:08:58.3036212Z ##[group]Run git worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"
+2026-11-06T03:08:58.3036778Z [36;1mgit worktree add -q ../base "$(git merge-base "$BASE_REF" HEAD)"[0m
+2026-11-06T03:08:58.3037248Z [36;1mmkdir -p ../base/native/bin[0m
+2026-11-06T03:08:58.3037668Z [36;1mcp "$RUNNER_TEMP"/native-bin-base/* ../base/native/bin/[0m
+2026-11-06T03:08:58.3038140Z [36;1mchmod +x ../base/native/bin/breach_* 2>/dev/null || true[0m
+2026-11-06T03:08:58.3038560Z [36;1m(cd ../base && native/bin/breach_digest set=standard \[0m
+2026-11-06T03:08:58.3039031Z [36;1m  out="$GITHUB_WORKSPACE/digests/standard.base.txt" > /dev/null 2>&1 || true)[0m
+2026-11-06T03:08:58.3039559Z [36;1mpython3 ci/godot/scripts/check_outcomes.py standard \[0m
+2026-11-06T03:08:58.3040345Z [36;1m  digests/standard.base.txt digests/standard.branch.txt "$BASE_REF" \[0m
+2026-11-06T03:08:58.3040855Z [36;1m  --changed digests/standard.changed.txt \[0m
+2026-11-06T03:08:58.3041324Z [36;1m  | tee digests/standard.outcomes.txt[0m
+2026-11-06T03:08:58.3041680Z [36;1mexit "${PIPESTATUS[0]}"[0m
+2026-11-06T03:08:58.3070044Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:58.3070372Z env:
+2026-11-06T03:08:58.3070668Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.3071015Z   SHARDS: 4
+2026-11-06T03:08:58.3071386Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.3071822Z ##[endgroup]
+2026-11-06T03:08:58.3128766Z fatal: Not a valid object name origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.3143525Z fatal: invalid reference: 
+2026-11-06T03:08:58.3156633Z ##[error]Process completed with exit code 128.
+2026-11-06T03:08:58.3237702Z ##[group]Run if [ -s digests/standard.changed.txt ]; then
+2026-11-06T03:08:58.3238227Z [36;1mif [ -s digests/standard.changed.txt ]; then[0m
+2026-11-06T03:08:58.3238687Z [36;1m  bash ci/godot/scripts/trace_changed.sh digests/standard.changed.txt \[0m
+2026-11-06T03:08:58.3239147Z [36;1m    ../base digests/traces 3[0m
+2026-11-06T03:08:58.3239539Z [36;1m  head -qn 1 digests/traces/*.diff.txt 2>/dev/null || true[0m
+2026-11-06T03:08:58.3240081Z [36;1mfi[0m
+2026-11-06T03:08:58.3262847Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:58.3263200Z env:
+2026-11-06T03:08:58.3263515Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.3263826Z   SHARDS: 4
+2026-11-06T03:08:58.3264244Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.3264792Z ##[endgroup]
+2026-11-06T03:08:58.3354436Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:58.3354799Z with:
+2026-11-06T03:08:58.3355144Z   name: sim-digests-standard
+2026-11-06T03:08:58.3355455Z   path: digests/
+2026-11-06T03:08:58.3355740Z   retention-days: 7
+2026-11-06T03:08:58.3356049Z   if-no-files-found: warn
+2026-11-06T03:08:58.3356338Z   compression-level: 6
+2026-11-06T03:08:58.3356679Z   overwrite: false
+2026-11-06T03:08:58.3356954Z   include-hidden-files: false
+2026-11-06T03:08:58.3357231Z   archive: true
+2026-11-06T03:08:58.3357536Z env:
+2026-11-06T03:08:58.3357785Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:58.3358130Z   SHARDS: 4
+2026-11-06T03:08:58.3358468Z   BASE_REF: origin/feature/spec-39-step-10c-ii-seek-walk-facing-pool
+2026-11-06T03:08:58.3358850Z ##[endgroup]
+2026-11-06T03:08:58.4554341Z With the provided path, there will be 5 files uploaded
+2026-11-06T03:08:58.4558145Z Artifact name is valid!
+2026-11-06T03:08:58.4558900Z Root directory input is valid!
+2026-11-06T03:08:58.7095997Z Uploading artifact: sim-digests-standard.zip
+2026-11-06T03:08:58.7127353Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:59.0888166Z Uploaded bytes 371706
+2026-11-06T03:08:59.1325856Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:59.1326878Z SHA256 digest of uploaded artifact is 1d79c97aef0ffa3528d14c8fe68571987329b9dd8639d4419760ece5045e29cb
+2026-11-06T03:08:59.1327961Z Finalizing artifact upload
+2026-11-06T03:08:59.6410521Z Artifact sim-digests-standard successfully finalized. Artifact ID 13473519438
+2026-11-06T03:08:59.6411614Z Artifact sim-digests-standard has been successfully uploaded! Final size is 371706 bytes. Artifact ID is 13473519438
+2026-11-06T03:08:59.6414433Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13473519438
+2026-11-06T03:08:59.6579544Z Post job cleanup.
+2026-11-06T03:08:59.7355433Z [command]/usr/bin/git version
+2026-11-06T03:08:59.7399967Z git version 2.56.0
+2026-11-06T03:08:59.7434810Z Temporarily overriding HOME='/home/runner/work/_temp/f22fe021-93b8-499c-a108-47e57f86771d' before making global git config changes
+2026-11-06T03:08:59.7435898Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:59.7440865Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:59.7472458Z Removing SSH command configuration
+2026-11-06T03:08:59.7479642Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:59.7513248Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:59.7741898Z Removing HTTP extra header
+2026-11-06T03:08:59.7746897Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:59.7774167Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:59.8012522Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:59.8013448Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:59.8030189Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:59.8031097Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:59.8031978Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:59.8032681Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:59.8039271Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:59.8056504Z /home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:59.8067388Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-bbca8fbf\-b389\-4d09\-8a47\-b8ef86b7b9e1\.config
+2026-11-06T03:08:59.8099347Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:59.8120261Z /home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:59.8130219Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-bbca8fbf\-b389\-4d09\-8a47\-b8ef86b7b9e1\.config
+2026-11-06T03:08:59.8158981Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:59.8178265Z /github/runner_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:59.8185661Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-bbca8fbf\-b389\-4d09\-8a47\-b8ef86b7b9e1\.config
+2026-11-06T03:08:59.8212600Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:59.8230264Z /github/runner_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config
+2026-11-06T03:08:59.8235675Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-bbca8fbf\-b389\-4d09\-8a47\-b8ef86b7b9e1\.config
+2026-11-06T03:08:59.8263110Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:59.8457157Z Removing credentials config '/home/runner/work/_temp/git-credentials-bbca8fbf-b389-4d09-8a47-b8ef86b7b9e1.config'
+2026-11-06T03:08:59.8601161Z Cleaning up orphan processes
+
+===== job: scaling (march)
+﻿2026-11-06T03:08:35.0906109Z Current runner version: '2.338.2'
+2026-11-06T03:08:35.0931388Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:35.0932365Z Hosted Compute Agent
+2026-11-06T03:08:35.0932985Z Version: 20261028.624
+2026-11-06T03:08:35.0933990Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:35.0934867Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:35.0935556Z Worker ID: {e444dd23-06d9-43e9-8a7d-190282eed452}
+2026-11-06T03:08:35.0936278Z Region: northcentralus
+2026-11-06T03:08:35.0936993Z Cloud: Azure
+2026-11-06T03:08:35.0937529Z ##[endgroup]
+2026-11-06T03:08:35.0939139Z ##[group]Operating System
+2026-11-06T03:08:35.0939847Z Ubuntu
+2026-11-06T03:08:35.0940386Z 26.04.1
+2026-11-06T03:08:35.0940984Z LTS
+2026-11-06T03:08:35.0941510Z ##[endgroup]
+2026-11-06T03:08:35.0942112Z ##[group]Runner Image
+2026-11-06T03:08:35.0942758Z Image: ubuntu-26.04
+2026-11-06T03:08:35.0943610Z Version: 20261101.186.1
+2026-11-06T03:08:35.0944980Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:35.0946673Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:35.0947659Z ##[endgroup]
+2026-11-06T03:08:35.0948910Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:35.0951064Z Contents: read
+2026-11-06T03:08:35.0951669Z Metadata: read
+2026-11-06T03:08:35.0952373Z Packages: read
+2026-11-06T03:08:35.0953416Z ##[endgroup]
+2026-11-06T03:08:35.0956127Z Secret source: Actions
+2026-11-06T03:08:35.0957153Z Cache mode: write
+2026-11-06T03:08:35.0958198Z Prepare workflow directory
+2026-11-06T03:08:35.1412124Z Prepare all required actions
+2026-11-06T03:08:35.1485644Z Getting action download info
+2026-11-06T03:08:35.3547792Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:35.4990317Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:35.7664231Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:35.9749820Z Complete job name: scaling (march)
+2026-11-06T03:08:36.0540875Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:36.0541773Z with:
+2026-11-06T03:08:36.0542226Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:36.0545969Z   token: ***
+2026-11-06T03:08:36.0546408Z   ssh-strict: true
+2026-11-06T03:08:36.0546861Z   ssh-user: git
+2026-11-06T03:08:36.0547315Z   persist-credentials: true
+2026-11-06T03:08:36.0547817Z   clean: true
+2026-11-06T03:08:36.0548279Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:36.0548834Z   fetch-depth: 1
+2026-11-06T03:08:36.0549268Z   fetch-tags: false
+2026-11-06T03:08:36.0549716Z   show-progress: true
+2026-11-06T03:08:36.0550224Z   lfs: false
+2026-11-06T03:08:36.0550661Z   submodules: false
+2026-11-06T03:08:36.0551121Z   set-safe-directory: true
+2026-11-06T03:08:36.0551638Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:36.0552403Z env:
+2026-11-06T03:08:36.0552830Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:36.0553481Z   SHARDS: 4
+2026-11-06T03:08:36.0553892Z ##[endgroup]
+2026-11-06T03:08:36.3191530Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:36.3194347Z ##[group]Getting Git version info
+2026-11-06T03:08:36.3195265Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:36.3196637Z [command]/usr/bin/git version
+2026-11-06T03:08:36.3205275Z git version 2.56.0
+2026-11-06T03:08:36.3228000Z ##[endgroup]
+2026-11-06T03:08:36.3238651Z Temporarily overriding HOME='/home/runner/work/_temp/fda5d7fc-46fd-48c9-9a76-f10e65e81557' before making global git config changes
+2026-11-06T03:08:36.3241175Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:36.3245385Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:36.3307582Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:36.3310509Z ##[group]Determining repository object format
+2026-11-06T03:08:36.3312294Z ##[endgroup]
+2026-11-06T03:08:36.3313762Z ##[group]Initializing the repository
+2026-11-06T03:08:36.3316433Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:36.3421677Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:36.3423770Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:36.3425059Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:36.3426196Z hint: call:
+2026-11-06T03:08:36.3426791Z hint:
+2026-11-06T03:08:36.3427695Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:36.3428511Z hint:
+2026-11-06T03:08:36.3429184Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:36.3430512Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:36.3431337Z hint:
+2026-11-06T03:08:36.3432009Z hint: 	git branch -m <name>
+2026-11-06T03:08:36.3432960Z hint:
+2026-11-06T03:08:36.3434281Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:36.3438669Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:36.3449260Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:36.3521874Z ##[endgroup]
+2026-11-06T03:08:36.3523459Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:36.3526888Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:36.3567458Z ##[endgroup]
+2026-11-06T03:08:36.3569139Z ##[group]Setting up auth
+2026-11-06T03:08:36.3570093Z Removing SSH command configuration
+2026-11-06T03:08:36.3574139Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:36.3611393Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:36.4041348Z Removing HTTP extra header
+2026-11-06T03:08:36.4048411Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:36.4085050Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:36.4353740Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:36.4359067Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:36.4392633Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:36.4668464Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:36.4708155Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:36.4741556Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:36.4777031Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:36.4812452Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:36.4842767Z ##[endgroup]
+2026-11-06T03:08:36.4844383Z ##[group]Fetching the repository
+2026-11-06T03:08:36.4850799Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:36.8697791Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:36.8699219Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:36.8725325Z ##[endgroup]
+2026-11-06T03:08:36.8726838Z ##[group]Determining the checkout info
+2026-11-06T03:08:36.8728791Z ##[endgroup]
+2026-11-06T03:08:36.8729976Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:36.8772956Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:36.8809310Z ##[group]Checking out the ref
+2026-11-06T03:08:36.8813884Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:36.9705875Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:36.9709324Z 
+2026-11-06T03:08:36.9710980Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:36.9714097Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:36.9717233Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:36.9718223Z 
+2026-11-06T03:08:36.9718924Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:36.9720370Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:36.9721264Z 
+2026-11-06T03:08:36.9721721Z   git switch -c <new-branch-name>
+2026-11-06T03:08:36.9722397Z 
+2026-11-06T03:08:36.9722854Z Or undo this operation with:
+2026-11-06T03:08:36.9723747Z 
+2026-11-06T03:08:36.9724164Z   git switch -
+2026-11-06T03:08:36.9724762Z 
+2026-11-06T03:08:36.9725603Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:36.9726825Z 
+2026-11-06T03:08:36.9728705Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:36.9734476Z ##[endgroup]
+2026-11-06T03:08:36.9780424Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:36.9807234Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:37.0255446Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:37.0257220Z with:
+2026-11-06T03:08:37.0258494Z   name: native-bin
+2026-11-06T03:08:37.0259868Z   path: native/bin/
+2026-11-06T03:08:37.0261286Z   merge-multiple: false
+2026-11-06T03:08:37.0262795Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:37.0264499Z   run-id: 42153814459
+2026-11-06T03:08:37.0265877Z env:
+2026-11-06T03:08:37.0267132Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:37.0268616Z   SHARDS: 4
+2026-11-06T03:08:37.0269866Z ##[endgroup]
+2026-11-06T03:08:37.1799646Z Downloading single artifact
+2026-11-06T03:08:37.3205568Z Preparing to download the following artifacts:
+2026-11-06T03:08:37.3207072Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:37.5984441Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:37.5988410Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:37.7837518Z (node:2380) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:37.7840096Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:38.3095089Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:38.3096831Z Artifact download completed successfully.
+2026-11-06T03:08:38.3097743Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:38.3100734Z Download artifact has finished successfully
+2026-11-06T03:08:38.3270839Z ##[group]Run set -o pipefail
+2026-11-06T03:08:38.3271247Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:38.3271537Z [36;1mchmod +x native/bin/breach_scaling[0m
+2026-11-06T03:08:38.3271965Z [36;1mnative/bin/breach_scaling stages=march | tee scaling.march.txt[0m
+2026-11-06T03:08:38.3327372Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:38.3327709Z env:
+2026-11-06T03:08:38.3327935Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:38.3328218Z   SHARDS: 4
+2026-11-06T03:08:38.3328435Z ##[endgroup]
+2026-11-06T03:08:38.3474126Z scaling_check: ms a tick, and its growth per doubling
+2026-11-06T03:08:38.4109650Z   march    128 a side      0.27 ms  
+2026-11-06T03:08:38.4110502Z   march    256 a side      0.52 ms  x1.91
+2026-11-06T03:08:38.4111207Z   march    512 a side      1.02 ms  x1.98
+2026-11-06T03:08:38.4205611Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:38.4205937Z with:
+2026-11-06T03:08:38.4206145Z   name: sim-scaling-march
+2026-11-06T03:08:38.4206403Z   path: scaling.march.txt
+2026-11-06T03:08:38.4206669Z   retention-days: 7
+2026-11-06T03:08:38.4206894Z   if-no-files-found: warn
+2026-11-06T03:08:38.4207125Z   compression-level: 6
+2026-11-06T03:08:38.4207346Z   overwrite: false
+2026-11-06T03:08:38.4207598Z   include-hidden-files: false
+2026-11-06T03:08:38.4207845Z   archive: true
+2026-11-06T03:08:38.4208048Z env:
+2026-11-06T03:08:38.4208241Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:38.4208474Z   SHARDS: 4
+2026-11-06T03:08:38.4208691Z ##[endgroup]
+2026-11-06T03:08:38.5686736Z With the provided path, there will be 1 file uploaded
+2026-11-06T03:08:38.5692210Z Artifact name is valid!
+2026-11-06T03:08:38.5692842Z Root directory input is valid!
+2026-11-06T03:08:38.7840544Z Uploading artifact: sim-scaling-march.zip
+2026-11-06T03:08:38.7885011Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:38.9480617Z Uploaded bytes 255
+2026-11-06T03:08:38.9831829Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:38.9833720Z SHA256 digest of uploaded artifact is 06229ffccbb465c650bbdf9c2abe282e09d82fd7cb57b30ec1b7cbceb74024b2
+2026-11-06T03:08:38.9835591Z Finalizing artifact upload
+2026-11-06T03:08:39.4747583Z Artifact sim-scaling-march successfully finalized. Artifact ID 13473283757
+2026-11-06T03:08:39.4749311Z Artifact sim-scaling-march has been successfully uploaded! Final size is 255 bytes. Artifact ID is 13473283757
+2026-11-06T03:08:39.4753581Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13473283757
+2026-11-06T03:08:39.4986375Z Post job cleanup.
+2026-11-06T03:08:39.5867322Z [command]/usr/bin/git version
+2026-11-06T03:08:39.5912706Z git version 2.56.0
+2026-11-06T03:08:39.5949821Z Temporarily overriding HOME='/home/runner/work/_temp/d2bbf2b3-d592-486c-a36e-5f865cf61e4c' before making global git config changes
+2026-11-06T03:08:39.5951157Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:39.5955425Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:39.5989849Z Removing SSH command configuration
+2026-11-06T03:08:39.5996558Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:39.6034912Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:39.6347281Z Removing HTTP extra header
+2026-11-06T03:08:39.6353648Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:39.6395791Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:39.6723516Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:39.6731393Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:39.6759651Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:39.6760540Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:39.6761026Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:39.6761444Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:39.6768400Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:39.6792702Z /home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:39.6802969Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-d643d3d9\-01da\-4c5c\-973b\-5508f8b74852\.config
+2026-11-06T03:08:39.6841013Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:39.6864279Z /home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:39.6874044Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-d643d3d9\-01da\-4c5c\-973b\-5508f8b74852\.config
+2026-11-06T03:08:39.6913866Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:39.6938222Z /github/runner_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:39.6947770Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-d643d3d9\-01da\-4c5c\-973b\-5508f8b74852\.config
+2026-11-06T03:08:39.6994770Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:39.7019647Z /github/runner_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config
+2026-11-06T03:08:39.7028775Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-d643d3d9\-01da\-4c5c\-973b\-5508f8b74852\.config
+2026-11-06T03:08:39.7064862Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:39.7355979Z Removing credentials config '/home/runner/work/_temp/git-credentials-d643d3d9-01da-4c5c-973b-5508f8b74852.config'
+2026-11-06T03:08:39.7521640Z Cleaning up orphan processes
+
+===== job: scaling (fight)
+﻿2026-11-06T03:08:23.5045710Z Current runner version: '2.338.2'
+2026-11-06T03:08:23.5070474Z ##[group]Runner Image Provisioner
+2026-11-06T03:08:23.5071286Z Hosted Compute Agent
+2026-11-06T03:08:23.5071879Z Version: 20261028.624
+2026-11-06T03:08:23.5072502Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-06T03:08:23.5073192Z Build Date: 2026-10-28T21:51:42Z
+2026-11-06T03:08:23.5073850Z Worker ID: {0265016b-1924-43b0-a2b2-2df5d52956e8}
+2026-11-06T03:08:23.5074484Z Region: westus3
+2026-11-06T03:08:23.5075023Z Cloud: Azure
+2026-11-06T03:08:23.5075516Z ##[endgroup]
+2026-11-06T03:08:23.5076921Z ##[group]Operating System
+2026-11-06T03:08:23.5077535Z Ubuntu
+2026-11-06T03:08:23.5078001Z 26.04.1
+2026-11-06T03:08:23.5078473Z LTS
+2026-11-06T03:08:23.5078966Z ##[endgroup]
+2026-11-06T03:08:23.5079897Z ##[group]Runner Image
+2026-11-06T03:08:23.5080502Z Image: ubuntu-26.04
+2026-11-06T03:08:23.5081039Z Version: 20261101.186.1
+2026-11-06T03:08:23.5082240Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-06T03:08:23.5083611Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-06T03:08:23.5084489Z ##[endgroup]
+2026-11-06T03:08:23.5085584Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T03:08:23.5087872Z Contents: read
+2026-11-06T03:08:23.5088425Z Metadata: read
+2026-11-06T03:08:23.5088921Z Packages: read
+2026-11-06T03:08:23.5089654Z ##[endgroup]
+2026-11-06T03:08:23.5091786Z Secret source: Actions
+2026-11-06T03:08:23.5092708Z Cache mode: write
+2026-11-06T03:08:23.5093679Z Prepare workflow directory
+2026-11-06T03:08:23.5520405Z Prepare all required actions
+2026-11-06T03:08:23.5569000Z Getting action download info
+2026-11-06T03:08:23.8745636Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-06T03:08:24.3210357Z Download action repository 'actions/download-artifact@v7' (SHA:37930b1c2abaa49bbe596cd826c3c89aef350131)
+2026-11-06T03:08:24.8772651Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-06T03:08:25.2054358Z Complete job name: scaling (fight)
+2026-11-06T03:08:25.3060741Z ##[group]Run actions/checkout@v7
+2026-11-06T03:08:25.3062117Z with:
+2026-11-06T03:08:25.3062959Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:25.3071848Z   token: ***
+2026-11-06T03:08:25.3072671Z   ssh-strict: true
+2026-11-06T03:08:25.3073502Z   ssh-user: git
+2026-11-06T03:08:25.3074361Z   persist-credentials: true
+2026-11-06T03:08:25.3075285Z   clean: true
+2026-11-06T03:08:25.3076137Z   sparse-checkout-cone-mode: true
+2026-11-06T03:08:25.3077139Z   fetch-depth: 1
+2026-11-06T03:08:25.3077982Z   fetch-tags: false
+2026-11-06T03:08:25.3078846Z   show-progress: true
+2026-11-06T03:08:25.3079800Z   lfs: false
+2026-11-06T03:08:25.3080598Z   submodules: false
+2026-11-06T03:08:25.3081530Z   set-safe-directory: true
+2026-11-06T03:08:25.3082524Z   allow-unsafe-pr-checkout: false
+2026-11-06T03:08:25.3083788Z env:
+2026-11-06T03:08:25.3084583Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:25.3085548Z   SHARDS: 4
+2026-11-06T03:08:25.3086322Z ##[endgroup]
+2026-11-06T03:08:27.4978643Z Syncing repository: Ludus-Montis/Breach
+2026-11-06T03:08:27.4980768Z ##[group]Getting Git version info
+2026-11-06T03:08:27.4981225Z Working directory is '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:27.4981883Z [command]/usr/bin/git version
+2026-11-06T03:08:27.5075544Z git version 2.56.0
+2026-11-06T03:08:27.5094884Z ##[endgroup]
+2026-11-06T03:08:27.5105092Z Temporarily overriding HOME='/home/runner/work/_temp/96aa0d09-70b0-4dc0-8aa9-0b759521f681' before making global git config changes
+2026-11-06T03:08:27.5105984Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:27.5111007Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:27.5456384Z Deleting the contents of '/home/runner/work/Breach/Breach'
+2026-11-06T03:08:27.5465416Z ##[group]Determining repository object format
+2026-11-06T03:08:27.5468183Z ##[endgroup]
+2026-11-06T03:08:27.5477073Z ##[group]Initializing the repository
+2026-11-06T03:08:27.5477816Z [command]/usr/bin/git init /home/runner/work/Breach/Breach
+2026-11-06T03:08:27.5904214Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-06T03:08:27.5904940Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-06T03:08:27.5905540Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-06T03:08:27.5905980Z hint: call:
+2026-11-06T03:08:27.5906224Z hint:
+2026-11-06T03:08:27.5906571Z hint: 	git config --global init.defaultBranch <name>
+2026-11-06T03:08:27.5906929Z hint:
+2026-11-06T03:08:27.5907291Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-06T03:08:27.5907834Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-06T03:08:27.5908251Z hint:
+2026-11-06T03:08:27.5908511Z hint: 	git branch -m <name>
+2026-11-06T03:08:27.5908997Z hint:
+2026-11-06T03:08:27.5909650Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-06T03:08:27.6029869Z Initialized empty Git repository in /home/runner/work/Breach/Breach/.git/
+2026-11-06T03:08:27.6041505Z [command]/usr/bin/git remote add origin https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:27.6257469Z ##[endgroup]
+2026-11-06T03:08:27.6258338Z ##[group]Disabling automatic garbage collection
+2026-11-06T03:08:27.6262086Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-06T03:08:27.6291318Z ##[endgroup]
+2026-11-06T03:08:27.6292390Z ##[group]Setting up auth
+2026-11-06T03:08:27.6293024Z Removing SSH command configuration
+2026-11-06T03:08:27.6297450Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:27.6325154Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:27.8205817Z Removing HTTP extra header
+2026-11-06T03:08:27.8211926Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:27.8243887Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:27.8463299Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:27.8468633Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:27.8497976Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:27.8720703Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-06T03:08:27.8754859Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git.path /home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:27.8788308Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:27.8863848Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:27.8896933Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:27.8923664Z ##[endgroup]
+2026-11-06T03:08:27.8924345Z ##[group]Fetching the repository
+2026-11-06T03:08:27.8931652Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a42bdaadc3a68d86a902411ecaa554d4176eb600:refs/remotes/pull/733/merge
+2026-11-06T03:08:28.8905534Z From https://github.com/Ludus-Montis/Breach
+2026-11-06T03:08:28.8906379Z  * [new ref]         a42bdaadc3a68d86a902411ecaa554d4176eb600 -> pull/733/merge
+2026-11-06T03:08:28.8910115Z ##[endgroup]
+2026-11-06T03:08:28.8910755Z ##[group]Determining the checkout info
+2026-11-06T03:08:28.8911518Z ##[endgroup]
+2026-11-06T03:08:28.8916493Z [command]/usr/bin/git sparse-checkout disable
+2026-11-06T03:08:28.9052419Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-06T03:08:28.9081324Z ##[group]Checking out the ref
+2026-11-06T03:08:28.9086839Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/733/merge
+2026-11-06T03:08:28.9770123Z Note: switching to 'refs/remotes/pull/733/merge'.
+2026-11-06T03:08:28.9770401Z 
+2026-11-06T03:08:28.9770648Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-06T03:08:28.9771120Z changes and commit them, and you can discard any commits you make in this
+2026-11-06T03:08:28.9771937Z state without impacting any branches by switching back to a branch.
+2026-11-06T03:08:28.9772288Z 
+2026-11-06T03:08:28.9774069Z If you want to create a new branch to retain commits you create, you may
+2026-11-06T03:08:28.9774818Z do so (now or later) by using -c with the switch command. Example:
+2026-11-06T03:08:28.9775249Z 
+2026-11-06T03:08:28.9775417Z   git switch -c <new-branch-name>
+2026-11-06T03:08:28.9775598Z 
+2026-11-06T03:08:28.9775713Z Or undo this operation with:
+2026-11-06T03:08:28.9775867Z 
+2026-11-06T03:08:28.9775965Z   git switch -
+2026-11-06T03:08:28.9776091Z 
+2026-11-06T03:08:28.9776301Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-06T03:08:28.9776594Z 
+2026-11-06T03:08:28.9776905Z HEAD is now at a42bdaa Merge e5a00695724f4ac7866b88b61d57b1f8eed2b455 into 141ef4e4d5039128213c692960a2745204108a14
+2026-11-06T03:08:28.9876187Z ##[endgroup]
+2026-11-06T03:08:28.9881220Z [command]/usr/bin/git log -1 --format=%H
+2026-11-06T03:08:28.9906671Z a42bdaadc3a68d86a902411ecaa554d4176eb600
+2026-11-06T03:08:29.0124126Z ##[group]Run actions/download-artifact@v7
+2026-11-06T03:08:29.0124425Z with:
+2026-11-06T03:08:29.0124634Z   name: native-bin
+2026-11-06T03:08:29.0124838Z   path: native/bin/
+2026-11-06T03:08:29.0125046Z   merge-multiple: false
+2026-11-06T03:08:29.0125287Z   repository: Ludus-Montis/Breach
+2026-11-06T03:08:29.0125578Z   run-id: 42153814459
+2026-11-06T03:08:29.0125812Z env:
+2026-11-06T03:08:29.0126006Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:29.0126237Z   SHARDS: 4
+2026-11-06T03:08:29.0126422Z ##[endgroup]
+2026-11-06T03:08:29.1647605Z Downloading single artifact
+2026-11-06T03:08:29.4637198Z Preparing to download the following artifacts:
+2026-11-06T03:08:29.4638506Z - native-bin (ID: 13474285382, Size: 17629051, Expected Digest: sha256:ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1)
+2026-11-06T03:08:29.9893878Z Redirecting to blob download url: https://productionresultssa32.blob.core.windows.net/actions-results/ef0b92d6-b3eb-87a0-836b-0d4a56eb105f/workflow-job-run-057d0216-7aae-5599-9e46-75601b866cad/artifacts/a98e288b3f961a23a5d7240d8154d1c36b15588c24d9f5dad7a820e2e00b26be.zip
+2026-11-06T03:08:29.9895461Z Starting download of artifact to: /home/runner/work/Breach/Breach/native/bin
+2026-11-06T03:08:30.2461712Z (node:2422) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-06T03:08:30.2463602Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-06T03:08:31.2846690Z SHA256 digest of downloaded artifact is ebfab752fbfcf3c47ed3594d5cc883666a99cf4efdecffea3349ce66a99956d1
+2026-11-06T03:08:31.2847244Z Artifact download completed successfully.
+2026-11-06T03:08:31.2847544Z Total of 1 artifact(s) downloaded
+2026-11-06T03:08:31.2851272Z Download artifact has finished successfully
+2026-11-06T03:08:31.2976408Z ##[group]Run set -o pipefail
+2026-11-06T03:08:31.2976783Z [36;1mset -o pipefail[0m
+2026-11-06T03:08:31.2977090Z [36;1mchmod +x native/bin/breach_scaling[0m
+2026-11-06T03:08:31.2977562Z [36;1mnative/bin/breach_scaling stages=fight | tee scaling.fight.txt[0m
+2026-11-06T03:08:31.3011595Z shell: /usr/bin/bash -e {0}
+2026-11-06T03:08:31.3011880Z env:
+2026-11-06T03:08:31.3012084Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:31.3012327Z   SHARDS: 4
+2026-11-06T03:08:31.3012522Z ##[endgroup]
+2026-11-06T03:08:31.3134113Z scaling_check: ms a tick, and its growth per doubling
+2026-11-06T03:08:32.1680184Z   fight    128 a side      1.34 ms  
+2026-11-06T03:08:32.1680667Z   fight    256 a side      2.77 ms  x2.06
+2026-11-06T03:08:32.1681366Z   fight    512 a side      5.59 ms  x2.02
+2026-11-06T03:08:32.1757157Z ##[group]Run actions/upload-artifact@v7
+2026-11-06T03:08:32.1757451Z with:
+2026-11-06T03:08:32.1757682Z   name: sim-scaling-fight
+2026-11-06T03:08:32.1757938Z   path: scaling.fight.txt
+2026-11-06T03:08:32.1758197Z   retention-days: 7
+2026-11-06T03:08:32.1758412Z   if-no-files-found: warn
+2026-11-06T03:08:32.1758641Z   compression-level: 6
+2026-11-06T03:08:32.1758857Z   overwrite: false
+2026-11-06T03:08:32.1759078Z   include-hidden-files: false
+2026-11-06T03:08:32.1759589Z   archive: true
+2026-11-06T03:08:32.1759811Z env:
+2026-11-06T03:08:32.1760006Z   GODOT_VERSION: 4.7.2-stable
+2026-11-06T03:08:32.1760240Z   SHARDS: 4
+2026-11-06T03:08:32.1760431Z ##[endgroup]
+2026-11-06T03:08:32.3150379Z With the provided path, there will be 1 file uploaded
+2026-11-06T03:08:32.3155795Z Artifact name is valid!
+2026-11-06T03:08:32.3156606Z Root directory input is valid!
+2026-11-06T03:08:32.7228176Z Uploading artifact: sim-scaling-fight.zip
+2026-11-06T03:08:32.7269569Z Beginning upload of artifact content to blob storage
+2026-11-06T03:08:33.0048891Z Uploaded bytes 256
+2026-11-06T03:08:33.0631207Z Finished uploading artifact content to blob storage!
+2026-11-06T03:08:33.0635639Z SHA256 digest of uploaded artifact is bf7aedfdc3742b47f241cd6680184134e99dbd65ee6c34b72dd776bc703b16c6
+2026-11-06T03:08:33.0636859Z Finalizing artifact upload
+2026-11-06T03:08:33.6691117Z Artifact sim-scaling-fight successfully finalized. Artifact ID 13474440089
+2026-11-06T03:08:33.6692129Z Artifact sim-scaling-fight has been successfully uploaded! Final size is 256 bytes. Artifact ID is 13474440089
+2026-11-06T03:08:33.6695485Z Artifact download URL: https://github.com/Ludus-Montis/Breach/actions/runs/42153814459/artifacts/13474440089
+2026-11-06T03:08:33.6866734Z Post job cleanup.
+2026-11-06T03:08:33.7722044Z [command]/usr/bin/git version
+2026-11-06T03:08:33.7762040Z git version 2.56.0
+2026-11-06T03:08:33.7797961Z Temporarily overriding HOME='/home/runner/work/_temp/89a61a98-2c47-426e-98c5-a48b6737e923' before making global git config changes
+2026-11-06T03:08:33.7799747Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-06T03:08:33.7803436Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Breach/Breach
+2026-11-06T03:08:33.7835207Z Removing SSH command configuration
+2026-11-06T03:08:33.7842298Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-06T03:08:33.7876455Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-06T03:08:33.8124565Z Removing HTTP extra header
+2026-11-06T03:08:33.8131854Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-06T03:08:33.8165990Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-06T03:08:33.8405087Z Removing includeIf entries pointing to credentials config files
+2026-11-06T03:08:33.8419760Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-06T03:08:33.8446147Z includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:33.8446900Z includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:33.8447543Z includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:33.8448113Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:33.8455374Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git.path
+2026-11-06T03:08:33.8476828Z /home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:33.8486113Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-b8fd5135\-ed59\-48ab\-84f2\-e22769705fe0\.config
+2026-11-06T03:08:33.8528746Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path
+2026-11-06T03:08:33.8549959Z /home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:33.8562661Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Breach/Breach/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-b8fd5135\-ed59\-48ab\-84f2\-e22769705fe0\.config
+2026-11-06T03:08:33.8593151Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-06T03:08:33.8613040Z /github/runner_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:33.8620311Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-b8fd5135\-ed59\-48ab\-84f2\-e22769705fe0\.config
+2026-11-06T03:08:33.8648036Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-06T03:08:33.8665646Z /github/runner_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config
+2026-11-06T03:08:33.8672306Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-b8fd5135\-ed59\-48ab\-84f2\-e22769705fe0\.config
+2026-11-06T03:08:33.8701402Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-06T03:08:33.8924094Z Removing credentials config '/home/runner/work/_temp/git-credentials-b8fd5135-ed59-48ab-84f2-e22769705fe0.config'
+2026-11-06T03:08:33.9108267Z Cleaning up orphan processes
+

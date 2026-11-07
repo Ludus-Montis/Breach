@@ -1,0 +1,28 @@
+===== job: scope / Run python3 ci/godot/scripts/needs_godot.py "origin/feature/digest-events-in-the-crate"
+2026-11-04T18:57:14.1215061Z ##[group]Run python3 ci/godot/scripts/needs_godot.py "origin/feature/digest-events-in-the-crate"
+2026-11-04T18:57:14.1217008Z [36;1mpython3 ci/godot/scripts/needs_godot.py "origin/feature/digest-events-in-the-crate"[0m
+2026-11-04T18:57:14.1262591Z shell: /usr/bin/bash -e {0}
+2026-11-04T18:57:14.1263296Z env:
+2026-11-04T18:57:14.1263891Z   GODOT_VERSION: 4.7.2-stable
+2026-11-04T18:57:14.1264602Z   SHARDS: 4
+2026-11-04T18:57:14.1265183Z ##[endgroup]
+2026-11-04T18:57:14.2051560Z Traceback (most recent call last):
+2026-11-04T18:57:14.2053641Z   File "/home/runner/work/Breach/Breach/ci/godot/scripts/needs_godot.py", line 54, in <module>
+2026-11-04T18:57:14.2055015Z     sys.exit(main(sys.argv[1:]))
+2026-11-04T18:57:14.2055797Z              ~~~~^^^^^^^^^^^^^^
+2026-11-04T18:57:14.2057185Z   File "/home/runner/work/Breach/Breach/ci/godot/scripts/needs_godot.py", line 44, in main
+2026-11-04T18:57:14.2058659Z     answer = True if not base_ref else needs_godot(changed(base_ref))
+2026-11-04T18:57:14.2059883Z                                                    ~~~~~~~^^^^^^^^^^
+2026-11-04T18:57:14.2061218Z   File "/home/runner/work/Breach/Breach/ci/godot/scripts/needs_godot.py", line 33, in changed
+2026-11-04T18:57:14.2062526Z     merge_base = subprocess.run(
+2026-11-04T18:57:14.2063377Z                  ~~~~~~~~~~~~~~^
+2026-11-04T18:57:14.2064715Z         ["git", "merge-base", base_ref, "HEAD"], capture_output=True, text=True, check=True
+2026-11-04T18:57:14.2065934Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-04T18:57:14.2066901Z     ).stdout.strip()
+2026-11-04T18:57:14.2067507Z     ^
+2026-11-04T18:57:14.2068206Z   File "/usr/lib/python3.14/subprocess.py", line 578, in run
+2026-11-04T18:57:14.2069200Z     raise CalledProcessError(retcode, process.args,
+2026-11-04T18:57:14.2070120Z                              output=stdout, stderr=stderr)
+2026-11-04T18:57:14.2071917Z subprocess.CalledProcessError: Command '['git', 'merge-base', 'origin/feature/digest-events-in-the-crate', 'HEAD']' returned non-zero exit status 128.
+2026-11-04T18:57:14.2175606Z ##[error]Process completed with exit code 1.
+

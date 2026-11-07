@@ -1,0 +1,156 @@
+{
+  "archived": {
+    "by_run": "42246641547",
+    "date": "2026-11-06"
+  },
+  "inputs_from_log": {
+    "ARGS": "engine=rust side=4096 squads=4 fight=3",
+    "BASE": "chore/seek-phases",
+    "GODOT_VERSION": "4.7.2-stable",
+    "HEAD_NAME": "chore/seek-gather-native",
+    "TOOL": "tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-14T22:30:36Z",
+      "conclusion": "success",
+      "id": 116137587126,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-24.04",
+        "version": "20261012.601"
+      },
+      "runner_name": "GitHub Actions 1000001107",
+      "started_at": "2026-10-14T22:24:22Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-14T22:24:24Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-14T22:24:23Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:24:25Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-10-14T22:24:24Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:24:28Z",
+          "conclusion": "success",
+          "name": "Cache Godot binary",
+          "number": 3,
+          "started_at": "2026-10-14T22:24:25Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:24:28Z",
+          "conclusion": "skipped",
+          "name": "Download Godot",
+          "number": 4,
+          "started_at": "2026-10-14T22:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:24:33Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 5,
+          "started_at": "2026-10-14T22:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:24:33Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 6,
+          "started_at": "2026-10-14T22:24:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:31Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 7,
+          "started_at": "2026-10-14T22:24:33Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:31Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-10-14T22:30:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:31Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 14,
+          "started_at": "2026-10-14T22:30:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:32Z",
+          "conclusion": "success",
+          "name": "Post Cache Godot binary",
+          "number": 15,
+          "started_at": "2026-10-14T22:30:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:32Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-10-14T22:30:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-14T22:30:32Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-10-14T22:30:32Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "38647406879.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-10-14T22:24:18Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "chore/seek-gather-native",
+    "head_commit_message": "perf(formation): the native seek's gathering works out each squad's say once\n\nScrumSeekField._gather turned each seeker's squad frame again for every\nunit (ScrumStance.anchor -> SquadFrame.place -> UnitMotion.vector) and\nasked _may_seek, the squad's order and its chasers unit by unit. It now\nworks out a squad's foes, front band, frame and retreat once, and places\neach unit in the frame with SquadFrame.place_in - place()'s own\nexpression, which a test holds bit for bit to place(). The same units,\nanchors and flags go to the core.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01E3rJWSqvkcCzMoGnLiZBk1",
+    "head_sha": "2ff2a2b73ba485e70b5cef1fc3233dca043a5755",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/38647406879",
+    "id": 38647406879,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 4,
+    "run_started_at": "2026-10-14T22:24:18Z",
+    "status": "completed",
+    "updated_at": "2026-10-14T22:30:36Z"
+  },
+  "workflow": "bench.yml"
+}
