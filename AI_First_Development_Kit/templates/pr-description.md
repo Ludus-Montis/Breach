@@ -31,8 +31,9 @@ not a manual re-check.
 
 ### Documentation
 
-<per `principles/documentation-phases.md`; "N/A" needs a reason. "Changelog: N/A" also
-tells the CI docs gate to skip its changelog check>
+<per `principles/documentation-phases.md`; "N/A" needs a reason. The CI docs gate reads
+this block: with no changelog entry, the Changelog line must say `N/A (<reason>)` or the
+gate fails. Keep the line as written below, one line, label first>
 
 - README: updated | verified, no change | N/A (reason)
 - Changelog: entry added under [Unreleased] | N/A (reason)

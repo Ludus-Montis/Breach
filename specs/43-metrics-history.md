@@ -237,7 +237,7 @@ give the size alone unless it could be misread.
   build times, CI failures by kind). They use Decision 162's shape.
 - **Benching branch commits into the history:** a comparison stays in its run's summary.
 - **The Pages site as a project site** (a landing page, a tab per measure, gameplay
-  examples), raised with Q40 (#820): a later design session.
+  examples), raised with Q40 (#820): settled by Decisions 166 and 167, built in spec 44.
 - **`breach_scaling`'s CI limit** (×3 a doubling) against Decision 159's ×2.2, and one squad's
   pair work at 25k: a later session (Decision 165, Bounded).
 

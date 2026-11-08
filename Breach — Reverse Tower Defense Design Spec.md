@@ -7779,7 +7779,100 @@ on `main`.
 `breach_scaling`'s CI limit (×3) is looser than Decision 159's ×2.2; left to a later session.
 **Pillar check:** not applicable.
 
-### Decision 166 — A design round opens with a pre-mortem, recorded in its spec
+### Decision 166 — The Pages site is the project's site, one tab a page, Metrics first and Showcase second
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 162 (the metrics history) and spec 43 step 7 (the tick history page)
+
+**Rationale:** The owner wants the GitHub Pages site (https://ludus-montis.github.io/Breach/)
+to hold every page worth seeing about the project, not only the metrics. The tick history
+page and the per-PR gameplay captures (Decision 167) are the first two. Spec 43 left "the
+Pages site as a project site" to a later design session; this is it.
+- **One shell, one folder a tab.** The site is a shell page with a tab bar, and each tab is a
+  self-contained folder (its own HTML, JS, CSS and data) under `tools/site/<tab>/`, or where
+  the tab's tool already lives. A new page is a new folder and one line in the shell's list
+  of tabs. No tab reads another's files.
+- **Routing by `#name`.** `#metrics` and `#showcase`. The root URL, and any unknown name,
+  opens Metrics, so links to the page as it is today keep working.
+- **When it rebuilds.** On each push to `main` that changes a tab's data or code, and when a
+  capture is published (Decision 167). A newer build replaces a waiting one. Every tab's
+  data is built in the workflow, never committed, so data PRs never conflict over it.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A second Pages site or repo for the gameplay captures | GitHub Pages serves one site a repo; a second repo splits the project's record. |
+| Separate HTML pages linked from an index | No shared frame, and each page repeats the navigation. The shell gives one. |
+| Path routes (`/metrics/`) | Pages has no rewrites, so a deep link 404s unless each path is its own copy of the shell. |
+
+**Consequences:** spec 44 step 4 builds the shell and moves the tick history page into it
+unchanged; the `metrics-pages` workflow becomes `site-pages`.
+
+**Rules over cases:** general: every page is a tab, a tab is a folder, and a tab's data is
+built, never committed.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
+
+### Decision 167 — Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 166 (the project site)
+
+**Rationale:** The owner asked that visual progress be visible on every PR, so a PR shows the
+game and not only test counts, and an agent can critique the frames. In the owner's words:
+"Each PR that materially touches the game, whether the sim or presentation."
+- **What is captured.** The real skirmish scene, started with `--capture`: one fixed map, one
+  fixed wave, seed 1, the scene's own camera, never a separate demo scene. Godot's Movie
+  Maker mode (`--write-movie`) renders it at a fixed frame rate tied to the tick, under xvfb
+  with software rendering, so one commit gives the same frames on every run. Out of it: a
+  WebM clip of the wave (capped in length) and four stills at fixed moments: the first tick,
+  first contact (the first tick with damage), the midpoint and the last tick.
+- **Which PRs.** Decided by the files changed, never by the commit type: a PR whose diff
+  touches what the shipped game is built from (`presentation/`, `core/`, `native/`,
+  `content/`, `assets/`, `main.tscn`, `project.godot`, `.md` files excepted). Docs, specs,
+  tests, CI, tools and `metrics/` alone don't. A new push cancels the PR's capture still
+  running.
+- **Where it is kept.** As GitHub release assets, never in git: about 15 game PRs a day at a
+  few MB each would add about 1 GB a month to every clone. One pre-release a month,
+  `showcase-YYYY-MM` (a release holds at most 1,000 files), and one `manifest.json` listing
+  every capture, which the site's build reads.
+- **What is kept.** An open PR keeps its last two captures, so it can be compared with
+  itself. Once it closes, merged or not, only its last is kept. Every PR's last capture is
+  kept for good.
+- **Where it shows.** On the PR: one comment, edited in place on each capture, with the
+  stills and a link to the Showcase tab. A PR closed before its capture finishes gets none.
+  On the site: the Showcase tab, a timeline newest first of open (marked) and closed PRs,
+  each with its stills and a player, and a toggle comparing a capture with the one before
+  (the PR's previous capture while open, the previous merged PR's once merged).
+- **Advisory only.** A capture blocks nothing, and a failed capture is reported on the PR,
+  not as a red check.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Record a live run under xvfb (ffmpeg `x11grab`) | Wall-clock timing: frames differ run to run, so a comparison shows noise. |
+| Actions artifacts | Expire in 90 days and need a sign-in to view; can't be shown on Pages. |
+| An orphan git branch of clips | Every clone grows by every clip ever kept. |
+| A replay of the simulation's state, drawn in the browser, in place of clips | About 10× smaller, but draws the simulation, not the game: a presentation change looks the same in it. Kept as a later question (Q41, #828). |
+| A playable web build on the site | Needs a web export and the Rust core in wasm, and threads Pages can't serve. Not now. |
+
+**Consequences:** spec 44 builds it: the spike, `--capture`, the workflow, the site shell, the
+Showcase tab, and, last and optional, an agent's critique of the stills.
+
+**Rules over cases:** general: the files a PR changes decide whether it is captured; every
+capture is the same scenario at the same moments; one retention rule for every PR.
+**Order:** not applicable; no simulation outcome changes. The capture runs the real
+simulation unchanged.
+**Bounded:** not applicable to the tick. One capture job per push to a game PR, cancelled by
+the next.
+**Pillar check:** not applicable.
+
+### Decision 168 — A design round opens with a pre-mortem, recorded in its spec
 
 **Authorised by:** Simeon Sidey
 **Date:** 2026-11-08

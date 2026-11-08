@@ -20,5 +20,6 @@ jobs:
       - name: Documentation gate
         if: steps.data.outputs.data_only != 'true'
         env:
-          DOCS_SKIP_CHANGELOG: "${{ contains(github.event.pull_request.body, 'Changelog: N/A') && '1' || '0' }}"
+          # The script finds "Changelog: N/A" in the body, bold or not (check-docs.sh).
+          DOCS_PR_BODY: ${{ github.event.pull_request.body }}
         run: bash AI_First_Development_Kit/scripts/check-docs.sh all origin/${{ github.base_ref }}

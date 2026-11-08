@@ -196,7 +196,9 @@ until its documentation is. Read only the sections the change touches.
 3. **Changelog** (`CHANGELOG.md`): one line per notable change under `## [Unreleased]`,
    written for the player or designer ("Squads now X", not "Moved Y into Z"). A refactor,
    a speed-up nobody sees, tests or CI: `Changelog: N/A (<reason>)` in the PR body, which
-   the `docs-gate` check reads.
+   the `docs-gate` check reads. **Write exactly that, on one line, label first.** Rewording
+   it ("No changelog", "Changelog not needed") fails the gate; this has cost a fix-up on
+   several PRs.
 4. **Docs** (`docs/index.md`, Diátaxis): add or fix the page in its quadrant and link it
    from the index. A tool's own README stays where it is and is linked. Decisions are this
    project's ADRs: never write a separate ADR, and never record a Decision yourself without

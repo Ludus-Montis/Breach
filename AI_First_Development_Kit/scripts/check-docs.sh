@@ -4,6 +4,8 @@
 #   base-ref: git ref to diff against for the changelog gate (default: origin/main, falls back to HEAD~1)
 # Env:
 #   DOCS_SKIP_CHANGELOG=1  skip the "code changed => changelog changed" gate (record the reason in the PR)
+#   DOCS_PR_BODY=<text>    the PR's description; a line "Changelog: N/A (<reason>)" in it skips
+#                          that gate too. Bold or italic markup around the label is ignored.
 set -u
 
 MODE="${1:-all}"
@@ -58,12 +60,21 @@ check_changelog() {
   bad=$(grep -E '^### ' "$CHANGELOG" | grep -v -E '^### (Added|Changed|Deprecated|Removed|Fixed|Security)\s*$')
   [ -n "$bad" ] && fail "Non-standard changelog categories: $(echo "$bad" | tr '\n' ';')"
 
+  # "Changelog: N/A" in the PR body skips the gate below, however the label is marked up
+  # (`Changelog: N/A`, `**Changelog:** N/A`, `- *Changelog*: N/A`).
+  if printf '%s' "${DOCS_PR_BODY:-}" | grep -q -i -E 'Changelog[*_]*:[*_]*[[:space:]]*[*_]*N/A'; then
+    DOCS_SKIP_CHANGELOG=1
+  fi
+
   # Gate: if non-doc files changed vs base, the changelog must have changed too.
   if git rev-parse --git-dir >/dev/null 2>&1 && [ "${DOCS_SKIP_CHANGELOG:-0}" != "1" ]; then
     git rev-parse --verify -q "$BASE" >/dev/null || BASE="HEAD~1"
     if git rev-parse --verify -q "$BASE" >/dev/null; then
       local changed code
-      changed=$(git diff --name-only "$BASE"...HEAD 2>/dev/null || git diff --name-only "$BASE")
+      # core.quotePath=false: a path with non-ASCII characters (the design spec's em dash) is
+      # printed as-is, not quoted, so `\.md$` still matches it.
+      changed=$(git -c core.quotePath=false diff --name-only "$BASE"...HEAD 2>/dev/null \
+        || git -c core.quotePath=false diff --name-only "$BASE")
       code=$(echo "$changed" | grep -v -E '(^|/)(docs/|README|CHANGELOG|CONTRIBUTING|LICENSE)|\.md$|^\.github/|(^|/)tests?/' | grep -v '^$')
       if [ -n "$code" ] && ! echo "$changed" | grep -q -x "$CHANGELOG"; then
         fail "Source files changed but $CHANGELOG did not (set DOCS_SKIP_CHANGELOG=1 and justify in PR if not user-facing)"
