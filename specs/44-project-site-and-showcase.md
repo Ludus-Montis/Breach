@@ -259,6 +259,17 @@ Decision 166's shell, with the tick history page moved in unchanged.
   scenario's rows only.
 - Phone width works: one column, the player full width, the timings under the stills.
 
+**Settled in 5** (`tools/showcase_view/README.md`):
+- **The behaviours:** the manifest doesn't carry a scenario's `shows`, and the tab reads only
+  the manifest, so every behaviour is listed: seen with its first tick, or not seen. Those in
+  `missing` (named for and not seen) are flagged.
+- **Compare on a PR closed unmerged** uses the merged PR's rule: the PR merged last before
+  it closed. A capture with nothing before it has no Compare button.
+- **Paired clips play together:** starting or pausing either starts or pauses the other, from
+  the same time. The timings' changes are on the newer side, against the older.
+- **The manifest** is downloaded into `_site/showcase/` by the site build (an empty one if
+  `showcase-index` has none yet).
+
 ### Step 6, an agent's critique (optional)
 
 After a capture, an agent reviews the four stills against the comparison's (step 5's rule)

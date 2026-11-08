@@ -6,6 +6,9 @@ name: site-pages
 # here, never committed, so data PRs never conflict over it:
 #   metrics/  the tick history page (tools/metrics_view/) and its records.json, built from
 #             metrics/ by build_index.py.
+#   showcase/ the Showcase tab (tools/showcase_view/) and manifest.json, downloaded from the
+#             showcase-index pre-release (ci/showcase/README.md): release downloads send no
+#             CORS headers, so the page reads its own copy. No manifest yet: an empty one.
 # A new tab is a folder, a line in site.js's TABS, and its copy below.
 # Runs on each push to main that changes a tab's data or code, and on workflow_dispatch:
 # the showcase capture dispatches it after each publish (ci/showcase/index.sh).
@@ -19,11 +22,12 @@ on:
       - "metrics/**"
       - "tools/site/**"
       - "tools/metrics_view/**"
+      - "tools/showcase_view/**"
       - ".github/workflows/site-pages.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: read  # also lets gh read the showcase-index release
   pages: write
   id-token: write
 
@@ -49,6 +53,15 @@ jobs:
           cp tools/metrics_view/index.html tools/metrics_view/metrics_view.js \
             tools/metrics_view/metrics_page.js tools/metrics_view/metrics_view.css _site/metrics/
           python3 tools/metrics_view/build_index.py metrics _site/metrics/records.json
+      - name: The Showcase tab and its manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _site/showcase
+          cp tools/showcase_view/index.html tools/showcase_view/showcase_view.js \
+            tools/showcase_view/showcase_page.js tools/showcase_view/showcase_view.css _site/showcase/
+          gh release download showcase-index -R "$GITHUB_REPOSITORY" -p manifest.json \
+            -D _site/showcase || echo '{"version": 1, "captures": []}' > _site/showcase/manifest.json
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site

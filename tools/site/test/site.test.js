@@ -33,3 +33,7 @@ test('the shipped list opens Metrics first, from its own folder', () => {
   assert.equal(site.TABS[0].page, 'metrics/index.html');
   assert.equal(site.route('', site.TABS).name, 'metrics');
 });
+
+test('the shipped list has Showcase, from its own folder', () => {
+  assert.equal(site.route('#showcase', site.TABS).page, 'showcase/index.html');
+});
