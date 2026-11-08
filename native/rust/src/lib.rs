@@ -95,6 +95,7 @@ pub mod rout_bench;
 mod rout_blows;
 mod route;
 pub mod scaling;
+pub mod scenarios;
 mod scrum;
 mod seeking;
 mod settling;
