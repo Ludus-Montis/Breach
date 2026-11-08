@@ -5,13 +5,16 @@ extends RefCounted
 ## every tick its clock owes and waits for them, so a movie's frames are the same on every run.
 ## When the scenario ends (FieldState.ended: a side broken and its rout played out, or 90 s of
 ## play) it writes capture.json (`scenarios::capture`: the moments, the behaviours seen) and
-## quits. capture.json goes beside the movie (`--write-movie <path>`), or where
-## `--capture-out=<path>` says, else to user://. The commit is BREACH_COMMIT's, else
-## GITHUB_SHA's. The window is SIZE. A name not on the list prints an error naming it and
-## quits with 2. Step 3's workflow runs it:
+## quits. capture.json goes where `--capture-out=<path>` says, else beside the movie, else to
+## user://. Godot keeps `--write-movie` out of the script's arguments, so pass the path. The
+## commit is BREACH_COMMIT's, else GITHUB_SHA's. The window is SIZE; `--resolution` doesn't
+## set Movie Maker's size, so the run's override.cfg does (spec 44 "Settled in 3"). A name not
+## on the list prints an error naming it and quits with 2. Step 3's workflow runs it through
+## ci/showcase/capture.sh:
 ##
-##   godot --path . --resolution 1280x720 --fixed-fps 30 --write-movie /tmp/c/frame.png \
-##     res://presentation/skirmish/formation_2d/formation_field.tscn -- --capture=field_break_off
+##   godot --path . --fixed-fps 30 --write-movie /tmp/c/frame.png \
+##     res://presentation/skirmish/formation_2d/formation_field.tscn -- \
+##     --capture=field_break_off --capture-out=/tmp/c/capture.json
 
 const ASK := "--capture="
 const PLACE := "--capture-out="
