@@ -190,6 +190,30 @@ closed).
 - **Concurrency:** one group per PR, a new push cancelling the old run. After publishing, it
   dispatches the site build.
 
+**Settled in 3** (`ci/showcase/README.md`):
+- **Each PR's record is its own file,** `pr-<N>.json` on `showcase-index`, written only by
+  that PR's runs, and `manifest.json` is rebuilt from every record on every run. One shared
+  file edited by every PR would lose a capture whenever two runs overlap; GitHub's
+  concurrency keeps only one waiting run a group, so one global group would drop runs too.
+- **`manifest.json`** is `{"version": 1, "captures": [...]}`, newest first. Each capture
+  carries its PR's `pr`, `title`, `state` (`open`, `merged`, `closed`), `url` and, once
+  closed, `closed_at` (for step 5's "the previous merged PR"), then `commit` (the PR's head),
+  `date`, `release`, `run` and `scenarios`. A scenario has `name`, `map`, `seed`, `clip`,
+  `stills` (by moment), `moments`, `ticks`, `seen` (behaviour to first tick), `not_seen`,
+  `missing` and `timings` (`rounds`, `tick_median_ms`, `tick_p95_ms`, `phases_median_ms`).
+- **The timings** are medians over the 5 rounds: of the tick's mean, of its 95th percentile,
+  and of each phase's mean.
+- **The comment's "not seen"** names the behaviours the scenario is named for and didn't
+  show (`missing`); the manifest keeps every behaviour not seen.
+- **A clip over 5 MB** is encoded again at the rate that fits.
+- **A new capture of a commit already captured** (a re-run) replaces it, keeping two
+  different commits.
+- **Advisory:** each step that can fail continues on error, and the next runs only if it
+  succeeded, so the job never goes red; the last step edits the comment on any failure.
+- **Checked by a run on the first game PR after this one:** this PR changes only `ci/` and
+  `.github/`, so its own run decides "not a game change". `capture.sh` was checked by hand
+  (the PR's description says how).
+
 ### Step 4, the site shell
 
 Decision 166's shell, with the tick history page moved in unchanged.
