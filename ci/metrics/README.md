@@ -130,6 +130,26 @@ changed; that folder is restored from one cache entry the `references` job write
 (`bench-series-target-v1`; bump it to rebuild); and each job first deletes runner tools it
 doesn't use. Each job's summary gives every build's time, the job's time and its free disk.
 
+## Harvest the archived logs
+
+`ci/metrics/harvest.py` (spec 43 step 6) turns what `metrics-archive` kept under
+`metrics/raw/` into records marked `"kind": "harvested"`, the numbers as they were seen then:
+
+- each bench run's `SUMMARY`: its head's phases (a rounds comparison's medians, or one round's
+  values), tool and args, into `metrics/bench/<date>-<run id>.json`. `commit` keeps the head's
+  `sha`, `branch` and the `base` it was compared with; the machine and reference are
+  `not-recorded`.
+- each `sim-checks` run's `scaling_check` lines, into `metrics/scaling/<date>-<run id>.json`,
+  as `scaling/<stage>/<size>`.
+
+It writes a file only when its content changes, so a re-run adds nothing, and it never
+overwrites a fresh record. Run it after `metrics-archive` has added runs, and open an
+ordinary PR with what it wrote (its records aren't one of the self-merging series):
+
+```bash
+python3 ci/metrics/harvest.py metrics/raw metrics
+```
+
 ## Data-only PRs
 
 A PR is data-only when every path it changes is under `metrics/` and none is under
