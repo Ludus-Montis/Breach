@@ -9,6 +9,8 @@
 //! and the ground don't change, and are read at open. `run_ticks` and `step` wait, for tests
 //! and headless play.
 
+use std::path::Path;
+
 use godot::prelude::*;
 
 use super::player::FieldPlayer;
@@ -17,6 +19,7 @@ use super::{A, B, C};
 use crate::events::told::{Said, Told};
 use crate::maths::{self, V2};
 use crate::record::{self, Command};
+use crate::scenarios::{self, Scenario};
 use crate::squads::DEAD;
 use crate::threads::Threads;
 use crate::waves::Produced;
@@ -45,6 +48,8 @@ struct Played {
     captained: bool,
     routes: VarDictionary,
     ground: VarArray,
+    /// The named scenario it plays hands-free, if it plays one (`open_scenario`).
+    scenario: Option<Scenario>,
 }
 
 #[godot_api]
@@ -60,14 +65,67 @@ impl FieldState {
         captained: bool,
         build: GString,
     ) -> bool {
-        let threaded = Threads::of_env(std::env::var("BREACH_NATIVE_THREADS").ok().as_deref());
         let Some(loaded) = content.bind().content.clone() else { return false };
-        let opened = FieldSim::open(loaded, (battle_seed, captained), &build.to_string(), threaded);
+        let opened =
+            FieldSim::open(loaded, (battle_seed, captained), &build.to_string(), threads());
         let Some(sim) = opened else { return false };
-        let (routes, ground) = (routes_of(&sim), ground_of(&sim));
-        let player = FieldPlayer::start(sim);
-        self.played = Some(Played { player, seed: battle_seed, captained, routes, ground });
+        self.start(sim, None);
         true
+    }
+
+    /// The scenario `name` from the list under `content_root` (the repo's `content/` folder),
+    /// set up from `content` to play hands-free on a worker (spec 44 step 2c): its record's
+    /// commands given on their ticks, what it shows read as the bench's replay reads it. ""
+    /// if it opened; else what is wrong, with nothing set up (a name not on the list is named).
+    #[func]
+    fn open_scenario(
+        &mut self,
+        content: Gd<ContentStore>,
+        content_root: GString,
+        name: GString,
+    ) -> GString {
+        let name = name.to_string();
+        let Some(loaded) = content.bind().content.clone() else {
+            return GString::from("the content isn't loaded");
+        };
+        let opened = scenarios::list(Path::new(&content_root.to_string()))
+            .and_then(|list| scenarios::named(&list, &name).cloned())
+            .and_then(|scenario| {
+                let sim = FieldSim::scenario(loaded, &scenario, threads());
+                sim.map(|sim| (sim, scenario))
+                    .ok_or_else(|| format!("scenario {name}: the field can't be set up"))
+            });
+        match opened {
+            Ok((sim, scenario)) => {
+                self.start(sim, Some(scenario));
+                GString::new()
+            }
+            Err(wrong) => GString::from(wrong.as_str()),
+        }
+    }
+
+    /// True once the scenario the field plays has ended (false for free play).
+    #[func]
+    fn ended(&self) -> bool {
+        self.view().and_then(|v| v.watched.as_ref()).is_some_and(|w| w.ended)
+    }
+
+    /// The scenario's `capture.json` as played so far, at commit `commit`
+    /// (`scenarios::capture`); "" for free play.
+    #[func]
+    fn capture(&self, commit: GString) -> GString {
+        let Some(p) = self.played.as_ref() else { return GString::new() };
+        let (Some(scenario), Some(watched)) = (&p.scenario, &p.player.newest.watched) else {
+            return GString::new();
+        };
+        let made = scenarios::capture::capture(
+            scenario,
+            &watched.seen,
+            p.player.tick,
+            &commit.to_string(),
+        );
+        let text = serde_json::to_string_pretty(&made).unwrap_or_default();
+        GString::from(text.as_str())
     }
 
     /// The ticks played, as the newest snapshot shows them.
@@ -261,6 +319,14 @@ impl FieldState {
 }
 
 impl FieldState {
+    /// `sim` started on a worker, playing `scenario` if it is one.
+    fn start(&mut self, sim: FieldSim, scenario: Option<Scenario>) {
+        let (seed, captained) = (sim.seed, sim.captained);
+        let (routes, ground) = (routes_of(&sim), ground_of(&sim));
+        let player = FieldPlayer::start(sim);
+        self.played = Some(Played { player, seed, captained, routes, ground, scenario });
+    }
+
     /// `given` queued for the field; true if there is a field.
     fn given(&mut self, given: Command) -> bool {
         let Some(p) = self.played.as_ref() else { return false };
@@ -275,6 +341,11 @@ impl FieldState {
 }
 
 /// A record's command as a dictionary gives it (who, order, target, value), at `tick`.
+/// The threads the field plays on, as BREACH_NATIVE_THREADS says.
+fn threads() -> Threads {
+    Threads::of_env(std::env::var("BREACH_NATIVE_THREADS").ok().as_deref())
+}
+
 fn command_from(tick: i64, command: &VarDictionary) -> Command {
     let text = |key: &str| command.get(key).map_or(String::new(), |v| v.to_string());
     record::command(tick, &text("who"), &text("order"), &text("target"), &text("value"))

@@ -13,7 +13,7 @@ extends Node2D
 ## Engine glue: the field is the crate's (`FieldState`, spec 39 step 9d-i), played on a
 ## worker (step 10d-ii). Each frame owes it the clock's ticks and takes what it has played,
 ## never waiting; the scene draws the newest tick, and the HUD says when the simulation is
-## behind (more time due than the worker is owed, so some is dropped).
+## behind (more time due than the worker is owed, so some is dropped). `--capture`: FieldCapture.
 ##
 ##   godot --path . res://presentation/skirmish/formation_2d/formation_field.tscn
 
@@ -42,6 +42,7 @@ const COLOURS := {
 	"sight": Color(1, 1, 1, 0.25),
 }
 
+var capture: FieldCapture = FieldCapture.asked()  # null: play
 ## The crate's SkirmishClock (spec 39 step 9c).
 var _clock: Object = NativeLibrary.made("SkirmishClock")
 var _field: Object  # the crate's FieldState
@@ -86,7 +87,10 @@ func _took(events: Array, before: int) -> void:
 
 
 func _ready() -> void:
-	restart(false, randi() % 1000000)
+	if capture == null:
+		restart(false, randi() % 1000000)
+	elif not capture.start(self):
+		return
 	_hud = FormationFieldHud.new()
 	add_child(_hud)
 	_hud.build(self)
@@ -97,29 +101,43 @@ func _ready() -> void:
 
 ## A fresh field, its line led by a captain or not, its battle under `battle_seed`
 ## (Decision 93: the same seed and orders replay a battle). `queued` (commands,
-## FieldState.read_record) are given at their ticks as the clock runs: a replay.
-func restart(captained: bool, battle_seed: int, queued: Array = []) -> void:
-	_battle_seed = battle_seed
-	_field = NativeLibrary.made("FieldState")  # the old one's tick finishes and is dropped
-	_field.open(CrateContent.store(), battle_seed, captained, SimBuild.id())
-	var commands: Array[Dictionary] = []
-	commands.assign(queued)
-	_field.replay(commands)  # each given when its tick comes
+## FieldState.read_record) are given at their ticks as the clock runs: a replay. Or the
+## `scenario` named, from content/scenarios/, played hands-free (FieldCapture), its seed and
+## captain from its record. "" if the field opened, else what is wrong.
+func restart(captained: bool, battle_seed: int, queued: Array = [], scenario := "") -> String:
+	var opened: Object = NativeLibrary.made("FieldState")  # the old one's tick finishes
+	if scenario != "":
+		var wrong: String = opened.open_scenario(
+			CrateContent.store(), FieldCapture.root(), scenario
+		)
+		if wrong != "":
+			return wrong  # the field kept
+	else:
+		opened.open(CrateContent.store(), battle_seed, captained, SimBuild.id())
+		var commands: Array[Dictionary] = []
+		commands.assign(queued)
+		opened.replay(commands)  # each given when its tick comes
+	_field = opened
+	_battle_seed = _field.battle_seed()
 	_ground = _field.ground()
 	_routes = _field.routes()
 	_previous = {}
 	_current = {}
 	_snapshot()
+	return ""
 
 
 ## A frame of `delta` seconds: the clock's ticks owed to the worker and what it has played
 ## taken, never waiting; then drawn.
 func _process(delta: float) -> void:
 	var due: int = _clock.advance(delta)
-	_field.pause(_clock.is_paused())
-	_behind = BEHIND_SECONDS if _field.owe(due) else maxf(_behind - delta, 0.0)
 	var before: int = _field.tick_number()
-	_took(_field.take(), before)
+	if capture != null:
+		_took(capture.frame(self, due), before)  # every tick owed played, waited for
+	else:
+		_field.pause(_clock.is_paused())
+		_behind = BEHIND_SECONDS if _field.owe(due) else maxf(_behind - delta, 0.0)
+		_took(_field.take(), before)
 	var drawing: bool = not _clock.is_paused() and _field.caught_up()
 	_fraction = _clock.fraction() if drawing else 1.0  # else hold at the newest
 	for unit_id in _flashes.keys():
