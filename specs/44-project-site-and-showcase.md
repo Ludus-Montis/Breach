@@ -136,6 +136,15 @@ stands in until Q25's game-like map (#280) can play a scenario.
   four builders, and a wave walks about 12 s to the line. The drafts send A partly built at
   tick 40 (25 for the break-off).
 
+**Settled in 2b:**
+- `breach_tick_phases scenario=<name>` (`scenarios::timed`) takes only `threaded` and `repo`
+  beside it (`series` is accepted and changes nothing); any other argument exits 2. Its header
+  line is "<name> on <map>, seed <seed>: <ms> ms a tick", to two decimals: the field's tick is
+  about 0.05 ms, which one decimal prints as 0.0.
+- The phases' series is built by `Series::push`, shared with `series=1`.
+- A scenario's ticks timed are its ticks played (`watch`'s), from tick 0 to its end; checked
+  by `cargo test scenarios::`.
+
 ### Step 3, the `showcase-capture` workflow
 
 `.github/workflows/showcase-capture.yml`, on `pull_request` (opened, synchronize, reopened,

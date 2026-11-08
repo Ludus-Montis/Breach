@@ -155,14 +155,20 @@ pub fn timed(settled: &mut Settled, ticks: usize, content: &Content) -> Vec<(&'s
 /// The lines tick_phases.gd prints after its machine line: the battle and its ms a tick, then
 /// each phase's ms a tick, largest first, over `ticks` ticks (`fight`, or a series' length).
 pub fn lines(options: &Options, ticks: usize, spent: &[(&'static str, f64)]) -> Vec<String> {
+    let battle = format!("{} a side, {} wide", options.side, options.width);
+    headed((&battle, 1), ticks, spent)
+}
+
+/// `lines` for any `battle`: "<battle>: <ms> ms a tick", to `decimals` places, then each
+/// phase's ms a tick, largest first, over `ticks` ticks.
+pub fn headed(
+    (battle, decimals): (&str, usize),
+    ticks: usize,
+    spent: &[(&'static str, f64)],
+) -> Vec<String> {
     let ticks = ticks.max(1) as f64;
     let total: f64 = spent.iter().map(|(_, usec)| usec).sum();
-    let mut out = vec![format!(
-        "{} a side, {} wide: {:.1} ms a tick",
-        options.side,
-        options.width,
-        total / ticks / 1000.0
-    )];
+    let mut out = vec![format!("{battle}: {:.decimals$} ms a tick", total / ticks / 1000.0)];
     let mut phases = spent.to_vec();
     phases.sort_by(|a, b| b.1.total_cmp(&a.1));
     for (phase, usec) in phases {

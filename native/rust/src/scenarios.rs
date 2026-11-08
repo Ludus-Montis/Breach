@@ -7,6 +7,7 @@
 pub mod seen;
 #[cfg(test)]
 mod tests;
+pub mod timed;
 
 use std::fs;
 use std::path::Path;
@@ -15,6 +16,7 @@ use serde::Deserialize;
 
 use crate::battles::TICK_SECONDS;
 use crate::content::Content;
+use crate::digest::state::state;
 use crate::events::Log;
 use crate::field::Field;
 use crate::field_play::FieldPlay;
@@ -151,6 +153,11 @@ impl Replay {
         let flat = log.take();
         self.seen.read(tick, &flat, (squads, field), &self.ground);
         (flat, self.ended(tick, squads, field))
+    }
+
+    /// The listed squads' state as the digest records it, as bytes.
+    pub fn state(&self, squads: &Squads, field: &Field) -> Vec<u8> {
+        state(squads, field, &self.play.play.listed).bytes()
     }
 
     /// Whether the scenario ends after `tick`.

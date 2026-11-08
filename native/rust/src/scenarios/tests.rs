@@ -118,3 +118,23 @@ fn a_squad_fighting_a_second_foe_is_cornered_and_breaking_off_clears_its_foes() 
     at(&mut seen, 15, event(ENGAGED, 15, 1, &[9]));
     assert_eq!(seen.at("cornering"), Some(15));
 }
+
+#[test]
+fn a_timed_scenario_times_every_tick_it_plays_and_ends_as_played() {
+    let (content, list) = (content(), list(&repo_content()).expect("the list reads"));
+    let scenario = named(&list, "field_break_off").expect("listed");
+    let (_, ticks) = watch(scenario, &content).expect("it plays");
+    let timed = timed::timed(scenario, &content, Threads::One).expect("it plays timed");
+    assert_eq!(timed.series.ticks, (0..ticks).collect::<Vec<_>>());
+    assert!(!timed.series.spent.is_empty());
+    assert!(timed.series.spent.iter().all(|(_, usec)| usec.len() == ticks as usize));
+    assert!(!timed.apart, "the timed replay ended apart from the untimed one");
+}
+
+#[test]
+fn timing_a_name_not_on_the_list_is_an_error_naming_it() {
+    let content = content();
+    let wrong = timed::named_timed(&repo_content(), &content, "field_nowhere", Threads::One)
+        .expect_err("not listed");
+    assert!(wrong.contains("field_nowhere"), "{wrong}");
+}
