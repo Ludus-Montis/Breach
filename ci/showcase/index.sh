@@ -21,4 +21,4 @@ all=$(mktemp -d)
 gh release download "$INDEX" -p 'pr-*.json' -D "$all"
 python3 "$here/manifest.py" merge "$all/manifest.json" "$all"/pr-*.json
 gh release upload "$INDEX" "$all/manifest.json" --clobber
-gh workflow run metrics-pages.yml --ref main || echo "::warning::the site build wasn't dispatched"
+gh workflow run site-pages.yml --ref main || echo "::warning::the site build wasn't dispatched"

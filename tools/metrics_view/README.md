@@ -6,9 +6,11 @@ Static HTML and JS, no build step, reading only `metrics/`.
 
 ## See it
 
-- **On the web:** <https://ludus-montis.github.io/Breach/>, published by the `metrics-pages`
-  workflow each time `metrics/` changes on `main` (first, once: Settings → Pages → Source:
-  GitHub Actions).
+- **On the web:** the Metrics tab of the project site, <https://ludus-montis.github.io/Breach/>
+  (`#metrics`, and the root; [`tools/site/`](../site/README.md)), published by the `site-pages`
+  workflow each time `metrics/` or the page changes on `main` (first, once: Settings → Pages →
+  Source: GitHub Actions). The page is served from the site's `metrics/` folder and opens in
+  the shell's frame; its links open over the whole site.
 - **From disk:** `python3 tools/metrics_view/build_index.py` writes `records.json` beside the
   page (git-ignored); then open `tools/metrics_view/index.html`. A browser that won't read a
   file beside the page offers a folder picker instead: choose the repo's `metrics` folder.

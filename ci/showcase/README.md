@@ -41,7 +41,7 @@ seen) and its timings.
   Two runs finishing together can each rebuild it before seeing the other's record; the
   next run's rebuild puts it right, and the site can rebuild it from the records the same
   way.
-- After publishing, the run dispatches the site build (`metrics-pages.yml`).
+- After publishing, the run dispatches the site build (`site-pages.yml`).
 
 **Retention** (`manifest.py`): an open PR keeps its last two captures, and a new capture of
 a commit already captured replaces it. On `closed`, merged or not, only the last is kept;

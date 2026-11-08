@@ -25,6 +25,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [The bench history: a record for each merge that touches the simulation](../ci/metrics/README.md#bench-records)
 - [The bench history's backfill, from 2026-10-14](../ci/metrics/README.md#the-backfill)
 - [Harvest the archived logs into records](../ci/metrics/README.md#harvest-the-archived-logs)
+- [The project site: its tabs, how one is added and how it is published](../tools/site/README.md)
 - [The tick history page, on the web or from disk](../tools/metrics_view/README.md)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
