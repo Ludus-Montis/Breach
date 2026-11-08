@@ -17,6 +17,8 @@ Task-oriented. Steps to achieve a specific goal.
 - [Replace the placeholder art](../assets/placeholder/README.md)
 - [Run a spec's steps back to back, one session each](../.claude/skills/cascade/SKILL.md)
   (`/cascade`; why it works this way: [agent sessions, rule 8](../AI_First_Development_Kit/principles/agent-sessions.md#8-a-long-series-of-steps-runs-as-a-cascade))
+- [Open a design round with a pre-mortem](../AI_First_Development_Kit/templates/pre-mortem.md)
+  (why: [agent sessions, rule 3](../AI_First_Development_Kit/principles/agent-sessions.md#3-design-and-implementation-are-separate-sessions), Decision 168)
 - [Archive the bench and sim-checks logs before they expire](../ci/metrics/README.md)
 - [The metrics records, their schema and check, and data-only PRs](../ci/metrics/README.md#the-records-and-their-check)
 - [The data-PR route: measuring workflows merge their own data PRs](../ci/metrics/README.md#the-data-pr-route)

@@ -12,6 +12,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 - A project README, this changelog and a documentation index (`docs/index.md`), kept
   current by the documentation phases every change now goes through.
+- Each design round now opens with a pre-mortem (what we'd regret in a month, the riskiest
+  assumption, the cheapest test of it), recorded in the round's spec, with its test scheduled
+  as a step (Decision 168).
 
 ### Changed
 

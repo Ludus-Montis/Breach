@@ -174,3 +174,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 165 | A scaling model fitted on a small grid is checked against the measured 25k on each merge, and licenses estimates only between its points | 7725 |  |
 | 166 | The Pages site is the project's site, one tab a page, Metrics first and Showcase second | 7782 |  |
 | 167 | Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab | 7819 |  |
+| 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |

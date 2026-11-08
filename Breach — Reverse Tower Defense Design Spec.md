@@ -7871,3 +7871,37 @@ simulation unchanged.
 **Bounded:** not applicable to the tick. One capture job per push to a game PR, cancelled by
 the next.
 **Pillar check:** not applicable.
+
+### Decision 168 — A design round opens with a pre-mortem, recorded in its spec
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+
+**Rationale:** The owner's direction, from a review of how sessions have gone: at the start
+of each design round, ask "What will we regret in a month? What is the riskiest assumption,
+and what is the cheapest test of it?" Asked before options are explored, the answers can
+still change the design; asked at the end, the risky assumption is already built in.
+- **When:** once per design round, before options are discussed. Not once per Decision.
+- **Where it lands:** a `## Pre-mortem` section in the round's spec, with three lines: the
+  regret, the riskiest assumption, and its cheapest test. The spec is the hand-over, so it
+  reaches the implementation session, which doesn't reopen it.
+- **The cheapest test is scheduled.** It becomes the round's first step, or the section
+  says why it is already answered (a trial, a bench, a feel test the owner has done).
+- **Checked:** the spec-baseline rubric's `pre-mortem` row, and `/design-check` asks whether
+  a Decision that rests on the riskiest assumption has its test run or scheduled.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Put the pre-mortem in `/design-check` | It runs per Decision and late, and implementation sessions run it too. |
+| Ask it in conversation only | Lost when the design session ends; the next session never sees it. |
+
+**Consequences:** the development kit carries it (`principles/agent-sessions.md` §3, `templates/pre-mortem.md`, the spec-baseline `pre-mortem` row); `CLAUDE.md`'s Design
+bullet points to it; specs written from here on carry a `## Pre-mortem` section. Specs
+already written are not changed.
+
+**Rules over cases:** general: every design round opens with the same three questions.
+**Order:** not applicable.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
