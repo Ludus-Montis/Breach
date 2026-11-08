@@ -1,0 +1,315 @@
+name: Showcase spike
+
+# Spec 44 step 1, the go/no-go spike for the per-PR capture (Decision 167). Deleted by step 3.
+#
+# Renders the real skirmish scene with Movie Maker (--write-movie) under xvfb and Mesa, twice,
+# and records: the renderer and driver Godot reports, the wall time of the crate build, the
+# import and each run, and whether the two runs' frames are byte-identical (if not, the
+# largest per-pixel difference and where). Then the playback check: a short WebM and one WebP
+# still go to the test pre-release `showcase-spike`, a PR comment shows the still inline, and
+# a browser check (Chromium and Firefox) plays the WebM in a <video>. The pre-release is
+# deleted when the spike's PR closes.
+#
+# Runs by hand (workflow_dispatch, once this file is on main) and on the spike's own PR (a
+# pull_request that changes this file), since a dispatch needs the file on the default branch.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - .github/workflows/showcase-spike.yml
+
+concurrency:
+  group: showcase-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write        # the test pre-release
+  pull-requests: write   # the PR comment
+  issues: write          # the comment goes through the issues API
+
+env:
+  GODOT_VERSION: "4.7.2-stable"
+  SCENE: res://presentation/skirmish/formation/formation_skirmish.tscn
+  FRAMES: 300
+  FPS: 30
+  RESOLUTION: 960x540
+  TAG: showcase-spike
+  MARKER: "<!-- showcase-spike -->"
+
+jobs:
+  capture:
+    if: >-
+      github.event.action != 'closed' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      webm: ${{ steps.publish.outputs.webm }}
+      webp: ${{ steps.publish.outputs.webp }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install xvfb, Mesa and ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends \
+            xvfb xauth mesa-vulkan-drivers libvulkan1 vulkan-tools libgl1-mesa-dri libglx-mesa0 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 ffmpeg python3-pil python3-numpy > /dev/null
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Build the Rust core (timed)
+        run: |
+          start=$(date +%s.%N)
+          JOBS=4 bash native/build.sh release 2>&1 | tail -3
+          echo "BUILD_S=$(awk "BEGIN {print $(date +%s.%N) - $start}")" >> "$GITHUB_ENV"
+
+      - name: Mark the import's start
+        run: echo "IMPORT_START=$(date +%s.%N)" >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Mark the import's end
+        run: echo "IMPORT_S=$(awk "BEGIN {print $(date +%s.%N) - $IMPORT_START}")" >> "$GITHUB_ENV"
+
+      - name: Render the skirmish twice
+        run: |
+          for run in 1 2; do
+            mkdir -p "run$run"
+            start=$(date +%s.%N)
+            xvfb-run -a -s "-screen 0 1280x720x24" \
+              /opt/godot/godot --path . --resolution "$RESOLUTION" \
+                --write-movie "run$run/frame.png" --fixed-fps "$FPS" --quit-after "$FRAMES" \
+                "$SCENE" > "run$run.log" 2>&1 || echo "run $run exited $?" >> "run$run.log"
+            echo "RUN${run}_S=$(awk "BEGIN {print $(date +%s.%N) - $start}")" >> "$GITHUB_ENV"
+            echo "run $run: $(ls run$run/*.png 2>/dev/null | wc -l) frames"
+          done
+          echo "--- run 1, the lines naming the renderer, and any errors ---"
+          grep -iE 'vulkan|opengl|forward|compatibility|device|error' run1.log | head -20 || true
+
+      - name: Compare the runs and write the summary
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY" > measured.md
+          import glob, os, re
+          import numpy as np
+          from PIL import Image
+
+          env = os.environ
+          log = open("run1.log", errors="replace").read()
+          device = next((l.strip() for l in log.splitlines() if "Using Device" in l),
+                        "not reported (see run1.log)")
+          a = sorted(glob.glob("run1/frame*.png"))
+          b = sorted(glob.glob("run2/frame*.png"))
+          names = sorted({os.path.basename(p) for p in a} & {os.path.basename(p) for p in b})
+          differing, worst = 0, (0, None, None)
+          for name in names:
+              ba = open(f"run1/{name}", "rb").read()
+              bb = open(f"run2/{name}", "rb").read()
+              if ba == bb:
+                  continue
+              differing += 1
+              pa = np.asarray(Image.open(f"run1/{name}").convert("RGB"), dtype=np.int16)
+              pb = np.asarray(Image.open(f"run2/{name}").convert("RGB"), dtype=np.int16)
+              if pa.shape != pb.shape:
+                  worst = max(worst, (999, name, "sizes differ"), key=lambda w: w[0])
+                  continue
+              diff = np.abs(pa - pb).max(axis=2)
+              y, x = np.unravel_index(diff.argmax(), diff.shape)
+              changed = int((diff > 0).sum())
+              if diff.max() > worst[0]:
+                  worst = (int(diff.max()), name, f"at x={x}, y={y}; {changed} pixels differ")
+          if differing == 0 and names:
+              verdict = "byte-identical"
+          elif not names:
+              verdict = "no frames to compare"
+          else:
+              verdict = (f"{differing} of {len(names)} frames differ; largest per-pixel difference "
+                         f"{worst[0]}/255 in {worst[1]} ({worst[2]})")
+          s = lambda k: f"{float(env.get(k, 'nan')):.0f} s"
+          print("### Measured (spec 44 step 1)\n")
+          print(f"- **Renderer and driver:** `{device}`")
+          print(f"- **Frames:** run 1 {len(a)}, run 2 {len(b)} (asked {env['FRAMES']} at "
+                f"{env['FPS']} fps, {env['RESOLUTION']})")
+          print(f"- **Wall time:** build {s('BUILD_S')}, import {s('IMPORT_S')}, "
+                f"run 1 {s('RUN1_S')}, run 2 {s('RUN2_S')}")
+          print(f"- **Frames compared:** {verdict}")
+          print(f"- **Commit:** {env.get('GITHUB_SHA', '')[:7]}")
+          PY
+
+      - name: Encode the clip and the still
+        run: |
+          ffmpeg -loglevel error -y -framerate "$FPS" -i run1/frame%08d.png \
+            -c:v libvpx-vp9 -b:v 0 -crf 36 -row-mt 1 -pix_fmt yuv420p spike.webm
+          middle=$(printf 'run1/frame%08d.png' $((FRAMES / 2)))
+          [ -f "$middle" ] || middle=$(ls run1/frame*.png | tail -1)
+          cp "$middle" still.png
+          ffmpeg -loglevel error -y -i still.png -c:v libwebp -quality 85 spike.webp
+          ls -l spike.webm spike.webp
+          echo "- **Clip:** spike.webm, $(stat -c %s spike.webm) bytes; still from $(basename "$middle")" \
+            | tee -a "$GITHUB_STEP_SUMMARY" >> measured.md
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: showcase-spike
+          path: |
+            run1.log
+            run2.log
+            measured.md
+            still.png
+            spike.webm
+            spike.webp
+            run1/frame00000000.png
+            run1/frame00000299.png
+          retention-days: 14
+
+      - name: Publish to the test pre-release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || \
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+              --title "Showcase spike (spec 44 step 1; deleted when its PR closes)" \
+              --notes "A test of release assets for Decision 167. Deleted when the spike's PR closes."
+          gh release upload "$TAG" spike.webm spike.webp --clobber
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          echo "webm=$base/spike.webm" >> "$GITHUB_OUTPUT"
+          echo "webp=$base/spike.webp" >> "$GITHUB_OUTPUT"
+
+      - name: The PR comment, with the still inline
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          WEBM: ${{ steps.publish.outputs.webm }}
+          WEBP: ${{ steps.publish.outputs.webp }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "$MARKER"
+            echo "## Showcase spike"
+            echo
+            echo "The middle frame, as a WebP release asset (does it show inline here?):"
+            echo
+            echo "![the skirmish, middle frame]($WEBP)"
+            echo
+            echo "[The clip (WebM)]($WEBM) · [the run]($RUN_URL)"
+            echo
+            cat measured.md
+            echo
+            echo "---"
+            echo "_Generated by [Claude Code](https://claude.ai/code)_"
+          } > comment.md
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+                 --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi
+
+  # Does the WebM play in a <video>, and does the still show inline in the PR comment? The page
+  # is served over http from the runner, not from Pages: a <video> without crossorigin plays a
+  # cross-origin source the same from either, so this stands in for the Pages check. The owner
+  # confirms on the real site in step 5.
+  playback:
+    needs: capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install Playwright with Chromium and Firefox
+        run: |
+          npm init -y > /dev/null
+          npm install -s playwright@1.49.1
+          npx playwright install --with-deps chromium firefox > /dev/null
+
+      - name: Play the WebM in each browser
+        env:
+          WEBM: ${{ needs.capture.outputs.webm }}
+        run: |
+          mkdir site
+          printf '<!doctype html><video id="v" muted playsinline src="%s"></video>\n' "$WEBM" > site/index.html
+          (cd site && python3 -m http.server 8000 > /dev/null 2>&1 &)
+          sleep 1
+          cat > play.js <<'JS'
+          const pw = require('playwright');
+          (async () => {
+            const lines = [];
+            for (const name of ['chromium', 'firefox']) {
+              const browser = await pw[name].launch();
+              const page = await browser.newPage();
+              let result;
+              try {
+                await page.goto('http://localhost:8000/');
+                result = await page.evaluate(() => new Promise((done) => {
+                  const v = document.getElementById('v');
+                  const fail = (why) => done(`does not play (${why})`);
+                  v.onerror = () => fail(`error code ${v.error && v.error.code}`);
+                  setTimeout(() => fail('timed out'), 20000);
+                  v.oncanplay = async () => {
+                    try { await v.play(); } catch (e) { return fail(String(e)); }
+                    setTimeout(() => done(v.currentTime > 0
+                      ? `plays (${v.videoWidth}×${v.videoHeight}, ${v.duration.toFixed(1)} s)`
+                      : 'loads but does not advance'), 1500);
+                  };
+                }));
+              } catch (e) { result = `does not play (${e.message})`; }
+              lines.push(`- **WebM in a <video>, ${name} ${browser.version()}:** ${result}`);
+              await browser.close();
+            }
+            console.log(lines.join('\n'));
+          })();
+          JS
+          node play.js | tee -a "$GITHUB_STEP_SUMMARY" > playback.md
+
+      - name: Does the still show inline in the PR comment?
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+                 --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+          html=$(gh api -H "Accept: application/vnd.github.html+json" \
+                   "repos/$GITHUB_REPOSITORY/issues/comments/$id" --jq .body_html)
+          src=$(echo "$html" | grep -o '<img [^>]*src="[^"]*"' | head -1 | sed 's/.*src="\([^"]*\)"/\1/')
+          if [ -z "$src" ]; then
+            verdict="no <img> in the rendered comment"
+          else
+            type=$(curl -sSL -o /dev/null -w '%{http_code} %{content_type}' "$src")
+            verdict="rendered as an <img> through $(echo "$src" | cut -d/ -f3), which answers $type"
+          fi
+          echo "- **WebP still in the PR comment:** $verdict" | tee -a "$GITHUB_STEP_SUMMARY" >> playback.md
+          gh api "repos/$GITHUB_REPOSITORY/issues/comments/$id" --jq .body > body.md
+          python3 - <<'PY'
+          body = open("body.md").read()
+          footer = "\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+          head, _, _ = body.partition(footer)
+          head = head.split("\n### Playback\n")[0].rstrip()
+          open("body.md", "w").write(head + "\n\n### Playback\n\n" + open("playback.md").read() + footer + "\n")
+          PY
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@body.md > /dev/null
+
+  # The spike's pre-release lives only while its PR is open.
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the test pre-release and its tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "$TAG" --yes --cleanup-tag -R "$GITHUB_REPOSITORY" || echo "no $TAG to delete"

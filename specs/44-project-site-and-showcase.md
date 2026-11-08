@@ -134,6 +134,17 @@ run, this step moves to its own spec.
 
 ## Measured
 
+### Step 1, the spike
+
+`.github/workflows/showcase-spike.yml` runs on its own PR and writes these into its job
+summary and its PR comment (marked `<!-- showcase-spike -->`). Copy them here once the run
+is in, with the owner's judgement of the frame and the go or no-go.
+- The playback check stands in for Pages with a page served over http on the runner: a
+  `<video>` without `crossorigin` loads a cross-origin source the same from either origin.
+  The owner confirms on the real site in step 5.
+- The test pre-release `showcase-spike` is deleted when the spike's PR closes, so the PR
+  comment's still shows until then.
+
 ## Scenarios
 
 ### Step 1
