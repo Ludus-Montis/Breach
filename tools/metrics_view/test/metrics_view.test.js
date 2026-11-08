@@ -102,3 +102,17 @@ test('a line breaks where a commit it should have has no number, never joining a
   const runs = view.segments(points, [10, 20, 30, 40, 50]);
   assert.deepEqual(runs.map((run) => run.map((p) => p.position)), [[10, 20], [50]]);
 });
+
+test('harvested points are hidden unless asked for, and the fresh lines are untouched', () => {
+  const records = [
+    record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }),
+    record('c'.repeat(7), null, 'breach_tick_phases', { tick: measure(51) }, { kind: 'harvested' }),
+  ];
+  records[1].record.commit = { sha: 'ccccccc', base: 'aaaaaaa' };
+  const all = view.lines(records);
+  const hidden = view.shown(all, false);
+  assert.equal(hidden[0].harvested.length, 0);
+  assert.equal(hidden[0].points.length, 1);
+  assert.equal(view.shown(all, true)[0].harvested.length, 1);
+  assert.equal(all[0].harvested.length, 1);
+});
