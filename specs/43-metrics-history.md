@@ -20,12 +20,15 @@ records it today:
 
 **Settled by Decisions 162** (where the history lives, the record, gaps, references, what is
 benched), **163** (a data-only PR's checks) and **164** (the measuring workflows merge their
-own data PRs). Nothing here changes a simulation outcome.
+own data PRs). Step 8, the 25k series and its scaling model, is settled by **Decision 165**.
+Nothing here changes a simulation outcome.
 
 ## Status
 
 Agreed in the design session of 2026-11-06 on Q37 (#603). Seven steps, each its own PR,
 built with `/run-phase` as "spec 43 step N".
+- **Step 8** (8a, 8b, 8c) was added in the design session of 2026-11-08 on Q40 (#820), after
+  steps 1 to 7 merged. 8a comes first; 8b and 8c may follow in either order.
 - **Step 1 is time-sensitive:** its archive must be merged before 2027-01-12, and the
   archive workflow re-run just before step 4 lands.
 - Steps 2 and 3 come before any record is written. Steps 4 to 7 follow in order. Step 6 may
@@ -151,12 +154,92 @@ reading `metrics/` only.
   committed: the `metrics-pages` workflow builds it and publishes the page on GitHub Pages on
   each push to `main` that changes `metrics/`, and `build_index.py` builds it locally.)
 
+### Step 8a, `bench` records the 25k set
+
+Settled by **Decision 165** (Q40, #820). A `record-25k` job in `bench.yml`, beside `record`.
+- **When:** the same merges as `record` (a push to `main` touching `native/` or `sim/`, or by
+  hand with `record`). `needs: record`, so the 4,096 record always lands first and stays the
+  quick guide. `concurrency` queues and never cancels (`cancel-in-progress: false`), so every
+  merge gets its set. `timeout-minutes: 90`. A run that fails or times out writes nothing,
+  and the page shows the gap.
+- **First, confirm `record` has run on GitHub.** At this step's writing it never had: its
+  trigger came with #786, after the last merge touching the crate (#782). Bench #97
+  (<https://github.com/Ludus-Montis/Breach/actions/runs/42492666350>) was started by hand
+  with `record` on 2026-11-08 to prove it. If its data PR didn't land, fix `record` first.
+- **The set:** `breach_tick_phases ... series=1` (from contact to rout, `LIMIT` ticks at
+  most), 5 rounds, interleaved as `record` does:
+  - the grid: lanes of 1,024 at `side=1024 squads=1`, `side=4096 squads=4` and
+    `side=8192 squads=8`; one squad at `side=2048`, `4096`, `8192` and `12288` (`squads=1`);
+  - the check: `side=24576 squads=24` and `side=24576 squads=1`;
+  - the bridge (`8ca4227`) beside the two checks only, so the 25k chart has its ratio to the
+    reference. The grid needs none: the fit and its check share a job and a runner.
+- **The records:** one per shape, series `bench`, under `metrics/bench/` through the data-PR
+  route (Decision 164), all in one data PR. `source.args` names the shape. `results`:
+  - `tick` is the series' mean tick, `tick-p95` and `tick-p99` its percentiles, each with
+    its 5 rounds' values and their median; phases are their series means, as now;
+  - the keys fit `record-v1`'s pattern, so the schema doesn't change. If the writer needs it
+    to, that is a `record-v2` file under `metrics/schema/` (Decision 162) and the PR waits for
+    the owner.
+- **No fit in CI.** The model is computed by the page (step 8c) from these records, never
+  stored, so a change of form refits the whole history. The data PR's summary does print the
+  two misses and flags a miss beyond 10%, and a second flagged merge in a row on one shape,
+  from the same code the page uses (a Python port is fine if it is tested against the same
+  fixtures).
+- **Cost:** timing is seconds a run at these sizes; the job is mostly its build, about 15
+  to 25 minutes a merge.
+
+### Step 8b, the 25k backfill
+
+`bench-series` gains a `set` input: `4096` (today's, the default) or `25k` (step 8a's set,
+with the bridge beside the two checks).
+- **Which commits:** with `set=25k`, by default every commit the 4,096 backfill timed with
+  the crate's `breach_tick_phases` (the Rust era: 18 at this step's writing, from before the
+  bridge to `92909e1`). The GDScript era (57 commits) is left out: hours at 25k for little.
+- **A commit whose harness can't run a shape** (an argument it rejects, `series` missing)
+  writes no record for that shape. The page shows a gap.
+- **Spread and route** as step 5: a few commits a job, the shared build cache, a data PR per
+  job.
+- **Last, start it.** Once this step's PR is merged, its session dispatches it once:
+  `bench-series` on `main` with `set=25k` and `commits` empty. The owner monitors the runs.
+- **The harvested 25k runs** (14 `preset=25k`, and 2 `side=24576 squads=24 settle=10
+  fight=5`) are already records. They stay harvested, drawn only behind the toggle (step 8c).
+
+### Step 8c, the 25k chart
+
+On the tick history page (`tools/metrics_view/`), below the 4,096 chart. Sizes on the page
+are a side, mirrored: one note says so ("4,096 is 4,096 against 4,096"), and labels after it
+give the size alone unless it could be misread.
+- **The 25k chart:** 24,576 (49,152 units), absolute ms on a log scale, along `main`'s
+  first-parent commits:
+  - two measured series, 24 lanes of 1,024 and one squad of 24,576: p95 as the line, p99 as a
+    thin band above it;
+  - each shape's projection, dotted, in its colour, labelled "estimate: b·x + c·x² from the
+    grid";
+  - a merge whose miss is beyond 10% is ringed;
+  - Decision 159's lines: 50 ms "target (p95, p99)" and 100 ms "interim (p95, p99)";
+  - a point's tooltip: the runner's CPU, the miss, and the quadratic share `c·x²/t`.
+- **"× the bridge":** a toggle that draws the ratio to the bridge instead of ms. The goal
+  lines hide in that view.
+- **The 4,096 chart** gains dotted "on track for Decision 159" lines, target and interim:
+  for each commit, the 4-lane series tick at which the lanes fit predicts 50 ms (and 100 ms)
+  at 24 lanes, drawn against the 25k set's 4-lane point. Its `fight=3` series stays as it is.
+- **The fit:** per commit and shape, non-negative least squares of `b·x + c·x²` on the grid's
+  `tick` (mean) medians; the miss against the measured 24,576 `tick`. The form is named on
+  the chart with "Decision 165".
+- **A point's detail panel:** that commit's fitted curve over size, with its grid points and
+  the measured 24,576. No separate grid chart.
+- **"Show harvested points"** adds the harvested 25k runs, hollow and unfitted.
+
 ## Not in this spec
 
 - **The other series** (Q38, #747): code from git history, CI times, Gate 1's `PROGRESS_LOG.md`,
   PR and issue timings, and measurements not captured yet (per-test durations, peak memory,
   build times, CI failures by kind). They use Decision 162's shape.
 - **Benching branch commits into the history:** a comparison stays in its run's summary.
+- **The Pages site as a project site** (a landing page, a tab per measure, gameplay
+  examples), raised with Q40 (#820): a later design session.
+- **`breach_scaling`'s CI limit** (×3 a doubling) against Decision 159's ×2.2, and one squad's
+  pair work at 25k: a later session (Decision 165, Bounded).
 
 ## Measured
 
@@ -259,6 +342,18 @@ reading `metrics/` only.
 - **The bridge** reads 137.5 ms (`tick_phases.gd`) against 71.4 ms (`breach_tick_phases`) on the
   backfill's run, ×1.93.
 
+**Design session, 2026-11-08 (Q40, #820), from the archive:**
+- **Lanes grow linearly in squad count.** 14 harvested pairs, `preset=4096` and `preset=25k`
+  on one commit and runner: 25k ÷ 4,096 from ×4.8 to ×7.4, median about ×6 (exponent in squad
+  count 0.88 to 1.11). The belief that they grow quadratically does not hold.
+- **One squad bends upward.** `breach_scaling` on `1156225`, one run a size: march ×2.05,
+  ×2.06, ×2.19 a doubling from 3,072 to 24,576 a side; fight 33, 78, 201 and 587 ms, ×2.33,
+  ×2.58, ×2.92. From 512 to 4,096 the fight grows ×2.0 to ×2.2.
+- **The form:** fitted to 3,072, 6,144 and 12,288, `b·x + c·x²` predicts 584 ms at 24,576
+  (−0.5%), 62% of it quadratic; `a·x^k` predicts 486 ms (−17%).
+- **The runner varies:** the bridge's `side=4096 squads=4 fight=3` tick is 64 ms on an EPYC
+  9V45 and 99 ms on a Xeon 8573C, so every record times its reference beside it.
+
 ## Scenarios
 
 ### Step 1
@@ -300,6 +395,24 @@ reading `metrics/` only.
 - Given a commit with only `tick/scrum` and another with `tick/scrum/seek`, then they are
   compared at `tick/scrum`.
 
+### Step 8a
+- Given a merge to `main` touching `native/`, when `bench` runs, then `record-25k` starts
+  after `record` and opens one data PR with nine records, the two checks each with the
+  bridge's.
+- Given a check whose prediction misses by 12%, then the data PR's summary flags it; given
+  the merge before also flagged on that shape, then it says the form no longer fits.
+
+### Step 8b
+- Given a Rust-era commit whose harness rejects `series=1`, when the 25k backfill runs, then
+  it writes no record for that shape and the job still succeeds.
+
+### Step 8c
+- Given grid records that lie exactly on `b·x + c·x²`, then the fit returns `b` and `c` and
+  the predicted 24,576 within rounding.
+- Given grid records that would need a negative `c`, then the fit returns `c = 0`.
+- Given lanes fit `b` and `c`, then the "on track" 4-lane tick predicts 50 ms at 24 lanes.
+- Given a commit with no 25k set, then both charts break their lines there.
+
 ## Test-first order
 
 1. Step 1: a Python test red on the archiver's skip-by-run-id and its log extraction (a
@@ -313,18 +426,28 @@ reading `metrics/` only.
 6. Step 6: red on the importer's re-run writing nothing, then the importer.
 7. Step 7: red on the comparison at the deepest common level (JS logic, as `trace_view.js`
    is tested), then the page.
+8. Step 8a: red on the record writer's output for a fixture `series=1` output (`tick`,
+   `tick-p95`, `tick-p99` and their rounds), and on the miss and flag from fixture records,
+   then the job, checked by a run.
+9. Step 8b: red on the commit list and shape skipping for `set=25k` (fixture trees), then the
+   workflow; then the dispatch.
+10. Step 8c: red on the fit, the non-negative clamp and the derived 4-lane line (JS logic,
+   tested as step 7's is), then the chart.
 
 ## Rubric answers
 
 - **single-noun-phrase:** the raw archive; the record schema and its check; the data-PR
-  route; bench's records; the backfill; the harvest importer; the drawing.
+  route; bench's records; the backfill; the harvest importer; the drawing; the 25k set; its
+  backfill; the 25k chart.
 - **ocp-extension-point:** a new series is a folder under `metrics/` and new paths; a new
   harness is a `source` value; a new schema version is a file under `metrics/schema/`.
 - **lsp-contract-scope:** not applicable; no subtypes.
 - **isp-fit:** the drawing reads only records; the importer only `metrics/raw/`.
 - **dip-direction:** the workflows depend on the data-PR action, never on the token or the
   merge details.
-- **general-over-special:** general: one record shape and gap rule for every series. The one
+- **general-over-special:** general: one record shape and gap rule for every series; one
+  model form and tolerance for every shape (Decision 165). The one
   special case is Decision 164's self-merge, with the owner's reason.
 - **order-independent:** not applicable; no simulation outcome changes.
-- **bounded-work:** not applicable to the tick; one bench job per qualifying merge.
+- **bounded-work:** not applicable to the tick; two bench jobs per qualifying merge (`record`
+  and `record-25k`).
