@@ -39,6 +39,12 @@ The crate's tests (`cargo test scenarios::` in `native/rust/`) play every scenar
 - it ends within 90 s: when a side no longer stands after first contact (then 150 ticks
   more, so a rout plays out), or at 90 s.
 
+## Timing one
+
+`native/bin/breach_tick_phases scenario=<name>` times a scenario's every tick, pass by pass,
+printed as its `series=1` prints (`native/README.md`, "Tick phases"); the `bench` workflow runs
+it with `args` `scenario=<name>`.
+
 ## Adding one
 
 Write the record (or copy one out of the field after playing it), add an entry to
