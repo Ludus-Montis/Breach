@@ -230,6 +230,9 @@ jobs:
       # The cargo era's reference (Decision 162): the bridge, the last commit with both the
       # GDScript harnesses and the crate's breach_* binaries.
       REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
+      # Where the reference is checked out. Not `reference/`: the repo tracks a folder of
+      # that name (the prototype), so a worktree there fails with "already exists".
+      REF_TREE: trees/reference
       RECORD_ARGS: side=4096 squads=4 fight=3
       RECORD_ROUNDS: "5"
     steps:
@@ -248,12 +251,12 @@ jobs:
           restore-keys: rust-${{ runner.os }}-
 
       - name: Check out the reference
-        run: git worktree add reference "$REFERENCE"
+        run: git worktree add "$REF_TREE" "$REFERENCE"
 
       - name: Time the commit and the reference in turn
         run: |
           (JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
-          (cd reference && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          (cd "$REF_TREE" && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
           time_in() {
             local err="$RUNNER_TEMP/stderr.txt"
             (cd "$1" && native/bin/breach_tick_phases $RECORD_ARGS 2>"$err") \
@@ -262,9 +265,9 @@ jobs:
           for round in $(seq 1 "$RECORD_ROUNDS"); do
             if [ $((round % 2)) -eq 1 ]; then
               time_in . > "head_$round.txt"
-              time_in reference > "reference_$round.txt"
+              time_in "$REF_TREE" > "reference_$round.txt"
             else
-              time_in reference > "reference_$round.txt"
+              time_in "$REF_TREE" > "reference_$round.txt"
               time_in . > "head_$round.txt"
             fi
           done
@@ -283,7 +286,7 @@ jobs:
         run: |
           {
             echo "SUMMARY BEGIN"
-            echo "== $(git rev-parse --short HEAD) against the reference $(git -C reference rev-parse --short HEAD): breach_tick_phases $RECORD_ARGS"
+            echo "== $(git rev-parse --short HEAD) against the reference $(git -C "$REF_TREE" rev-parse --short HEAD): breach_tick_phases $RECORD_ARGS"
             python3 ci/godot/scripts/bench_compare.py --head $(ls head_*.txt | sort -V) \
               --base $(ls reference_*.txt | sort -V) || true
             python3 ci/metrics/bench_chart.py metrics/bench "$RUNNER_TEMP/metrics-new/metrics/bench"

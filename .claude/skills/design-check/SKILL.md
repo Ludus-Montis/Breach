@@ -86,7 +86,7 @@ For each pass the change adds or touches that runs every tick:
 
 Write the answer to the spec's `bounded-work` row, or a **Bounded** line in the Decision.
 
-## 4. The round's riskiest assumption (Decision 165)
+## 4. The round's riskiest assumption (Decision 166)
 
 A design round opens with a pre-mortem, recorded as the spec's `## Pre-mortem`
 (`principles/agent-sessions.md` §3, `templates/pre-mortem.md`). This skill doesn't run
