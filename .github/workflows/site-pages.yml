@@ -1,0 +1,66 @@
+name: site-pages
+
+# The project site on GitHub Pages, https://ludus-montis.github.io/Breach/ (Decision 166,
+# spec 44 step 4; it was metrics-pages, spec 43 step 7). The shell (tools/site/) sits at the
+# root with a tab bar routed by `#name`; each tab is its own folder beside it, its data built
+# here, never committed, so data PRs never conflict over it:
+#   metrics/  the tick history page (tools/metrics_view/) and its records.json, built from
+#             metrics/ by build_index.py.
+# A new tab is a folder, a line in site.js's TABS, and its copy below.
+# Runs on each push to main that changes a tab's data or code, and on workflow_dispatch:
+# the showcase capture dispatches it after each publish (ci/showcase/index.sh).
+#
+# Owner set-up, once: Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "metrics/**"
+      - "tools/site/**"
+      - "tools/metrics_view/**"
+      - ".github/workflows/site-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer run replaces a waiting one, so a burst of data PRs ends in
+# one deploy of the latest main.
+concurrency:
+  group: site-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: The shell
+        run: |
+          mkdir -p _site
+          cp tools/site/index.html tools/site/site.js tools/site/site.css _site/
+      - name: The Metrics tab and its records
+        run: |
+          mkdir -p _site/metrics
+          cp tools/metrics_view/index.html tools/metrics_view/metrics_view.js \
+            tools/metrics_view/metrics_page.js tools/metrics_view/metrics_view.css _site/metrics/
+          python3 tools/metrics_view/build_index.py metrics _site/metrics/records.json
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

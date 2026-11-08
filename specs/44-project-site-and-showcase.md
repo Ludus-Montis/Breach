@@ -231,6 +231,15 @@ Decision 166's shell, with the tick history page moved in unchanged.
   dispatch), and as before one deploy at a time.
 - `tools/metrics_view/README.md` and `docs/` say where the site and its tabs live.
 
+**Settled in 4** (`tools/site/README.md`):
+- The built site puts the shell at the root and each tab in its folder (`_site/metrics/`). A
+  tab's page loads in an `<iframe>`, created on the tab's first view and kept after, so the
+  tick history page moves in unchanged. Its one new line is `<base target="_top">`, so its PR
+  and record links open over the site rather than inside the frame (GitHub refuses framing).
+- The shipped list of tabs has Metrics only. Step 5 adds Showcase's line with its folder;
+  until then `#showcase` opens Metrics, as any unknown name does. The routing test checks
+  `#showcase` against a fixture list with both tabs.
+
 ### Step 5, the Showcase tab
 
 `tools/showcase_view/`, built from `manifest.json` by the site workflow (Decisions 167 and

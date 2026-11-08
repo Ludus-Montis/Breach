@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lists every record under metrics/ (not metrics/raw/, not metrics/schema/) into one bundle,
 `[{"path": "metrics/bench/<file>", "record": {...}}, ...]`, which the metrics page loads
-(spec 43 step 7). It is built, never committed: the `metrics-pages` workflow builds it when it
+(spec 43 step 7). It is built, never committed: the `site-pages` workflow builds it when it
 publishes the page, and you build it to open the page from disk. Nothing in the data is
 shared between records, so data PRs never conflict over it.
 
