@@ -27,6 +27,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [Harvest the archived logs into records](../ci/metrics/README.md#harvest-the-archived-logs)
 - [The project site: its tabs, how one is added and how it is published](../tools/site/README.md)
 - [The tick history page, on the web or from disk](../tools/metrics_view/README.md)
+- [The Showcase tab: each game PR's clips, stills and timings, and how to compare them](../tools/showcase_view/README.md)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 

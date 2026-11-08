@@ -3,7 +3,8 @@
 Spec 44 step 3, Decisions 167 and 169. Every PR that changes the game shows it:
 `.github/workflows/showcase-capture.yml` plays every scenario on
 [the list](../../content/scenarios/README.md) on the 2D field, and puts a clip, four stills
-and timings for each on the PR and on the site's Showcase tab.
+and timings for each on the PR and on the site's
+[Showcase tab](../../tools/showcase_view/README.md).
 
 ## Which PRs
 

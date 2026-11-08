@@ -8,6 +8,7 @@
 
   var TABS = [
     { name: 'metrics', title: 'Metrics', page: 'metrics/index.html' },
+    { name: 'showcase', title: 'Showcase', page: 'showcase/index.html' },
   ];
 
   function route(hash, tabs) {
