@@ -1,0 +1,942 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 86,
+    "pr": 207,
+    "sha": "77ec8625ec6a222f8bdddb421fb57fe15374c966",
+    "step": {
+      "na": "not-applicable"
+    },
+    "summary": {
+      "na": "not-recorded"
+    },
+    "title": "perf(formation): the native seek's gathering works out each squad's say once"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-08",
+    "kind": "fresh",
+    "run_id": 42434985610,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/42434985610"
+  },
+  "reference": {
+    "commit": "eee3e81fc92b026f869fdfced2f16a5306884d0b",
+    "ratio": {
+      "tick": 1.504389,
+      "tick/bodies-unitbodies": 1.810373,
+      "tick/carry": 4.639344,
+      "tick/deaths-bury": 1.270853,
+      "tick/engage/edges": 1.0,
+      "tick/engage/fronts": 1.0,
+      "tick/fight-blows": 1.819715,
+      "tick/groups-form-up-split": 1.0,
+      "tick/march-squads-move": 1.0,
+      "tick/orders": 1.0,
+      "tick/perception": 1.947368,
+      "tick/recovery-strays": 1.196162,
+      "tick/rout": 12.263158,
+      "tick/scrum/bodies-snapshot": 1.114736,
+      "tick/scrum/chasers-scrumpursuit": 0.666667,
+      "tick/scrum/engage-prepare-stance": 1.68476,
+      "tick/scrum/face-foes": 1.678756,
+      "tick/scrum/pursuit-stall": 1.142857,
+      "tick/scrum/regroup": 0.4,
+      "tick/scrum/seek-slot-search": 1.208333,
+      "tick/scrum/seek/gather-the-rules-say": 14.354497,
+      "tick/scrum/seek/sync-the-field": 2.889597,
+      "tick/scrum/seek/the-call-less-the-core": 1.5,
+      "tick/scrum/seek/the-cores-work": 0.987827,
+      "tick/scrum/walk-steering": 4.138889,
+      "tick/scrum/withdraw": 1.0,
+      "tick/shuffle/moves-under-way": 0.771429,
+      "tick/shuffle/plan/free-front-places": 0.949153,
+      "tick/shuffle/plan/front-first-order": 1.681592,
+      "tick/shuffle/plan/who-stands-where": 1.050173,
+      "tick/shuffle/try/free-front-place": 0.831135,
+      "tick/shuffle/try/pass-through": 0.9415,
+      "tick/stamina": 1.202006,
+      "tick/taking-the-downed": 20.0,
+      "tick/units-walk-to-places": 1.099832,
+      "tick/wounds-tend": 1.060366
+    },
+    "results": {
+      "tick": {
+        "median": 273.4,
+        "unit": "ms",
+        "values": [
+          270.0,
+          273.3,
+          280.6,
+          274.5,
+          273.4
+        ]
+      },
+      "tick/bodies-unitbodies": {
+        "median": 24.1,
+        "unit": "ms",
+        "values": [
+          22.79,
+          24.1,
+          24.85,
+          23.65,
+          24.6
+        ]
+      },
+      "tick/carry": {
+        "median": 1.83,
+        "unit": "ms",
+        "values": [
+          1.59,
+          1.85,
+          2.0,
+          1.83,
+          1.8
+        ]
+      },
+      "tick/deaths-bury": {
+        "median": 21.34,
+        "unit": "ms",
+        "values": [
+          21.34,
+          21.32,
+          22.12,
+          21.48,
+          21.33
+        ]
+      },
+      "tick/engage/edges": {
+        "median": 0.01,
+        "unit": "ms",
+        "values": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "tick/engage/fronts": {
+        "median": 0.02,
+        "unit": "ms",
+        "values": [
+          0.02,
+          0.02,
+          0.02,
+          0.02,
+          0.02
+        ]
+      },
+      "tick/fight-blows": {
+        "median": 15.42,
+        "unit": "ms",
+        "values": [
+          15.05,
+          15.16,
+          16.92,
+          15.49,
+          15.42
+        ]
+      },
+      "tick/groups-form-up-split": {
+        "median": 0.02,
+        "unit": "ms",
+        "values": [
+          0.02,
+          0.02,
+          0.02,
+          0.02,
+          0.02
+        ]
+      },
+      "tick/march-squads-move": {
+        "median": 0.01,
+        "unit": "ms",
+        "values": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "tick/morale": {
+        "median": 0.01,
+        "unit": "ms",
+        "values": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "tick/orders": {
+        "median": 0.01,
+        "unit": "ms",
+        "values": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "tick/perception": {
+        "median": 8.36,
+        "unit": "ms",
+        "values": [
+          8.86,
+          8.2,
+          8.34,
+          8.44,
+          8.36
+        ]
+      },
+      "tick/recovery-strays": {
+        "median": 23.45,
+        "unit": "ms",
+        "values": [
+          22.93,
+          23.45,
+          23.7,
+          23.82,
+          23.1
+        ]
+      },
+      "tick/rout": {
+        "median": 0.19,
+        "unit": "ms",
+        "values": [
+          0.17,
+          0.19,
+          0.21,
+          0.2,
+          0.19
+        ]
+      },
+      "tick/scrum/bodies-snapshot": {
+        "median": 17.78,
+        "unit": "ms",
+        "values": [
+          17.88,
+          17.24,
+          17.78,
+          17.89,
+          16.99
+        ]
+      },
+      "tick/scrum/chasers-scrumpursuit": {
+        "median": 0.03,
+        "unit": "ms",
+        "values": [
+          0.03,
+          0.03,
+          0.04,
+          0.03,
+          0.04
+        ]
+      },
+      "tick/scrum/engage-prepare-stance": {
+        "median": 4.79,
+        "unit": "ms",
+        "values": [
+          5.3,
+          4.73,
+          4.76,
+          5.08,
+          4.79
+        ]
+      },
+      "tick/scrum/face-foes": {
+        "median": 1.93,
+        "unit": "ms",
+        "values": [
+          1.93,
+          1.93,
+          1.96,
+          1.93,
+          1.93
+        ]
+      },
+      "tick/scrum/pursuit-stall": {
+        "median": 0.07,
+        "unit": "ms",
+        "values": [
+          0.07,
+          0.07,
+          0.08,
+          0.08,
+          0.07
+        ]
+      },
+      "tick/scrum/regroup": {
+        "median": 0.05,
+        "unit": "ms",
+        "values": [
+          0.05,
+          0.05,
+          0.07,
+          0.06,
+          0.05
+        ]
+      },
+      "tick/scrum/seek-slot-search": {
+        "median": 0.24,
+        "unit": "ms",
+        "values": [
+          0.23,
+          0.24,
+          0.25,
+          0.22,
+          0.24
+        ]
+      },
+      "tick/scrum/seek/gather-the-rules-say": {
+        "median": 1.89,
+        "unit": "ms",
+        "values": [
+          1.77,
+          1.96,
+          1.89,
+          1.91,
+          1.69
+        ]
+      },
+      "tick/scrum/seek/sync-the-field": {
+        "median": 4.71,
+        "unit": "ms",
+        "values": [
+          4.63,
+          4.77,
+          4.83,
+          4.71,
+          4.37
+        ]
+      },
+      "tick/scrum/seek/the-call-less-the-core": {
+        "median": 0.04,
+        "unit": "ms",
+        "values": [
+          0.04,
+          0.04,
+          0.05,
+          0.05,
+          0.04
+        ]
+      },
+      "tick/scrum/seek/the-cores-work": {
+        "median": 32.86,
+        "unit": "ms",
+        "values": [
+          32.71,
+          32.96,
+          33.16,
+          32.86,
+          32.77
+        ]
+      },
+      "tick/scrum/seek/the-walks-batch": {
+        "median": 5.21,
+        "unit": "ms",
+        "values": [
+          5.01,
+          5.2,
+          5.33,
+          5.25,
+          5.21
+        ]
+      },
+      "tick/scrum/walk-steering": {
+        "median": 7.2,
+        "unit": "ms",
+        "values": [
+          7.2,
+          7.19,
+          7.24,
+          7.23,
+          7.17
+        ]
+      },
+      "tick/scrum/withdraw": {
+        "median": 0.01,
+        "unit": "ms",
+        "values": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "tick/shuffle/begin-a-move": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/shuffle/moves-under-way": {
+        "median": 0.7,
+        "unit": "ms",
+        "values": [
+          0.67,
+          0.68,
+          0.75,
+          0.7,
+          0.72
+        ]
+      },
+      "tick/shuffle/plan/free-front-places": {
+        "median": 0.59,
+        "unit": "ms",
+        "values": [
+          0.59,
+          0.58,
+          0.67,
+          0.58,
+          0.6
+        ]
+      },
+      "tick/shuffle/plan/front-first-order": {
+        "median": 2.01,
+        "unit": "ms",
+        "values": [
+          2.01,
+          2.03,
+          2.08,
+          1.99,
+          2.01
+        ]
+      },
+      "tick/shuffle/plan/who-stands-where": {
+        "median": 5.78,
+        "unit": "ms",
+        "values": [
+          5.41,
+          5.78,
+          5.96,
+          5.72,
+          5.89
+        ]
+      },
+      "tick/shuffle/try/free-front-place": {
+        "median": 15.16,
+        "unit": "ms",
+        "values": [
+          15.08,
+          15.18,
+          15.24,
+          15.14,
+          15.16
+        ]
+      },
+      "tick/shuffle/try/pass-through": {
+        "median": 14.53,
+        "unit": "ms",
+        "values": [
+          14.58,
+          14.5,
+          14.53,
+          14.43,
+          14.65
+        ]
+      },
+      "tick/stamina": {
+        "median": 21.93,
+        "unit": "ms",
+        "values": [
+          21.44,
+          21.93,
+          22.19,
+          21.54,
+          22.11
+        ]
+      },
+      "tick/taking-the-downed": {
+        "median": 0.06,
+        "unit": "ms",
+        "values": [
+          0.06,
+          0.06,
+          0.07,
+          0.07,
+          0.06
+        ]
+      },
+      "tick/units-walk-to-places": {
+        "median": 17.83,
+        "unit": "ms",
+        "values": [
+          16.74,
+          17.83,
+          18.54,
+          17.63,
+          17.94
+        ]
+      },
+      "tick/wounds-tend": {
+        "median": 24.02,
+        "unit": "ms",
+        "values": [
+          23.76,
+          23.97,
+          24.9,
+          24.43,
+          24.02
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 411.3,
+      "unit": "ms",
+      "values": [
+        379.7,
+        420.0,
+        384.6,
+        415.5,
+        411.3
+      ]
+    },
+    "tick/bodies-unitbodies": {
+      "median": 43.63,
+      "unit": "ms",
+      "values": [
+        39.83,
+        47.16,
+        40.19,
+        43.63,
+        44.11
+      ]
+    },
+    "tick/carry": {
+      "median": 8.49,
+      "unit": "ms",
+      "values": [
+        7.98,
+        8.84,
+        8.0,
+        8.49,
+        8.65
+      ]
+    },
+    "tick/deaths-bury": {
+      "median": 27.12,
+      "unit": "ms",
+      "values": [
+        26.8,
+        27.35,
+        26.54,
+        27.16,
+        27.12
+      ]
+    },
+    "tick/engage/edges": {
+      "median": 0.01,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "tick/engage/fronts": {
+      "median": 0.02,
+      "unit": "ms",
+      "values": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ]
+    },
+    "tick/fight-blows": {
+      "median": 28.06,
+      "unit": "ms",
+      "values": [
+        24.61,
+        29.05,
+        25.62,
+        29.74,
+        28.06
+      ]
+    },
+    "tick/groups-form-up-split": {
+      "median": 0.02,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ]
+    },
+    "tick/march-squads-move": {
+      "median": 0.01,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "tick/morale": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/orders": {
+      "median": 0.01,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "tick/perception": {
+      "median": 16.28,
+      "unit": "ms",
+      "values": [
+        15.89,
+        16.28,
+        15.9,
+        16.59,
+        16.47
+      ]
+    },
+    "tick/recovery-strays": {
+      "median": 28.05,
+      "unit": "ms",
+      "values": [
+        26.09,
+        28.63,
+        26.5,
+        28.38,
+        28.05
+      ]
+    },
+    "tick/rout": {
+      "median": 2.33,
+      "unit": "ms",
+      "values": [
+        1.65,
+        2.69,
+        1.81,
+        2.43,
+        2.33
+      ]
+    },
+    "tick/scrum/bodies-snapshot": {
+      "median": 19.82,
+      "unit": "ms",
+      "values": [
+        18.79,
+        19.82,
+        18.82,
+        20.63,
+        20.15
+      ]
+    },
+    "tick/scrum/chasers-scrumpursuit": {
+      "median": 0.02,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.02,
+        0.01,
+        0.02,
+        0.02
+      ]
+    },
+    "tick/scrum/engage-prepare-stance": {
+      "median": 8.07,
+      "unit": "ms",
+      "values": [
+        8.07,
+        8.05,
+        7.77,
+        8.43,
+        8.37
+      ]
+    },
+    "tick/scrum/face-foes": {
+      "median": 3.24,
+      "unit": "ms",
+      "values": [
+        2.73,
+        3.56,
+        2.98,
+        3.24,
+        3.43
+      ]
+    },
+    "tick/scrum/pursuit-stall": {
+      "median": 0.08,
+      "unit": "ms",
+      "values": [
+        0.08,
+        0.08,
+        0.07,
+        0.08,
+        0.07
+      ]
+    },
+    "tick/scrum/regroup": {
+      "median": 0.02,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.02,
+        0.01,
+        0.02,
+        0.02
+      ]
+    },
+    "tick/scrum/seek-slot-search": {
+      "median": 0.29,
+      "unit": "ms",
+      "values": [
+        0.2,
+        0.29,
+        0.23,
+        0.31,
+        0.31
+      ]
+    },
+    "tick/scrum/seek/gather-the-rules-say": {
+      "median": 27.13,
+      "unit": "ms",
+      "values": [
+        24.28,
+        27.13,
+        24.72,
+        27.33,
+        27.39
+      ]
+    },
+    "tick/scrum/seek/sync-the-field": {
+      "median": 13.61,
+      "unit": "ms",
+      "values": [
+        11.36,
+        13.61,
+        11.88,
+        14.38,
+        13.74
+      ]
+    },
+    "tick/scrum/seek/the-call-less-the-core": {
+      "median": 0.06,
+      "unit": "ms",
+      "values": [
+        0.04,
+        0.06,
+        0.04,
+        0.07,
+        0.06
+      ]
+    },
+    "tick/scrum/seek/the-cores-work": {
+      "median": 32.46,
+      "unit": "ms",
+      "values": [
+        32.11,
+        33.84,
+        32.16,
+        33.96,
+        32.46
+      ]
+    },
+    "tick/scrum/seek/write-back": {
+      "median": 10.88,
+      "unit": "ms",
+      "values": [
+        8.73,
+        11.0,
+        9.45,
+        11.01,
+        10.88
+      ]
+    },
+    "tick/scrum/walk-steering": {
+      "median": 29.8,
+      "unit": "ms",
+      "values": [
+        24.2,
+        30.21,
+        24.94,
+        29.8,
+        29.83
+      ]
+    },
+    "tick/scrum/withdraw": {
+      "median": 0.01,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "tick/shuffle/begin-a-move": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/shuffle/moves-under-way": {
+      "median": 0.54,
+      "unit": "ms",
+      "values": [
+        0.51,
+        0.54,
+        0.52,
+        0.54,
+        0.55
+      ]
+    },
+    "tick/shuffle/plan/free-front-places": {
+      "median": 0.56,
+      "unit": "ms",
+      "values": [
+        0.55,
+        0.6,
+        0.56,
+        0.56,
+        0.58
+      ]
+    },
+    "tick/shuffle/plan/front-first-order": {
+      "median": 3.38,
+      "unit": "ms",
+      "values": [
+        3.31,
+        3.43,
+        3.31,
+        3.38,
+        3.41
+      ]
+    },
+    "tick/shuffle/plan/who-stands-where": {
+      "median": 6.07,
+      "unit": "ms",
+      "values": [
+        5.56,
+        6.32,
+        5.75,
+        6.07,
+        6.2
+      ]
+    },
+    "tick/shuffle/try/free-front-place": {
+      "median": 12.6,
+      "unit": "ms",
+      "values": [
+        12.89,
+        12.6,
+        12.65,
+        12.48,
+        12.57
+      ]
+    },
+    "tick/shuffle/try/pass-through": {
+      "median": 13.68,
+      "unit": "ms",
+      "values": [
+        13.6,
+        13.68,
+        13.66,
+        13.72,
+        13.7
+      ]
+    },
+    "tick/stamina": {
+      "median": 26.36,
+      "unit": "ms",
+      "values": [
+        25.73,
+        26.63,
+        25.84,
+        26.36,
+        26.39
+      ]
+    },
+    "tick/taking-the-downed": {
+      "median": 1.2,
+      "unit": "ms",
+      "values": [
+        1.01,
+        1.34,
+        1.0,
+        1.2,
+        1.24
+      ]
+    },
+    "tick/units-walk-to-places": {
+      "median": 19.61,
+      "unit": "ms",
+      "values": [
+        17.93,
+        21.15,
+        18.43,
+        19.67,
+        19.61
+      ]
+    },
+    "tick/wounds-tend": {
+      "median": 25.47,
+      "unit": "ms",
+      "values": [
+        25.09,
+        26.0,
+        25.12,
+        25.68,
+        25.47
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "engine=rust",
+      "side=4096",
+      "squads=4",
+      "fight=3"
+    ],
+    "blob": "1a1d4d0afdba452675e7d51e19c71cdb540ccbe7",
+    "harness": "tick_phases.gd",
+    "profile": "release",
+    "rounds": 5
+  }
+}
