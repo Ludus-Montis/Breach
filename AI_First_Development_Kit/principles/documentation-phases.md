@@ -90,7 +90,10 @@ needed. Read only the section the change touches, not the whole file
 The changelog gate fails when source files changed and `CHANGELOG.md` did not. When a change
 has nothing a user would notice, write `Changelog: N/A (<reason>)` in the proposal's
 Documentation block (below): the CI wiring (`templates/ci/docs-gate.yml`) reads it and skips
-that one check. Locally, `DOCS_SKIP_CHANGELOG=1` does the same.
+that one check. Locally, `DOCS_SKIP_CHANGELOG=1` does the same. **Write it on one line as
+`Changelog: N/A (<reason>)`**, the label then the words: the gate matches that text (bold or
+italic markup around the label is tolerated, a rewording such as "No changelog" is not).
+A PR whose changes are all docs (`docs/`, `.md` files) needs none: the gate ignores them.
 
 ## Phase 3: Additional documentation
 
