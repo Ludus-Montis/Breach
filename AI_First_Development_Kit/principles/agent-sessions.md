@@ -118,7 +118,8 @@ a session that reads large outputs or runs long spends it many times over.
   and the fast static checks. Every other test (the rest of the files a change touches,
   the full suite, determinism digests, benchmarks) runs in CI, which costs no context.
   When CI fails, the session reads the failing test's part of the log and runs that one
-  test file. A session never runs a long test itself, and never polls CI.
+  test file. A session never runs a long test itself, and never polls CI. It turns on
+  the app's Auto-fix for the PR it opened, so the app wakes it when CI fails.
 - **A session that has been reset (its context summarised) more than once has
   outgrown its job.** Hand over and start fresh rather than carrying on.
 
