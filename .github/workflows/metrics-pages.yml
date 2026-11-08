@@ -1,0 +1,57 @@
+name: metrics-pages
+
+# Spec 43 step 7: publishes the tick history page (tools/metrics_view/) on GitHub Pages,
+# https://ludus-montis.github.io/Breach/. On each push to main that changes metrics/ or the
+# page (the data PRs merging, say), it builds the page's index from metrics/
+# (tools/metrics_view/build_index.py) and deploys the page with it. The index is built here,
+# never committed, so data PRs never conflict over it.
+#
+# Owner set-up, once: Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "metrics/**"
+      - "tools/metrics_view/**"
+      - ".github/workflows/metrics-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push replaces a waiting one, so a burst of data PRs ends in
+# one deploy of the latest main.
+concurrency:
+  group: metrics-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the page and its index
+        run: |
+          mkdir -p _site
+          cp tools/metrics_view/index.html tools/metrics_view/metrics_view.js \
+            tools/metrics_view/metrics_page.js tools/metrics_view/metrics_view.css _site/
+          python3 tools/metrics_view/build_index.py metrics _site/records.json
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

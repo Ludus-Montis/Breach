@@ -145,7 +145,11 @@ reading `metrics/` only.
   stated there, never joined across.
 - Harvested records are hollow points, apart from fresh ones.
 - A small Node or Python script lists `metrics/` into the index the page loads. CI regenerates
-  it on data PRs, as part of the data.
+  it on data PRs, as part of the data. (Amended 2026-11-08 with the owner, who asked to avoid
+  conflicts and to see the page on the web: one index edited by every data PR makes data PRs
+  that run together conflict, so they can't merge themselves. The index is built, never
+  committed: the `metrics-pages` workflow builds it and publishes the page on GitHub Pages on
+  each push to `main` that changes `metrics/`, and `build_index.py` builds it locally.)
 
 ## Not in this spec
 
@@ -240,6 +244,17 @@ reading `metrics/` only.
   `not-recorded`; a single round's are its one value.
 - **A run that already has a fresh record** (step 4's record runs, once `metrics-archive`
   keeps them) is left alone, so a harvest never overwrites one.
+
+**Step 7, 2026-11-08:**
+- **Placing a harvested record:** at its head's commit when that is on `main`'s line, else at
+  the base it was compared with; one with neither (every `scaling` record, whose runs were all
+  on PR branches) isn't drawn on the line.
+- **A commit benched more than once** (the trial and the backfill) draws its latest run.
+- **A line breaks** at a commit with a fresh record elsewhere but no number on it, so the
+  eight `tick_phases.gd` gaps of Oct 24 and 25, and the commits timed only with the binary
+  before the bridge, are never bridged.
+- **The bridge** reads 137.5 ms (`tick_phases.gd`) against 71.4 ms (`breach_tick_phases`) on the
+  backfill's run, ×1.93.
 
 ## Scenarios
 
