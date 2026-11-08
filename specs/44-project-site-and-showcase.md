@@ -134,6 +134,37 @@ run, this step moves to its own spec.
 
 ## Measured
 
+### Step 1, the spike
+
+`.github/workflows/showcase-spike.yml` runs on its own PR and writes these into its job
+summary and its PR comment (marked `<!-- showcase-spike -->`). Copy them here once the run
+is in, with the owner's judgement of the frame and the go or no-go.
+- The playback check stands in for Pages with a page served over http on the runner: a
+  `<video>` without `crossorigin` loads a cross-origin source the same from either origin.
+  The owner confirms on the real site in step 5.
+- The test pre-release `showcase-spike` is deleted when the spike's PR closes, so the PR
+  comment's still shows until then.
+
+First run (commit ee35018, `formation_skirmish.tscn`, 300 frames at 30 fps):
+- **Renderer:** `Vulkan 1.4.335 - Forward+ - Using Device #0: Unknown - llvmpipe (LLVM 21.1.8,
+  256 bits)`: Forward+ on Mesa's software Vulkan, no fallback needed.
+- **Wall time:** crate build 211 s (the longest part), import 6 s, runs 13 s and 11 s: about
+  1.2 s of wall time per second of play.
+- **Frames:** both runs byte-identical, all 300 frames.
+- **Size:** frames came out 1152×648, not the 960×540 asked for: the window's stretch
+  setting scales them. Step 3 sets the size it needs.
+- **Clip:** VP9 WebM, 119 KB for 10 s.
+- **Playback:** the first check timed out in both browsers because it listened for
+  `canplay` after the clip was already ready. Fixed; checked again by hand in Chromium, the
+  WebM plays (10.0 s) and the WebP shows in an `<img>`. Release assets are served as
+  `application/octet-stream`, which browsers play and show anyway.
+- **Owner's view of the frame:** the scene captured is the wrong one to show. The lane feel
+  test's camera fits the whole map, too small to read, and in 10 s with no orders nothing
+  reaches a fight. The owner is most interested in what the 2D field shows: fording,
+  flanking, engaging, breaking off, cornering and routing. The capture's scenario, its tie
+  to the bench's scenarios, and the field as a stand-in for Q25's game-like map (#280) go
+  to a design session before step 2.
+
 ## Scenarios
 
 ### Step 1
