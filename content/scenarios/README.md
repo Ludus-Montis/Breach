@@ -1,0 +1,45 @@
+# Scenarios
+
+The named scenarios the showcase capture plays and the bench times (spec 44 step 2,
+Decision 169). They are fixtures, not game content: nothing in the shipped game reads this
+folder, so neither the content schema nor the designer covers it. It sits under `content/` so
+that a changed scenario is a game change and is captured again.
+
+## The list
+
+`scenarios.json` holds one entry a scenario, in the order they are captured:
+
+| Field | What it is |
+|---|---|
+| `name` | The scenario's name, shared by the capture and the bench. A field scenario is named `field_<what it shows>`. |
+| `map` | The map it plays on. Only `field` (the 2D field, `formation_field.tscn`) for now. |
+| `record` | The record file in this folder: a FormationRecord (Decision 115), whose header carries the seed. |
+| `shows` | The behaviours it must show: any of `fording`, `flanking`, `engaging`, `breaking_off`, `cornering`, `routing`. |
+
+The crate reads it (`native/rust/src/scenarios.rs`) and refuses an unknown map or behaviour, a
+record that doesn't read, or a name listed twice.
+
+## How each behaviour is read
+
+From the replay, tick by tick (`native/rust/src/scenarios/seen.rs`):
+- **engaging:** an `engaged` event; **flanking:** a `flanked` event;
+- **breaking off:** a `disengaged` or `withdrawing` event;
+- **routing:** a squad's morale falling to its routing band, or a `routed` event;
+- **fording:** a living unit standing in water (on the field, only the ford can be stood in);
+- **cornering:** a squad fighting two different foes at once (engaged with, or flanked by),
+  since it last broke off.
+
+First contact is the first tick a blow does damage.
+
+## Rules a scenario keeps
+
+The crate's tests (`cargo test scenarios::` in `native/rust/`) play every scenario and check:
+- every behaviour it is named for is seen;
+- first contact comes within 15 s of play (tick 150);
+- it ends within 90 s: when a side no longer stands after first contact (then 150 ticks
+  more, so a rout plays out), or at 90 s.
+
+## Adding one
+
+Write the record (or copy one out of the field after playing it), add an entry to
+`scenarios.json`, and run the tests above. No code changes.

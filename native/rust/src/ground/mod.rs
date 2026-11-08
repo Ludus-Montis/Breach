@@ -168,6 +168,11 @@ impl Ground {
         self.index(at).map_or(0, |index| self.height[index])
     }
 
+    /// How deep the water is (cells) in the cell holding a point; 0 on dry ground.
+    pub fn depth_at(&self, at: V2) -> f64 {
+        self.index(at).map_or(0.0, |index| f64::from(self.depth[index]))
+    }
+
     pub fn blocks_sight(&self, at: V2) -> bool {
         self.index(at).is_some_and(|index| self.blocks[index] == 1)
     }

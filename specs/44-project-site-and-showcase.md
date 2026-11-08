@@ -116,6 +116,26 @@ stands in until Q25's game-like map (#280) can play a scenario.
   `content/scenarios/` list.
 - No other behaviour of the field changes without `--capture`.
 
+**Split** (cascade #841's standing rule, too big for one session):
+- **2a:** the pre-mortem's replay, the list (`content/scenarios/`, read by
+  `native/rust/src/scenarios.rs`), how each behaviour is read (`scenarios/seen.rs`) and the
+  first three scenarios, checked by `cargo test scenarios::`.
+- **2b:** `breach_tick_phases scenario=<name>`, timing `scenarios::Replay` tick by tick.
+- **2c:** `--capture=<name>` on the field and `capture.json`, through the same `Replay`.
+
+**Settled in 2a:**
+- **Cornering** is read from the events: a squad fighting two different foes at once (squads
+  it has engaged, or been flanked by), counted since it last disengaged or withdrew.
+- **Fording** is a living unit standing in water deeper than 0 (`Ground::depth_at`); on the
+  field only the ford can be stood in.
+- **First contact** is the first tick a `hit` does damage (dmg above 0).
+- **The end:** a side no longer stands after first contact (the digest's `both_stand`, which
+  is also "every player squad home"), then TAIL (150) ticks so a rout plays out; or 90 s
+  (900 ticks), whichever comes first.
+- A scenario reaching contact within 15 s can't send full waves: grems take 2 s each across
+  four builders, and a wave walks about 12 s to the line. The drafts send A partly built at
+  tick 40 (25 for the break-off).
+
 ### Step 3, the `showcase-capture` workflow
 
 `.github/workflows/showcase-capture.yml`, on `pull_request` (opened, synchronize, reopened,
@@ -234,6 +254,34 @@ Final run (commit 669e278, the spike's PR comment):
   flanking, engaging, breaking off, cornering and routing. Settled in the design session
   that followed (Decision 169): named scenarios on the field, sharing their names with the
   bench, each up to 90 s; step 2 rewritten.
+
+### Step 2a, the replay and the first scenarios
+
+The digest's five field logs replayed on `main` (cb931b2) with `scenarios::watch`, all six
+behaviours read, to 90 s (none ended sooner). Ticks of first contact, then each behaviour's
+first tick:
+
+| Log | Contact | Fording | Flanking | Engaging | Breaking off | Cornering | Routing |
+|---|---|---|---|---|---|---|---|
+| field0 (A via C, A+B at 158) | 373 | 214 | 369 | 389 | - | 509 | 461 |
+| field1 (B at 120, retreat 318) | - | 176 | - | - | - | - | - |
+| field2 (A via C at 87, retreat 229) | 215 | - | - | 212 | 229 | - | - |
+| field3 (field0, v1, tending) | 373 | 214 | 369 | 389 | - | 509 | 461 |
+| field4 (field1, v1, tending) | - | 176 | - | - | - | - | - |
+
+- field0 and field3 still show fording, flanking, engaging, cornering and routing; field2
+  still engages and breaks off. field1 and field4 no longer reach a fight before B is
+  retreated at 318, so they show only the ford: a breaking-off they were played to show is
+  gone. The pre-mortem's regret is real, and the capture's "not seen" report is needed.
+- None reaches contact within 15 s, so none seeds a scenario as it is.
+
+The first scenarios (`content/scenarios/`), as drafted, on the same commit:
+
+| Scenario | Orders | Contact | Shows (tick) | Ends |
+|---|---|---|---|---|
+| `field_ford_and_flank` | seed 492625; B waits in the wood; A at 40, B at 90 | 142 | fording 146, engaging 139, flanking 299, cornering 299 | 900 |
+| `field_waves_rout` | seed 1; A at 40, 100, 160, 220 and 280 | 142 | engaging 139, cornering 201, routing 454 (also breaking off 474, fording 502) | 605 |
+| `field_break_off` | seed 1; A at 25, retreated at 140 | 128 | engaging 124, breaking off 140 | 291 |
 
 ## Scenarios
 
