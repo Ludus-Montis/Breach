@@ -206,6 +206,11 @@ closed).
 - **The comment's "not seen"** names the behaviours the scenario is named for and didn't
   show (`missing`); the manifest keeps every behaviour not seen.
 - **A clip over 5 MB** is encoded again at the rate that fits.
+- **The movie's size and `capture.json`'s place, found by the hand check:** `--resolution`
+  doesn't set Movie Maker's size (it recorded 1152×648), so `capture.sh` writes an
+  `override.cfg` (window override 1280×720) for the run, and the 1152×648 canvas scales by
+  10/9 as 2c intended. Godot keeps `--write-movie` out of `OS.get_cmdline_args()`, so 2c's
+  "beside the movie" falls back to `user://`; `capture.sh` passes `--capture-out`.
 - **A new capture of a commit already captured** (a re-run) replaces it, keeping two
   different commits.
 - **Advisory:** each step that can fail continues on error, and the next runs only if it

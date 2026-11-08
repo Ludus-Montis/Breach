@@ -15,7 +15,8 @@ is skipped, and says so in the job summary.
 
 `capture.sh`, for each scenario in the list's order:
 - Movie Maker under xvfb and Mesa, 1280×720 at 30 fps, `--capture=<name>` (90 s of play at
-  most). `capture.json` lands beside the frames.
+  most), with `--capture-out` beside the frames. The size comes from an `override.cfg`
+  written for the run (window override 1280×720): `--resolution` doesn't set Movie Maker's.
 - `pr<N>-<sha7>-<scenario>.webm` (VP9; re-encoded at a lower rate if over 5 MB) and
   `pr<N>-<sha7>-<scenario>-<moment>.webp` for `first`, `contact`, `midpoint` and `last`, cut
   at the moment's tick (3 frames a tick; a scenario with no contact has no contact still).

@@ -20,6 +20,13 @@ base="https://github.com/${GITHUB_REPOSITORY:-Ludus-Montis/Breach}/releases/down
 mkdir -p "$out/assets" "$out/work" "$out/entries"
 work=$out/work
 
+# Movie Maker records the window's size, and --resolution doesn't set it: the project's
+# window size is overridden for the run instead (override.cfg, read beside project.godot).
+# The 1152x648 canvas scales by 10/9 to 1280x720 (spec 44, "Settled in 2c" and "in 3").
+printf '[display]\n\nwindow/size/window_width_override=1280\nwindow/size/window_height_override=720\n' \
+  > override.cfg
+trap 'rm -f override.cfg' EXIT
+
 names=$(python3 -c 'import json; print("\n".join(s["name"] for s in json.load(open(
   "content/scenarios/scenarios.json"))["scenarios"]))')
 
@@ -31,22 +38,23 @@ for name in $names; do
   prefix=$(python3 "$here/entry.py" prefix "$pr" "$sha" "$name")
   echo "== $name: rendering"
   BREACH_COMMIT=$sha xvfb-run -a -s "-screen 0 1280x720x24" \
-    "$GODOT" --path . --resolution 1280x720 --fixed-fps "$FPS" --quit-after "$MAX_FRAMES" \
+    "$GODOT" --path . --fixed-fps "$FPS" --quit-after "$MAX_FRAMES" \
       --write-movie "$frames_dir/frame.png" "$SCENE" -- --capture="$name" \
+      --capture-out="$frames_dir/capture.json" \
       > "$work/$name.log" 2>&1 || { tail -n 30 "$work/$name.log"; exit 1; }
   [ -f "$frames_dir/capture.json" ] || { echo "$name wrote no capture.json"; tail -n 30 "$work/$name.log"; exit 1; }
   frames=$(find "$frames_dir" -name 'frame*.png' | wc -l)
   echo "== $name: $frames frames, encoding"
   clip="$out/assets/$prefix.webm"
-  ffmpeg -loglevel error -y -framerate "$FPS" -i "$frames_dir/frame%08d.png" \
+  ffmpeg -nostdin -loglevel error -y -framerate "$FPS" -i "$frames_dir/frame%08d.png" \
     -c:v libvpx-vp9 -b:v 0 -crf 36 -row-mt 1 -pix_fmt yuv420p "$clip"
   if [ "$(stat -c %s "$clip")" -gt "$MAX_BYTES" ]; then
     rate=$((MAX_BYTES * 8 * 9 / 10 * FPS / frames))
-    ffmpeg -loglevel error -y -framerate "$FPS" -i "$frames_dir/frame%08d.png" \
+    ffmpeg -nostdin -loglevel error -y -framerate "$FPS" -i "$frames_dir/frame%08d.png" \
       -c:v libvpx-vp9 -b:v "$rate" -maxrate "$rate" -row-mt 1 -pix_fmt yuv420p "$clip"
   fi
   python3 "$here/entry.py" stills "$frames_dir/capture.json" "$frames" | while read -r moment frame; do
-    ffmpeg -loglevel error -y -i "$(printf '%s/frame%08d.png' "$frames_dir" "$frame")" \
+    ffmpeg -nostdin -loglevel error -y -i "$(printf '%s/frame%08d.png' "$frames_dir" "$frame")" \
       -c:v libwebp -quality 85 "$out/assets/$prefix-$moment.webp"
   done
   cp "$frames_dir/capture.json" "$work/$name.capture.json"
@@ -58,7 +66,7 @@ done
 while read -r i name prefix; do
   echo "== $name: timing, 5 rounds"
   for round in 1 2 3 4 5; do
-    native/bin/breach_tick_phases scenario="$name" > "$work/$name.t$round.txt"
+    native/bin/breach_tick_phases scenario="$name" < /dev/null > "$work/$name.t$round.txt"
   done
   python3 "$here/timings.py" "$work/$name.timings.json" "$work/$name".t*.txt
   python3 "$here/entry.py" entry "$work/$name.capture.json" "$base" "$prefix" \

@@ -19,10 +19,10 @@ def parse(text: str) -> dict:
         raise ValueError("no series in breach_tick_phases' output")
     tick, phases = None, {}
     for line in lines[start + 1:]:
-        parts = line.split()
+        parts = line.rsplit(None, 5)  # a phase's name may hold spaces
         if len(parts) != 6 or not line.startswith("  "):
             break
-        name, mean, p95 = parts[0], float(parts[1]), float(parts[2])
+        name, mean, p95 = parts[0].strip(), float(parts[1]), float(parts[2])
         if name == "tick":
             tick = {"mean": mean, "p95": p95}
         else:
