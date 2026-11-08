@@ -74,6 +74,13 @@ work differently, it was in the wrong place.
 | Lives for | One topic or spec; ended when it grows long | One spec round; then discarded |
 | Never carries | Test output, diffs, build logs | The design discussion |
 
+- **A design round opens with a pre-mortem.** Before any options are discussed, the
+  design session asks three questions: what will we regret in a month, what is the
+  riskiest assumption, and what is the cheapest test of it? The answers go into the
+  round's spec as a `## Pre-mortem` section (`templates/pre-mortem.md`), once per round,
+  not once per decision. The cheapest test is scheduled as the round's first step, or the
+  section says what has already answered it. Asked at the start, the answers can still
+  change the design; asked at the end, the risky assumption is already built in.
 - **The spec is the hand-over.** A design session ends a round by writing its outcome
   as spec scenarios and Decisions, not as a summary of the discussion. The
   implementation session starts fresh from that, so the debate that led to a settled

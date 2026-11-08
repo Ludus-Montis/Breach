@@ -171,3 +171,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 162 | Measurements are kept in the repo under `metrics/`, one record a file, in one shape for every series | 7598 |  |
 | 163 | A PR that changes only measurement data runs only the checks data needs | 7659 |  |
 | 164 | The measuring workflows may merge their own data PRs | 7689 |  |
+| 165 | A design round opens with a pre-mortem, recorded in its spec | 7725 |  |

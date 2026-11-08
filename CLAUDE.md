@@ -54,7 +54,9 @@ How sessions work together is `principles/agent-sessions.md`.
 
 ## Which session are you?
 
-- **Design:** you discuss options with the user, one subject at a time. You write
+- **Design:** you discuss options with the user, one subject at a time. You open each
+  round with a pre-mortem before any options (`principles/agent-sessions.md` §3,
+  Decision 165): regret in a month, riskiest assumption, cheapest test. You write
   Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
   (how: `OPEN_QUESTIONS.md`'s header). You don't write code. You finish a round by pushing a
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
