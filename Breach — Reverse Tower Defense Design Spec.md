@@ -7905,3 +7905,74 @@ already written are not changed.
 **Order:** not applicable.
 **Bounded:** not applicable.
 **Pillar check:** not applicable.
+
+### Decision 169 — The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Amends:** Decision 167 (what is captured)
+
+**Rationale:** Spec 44's spike (step 1, #838) showed the capture works. Its frames are
+byte-identical run to run, it takes about 1.2 s of wall time per second of play, and both
+Chromium and Firefox play the clip. But the scene was the wrong one. `formation_skirmish.tscn`'s
+camera fits the whole map, too small to read, and with no orders nothing reaches a fight in
+10 s. The owner is most interested in what the 2D field shows: "fording, flanking, engaging,
+breaking off, cornering, routing". The owner also asked that the capture tie into the bench
+while the simulation is being optimised: "to have a representative replay would be beneficial
+to tie into the bench at that point, mostly for comparison between true game view and bench
+performance".
+- **What is captured: named scenarios.** A scenario is a name, a map, an order log (a
+  FormationRecord, Decision 115, whose header carries the seed) and the events it is named for.
+  The capture plays each scenario on the list. Each scenario gets its own clip and four stills,
+  at Decision 167's moments. Decision 167's "one fixed map, one fixed wave, seed 1" is replaced.
+- **The scene: the 2D field until Q25's map exists.** `formation_field.tscn` is the only scene
+  that draws bodies where they stand, and the fallen (Decision 106). It stands in until Q25's
+  game-like map (#280) can play a scenario. The scene is started with `--capture`, as Decision
+  167 says, never as a separate demo scene. Its camera frames the whole field at a size that
+  reads; the movie's size is set to fit it.
+- **One list for the capture and the bench.** Scenarios live in one named list in
+  `content/scenarios/`. The capture plays a name. `breach_tick_phases scenario=<name>` times
+  the same replay headless. The capture job times each scenario on its own commit (5 rounds),
+  so every clip, open PRs included, shows that commit's tick timings beside it on the Showcase
+  tab. When a scenario plays one of the bench's battles (the presets `4096` and `25k`, once a
+  map can draw them), it takes that preset's name. Until then, the field's scenarios are named
+  `field_<what it shows>`.
+- **Each scenario checks itself.** A scenario lists the behaviours it is named for, each read
+  from the replay's event log (engaged, flanked, disengaged, routed and so on) or, where no
+  event marks it, from where units stand (a ford crossed). The capture reports a behaviour it
+  no longer sees ("flanked: not seen"). This is advisory, like the rest of the capture: a
+  simulation change that stops a flank happening is shown, not failed.
+- **Length: at most 90 seconds of play.** This replaces 30 s. A scenario ends when its
+  battle does or at 90 s, whichever comes first.
+- **Who records the order logs.** An implementation step drafts each scenario's record and
+  the behaviours it must show. The PR's own capture is the owner's review. The owner may
+  replace a record with one played and copied out of the field.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep `formation_skirmish.tscn` | Too zoomed out, and it draws units on their places, not where they stand (#280). Nothing reaches a fight without orders. |
+| The owner plays every record | Holds step 2 on the owner's time. The owner can still swap a record in. |
+| Reuse the digest's five field logs as they are | They don't set out to show fording or cornering. They are a starting point for the drafts, not the list. |
+| Show the commit's per-merge bench record (`preset=4096`) beside the clip | Times a different battle from the one shown, and open PRs have none. |
+| One scenario showing all six behaviours | One record has to do everything, and one missed behaviour spoils the clip. |
+
+**Consequences:** spec 44's steps 2, 3 and 5 are rewritten: step 2 is the scenario list,
+`--capture` on the field and `scenario=` on `breach_tick_phases`; step 3 makes a clip per
+scenario and times each one; step 5 shows the timings and what each scenario saw. Q25 (#280)
+gains a requirement: its map plays a named scenario with `--capture`, and when it does, the
+capture moves to it.
+
+**Rules over cases:** general: every capture plays every scenario on one list, each the same
+way. Every scenario is a map, a record and the behaviours it must show, and its timings come
+from the same replay.
+**Order:** not applicable. No simulation outcome changes; the capture and the bench replay the
+real simulation unchanged.
+**Bounded:** not applicable to the tick. One capture job per push to a game PR, cancelled by
+the next. Each scenario adds about 2 minutes of runner time (90 s of play at 1.2 s per second)
+and its timing rounds.
+**Riskiest assumption:** that a fixed order log keeps showing what it was recorded for as the
+simulation changes. It is tested first in spec 44 step 2, and checked by every capture after
+that (the behaviours reported as not seen).
+**Pillar check:** not applicable.
