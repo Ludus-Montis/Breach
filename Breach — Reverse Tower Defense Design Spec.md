@@ -7721,3 +7721,60 @@ measurement".
 **Order:** not applicable.
 **Bounded:** not applicable.
 **Pillar check:** not applicable.
+
+### Decision 165 — A scaling model fitted on a small grid is checked against the measured 25k on each merge, and licenses estimates only between its points
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 159 (the 25k target) and Decision 162 (the bench history)
+
+**Rationale:** The owner asked (#820) for 25k (24,576 a side, 49,152 units, the target of
+Decision 159) to be tracked on each merge in both shapes, with a model fitted on smaller runs
+drawn beside it, so that smaller runs can stand in for larger sizes if the model holds. The
+archived runs settled the model's form. Many squads of 1,024 grow linearly in squad count:
+14 harvested pairs of `preset=4096` and `preset=25k` on the same commit and runner give
+×4.8 to ×7.4 (×6 is linear, ×36 quadratic). One squad bends upward: ×2.33, ×2.58 and ×2.92 a
+doubling in the fight from 3,072 to 24,576 a side (main `1156225`). Fitted to 3,072, 6,144
+and 12,288 only, `t = b·x + c·x²` predicted 24,576 within 0.5% (584 ms against 587); a power
+law missed by 17%.
+- **The model:** for each shape, `t(x) = b·x + c·x²`, `x` the units a side, `b` and `c` at
+  least 0 (non-negative least squares), fitted to the grid's mean tick. `c·x²/t` is the
+  tick's quadratic share. The form is the one in force until the data shows otherwise; a
+  change refits the whole history, because the fit is computed from the stored measurements,
+  never stored itself.
+- **The grid and the check:** lanes of 1,024 at 1, 4 and 8 lanes, and one squad at 2,048,
+  4,096, 8,192 and 12,288 a side, fit the model. Both shapes at 24,576 a side (24 lanes; one
+  squad) are measured on every merge and never fitted, so they check it.
+- **Tolerance:** the miss is (predicted − measured) ÷ measured at 24,576 a side, each point
+  the median of 5 rounds. A miss beyond 10% flags that merge on the page and in its data PR,
+  and blocks nothing. Two flagged merges in a row on one shape mean the form no longer fits:
+  the data PR says so, and a `question` issue reopens the form.
+- **What it licenses:** while within tolerance, the fit stands in for a run of either shape
+  at any size between its smallest grid point and 24,576 a side. Beyond 24,576 a side, or for
+  another shape (another squad size, mixed terrain, archers, retreats), it is an estimate to
+  be measured, drawn and labelled as one. The 24,576 measurement is never dropped for it.
+- **Goals:** Decision 159's target (p95 and p99 at most 50 ms at 24,576 a side, as 24 lanes
+  of 1,024) and its interim bar (100 ms) are drawn on the 25k chart as written. The 4,096
+  chart's "on track" lines are derived from the lanes fit (the 4-lane tick at which the fit
+  predicts 50 ms, and 100 ms, at 24 lanes), not set as goals of their own.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A power law `a·x^k` per shape | Can't follow one squad's rising growth: 17% short at 24,576 from the archived runs. |
+| 8,192 a side in place of 25k | Still a 3× extrapolation, over the range where one squad's growth steepens. |
+| Fit 24,576 with the grid | The check would grade the model on its own input. |
+| A fixed 4,096 goal | A second number to keep in step with Decision 159; derived, it follows the fit. |
+
+**Consequences:** spec 43 step 8 builds the series, its backfill and its chart.
+
+**Rules over cases:** general: a fitted series is evidence between its measured points, an
+estimate beyond them, and the point it is checked against stays measured. One form and one
+tolerance for every shape.
+**Order:** not applicable; no simulation outcome changes. "Two in a row" follows merge order
+on `main`.
+**Bounded:** not applicable as a change. The series measures bounded work: one squad at
+24,576 a side was about 62% quadratic on `1156225`, as Decision 159 found (×2.92 a doubling).
+`breach_scaling`'s CI limit (×3) is looser than Decision 159's ×2.2; left to a later session.
+**Pillar check:** not applicable.
