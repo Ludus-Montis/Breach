@@ -1,0 +1,72 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 123,
+    "pr": 247,
+    "sha": "356bb76255ac3ae5d106ab05f8b778d4f7e8025c",
+    "step": {
+      "na": "not-applicable"
+    },
+    "summary": "`UnitState.put(squad, unit, state)` is now the only writer of a unit's state, as Decision 147 settles. Each squad keeps its living units and its downed units (`DOWNED` or `CARRIED`), both in `squad.units` order: - **Rebuilding.** A write, or `UnitState.regather` after a join, a leaving or a reordering, marks the squad. Its next read rebuilds both lists once, into new read-only arrays. - **Reads.** `living()` is now O(1), where it filtered every call (about 130 callers). Wounds, taking, recovery and carry walk the downed lists instead of every unit. The native syncs and the blows field walk `living()`. - **`check_one_state.py`** (new, tests first) catches a write to a unit's state outside `UnitState`. It also catches `UnitState.start` in `sim/`, and a caller changing a list it was handed. It runs in pre-commit and CI. - **State stays on the record.** Step 7b decides whether native passes need a STATE column.",
+    "title": "feat(store): a unit's state through one writer, with each squad's living and downed kept (spec 35 step 7a)"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-08",
+    "kind": "fresh",
+    "run_id": 42434985610,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/42434985610"
+  },
+  "reference": {
+    "commit": "eee3e81fc92b026f869fdfced2f16a5306884d0b",
+    "ratio": {
+      "tick": 1.002788
+    },
+    "results": {
+      "tick": {
+        "median": 681.5,
+        "unit": "ms",
+        "values": [
+          687.8,
+          679.9,
+          682.7,
+          681.5,
+          679.3
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 683.4,
+      "unit": "ms",
+      "values": [
+        690.3,
+        679.8,
+        686.5,
+        674.9,
+        683.4
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "sizes=1024"
+    ],
+    "blob": "de4fae294a8c47196ce23e0ab58241b6f4281e0f",
+    "harness": "formation_bench.gd",
+    "profile": "release",
+    "rounds": 5
+  }
+}
