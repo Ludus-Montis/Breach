@@ -38,6 +38,7 @@ Information-oriented. Precise descriptions of APIs, config, formats.
   [the Project's Status per PR](../ci/github/README.md#the-projects-status),
   and [the Project backfill](../ci/github/README.md#the-project-backfill)
 - [The showcase's scenarios: the list, its records and how each behaviour is read](../content/scenarios/README.md)
+- [The showcase capture: which PRs, what it makes, where it is kept, the PR comment](../ci/showcase/README.md)
 - [Specs, one per feature or round](../specs/)
 - [The outcome trace: the digest's per-tick JSON lines](../specs/37-outcome-trace.md#settled)
 

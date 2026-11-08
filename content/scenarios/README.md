@@ -51,10 +51,17 @@ The 2D field started with `-- --capture=<name>` plays the scenario hands-free, e
 owes waited for, so two runs on one commit give the same frames. When the scenario ends it
 writes `capture.json` and quits (`presentation/skirmish/formation_2d/field_capture.gd`):
 
-    godot --path . --resolution 1280x720 --fixed-fps 30 --write-movie /tmp/c/frame.png \
-      res://presentation/skirmish/formation_2d/formation_field.tscn -- --capture=field_break_off
+    godot --path . --fixed-fps 30 --write-movie /tmp/c/frame.png \
+      res://presentation/skirmish/formation_2d/formation_field.tscn -- --capture=field_break_off \
+      --capture-out=/tmp/c/capture.json
 
-`capture.json` goes beside the movie (or to `--capture-out=<path>`) and holds the scenario's
+Movie Maker records the window's size, which `--resolution` doesn't set: for 1280×720, put an
+`override.cfg` beside `project.godot` setting `display/window/size/window_width_override=1280`
+and `window_height_override=720`, as `ci/showcase/capture.sh` does. Pass `--capture-out`:
+Godot keeps `--write-movie` out of the arguments a script sees, so without it `capture.json`
+goes to `user://`.
+
+`capture.json` holds the scenario's
 name, map, seed and record, the commit (`BREACH_COMMIT`, else `GITHUB_SHA`), the ticks of its
 four moments (`first`, `contact`, `midpoint`, `last`), the ticks played, each behaviour's first
 tick or `null`, and `missing`, the behaviours it is named for and didn't show. A name not on
