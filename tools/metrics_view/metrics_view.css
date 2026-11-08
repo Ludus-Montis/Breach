@@ -1,0 +1,43 @@
+:root {
+  --bg: #fbfbfa; --fg: #1d1f21; --muted: #6b6f75; --grid: #e2e3e5; --panel: #ffffff;
+  --s1: #2f6fdb; --s2: #d9480f; --s3: #2b8a3e; --s4: #ae3ec9; --s5: #e8a33d; --s6: #0c8599;
+  --s7: #c2255c; --s8: #5c7cfa; --s9: #868e96; --gap: #fa5252;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181b; --fg: #e6e7e9; --muted: #9aa0a6; --grid: #2c2f33; --panel: #1e2125;
+    --s1: #6ea0ff; --s2: #ff8a50; --s3: #63c174; --s4: #d17fe8; --s5: #f3c06b; --s6: #4fc3d6;
+    --s7: #f06595; --s8: #91a7ff; --s9: #adb5bd; --gap: #ff8787;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181b; --fg: #e6e7e9; --muted: #9aa0a6; --grid: #2c2f33; --panel: #1e2125;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 1200px; margin-inline: auto; }
+h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.1rem; margin: 1.5rem 0 .25rem; }
+a { color: var(--s1); }
+code { font-size: .9em; }
+.note, #status { color: var(--muted); margin: .25rem 0; }
+.chart { width: 100%; overflow-x: auto; background: var(--panel); border: 1px solid var(--grid);
+  border-radius: 6px; }
+.chart svg { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .5rem 0; color: var(--muted);
+  font-size: .9rem; }
+.legend span::before { content: ""; display: inline-block; width: .8em; height: .8em;
+  margin-right: .35em; border-radius: 2px; background: var(--swatch); vertical-align: -1px; }
+svg text { fill: var(--muted); font-size: 11px; }
+svg .grid { stroke: var(--grid); }
+svg .line { fill: none; stroke-width: 2; }
+svg .point { cursor: pointer; stroke-width: 2; }
+svg .bridge { stroke: var(--muted); stroke-dasharray: 4 3; }
+svg .ref { stroke: var(--muted); stroke-width: 2; }
+svg rect.bar { cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: .2rem .5rem; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+td.gap { color: var(--gap); }
+td.finer { color: var(--muted); font-size: .85rem; text-align: left; }
+select { font: inherit; margin-left: .5rem; }

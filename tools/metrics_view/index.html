@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breach tick history</title>
+<link rel="stylesheet" href="metrics_view.css">
+</head>
+<body>
+<header>
+  <h1>Breach tick history</h1>
+  <p>Each merge to <code>main</code> that touched the simulation, timed against its era's
+  reference (<a href="https://github.com/Ludus-Montis/Breach/blob/main/specs/43-metrics-history.md">spec 43</a>).
+  Filled points are fresh records; hollow ones are harvested from old logs, placed at their
+  commit or the base they were compared with. The line breaks where the harness changes.</p>
+  <p id="status">Loading records.json…</p>
+  <p id="pick" hidden>Opened from disk without a bundle: run
+  <code>python3 tools/metrics_view/build_index.py</code>, or choose the repo's
+  <code>metrics</code> folder: <input type="file" id="folder" webkitdirectory multiple></p>
+</header>
+<main>
+  <section>
+    <h2>Whole tick, ms (log scale)</h2>
+    <p id="bridge" class="note"></p>
+    <div id="overview" class="chart"></div>
+    <div id="legend" class="legend"></div>
+  </section>
+  <section>
+    <h2>Where the tick goes, by phase
+      <select id="harness" aria-label="Harness"></select></h2>
+    <p class="note">Stacked by the tick's top-level phases (a phase timed more finely is summed
+    into its parent). The grey dash is the reference's whole tick.</p>
+    <div id="phases" class="chart"></div>
+    <div id="phase-legend" class="legend"></div>
+  </section>
+  <section id="details" hidden>
+    <h2 id="details-title"></h2>
+    <p id="details-links"></p>
+    <table id="details-table"></table>
+  </section>
+</main>
+<script src="metrics_view.js"></script>
+<script src="metrics_page.js"></script>
+</body>
+</html>
