@@ -138,3 +138,29 @@ fn timing_a_name_not_on_the_list_is_an_error_naming_it() {
         .expect_err("not listed");
     assert!(wrong.contains("field_nowhere"), "{wrong}");
 }
+
+#[test]
+fn a_capture_names_its_scenario_its_four_moments_in_order_and_each_behaviour_seen() {
+    let (content, list) = (content(), list(&repo_content()).expect("the list reads"));
+    let scenario = named(&list, "field_break_off").expect("listed");
+    let (seen, ticks) = watch(scenario, &content).expect("it plays");
+    let made = capture::capture(scenario, &seen, ticks, "abc1234");
+    assert_eq!(made["scenario"], "field_break_off");
+    assert_eq!(made["map"], "field");
+    assert_eq!(made["seed"], scenario.record.seed);
+    assert_eq!(made["record"], scenario.text.as_str());
+    assert_eq!(made["commit"], "abc1234");
+    assert_eq!(made["ticks"], ticks);
+    let moments = &made["moments"];
+    let contact = seen.contact.expect("it reaches contact");
+    let at: Vec<i64> = ["first", "contact", "midpoint", "last"]
+        .iter()
+        .map(|m| moments[m].as_i64().expect("a tick"))
+        .collect();
+    assert_eq!(at, [0, contact, (contact + ticks - 1) / 2, ticks - 1]);
+    let behaviours = made["behaviours"].as_object().expect("an object");
+    assert_eq!(behaviours.keys().map(String::as_str).collect::<Vec<_>>(), BEHAVIOURS);
+    assert_eq!(behaviours["engaging"], seen.at("engaging").expect("seen"));
+    assert!(behaviours["flanking"].is_null(), "not seen, null");
+    assert_eq!(made["missing"], serde_json::json!([]));
+}

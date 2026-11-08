@@ -77,3 +77,23 @@ fn the_snapshot_holds_what_the_scene_draws() {
     assert_eq!(view.staging, sim.play.staging_point());
     assert!(Arc::ptr_eq(&sim.content, &content), "the content shared, not copied");
 }
+
+#[test]
+fn a_scenario_on_the_field_plays_as_its_replay_watches_it() {
+    use crate::content::tests::repo_content;
+    use crate::scenarios;
+    let content = Arc::new(content());
+    let list = scenarios::list(&repo_content()).expect("the list reads");
+    let scenario = scenarios::named(&list, "field_break_off").expect("listed");
+    let (seen, ticks) = scenarios::watch(scenario, &content).expect("it plays");
+    let worker =
+        Worker::start(FieldSim::scenario(content.clone(), scenario, Threads::One).expect("opens"));
+    let mut last = None;
+    for _ in 0..ticks {
+        let shot = worker.run_ticks(1).pop().expect("a snapshot");
+        let watched = shot.view.watched.clone().expect("a scenario's snapshot is watched");
+        assert_eq!(watched.ended, shot.tick == ticks, "it ends where the replay ends");
+        last = Some(watched);
+    }
+    assert_eq!(last.expect("played").seen, seen);
+}

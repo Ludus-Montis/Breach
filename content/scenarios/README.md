@@ -45,6 +45,21 @@ The crate's tests (`cargo test scenarios::` in `native/rust/`) play every scenar
 printed as its `series=1` prints (`native/README.md`, "Tick phases"); the `bench` workflow runs
 it with `args` `scenario=<name>`.
 
+## Capturing one
+
+The 2D field started with `-- --capture=<name>` plays the scenario hands-free, every tick it
+owes waited for, so two runs on one commit give the same frames. When the scenario ends it
+writes `capture.json` and quits (`presentation/skirmish/formation_2d/field_capture.gd`):
+
+    godot --path . --resolution 1280x720 --fixed-fps 30 --write-movie /tmp/c/frame.png \
+      res://presentation/skirmish/formation_2d/formation_field.tscn -- --capture=field_break_off
+
+`capture.json` goes beside the movie (or to `--capture-out=<path>`) and holds the scenario's
+name, map, seed and record, the commit (`BREACH_COMMIT`, else `GITHUB_SHA`), the ticks of its
+four moments (`first`, `contact`, `midpoint`, `last`), the ticks played, each behaviour's first
+tick or `null`, and `missing`, the behaviours it is named for and didn't show. A name not on
+the list exits 2 with an error naming it.
+
 ## Adding one
 
 Write the record (or copy one out of the field after playing it), add an entry to

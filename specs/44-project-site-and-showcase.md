@@ -145,6 +145,24 @@ stands in until Q25's game-like map (#280) can play a scenario.
 - A scenario's ticks timed are its ticks played (`watch`'s), from tick 0 to its end; checked
   by `cargo test scenarios::`.
 
+**Settled in 2c:**
+- The field plays a scenario through the same watch as the bench's `Replay`
+  (`scenarios::Watch`, split out of it): `FieldSim::scenario` puts it on the field's worker, and
+  `FieldState.open_scenario`, `ended` and `capture` read it. Checked by `cargo test`: the field
+  on its worker ends on the replay's tick and sees what it sees.
+- The scene takes it as `restart(..., scenario)` (`FieldCapture` does), not a new method: the
+  scene is at the ISP check's seven public methods and its 300-line limit.
+- In a capture each frame plays the ticks its clock owes and waits for them (`run_ticks`),
+  never dropping time, so the frames don't depend on the worker's speed.
+- **The movie's size:** 1280×720 (`--resolution 1280x720`; the scene also sizes the window).
+  The project's 1152×648 canvas scales by 10/9, so the whole field (128 by 64 cells) shows at
+  about 9 px a cell, with the HUD above it.
+- **`capture.json`** (`scenarios::capture`): `scenario`, `map`, `seed`, `record`, `commit`
+  (`BREACH_COMMIT`, else `GITHUB_SHA`), `moments` (`first` 0, `contact` or null, `midpoint`
+  halfway from contact (or tick 0) to the last, `last`), `ticks`, `behaviours` (all six, a tick
+  or null) and `missing`. Written beside `--write-movie`'s file, or to `--capture-out=<path>`.
+- A name not on the list prints the error naming it and exits 2.
+
 ### Step 3, the `showcase-capture` workflow
 
 `.github/workflows/showcase-capture.yml`, on `pull_request` (opened, synchronize, reopened,

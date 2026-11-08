@@ -4,6 +4,7 @@
 //! played on its map from its record hands-free (`Replay`), and the behaviours are read from
 //! what the replay does (`Seen`). Nothing in the shipped game reads the list.
 
+pub mod capture;
 pub mod seen;
 #[cfg(test)]
 mod tests;
@@ -26,6 +27,7 @@ use crate::play::TAIL;
 use crate::record::{self, Record};
 use crate::squads::Squads;
 use crate::threads::Threads;
+use crate::waves::Produced;
 
 pub use seen::{Seen, BEHAVIOURS};
 
@@ -100,16 +102,10 @@ pub fn named<'a>(list: &'a [Scenario], name: &str) -> Result<&'a Scenario, Strin
     list.iter().find(|s| s.name == name).ok_or_else(|| format!("no scenario named {name}"))
 }
 
-/// A scenario being played: the field from its record, its commands given on their ticks, and
-/// what it has shown so far. It ends when a side no longer stands after first contact (TAIL
-/// ticks on, so a rout plays out) or at MOST_SECONDS of play, whichever comes first.
+/// A scenario being played: the field from its record and the watch over it (`Watch`).
 pub struct Replay {
     pub play: FieldPlay,
-    pub seen: Seen,
-    record: Record,
-    ground: Ground,
-    most: i64,
-    broken: Option<i64>,
+    pub watch: Watch,
 }
 
 impl Replay {
@@ -121,14 +117,9 @@ impl Replay {
         content: &Content,
         threaded: Threads,
     ) -> Option<Replay> {
-        let record = scenario.record.clone();
-        let at = (record.seed, true, threaded);
-        let play = FieldPlay::new(record.captained, (squads, field), content, at)?;
-        let ground =
-            map::of(&scenario.map, &content.tuning)?.ground(GroundTuning::of(&content.tuning));
-        let most = (MOST_SECONDS / TICK_SECONDS).round() as i64;
-        let seen = Seen::new(&scenario.shows);
-        Some(Replay { play, seen, record, ground, most, broken: None })
+        let at = (scenario.record.seed, true, threaded);
+        let play = FieldPlay::new(scenario.record.captained, (squads, field), content, at)?;
+        Some(Replay { play, watch: Watch::new(scenario, content)? })
     }
 
     /// The tick played next.
@@ -136,34 +127,69 @@ impl Replay {
         self.play.play.tick
     }
 
-    /// One tick: its commands given, the field stepped, what it shows read; its events (flat)
-    /// and whether the scenario has ended.
+    /// One tick (`Watch::step`): its events (flat) and whether the scenario has ended.
     pub fn step(
         &mut self,
         squads: &mut Squads,
         field: &mut Field,
         content: &Content,
     ) -> (Vec<i64>, bool) {
-        let tick = self.tick();
-        for given in self.record.commands.iter().filter(|c| c.tick == tick) {
-            self.play.apply(given, (squads, field), content);
-        }
-        let mut log = Log::default();
-        self.play.step(squads, field, content, &mut log);
-        let flat = log.take();
-        self.seen.read(tick, &flat, (squads, field), &self.ground);
-        (flat, self.ended(tick, squads, field))
+        let (_, flat, ended) = self.watch.step(&mut self.play, (squads, field), content);
+        (flat, ended)
     }
 
     /// The listed squads' state as the digest records it, as bytes.
     pub fn state(&self, squads: &Squads, field: &Field) -> Vec<u8> {
         state(squads, field, &self.play.play.listed).bytes()
     }
+}
+
+/// The watch over a scenario's field: its commands given on their ticks, what it has shown so
+/// far, and its end: when a side no longer stands after first contact (TAIL ticks on, so a
+/// rout plays out) or at MOST_SECONDS of play, whichever comes first. The bench's `Replay` and
+/// the capture's field on its worker (`FieldSim::scenario`) both step through it.
+pub struct Watch {
+    pub seen: Seen,
+    record: Record,
+    ground: Ground,
+    most: i64,
+    broken: Option<i64>,
+}
+
+impl Watch {
+    /// The watch over `scenario`, its map's ground from `content`; None if the map isn't known.
+    pub fn new(scenario: &Scenario, content: &Content) -> Option<Watch> {
+        let ground =
+            map::of(&scenario.map, &content.tuning)?.ground(GroundTuning::of(&content.tuning));
+        let most = (MOST_SECONDS / TICK_SECONDS).round() as i64;
+        let (seen, record) = (Seen::new(&scenario.shows), scenario.record.clone());
+        Some(Watch { seen, record, ground, most, broken: None })
+    }
+
+    /// One tick of `play`: its commands given, the field stepped, what it shows read; what the
+    /// builders and waves did, its events (flat) and whether the scenario has ended.
+    pub fn step(
+        &mut self,
+        play: &mut FieldPlay,
+        (squads, field): (&mut Squads, &mut Field),
+        content: &Content,
+    ) -> (Vec<Produced>, Vec<i64>, bool) {
+        let tick = play.play.tick;
+        for given in self.record.commands.iter().filter(|c| c.tick == tick) {
+            play.apply(given, (squads, field), content);
+        }
+        let mut log = Log::default();
+        let (made, _) = play.step(squads, field, content, &mut log);
+        let flat = log.take();
+        self.seen.read(tick, &flat, (squads, field), &self.ground);
+        let ended = self.ended(tick, play, (squads, field));
+        (made, flat, ended)
+    }
 
     /// Whether the scenario ends after `tick`.
-    fn ended(&mut self, tick: i64, squads: &Squads, field: &Field) -> bool {
+    fn ended(&mut self, tick: i64, play: &FieldPlay, (squads, field): (&Squads, &Field)) -> bool {
         let contacted = self.seen.contact.is_some();
-        if contacted && self.broken.is_none() && !self.play.play.both_stand(squads, field) {
+        if contacted && self.broken.is_none() && !play.play.both_stand(squads, field) {
             self.broken = Some(tick);
         }
         self.broken.is_some_and(|broken| tick - broken >= TAIL) || tick + 1 >= self.most
@@ -179,7 +205,7 @@ pub fn watch(scenario: &Scenario, content: &Content) -> Option<(Seen, i64)> {
         let (_, ended) = replay.step(&mut squads, &mut field, content);
         if ended {
             let ticks = replay.tick();
-            return Some((replay.seen, ticks));
+            return Some((replay.watch.seen, ticks));
         }
     }
 }
