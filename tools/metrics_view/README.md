@@ -15,6 +15,10 @@ Static HTML and JS, no build step, reading only `metrics/`.
 
 ## What it shows
 
+The page opens with **How to read this**: what fresh and harvested records, the reference, the
+bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formation_bench`; the
+25k target isn't recorded) and a gap mean.
+
 - **Whole tick, ms (log scale):** one line per harness along `main`'s first-parent line:
   `tick_phases.gd` and `formation_bench.gd` (GDScript era, against `eee3e81`) and
   `breach_tick_phases` (cargo era, against the bridge `8ca4227`). A line breaks where a commit

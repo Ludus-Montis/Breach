@@ -13,22 +13,51 @@
   reference (<a href="https://github.com/Ludus-Montis/Breach/blob/main/specs/43-metrics-history.md">spec 43</a>).
   The line breaks where the harness changes.</p>
   <p><label><input type="checkbox" id="show-harvested"> Show harvested points</label>
-  <span class="note">: hollow, read from old CI logs, mostly branch comparisons with other
-  args and no shared reference, so not comparable with the lines.</span></p>
+  <span class="note">(hollow; see "Harvested" below)</span></p>
   <p id="status">Loading records.json…</p>
   <p id="pick" hidden>Opened from disk without a bundle: run
   <code>python3 tools/metrics_view/build_index.py</code>, or choose the repo's
   <code>metrics</code> folder: <input type="file" id="folder" webkitdirectory multiple></p>
 </header>
 <main>
+  <details class="key" open>
+    <summary>How to read this</summary>
+    <dl>
+      <dt>Fresh</dt>
+      <dd>Timed by our own harness in a controlled run: the same arguments every time, and in
+      turn with a fixed reference commit in the same CI job (5 rounds each, the median kept).
+      Every merge to <code>main</code> that touches the simulation gets one, and the backfill
+      gave one to each merge since 14 October. Fresh points can be compared with each other.</dd>
+      <dt>Harvested</dt>
+      <dd>Numbers read back out of old CI logs: whatever arguments someone used that day,
+      mostly on PR branches, with no shared reference. Drawn hollow, and hidden unless asked
+      for: they are not comparable with the lines.</dd>
+      <dt>Reference</dt>
+      <dd>A fixed commit timed beside every measurement, so a slower or faster CI machine shows
+      in both and the ratio between them stays comparable: <code>eee3e81</code> for the
+      GDScript era, the bridge for the cargo era.</dd>
+      <dt>Bridge (<code>8ca4227</code>)</dt>
+      <dd>The last commit with both the old GDScript benchmark tools and the Rust (cargo)
+      binaries. Before it, a tick could only be timed in GDScript; after it, only in Rust.
+      Timing the bridge with both states how the two scales relate, which is why the lines
+      break there instead of joining.</dd>
+      <dt>The battle measured</dt>
+      <dd><code>tick_phases</code> (both eras): 4,096 a side in 4 lanes of 1,024, the daily
+      bench's size, timed over 3 fight ticks after 10 to settle. <code>formation_bench</code>:
+      one clash of 1,024 a side, its mid-fight average. The 25k target isn't recorded.</dd>
+      <dt>Gap</dt>
+      <dd>A phase the harness didn't measure, or that took under its printed resolution
+      (0.005 ms). Shown as a gap, never as 0; a line breaks where a commit has no number.</dd>
+    </dl>
+  </details>
   <section>
-    <h2>Whole tick, ms (log scale)</h2>
+    <h2>Whole tick, ms (log scale): 4,096 a side, and 1,024 for formation_bench</h2>
     <p id="bridge" class="note"></p>
     <div id="overview" class="chart"></div>
     <div id="legend" class="legend"></div>
   </section>
   <section>
-    <h2>Where the tick goes, by phase
+    <h2>Where the tick goes, by phase, 4,096 a side
       <select id="harness" aria-label="Harness"></select></h2>
     <p class="note">Stacked by the tick's top-level phases (a phase timed more finely is summed
     into its parent). The grey dash is the reference's whole tick.</p>
