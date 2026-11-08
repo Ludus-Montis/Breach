@@ -227,6 +227,20 @@ reading `metrics/` only.
 - **Record names** are `<date>-<run id>-<n>`, `n` counting harnesses across the whole list of
   commits (and 1000 more for each re-run), so the matrix's jobs never collide.
 
+**Step 6, 2026-11-08:**
+- **The archive gives 434 records:** 87 of the 96 bench runs (35 `breach_tick_phases`, 52
+  `tick_phases.gd`; the other 9 timed other tools or failed) and 347 of the 348 `sim-checks`
+  runs, each with `scaling/{march,fight,stacks}/{128,256,512}`-style paths. A second run writes
+  nothing.
+- **Every `sim-checks` run was on a PR branch,** and most bench heads were branches, so a
+  harvested record's commit is the head as it was run: its `sha` (short, for bench), its
+  `branch`, and for bench the `base` it was compared with, which the drawing uses to place it
+  on `main`'s line. `position`, `pr` and the rest are `not-recorded`.
+- **A rounds comparison's summary keeps only medians and ranges,** so its `values` are
+  `not-recorded`; a single round's are its one value.
+- **A run that already has a fresh record** (step 4's record runs, once `metrics-archive`
+  keeps them) is left alone, so a harvest never overwrites one.
+
 ## Scenarios
 
 ### Step 1
