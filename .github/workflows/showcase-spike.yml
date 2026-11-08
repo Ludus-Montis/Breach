@@ -237,12 +237,14 @@ jobs:
           npm install -s playwright@1.49.1
           npx playwright install --with-deps chromium firefox > /dev/null
 
-      - name: Play the WebM in each browser
+      - name: Play the WebM and show the still in each browser
         env:
           WEBM: ${{ needs.capture.outputs.webm }}
+          WEBP: ${{ needs.capture.outputs.webp }}
         run: |
           mkdir site
-          printf '<!doctype html><video id="v" muted playsinline src="%s"></video>\n' "$WEBM" > site/index.html
+          printf '<!doctype html><video id="v" muted playsinline preload="auto" src="%s"></video><img id="i" src="%s">\n' \
+            "$WEBM" "$WEBP" > site/index.html
           (cd site && python3 -m http.server 8000 > /dev/null 2>&1 &)
           sleep 1
           cat > play.js <<'JS'
@@ -258,15 +260,25 @@ jobs:
                 result = await page.evaluate(() => new Promise((done) => {
                   const v = document.getElementById('v');
                   const fail = (why) => done(`does not play (${why})`);
+                  if (v.error) return fail(`error code ${v.error.code}`);
                   v.onerror = () => fail(`error code ${v.error && v.error.code}`);
                   setTimeout(() => fail('timed out'), 20000);
-                  v.oncanplay = async () => {
+                  const play = async () => {
                     try { await v.play(); } catch (e) { return fail(String(e)); }
                     setTimeout(() => done(v.currentTime > 0
                       ? `plays (${v.videoWidth}×${v.videoHeight}, ${v.duration.toFixed(1)} s)`
                       : 'loads but does not advance'), 1500);
                   };
+                  // canplay may have fired before this listener exists (the first run's
+                  // timeouts): play at once if the clip is already ready
+                  if (v.readyState >= 3) play(); else v.oncanplay = play;
                 }));
+                const img = await page.evaluate(() => {
+                  const i = document.getElementById('i');
+                  return i.complete && i.naturalWidth > 0
+                    ? `shows (${i.naturalWidth}×${i.naturalHeight})` : 'does not show';
+                });
+                lines.push(`- **WebP still in an <img>, ${name}:** ${img}`);
               } catch (e) { result = `does not play (${e.message})`; }
               lines.push(`- **WebM in a <video>, ${name} ${browser.version()}:** ${result}`);
               await browser.close();
