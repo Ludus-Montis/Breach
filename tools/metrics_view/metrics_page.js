@@ -87,8 +87,10 @@
     });
     el('text', { x: PAD.left, y: HEIGHT - 8 }, root).textContent = 'commits on main, oldest first →';
     $('legend').innerHTML = lines.map(function (line) {
+      var harvested = line.harvested.length || line.hiddenHarvested;
       return '<span style="--swatch:' + colour(HARNESS_COLOUR[line.harness] || '--s9') + '">' +
-        line.harness + ' (' + line.points.length + ' fresh, ' + line.harvested.length + ' harvested)</span>';
+        line.harness + ' (' + line.points.length + ' fresh' +
+        (harvested ? ', ' + harvested + ' harvested' + (line.hiddenHarvested ? ' hidden' : '') : '') + ')</span>';
     }).join('');
   }
 
@@ -186,7 +188,10 @@
         ' ms and breach_tick_phases ' + bridge.cargo.toFixed(1) + ' ms: the cargo era is ×' +
         bridge.factor.toFixed(2) + ' faster. The two lines are never joined.'
       : '';
-    drawOverview(lines, bridge);
+    var toggle = $('show-harvested');
+    var overview = function () { drawOverview(view.shown(lines, toggle.checked), bridge); };
+    toggle.onchange = overview;
+    overview();
     var select = $('harness');
     select.innerHTML = lines.filter(function (l) { return l.points.length; }).map(function (l) {
       return '<option>' + l.harness + '</option>';

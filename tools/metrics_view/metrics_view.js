@@ -195,7 +195,16 @@
     return runs;
   }
 
-  var api = { segments: segments, valueAt: valueAt, compare: compare, lines: lines, bridge: bridge, REPO: REPO };
+  // The lines as drawn: harvested points only when asked for (they come from old logs, with
+  // other args and no shared reference, so they're hidden by default). Leaves `all` as it is.
+  function shown(all, withHarvested) {
+    return all.map(function (line) {
+      return { harness: line.harness, points: line.points,
+        harvested: withHarvested ? line.harvested : [], hiddenHarvested: withHarvested ? 0 : line.harvested.length };
+    });
+  }
+
+  var api = { shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines, bridge: bridge, REPO: REPO };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BreachMetricsView = api;
 })(this);

@@ -253,6 +253,9 @@ reading `metrics/` only.
 - **A line breaks** at a commit with a fresh record elsewhere but no number on it, so the
   eight `tick_phases.gd` gaps of Oct 24 and 25, and the commits timed only with the binary
   before the bridge, are never bridged.
+- **Harvested points are hidden by default** (the owner's choice, 2026-11-08), behind a "Show
+  harvested points" toggle: the backfill gave every merge a fresh record, and the harvested
+  bench records are mostly branch comparisons with other args and no shared reference.
 - **The bridge** reads 137.5 ms (`tick_phases.gd`) against 71.4 ms (`breach_tick_phases`) on the
   backfill's run, ×1.93.
 
