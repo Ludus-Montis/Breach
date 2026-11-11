@@ -140,22 +140,6 @@ Scenarios:
 - Given jobs on different CPUs, then the summary combines them only as ratios to their
   references, and says which CPUs ran which ticks.
 
-### Step 5b, plotting the repeats
-
-**Split at build:** from step 5, PR #935, 2026-11-11: two behaviours, the records (5a, under
-`## Built`) and the page (5b), each with its own tests (Python; JS).
-**Needs:** 5a
-**Touches:** `tools/metrics_view/` (the tick history and its tests), `tools/metrics_view/README.md`
-
-Only once step 3 has passed:
-- **Records** are 5a's: `metrics/inspect/`, `series` `inspect`, one per (size, tick) a merge.
-- **Plotting.** The tick history gains small multiples per phase, × the reference by default
-  (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
-  the gap between them shows how far to trust the fast number.
-- **The caveat** (Q47, option a): the page says beside the repeats that they guide and the
-  whole tick judges, and that phases whose cost builds up across ticks (`strays`, `groups`,
-  `bodies: pushes`, `stamina`) read smaller repeated than in the whole tick.
-
 ## Measured
 
 ### Step 3, the ranking check (2026-11-11)
@@ -353,3 +337,40 @@ Scenarios:
   then it passes; without either, it fails, naming `source/args`.
 - Given a bench-inspect job's rounds, when its record is written, then it is `series`
   `inspect` under `metrics/inspect/`, numbered by its job, and validates.
+
+### Step 5b, plotting the repeats
+
+**Split at build:** from step 5, PR #935, 2026-11-11: two behaviours, the records (5a, under
+`## Built`) and the page (5b), each with its own tests (Python; JS).
+**Needs:** 5a
+**Touches:** `tools/metrics_view/` (the tick history and its tests), `tools/metrics_view/README.md`
+
+Only once step 3 has passed:
+- **Records** are 5a's: `metrics/inspect/`, `series` `inspect`, one per (size, tick) a merge.
+- **Plotting.** The tick history gains small multiples per phase, × the reference by default
+  (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
+  the gap between them shows how far to trust the fast number.
+- **The caveat** (Q47, option a): the page says beside the repeats that they guide and the
+  whole tick judges, and that phases whose cost builds up across ticks (`strays`, `groups`,
+  `bodies: pushes`, `stamina`) read smaller repeated than in the whole tick.
+
+Built as (2026-11-11): `tools/metrics_view/metrics_inspect.js` and its page.
+- **The lap** is the 25k set's record (`series=1`) of the same commit and the preset's shape
+  (`4096`: `side=4096 squads=4`; `25k`: `side=24576 squads=24`), the battle `at=` replays, timed
+  over the whole settled series: its mean tick, not the inspected tick. Laps start at the first
+  commit with repeats (no backfill).
+- **% of tick is the default unit** (the owner, 2026-11-11, asked at build: above it says × the
+  reference). The two sides' references differ: a repeat's is the bridge on `bench`'s battle
+  (`side=4096 squads=4 fight=3`, step 5a), a set record's the bridge on its own shape, so in ×
+  the reference the gap carries a fixed factor (about ×4 at 25k). % of tick puts each side over
+  its own tick, so each record's runner cancels. × the reference and ms stay as choices, with a
+  note.
+- **The gap** in a panel's title is the repeats' median over the lap at the latest commit with
+  both. **Q47's caveat** (option a) marks the panels holding `strays`, `groups`, `bodies:
+  pushes` or `stamina`.
+
+Scenarios:
+- Given repeat records and the 25k set's records of the same commits, when the page draws, then
+  each size has a panel per top-level phase with the repeats beside the lap of the same shape,
+  in % of tick by default.
+- Given a panel holding a phase the repeats under-report, then it is marked with Q47's caveat.
