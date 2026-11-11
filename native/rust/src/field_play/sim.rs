@@ -15,6 +15,7 @@ use crate::events::Log;
 use crate::field::Field;
 use crate::maths::V2;
 use crate::record::{self, Command};
+use crate::scenarios::{Scenario, Seen, Watch};
 use crate::squads::Squads;
 use crate::threads::Threads;
 use crate::waves::Produced;
@@ -36,6 +37,15 @@ pub struct FieldSim {
     pub record: Vec<String>,
     /// The drawn columns as the last snapshot copied them.
     drawn: Option<Drawn>,
+    /// A named scenario's watch, when the field plays one (`scenario`), and whether it ended.
+    watch: Option<(Watch, bool)>,
+}
+
+/// What a scenario's field has shown so far, and whether the scenario has ended.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Watched {
+    pub seen: Seen,
+    pub ended: bool,
 }
 
 /// The units' drawn columns, by slot, shared between snapshots while unchanged.
@@ -60,6 +70,8 @@ pub struct FieldView {
     pub kingdom: Vec<i64>,
     pub waves: [[i64; 4]; 2],
     pub staging: Option<V2>,
+    /// A scenario's field: what it has shown and whether it ended; None for free play.
+    pub watched: Option<Watched>,
 }
 
 impl FieldSim {
@@ -76,16 +88,53 @@ impl FieldSim {
         let play = FieldPlay::new(captained, (&mut squads, &mut field), &content, at)?;
         let record = vec![record::header(seed, captained, build)];
         let events = Log::default();
-        let drawn = None;
-        Some(FieldSim { content, squads, field, play, events, seed, captained, record, drawn })
+        let (drawn, watch) = (None, None);
+        Some(FieldSim {
+            content,
+            squads,
+            field,
+            play,
+            events,
+            seed,
+            captained,
+            record,
+            drawn,
+            watch,
+        })
+    }
+
+    /// `scenario` set up from `content` to play hands-free (spec 44 step 2c): seeded and
+    /// captained as its record says, its commands given on their ticks by its watch, which
+    /// reads what it shows and when it ends, as the bench's `Replay` does. Its record of play is
+    /// the scenario's. None if the field can't be set up.
+    pub fn scenario(
+        content: Arc<Content>,
+        scenario: &Scenario,
+        threaded: Threads,
+    ) -> Option<FieldSim> {
+        let at = (scenario.record.seed, scenario.record.captained);
+        let mut sim = FieldSim::open(content.clone(), at, &scenario.record.build, threaded)?;
+        sim.watch = Some((Watch::new(scenario, &content)?, false));
+        sim.record = scenario.text.lines().map(str::to_owned).collect();
+        Some(sim)
     }
 
     /// One tick (FormationField.step); its events, the builders' and waves' first.
     pub fn step(&mut self) -> FieldTold {
         let play = &mut self.play;
-        let (made, _) =
-            play.step(&mut self.squads, &mut self.field, &self.content, &mut self.events);
-        let flat = self.events.take();
+        let (made, flat) = match self.watch.as_mut() {
+            Some((watch, ended)) => {
+                let (made, flat, now) =
+                    watch.step(play, (&mut self.squads, &mut self.field), &self.content);
+                *ended |= now;
+                (made, flat)
+            }
+            None => {
+                let (made, _) =
+                    play.step(&mut self.squads, &mut self.field, &self.content, &mut self.events);
+                (made, self.events.take())
+            }
+        };
         let words = self.field.lexicon.words();
         (made, told::decoded(&flat, words, &play.play.codes.definitions))
     }
@@ -119,6 +168,10 @@ impl FieldSim {
             kingdom: play.kingdom.iter().map(|&s| self.squads.id[s]).collect(),
             waves: [play.counted(A, content), play.counted(B, content)],
             staging: play.staging_point(),
+            watched: self
+                .watch
+                .as_ref()
+                .map(|(w, ended)| Watched { seen: w.seen.clone(), ended: *ended }),
         }
     }
 }

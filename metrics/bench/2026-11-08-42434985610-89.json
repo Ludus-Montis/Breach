@@ -1,0 +1,70 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 138,
+    "pr": 286,
+    "sha": "73d24734c584a0e69aaa07e668b708435b05a50e",
+    "step": "step:38-1a",
+    "summary": "Late in the battle, \"groups (form up, split)\" cost about 131 ms a tick (bench runs 39043391384 and 39043393472). `FormationGroups._form_up` read the whole battle's RANK column twice and its POSITION column once for every pair of groups at ease, and under Rust each read copies every slot in the battle. Following Decision 150, it now:",
+    "title": "perf(groups): forming up reads its columns once a pass and finds pairs through a grid (spec 38 step 1a)"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-08",
+    "kind": "fresh",
+    "run_id": 42434985610,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/42434985610"
+  },
+  "reference": {
+    "commit": "eee3e81fc92b026f869fdfced2f16a5306884d0b",
+    "ratio": {
+      "tick": 1.009225
+    },
+    "results": {
+      "tick": {
+        "median": 487.8,
+        "unit": "ms",
+        "values": [
+          509.3,
+          487.8,
+          485.1,
+          486.0,
+          494.2
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 492.3,
+      "unit": "ms",
+      "values": [
+        503.7,
+        492.3,
+        482.4,
+        486.1,
+        495.9
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "sizes=1024"
+    ],
+    "blob": "de4fae294a8c47196ce23e0ab58241b6f4281e0f",
+    "harness": "formation_bench.gd",
+    "profile": "release",
+    "rounds": 5
+  }
+}

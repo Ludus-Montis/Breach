@@ -1,6 +1,6 @@
 ---
 name: design-check
-description: "Check a Breach design decision or simulation change against the project's standing principles before it is proposed, recorded or committed: a general rule over special cases (a special case needs the user's own reason), identity or spawn order never deciding outcomes, and per-tick work staying local and bounded. Use whenever proposing or recording a Decision, answering feel-test feedback with a rule change, or changing anything under sim/ that affects outcomes (targeting, ordering, tie-breaks, contests, movement, morale), and when invoked as /design-check."
+description: "Check a Breach design decision or simulation change against the project's standing principles before it is proposed, recorded or committed: a general rule over special cases (a special case needs the user's own reason), identity or spawn order never deciding outcomes, per-tick work staying local and bounded, and the round's riskiest assumption tested or scheduled. Use whenever proposing or recording a Decision, answering feel-test feedback with a rule change, or changing anything under sim/ that affects outcomes (targeting, ordering, tie-breaks, contests, movement, morale), and when invoked as /design-check."
 ---
 
 # Checking a design against the standing principles
@@ -86,7 +86,22 @@ For each pass the change adds or touches that runs every tick:
 
 Write the answer to the spec's `bounded-work` row, or a **Bounded** line in the Decision.
 
-## 4. Then
+## 4. The round's riskiest assumption (Decision 168)
+
+A design round opens with a pre-mortem, recorded as the spec's `## Pre-mortem`
+(`principles/agent-sessions.md` §3, `templates/pre-mortem.md`). This skill doesn't run
+it; it checks the follow-through:
+
+1. Does this decision or change rest on the round's riskiest assumption?
+2. If it does, has the cheapest test been run, or is it a step that runs before this
+   is built on? If neither, say so to the user before recording the Decision.
+3. If the round has no pre-mortem yet (a design session that skipped it), raise that
+   with the user rather than writing one alone at the end.
+
+Write the answer to the spec's `pre-mortem` row, or a **Riskiest assumption** line in
+the Decision when it applies.
+
+## 5. Then
 
 - Put the answers in the PR body under the rubric checklist.
 - If any check turned up something you didn't fix, say so plainly in the PR and to

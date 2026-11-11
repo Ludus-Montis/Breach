@@ -1,0 +1,72 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 113,
+    "pr": 237,
+    "sha": "3feab0361a1778065a48180c0f910a475d0b2e11",
+    "step": {
+      "na": "not-applicable"
+    },
+    "summary": "The series bench (#234 against `1cc4412`, the last commit before spec 35) found the tick 3.4% faster but the rout 52% slower: 60.9 \u2192 92.4 ms a tick at 4,096 a side, 10 ticks. Spec 35 had moved the fleeing entries into the store, and the rout read and wrote them with `columns.value`/`put`. On the native store each is a GDScript method call into the field, about 1 \u00b5s, and there were roughly 8,700 a tick at 1,024 a side. Before, they were dictionary reads costing a few hundredths of a microsecond.",
+    "title": "perf(formation): the rout reads its fleeing columns as typed arrays held for the pass"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-08",
+    "kind": "fresh",
+    "run_id": 42434985610,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/42434985610"
+  },
+  "reference": {
+    "commit": "eee3e81fc92b026f869fdfced2f16a5306884d0b",
+    "ratio": {
+      "tick": 1.01123
+    },
+    "results": {
+      "tick": {
+        "median": 400.7,
+        "unit": "ms",
+        "values": [
+          400.7,
+          403.7,
+          399.1,
+          403.8,
+          397.3
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 405.2,
+      "unit": "ms",
+      "values": [
+        404.5,
+        405.9,
+        405.2,
+        404.6,
+        407.3
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "sizes=1024"
+    ],
+    "blob": "de4fae294a8c47196ce23e0ab58241b6f4281e0f",
+    "harness": "formation_bench.gd",
+    "profile": "release",
+    "rounds": 5
+  }
+}

@@ -7721,3 +7721,258 @@ measurement".
 **Order:** not applicable.
 **Bounded:** not applicable.
 **Pillar check:** not applicable.
+
+### Decision 165 — A scaling model fitted on a small grid is checked against the measured 25k on each merge, and licenses estimates only between its points
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 159 (the 25k target) and Decision 162 (the bench history)
+
+**Rationale:** The owner asked (#820) for 25k (24,576 a side, 49,152 units, the target of
+Decision 159) to be tracked on each merge in both shapes, with a model fitted on smaller runs
+drawn beside it, so that smaller runs can stand in for larger sizes if the model holds. The
+archived runs settled the model's form. Many squads of 1,024 grow linearly in squad count:
+14 harvested pairs of `preset=4096` and `preset=25k` on the same commit and runner give
+×4.8 to ×7.4 (×6 is linear, ×36 quadratic). One squad bends upward: ×2.33, ×2.58 and ×2.92 a
+doubling in the fight from 3,072 to 24,576 a side (main `1156225`). Fitted to 3,072, 6,144
+and 12,288 only, `t = b·x + c·x²` predicted 24,576 within 0.5% (584 ms against 587); a power
+law missed by 17%.
+- **The model:** for each shape, `t(x) = b·x + c·x²`, `x` the units a side, `b` and `c` at
+  least 0 (non-negative least squares), fitted to the grid's mean tick. `c·x²/t` is the
+  tick's quadratic share. The form is the one in force until the data shows otherwise; a
+  change refits the whole history, because the fit is computed from the stored measurements,
+  never stored itself.
+- **The grid and the check:** lanes of 1,024 at 1, 4 and 8 lanes, and one squad at 2,048,
+  4,096, 8,192 and 12,288 a side, fit the model. Both shapes at 24,576 a side (24 lanes; one
+  squad) are measured on every merge and never fitted, so they check it.
+- **Tolerance:** the miss is (predicted − measured) ÷ measured at 24,576 a side, each point
+  the median of 5 rounds. A miss beyond 10% flags that merge on the page and in its data PR,
+  and blocks nothing. Two flagged merges in a row on one shape mean the form no longer fits:
+  the data PR says so, and a `question` issue reopens the form.
+- **What it licenses:** while within tolerance, the fit stands in for a run of either shape
+  at any size between its smallest grid point and 24,576 a side. Beyond 24,576 a side, or for
+  another shape (another squad size, mixed terrain, archers, retreats), it is an estimate to
+  be measured, drawn and labelled as one. The 24,576 measurement is never dropped for it.
+- **Goals:** Decision 159's target (p95 and p99 at most 50 ms at 24,576 a side, as 24 lanes
+  of 1,024) and its interim bar (100 ms) are drawn on the 25k chart as written. The 4,096
+  chart's "on track" lines are derived from the lanes fit (the 4-lane tick at which the fit
+  predicts 50 ms, and 100 ms, at 24 lanes), not set as goals of their own.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A power law `a·x^k` per shape | Can't follow one squad's rising growth: 17% short at 24,576 from the archived runs. |
+| 8,192 a side in place of 25k | Still a 3× extrapolation, over the range where one squad's growth steepens. |
+| Fit 24,576 with the grid | The check would grade the model on its own input. |
+| A fixed 4,096 goal | A second number to keep in step with Decision 159; derived, it follows the fit. |
+
+**Consequences:** spec 43 step 8 builds the series, its backfill and its chart.
+
+**Rules over cases:** general: a fitted series is evidence between its measured points, an
+estimate beyond them, and the point it is checked against stays measured. One form and one
+tolerance for every shape.
+**Order:** not applicable; no simulation outcome changes. "Two in a row" follows merge order
+on `main`.
+**Bounded:** not applicable as a change. The series measures bounded work: one squad at
+24,576 a side was about 62% quadratic on `1156225`, as Decision 159 found (×2.92 a doubling).
+`breach_scaling`'s CI limit (×3) is looser than Decision 159's ×2.2; left to a later session.
+**Pillar check:** not applicable.
+
+### Decision 166 — The Pages site is the project's site, one tab a page, Metrics first and Showcase second
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 162 (the metrics history) and spec 43 step 7 (the tick history page)
+
+**Rationale:** The owner wants the GitHub Pages site (https://ludus-montis.github.io/Breach/)
+to hold every page worth seeing about the project, not only the metrics. The tick history
+page and the per-PR gameplay captures (Decision 167) are the first two. Spec 43 left "the
+Pages site as a project site" to a later design session; this is it.
+- **One shell, one folder a tab.** The site is a shell page with a tab bar, and each tab is a
+  self-contained folder (its own HTML, JS, CSS and data) under `tools/site/<tab>/`, or where
+  the tab's tool already lives. A new page is a new folder and one line in the shell's list
+  of tabs. No tab reads another's files.
+- **Routing by `#name`.** `#metrics` and `#showcase`. The root URL, and any unknown name,
+  opens Metrics, so links to the page as it is today keep working.
+- **When it rebuilds.** On each push to `main` that changes a tab's data or code, and when a
+  capture is published (Decision 167). A newer build replaces a waiting one. Every tab's
+  data is built in the workflow, never committed, so data PRs never conflict over it.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A second Pages site or repo for the gameplay captures | GitHub Pages serves one site a repo; a second repo splits the project's record. |
+| Separate HTML pages linked from an index | No shared frame, and each page repeats the navigation. The shell gives one. |
+| Path routes (`/metrics/`) | Pages has no rewrites, so a deep link 404s unless each path is its own copy of the shell. |
+
+**Consequences:** spec 44 step 4 builds the shell and moves the tick history page into it
+unchanged; the `metrics-pages` workflow becomes `site-pages`.
+
+**Rules over cases:** general: every page is a tab, a tab is a folder, and a tab's data is
+built, never committed.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
+
+### Decision 167 — Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Extends:** Decision 166 (the project site)
+
+**Rationale:** The owner asked that visual progress be visible on every PR, so a PR shows the
+game and not only test counts, and an agent can critique the frames. In the owner's words:
+"Each PR that materially touches the game, whether the sim or presentation."
+- **What is captured.** The real skirmish scene, started with `--capture`: one fixed map, one
+  fixed wave, seed 1, the scene's own camera, never a separate demo scene. Godot's Movie
+  Maker mode (`--write-movie`) renders it at a fixed frame rate tied to the tick, under xvfb
+  with software rendering, so one commit gives the same frames on every run. Out of it: a
+  WebM clip of the wave (capped in length) and four stills at fixed moments: the first tick,
+  first contact (the first tick with damage), the midpoint and the last tick.
+- **Which PRs.** Decided by the files changed, never by the commit type: a PR whose diff
+  touches what the shipped game is built from (`presentation/`, `core/`, `native/`,
+  `content/`, `assets/`, `main.tscn`, `project.godot`, `.md` files excepted). Docs, specs,
+  tests, CI, tools and `metrics/` alone don't. A new push cancels the PR's capture still
+  running.
+- **Where it is kept.** As GitHub release assets, never in git: about 15 game PRs a day at a
+  few MB each would add about 1 GB a month to every clone. One pre-release a month,
+  `showcase-YYYY-MM` (a release holds at most 1,000 files), and one `manifest.json` listing
+  every capture, which the site's build reads.
+- **What is kept.** An open PR keeps its last two captures, so it can be compared with
+  itself. Once it closes, merged or not, only its last is kept. Every PR's last capture is
+  kept for good.
+- **Where it shows.** On the PR: one comment, edited in place on each capture, with the
+  stills and a link to the Showcase tab. A PR closed before its capture finishes gets none.
+  On the site: the Showcase tab, a timeline newest first of open (marked) and closed PRs,
+  each with its stills and a player, and a toggle comparing a capture with the one before
+  (the PR's previous capture while open, the previous merged PR's once merged).
+- **Advisory only.** A capture blocks nothing, and a failed capture is reported on the PR,
+  not as a red check.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Record a live run under xvfb (ffmpeg `x11grab`) | Wall-clock timing: frames differ run to run, so a comparison shows noise. |
+| Actions artifacts | Expire in 90 days and need a sign-in to view; can't be shown on Pages. |
+| An orphan git branch of clips | Every clone grows by every clip ever kept. |
+| A replay of the simulation's state, drawn in the browser, in place of clips | About 10× smaller, but draws the simulation, not the game: a presentation change looks the same in it. Kept as a later question (Q41, #828). |
+| A playable web build on the site | Needs a web export and the Rust core in wasm, and threads Pages can't serve. Not now. |
+
+**Consequences:** spec 44 builds it: the spike, `--capture`, the workflow, the site shell, the
+Showcase tab, and, last and optional, an agent's critique of the stills.
+
+**Rules over cases:** general: the files a PR changes decide whether it is captured; every
+capture is the same scenario at the same moments; one retention rule for every PR.
+**Order:** not applicable; no simulation outcome changes. The capture runs the real
+simulation unchanged.
+**Bounded:** not applicable to the tick. One capture job per push to a game PR, cancelled by
+the next.
+**Pillar check:** not applicable.
+
+### Decision 168 — A design round opens with a pre-mortem, recorded in its spec
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+
+**Rationale:** The owner's direction, from a review of how sessions have gone: at the start
+of each design round, ask "What will we regret in a month? What is the riskiest assumption,
+and what is the cheapest test of it?" Asked before options are explored, the answers can
+still change the design; asked at the end, the risky assumption is already built in.
+- **When:** once per design round, before options are discussed. Not once per Decision.
+- **Where it lands:** a `## Pre-mortem` section in the round's spec, with three lines: the
+  regret, the riskiest assumption, and its cheapest test. The spec is the hand-over, so it
+  reaches the implementation session, which doesn't reopen it.
+- **The cheapest test is scheduled.** It becomes the round's first step, or the section
+  says why it is already answered (a trial, a bench, a feel test the owner has done).
+- **Checked:** the spec-baseline rubric's `pre-mortem` row, and `/design-check` asks whether
+  a Decision that rests on the riskiest assumption has its test run or scheduled.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Put the pre-mortem in `/design-check` | It runs per Decision and late, and implementation sessions run it too. |
+| Ask it in conversation only | Lost when the design session ends; the next session never sees it. |
+
+**Consequences:** the development kit carries it (`principles/agent-sessions.md` §3, `templates/pre-mortem.md`, the spec-baseline `pre-mortem` row); `CLAUDE.md`'s Design
+bullet points to it; specs written from here on carry a `## Pre-mortem` section. Specs
+already written are not changed.
+
+**Rules over cases:** general: every design round opens with the same three questions.
+**Order:** not applicable.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
+
+### Decision 169 — The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-08
+**Amends:** Decision 167 (what is captured)
+
+**Rationale:** Spec 44's spike (step 1, #838) showed the capture works. Its frames are
+byte-identical run to run, it takes about 1.2 s of wall time per second of play, and both
+Chromium and Firefox play the clip. But the scene was the wrong one. `formation_skirmish.tscn`'s
+camera fits the whole map, too small to read, and with no orders nothing reaches a fight in
+10 s. The owner is most interested in what the 2D field shows: "fording, flanking, engaging,
+breaking off, cornering, routing". The owner also asked that the capture tie into the bench
+while the simulation is being optimised: "to have a representative replay would be beneficial
+to tie into the bench at that point, mostly for comparison between true game view and bench
+performance".
+- **What is captured: named scenarios.** A scenario is a name, a map, an order log (a
+  FormationRecord, Decision 115, whose header carries the seed) and the events it is named for.
+  The capture plays each scenario on the list. Each scenario gets its own clip and four stills,
+  at Decision 167's moments. Decision 167's "one fixed map, one fixed wave, seed 1" is replaced.
+- **The scene: the 2D field until Q25's map exists.** `formation_field.tscn` is the only scene
+  that draws bodies where they stand, and the fallen (Decision 106). It stands in until Q25's
+  game-like map (#280) can play a scenario. The scene is started with `--capture`, as Decision
+  167 says, never as a separate demo scene. Its camera frames the whole field at a size that
+  reads; the movie's size is set to fit it.
+- **One list for the capture and the bench.** Scenarios live in one named list in
+  `content/scenarios/`. The capture plays a name. `breach_tick_phases scenario=<name>` times
+  the same replay headless. The capture job times each scenario on its own commit (5 rounds),
+  so every clip, open PRs included, shows that commit's tick timings beside it on the Showcase
+  tab. When a scenario plays one of the bench's battles (the presets `4096` and `25k`, once a
+  map can draw them), it takes that preset's name. Until then, the field's scenarios are named
+  `field_<what it shows>`.
+- **Each scenario checks itself.** A scenario lists the behaviours it is named for, each read
+  from the replay's event log (engaged, flanked, disengaged, routed and so on) or, where no
+  event marks it, from where units stand (a ford crossed). The capture reports a behaviour it
+  no longer sees ("flanked: not seen"). This is advisory, like the rest of the capture: a
+  simulation change that stops a flank happening is shown, not failed.
+- **Length: at most 90 seconds of play.** This replaces 30 s. A scenario ends when its
+  battle does or at 90 s, whichever comes first.
+- **Who records the order logs.** An implementation step drafts each scenario's record and
+  the behaviours it must show. The PR's own capture is the owner's review. The owner may
+  replace a record with one played and copied out of the field.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep `formation_skirmish.tscn` | Too zoomed out, and it draws units on their places, not where they stand (#280). Nothing reaches a fight without orders. |
+| The owner plays every record | Holds step 2 on the owner's time. The owner can still swap a record in. |
+| Reuse the digest's five field logs as they are | They don't set out to show fording or cornering. They are a starting point for the drafts, not the list. |
+| Show the commit's per-merge bench record (`preset=4096`) beside the clip | Times a different battle from the one shown, and open PRs have none. |
+| One scenario showing all six behaviours | One record has to do everything, and one missed behaviour spoils the clip. |
+
+**Consequences:** spec 44's steps 2, 3 and 5 are rewritten: step 2 is the scenario list,
+`--capture` on the field and `scenario=` on `breach_tick_phases`; step 3 makes a clip per
+scenario and times each one; step 5 shows the timings and what each scenario saw. Q25 (#280)
+gains a requirement: its map plays a named scenario with `--capture`, and when it does, the
+capture moves to it.
+
+**Rules over cases:** general: every capture plays every scenario on one list, each the same
+way. Every scenario is a map, a record and the behaviours it must show, and its timings come
+from the same replay.
+**Order:** not applicable. No simulation outcome changes; the capture and the bench replay the
+real simulation unchanged.
+**Bounded:** not applicable to the tick. One capture job per push to a game PR, cancelled by
+the next. Each scenario adds about 2 minutes of runner time (90 s of play at 1.2 s per second)
+and its timing rounds.
+**Riskiest assumption:** that a fixed order log keeps showing what it was recorded for as the
+simulation changes. It is tested first in spec 44 step 2, and checked by every capture after
+that (the behaviours reported as not seen).
+**Pillar check:** not applicable.

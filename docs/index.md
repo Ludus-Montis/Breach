@@ -17,8 +17,17 @@ Task-oriented. Steps to achieve a specific goal.
 - [Replace the placeholder art](../assets/placeholder/README.md)
 - [Run a spec's steps back to back, one session each](../.claude/skills/cascade/SKILL.md)
   (`/cascade`; why it works this way: [agent sessions, rule 8](../AI_First_Development_Kit/principles/agent-sessions.md#8-a-long-series-of-steps-runs-as-a-cascade))
+- [Open a design round with a pre-mortem](../AI_First_Development_Kit/templates/pre-mortem.md)
+  (why: [agent sessions, rule 3](../AI_First_Development_Kit/principles/agent-sessions.md#3-design-and-implementation-are-separate-sessions), Decision 168)
 - [Archive the bench and sim-checks logs before they expire](../ci/metrics/README.md)
 - [The metrics records, their schema and check, and data-only PRs](../ci/metrics/README.md#the-records-and-their-check)
+- [The data-PR route: measuring workflows merge their own data PRs](../ci/metrics/README.md#the-data-pr-route)
+- [The bench history: a record for each merge that touches the simulation](../ci/metrics/README.md#bench-records)
+- [The bench history's backfill, from 2026-10-14](../ci/metrics/README.md#the-backfill)
+- [Harvest the archived logs into records](../ci/metrics/README.md#harvest-the-archived-logs)
+- [The project site: its tabs, how one is added and how it is published](../tools/site/README.md)
+- [The tick history page, on the web or from disk](../tools/metrics_view/README.md)
+- [The Showcase tab: each game PR's clips, stills and timings, and how to compare them](../tools/showcase_view/README.md)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 
@@ -30,6 +39,8 @@ Information-oriented. Precise descriptions of APIs, config, formats.
 - [The GitHub sync: labels, milestones and step issues](../ci/github/README.md),
   [the Project's Status per PR](../ci/github/README.md#the-projects-status),
   and [the Project backfill](../ci/github/README.md#the-project-backfill)
+- [The showcase's scenarios: the list, its records and how each behaviour is read](../content/scenarios/README.md)
+- [The showcase capture: which PRs, what it makes, where it is kept, the PR comment](../ci/showcase/README.md)
 - [Specs, one per feature or round](../specs/)
 - [The outcome trace: the digest's per-tick JSON lines](../specs/37-outcome-trace.md#settled)
 

@@ -1,0 +1,72 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 95,
+    "pr": 216,
+    "sha": "826e2cb89bf872b506bdd253d15153bf17d790ba",
+    "step": {
+      "na": "not-applicable"
+    },
+    "summary": "Spec 35 step 1b: a loose unit's `at` and a fleeing unit's `offset` move off their entries and into the unit store, as the `LOOSE_AT` and `FLEE_OFFSET` columns. A new `FLAGS` column has `LOOSE` and `FLEEING` bits that say whether a unit has each entry. Entries are given and taken away only through the new `SquadEntries`, so the bits always match them. Every reader and writer switched in this PR: no forwarding. Outcomes don't change. The digest rebuilds the entries with `\"at\"`/`\"offset\"` from the store, so its bytes are unchanged.",
+    "title": "feat(formation): loose and fleeing places live in the unit store"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-08",
+    "kind": "fresh",
+    "run_id": 42434985610,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/42434985610"
+  },
+  "reference": {
+    "commit": "eee3e81fc92b026f869fdfced2f16a5306884d0b",
+    "ratio": {
+      "tick": 0.999587
+    },
+    "results": {
+      "tick": {
+        "median": 484.3,
+        "unit": "ms",
+        "values": [
+          484.4,
+          484.3,
+          483.8,
+          481.6,
+          484.5
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 484.1,
+      "unit": "ms",
+      "values": [
+        482.3,
+        481.3,
+        484.1,
+        484.7,
+        485.2
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "sizes=1024"
+    ],
+    "blob": "de4fae294a8c47196ce23e0ab58241b6f4281e0f",
+    "harness": "formation_bench.gd",
+    "profile": "release",
+    "rounds": 5
+  }
+}

@@ -11,7 +11,8 @@ How sessions work together is `principles/agent-sessions.md`.
 ## Non-negotiables
 
 - **Every change goes on a branch and through a PR, and the user merges.** Never merge,
-  and don't poll CI after opening a PR. The one exception: `bench`, `metrics-archive` and
+  and don't poll CI after opening a PR: turn on the app's Auto-fix for it instead, which
+  wakes the session when CI fails (`/run-phase` step 6). The one exception: `bench`, `metrics-archive` and
   `bench-series` merge their own data-only PRs under `metrics/` (Decisions 163 and 164).
   Use `/run-phase` (`.claude/skills/run-phase/`).
   The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;
@@ -36,7 +37,8 @@ How sessions work together is `principles/agent-sessions.md`.
 - **Documentation is part of done** (`principles/documentation-phases.md`, Decision 149).
   Before a PR: the impact assessment, then `README.md`, `CHANGELOG.md` and `docs/`, each
   updated or marked N/A with a reason in the PR's Documentation block. CI's `docs-gate`
-  runs `AI_First_Development_Kit/scripts/check-docs.sh`.
+  runs `AI_First_Development_Kit/scripts/check-docs.sh`. With no `CHANGELOG.md` entry, the
+  PR body must hold the line `Changelog: N/A (<reason>)`, worded exactly so, or the gate fails.
 - **Every finished step names the next command.** The last message of a step gives the
   exact next command (`/run-phase spec N step M`), or says the next work needs a design
   session and names its subject. The user starts it in a new session.
@@ -54,7 +56,9 @@ How sessions work together is `principles/agent-sessions.md`.
 
 ## Which session are you?
 
-- **Design:** you discuss options with the user, one subject at a time. You write
+- **Design:** you discuss options with the user, one subject at a time. You open each
+  round with a pre-mortem before any options (`principles/agent-sessions.md` §3,
+  Decision 168): regret in a month, riskiest assumption, cheapest test. You write
   Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
   (how: `OPEN_QUESTIONS.md`'s header). You don't write code. You finish a round by pushing a
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for

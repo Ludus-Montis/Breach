@@ -1,0 +1,151 @@
+{
+  "archived": {
+    "by_run": "42412663531",
+    "date": "2026-11-07"
+  },
+  "inputs_from_log": {
+    "ARGS": "preset=4096",
+    "BASE": "origin/main",
+    "BASE_ARGS": "",
+    "HEAD_NAME": "feature/seek-claims-settled-in-rounds",
+    "HEAD_REF": "feature/seek-claims-settled-in-rounds",
+    "ROUNDS": "5",
+    "SCALE": "",
+    "TOOL": "breach_tick_phases"
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-11-06T16:33:13Z",
+      "conclusion": "success",
+      "id": 128006502422,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "bench",
+      "runner_group_name": "GitHub Actions",
+      "runner_image": {
+        "image": "ubuntu-26.04",
+        "version": "20261028.624"
+      },
+      "runner_name": "GitHub Actions 1000007351",
+      "started_at": "2026-11-06T16:19:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-11-06T16:19:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-11-06T16:19:02Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:19:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "started_at": "2026-11-06T16:19:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:19:16Z",
+          "conclusion": "success",
+          "name": "Cache Rust build",
+          "number": 3,
+          "started_at": "2026-11-06T16:19:05Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:19:17Z",
+          "conclusion": "success",
+          "name": "Check out the head",
+          "number": 4,
+          "started_at": "2026-11-06T16:19:16Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:19:17Z",
+          "conclusion": "success",
+          "name": "Check out the base",
+          "number": 5,
+          "started_at": "2026-11-06T16:19:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:08Z",
+          "conclusion": "success",
+          "name": "Run on this branch and the base",
+          "number": 6,
+          "started_at": "2026-11-06T16:19:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:08Z",
+          "conclusion": "skipped",
+          "name": "Profile the head",
+          "number": 7,
+          "started_at": "2026-11-06T16:33:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:08Z",
+          "conclusion": "success",
+          "name": "Summary",
+          "number": 8,
+          "started_at": "2026-11-06T16:33:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:09Z",
+          "conclusion": "success",
+          "name": "Post Cache Rust build",
+          "number": 15,
+          "started_at": "2026-11-06T16:33:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:10Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 16,
+          "started_at": "2026-11-06T16:33:09Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-11-06T16:33:10Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "started_at": "2026-11-06T16:33:10Z",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "file": "42251215259.log",
+    "jobs": [
+      "bench"
+    ]
+  },
+  "run": {
+    "actor": "SSidey",
+    "conclusion": "success",
+    "created_at": "2026-11-06T16:18:57Z",
+    "display_title": "Bench",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "head_commit_message": "fix(ci): metrics-archive keeps the first sim-checks runs and survives a dropped download (#774)\n\nThe first archive run stopped at a cut-off log download (IncompleteRead),\nand `| tee` hid the failure, so it showed green. It also kept nothing for\nthe sim-checks runs of 2026-10-14 and 15, which ran everything in one job\nnamed `sim-checks`, and wrote empty .log files where the digest and\nscaling jobs were skipped.\n\n- Each read is retried (2, 4, 8 s); a download that still fails leaves\n  its run out, names it and exits 1, and a later run takes it.\n- The step runs with pipefail; the push step runs unless cancelled, so a\n  partial archive is still pushed while the run shows red.\n- A job whose name isn't kept keeps its kept steps' sections, matched to\n  the steps that ran in turn, or its whole log where they don't match.\n- Nothing to keep: {\"na\": \"not-applicable\"} and no .log; a skipped job's\n  runner image is not-applicable too.\n\n\nClaude-Session: https://claude.ai/code/session_011AyPi27hiWYpRQB4fhW5kr\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+    "head_sha": "f0e1a4cc201e0f239c44bbf79dcc2a8211706d0f",
+    "html_url": "https://github.com/Ludus-Montis/Breach/actions/runs/42251215259",
+    "id": 42251215259,
+    "name": "Bench",
+    "path": ".github/workflows/bench.yml",
+    "run_attempt": 1,
+    "run_number": 92,
+    "run_started_at": "2026-11-06T16:18:57Z",
+    "status": "completed",
+    "updated_at": "2026-11-06T16:33:13Z"
+  },
+  "workflow": "bench.yml"
+}

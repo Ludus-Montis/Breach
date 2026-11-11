@@ -196,7 +196,9 @@ until its documentation is. Read only the sections the change touches.
 3. **Changelog** (`CHANGELOG.md`): one line per notable change under `## [Unreleased]`,
    written for the player or designer ("Squads now X", not "Moved Y into Z"). A refactor,
    a speed-up nobody sees, tests or CI: `Changelog: N/A (<reason>)` in the PR body, which
-   the `docs-gate` check reads.
+   the `docs-gate` check reads. **Write exactly that, on one line, label first.** Rewording
+   it ("No changelog", "Changelog not needed") fails the gate; this has cost a fix-up on
+   several PRs.
 4. **Docs** (`docs/index.md`, Diátaxis): add or fix the page in its quadrant and link it
    from the index. A tool's own README stays where it is and is linked. Decisions are this
    project's ADRs: never write a separate ADR, and never record a Decision yourself without
@@ -237,6 +239,16 @@ Then close the step's issue from the PR (spec 40). `github-sync` makes one issue
 `Closes #<it>` to the PR body (`update_pull_request`). A PR that builds two steps closes
 both. If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
+
+Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
+`/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
+tools), bind it with `bind_pr` if it isn't reported, then `set_monitor` with
+`auto_fix: true` and the PR's url. The app then wakes this session on a CI failure, a
+merge conflict or a review comment; answer each the way the next paragraphs say (read the
+failing test's part of the log, run that one file, push a fix to the same branch). That
+is the app watching, not this session polling, so it keeps the rule below. Where the
+`ccd_pr` tools aren't there (some cloud sessions), skip this and say in the hand-off that
+Auto-fix is off, so the owner can turn it on from the PR pane.
 
 **Do not poll or watch CI to completion after opening the PR.** Notify the user that
 the PR is open (a link and a short summary of what landed), **end with the exact next

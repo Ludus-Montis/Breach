@@ -271,6 +271,13 @@ the GDScript passes they ported where they match. A second battle steps untimed 
 timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
 copies no columns across the Godot boundary.
 
+`scenario=<name> [threaded=…]` (spec 44 step 2b, `src/scenarios/timed.rs`) times a named
+scenario from `content/scenarios/` instead: the same replay the showcase's capture plays, every
+tick from the first to the scenario's end, printed as `series=1` prints (its header to two
+decimals, the field's tick being small), so the `bench` workflow takes it as `args` unchanged.
+An untimed replay steps beside it, with the same WARNING. It plays its own record: the battle's
+arguments beside it exit 2, as does a name not on the list.
+
 `series=1 [limit=600]` (spec 38 step 2, built in spec 39 step 8c-xx, `src/phases/series.rs`)
 times every tick from contact (`settle` is 0 unless given) until one side no longer stands or
 `limit` ticks, instead of `fight` ticks. The phase lines then carry the series' means, and a

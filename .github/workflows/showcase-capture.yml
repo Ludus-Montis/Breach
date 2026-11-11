@@ -1,0 +1,198 @@
+name: showcase-capture
+
+# Spec 44 step 3, Decisions 167 and 169. On a PR that changes the game
+# (ci/showcase/is_game_change.py), every scenario on content/scenarios/scenarios.json is played
+# on the 2D field under Movie Maker (xvfb, Mesa), at 1280x720 and 30 fps: a WebM clip (VP9, at
+# most 5 MB) and four WebP stills at the capture's moments, then 5 rounds of
+# `breach_tick_phases scenario=<name>` for its timings (ci/showcase/capture.sh). They go to the
+# pre-release showcase-YYYY-MM; the PR's record (pr-<N>.json) and manifest.json go to the
+# pre-release showcase-index (ci/showcase/index.sh); one PR comment, edited in place, shows the
+# stills. Retention: an open PR keeps its last two captures, a closed one its last.
+#
+# Advisory only: every step that can fail continues on error, a failure edits the comment to
+# say so, and the PR's checks stay as they were. A PR from a fork is skipped. One group a PR:
+# a new push, or the PR closing, cancels the capture still running.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: showcase-capture-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write        # the pre-releases and their assets
+  pull-requests: write   # the PR comment
+  issues: write          # the comment goes through the issues API
+  actions: write         # dispatching the site build
+
+env:
+  GODOT_VERSION: "4.7.2-stable"
+  INDEX: showcase-index
+  PR: ${{ github.event.pull_request.number }}
+  SHA: ${{ github.event.pull_request.head.sha }}
+  SITE: https://ludus-montis.github.io/Breach/#showcase
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      game: ${{ steps.game.outputs.game }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: The showcase scripts' own tests
+        run: python3 -m unittest discover -s ci/showcase -p "test_*.py"
+
+      - name: Does this PR change the game?
+        id: game
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "Showcase capture skipped: a PR from a fork ($HEAD_REPO) can't publish." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "game=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 ci/showcase/is_game_change.py "origin/${{ github.base_ref }}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  capture:
+    needs: decide
+    if: needs.decide.outputs.game == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install xvfb, Mesa and ffmpeg
+        id: apt
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends \
+            xvfb xauth mesa-vulkan-drivers libvulkan1 libgl1-mesa-dri libglx-mesa0 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 ffmpeg > /dev/null
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Build the Rust core
+        id: build
+        if: steps.apt.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 25
+        run: JOBS=4 bash native/build.sh release 2>&1 | tail -3
+
+      - uses: ./.github/actions/godot
+        id: godot
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Capture every scenario
+        id: capture
+        if: steps.godot.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 45
+        run: |
+          echo "RELEASE=showcase-$(date -u +%Y-%m)" >> "$GITHUB_ENV"
+          bash ci/showcase/capture.sh "$PR" "$SHA" "showcase-$(date -u +%Y-%m)" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" out
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: showcase-capture
+          path: |
+            out/capture.json
+            out/work/*.log
+            out/work/*.capture.json
+            out/work/*.t1.txt
+          retention-days: 14
+
+      - name: Publish the capture
+        id: publish
+        if: steps.capture.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ github.event.pull_request.title }}
+          URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh release view "$RELEASE" > /dev/null 2>&1 || \
+            gh release create "$RELEASE" --prerelease --title "Showcase $RELEASE" \
+              --notes "Showcase captures (spec 44, Decision 167); listed in $INDEX's manifest.json."
+          gh release view "$INDEX" > /dev/null 2>&1 || \
+            gh release create "$INDEX" --prerelease --title "Showcase index" \
+              --notes "Each PR's showcase record and manifest.json, which the site reads."
+          gh release upload "$RELEASE" out/assets/* --clobber
+          mkdir -p idx
+          gh release download "$INDEX" -p "pr-$PR.json" -D idx 2>/dev/null || true
+          python3 ci/showcase/manifest.py add "idx/pr-$PR.json" out/capture.json \
+            "$PR" "$TITLE" "$URL" > removed.txt
+          bash ci/showcase/index.sh "idx/pr-$PR.json" removed.txt
+
+      - name: The PR comment
+        if: steps.publish.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 ci/showcase/comment.py body out/capture.json "$SITE" > comment.md
+          bash ci/showcase/post_comment.sh "$PR" comment.md
+
+      - name: Say the capture failed
+        if: >-
+          !cancelled() && (steps.apt.outcome == 'failure' || steps.build.outcome == 'failure' ||
+          steps.godot.outcome == 'failure' || steps.capture.outcome == 'failure' ||
+          steps.publish.outcome == 'failure')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 ci/showcase/comment.py failed \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "$SHA" > comment.md
+          bash ci/showcase/post_comment.sh "$PR" comment.md
+          echo "Showcase capture failed (advisory): see the steps above." >> "$GITHUB_STEP_SUMMARY"
+
+  # On close, merged or not, the PR keeps only its last capture. No new capture is made.
+  close:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Keep only the last capture
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ github.event.pull_request.title }}
+          URL: ${{ github.event.pull_request.html_url }}
+          STATE: ${{ github.event.pull_request.merged && 'merged' || 'closed' }}
+          CLOSED_AT: ${{ github.event.pull_request.closed_at }}
+        run: |
+          mkdir -p idx
+          if ! gh release download "$INDEX" -p "pr-$PR.json" -D idx 2>/dev/null; then
+            echo "PR $PR has no showcase record; nothing to keep." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 ci/showcase/manifest.py close "idx/pr-$PR.json" "$STATE" "$TITLE" "$CLOSED_AT" \
+            "$PR" "$URL" > removed.txt
+          bash ci/showcase/index.sh "idx/pr-$PR.json" removed.txt
