@@ -26,6 +26,11 @@ class ChartTest(unittest.TestCase):
         self.assertEqual(bench_chart.points(records, last=2),
                          [("bbbbbbb", 0.95), ("ccccccc", 0.9)])
 
+    def test_the_25k_set_s_records_stay_off_the_4096_chart(self):
+        check = record("b", 20, 0.5)
+        check["source"]["args"] = ["side=24576", "squads=24", "series=1"]
+        self.assertEqual(bench_chart.points([record("a", 10, 1.0), check]), [("aaaaaaa", 1.0)])
+
     def test_a_record_without_the_ratio_is_left_out(self):
         self.assertEqual(bench_chart.points([record("a", 10, None), record("b", 20, 1.1)]),
                          [("bbbbbbb", 1.1)])

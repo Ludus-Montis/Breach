@@ -22,6 +22,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [Archive the bench and sim-checks logs before they expire](../ci/metrics/README.md)
 - [The metrics records, their schema and check, and data-only PRs](../ci/metrics/README.md#the-records-and-their-check)
 - [The data-PR route: measuring workflows merge their own data PRs](../ci/metrics/README.md#the-data-pr-route)
+- [The 25k set: nine shapes timed on each merge, and the fit's miss at 24,576](../ci/metrics/README.md#the-25k-set)
 - [The bench history: a record for each merge that touches the simulation](../ci/metrics/README.md#bench-records)
 - [The bench history's backfill, from 2026-10-14](../ci/metrics/README.md#the-backfill)
 - [Harvest the archived logs into records](../ci/metrics/README.md#harvest-the-archived-logs)

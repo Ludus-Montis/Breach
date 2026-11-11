@@ -90,6 +90,13 @@ test('a commit benched twice draws its latest run', () => {
   assert.deepEqual(view.lines(records)[0].points.map((p) => p.tick), [48]);
 });
 
+test('the 25k set\'s records (series=1, step 8a) stay off the 4,096 line until their own chart', () => {
+  const set = record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(900) }, { run_id: 9 });
+  set.record.source.args = ['side=24576', 'squads=24', 'series=1'];
+  const records = [record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }, { run_id: 5 }), set];
+  assert.deepEqual(view.lines(records)[0].points.map((p) => p.tick), [50]);
+});
+
 test('each point links to its PR and its record', () => {
   const point = view.lines([record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) })])[0].points[0];
   assert.equal(point.pr, 'https://github.com/Ludus-Montis/Breach/pull/710');

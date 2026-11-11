@@ -35,7 +35,8 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   `breach_tick_phases` (cargo era, against the bridge `8ca4227`). A line breaks where a commit
   has no number (the harness failed there, or didn't run), and the eras are never joined;
   the bridge is marked, with the factor between the two `tick_phases`. Points are fresh
-  records. **Show harvested points** adds, hollow, the ones read from old logs, placed at their
+  records, apart from the 25k set's (`series=1`, spec 43 step 8a), which are left for their
+  own chart (step 8c). **Show harvested points** adds, hollow, the ones read from old logs, placed at their
   commit or at the `main` commit they were compared with: hidden by default, since they were
   mostly branch comparisons with other args and no shared reference. Hover a point for its
   numbers, click it for the rest.
