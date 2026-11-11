@@ -24,6 +24,7 @@ class FakeClient:
         self.sub_issues = []
         self.reopened = []
         self.milestone_writes = []
+        self.edited = []
 
     def add_issue(self, title, body="", labels=(), number=None, milestone=None, pull_request=False, merged=False, hidden=False):
         number = number if number is not None else 1000 + len(self.records)
@@ -85,6 +86,10 @@ class FakeClient:
         number = self.add_issue(title, body, labels, milestone=milestone)
         self.created_issues.append({"title": title, "body": body, "labels": labels, "milestone": milestone})
         return number
+
+    def update_issue_body(self, number, body):
+        self.records[number]["body"] = body
+        self.edited.append(number)
 
     def set_milestone(self, number, milestone):
         self.records[number]["milestone"] = milestone
