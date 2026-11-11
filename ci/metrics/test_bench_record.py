@@ -112,6 +112,60 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(path.name, "2026-11-07-42412663531-2.json")
 
 
+SERIES_ROUND = """machine: AMD EPYC 7763 64-Core Processor, 4 threads, Linux
+rust, 24576 a side, 32 wide: {tick} ms a tick
+  scrum: seek                             {seek}
+  deaths (bury)                            0.24
+series: 120 ticks from tick 9 (ms)     mean      95th     99th    worst  at tick
+  tick                                {tick}   {p95}   {p99}   99.00       40
+  scrum: seek                             {seek}    20.00    25.00    30.00       41
+"""
+
+
+def series_rounds(*rows):
+    """One `series=1` round per (mean, p95, p99)."""
+    return [SERIES_ROUND.format(tick=t, p95=p95, p99=p99, seek=f"{10.0 + i:.2f}")
+            for i, (t, p95, p99) in enumerate(rows)]
+
+
+class SeriesRecordTest(unittest.TestCase):
+    """Step 8a: a `series=1` shape's record holds the series' mean tick as `tick`, its 95th and
+    99th as `tick-p95` and `tick-p99`, each with its rounds and their median; a shape timed
+    without the bridge has no reference."""
+
+    def setUp(self):
+        self.out = Path(tempfile.mkdtemp())
+        self.head = series_rounds(("40.10", "52.00", "61.00"), ("40.30", "51.00", "63.00"),
+                                  ("40.20", "53.00", "62.00"))
+
+    def test_the_mean_and_the_percentiles_have_their_rounds_and_median(self):
+        results = bench_record.build_record(self.head, [], context())["results"]
+        self.assertEqual(results["tick"], {"unit": "ms", "values": [40.1, 40.3, 40.2],
+                                           "median": 40.2})
+        self.assertEqual(results["tick-p95"], {"unit": "ms", "values": [52.0, 51.0, 53.0],
+                                               "median": 52.0})
+        self.assertEqual(results["tick-p99"], {"unit": "ms", "values": [61.0, 63.0, 62.0],
+                                               "median": 62.0})
+        self.assertEqual(results["tick/scrum/seek"]["values"], [10.0, 11.0, 12.0])
+
+    def test_a_shape_without_the_bridge_has_no_reference(self):
+        self.assertNotIn("reference", bench_record.build_record(self.head, [], context()))
+
+    def test_a_check_beside_the_bridge_has_its_ratio(self):
+        bridge = series_rounds(("80.40", "100.00", "120.00"), ("80.20", "104.00", "126.00"),
+                               ("80.60", "102.00", "124.00"))
+        reference = bench_record.build_record(self.head, bridge, context())["reference"]
+        self.assertAlmostEqual(reference["ratio"]["tick"], 40.2 / 80.4, places=4)
+        self.assertAlmostEqual(reference["ratio"]["tick-p95"], 52.0 / 102.0, places=4)
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "jsonschema isn't installed")
+    def test_the_set_s_records_validate_and_are_numbered_apart(self):
+        record = bench_record.build_record(self.head, [], context())
+        path = bench_record.write_record(record, self.out, "2026-11-11", 42412663531, 1, 101)
+        self.assertEqual(path.name, "2026-11-11-42412663531-101.json")
+        self.assertEqual(check_records.check_file(path, self.out / "metrics", SCHEMA_DIR, {}), [])
+
+
 class CommitTest(unittest.TestCase):
     def test_the_pr_and_the_outcomes_trailer_are_read_from_the_message(self):
         self.assertEqual(bench_record.pr_number("fix(sim): x (#775)"), 775)

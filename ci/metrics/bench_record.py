@@ -9,8 +9,12 @@ measurement and the ratio of each median to the reference's. A run of a commit o
 A phase printed `0.00` in any round took under the printed resolution (0.005 ms): it is
 `{"na": "not-measured"}`, never 0 (the schema's gap rule), and has no ratio.
 
-    bench_record.py --head head_1.txt ... --reference reference_1.txt ... --sha <sha>
-        --reference-sha <sha> --args "<args>" --out <folder> [--main origin/main]
+    bench_record.py --head head_1.txt ... [--reference reference_1.txt ... --reference-sha <sha>]
+        --sha <sha> --args "<args>" --out <folder> [--main origin/main] [--number <n>]
+
+A `series=1` run (the 25k set, step 8a) also gets `tick-p95` and `tick-p99`, the rounds' 95th
+and 99th of the whole tick; with no `--reference` (a grid shape, timed without the bridge) the
+record has no `reference`. `--number` names one of several records a run writes.
 
 Run in the bench job: it reads the machine (lscpu, nproc, /proc/meminfo, /etc/os-release,
 rustc), the runner image (ImageOS, ImageVersion), the commit (git, and its PR through the API
@@ -26,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "godot" / "scripts"))
-from bench_compare import phases  # noqa: E402
+from bench_compare import phases, spreads  # noqa: E402
 
 HARNESS = "breach_tick_phases"
 SOURCE_FILE = "native/rust/src/bin/tick_phases.rs"
@@ -54,14 +58,25 @@ def measures(texts: list, parse=phases) -> dict:
     shared = set.intersection(*(set(run) for run in runs)) if runs else set()
     out = {}
     for name in sorted(shared):
-        values = [run[name] for run in runs]
-        if any(value <= 0 for value in values):
-            out[phase_path(name)] = {"unit": "ms", "values": dict(NOT_MEASURED),
-                                     "median": dict(NOT_MEASURED)}
-        else:
-            out[phase_path(name)] = {"unit": "ms", "values": values,
-                                     "median": statistics.median(values)}
+        out[phase_path(name)] = measure([run[name] for run in runs])
     return out
+
+
+def measure(values: list) -> dict:
+    """The rounds' values and their median; a gap when any round printed 0.00."""
+    if any(value <= 0 for value in values):
+        return {"unit": "ms", "values": dict(NOT_MEASURED), "median": dict(NOT_MEASURED)}
+    return {"unit": "ms", "values": values, "median": statistics.median(values)}
+
+
+def percentiles(texts: list) -> dict:
+    """`tick-p95` and `tick-p99` over the rounds of a `series=1` run (spec 43 step 8a): each
+    round's 95th and 99th of the whole tick; {} unless every round printed its series."""
+    found = [spreads(text).get("tick") for text in texts]
+    if not found or None in found:
+        return {}
+    return {"tick-p95": measure([spread[0] for spread in found]),
+            "tick-p99": measure([spread[1] for spread in found])}
 
 
 def ratios(results: dict, reference: dict) -> dict:
@@ -75,19 +90,23 @@ def ratios(results: dict, reference: dict) -> dict:
 
 
 def build_record(head_texts: list, reference_texts: list, context: dict) -> dict:
-    results = measures(head_texts)
-    reference = measures(reference_texts)
-    return {
+    """The record; with no reference rounds (a 25k grid shape, timed without the bridge) it
+    has no `reference`."""
+    results = {**measures(head_texts), **percentiles(head_texts)}
+    record = {
         "schema": "record-v1",
         "series": "bench",
         "commit": context["commit"],
         "source": context["source"],
         "machine": context["machine"],
         "results": results,
-        "reference": {"commit": context["reference_commit"], "results": reference,
-                      "ratio": ratios(results, reference)},
         "provenance": context["provenance"],
     }
+    if reference_texts:
+        reference = {**measures(reference_texts), **percentiles(reference_texts)}
+        record["reference"] = {"commit": context["reference_commit"], "results": reference,
+                               "ratio": ratios(results, reference)}
+    return record
 
 
 def write_record(record: dict, out, date: str, run_id, attempt, number=None) -> Path:
@@ -206,7 +225,8 @@ def main(argv: list) -> int:
         print(f"bench_record: {sha} isn't on {main_ref}'s first-parent line; no record")
         return 0
     head = [Path(p).read_text(encoding="utf-8") for p in files_after(argv, "--head")]
-    reference = [Path(p).read_text(encoding="utf-8") for p in files_after(argv, "--reference")]
+    reference = [Path(p).read_text(encoding="utf-8") for p in files_after(argv, "--reference")] \
+        if "--reference" in argv else []
     run_id = os.environ.get("GITHUB_RUN_ID", "0")
     date = datetime.now(timezone.utc).date().isoformat()
     context = {
@@ -219,14 +239,17 @@ def main(argv: list) -> int:
                        "url": f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
                               f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run_id}",
                        "date": date, "kind": "fresh"},
-        "reference_commit": git(".", "rev-parse", option(argv, "--reference-sha")),
+        "reference_commit": git(".", "rev-parse", option(argv, "--reference-sha"))
+        if reference else None,
     }
     record = build_record(head, reference, context)
     if not record["results"]:
         print("bench_record: a round printed no phases; no record")
         return 1
+    number = option(argv, "--number")
     path = write_record(record, option(argv, "--out"), date, run_id,
-                        os.environ.get("GITHUB_RUN_ATTEMPT", "1"))
+                        os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+                        int(number) if number else None)
     print(f"bench_record: wrote {path}")
     return 0
 

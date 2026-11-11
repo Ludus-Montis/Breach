@@ -83,10 +83,17 @@
     });
   }
 
+  // The 25k set's fresh records (`series=1` in their args, spec 43 step 8a) are another
+  // chart's (step 8c): on a harness's line they would take the 4,096 point's place.
+  function inSet(item) {
+    var args = item.record.source.args;
+    return kind(item) !== 'harvested' && Array.isArray(args) && args.indexOf('series=1') >= 0;
+  }
+
   function benchRecords(bundle) {
     return bundle.filter(function (item) {
       return item.record && item.record.series === 'bench' && item.record.source &&
-        item.record.results;
+        item.record.results && !inSet(item);
     });
   }
 

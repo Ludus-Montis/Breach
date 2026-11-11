@@ -36,6 +36,14 @@ name: Bench
 # The record goes through the data-PR route (.github/actions/metrics-pr), which merges itself
 # (Decision 164). A commit off main's first-parent line (a branch) writes none. Its summary
 # draws the last records' ratio to the reference (ci/metrics/bench_chart.py).
+#
+# The `record-25k` job (spec 43 step 8a, Decision 165) follows `record` on the same merges:
+# the 25k set, `breach_tick_phases ... series=1` on nine shapes (ci/metrics/bench_set.py
+# lists them), 5 rounds in turn, the bridge timed beside the two 24,576 checks only. One
+# record a shape, in one data PR (`bench-25k`) whose body holds each shape's miss at 24,576 and
+# its flags (ci/metrics/bench_set.py summary). A run that fails or times out writes nothing.
+# Its concurrency group queues and never cancels a running set; GitHub keeps one pending run
+# a group, so a third merge during a run replaces the second's pending one.
 
 on:
   push:
@@ -298,5 +306,99 @@ jobs:
         with:
           folder: ${{ runner.temp }}/metrics-new
           series: bench
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+
+  record-25k:
+    needs: record
+    if: github.event_name == 'push' || inputs.record
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: bench-record-25k
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
+      REF_TREE: trees/reference
+      SET_ROUNDS: "5"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Check out the reference
+        run: git worktree add "$REF_TREE" "$REFERENCE"
+
+      - name: Time the set, the checks beside the bridge, in turn
+        run: |
+          (JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          (cd "$REF_TREE" && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          python3 ci/metrics/bench_set.py shapes > shapes.txt
+          time_in() {
+            local err="$RUNNER_TEMP/stderr.txt"
+            (cd "$1" && native/bin/breach_tick_phases $2 series=1 2>"$err" < /dev/null) \
+              || { echo "::error::breach_tick_phases $2 series=1 failed in $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
+          }
+          for round in $(seq 1 "$SET_ROUNDS"); do
+            n=0
+            while IFS=$'\t' read -r shape bridge; do
+              n=$((n + 1))
+              if [ "$bridge" != bridge ]; then
+                time_in . "$shape" > "set_${n}_head_$round.txt"
+              elif [ $((round % 2)) -eq 1 ]; then
+                time_in . "$shape" > "set_${n}_head_$round.txt"
+                time_in "$REF_TREE" "$shape" > "set_${n}_reference_$round.txt"
+              else
+                time_in "$REF_TREE" "$shape" > "set_${n}_reference_$round.txt"
+                time_in . "$shape" > "set_${n}_head_$round.txt"
+              fi
+            done < shapes.txt
+          done
+
+      - name: Write the records
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/metrics-new"
+          n=0
+          while IFS=$'\t' read -r shape bridge; do
+            n=$((n + 1))
+            reference=()
+            if [ "$bridge" = bridge ]; then
+              reference=(--reference $(ls set_${n}_reference_*.txt | sort -V) --reference-sha "$REFERENCE")
+            fi
+            python3 ci/metrics/bench_record.py --head $(ls set_${n}_head_*.txt | sort -V) \
+              "${reference[@]}" --sha "$GITHUB_SHA" --args "$shape series=1" \
+              --number $((1000 * (${GITHUB_RUN_ATTEMPT:-1} - 1) + 100 + n)) \
+              --out "$RUNNER_TEMP/metrics-new"
+          done < shapes.txt
+
+      - name: Summary
+        id: summary
+        run: |
+          python3 ci/metrics/bench_set.py summary metrics/bench \
+            --new "$RUNNER_TEMP/metrics-new/metrics/bench" > set_summary.txt
+          { echo "SUMMARY BEGIN"; cat set_summary.txt; echo "SUMMARY END"; } | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "text<<SET_SUMMARY_END"; cat set_summary.txt; echo "SET_SUMMARY_END"; } >> "$GITHUB_OUTPUT"
+
+      - name: Open the data PR
+        uses: ./.github/actions/metrics-pr
+        with:
+          folder: ${{ runner.temp }}/metrics-new
+          series: bench-25k
+          summary: ${{ steps.summary.outputs.text }}
           app-id: ${{ vars.PROJECT_APP_ID }}
           private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}

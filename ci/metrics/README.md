@@ -106,6 +106,33 @@ summary compares the commit with the reference and draws the last 20 records' ti
 (`ci/metrics/bench_chart.py`). To record `main`'s head by hand, start **Bench** on `main`
 with **record** ticked; on any other branch it writes no record.
 
+### The 25k set
+
+`bench`'s `record-25k` job (spec 43 step 8a, Decision 165) follows `record` on the same merges.
+It times nine shapes with `breach_tick_phases <shape> series=1`, 5 rounds in turn
+(`ci/metrics/bench_set.py shapes` lists them):
+
+- the grid, which fits `t(x) = b·x + c·x²` (`x` units a side, `b` and `c` at least 0): lanes of
+  1,024 at `side=1024 squads=1`, `side=4096 squads=4` and `side=8192 squads=8`; one squad at
+  `side=2048`, `4096`, `8192` and `12288`;
+- the checks, never fitted: `side=24576 squads=24` and `side=24576 squads=1`, each with the
+  bridge `8ca4227` timed beside it, so their records have a `reference`. The grid's have none.
+
+Each shape is one record, `metrics/bench/<date>-<run id>-<1nn>.json`, with `source.args`
+naming the shape. `tick` is the series' mean tick, `tick-p95` and `tick-p99` its percentiles,
+each with its 5 rounds and median; the phases are their series means. All nine go in one data
+PR (`chore/metrics-bench-25k-<run id>`), whose body holds each shape's miss at 24,576 a side,
+(predicted − measured) ÷ measured, flagged beyond 10%, and "the form no longer fits" when the
+merge before on `main` was flagged on that shape too (`bench_set.py summary`). Raise a
+`question` issue then (Decision 165). The fit is never stored; the page computes it from the
+records (step 8c), tested against the same fixtures (`fixtures/bench_fit.json`). Until then,
+the tick history page and `bench_chart.py` leave out fresh `series=1` records, so the 4,096
+line keeps its points.
+
+A run that fails or times out (90 minutes) writes nothing. The job's concurrency group never
+cancels a running set, but GitHub keeps one pending run a group: a third merge during a run
+replaces the second's pending one, and that merge has no set.
+
 ## The backfill
 
 `bench-series` (spec 43 step 5) fills the history from before step 4: start it from the

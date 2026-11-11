@@ -11,6 +11,7 @@ from pathlib import Path
 
 PATH = "tick"
 HARNESS = "breach_tick_phases"
+SET_ARG = "series=1"
 
 
 def read(sources: list) -> list:
@@ -34,7 +35,9 @@ def points(records: list, last: int = 20) -> list:
         commit, source = record.get("commit") or {}, record.get("source") or {}
         ratio = _number(((record.get("reference") or {}).get("ratio") or {}).get(PATH))
         where = _number(commit.get("position"))
-        if source.get("harness") == HARNESS and ratio is not None and where is not None:
+        in_set = SET_ARG in (source.get("args") or [])  # the 25k set's (step 8a), not this chart's
+        if source.get("harness") == HARNESS and ratio is not None and where is not None \
+                and not in_set:
             found.append((where, str(commit.get("sha", ""))[:7], ratio))
     found.sort()
     return [(sha, ratio) for _, sha, ratio in found[-last:]]
