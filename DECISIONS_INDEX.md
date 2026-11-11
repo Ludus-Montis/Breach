@@ -184,3 +184,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 175 | A line makes room where a rejoining unit can reach, and sorts itself with trades that only ever put units home | 8220 |  |
 | 176 | The capture hides the field's controls behind a caption band, and every body is drawn to be seen | 8287 |  |
 | 177 | A tick is inspected by replaying it live many times, beside a series that runs until the field settles | 8323 |  |
+| 178 | The owner's PC is a local bench series of its own, drawn apart from CI's | 8397 |  |

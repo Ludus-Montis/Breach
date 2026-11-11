@@ -8393,3 +8393,58 @@ the earlier tick, never to any id.
 **Riskiest assumption:** that repeat timings track the whole tick's. Spec 47 step 3 tests it
 before anything is recorded or plotted.
 **Pillar check:** not applicable.
+
+### Decision 178 — The owner's PC is a local bench series of its own, drawn apart from CI's
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+
+**Rationale:** The owner ran `breach_tick_phases` on their PC (12th Gen Intel Core i7-12700K @
+3.60 GHz, 12 cores and 20 threads, 32 GB, Windows) over a grid. It held the units a side at
+12.5%, 25%, 50% and 100% of the 24,576 target and split them into 1, 2, 4, 8 or 24 squads,
+3 rounds each (`native/README.md`, Results). The grid showed what CI's benches don't: three
+phases cost the square of a squad's size. One squad of 24,576 ticks 5.2× slower than the same
+units in 24 squads. The owner asked for such runs on the metrics page, with their CPU's
+details, a curve per grouping, Decision 159's lines, and per-phase detail. The owner judged
+that one machine is enough ("my local should remain the same throughout our debugging"), and
+that if it tracks CI's progression it "might speed up the bench flow". The owner left the
+choice of keeping local runs apart from CI's to the agent.
+- **A series of its own.** Local runs are records with `provenance.kind` `"local"` and their
+  own `series`, under `metrics/local/`, drawn in their own section of the metrics page and
+  never on CI's charts. They time no reference, so Decision 172's ratio can't place them on
+  CI's scale. The PC also differs from CI's runners: 20 threads against 4, so a 4,096 tick
+  of 17 ms against about 33.
+- **Raw ms, one machine.** The machine is the owner's PC throughout, so its runs compare with
+  each other in ms with no normalising. Each record names its machine, as given by the owner
+  (the binary can't read the CPU on Windows yet).
+- **Every round kept.** A record holds each round's value for the tick and every phase, not
+  only the median, so a later run can be judged against the spread.
+- **Curves per grouping:** tick (or a chosen phase) against units a side, one curve per squad
+  count, or against squad size, one curve per total, on log scales. Decision 159's 50 ms
+  target and 100 ms interim are drawn at 24,576 a side, marked as defined on CI's 4-thread
+  runner and only a guide on this machine.
+- **A guide once it tracks CI.** Local runs become the day-to-day guide only after the same
+  commit pairs move the same way on the PC as on CI's same-runner `bench` (spec 48 step 4).
+  CI's benches stay the judge.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Local points on CI's charts | They time no reference, and 20 threads against 4 would read as speed-ups that aren't, as Q43's 60% did. |
+| Many machines, each a series | The owner: not needed "unless we want to diagnose users". |
+| The bridge timed beside each local run, for a ratio | One fixed machine needs no ratio between its own runs; it would double every local run's time. |
+| Medians only | A later run couldn't be judged against the spread. |
+
+**Consequences:** Spec 48 builds the record and its importer, the grid script, the page's
+local section, the CPU's name on Windows, and the check against CI. Today's 60 files are the
+first data. A local data PR waits for the owner (`ci/metrics/README.md`: writers other than
+the benches' don't merge themselves).
+
+**Rules over cases:** general: every local run is the same kind of record, drawn by one rule,
+apart from CI's.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; tooling and page code only.
+**Riskiest assumption:** that the PC's progression tracks CI's. Spec 48 step 4 tests it before
+local runs guide anything.
+**Pillar check:** not applicable.
