@@ -13,7 +13,8 @@
 mod tests;
 pub mod wall;
 
-use std::collections::{BTreeMap, HashSet};
+use crate::hashing::HashSet;
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 use crate::arms::Arms;

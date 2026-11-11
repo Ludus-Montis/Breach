@@ -9,7 +9,7 @@
 //! morale shock of a ragged retreat and the events are GDScript's (FormationOrders), landed
 //! from what this returns.
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::columns::Columns;
 use crate::content::CELLS_PER_TILE;

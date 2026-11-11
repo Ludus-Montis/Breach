@@ -7,7 +7,7 @@
 //! has turned away from it while retreating. Cooldowns, the morale's interval and the blow
 //! itself stay GDScript's (ScrumBlowsField), taken in the same order.
 
-use std::collections::HashMap;
+use crate::hashing::{HashMap, HashMapExt};
 
 use crate::facing::touching;
 use crate::field::{Field, DESTROYED, ROUTING};

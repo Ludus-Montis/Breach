@@ -10,6 +10,7 @@ mod bands;
 mod battle_play;
 mod battles;
 mod blows;
+mod buffers;
 #[cfg(test)]
 mod build;
 mod carry;
@@ -49,6 +50,7 @@ mod ghash;
 mod grid;
 pub mod ground;
 mod groups;
+pub mod hashing;
 mod hurts;
 mod joins;
 mod kingdom;
@@ -128,6 +130,12 @@ pub mod worker;
 mod wounds;
 
 use godot::prelude::*;
+
+/// mimalloc for every allocation the crate makes, in the library and its binaries alike (spec
+/// 41 step 4): the pool's threads allocate and free in parallel, and the system allocator's
+/// locks are shared. Where memory comes from changes no result.
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 struct BreachNative;
 

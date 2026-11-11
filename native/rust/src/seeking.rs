@@ -184,7 +184,9 @@ pub fn seek(
     let gathered = gather(field, say);
     let members = &gathered.members;
     let ask = |member: usize, point: V2| within(members[member], point);
-    let out = scrum::plan(field, &gathered.input(), params, &ask);
+    let mut kept = std::mem::take(&mut field.buffers.seek);
+    let out = scrum::plan(field, &gathered.input(), params, &ask, &mut kept);
+    field.buffers.seek = kept;
     let active = write_back(field, &gathered, &out, bits);
     (gathered, out, active)
 }

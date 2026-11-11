@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn names_are_unique_and_past_the_last_reads_nothing() {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = crate::hashing::HashSet::default();
         assert!(NAMES.iter().all(|name| seen.insert(*name)));
         let mut sheet = Sheet::default();
         sheet.set(NAMES.len(), 5.0);

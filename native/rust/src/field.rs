@@ -15,8 +15,9 @@
 //! keys) live here by slot, so a sync reads them where they are instead of GDScript
 //! sending them.
 
+use crate::hashing::HashMap;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 
 use serde::{Deserialize, Serialize};
 
@@ -151,6 +152,9 @@ pub struct Field {
     /// they read changes (spec 39 step 10b-ii). Not state: a snapshot doesn't carry it.
     #[serde(skip)]
     pub reforms: crate::swaps::pass::Reforms,
+    /// The passes' scratch space, kept between ticks (spec 41 step 4). Not state either.
+    #[serde(skip)]
+    pub buffers: crate::buffers::Buffers,
 }
 
 impl Field {

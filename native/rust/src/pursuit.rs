@@ -8,7 +8,7 @@
 //! their quarry before any moves. A formation pursuing as a whole waits for its rearmost
 //! (`lagging`) and closes on where its quarry's units stand (`spread`).
 
-use std::collections::HashSet;
+use crate::hashing::HashSet;
 
 use crate::columns::Columns;
 use crate::entries;

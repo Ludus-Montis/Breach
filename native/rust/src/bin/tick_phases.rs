@@ -38,7 +38,7 @@
 //! tick doesn't cross: it exits 2. `repo` is the folder holding project.godot (default: the
 //! one this is run in or from).
 
-use std::collections::HashMap;
+use breach_native::hashing::{HashMap, HashMapExt};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 

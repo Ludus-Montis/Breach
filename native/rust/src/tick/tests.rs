@@ -94,7 +94,7 @@ fn phased(b: &mut Built, rules: &Rules, log: &mut Log) {
 }
 
 fn whole(b: &mut Built, rules: &Rules, log: &mut Log) -> Ticked {
-    step(&mut b.squads, &mut b.field, &b.roster, None, rules, log)
+    step(&mut b.squads, &mut b.field, b.roster.clone(), None, rules, log)
 }
 
 /// The kinds in a flat log, in order.

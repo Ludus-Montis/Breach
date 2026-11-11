@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
+use crate::hashing::{HashMap, HashSet};
 
 use crate::events::{self, Log};
 use crate::field::Field;

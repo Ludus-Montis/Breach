@@ -7,7 +7,7 @@
 //! synced it this tick, or synced here (`scrum::seek::sync`) when it had no need to. Then
 //! `landing::land`. How each landed goes back to GDScript, which builds the events.
 
-use std::collections::HashMap;
+use crate::hashing::{HashMap, HashMapExt};
 
 use crate::bands::{self, BandTuning};
 use crate::blows;

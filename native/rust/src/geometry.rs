@@ -6,8 +6,8 @@
 //! and the box its footprints cover. In GDScript's precision: points and extents in f32,
 //! gaps in f64; distances between squads in tiles, everything else in cells.
 
+use crate::hashing::HashMap;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 
 use crate::columns::Columns;
 use crate::maths::{bearing_vector, V2};

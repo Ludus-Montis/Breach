@@ -1,8 +1,9 @@
 //! Serialising the field's hash maps and its heap in a fixed order (spec 39 step 1), so the
 //! same state always writes the same bytes. Read back, each is its own type again.
 
+use crate::hashing::HashMap;
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, HashMap};
+use std::collections::{BTreeMap, BinaryHeap};
 
 use serde::{Serialize, Serializer};
 

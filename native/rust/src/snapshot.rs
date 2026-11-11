@@ -98,6 +98,21 @@ mod tests {
     }
 
     #[test]
+    fn a_parting_on_a_field_read_back_does_what_it_does_on_the_field_whose_buffers_are_warm() {
+        let (mut field, squads) = build::crowd(12, 3);
+        let tuning = Tuning { passes: 4, resist: 0.5, brush: 0.1 };
+        part_field(&mut field, &tuning, Threads::One, &mut way);
+        assert!(field.buffers.parting.warm(), "parting keeps its buffers on the field");
+        let mut back = read(&write(40, 3, &field, &squads)).unwrap();
+        assert!(!back.field.buffers.parting.warm(), "a field read back starts them empty");
+        let warm = part_field(&mut field, &tuning, Threads::One, &mut way);
+        let cold = part_field(&mut back.field, &tuning, Threads::One, &mut way);
+        assert_eq!((warm.moved, warm.points, warm.nexts), (cold.moved, cold.points, cold.nexts));
+        assert_eq!((warm.passes, warm.pairs), (cold.passes, cold.pairs));
+        assert_eq!(write(41, 3, &field, &squads), write(41, 3, &back.field, &back.squads));
+    }
+
+    #[test]
     fn bytes_that_are_not_a_state_are_refused() {
         assert!(read(&[1, 2, 3]).is_err());
     }
