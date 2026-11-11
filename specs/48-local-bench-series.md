@@ -81,6 +81,9 @@ first outputs)
   It reads `breach_tick_phases` outputs named `s<side>_q<squads>_r<round>.txt`. It reuses
   `bench_record.py`'s parsing, and checks each file's `side`, `squads` and thread count
   against its name and the machine file.
+  **Found at build (2026-11-11):** `breach_tick_phases` prints `<side> a side, <width> wide`
+  and no squad count, so the importer checks the side and the thread count, and the squads
+  come from the name alone. Printing the squads is a change to the binary, left out here.
 - **The grid script:** `bash ci/metrics/local_grid.sh [rounds]` runs the grid the owner ran
   (sides 3,072 to 24,576, squads 1, 2, 4, 8 and 24, `fight=10`, rounds in turn) into
   `bench-grid/` (git-ignored), then the importer.
