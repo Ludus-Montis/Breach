@@ -8131,3 +8131,191 @@ CPU and per phase, never by the page.
 **Order:** not applicable; no simulation outcome changes.
 **Bounded:** not applicable; page code only.
 **Pillar check:** not applicable.
+
+### Decision 173 — A scenario's break-off is seen only when an engaged squad pulls apart from its foe
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Amends:** Decision 169 (how a scenario's behaviours are read)
+
+**Rationale:** Q42 (#853). The owner, on the first showcase capture: "3rd video on showcase is
+meant to demonstrate break off? doesn't really". `field_break_off` retreats 12 ticks after
+first contact, so there is almost no fight to break off from, and its check passes on the
+`withdrawing` event, which the retreat order itself raises. It would pass if nothing moved
+apart. This is spec 44 round 2's pre-mortem regret ("the clips no longer show what their
+names promise") arriving through the check.
+- **Breaking off is read from the squads, not the order.** It is seen when a squad that has
+  been engaged for at least 3 s signals `withdrawing` or `disengaged`, and within 3 s of the
+  signal its distance from the foe it was engaged with has grown by at least N tiles. If it
+  hasn't, the capture reports "breaking_off: not seen". N is set from the probe (Decision
+  174), with a margin so that ordinary simulation changes don't make it flicker.
+- **The foe it was engaged with, not the nearest foe,** so a second squad wandering near
+  doesn't spoil the reading.
+- **A scenario never ends inside a behaviour's check window.** The 150-tick run-out after a
+  scenario's end already covers the 3 s; the rule keeps it so.
+- **The record is redrafted:** a bigger wave, and the retreat well after contact (about 5 s),
+  drafted against the probe's numbers. The owner may still replace it with one played in
+  the field (Decision 169).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep the event-only reading | Passes on the order alone; the round 2 regret. |
+| Read only the sim's own `disengaged` event | Says nothing about distance either. |
+| Require separation, with no fight before the signal | A wave that never reached its foes and turns round "breaks away" too. |
+| The owner plays the record | Holds the round on the owner's time; the owner can still swap one in. |
+
+**Consequences:** `scenarios/seen.rs` reads breaking off from positions and engagement
+time; `field_break_off.record` is redrafted; `content/scenarios/README.md` says how. If the
+probe shows that pursuit (Decision 103) keeps the gap closed, the check reports "not seen",
+and that is the honest answer: the step stops and raises it.
+
+**Rules over cases:** general: any squad in any scenario breaks off by the same reading, and
+a behaviour named by an event is confirmed by where units stand wherever the event alone
+can be raised by an order.
+**Order:** not applicable; the reading watches the replay and changes no outcome.
+**Bounded:** not applicable to the tick; it reads the replay once.
+**Riskiest assumption:** that a break-off after a real fight opens visible distance against
+Decision 103's pursuit. Tested first, by the probe, in spec 46 step 1.
+**Pillar check:** not applicable.
+
+### Decision 174 — A headless probe prints any scenario's state, tick by tick
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+
+**Rationale:** Q42's questions (does the line settle? do the squads part? where do the
+rejoining units go?) all needed the units' state on given ticks, and the only way to read it
+was code against `field_play::actions::replay_each`. The simulation is deterministic, so a
+scenario's tick 212 is the same tick 212 every time; a standing tool makes a scenario's name
+and a tick range a complete, shareable bug report. The owner: "would a more permanent probe
+e.g. being able to read state on the tick be appropriate?"
+- **`native/bin/breach_probe scenario=<name> from=<tick> to=<tick>`**, beside
+  `breach_tick_phases`, with no Godot. It prints one JSON line per unit per tick: its
+  position, its place (rank and column, and the cell it stands for), its squad, its squad's
+  order and state, its own state (holding, regrouping, withdrawing, downed, carried,
+  fleeing), whether it is on its place and of its place's kind, and whom it is engaged with.
+- **Filters:** `squad=` and `unit=` narrow it.
+- **One reading for checks and tests:** the scenario checks (Decision 173) and the tests that
+  replay a scenario read the same state the probe prints.
+- **Agents may run it in a session.** It is one replay of seconds, not a test suite.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A one-off probe for Q42 | Thrown away after the round; the next oddity needs another. |
+| Pause, step, scrub and inspect in the field (in-game) | Wanted later, for the owner's eye; raised with Q41 (#828), which it would read from. |
+
+**Consequences:** `src/bin/probe.rs` and `native/build.sh` copy it to `native/bin`;
+`native/README.md` documents it. Q41 (#828) gains the in-game inspector as a sibling, both
+reading what the probe prints.
+
+**Rules over cases:** general: any scenario, any tick range, every unit.
+**Order:** not applicable; it reads the replay.
+**Bounded:** not applicable to the tick.
+**Pillar check:** not applicable.
+
+### Decision 175 — A line makes room where a rejoining unit can reach, and sorts itself with trades that only ever put units home
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Amends:** Decision 98 (where a caught router joins), Decision 110 (when a trade happens)
+
+**Rationale:** The owner, on `field_ford_and_flank`'s capture: units that fall and get back
+up "must force [their] way through before forming up" rather than "slot in or allow a space
+at the front to be taken", and "these units appear to form into an L rather than forming a
+new line behind the first". A unit coming back walks to its own painted place, often in the
+front rank, and pushes until Decision 110's half-second stall lets it trade. A router caught
+by an ally (Decision 98) is taken in behind the back rank and the whole ally re-forms
+(`ranks::close`), so every unit walks; routers arrive from the front, so they cross it too.
+- **Every rejoining unit, the same way:** a recovered unit, a carrier or chaser coming back,
+  and a caught router joining an ally.
+- **The nearest free place it can reach.** It takes the nearest free place it can reach
+  without crossing its own ranks (passing through cells where its squad's units stand on
+  their places). Coming from behind, that is the back; a gap at the front is filled by the
+  unit behind stepping up.
+- **Otherwise, the line makes room.** If no free place is in reach, the units between the
+  free place and the nearest place the joiner can reach each move one place towards the free
+  place, and the joiner takes the place they opened. Coming from the front, the file steps
+  back. Each unit moves one place, once. The owner: "the units should form onto the front
+  and the prior squad units move up, alternatively the row behind could move back".
+- **Not while that file's front is fighting.** Stepping an engaged unit back would be a small
+  withdrawal mid-fight. The joiner waits in front as a loose unit, which may fight (Decision
+  111), and looks again at its re-form pace until the file is free or a gap opens.
+- **Never forced.** It never shoves through, and friends don't open a channel.
+- **Let it in now, sort it later.** The chain may pass through units of any kind. A unit left
+  on a place not of its kind is out of its place, and Decision 110's trade brings it home. A
+  trade now happens only when it puts at least one unit on a place of its kind and takes none
+  off. The number out of place only falls, so trades end and never cycle.
+- **A router joins without a full re-form.** The ally gains one place where its layout would
+  put the router's kind: at the back of its band, filling the back rank to the ally's width,
+  then a new rank. With no band of its kind, at the very back, out of its place. Only the
+  units a chain moves walk.
+- **Reachable** means found by a path search limited to the squad's frame plus a margin of a
+  few cells, set from the probe.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Route around the line to its own place | Still crosses the line at the end if its place is at the front; the L stays. |
+| Friends open a channel | The most movement inside a standing line, the family of Q42's wobble. |
+| Chains only through like units | A mixed formation (shields before spears) never lets a returning spearman in. The owner: "may be too naive". |
+| Wait in front whenever the back is out of reach | Leaves a returning chaser stuck before its own line; the owner chose making room. |
+| Keep the full re-form on a router's join | Every catch moves the whole line. |
+
+**Consequences:** the regroup's rejoin (`scrum/regroup`, `paths::rejoin`), the trade
+(`trade.rs`), and the join (`rout/pass.rs`, `joins.rs`). Merges on a merge order (Decision
+90) are unchanged for now; they could take the same rule later. Changes outcomes: each step
+runs the trials both ways round and adds a reversed-lists case.
+
+**Rules over cases:** general: one rule for every unit joining a line, wherever it comes from
+and whatever its kind.
+**Order:** which free place, which chain and which joiner goes first are decided from a
+snapshot of the tick, by distance, then fewest moves, then a seeded draw (Decision 97); never
+by id or list order.
+**Bounded:** each joiner floods its own squad's frame plus a margin once; a waiting joiner
+looks again at its re-form pace, not every tick; a chain is at most the squad's size; trades
+are at most the number of units out of place.
+**Riskiest assumption:** that the shove and the L come from where the unit is sent, not from
+its path or how the line closed up. Tested by the probe (spec 46 step 1) before any of it
+is built.
+**Pillar check:** not applicable.
+
+### Decision 176 — The capture hides the field's controls behind a caption band, and every body is drawn to be seen
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Amends:** Decision 169 (what the field shows under `--capture`)
+
+**Rationale:** Q42 (#853): the field's debug controls ("Paste a log to replay", the buttons,
+the record text) cover the top of every captured frame, and the attackers are small purple
+marks that are hard to see against the defenders and the grass.
+- **`--capture` hides the HUD** and adds a caption band below the field, never over it. The
+  band is text only: the scenario's name, the time, and each behaviour it shows as it is
+  first seen ("engaging 12.4 s"). The movie's height grows by the band.
+- **The attackers take a colour that contrasts** with the defenders' blue, the grass and the
+  waves' own yellows and oranges, and is kept clear of the red hit flash. The step picks it;
+  the owner reviews it on the PR's capture.
+- **Every body has a thin dark rim,** so marks stand out from the ground and from each other
+  in a crush. Bodies stay to scale (Decision 106).
+- **These apply in play as well as in the capture.** A capture-only style would make the clip
+  show something the game doesn't (Decision 167).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Hide the HUD, no caption | The clip doesn't say when its behaviours happened, which is what hid Q42. |
+| An outline around each squad | More drawing, and it crowds a fight; it fits Q41's toggles. |
+| Style only the capture | The clip would no longer show the game. |
+
+**Consequences:** `field_capture.gd`, `formation_field_scene.gd`, `formation_field_hud.gd`
+and `ci/showcase/capture.sh` (the movie's size).
+
+**Rules over cases:** general: every scenario's capture, the same band and drawing.
+**Order:** not applicable; drawing only.
+**Bounded:** not applicable to the tick.
+**Pillar check:** not applicable.
