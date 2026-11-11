@@ -172,7 +172,8 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 163 | A PR that changes only measurement data runs only the checks data needs | 7659 |  |
 | 164 | The measuring workflows may merge their own data PRs | 7689 |  |
 | 165 | A scaling model fitted on a small grid is checked against the measured 25k on each merge, and licenses estimates only between its points | 7725 |  |
-| 166 | The Pages site is the project's site, one tab a page, Metrics first and Showcase second | 7782 |  |
+| 166 | The Pages site is the project's site, one tab a page, Metrics first and Showcase second | 7782 | amended by 170 |
 | 167 | Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab | 7819 | amended by 169 |
 | 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |
 | 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 |  |
+| 170 | The site opens on Showcase, Metrics second | 7980 |  |

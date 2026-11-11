@@ -1,14 +1,14 @@
 // The project site's shell (specs/44-project-site-and-showcase.md, step 4, Decision 166): a
 // tab bar from one list of tabs, routed by `#name`. Each tab is a self-contained folder whose
 // page loads in its own frame on first view; the root URL and any unknown name open the
-// first tab, Metrics, so links to the page as it was keep working.
+// first tab, Showcase (Decision 170; it was Metrics, Decision 166). `#metrics` opens Metrics.
 // A new tab is a folder and one line in TABS (and the folder's copy in site-pages.yml).
 (function (root) {
   'use strict';
 
   var TABS = [
-    { name: 'metrics', title: 'Metrics', page: 'metrics/index.html' },
     { name: 'showcase', title: 'Showcase', page: 'showcase/index.html' },
+    { name: 'metrics', title: 'Metrics', page: 'metrics/index.html' },
   ];
 
   function route(hash, tabs) {

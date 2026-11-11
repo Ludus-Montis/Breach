@@ -28,6 +28,8 @@ built with `/run-phase` as "spec 44 step N".
   Decisions assume the real game renders deterministically in CI.
 - Steps 2 and 3 follow in order. Step 4 may come any time; step 5 needs 3 and 4.
 - **Step 6 is optional.** If the owner doesn't run it, it moves to its own spec.
+- **After step 5, Decision 170** put Showcase first: the root and unknown names open it, and
+  Metrics is at `#metrics`. Step 4's text below is as it was built.
 
 ## Pre-mortem (asked at the start of the round)
 

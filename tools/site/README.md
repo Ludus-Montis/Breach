@@ -1,15 +1,16 @@
 # The project site
 
 The shell of <https://ludus-montis.github.io/Breach/> (Decision 166, spec 44 step 4): a tab
-bar, one tab a page, routed by `#name`. The root URL and any unknown name open Metrics, so
-links to the page as it was before the shell keep working.
+bar, one tab a page, routed by `#name`. The root URL and any unknown name open the first tab,
+Showcase (Decision 170). Old links to the tick history page land on Showcase; it is at
+`#metrics`.
 
 ## Tabs
 
 | Tab | Route | Its folder | Its data |
 |---|---|---|---|
-| Metrics | `#metrics` (and the root) | [`tools/metrics_view/`](../metrics_view/README.md) | `records.json`, built from `metrics/` |
-| Showcase | `#showcase` | [`tools/showcase_view/`](../showcase_view/README.md) | `manifest.json`, downloaded from the `showcase-index` pre-release |
+| Showcase | `#showcase` (and the root) | [`tools/showcase_view/`](../showcase_view/README.md) | `manifest.json`, downloaded from the `showcase-index` pre-release |
+| Metrics | `#metrics` | [`tools/metrics_view/`](../metrics_view/README.md) | `records.json`, built from `metrics/` |
 
 Each tab is a self-contained folder: its own HTML, JS, CSS and data, never another tab's. The
 shell loads a tab's page in its own frame the first time the tab is shown, and keeps it while
