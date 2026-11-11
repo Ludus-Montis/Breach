@@ -47,7 +47,7 @@
       <dt>The battle measured</dt>
       <dd><code>tick_phases</code> (both eras): 4,096 a side in 4 lanes of 1,024, the daily
       bench's size, timed over 3 fight ticks after 10 to settle. <code>formation_bench</code>:
-      one clash of 1,024 a side, its mid-fight average. The 25k target isn't recorded.</dd>
+      one clash of 1,024 a side, its mid-fight average. The 25k set has its own chart, below.</dd>
       <dt>× the reference</dt>
       <dd>A record's value over the reference's whole tick, timed in the same job. CI's runners
       differ (the bridge took 64 ms on one CPU and 99 ms on another), and the ratio mostly
@@ -75,6 +75,18 @@
     <p id="overview-note" class="note"></p>
   </section>
   <section>
+    <h2>24,576 (49,152 units), ms (log scale): the 25k set</h2>
+    <p class="note">Sizes on this page are a side, mirrored: 4,096 is 4,096 against 4,096. Each
+    merge that touched the simulation times two shapes at 24,576: 24 lanes of 1,024, and one
+    squad. The line is each tick's p95 over the battle, the thin band above it the p99. Dotted:
+    estimate: b·x + c·x² from the grid (Decision 165), fitted to that commit's smaller sizes
+    (1,024 to 12,288); a ring marks a merge whose estimate misses the measured mean by more than
+    10%. The goal lines are Decision 159's. Hover a point for its CPU, the miss and the quadratic
+    share c·x²/t.</p>
+    <div id="chart-25k" class="chart"></div>
+    <div id="legend-25k" class="legend"></div>
+  </section>
+  <section>
     <h2>Where the tick goes, by phase, 4,096 a side, in <span id="phase-unit-name">× the reference</span>
       <select id="harness" aria-label="Harness"></select>
       <select id="phase-unit" aria-label="Phase unit">
@@ -97,6 +109,8 @@
   </section>
 </main>
 <script src="metrics_view.js"></script>
+<script src="metrics_25k.js"></script>
+<script src="metrics_25k_page.js"></script>
 <script src="metrics_page.js"></script>
 </body>
 </html>

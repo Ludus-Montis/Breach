@@ -29,6 +29,8 @@ Agreed in the design session of 2026-11-06 on Q37 (#603). Seven steps, each its 
 built with `/run-phase` as "spec 43 step N".
 - **Step 8** (8a, 8b, 8c) was added in the design session of 2026-11-08 on Q40 (#820), after
   steps 1 to 7 merged. 8a comes first; 8b and 8c may follow in either order.
+  8c was split at build (2026-11-11) into 8c (the fit and the 25k chart's lines) and 8d
+  (its toggles, the 4,096 chart's "on track" lines and the detail panel), which needs 8c.
 - **Step 1 is time-sensitive:** its archive must be merged before 2027-01-12, and the
   archive workflow re-run just before step 4 lands.
 - Steps 2 and 3 come before any record is written. Steps 4 to 7 follow in order. Step 6 may
@@ -38,7 +40,7 @@ built with `/run-phase` as "spec 43 step N".
 - **Step 9** was added in the design session of 2026-11-11 on Q43 (#855), settled by
   **Decision 172**. It needs only step 7, so it may come before or after step 8. It touches the same page as
   8c, so the two don't run side by side (Decision 171); whichever comes second wires the 25k
-  chart to the CPU toggles.
+  chart to the CPU toggles (step 9 came first, so 8d does).
 
 ## Pre-mortem (round 3, Q43, asked at the start of the round)
 
@@ -223,28 +225,20 @@ with the bridge beside the two checks).
 - **The harvested 25k runs** (14 `preset=25k`, and 2 `side=24576 squads=24 settle=10
   fight=5`) are already records. They stay harvested, drawn only behind the toggle (step 8c).
 
-### Step 8c, the 25k chart
+### Step 8d, the 25k chart: its toggles, the 4,096 chart's lines and the detail panel
 
-On the tick history page (`tools/metrics_view/`), below the 4,096 chart. Sizes on the page
-are a side, mirrored: one note says so ("4,096 is 4,096 against 4,096"), and labels after it
-give the size alone unless it could be misread.
-- **The 25k chart:** 24,576 (49,152 units), absolute ms on a log scale, along `main`'s
-  first-parent commits:
-  - two measured series, 24 lanes of 1,024 and one squad of 24,576: p95 as the line, p99 as a
-    thin band above it;
-  - each shape's projection, dotted, in its colour, labelled "estimate: b·x + c·x² from the
-    grid";
-  - a merge whose miss is beyond 10% is ringed;
-  - Decision 159's lines: 50 ms "target (p95, p99)" and 100 ms "interim (p95, p99)";
-  - a point's tooltip: the runner's CPU, the miss, and the quadratic share `c·x²/t`.
+**Split at build:** from step 8c, PR #872, 2026-11-11 (see step 8c, under Built).
+**Needs:** 8c
+**Touches:** `tools/metrics_view/`
+
+On the 25k chart step 8c draws (`tools/metrics_view/metrics_25k.js` holds the fit and the
+set's lines; `metrics_25k_page.js` draws them):
 - **"× the bridge":** a toggle that draws the ratio to the bridge instead of ms. The goal
   lines hide in that view.
 - **The 4,096 chart** gains dotted "on track for Decision 159" lines, target and interim:
   for each commit, the 4-lane series tick at which the lanes fit predicts 50 ms (and 100 ms)
   at 24 lanes, drawn against the 25k set's 4-lane point. Its `fight=3` series stays as it is.
-- **The fit:** per commit and shape, non-negative least squares of `b·x + c·x²` on the grid's
-  `tick` (mean) medians; the miss against the measured 24,576 `tick`. The form is named on
-  the chart with "Decision 165".
+  These lines break at a commit with no 25k set.
 - **A point's detail panel:** that commit's fitted curve over size, with its grid points and
   the measured 24,576. No separate grid chart.
 - **Each point's shape is its CPU** (amended 2026-11-11, Decision 172): one shape per CPU,
@@ -474,8 +468,11 @@ Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metric
 - Given grid records that lie exactly on `b·x + c·x²`, then the fit returns `b` and `c` and
   the predicted 24,576 within rounding.
 - Given grid records that would need a negative `c`, then the fit returns `c = 0`.
+- Given a commit with no 25k set, then the 25k chart breaks its lines there.
+
+### Step 8d
 - Given lanes fit `b` and `c`, then the "on track" 4-lane tick predicts 50 ms at 24 lanes.
-- Given a commit with no 25k set, then both charts break their lines there.
+- Given a commit with no 25k set, then the 4,096 chart's "on track" lines break there.
 
 ### Step 9
 - Given a record with tick 43.0 ms and a reference tick of 99.9 ms, then its value in
@@ -505,8 +502,9 @@ Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metric
    then the job, checked by a run.
 9. Step 8b: red on the commit list and shape skipping for `set=25k` (fixture trees), then the
    workflow; then the dispatch.
-10. Step 8c: red on the fit, the non-negative clamp and the derived 4-lane line (JS logic,
-   tested as step 7's is), then the chart.
+10. Step 8c: red on the fit, the non-negative clamp and the 25k lines' breaks (JS logic,
+   tested as step 7's is), then the chart. Step 8d: red on the derived 4-lane line and its
+   breaks, then the toggles, the lines and the panel.
 11. Step 9: red on the unit conversions (× the reference, % of tick with phases hidden) and
    the CPU filter (JS logic in `metrics_view.js`, tested as step 7's is), then the page.
 
@@ -527,3 +525,30 @@ Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metric
 - **order-independent:** not applicable; no simulation outcome changes.
 - **bounded-work:** not applicable to the tick; two bench jobs per qualifying merge (`record`
   and `record-25k`).
+
+## Built
+
+### Step 8c, the 25k chart: the fit and the measured lines
+
+**Split at build:** from step 8c, PR #872, 2026-11-11: step 8c held about eight features
+across two charts, over one PR's size (Decision 171); 8c builds the fit and the 25k chart's
+core, 8d the toggles, the 4,096 chart's lines and the detail panel.
+**Needs:** 8a, 8b
+**Touches:** `tools/metrics_view/`
+
+On the tick history page (`tools/metrics_view/`), below the 4,096 chart. Sizes on the page
+are a side, mirrored: one note says so ("4,096 is 4,096 against 4,096"), and labels after it
+give the size alone unless it could be misread.
+- **The 25k chart:** 24,576 (49,152 units), absolute ms on a log scale, along `main`'s
+  first-parent commits:
+  - two measured series, 24 lanes of 1,024 and one squad of 24,576: p95 as the line, p99 as a
+    thin band above it;
+  - each shape's projection, dotted, in its colour, labelled "estimate: b·x + c·x² from the
+    grid";
+  - a merge whose miss is beyond 10% is ringed;
+  - Decision 159's lines: 50 ms "target (p95, p99)" and 100 ms "interim (p95, p99)";
+  - a point's tooltip: the runner's CPU, the miss, and the quadratic share `c·x²/t`;
+  - a line breaks at a commit on `main`'s line with no 25k set.
+- **The fit:** per commit and shape, non-negative least squares of `b·x + c·x²` on the grid's
+  `tick` (mean) medians; the miss against the measured 24,576 `tick`. The form is named on
+  the chart with "Decision 165". The fit and the miss use every record of the commit.

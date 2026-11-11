@@ -20,7 +20,7 @@ Static HTML and JS, no build step, reading only `metrics/`.
 
 The page opens with **How to read this**: what fresh and harvested records, the reference, the
 bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formation_bench`; the
-25k target isn't recorded) and a gap mean.
+25k set has its own chart) and a gap mean.
 
 - **CPUs:** a row of checkboxes under the header, one per runner CPU the records name
   (`machine.cpu`, "unknown" without one), all on. Untick one to take its records out of every
@@ -40,6 +40,16 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   commit or at the `main` commit they were compared with: hidden by default, since they were
   mostly branch comparisons with other args and no shared reference. Hover a point for its
   numbers, click it for the rest.
+- **24,576 (the 25k set, spec 43 step 8c, Decision 165):** below the whole tick, in ms on a log
+  scale, from the first commit with a 25k set (`series=1` records). Sizes are a side, mirrored.
+  One line per shape, 24 lanes of 1,024 and one squad of 24,576: the p95 as the line, the p99
+  as a thin band above it. Dotted, each shape's estimate from that commit's grid: the
+  non-negative fit of `b·x + c·x²` on the smaller sizes' mean ticks, taken at 24,576. A merge
+  whose estimate misses the measured mean by more than 10% is ringed. Decision 159's goals are
+  the dashed lines at 50 ms (target) and 100 ms (interim). Hover a point for its CPU, the miss
+  and the quadratic share `c·x²/t`. A commit with no 25k set breaks the lines. Still to come
+  (step 8d): × the bridge, the 4,096 chart's "on track" lines, a point's fitted curve, CPU
+  shapes and the harvested 25k runs.
 - **By phase:** a harness's records stacked by the tick's top-level phases (a phase timed more
   finely is summed into its parent). In ms the reference's whole tick is a grey dash per record,
   in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other"
@@ -56,6 +66,9 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
 - `metrics_view.js`: the logic (lines, the bridge, the comparison, the units, the phase stack
   and the CPU filter), tested with Node by
   `test/metrics_view.test.js` (`node --test "tools/metrics_view/test/*.test.js"`).
-- `metrics_page.js`, `metrics_view.css`, `index.html`: the drawing.
+- `metrics_25k.js`: the 25k chart's logic (the fit, the miss, the lines), tested by
+  `test/metrics_25k.test.js` against the fixtures `ci/metrics/bench_set.py` uses
+  (`ci/metrics/fixtures/bench_fit.json`).
+- `metrics_page.js`, `metrics_25k_page.js`, `metrics_view.css`, `index.html`: the drawing.
 - `build_index.py`: lists `metrics/` (not `raw/`, not `schema/`) into `records.json`, tested by
   `tools/test_metrics_index.py`.

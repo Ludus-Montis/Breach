@@ -15,6 +15,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - Each design round now opens with a pre-mortem (what we'd regret in a month, the riskiest
   assumption, the cheapest test of it), recorded in the round's spec, with its test scheduled
   as a step (Decision 168).
+- The tick history page has a 25k chart: each merge's tick at 24,576 a side (p95, with p99 as
+  a band) for 24 lanes and for one squad, beside the estimate fitted from the smaller sizes,
+  with misses beyond 10% ringed and the 50 ms and 100 ms goals drawn.
 
 ### Changed
 
