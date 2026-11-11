@@ -35,6 +35,24 @@ built with `/run-phase` as "spec 43 step N".
   come any time after step 2.
 - The other series (code, CI, Gate 1, and the measurements not captured yet) are a later
   round: Q38 (#747).
+- **Step 9** was added in the design session of 2026-11-11 on Q43 (#855), settled by
+  **Decision 171**. It needs only step 7, so it may come before or after step 8. Whichever of
+  8c and 9 comes second wires the 25k chart to the CPU toggles.
+
+## Pre-mortem (round 3, Q43, asked at the start of the round)
+
+- **Regret in a month:** the ratio is the default, and a real regression of 8% is put down
+  to the runner; or the ratio hides that one CPU's results relative to the reference drift
+  apart over time.
+- **Riskiest assumption:** that dividing by the reference timed beside a record removes the
+  runner, i.e. that a change speeds every CPU up by the same factor. A change bound by the
+  cache or memory need not.
+- **Cheapest test:** the records already hold one commit measured on two CPUs (`8ca4227`,
+  three benches): 13–33% apart in ms, 3–11% as a ratio (see Measured). The same-runner A/B
+  Q43 started (`bench`, `preset=4096`, `5af0ed5` against `bfce23c`, 5 rounds) says whether
+  the 60% rise was the runner. Its result goes under Measured before this round's PR merges.
+- **Guarded against:** the CPU toggles let a reader keep to one runner when a few percent
+  matter, and Decision 171's Consequences say to confirm such a gap with a same-runner `bench`.
 
 ## Steps
 
@@ -228,7 +246,38 @@ give the size alone unless it could be misread.
   the chart with "Decision 165".
 - **A point's detail panel:** that commit's fitted curve over size, with its grid points and
   the measured 24,576. No separate grid chart.
+- **Each point's shape is its CPU** (amended 2026-11-11, Decision 171): one shape per CPU,
+  shared with the legend of the page's CPU toggles, which show or hide its points. The fit
+  and the miss use every record of the commit, whether or not its CPU is shown.
 - **"Show harvested points"** adds the harvested 25k runs, hollow and unfitted.
+
+### Step 9, the chart by the reference
+
+Settled by **Decision 171** (Q43, #855). On the tick history page (`tools/metrics_view/`).
+- **The unit pickers.** The whole-tick chart: "× the reference" (default) or "ms". The phase
+  chart: "× the reference" (default), "ms" or "% of tick". "× the reference" is a record's
+  value ÷ the tick of the reference in the same record (`reference.results`, the tick's
+  median); a phase in that unit is the phase's ms ÷ that reference tick, so the stack's top is
+  the tick's ratio. The whole-tick chart stays on a log scale in both units, and its axis
+  names the unit.
+- **The reference mark.** In ms, the phase chart keeps each record's reference dash. In
+  × the reference, one line at 1 replaces them. In % of tick there is none.
+- **% of tick** is each phase's ms ÷ the record's whole tick, so the bar's full height is
+  100%. Hiding a phase leaves its share out and changes no other share.
+- **The phase toggles.** Each entry of the phase legend, "other" included, shows or hides
+  that phase in every unit. Hidden phases are left out of the stack, which closes up.
+- **The CPU toggles.** A row under the page's header, one checkbox per CPU found in the
+  records (`machine.cpu`), named as the record names it, with "unknown" for records without
+  one; all on by default. A hidden CPU's records leave every chart. The whole-tick line joins
+  the points left (still breaking where the harness changes).
+- **Tooltips** give every point's CPU, its ms, and its ratio where it has a reference.
+- **The compare** (a point's detail panel and table) shows the phase chart's unit, and names
+  both records' CPUs in its title.
+- **Records with no reference** are left out in × the reference. A note under each chart
+  says how many, and that "ms" shows them. "Show harvested points" still adds the harvested
+  points in ms.
+- **The note on the bridge** (the line break between harnesses) is unchanged: the two eras'
+  references are different commits, so their ratios are not joined.
 
 ## Not in this spec
 
@@ -354,6 +403,17 @@ give the size alone unless it could be misread.
 - **The runner varies:** the bridge's `side=4096 squads=4 fight=3` tick is 64 ms on an EPYC
   9V45 and 99 ms on a Xeon 8573C, so every record times its reference beside it.
 
+**Q43, 2026-11-11 (the runner, in the records on `main` at `902fe4d`):**
+- **One commit on two CPUs:** `8ca4227` (the reference itself) was timed on an EPYC 7763 and
+  a Xeon 8573C in three benches. `tick_phases.gd` `engine=rust side=4096`: 156.4 and 137.5 ms,
+  ratio 0.576 and 0.617. `breach_tick_phases` `side=4096 squads=4 fight=3`: 94.4 and 71.4 ms,
+  ratio 1.004 and 0.971. `formation_bench.gd` `sizes=1024`: 21.1 and 15.9 ms, ratio 0.031 and
+  0.034. In ms they differ by 13–33%, as ratios by 3–11%.
+- **The 60% rise:** `bfce23c` 26.8 ms over a 66.0 ms reference (EPYC 9V45), ratio 0.406;
+  `5af0ed5` 43.0 ms over 99.9 ms (Xeon 8573C), ratio 0.430: 6% apart as ratios.
+- **The same-runner A/B** (`bench` runs 102 and 103, started 2026-11-11 00:50): pending; its
+  `SUMMARY` goes here.
+
 ## Scenarios
 
 ### Step 1
@@ -413,6 +473,16 @@ give the size alone unless it could be misread.
 - Given lanes fit `b` and `c`, then the "on track" 4-lane tick predicts 50 ms at 24 lanes.
 - Given a commit with no 25k set, then both charts break their lines there.
 
+### Step 9
+- Given a record with tick 43.0 ms and a reference tick of 99.9 ms, then its value in
+  × the reference is 0.430, and a phase of 10 ms in it is 0.100.
+- Given a record whose phases are 10, 20 and 70 ms of a 100 ms tick, when the 20 ms phase is
+  hidden in % of tick, then the others stay 10% and 70%.
+- Given records from two CPUs, when one CPU is hidden, then its records leave both charts and
+  the compare's choices, and the whole-tick line joins the others.
+- Given a record with no reference, then it is absent in × the reference and counted in the
+  note, and present in ms.
+
 ## Test-first order
 
 1. Step 1: a Python test red on the archiver's skip-by-run-id and its log extraction (a
@@ -433,12 +503,14 @@ give the size alone unless it could be misread.
    workflow; then the dispatch.
 10. Step 8c: red on the fit, the non-negative clamp and the derived 4-lane line (JS logic,
    tested as step 7's is), then the chart.
+11. Step 9: red on the unit conversions (× the reference, % of tick with phases hidden) and
+   the CPU filter (JS logic in `metrics_view.js`, tested as step 7's is), then the page.
 
 ## Rubric answers
 
 - **single-noun-phrase:** the raw archive; the record schema and its check; the data-PR
   route; bench's records; the backfill; the harvest importer; the drawing; the 25k set; its
-  backfill; the 25k chart.
+  backfill; the 25k chart; the chart by the reference.
 - **ocp-extension-point:** a new series is a folder under `metrics/` and new paths; a new
   harness is a `source` value; a new schema version is a file under `metrics/schema/`.
 - **lsp-contract-scope:** not applicable; no subtypes.

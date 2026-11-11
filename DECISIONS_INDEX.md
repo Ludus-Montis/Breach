@@ -177,3 +177,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |
 | 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 |  |
 | 170 | The site opens on Showcase, Metrics second | 7980 |  |
+| 171 | The tick history compares records by their reference, and shows or hides each CPU and phase | 8009 |  |

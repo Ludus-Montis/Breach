@@ -8005,3 +8005,56 @@ open, whichever it is.
 **Order:** not applicable; no simulation outcome changes.
 **Bounded:** not applicable.
 **Pillar check:** not applicable.
+
+### Decision 171 — The tick history compares records by their reference, and shows or hides each CPU and phase
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Settles:** Q43 (#855)
+
+**Rationale:** The tick history page (spec 43 step 7) plotted each record's own ms. The
+records come from at least five CPU models, and the series spreads commits across them, so
+two neighbouring points could differ by the runner alone: `bfce23c` (EPYC 9V45, 26.8 ms) to
+`5af0ed5` (Xeon 8573C, 43.0 ms) read as a 60.4% rise, although the only native change
+between them computed the same value. Each record already times its reference on the same
+machine (spec 43, "The runner varies"). In the records, the one commit measured on two CPUs
+(`8ca4227`, three benches) differs by 13–33% in ms and by 3–11% as a ratio to its reference.
+The owner chose option 1 (ratio by default), asked to toggle which CPUs are shown, to show or
+hide phases in the phase chart, and to switch that chart between ms and percent of tick.
+- **The 4,096 views compare by the reference.** The whole-tick chart, the phase chart and the
+  two-commit compare default to "× the reference": a record's value divided by the tick of
+  the reference timed beside it. Raw ms stays in the tooltip and a unit picker. The phase
+  chart's picker has three units: × the reference (default), ms, and % of tick. The whole-tick
+  chart's has the first two.
+- **% of tick is of the whole tick,** whatever is hidden: hiding a phase leaves its share out,
+  and the other shares don't change.
+- **Each CPU can be shown or hidden.** One toggle per CPU found in the records, all on by
+  default, applies to every chart on the page, the 25k chart included. A record with no CPU
+  (the harvested ones) is under "unknown". Every point's tooltip names its CPU.
+- **Each phase can be shown or hidden** in the phase chart, from its legend, in every unit.
+- **A record with no reference** can't be drawn as a ratio. In × the reference it is left out,
+  and a note under the chart says how many and that ms shows them.
+- **The 25k chart stays in ms** (Decision 159's 50 and 100 ms lines are in ms). It marks each
+  point's CPU by its shape, and keeps its "× the bridge" toggle (spec 43 step 8c).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Ms kept, each point marked by CPU, a cross-CPU compare warned | Leaves the misleading view as the default. The owner chose the ratio. |
+| Pin the runner (re-run until the CPU matches) | Costs CI time, and GitHub doesn't promise a CPU model. |
+| Ratio, CPU marked, and a cross-CPU compare flagged as inside the noise (option 4) | The owner chose option 1, with CPU toggles to separate runners by hand. |
+| % of the shown phases, rescaled as phases are hidden | The numbers would change as phases are toggled. The owner chose % of the whole tick. |
+
+**Consequences:** Spec 43 gains step 9, and step 8c marks the 25k points by CPU and takes the
+page's CPU toggles. The ratio leaves some difference between CPUs (3–11% in the one case
+measured), because a change need not speed every CPU up by the same factor. Read a difference
+of a few percent between records from different CPUs as noise, and confirm it with a
+same-runner `bench` of 5 rounds or more.
+
+**Rules over cases:** general: records from different runs compare by dividing out each
+record's machine through its own reference; what isn't shown is chosen by the reader, per
+CPU and per phase, never by the page.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; page code only.
+**Pillar check:** not applicable.
