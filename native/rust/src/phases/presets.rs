@@ -3,9 +3,9 @@
 //! Both are a series from contact of lanes of 1,024 a side: `4096` is four of them (the daily
 //! bench), `25k` is 24 (the target, 24,576 a side). Lanes the same size let the scaling check
 //! (`ci/godot/scripts/bench_scaling.py`) expect the tick to grow by the ratio of the squads.
-//! Each series runs to `LIMIT` ticks at most. A series ends when either side has no squad
-//! that isn't routing: at 4096 that is 16 ticks after contact (tick 91 to 107), so the limit
-//! covers the fight with room to spare.
+//! Each series runs to `LIMIT` ticks at most. A series ends when the field settles, no squad
+//! fighting or routing (spec 47 step 2a): past the break (tick 107 at 4096, where it used to
+//! end) through the rout, so its percentiles are the battle's.
 
 #[cfg(test)]
 mod tests;

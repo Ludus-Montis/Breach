@@ -15,9 +15,10 @@
 //! arguments beside it exit 2, as does a name not on the list.
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
-//! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
-//! and follows the phases' means with each one's 95th and 99th percentiles and worst
-//! (`phases::series`; spec 38 step 2).
+//! unless given) until the field settles (no squad fights or routes; Decision 177) or `limit`
+//! ticks, instead of `fight` ticks, and follows the phases' means with each one's 95th and 99th
+//! percentiles and worst, then an `inspect:` line naming its inspection ticks
+//! (`phases::series`; spec 38 step 2, spec 47 step 2a).
 //!
 //! `terrain=mixed` plays the clash on FormationBench's mixed ground, a wood and a ford across
 //! its line of advance (`ground::map::mixed`; spec 38 step 2). It has one lane: with

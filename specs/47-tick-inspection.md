@@ -25,7 +25,7 @@ over):
 Agreed in the design session of 2026-11-11 (the owner: "Go for a, a self hosted runner could
 become an extension question"). Five steps, each its own PR, built with `/run-phase` as
 "spec 47 step N".
-- Steps 1 and 2 can be built side by side.
+- Steps 1 and 2a can be built side by side; 2b follows 2a (step 2 split at build).
 - Step 3 is the riskiest assumption's test. Step 5 waits for it.
 - Step 4 needs 1 and 2.
 - A fixed machine for every job is Q45 (#877), outside this spec.
@@ -91,36 +91,28 @@ Scenarios:
   `Buffers::warm` says), and the result is the same as a field read back from a snapshot.
 - Given `at=` past the series' end, then the run is refused with the last tick named.
 
-### Step 2, the series runs until the field settles, and names its inspection ticks
+### Step 2b, the record marks the settled series, and the tick history breaks there
 
-**Needs:** none
-**Touches:** `native/rust/src/phases/series.rs` and its tests,
-`native/rust/src/phases/presets.rs` and its tests, `ci/godot/scripts/bench_scaling.py` (if its
-expectations read the series' length), `native/README.md` (Tick phases)
+**Split at build:** from step 2, PR #PRNUM, 2026-11-11: two behaviours, the crate's series
+(2a) and the records and page (2b), each with its own tests (cargo; Python and JS).
+**Needs:** 2a
+**Touches:** `.github/workflows/bench.yml` (the 25k set's `--args`), `ci/metrics/bench_set.py`
+and its tests, `tools/metrics_view/metrics_25k.js`, `tools/metrics_view/metrics_view.js`
+(`segments`) and their tests, `ci/metrics/README.md`, `tools/metrics_view/README.md`
 
-- **The end.** A series ends when neither side has a squad fighting or routing (the field
-  has settled), or at `LIMIT` (600) ticks. Before, it ended when either side had no squad
-  that wasn't routing.
-- **`inspect:`.** The series prints a line naming its inspection ticks (Decision 177):
-  - its 3 slowest ticks, a tie going to the earlier tick;
-  - 4 ticks evenly through it: its first tick, the ticks a third and two thirds of the way,
-    and its last.
-
-  A tick picked twice is listed once, and the next slowest takes its place, so there are
-  always 7 if the series has 7 ticks.
-- **Percentiles.** Its p95 and p99 are taken over the whole series, as now, which is longer.
-  Decision 159's target is read from them.
-- **The tick history.** Records before and after this step measure different series. The
-  record's `source.args` say so (`series=settled` after this step; none before), and the tick history's
-  25k chart breaks its line there, as it does at a harness change (spec 43).
+- **The tick history.** Records before and after step 2a measure different series. The
+  record's `source.args` say so (`series=settled` after it; none before), and the tick
+  history's 25k chart breaks its line there, as it does at a harness change (spec 43).
+  `series=settled` isn't part of a record's shape: the shape is the args without `series=1`
+  and `series=settled`, so the families keep their records.
+- **Merge it with 2a,** or before the next 25k set runs on `main`: a set recorded between the
+  two is the settled series without the mark.
 
 Scenarios:
-- Given `preset=4096`, when the series runs, then it continues past the tick where one side
-  breaks (107) until no squad fights or routes, and its ticks include the rout's spikes.
-- Given a series of known tick times (a fixture), when `inspect:` is chosen, then the
-  ticks are the 3 slowest (the earlier on a tie) and the 4 spread. A duplicate is replaced by
-  the next slowest.
-- Given the digests, then they are unchanged: the series only times.
+- Given a 25k set's records with and without `series=settled`, when the shapes are read
+  (`bench_set.py`, `metrics_25k.js`), then both have the same shape.
+- Given a family's points across the change, when its line is drawn, then it breaks between
+  the last record without the mark and the first with it.
 
 ### Step 3, the ranking check (the riskiest assumption)
 
@@ -129,8 +121,8 @@ Scenarios:
 the mode)
 
 Run by hand through `bench` (`args` with `at=` and `repeat=`, 5 rounds, head and base on one
-runner), at 4,096 and 25k. The ticks are those step 2's `inspect:` names on the base, or, if
-step 2 isn't merged, contact (91), the rout's spike (105) and the last of the old series (106).
+runner), at 4,096 and 25k. The ticks are those step 2a's `inspect:` names on the base, or, if
+step 2a isn't merged, contact (91), the rout's spike (105) and the last of the old series (106).
 - **The cases:**
   - #780: `bodies: pair search` fell 36% in the whole tick;
   - #783: `strays` +63%, `stamina` +28% and `bodies: sums and applying` +19% in the whole
@@ -147,7 +139,7 @@ step 2 isn't merged, contact (91), the rout's spike (105) and the last of the ol
 
 ### Step 4, the inspection matrix
 
-**Needs:** 1, 2
+**Needs:** 1, 2a
 **Touches:** `.github/workflows/bench-inspect.yml` (new), `ci/godot/scripts/bench_compare.py`
 (if the summary needs a join across jobs), `ci/godot/README.md` (the workflow)
 
@@ -203,7 +195,7 @@ Filled in by step 3.
 1. Step 1: red on a repeated tick leaving the same state as one played through, and on the
    put-back keeping warm buffers (cargo tests, as `snapshot.rs`'s are). Then the mode. Then
    red on its printed lines (`phases/tests.rs`).
-2. Step 2: red on the series ending when the field settles (a small battle that routes), and
+2. Step 2a: red on the series ending when the field settles (a small battle that routes), and
    on `inspect:` chosen from a fixture of tick times. Then the series.
 3. Step 3: no code; a measured verdict.
 4. Step 4: no unit test. Checked by one run of the workflow on `main` against `main`, whose
@@ -229,3 +221,42 @@ Filled in by step 3.
 - **order-independent:** not applicable; no simulation outcome changes. Ties between slow ticks
   go to the earlier tick.
 - **bounded-work:** not applicable to the tick; the harness costs repeats × ticks, outside it.
+
+## Built
+
+### Step 2a, the series runs until the field settles, and names its inspection ticks
+
+**Split at build:** from step 2, PR #PRNUM, 2026-11-11: the crate's series here; the records'
+mark and the tick history's break are step 2b.
+**Needs:** none
+**Touches:** `native/rust/src/phases/series.rs` and its tests,
+`native/rust/src/phases/presets.rs`, `native/rust/src/bin/tick_phases.rs` (its doc),
+`native/README.md` (Tick phases)
+
+- **The end.** A series ends when neither side has a squad fighting or routing (the field
+  has settled), or at `LIMIT` (600) ticks. Before, it ended when either side had no squad
+  that wasn't routing.
+- **`inspect:`.** The series prints a line naming its inspection ticks (Decision 177):
+  - its 3 slowest ticks, a tie going to the earlier tick;
+  - 4 ticks evenly through it: its first tick, the ticks a third and two thirds of the way,
+    and its last.
+
+  A tick picked twice is listed once, and the next slowest takes its place, so there are
+  always 7 if the series has 7 ticks.
+- **Percentiles.** Its p95 and p99 are taken over the whole series, as now, which is longer.
+  Decision 159's target is read from them.
+
+Built as: `series::stirs` (a listed squad with a living unit fighting or routing) ends the
+series; `series::inspect` names the ticks, earliest first, as `inspect: 91,...` after the
+series' rows, comma-separated as `at=` takes them. "A third of the way" is index
+`⌊k·(n−1)/3⌋` of the series' `n` ticks. `bench_compare.py`, `bench_scaling.py`,
+`bench_record.py` and the showcase's `timings.py` stop at the line, so none changed.
+
+Scenarios:
+- Given a battle that routes (the small clash of `series/tests.rs`), when the series runs,
+  then it continues past the tick where one side breaks until no squad fights or routes.
+  At `preset=4096` the series' length is read from the first `bench` run on it.
+- Given a series of known tick times (a fixture), when `inspect:` is chosen, then the
+  ticks are the 3 slowest (the earlier on a tie) and the 4 spread. A duplicate is replaced by
+  the next slowest.
+- Given the digests, then they are unchanged: the series only times.
