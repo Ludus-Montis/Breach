@@ -381,7 +381,7 @@ jobs:
               reference=(--reference $(ls set_${n}_reference_*.txt | sort -V) --reference-sha "$REFERENCE")
             fi
             python3 ci/metrics/bench_record.py --head $(ls set_${n}_head_*.txt | sort -V) \
-              "${reference[@]}" --sha "$GITHUB_SHA" --args "$shape series=1" \
+              "${reference[@]}" --sha "$GITHUB_SHA" --args "$shape series=1 series=settled" \
               --number $((1000 * (${GITHUB_RUN_ATTEMPT:-1} - 1) + 100 + n)) \
               --out "$RUNNER_TEMP/metrics-new"
           done < shapes.txt

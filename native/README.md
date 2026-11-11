@@ -306,6 +306,15 @@ and `repeat=` without it. If a repeat leaves another state than playing through 
 did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
 known to within ±1%.
 
+**How far to trust it** (spec 47 step 3, `## Measured`; whether it stays is Q47, #909). Against
+the whole tick on three past merges, at 4,096 and 25k, the repeats moved every phase the same
+way, ranked the three changes the same, and sized the phase each change aimed at within a few
+points (the pair search, the seek). They under-sized some phases a change touched in passing:
+`strays` (+7–10% repeated, +24% whole at 25k), `groups`, `bodies: pushes` and `stamina` at
+4,096. Read a repeat as which way and roughly how far a phase moves, and judge with the whole
+tick. At 25k one side breaks at tick 101 (at 4,096, 107), so there the rout's spike and the
+break are 100 and 101; the series runs on past the break until the field settles (step 2a).
+
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
 follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
@@ -602,6 +611,113 @@ The next ports, in order of payoff:
 2. ScrumNear and steering (facing is done).
 3. Blows.
 4. A profile of the deaths/wounds phase, which may be a GDScript fix rather than a port.
+
+### The owner's PC, `main` at `a5f574d` (2026-11-11)
+
+Windows, 20 threads (`machine: unknown`: the binary can't read the CPU's name there), release
+build, one run each. `side` is the units a side, split evenly over `squads`; `fight` is the
+ticks timed. The first is the daily bench's battle; the second is 25 small squads; the third
+is about the target's size (25,600 against 24,576) in 2 squads of 12,800, where the 25k
+preset has 24 of 1,024. A single run of one tick (`fight=1`) carries more noise than the
+others.
+
+| phase (ms) | `side=4096 squads=4 fight=3` | `side=1024 squads=25 fight=10` | `side=25600 squads=2 fight=1` |
+|---|---:|---:|---:|
+| **tick** | **17.0** | **6.5** | **254.2** |
+| units walk to places | 1.22 | 0.04 | 82.13 |
+| scrum: seek | 4.41 | 2.71 | 68.96 |
+| scrum: engage, prepare, stance | 0.86 | 0.08 | 43.70 |
+| roster | 1.12 | 0.19 | 7.61 |
+| bodies: pair search | 2.22 | 0.94 | 6.83 |
+| fight (blows) | 0.67 | 0.25 | 6.67 |
+| wounds (tend) | 0.93 | 0.32 | 6.11 |
+| shuffle (re-form) | 0.74 | 0.07 | 6.04 |
+| strays | 0.66 | 0.09 | 5.71 |
+| scrum: walk | 0.66 | 0.64 | 2.89 |
+| bodies: sums and applying | 0.49 | 0.09 | 2.82 |
+| stamina | 0.28 | 0.05 | 2.28 |
+| deaths (bury) | 0.29 | 0.02 | 2.12 |
+| recovery | 0.31 | 0.05 | 2.07 |
+| groups (form up, split) | 0.33 | 0.04 | 1.74 |
+| bodies: sync | 0.21 | 0.05 | 1.32 |
+| scrum: facing | 0.33 | 0.47 | 1.17 |
+| bodies: commit | 0.09 | 0.01 | 0.82 |
+| perception | 0.19 | 0.21 | 0.76 |
+| store settles | 0.15 | 0.04 | 0.73 |
+| bodies: pushes | 0.39 | 0.07 | 0.69 |
+| taking the downed | 0.06 | 0.02 | 0.45 |
+| carry | 0.05 | 0.01 | 0.32 |
+| carry: strays | 0.03 | 0.01 | 0.20 |
+| rout: rallies | 0.21 | 0.00 | 0.00 |
+
+Phases under 0.1 ms in every run are left out (rules, the rout's other parts, morale, orders,
+march, the engage edges and fronts, joins, pathing, the scrum's withdraw, regroup and
+pursuit).
+
+**What it shows (the owner: "the major issues being at larger squad sizes"):** at about the
+target's size, the time goes to the work done within a squad.
+- **Three phases are 77% of the tick:** `units walk to places`, `scrum: seek` and
+  `scrum: engage, prepare, stance` (195 of 254 ms).
+- **They grow far faster than the units do.** Against the daily bench (6.25× the units, in
+  squads 12.5× larger), `units walk to places` grows 67×, `engage, prepare, stance` 51× and
+  `seek` 16×. Phases whose work is per unit grow about 7–10× (`roster` 6.8×, `strays` 8.7×,
+  `fight (blows)` 10×).
+- **The 25k preset spreads the same units over 24 squads of 1,024**, and there the same three
+  phases are about 8, 53 and 6.5 ms (CI's Xeon 6973P-C, 4 threads, `main` at `5ea4c29`). So
+  `units walk to places` and `engage, prepare, stance` are cheap per squad of 1,024 and costly
+  per squad of 12,800: work that grows with the square of a squad's size, or near it. That is
+  spec 43's "one squad's pair work at 25k", left to a later session (Decision 165, Bounded).
+- **Many small squads are cheap:** 25 squads of about 41 a side tick in 6.5 ms, with the seek
+  the largest phase (2.71 ms).
+
+### Squad size against squad count, the owner's PC (2026-11-11)
+
+The same machine and `main` as above. Each cell holds the units a side fixed (12.5%, 25%, 50%
+and 100% of the 24,576 target) and splits them into 1 to 24 squads, each a lane against its
+mirror: `breach_tick_phases side=<units> squads=<n> fight=10`, 3 rounds taken in turn, the
+median shown with the rounds' range.
+
+| units a side | 1 squad | 2 | 4 | 8 | 24 |
+|---|---:|---:|---:|---:|---:|
+| 3,072 | 13.7 (13–16) | 14.2 (13–15) | 12.6 (12–13) | 12.9 (13–14) | 13.2 (13–14) |
+| 6,144 | 36.7 (37–37) | 29.1 (29–30) | 25.6 (26–27) | 21.4 (21–21) | 17.7 (18–18) |
+| 12,288 | 128.3 (119–131) | 86.8 (79–92) | 62.8 (56–64) | 41.7 (42–48) | 35.3 (35–38) |
+| 24,576 | 429.7 (423–440) | 248.8 (248–258) | 157.3 (146–161) | 115.0 (102–126) | 82.5 (72–95) |
+
+Tick, ms. The same 24,576 units tick 5.2× slower as one squad than as 24.
+
+**Three phases cost the square of a squad's size.** Per squad, each doubling of a squad's size
+costs about 4×, whatever the squad count:
+
+| ms per squad, by squad size | 768 | 1,536 | 3,072 | 6,144 | 12,288 | 24,576 |
+|---|---:|---:|---:|---:|---:|---:|
+| `units walk to places` | 0.18–0.19 | 0.65–0.70 | 2.44–2.86 | 9.5–10.4 | 38.5–39.3 | 151.7 |
+| `scrum: engage, prepare, stance` | 0.10–0.12 | 0.29–0.43 | 1.09–1.46 | 4.0–5.1 | 19.5–20.2 | 77.3 |
+| `scrum: seek` | 0.26–0.43 | 0.45–1.84 | 1.14–4.94 | 5.7–13.4 | 33.5–51.9 | 162.2 |
+
+At 24,576 in one squad they are 391 of 430 ms (91%). Fitting each phase's time per unit
+against squad size over all 20 cells gives an exponent of 0.89 for `units walk to places`
+(r² 1.00), 0.75 for `engage, prepare, stance` (r² 0.95) and 0.60 for `seek` (r² 0.59). An
+exponent of 1 is work quadratic within a squad; 0 is work per unit. The seek's cost per squad
+falls as squads are added (4.9 ms for one squad of 3,072, 1.1 ms each for eight), because each
+squad's search runs on the pool beside the others' (`Search::squads`). One large squad gets no
+help from the pool there. `units walk to places` and `engage` cost the same per squad at any
+count: they run one squad after another.
+
+**Everything else is per unit or per fighter.** Their exponents lie between −0.5 and 0.1:
+`roster`, `strays`, `stamina`, `wounds (tend)`, `recovery`, `groups`. Each squad is 32 wide,
+so 24 squads put 24 times as many units in the front rank. The phases that follow the fighting
+grow with the squad count, not the squad size: `bodies: pair search` 4.6 ms with 1 squad and
+9.4 ms with 24 at 24,576, `bodies: sums and applying` 0.12 and 4.34 ms. `fight (blows)` goes
+the other way, 8.1 against 2.7 ms.
+
+**Where the square comes from (read from the code, not yet profiled).** `units walk to places`
+is `march::sync::step`. For each living member of a squad, `place` searches the squad's
+`loose` and `fleeing` ids (`Vec<i64>`, `contains`) and its swaps' offsets
+(`moving.iter().find`), and `swaps::offsets` builds those offsets with an `any` over the list
+so far. Each list grows with the squad, so the work grows with its square. `scrum: engage,
+prepare, stance` (`scrum::step`'s `engage`, `prepare`, `anticipate` and `manoeuvre`) is likely
+to hold the same pattern. A profile of one squad of 24,576 will confirm it.
 
 ## Building
 

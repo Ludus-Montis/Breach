@@ -47,7 +47,9 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   non-negative fit of `b·x + c·x²` on the smaller sizes' mean ticks, taken at 24,576. A merge
   whose estimate misses the measured mean by more than 10% is ringed. Decision 159's goals are
   the dashed lines at 50 ms (target) and 100 ms (interim). Hover a point for its CPU, the miss
-  and the quadratic share `c·x²/t`. A commit with no 25k set breaks the lines. Step 8d adds:
+  and the quadratic share `c·x²/t`. A commit with no 25k set breaks the lines, and so does
+  the first set marked `series=settled` (spec 47 step 2b): from there the series runs until the
+  field settles, a different measure from the one before. Step 8d adds:
   - **× the bridge:** a toggle that shows each point over the bridge timed beside it in the
     same job (p95 over its p95, p99 over its p99, the estimate over its mean). The goal lines
     are in ms only and hide; a point with no bridge is left out, and a note counts them.

@@ -12,6 +12,8 @@
   var view = typeof module !== 'undefined' && module.exports ? require('./metrics_view.js') : root.BreachMetricsView;
 
   var SERIES_ARG = 'series=1';
+  // The settled series' mark (spec 47 step 2b): not part of a shape; a new era of the line.
+  var SETTLED_ARG = 'series=settled';
   var TOLERANCE = 0.10;
   var CHECK = 24576;
   var FOUR_LANES = 4096;
@@ -77,7 +79,7 @@
   function shapeOf(record) {
     var args = (record.source || {}).args;
     if (!Array.isArray(args) || args.indexOf(SERIES_ARG) < 0) return null;
-    return args.filter(function (arg) { return arg !== SERIES_ARG; }).join(' ');
+    return args.filter(function (arg) { return arg !== SERIES_ARG && arg !== SETTLED_ARG; }).join(' ');
   }
 
   // {position: {shape: record}}, a commit's latest run of each shape winning.
@@ -129,6 +131,7 @@
       grid: grid,
       bridge: bridgeOf(check),
       runId: (check.provenance || {}).run_id || 0,
+      era: (check.source.args || []).indexOf(SETTLED_ARG) >= 0 ? 'settled' : undefined,
     };
   }
 

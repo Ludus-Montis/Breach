@@ -203,7 +203,9 @@
 
   // A line's runs of points to join: it breaks at a point with no tick (the harness ran and
   // gave nothing) and where a commit on main's line (`positions`, every commit with a fresh
-  // record) lies between two points, so a missing commit is never bridged by the line.
+  // record) lies between two points, so a missing commit is never bridged by the line. It
+  // breaks too where a point's `era` changes (the settled series, spec 47 step 2b): the two
+  // sides measure different things.
   function segments(points, positions, key) {
     var valueOf = function (p) { return key ? p[key] : p.tick; };
     var order = positions.slice().sort(function (a, b) { return a - b; });
@@ -211,7 +213,8 @@
     var run = [];
     points.forEach(function (p) {
       var last = run[run.length - 1];
-      var adjacent = last && order.indexOf(p.position) === order.indexOf(last.position) + 1;
+      var adjacent = last && order.indexOf(p.position) === order.indexOf(last.position) + 1 &&
+        p.era === last.era;
       if (valueOf(p) === null || !adjacent) {
         if (run.length) runs.push(run);
         run = [];
