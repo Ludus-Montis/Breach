@@ -51,7 +51,7 @@ built with `/run-phase` as "spec 43 step N".
 - **Cheapest test:** the records already hold one commit measured on two CPUs (`8ca4227`,
   three benches): 13–33% apart in ms, 3–11% as a ratio (see Measured). The same-runner A/B
   Q43 started (`bench`, `preset=4096`, `5af0ed5` against `bfce23c`, 5 rounds) says whether
-  the 60% rise was the runner. Its result goes under Measured before this round's PR merges.
+  the 60% rise was the runner. It was: +1.5% on one runner (Measured).
 - **Guarded against:** the CPU toggles let a reader keep to one runner when a few percent
   matter, and Decision 172's Consequences say to confirm such a gap with a same-runner `bench`.
 
@@ -415,8 +415,12 @@ Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metric
   0.034. In ms they differ by 13–33%, as ratios by 3–11%.
 - **The 60% rise:** `bfce23c` 26.8 ms over a 66.0 ms reference (EPYC 9V45), ratio 0.406;
   `5af0ed5` 43.0 ms over 99.9 ms (Xeon 8573C), ratio 0.430: 6% apart as ratios.
-- **The same-runner A/B** (`bench` runs 102 and 103, started 2026-11-11 00:50): pending; its
-  `SUMMARY` goes here.
+- **The same-runner A/B** (`bench` run 103,
+  <https://github.com/Ludus-Montis/Breach/actions/runs/42934491151>, `preset=4096`, 5 rounds
+  in turn, one AMD EPYC 9V74): `bfce23c` 33.00 ms (32.60–33.50), `5af0ed5` 33.50 ms
+  (32.90–35.10), **+1.5%, the ranges overlapping**; p95 41.43 against 42.10. No phase moved
+  beyond its range. The 60.4% rise was the runner. The same commit, `bfce23c`, is 26.8 ms on
+  the EPYC 9V45 and 33.0 ms here: a 23% gap between two AMD models, besides the Xeon's.
 
 ## Scenarios
 
