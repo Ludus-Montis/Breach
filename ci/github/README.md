@@ -3,8 +3,8 @@
 Stdlib Python run by the `github-sync` workflow (`.github/workflows/github-sync.yml`), with
 `GITHUB_TOKEN`. Cloud agents can't create labels or milestones, so this does (spec 36,
 Decision 148); it also keeps an issue per spec step (spec 40, Decision 155). Every run
-creates only what is missing, so a second run changes nothing. It never edits a body,
-renames or deletes.
+creates only what is missing, so a second run changes nothing. It never renames or
+deletes, and the only bodies it edits are its own open step issues' (below).
 
 | When | What `sync.py` does |
 |---|---|
@@ -14,7 +14,9 @@ renames or deletes.
 | After every run | Each sync parent with step sub-issues is open while any step is, and closed when all are: as completed if any step completed, else as not planned. A parent with no steps is left to the owner. Each `Spec NN: <title>` milestone is open while any issue or PR in it is, and closed when none is; no other milestone is touched (spec 40 step 5). |
 | An issue is closed or reopened | The same rule for that issue's parent (if it is a sync step) and for its milestone and the parent's. Nothing is created, no labels touched. |
 | A step's heading is only under the spec's `## Built` | A step split while it was built (7b): the sync only sees it once its PR has merged, and that PR carried the parent step's label. Its issue, if open, is closed as completed with a comment naming the PR whose merge first added the heading (`git log -S`, so the workflow fetches the whole history). A heading under `## Steps` is never closed this way. |
-| A step's heading is gone | Its issue, if the sync made it and it is open, is closed as not planned with a comment naming the spec's steps now. |
+| A step has `**Needs:**` and `**Touches:**` lines | Its issue's body lists them under the heading's link (spec 45 step 1, Decision 171): each needed step as `step <id> (#N)`, linked to its issue, or `none`; the paths in backticks. A step with no `Needs` line says `every step above it (none declared)`, with no `Touches` line `not declared`. A `Touches` line may run over several lines. An open step issue whose body differs from this is rewritten on the next run, so adding lines to a spec reaches its open issues; a closed one keeps its body. |
+| A `Needs` names a step the spec doesn't have | The run fails before it writes anything, naming the spec, the step and the need. |
+| A step's heading is gone | Its issue, if the sync made it and it is open, is closed as not planned with a comment naming the spec's steps now. Where later steps carry `**Split at build:** from step <id>, …` naming it, the comment instead says it was split, links those steps' issues and quotes the line's PR, date and reason (Decision 171). |
 | A PR changing `specs/NN-*.md` | The labels, and the spec's milestone (created if missing) on the PR and on each issue its body `Closes`, `Fixes` or `Resolves`, unless one is set. With several specs, the lowest-numbered. No step issues. |
 | By hand with `migrate` | `migrate_questions.py` moves `OPEN_QUESTIONS.md`'s open entries to issues labelled `question`. |
 
@@ -26,6 +28,7 @@ its issue and opens another. Writes are paced a second apart (GitHub's secondary
 limit), so the first backfill takes a few minutes.
 
 Files: `sync.py` (plan and run), `step_issues.py` (the parent and step issues),
+`step_lines.py` (a step's `Needs`, `Touches` and `Split at build` lines),
 `open_while_open.py` (a parent and its milestone follow their items),
 `spec_pr.py` (a spec PR's milestone), `labels.py`, `github_client.py` (the REST calls),
 `fake_client.py` (the tests' stand-in). Tests: `python3 -m unittest discover -s ci/github

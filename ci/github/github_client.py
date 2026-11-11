@@ -114,6 +114,9 @@ class GitHubClient:
                 return None
             raise
 
+    def update_issue_body(self, number, body):
+        self._request("PATCH", f"{self.base}/issues/{number}", {"body": body})
+
     def set_milestone(self, number, milestone):
         self._request("PATCH", f"{self.base}/issues/{number}", {"milestone": milestone})
 
