@@ -173,7 +173,7 @@ Scenarios:
 
 ### Step 5, recording and plotting the repeats
 
-**Needs:** 3 (passed), 4
+**Needs:** 3, 4
 **Touches:** `ci/metrics/` (the record and its checks), `tools/metrics_view/`, the
 `bench-inspect` workflow's data PR
 
