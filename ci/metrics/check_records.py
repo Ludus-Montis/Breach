@@ -8,7 +8,9 @@ and `schema/` (the schemas themselves), is a record. Each must:
   schema folder, and validate against it;
 - write a gap as `{"na": <reason>}`, never `0`: a measure's `values` or `median` of `0`
   fails, in `results` and in `reference.results` alike (an importer that found nothing
-  writes a gap instead).
+  writes a gap instead);
+- if it is a repeat record (`source.harness` is `tick_phases-repeat`, spec 47 step 5a), name
+  the tick it replayed and its repeats in `source.args`: `at=<tick>` and `repeat=<n>`.
 
 Usage: check_records.py [metrics-dir] [schema-dir]   (defaults: metrics, metrics/schema)
 Prints one line per problem, naming the file and the field, and exits 1 if there is any.
@@ -21,6 +23,8 @@ from pathlib import Path
 
 NAME = re.compile(r"^\d{4}-\d{2}-\d{2}-\d+(-\d+)?\.json$")
 NOT_RECORDS = ("raw", "schema")
+REPEAT_HARNESS = "tick_phases-repeat"
+REPEAT_ARGS = (re.compile(r"^at=\d+$"), re.compile(r"^repeat=\d+$"))
 
 
 def records(root: Path) -> list:
@@ -50,6 +54,18 @@ def zero_gaps(record: dict) -> list:
             if measure.get("median") == 0 and not isinstance(measure.get("median"), bool):
                 found.append(f"{section}/{path}: median is 0; write a gap, {{\"na\": ...}}")
     return found
+
+
+def repeat_args(record: dict) -> list:
+    """A repeat record that doesn't name its tick (`at=`) and its repeats (`repeat=`)."""
+    source = record.get("source")
+    if not isinstance(source, dict) or source.get("harness") != REPEAT_HARNESS:
+        return []
+    args = source.get("args")
+    args = args if isinstance(args, list) else []
+    if all(any(isinstance(a, str) and want.match(a) for a in args) for want in REPEAT_ARGS):
+        return []
+    return ["source/args: a repeat record names its tick and repeats, at=<tick> repeat=<n>"]
 
 
 def schema_errors(record: dict, schema_dir: Path, validators: dict) -> list:
@@ -83,6 +99,7 @@ def check_file(path: Path, root: Path, schema_dir: Path, validators: dict) -> li
         return [f"{shown}: {p}" for p in problems + ["(record): not a JSON object"]]
     problems += schema_errors(record, schema_dir, validators)
     problems += zero_gaps(record)
+    problems += repeat_args(record)
     return [f"{shown}: {p}" for p in problems]
 
 
