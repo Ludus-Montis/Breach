@@ -3,6 +3,7 @@
 //! result. Not state: a snapshot doesn't write them, and a field read back starts them
 //! empty, to the same results.
 
+use crate::parting;
 use crate::scrum;
 
 /// Every pass's kept buffers.
@@ -10,11 +11,13 @@ use crate::scrum;
 pub struct Buffers {
     /// The seek's crowd, claims and seekers (`scrum::plan`).
     pub seek: scrum::Buffers,
+    /// Parting's positions, pairs, pushes, sums and neighbour list (`parting::part_in`).
+    pub parting: parting::Buffers,
 }
 
 impl Buffers {
     /// True once a pass has kept something in them.
     pub fn warm(&self) -> bool {
-        self.seek.warm()
+        self.seek.warm() || self.parting.warm()
     }
 }

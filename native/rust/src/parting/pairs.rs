@@ -24,29 +24,62 @@ pub const SKIN: f64 = 0.25;
 /// Bodies one buffer of the list is filled for (the list's allocations are one per chunk).
 const CHUNK: usize = 1024;
 
-/// A tick's neighbour list: where the bodies stood when it was built, and the pairs listed.
+/// A tick's neighbour list: where the bodies stood when it was built, and the pairs listed;
+/// with the grid it was found through and each body's bucket, kept for the next build.
 #[derive(Default)]
 pub struct Neighbours {
     built: Vec<V2>,
     listed: Vec<(u32, u32)>,
     builds: usize,
+    grid: Grid,
+    homes: Vec<(i32, i32)>,
 }
 
 impl Neighbours {
+    /// Forgets the list (a new tick's bodies are listed afresh), keeping its buffers.
+    pub fn clear(&mut self) {
+        self.built.clear();
+        self.listed.clear();
+    }
+
+    /// Whether a list has ever been built in its buffers.
+    pub fn warm(&self) -> bool {
+        self.listed.capacity() > 0 || self.homes.capacity() > 0
+    }
+
     /// The pairs that overlap at `at`, in pair order, the list built first if it is stale.
+    #[cfg(test)]
     pub fn pairs(&mut self, bodies: &Bodies, at: &[V2], pooled: bool) -> Vec<(usize, usize)> {
+        let mut out = Vec::new();
+        self.pairs_into(bodies, at, pooled, &mut out);
+        out
+    }
+
+    /// `pairs`, into `out` (cleared first).
+    pub fn pairs_into(
+        &mut self,
+        bodies: &Bodies,
+        at: &[V2],
+        pooled: bool,
+        out: &mut Vec<(usize, usize)>,
+    ) {
         if self.stale(at) {
-            self.listed = listed(bodies, at, pooled);
-            self.built = at.to_vec();
+            self.grid.rebuild(at);
+            listed(bodies, at, &self.grid, pooled, &mut self.listed);
+            self.built.clear();
+            self.built.extend_from_slice(at);
             self.builds += 1;
         }
-        let homes: Vec<(i32, i32)> = at.iter().map(|&p| cell_of(p)).collect();
-        let keeps = |&&(i, j): &&(u32, u32)| overlap(bodies, at, &homes, i as usize, j as usize);
+        self.homes.clear();
+        self.homes.extend(at.iter().map(|&p| cell_of(p)));
+        let homes = &self.homes;
+        let keeps = |&&(i, j): &&(u32, u32)| overlap(bodies, at, homes, i as usize, j as usize);
         let found = |&(i, j): &(u32, u32)| (i as usize, j as usize);
+        out.clear();
         if pooled {
-            self.listed.par_iter().filter(keeps).map(found).collect()
+            out.par_extend(self.listed.par_iter().filter(keeps).map(found));
         } else {
-            self.listed.iter().filter(keeps).map(found).collect()
+            out.extend(self.listed.iter().filter(keeps).map(found));
         }
     }
 
@@ -80,9 +113,8 @@ fn overlap(bodies: &Bodies, at: &[V2], homes: &[(i32, i32)], i: usize, j: usize)
 }
 
 /// Every pair `(i, j)`, `i < j`, standing within their radii plus the skin of each other, in
-/// pair order: each chunk of bodies fills one buffer, each body's partners sorted.
-fn listed(bodies: &Bodies, at: &[V2], pooled: bool) -> Vec<(u32, u32)> {
-    let grid = Grid::build(at);
+/// pair order, into `out`: each chunk of bodies fills one buffer, each body's partners sorted.
+fn listed(bodies: &Bodies, at: &[V2], grid: &Grid, pooled: bool, out: &mut Vec<(u32, u32)>) {
     let widest = bodies.radii.iter().copied().fold(0.0, f64::max);
     let fill = |chunk: usize| -> Vec<(u32, u32)> {
         let mut out = Vec::new();
@@ -108,5 +140,8 @@ fn listed(bodies: &Bodies, at: &[V2], pooled: bool) -> Vec<(u32, u32)> {
     } else {
         (0..chunks).map(fill).collect()
     };
-    filled.concat()
+    out.clear();
+    for chunk in filled {
+        out.extend(chunk);
+    }
 }

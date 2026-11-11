@@ -300,15 +300,15 @@ than half the skin, with some made loose, and rebuilt after one moves further). 
     parting's buffers) are kept on the field between ticks and cleared. A buffer is scratch
     space, not state: the snapshot doesn't write it, and a field read back from a snapshot
     starts it empty, to the same results.
-- **As built** (the owner, 2026-11-07: leave parting alone if step 3 hasn't merged by the
-  time step 4 is done; it hadn't):
-  - the hasher is `foldhash`'s `fast::RandomState`, behind `src/hashing.rs`'s aliases;
-  - the kept buffers are the field's `buffers` (`src/buffers.rs`): the seek's crowd (its
-    bodies, points and grid), its claims and its seekers. `Grid::rebuild` refills a grid in
-    its own buffers;
-  - parting's `Buckets` (std's map with its own fixed hasher) and its buffers are left to
-    step 3, behind a `clippy::disallowed_types` allow. Step 3 removes the allow with the map,
-    and keeps its buffers in the field's `buffers`.
+- **As built:**
+  - the hasher is `foldhash`'s `fast::RandomState`, behind `src/hashing.rs`'s aliases.
+    Step 3, merged first, had already removed parting's own map;
+  - the kept buffers are the field's `buffers` (`src/buffers.rs`):
+    - the seek's crowd (its bodies, points and grid), its claims and its seekers;
+    - parting's positions, pairs, pushes and sums, and its neighbour list's buffers (its
+      grid, buckets and list). The list itself is forgotten at each tick's start, so a
+      tick's bodies are always listed afresh;
+    - `Grid::rebuild` refills a grid in its own buffers.
 
 ## Not in this spec
 

@@ -5,7 +5,7 @@
 
 use crate::field::{Field, DESTROYED, FLEEING, LOOSE};
 use crate::maths::V2;
-use crate::parting::{part, Bodies, Tuning, MOVED};
+use crate::parting::{part_in, Bodies, Tuning, MOVED};
 use crate::threads::Threads;
 
 /// What a pass over the field did: the bodies it moved (flat indices) and where each now
@@ -52,7 +52,9 @@ pub fn part_field(
         factions: &factions,
     };
     let mut ask = |i: usize, j: usize| way(draws[i], draws[j]);
-    let outcome = part(&mut bodies, tuning, threaded, &mut ask);
+    let mut kept = std::mem::take(&mut field.buffers.parting);
+    let outcome = part_in(&mut bodies, tuning, threaded, &mut ask, &mut kept);
+    field.buffers.parting = kept;
     let mut out = FieldOutcome {
         passes: outcome.passes,
         pairs: outcome.pairs,

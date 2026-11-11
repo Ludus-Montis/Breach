@@ -61,6 +61,28 @@ enum Push {
     Coincident { depth: f64, share: f64 },
 }
 
+/// What parting keeps on the field between ticks (`buffers.rs`, spec 41 step 4): a pass's
+/// positions, pairs, pushes and sums, and the tick's neighbour list, each cleared and filled
+/// afresh by every parting.
+#[derive(Default)]
+pub struct Buffers {
+    moves: Vec<V2>,
+    has_move: Vec<bool>,
+    loosens: Vec<bool>,
+    order: Vec<usize>,
+    at: Vec<V2>,
+    pairs: Vec<(usize, usize)>,
+    pushes: Vec<Push>,
+    neighbours: pairs::Neighbours,
+}
+
+impl Buffers {
+    /// True once a parting has kept something in them.
+    pub fn warm(&self) -> bool {
+        self.moves.capacity() > 0 || self.neighbours.warm()
+    }
+}
+
 #[inline]
 fn framed(flags: u8) -> bool {
     flags & (LOOSE | FLEEING) == 0
@@ -71,34 +93,50 @@ fn framed(flags: u8) -> bool {
 /// back into GDScript, so is only ever called on this thread). With `threaded` on for the
 /// bodies' count (`Threads::on`), pairs are found and pushes weighed on Rayon's pool, from
 /// the pass's snapshot, and applied in pair order.
+#[cfg(test)]
 pub fn part(
     bodies: &mut Bodies,
     tuning: &Tuning,
     threaded: Threads,
     way: &mut dyn FnMut(usize, usize) -> V2,
 ) -> Outcome {
+    part_in(bodies, tuning, threaded, way, &mut Buffers::default())
+}
+
+/// `part`, in buffers kept from an earlier parting (or new ones): the same parting either way.
+pub fn part_in(
+    bodies: &mut Bodies,
+    tuning: &Tuning,
+    threaded: Threads,
+    way: &mut dyn FnMut(usize, usize) -> V2,
+    kept: &mut Buffers,
+) -> Outcome {
     let count = bodies.points.len();
     let pooled = threaded.on(count);
     let mut out = Outcome::default();
-    let mut moves = vec![V2::ZERO; count];
-    let mut has_move = vec![false; count];
+    let Buffers { moves, has_move, loosens, order, at, pairs, pushes, neighbours } = kept;
+    moves.clear();
+    moves.resize(count, V2::ZERO);
+    has_move.clear();
+    has_move.resize(count, false);
     // pushed by a body out of its frame: one in its frame leaves it (UnitBodies._move)
-    let mut loosens = vec![false; count];
-    let mut order: Vec<usize> = Vec::with_capacity(count);
-    let mut neighbours = pairs::Neighbours::default();
+    loosens.clear();
+    loosens.resize(count, false);
+    neighbours.clear();
     for _ in 0..tuning.passes {
-        let at = positions(bodies);
-        let pairs = neighbours.pairs(bodies, &at, pooled);
+        positions(bodies, at);
+        neighbours.pairs_into(bodies, at, pooled, pairs);
         out.pairs += pairs.len() as i64;
         split("bodies: pair search");
-        let pushes: Vec<Push> = if pooled {
-            pairs.par_iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
+        pushes.clear();
+        if pooled {
+            pushes.par_extend(pairs.par_iter().map(|&(i, j)| push(bodies, at, tuning, i, j)));
         } else {
-            pairs.iter().map(|&(i, j)| push(bodies, &at, tuning, i, j)).collect()
-        };
+            pushes.extend(pairs.iter().map(|&(i, j)| push(bodies, at, tuning, i, j)));
+        }
         split("bodies: pushes");
         order.clear();
-        for (&(i, j), p) in pairs.iter().zip(pushes) {
+        for (&(i, j), p) in pairs.iter().zip(pushes.drain(..)) {
             let loosening = !(framed(bodies.flags[i]) && framed(bodies.flags[j]));
             let (one, two) = match p {
                 Push::None => continue,
@@ -111,11 +149,11 @@ pub fn part(
                 }
             };
             if let Some(v) = one {
-                accumulate(&mut moves, &mut has_move, &mut order, i, v, true);
+                accumulate(moves, has_move, order, i, v, true);
                 loosens[i] |= loosening;
             }
             if let Some(v) = two {
-                accumulate(&mut moves, &mut has_move, &mut order, j, v, false);
+                accumulate(moves, has_move, order, j, v, false);
                 loosens[j] |= loosening;
             }
         }
@@ -124,7 +162,7 @@ pub fn part(
             break;
         }
         out.passes += 1;
-        for &index in &order {
+        for &index in order.iter() {
             apply(bodies, index, moves[index], loosens[index], &mut out.loosened);
             moves[index] = V2::ZERO;
             has_move[index] = false;
@@ -152,17 +190,16 @@ fn accumulate(
     moves[index] = if minus { moves[index].sub(v) } else { moves[index].add(v) };
 }
 
-/// Where every body stands (UnitBodies.at).
-fn positions(bodies: &Bodies) -> Vec<V2> {
-    (0..bodies.points.len())
-        .map(|i| {
-            if bodies.flags[i] & FLEEING != 0 {
-                bodies.bases[i].add(bodies.points[i])
-            } else {
-                bodies.points[i]
-            }
-        })
-        .collect()
+/// Where every body stands (UnitBodies.at), into `at`.
+fn positions(bodies: &Bodies, at: &mut Vec<V2>) {
+    at.clear();
+    at.extend((0..bodies.points.len()).map(|i| {
+        if bodies.flags[i] & FLEEING != 0 {
+            bodies.bases[i].add(bodies.points[i])
+        } else {
+            bodies.points[i]
+        }
+    }));
 }
 
 /// The pair's push (UnitBodies._push): each body out along the line between them - friends
