@@ -43,6 +43,13 @@ class ShapesTest(unittest.TestCase):
         self.assertIn(("side=1024 squads=1", False), shapes)
         self.assertIn(("side=12288 squads=1", False), shapes)
 
+    def test_a_record_marked_series_settled_has_the_shape_of_one_without(self):
+        before = record(900, "side=4096 squads=4", 30.0)
+        after = record(901, "side=4096 squads=4", 40.0)
+        after["source"]["args"].append(bench_set.SETTLED_ARG)
+        self.assertEqual(bench_set.by_commit([before, after]),
+                         {900: {"side=4096 squads=4": 30.0}, 901: {"side=4096 squads=4": 40.0}})
+
 
 class FitTest(unittest.TestCase):
     def test_points_on_the_curve_give_back_b_and_c_and_the_24576_tick(self):
