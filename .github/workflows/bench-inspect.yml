@@ -1,0 +1,263 @@
+name: bench-inspect
+
+# Spec 47 step 4, Decision 177: the inspection matrix. Started by hand. It replays chosen ticks
+# live (`breach_tick_phases preset=<size> at=<t> repeat=<n>`, step 1) on a head and a base:
+# - build: builds breach_tick_phases at the head, the base and the reference once, and hands
+#   the binaries on (as bench-series' `references` job does);
+# - plan: runs the base's series at each size (to the field's settling, step 2a) and takes its
+#   `inspect:` ticks, the base's 3 slowest and 4 spread; it runs the head's series too, so the
+#   summary has both series' 95th and 99th percentiles from one runner;
+# - inspect: one job per (size, tick). Each times head and base in turn, `rounds` rounds of
+#   `repeat` repeats, on its one runner, and the reference beside them, with its CPU;
+# - summary: one table per size (ci/godot/scripts/bench_inspect.py): each tick's head against
+#   base, flagged `*` where the ranges are apart, with its job's CPU; the series' percentiles;
+#   then the ticks combined, only as ratios to each job's reference (Decision 172).
+#
+# The reference is the cargo era's (Decision 162): the bridge, 8ca4227, timed with `record`'s
+# battle (side=4096 squads=4 fight=3) at both sizes. It is a yardstick for the runner, not a
+# baseline: the bridge has no `at=`. Nothing is recorded or plotted (step 5, after step 3).
+#
+# Each input is read with its default beside it (`inputs.x || default`), so a scratch branch
+# can add a `push` trigger to check a change to this workflow before it reaches main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      head:
+        description: "Branch or commit to time as the head (empty: the branch the run is on)"
+        default: ""
+      base:
+        description: "Branch or commit to compare against; its series names the ticks"
+        default: "main"
+      sizes:
+        description: "The sizes: both, 4096 or 25k (the presets)"
+        type: choice
+        options: ["both", "4096", "25k"]
+        default: "both"
+      repeat:
+        description: "Repeats of each tick a round"
+        default: "50"
+      rounds:
+        description: "Rounds of head and base in turn, per tick (1 to 20)"
+        default: "5"
+
+permissions:
+  contents: read
+
+env:
+  REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
+  REFERENCE_ARGS: side=4096 squads=4 fight=3
+  TARGET: ${{ github.workspace }}/target-shared
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      head: ${{ steps.refs.outputs.head }}
+      base: ${{ steps.refs.outputs.base }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the inputs
+        env:
+          REPEAT: ${{ inputs.repeat || '50' }}
+          ROUNDS: ${{ inputs.rounds || '5' }}
+        run: |
+          case "$REPEAT" in ''|*[!0-9]*|0) echo "::error::repeat must be a whole number above 0"; exit 1;; esac
+          case "$ROUNDS" in ''|*[!0-9]*) echo "::error::rounds must be a whole number"; exit 1;; esac
+          if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "::error::rounds: 1 to 20"; exit 1; fi
+
+      - name: Check out the head, the base and the reference
+        id: refs
+        env:
+          HEAD_REF: ${{ inputs.head || github.ref_name }}
+          BASE: ${{ inputs.base || 'main' }}
+        run: |
+          git worktree add -q --detach trees/head "origin/$HEAD_REF" 2>/dev/null \
+            || git worktree add -q --detach trees/head "$HEAD_REF"
+          git worktree add -q --detach trees/base "origin/$BASE" 2>/dev/null \
+            || git worktree add -q --detach trees/base "$BASE"
+          git worktree add -q --detach trees/reference "$REFERENCE"
+          echo "head=$HEAD_REF ($(git -C trees/head rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE ($(git -C trees/base rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Rust build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ env.TARGET }}
+          key: bench-inspect-${{ runner.os }}-${{ hashFiles('trees/*/native/rust/Cargo.lock') }}
+          restore-keys: bench-inspect-${{ runner.os }}-
+
+      # One shared target folder: the dependencies build once, each tree recompiles what differs.
+      - name: Build breach_tick_phases at each
+        run: |
+          for side in head base reference; do
+            (cd "trees/$side/native/rust" && CARGO_TARGET_DIR="$TARGET" cargo build -q --release --bin tick_phases)
+            mkdir -p "bins/$side"
+            cp "$TARGET/release/tick_phases" "bins/$side/breach_tick_phases"
+          done
+
+      # tar keeps the binaries' execute bit, which an artifact on its own drops.
+      - name: Pack the binaries
+        run: tar czf bins.tgz bins
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bins
+          path: bins.tgz
+          retention-days: 1
+
+  plan:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: bins
+
+      - name: Run both series at each size
+        env:
+          SIZES: ${{ inputs.sizes || 'both' }}
+        run: |
+          tar xzf bins.tgz
+          sizes="$SIZES"; if [ "$sizes" = both ]; then sizes="4096 25k"; fi
+          echo "$sizes" > sizes.txt
+          mkdir -p series
+          for size in $sizes; do
+            for side in base head; do
+              "bins/$side/breach_tick_phases" "preset=$size" > "series/${size}_$side.txt" 2> stderr.txt \
+                || { echo "::error::the $side's series at $size failed:"; tail -n 40 stderr.txt; exit 1; }
+            done
+          done
+
+      - name: The matrix
+        id: plan
+        run: |
+          set -o pipefail
+          pairs=""
+          for size in $(cat sizes.txt); do pairs="$pairs $size=series/${size}_base.txt"; done
+          jobs=$(python3 ci/godot/scripts/bench_inspect.py plan $pairs)
+          if [ "$jobs" = "[]" ]; then echo "::error::the base's series named no inspection ticks"; exit 1; fi
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          for size in $(cat sizes.txt); do
+            echo "$size: $(grep '^inspect:' "series/${size}_base.txt")" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: series
+          path: |
+            series
+            sizes.txt
+          retention-days: 7
+
+  inspect:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: bins
+
+      - name: Time head and base in turn, the reference beside them
+        env:
+          SIZE: ${{ matrix.job.size }}
+          AT: ${{ matrix.job.tick }}
+          REPEAT: ${{ inputs.repeat || '50' }}
+          ROUNDS: ${{ inputs.rounds || '5' }}
+        run: |
+          tar xzf bins.tgz
+          out="inspect-$SIZE-$AT"
+          mkdir -p "$out"
+          cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1)
+          echo "${cpu:-unknown}" > "$out/cpu.txt"
+          time_in() {
+            local err="$RUNNER_TEMP/stderr.txt"
+            "bins/$1/breach_tick_phases" $2 2>"$err" < /dev/null \
+              || { echo "::error::breach_tick_phases $2 failed for the $1; its stderr:" >&2; tail -n 40 "$err" >&2; return 1; }
+          }
+          args="preset=$SIZE at=$AT repeat=$REPEAT"
+          for round in $(seq 1 "$ROUNDS"); do
+            if [ $((round % 2)) -eq 1 ]; then
+              time_in head "$args" > "$out/head_$round.txt"
+              time_in base "$args" > "$out/base_$round.txt"
+            else
+              time_in base "$args" > "$out/base_$round.txt"
+              time_in head "$args" > "$out/head_$round.txt"
+            fi
+            time_in reference "$REFERENCE_ARGS" > "$out/reference_$round.txt"
+          done
+          if grep -l WARNING "$out"/head_*.txt "$out"/base_*.txt; then
+            echo "::warning::a repeat left another state than one played through (above)"
+          fi
+
+      - name: This tick, head against base
+        if: always()
+        env:
+          SIZE: ${{ matrix.job.size }}
+          AT: ${{ matrix.job.tick }}
+        run: |
+          out="inspect-$SIZE-$AT"
+          {
+            echo "== $SIZE, tick $AT, on $(cat "$out/cpu.txt" 2>/dev/null)"
+            python3 ci/godot/scripts/bench_compare.py --head $(ls "$out"/head_*.txt | sort -V) \
+              --base $(ls "$out"/base_*.txt | sort -V) || true
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: inspect-${{ matrix.job.size }}-${{ matrix.job.tick }}
+          path: inspect-${{ matrix.job.size }}-${{ matrix.job.tick }}
+          retention-days: 7
+
+  summary:
+    needs: [build, plan, inspect]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # The series' artifact holds series/ and sizes.txt; each job's, its own folder.
+      - uses: actions/download-artifact@v7
+        with:
+          name: series
+          path: runs
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: inspect-*
+          path: runs
+
+      - name: Summary
+        env:
+          HEAD_NAME: ${{ needs.build.outputs.head }}
+          BASE_NAME: ${{ needs.build.outputs.base }}
+          REPEAT: ${{ inputs.repeat || '50' }}
+          ROUNDS: ${{ inputs.rounds || '5' }}
+        run: |
+          {
+            echo "SUMMARY BEGIN"
+            echo "== head $HEAD_NAME against base $BASE_NAME: $ROUNDS rounds of $REPEAT repeats a tick"
+            python3 ci/godot/scripts/bench_inspect.py summary runs $(cat runs/sizes.txt)
+            echo "SUMMARY END"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
