@@ -640,6 +640,55 @@ target's size, the time goes to the work done within a squad.
 - **Many small squads are cheap:** 25 squads of about 41 a side tick in 6.5 ms, with the seek
   the largest phase (2.71 ms).
 
+### Squad size against squad count, the owner's PC (2026-11-11)
+
+The same machine and `main` as above. Each cell holds the units a side fixed (12.5%, 25%, 50%
+and 100% of the 24,576 target) and splits them into 1 to 24 squads, each a lane against its
+mirror: `breach_tick_phases side=<units> squads=<n> fight=10`, 3 rounds taken in turn, the
+median shown with the rounds' range.
+
+| units a side | 1 squad | 2 | 4 | 8 | 24 |
+|---|---:|---:|---:|---:|---:|
+| 3,072 | 13.7 (13–16) | 14.2 (13–15) | 12.6 (12–13) | 12.9 (13–14) | 13.2 (13–14) |
+| 6,144 | 36.7 (37–37) | 29.1 (29–30) | 25.6 (26–27) | 21.4 (21–21) | 17.7 (18–18) |
+| 12,288 | 128.3 (119–131) | 86.8 (79–92) | 62.8 (56–64) | 41.7 (42–48) | 35.3 (35–38) |
+| 24,576 | 429.7 (423–440) | 248.8 (248–258) | 157.3 (146–161) | 115.0 (102–126) | 82.5 (72–95) |
+
+Tick, ms. The same 24,576 units tick 5.2× slower as one squad than as 24.
+
+**Three phases cost the square of a squad's size.** Per squad, each doubling of a squad's size
+costs about 4×, whatever the squad count:
+
+| ms per squad, by squad size | 768 | 1,536 | 3,072 | 6,144 | 12,288 | 24,576 |
+|---|---:|---:|---:|---:|---:|---:|
+| `units walk to places` | 0.18–0.19 | 0.65–0.70 | 2.44–2.86 | 9.5–10.4 | 38.5–39.3 | 151.7 |
+| `scrum: engage, prepare, stance` | 0.10–0.12 | 0.29–0.43 | 1.09–1.46 | 4.0–5.1 | 19.5–20.2 | 77.3 |
+| `scrum: seek` | 0.26–0.43 | 0.45–1.84 | 1.14–4.94 | 5.7–13.4 | 33.5–51.9 | 162.2 |
+
+At 24,576 in one squad they are 391 of 430 ms (91%). Fitting each phase's time per unit
+against squad size over all 20 cells gives an exponent of 0.89 for `units walk to places`
+(r² 1.00), 0.75 for `engage, prepare, stance` (r² 0.95) and 0.60 for `seek` (r² 0.59). An
+exponent of 1 is work quadratic within a squad; 0 is work per unit. The seek's cost per squad
+falls as squads are added (4.9 ms for one squad of 3,072, 1.1 ms each for eight), because each
+squad's search runs on the pool beside the others' (`Search::squads`). One large squad gets no
+help from the pool there. `units walk to places` and `engage` cost the same per squad at any
+count: they run one squad after another.
+
+**Everything else is per unit or per fighter.** Their exponents lie between −0.5 and 0.1:
+`roster`, `strays`, `stamina`, `wounds (tend)`, `recovery`, `groups`. Each squad is 32 wide,
+so 24 squads put 24 times as many units in the front rank. The phases that follow the fighting
+grow with the squad count, not the squad size: `bodies: pair search` 4.6 ms with 1 squad and
+9.4 ms with 24 at 24,576, `bodies: sums and applying` 0.12 and 4.34 ms. `fight (blows)` goes
+the other way, 8.1 against 2.7 ms.
+
+**Where the square comes from (read from the code, not yet profiled).** `units walk to places`
+is `march::sync::step`. For each living member of a squad, `place` searches the squad's
+`loose` and `fleeing` ids (`Vec<i64>`, `contains`) and its swaps' offsets
+(`moving.iter().find`), and `swaps::offsets` builds those offsets with an `any` over the list
+so far. Each list grows with the squad, so the work grows with its square. `scrum: engage,
+prepare, stance` (`scrum::step`'s `engage`, `prepare`, `anticipate` and `manoeuvre`) is likely
+to hold the same pattern. A profile of one squad of 24,576 will confirm it.
+
 ## Building
 
 ```
