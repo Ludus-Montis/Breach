@@ -1,0 +1,866 @@
+{
+  "commit": {
+    "outcomes_changed": false,
+    "position": 263,
+    "pr": 783,
+    "sha": "482f664c65e12afa318f7b05c13cf85b81bf38a3",
+    "step": "step:41-4",
+    "summary": "Spec 41 step 4, outcomes unchanged: - **Hasher:** every `HashMap`/`HashSet` in the crate goes through `src/hashing.rs`'s aliases: foldhash's `fast::RandomState`, still randomly seeded per process (and per map), so a result that came to hang on a map's order would still show as digests differing between runs. `clippy.toml`'s `disallowed-types` refuses std's `HashMap`/`HashSet` everywhere else, with no exceptions. Step 3 (#780) had already removed parting's own map. - **Allocator:** mimalloc is the `#[global_allocator]` in `src/lib.rs`, so it covers the library and every binary. - **No roster clone:** `tick::step` takes the roster by value. `relisted` already updated only what changed, so the clone at the start of the tick is gone. - **Kept buffers:** the field's new `buffers` (`src/buffers.rs`, `#[serde(skip)]`) holds: - the seek's crowd (its bodies, points and grid), claims and seekers; - parting's positions, pairs, pushes and sums, and its neighbour list's grid, buckets and list. The list is forgotten at the start of each tick, so a tick's bodies are always listed afresh.",
+    "title": "perf(native): the crate's general habits: foldhash, mimalloc, no roster clone, kept seek and parting buffers (spec 41 step 4)"
+  },
+  "machine": {
+    "cores": 4,
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "godot": {
+      "na": "not-applicable"
+    },
+    "os": "Ubuntu 26.04.1 LTS",
+    "ram_mb": 15983,
+    "runner_image": "ubuntu26",
+    "runner_version": "20261101.186.1",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "provenance": {
+    "date": "2026-11-11",
+    "kind": "fresh",
+    "run_id": 43021115200,
+    "url": "https://github.com/Ludus-Montis/Breach/actions/runs/43021115200"
+  },
+  "reference": {
+    "commit": "8ca422726e68909554eddad7eeee2199e0fe656d",
+    "ratio": {
+      "tick": 0.679613,
+      "tick-p95": 0.613613,
+      "tick-p99": 0.66789,
+      "tick/carry": 0.935484,
+      "tick/carry/strays": 0.023873,
+      "tick/deaths-bury": 0.708333,
+      "tick/fight-blows": 0.930487,
+      "tick/groups-form-up-split": 0.326531,
+      "tick/morale": 1.0625,
+      "tick/perception": 0.954545,
+      "tick/recovery": 0.091801,
+      "tick/roster": 0.250631,
+      "tick/rules": 0.5,
+      "tick/scrum/engage-prepare-stance": 1.066999,
+      "tick/shuffle-re-form": 0.631579,
+      "tick/stamina": 0.215297,
+      "tick/store-settles": 0.519481,
+      "tick/strays": 0.333333,
+      "tick/taking-the-downed": 0.978723,
+      "tick/units-walk-to-places": 0.994411,
+      "tick/wounds-tend": 0.021589
+    },
+    "results": {
+      "tick": {
+        "median": 702.9,
+        "unit": "ms",
+        "values": [
+          710.3,
+          693.6,
+          695.8,
+          702.9,
+          717.7
+        ]
+      },
+      "tick-p95": {
+        "median": 812.76,
+        "unit": "ms",
+        "values": [
+          820.91,
+          812.76,
+          809.21,
+          804.45,
+          820.36
+        ]
+      },
+      "tick-p99": {
+        "median": 920.66,
+        "unit": "ms",
+        "values": [
+          922.8,
+          890.16,
+          900.9,
+          920.66,
+          953.41
+        ]
+      },
+      "tick/bodies-parting": {
+        "median": 17.89,
+        "unit": "ms",
+        "values": [
+          17.99,
+          17.54,
+          17.7,
+          17.89,
+          18.07
+        ]
+      },
+      "tick/carry": {
+        "median": 0.31,
+        "unit": "ms",
+        "values": [
+          0.31,
+          0.3,
+          0.33,
+          0.3,
+          0.31
+        ]
+      },
+      "tick/carry/strays": {
+        "median": 3.77,
+        "unit": "ms",
+        "values": [
+          3.77,
+          3.69,
+          3.83,
+          3.72,
+          3.78
+        ]
+      },
+      "tick/deaths-bury": {
+        "median": 0.48,
+        "unit": "ms",
+        "values": [
+          0.48,
+          0.47,
+          0.47,
+          0.48,
+          0.49
+        ]
+      },
+      "tick/engage/edges": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/engage/fronts": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/fight-blows": {
+        "median": 10.07,
+        "unit": "ms",
+        "values": [
+          10.1,
+          9.59,
+          10.17,
+          10.07,
+          10.0
+        ]
+      },
+      "tick/groups-form-up-split": {
+        "median": 1.96,
+        "unit": "ms",
+        "values": [
+          1.5,
+          2.57,
+          1.74,
+          2.44,
+          1.96
+        ]
+      },
+      "tick/joins": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/march-squads-move": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/morale": {
+        "median": 0.16,
+        "unit": "ms",
+        "values": [
+          0.16,
+          0.15,
+          0.15,
+          0.16,
+          0.16
+        ]
+      },
+      "tick/orders": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/pathing": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/perception": {
+        "median": 0.44,
+        "unit": "ms",
+        "values": [
+          0.42,
+          0.42,
+          0.44,
+          0.44,
+          0.45
+        ]
+      },
+      "tick/recovery": {
+        "median": 14.27,
+        "unit": "ms",
+        "values": [
+          14.34,
+          13.84,
+          14.86,
+          13.68,
+          14.27
+        ]
+      },
+      "tick/roster": {
+        "median": 15.84,
+        "unit": "ms",
+        "values": [
+          15.84,
+          15.01,
+          15.19,
+          21.68,
+          20.79
+        ]
+      },
+      "tick/rout": {
+        "median": 1.8,
+        "unit": "ms",
+        "values": [
+          1.93,
+          1.74,
+          1.72,
+          1.81,
+          1.8
+        ]
+      },
+      "tick/rules": {
+        "median": 0.02,
+        "unit": "ms",
+        "values": [
+          0.02,
+          0.02,
+          0.02,
+          0.02,
+          0.02
+        ]
+      },
+      "tick/scrum/engage-prepare-stance": {
+        "median": 84.18,
+        "unit": "ms",
+        "values": [
+          85.5,
+          83.02,
+          82.93,
+          84.18,
+          85.11
+        ]
+      },
+      "tick/scrum/pursuit-stall": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/scrum/regroup-and-chasers": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/scrum/seek-walk-and-facing": {
+        "median": 256.04,
+        "unit": "ms",
+        "values": [
+          263.06,
+          253.52,
+          254.34,
+          256.04,
+          261.94
+        ]
+      },
+      "tick/scrum/withdraw": {
+        "median": {
+          "na": "not-measured"
+        },
+        "unit": "ms",
+        "values": {
+          "na": "not-measured"
+        }
+      },
+      "tick/shuffle-re-form": {
+        "median": 1.9,
+        "unit": "ms",
+        "values": [
+          1.9,
+          1.96,
+          1.86,
+          1.88,
+          1.92
+        ]
+      },
+      "tick/stamina": {
+        "median": 7.06,
+        "unit": "ms",
+        "values": [
+          7.06,
+          6.94,
+          7.09,
+          6.92,
+          7.29
+        ]
+      },
+      "tick/store-settles": {
+        "median": 2.31,
+        "unit": "ms",
+        "values": [
+          2.3,
+          2.31,
+          2.22,
+          3.19,
+          3.46
+        ]
+      },
+      "tick/strays": {
+        "median": 6.51,
+        "unit": "ms",
+        "values": [
+          6.84,
+          6.57,
+          6.51,
+          6.01,
+          6.46
+        ]
+      },
+      "tick/taking-the-downed": {
+        "median": 0.47,
+        "unit": "ms",
+        "values": [
+          0.47,
+          0.46,
+          0.47,
+          0.47,
+          0.47
+        ]
+      },
+      "tick/units-walk-to-places": {
+        "median": 180.72,
+        "unit": "ms",
+        "values": [
+          180.72,
+          181.37,
+          179.68,
+          178.1,
+          183.2
+        ]
+      },
+      "tick/wounds-tend": {
+        "median": 94.03,
+        "unit": "ms",
+        "values": [
+          95.54,
+          92.15,
+          94.03,
+          93.4,
+          95.69
+        ]
+      }
+    }
+  },
+  "results": {
+    "tick": {
+      "median": 477.7,
+      "unit": "ms",
+      "values": [
+        477.7,
+        468.2,
+        477.2,
+        481.5,
+        484.9
+      ]
+    },
+    "tick-p95": {
+      "median": 498.72,
+      "unit": "ms",
+      "values": [
+        498.72,
+        490.94,
+        528.54,
+        517.65,
+        494.06
+      ]
+    },
+    "tick-p99": {
+      "median": 614.9,
+      "unit": "ms",
+      "values": [
+        614.9,
+        595.55,
+        608.55,
+        615.69,
+        647.27
+      ]
+    },
+    "tick/bodies/commit": {
+      "median": 0.05,
+      "unit": "ms",
+      "values": [
+        0.05,
+        0.05,
+        0.05,
+        0.07,
+        0.05
+      ]
+    },
+    "tick/bodies/pair-search": {
+      "median": 7.64,
+      "unit": "ms",
+      "values": [
+        7.55,
+        7.45,
+        7.64,
+        7.73,
+        7.77
+      ]
+    },
+    "tick/bodies/pushes": {
+      "median": 0.07,
+      "unit": "ms",
+      "values": [
+        0.06,
+        0.07,
+        0.07,
+        0.07,
+        0.07
+      ]
+    },
+    "tick/bodies/sums-and-applying": {
+      "median": 0.09,
+      "unit": "ms",
+      "values": [
+        0.09,
+        0.09,
+        0.1,
+        0.13,
+        0.09
+      ]
+    },
+    "tick/bodies/sync": {
+      "median": 4.21,
+      "unit": "ms",
+      "values": [
+        4.21,
+        4.13,
+        4.19,
+        4.28,
+        4.29
+      ]
+    },
+    "tick/carry": {
+      "median": 0.29,
+      "unit": "ms",
+      "values": [
+        0.29,
+        0.29,
+        0.3,
+        0.3,
+        0.29
+      ]
+    },
+    "tick/carry/strays": {
+      "median": 0.09,
+      "unit": "ms",
+      "values": [
+        0.09,
+        0.08,
+        0.09,
+        0.09,
+        0.09
+      ]
+    },
+    "tick/deaths-bury": {
+      "median": 0.34,
+      "unit": "ms",
+      "values": [
+        0.36,
+        0.33,
+        0.34,
+        0.34,
+        0.34
+      ]
+    },
+    "tick/engage/edges": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/engage/fronts": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/fight-blows": {
+      "median": 9.37,
+      "unit": "ms",
+      "values": [
+        9.37,
+        9.06,
+        9.54,
+        9.53,
+        9.33
+      ]
+    },
+    "tick/groups-form-up-split": {
+      "median": 0.64,
+      "unit": "ms",
+      "values": [
+        0.81,
+        0.56,
+        0.95,
+        0.58,
+        0.64
+      ]
+    },
+    "tick/joins": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/march-squads-move": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/morale": {
+      "median": 0.17,
+      "unit": "ms",
+      "values": [
+        0.15,
+        0.16,
+        0.2,
+        0.17,
+        0.17
+      ]
+    },
+    "tick/orders": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/pathing": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/perception": {
+      "median": 0.42,
+      "unit": "ms",
+      "values": [
+        0.42,
+        0.41,
+        0.42,
+        0.42,
+        0.42
+      ]
+    },
+    "tick/recovery": {
+      "median": 1.31,
+      "unit": "ms",
+      "values": [
+        1.33,
+        1.28,
+        1.29,
+        1.32,
+        1.31
+      ]
+    },
+    "tick/roster": {
+      "median": 3.97,
+      "unit": "ms",
+      "values": [
+        3.97,
+        3.78,
+        4.12,
+        3.96,
+        4.04
+      ]
+    },
+    "tick/rout/breaks": {
+      "median": 1.48,
+      "unit": "ms",
+      "values": [
+        1.53,
+        1.47,
+        1.48,
+        1.48,
+        1.56
+      ]
+    },
+    "tick/rout/flight": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/rout/listing": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/rout/rallies": {
+      "median": 0.12,
+      "unit": "ms",
+      "values": [
+        0.14,
+        0.12,
+        0.14,
+        0.1,
+        0.12
+      ]
+    },
+    "tick/rout/re-forms": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/rules": {
+      "median": 0.01,
+      "unit": "ms",
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "tick/scrum/engage-prepare-stance": {
+      "median": 89.82,
+      "unit": "ms",
+      "values": [
+        89.82,
+        89.06,
+        89.76,
+        91.5,
+        91.66
+      ]
+    },
+    "tick/scrum/facing": {
+      "median": 1.77,
+      "unit": "ms",
+      "values": [
+        1.77,
+        1.73,
+        1.92,
+        1.77,
+        1.74
+      ]
+    },
+    "tick/scrum/pursuit-stall": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/scrum/regroup-and-chasers": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/scrum/seek": {
+      "median": 165.82,
+      "unit": "ms",
+      "values": [
+        165.82,
+        161.28,
+        164.12,
+        166.52,
+        166.26
+      ]
+    },
+    "tick/scrum/walk": {
+      "median": 2.03,
+      "unit": "ms",
+      "values": [
+        2.04,
+        1.99,
+        2.02,
+        2.07,
+        2.03
+      ]
+    },
+    "tick/scrum/withdraw": {
+      "median": {
+        "na": "not-measured"
+      },
+      "unit": "ms",
+      "values": {
+        "na": "not-measured"
+      }
+    },
+    "tick/shuffle-re-form": {
+      "median": 1.2,
+      "unit": "ms",
+      "values": [
+        1.2,
+        1.18,
+        1.18,
+        1.24,
+        1.25
+      ]
+    },
+    "tick/stamina": {
+      "median": 1.52,
+      "unit": "ms",
+      "values": [
+        1.52,
+        1.47,
+        1.6,
+        1.53,
+        1.52
+      ]
+    },
+    "tick/store-settles": {
+      "median": 1.2,
+      "unit": "ms",
+      "values": [
+        1.18,
+        1.18,
+        1.21,
+        1.31,
+        1.2
+      ]
+    },
+    "tick/strays": {
+      "median": 2.17,
+      "unit": "ms",
+      "values": [
+        2.17,
+        2.45,
+        2.17,
+        2.1,
+        2.14
+      ]
+    },
+    "tick/taking-the-downed": {
+      "median": 0.46,
+      "unit": "ms",
+      "values": [
+        0.47,
+        0.46,
+        0.45,
+        0.46,
+        0.46
+      ]
+    },
+    "tick/units-walk-to-places": {
+      "median": 179.71,
+      "unit": "ms",
+      "values": [
+        179.2,
+        175.99,
+        179.71,
+        180.37,
+        184.06
+      ]
+    },
+    "tick/wounds-tend": {
+      "median": 2.03,
+      "unit": "ms",
+      "values": [
+        2.06,
+        1.99,
+        2.04,
+        2.03,
+        1.99
+      ]
+    }
+  },
+  "schema": "record-v1",
+  "series": "bench",
+  "source": {
+    "args": [
+      "side=24576",
+      "squads=1",
+      "series=1"
+    ],
+    "blob": "8482751d4233fa2bbb882225d82fecf817b3f9ad",
+    "harness": "breach_tick_phases",
+    "profile": "release",
+    "rounds": 5
+  }
+}
