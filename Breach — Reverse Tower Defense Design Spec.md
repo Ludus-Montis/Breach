@@ -8354,7 +8354,8 @@ from a saved state, rather than one phase alone:
   The head replays the same tick numbers. A change with outcomes unchanged reaches the same
   state, so the comparison is like for like. Both sizes, 4,096 and 25k.
 - **The series runs until the field settles.** It ends when neither side has a squad
-  fighting or routing, at `LIMIT` ticks (600) at most, rather than when one side breaks. The
+  fighting or routing, at `LIMIT` ticks (600) at most, rather than when one side breaks (the
+  owner confirmed this as the battle's end). The
   rout and its spikes (`rout: flight` and `rout: rallies` reach 4.5–4.7 ms at tick 105
   against a 0.8 ms mean) are inside it, so its p95 and p99 are percentiles of the battle.
   This is how Decision 159's target is measured from now on.
