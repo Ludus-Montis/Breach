@@ -140,21 +140,6 @@ Scenarios:
 - Given jobs on different CPUs, then the summary combines them only as ratios to their
   references, and says which CPUs ran which ticks.
 
-### Step 5, recording and plotting the repeats
-
-**Needs:** 3, 4
-**Touches:** `ci/metrics/` (the record and its checks), `tools/metrics_view/`, the
-`bench-inspect` workflow's data PR
-
-Only once step 3 has passed:
-- **Records.** A run of `bench-inspect` on `main` writes a record per (size, tick) in
-  Decision 162's shape. `source.harness` is `tick_phases-repeat`, and the args carry `at` and
-  `repeat`. Its data PR merges itself, as `bench`'s do (Decisions 163 and 164). There is no
-  backfill: from merges forward only.
-- **Plotting.** The tick history gains small multiples per phase, × the reference by default
-  (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
-  the gap between them shows how far to trust the fast number.
-
 ## Measured
 
 ### Step 3, the ranking check (2026-11-11)
@@ -211,7 +196,10 @@ two commits, for a same-runner yardstick (runs #107–#136, AMD EPYC 9V74 / 9V45
 
 **By the letter of "Passing", the check fails on size for #783.** Its direction and ranking hold.
 The owner decides whether the mode stays a guide with that caveat, or is dropped (Q47, #909).
-Step 5 waits for that decision.
+**Settled 2026-11-11 (the owner, Q47 option a): it stays a guide, with the caveat.** It shows
+which way and roughly how far a change's aimed-at phases move, and the ranking. It under-reports
+phases whose cost builds up across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`). The
+whole tick stays the judge. Step 5 goes ahead.
 
 
 ## Not in this spec
@@ -321,3 +309,68 @@ Scenarios:
   (`bench_set.py`, `metrics_25k.js`), then both have the same shape.
 - Given a family's points across the change, when its line is drawn, then it breaks between
   the last record without the mark and the first with it.
+
+### Step 5a, recording the repeats
+
+**Split at build:** from step 5, PR #935, 2026-11-11 (above).
+**Needs:** 3, 4
+**Touches:** `.github/workflows/bench-inspect.yml`, `.github/actions/metrics-pr/action.yml`
+(its comment), `ci/metrics/check_records.py`, `ci/metrics/bench_record.py` and their tests,
+`ci/metrics/README.md`, `ci/godot/README.md`, `CLAUDE.md` (the self-merging workflows)
+
+- **Records.** A run of `bench-inspect` on `main` writes a record per (size, tick) in
+  Decision 162's shape. `source.harness` is `tick_phases-repeat`, and the args carry `at` and
+  `repeat`. Its data PR merges itself, as `bench`'s do (Decisions 163 and 164). There is no
+  backfill: from merges forward only.
+
+Built as: every merge to `main` touching `native/` or `sim/` runs `bench-inspect`, head the
+merge and base the `main` before it (`github.event.before`), in one concurrency group as
+`bench`'s `record-25k`. Each inspect job runs `bench_record.py --series inspect --args
+"preset=<size> at=<tick> repeat=<n>"`, which names the harness `tick_phases-repeat` from `at=`
+and writes `metrics/inspect/<date>-<run id>-<n>.json` (`n` the job's index + 1), with the
+bridge's `record` battle from the same job as its `reference`. A head off `main`'s
+first-parent line writes none. The summary gathers them into one data PR (series `inspect`).
+`check_records.py` fails a `tick_phases-repeat` record without `at=<tick>` and `repeat=<n>`.
+
+Scenarios:
+- Given a repeat record whose args name `at=` and `repeat=`, when the records are checked,
+  then it passes; without either, it fails, naming `source/args`.
+- Given a bench-inspect job's rounds, when its record is written, then it is `series`
+  `inspect` under `metrics/inspect/`, numbered by its job, and validates.
+
+### Step 5b, plotting the repeats
+
+**Split at build:** from step 5, PR #935, 2026-11-11: two behaviours, the records (5a, under
+`## Built`) and the page (5b), each with its own tests (Python; JS).
+**Needs:** 5a
+**Touches:** `tools/metrics_view/` (the tick history and its tests), `tools/metrics_view/README.md`
+
+Only once step 3 has passed:
+- **Records** are 5a's: `metrics/inspect/`, `series` `inspect`, one per (size, tick) a merge.
+- **Plotting.** The tick history gains small multiples per phase, × the reference by default
+  (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
+  the gap between them shows how far to trust the fast number.
+- **The caveat** (Q47, option a): the page says beside the repeats that they guide and the
+  whole tick judges, and that phases whose cost builds up across ticks (`strays`, `groups`,
+  `bodies: pushes`, `stamina`) read smaller repeated than in the whole tick.
+
+Built as (2026-11-11): `tools/metrics_view/metrics_inspect.js` and its page.
+- **The lap** is the 25k set's record (`series=1`) of the same commit and the preset's shape
+  (`4096`: `side=4096 squads=4`; `25k`: `side=24576 squads=24`), the battle `at=` replays, timed
+  over the whole settled series: its mean tick, not the inspected tick. Laps start at the first
+  commit with repeats (no backfill).
+- **% of tick is the default unit** (the owner, 2026-11-11, asked at build: above it says × the
+  reference). The two sides' references differ: a repeat's is the bridge on `bench`'s battle
+  (`side=4096 squads=4 fight=3`, step 5a), a set record's the bridge on its own shape, so in ×
+  the reference the gap carries a fixed factor (about ×4 at 25k). % of tick puts each side over
+  its own tick, so each record's runner cancels. × the reference and ms stay as choices, with a
+  note.
+- **The gap** in a panel's title is the repeats' median over the lap at the latest commit with
+  both. **Q47's caveat** (option a) marks the panels holding `strays`, `groups`, `bodies:
+  pushes` or `stamina`.
+
+Scenarios:
+- Given repeat records and the 25k set's records of the same commits, when the page draws, then
+  each size has a panel per top-level phase with the repeats beside the lap of the same shape,
+  in % of tick by default.
+- Given a panel holding a phase the repeats under-report, then it is marked with Q47's caveat.

@@ -112,6 +112,37 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(path.name, "2026-11-07-42412663531-2.json")
 
 
+class RepeatRecordTest(unittest.TestCase):
+    """Spec 47 step 5a: a bench-inspect job's repeats of one tick become an `inspect` record."""
+
+    def setUp(self):
+        self.out = Path(tempfile.mkdtemp())
+
+    def record(self):
+        return bench_record.build_record(rounds("30.3", "30.1", "30.5"),
+                                         rounds("33.4", "33.3", "33.7"), context(),
+                                         series="inspect")
+
+    def test_its_series_is_inspect(self):
+        self.assertEqual(self.record()["series"], "inspect")
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "jsonschema isn't installed")
+    def test_it_is_written_under_inspect_numbered_by_job_and_validates(self):
+        record = self.record()
+        record["source"].update(harness="tick_phases-repeat",
+                                args=["preset=25k", "at=91", "repeat=50"])
+        path = bench_record.write_record(record, self.out, "2026-11-11", 43071105924, 1,
+                                         number=3, series="inspect")
+        self.assertEqual(path, self.out / "metrics" / "inspect" / "2026-11-11-43071105924-3.json")
+        self.assertEqual(check_records.check_file(path, self.out / "metrics", SCHEMA_DIR, {}), [])
+
+    def test_the_harness_is_named_by_the_args(self):
+        self.assertEqual(bench_record.harness_of(["preset=25k", "at=91", "repeat=50"]),
+                         "tick_phases-repeat")
+        self.assertEqual(bench_record.harness_of(["side=4096", "squads=4", "fight=3"]),
+                         "breach_tick_phases")
+
+
 SERIES_ROUND = """machine: AMD EPYC 7763 64-Core Processor, 4 threads, Linux
 rust, 24576 a side, 32 wide: {tick} ms a tick
   scrum: seek                             {seek}

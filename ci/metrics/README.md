@@ -136,6 +136,29 @@ A run that fails or times out (90 minutes) writes nothing. The job's concurrency
 cancels a running set, but GitHub keeps one pending run a group: a third merge during a run
 replaces the second's pending one, and that merge has no set.
 
+## Repeat records
+
+`bench-inspect` (spec 47, Decision 177) replays chosen ticks live. Each merge to `main` that
+touches `native/` or `sim/` runs it, with the merge as head and the `main` before it as base
+(step 5a). Each inspect job, one per (size, inspection tick), then writes one record,
+`metrics/inspect/<date>-<run id>-<n>.json` (`n` the job's place in the matrix, from 1):
+
+- `series` is `inspect`, `source.harness` is `tick_phases-repeat`, and `source.args` are the
+  replay's, `preset=<size> at=<tick> repeat=<n>`. `check_records.py` fails a repeat record
+  whose args don't name `at=` and `repeat=`.
+- `results`: each round's median of the repeats, for the tick and each phase, and their
+  median across the rounds, as a bench record's.
+- `reference`: the bridge, `8ca4227`, timed with `record`'s battle (`side=4096 squads=4
+  fight=3`) in the same job, so records from different runners combine only as ratios
+  (Decision 172).
+
+The summary job gathers the jobs' records into one data PR (`chore/metrics-inspect-<run
+id>`), which merges itself. A run whose head is off `main`'s first-parent line, a job that
+failed, and anything before 5a write none: there is no backfill. The repeats guide and the
+whole tick judges (Q47): phases whose cost builds up across ticks (`strays`, `groups`,
+`bodies: pushes`, `stamina`) read smaller repeated. The bench and 25k pages read only
+`series` `bench`, so these records don't touch their lines; plotting them is step 5b.
+
 ## The backfill
 
 `bench-series` (spec 43 step 5) fills the history from before step 4: start it from the
@@ -248,7 +271,7 @@ skipped where `jsonschema` isn't installed; CI installs it).
 
 ## The data-PR route
 
-`bench`, `metrics-archive` and `bench-series` deliver their files through one composite
+`bench`, `metrics-archive`, `bench-series` and `bench-inspect` (spec 47 step 5a) deliver their files through one composite
 action, [`.github/actions/metrics-pr`](../../.github/actions/metrics-pr/action.yml) (spec 43
 step 3, Decision 164):
 

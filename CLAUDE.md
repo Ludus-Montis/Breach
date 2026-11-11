@@ -12,8 +12,9 @@ How sessions work together is `principles/agent-sessions.md`.
 
 - **Every change goes on a branch and through a PR, and the user merges.** Never merge,
   and don't poll CI after opening a PR: turn on the app's Auto-fix for it instead, which
-  wakes the session when CI fails (`/run-phase` step 6). The one exception: `bench`, `metrics-archive` and
-  `bench-series` merge their own data-only PRs under `metrics/` (Decisions 163 and 164).
+  wakes the session when CI fails (`/run-phase` step 6). The one exception: `bench`, `metrics-archive`,
+  `bench-series` and `bench-inspect` merge their own data-only PRs under `metrics/` (Decisions
+  163, 164 and 177).
   Use `/run-phase` (`.claude/skills/run-phase/`).
   The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;
   `/run-phase` step 1); a design session's `docs:` PR goes on `chore/`. A cloud session's

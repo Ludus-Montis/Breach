@@ -144,6 +144,27 @@ class CheckRecordsTest(unittest.TestCase):
         (self.root / "schema" / "record-v1.schema.json").write_text("{}", encoding="utf-8")
         self.assertEqual(self.problems(), [])
 
+    def repeat_record(self, args):
+        record = good_record()
+        record["series"] = "inspect"
+        record["source"]["harness"] = "tick_phases-repeat"
+        record["source"]["args"] = args
+        return record
+
+    def test_a_repeat_record_naming_its_tick_and_repeats_passes(self):
+        self.write("2026-11-11-1-1.json",
+                   self.repeat_record(["preset=4096", "at=91", "repeat=50"]), series="inspect")
+        self.assertEqual(self.problems(), [])
+
+    def test_a_repeat_record_without_its_tick_or_repeats_fails(self):
+        for args in (["preset=4096", "repeat=50"], ["preset=4096", "at=91"],
+                     ["at=x", "repeat=50"], {"na": "not-recorded"}):
+            path = self.write("2026-11-11-1-1.json", self.repeat_record(args), series="inspect")
+            problems = self.problems()
+            self.assertTrue(any("2026-11-11-1-1.json" in p and "source/args" in p
+                                for p in problems), (args, problems))
+            path.unlink()
+
     def test_main_exits_non_zero_on_a_problem(self):
         self.write("bad.json", good_record())
         self.assertEqual(check_records.main([str(self.root), str(SCHEMA_DIR)]), 1)
