@@ -195,6 +195,26 @@ changed; that folder is restored from one cache entry the `references` job write
 (`bench-series-target-v1`; bump it to rebuild); and each job first deletes runner tools it
 doesn't use. Each job's summary gives every build's time, the job's time and its free disk.
 
+## Local runs, the owner's PC
+
+Spec 48 step 1, Decision 178. Runs on the owner's PC are a series of their own, under
+`metrics/local/`, drawn apart from CI's: `"series": "local"`, `"kind": "local"`, no reference
+(they compare in raw ms) and the machine from `local_machine.json`. CI's charts read `series`
+and leave them out; `check_records.py` checks them as it checks any record.
+
+- `bash ci/metrics/local_grid.sh [rounds]` (after `bash native/build.sh`) runs the grid of
+  squad size against squad count: sides 3,072 to 24,576, squads 1, 2, 4, 8 and 24,
+  `fight=10`, the rounds taken in turn, into `bench-grid/` (git-ignored), then imports it.
+- `python3 ci/metrics/local_record.py <folder> --commit <sha> --date <YYYY-MM-DD>` imports
+  outputs named `s<side>_q<squads>_r<round>.txt`: one record per cell,
+  `metrics/local/<date>-<n>.json`, `n` counting on from that day's records. It refuses a
+  file whose printed side or thread count differs from its name or the machine, by name,
+  and writes nothing. `breach_tick_phases` doesn't print its squad count, so that comes from
+  the name alone.
+
+Keep a run's outputs under `metrics/raw/local/<date>-<short sha>/`. The first is the owner's
+2026-11-11 grid on `a5f574d` (20 records, 3 rounds each).
+
 ## Harvest the archived logs
 
 `ci/metrics/harvest.py` (spec 43 step 6) turns what `metrics-archive` kept under
