@@ -1,7 +1,8 @@
 # The Showcase tab
 
-The site's `#showcase` tab (spec 44 step 5, Decisions 167 and 169): every PR that changes the
-game, as [the showcase capture](../../ci/showcase/README.md) recorded it, newest first.
+The site's first tab, at `#showcase` and the root URL (spec 44 step 5; Decisions 167, 169
+and 170): every PR that changes the game, as [the showcase capture](../../ci/showcase/README.md)
+recorded it, newest first.
 
 ## What it shows
 

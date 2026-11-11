@@ -6,7 +6,7 @@ Static HTML and JS, no build step, reading only `metrics/`.
 
 ## See it
 
-- **On the web:** the Metrics tab of the project site, <https://ludus-montis.github.io/Breach/>
+- **On the web:** the Metrics tab of the project site, <https://ludus-montis.github.io/Breach/#metrics>
   (`#metrics`, and the root; [`tools/site/`](../site/README.md)), published by the `site-pages`
   workflow each time `metrics/` or the page changes on `main` (first, once: Settings → Pages →
   Source: GitHub Actions). The page is served from the site's `metrics/` folder and opens in

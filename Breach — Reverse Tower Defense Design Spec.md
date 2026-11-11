@@ -7976,3 +7976,32 @@ and its timing rounds.
 simulation changes. It is tested first in spec 44 step 2, and checked by every capture after
 that (the behaviours reported as not seen).
 **Pillar check:** not applicable.
+
+### Decision 170 — The site opens on Showcase, Metrics second
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Amends:** Decision 166 (which tab the root opens, and the tabs' order)
+
+**Rationale:** Once the first capture was on the site (#851), the owner asked to "flip metrics
+and showcase tabs", and chose for the root URL to open Showcase too: the game's clips are
+what the site is for, and the tick history is a tab away.
+- **Showcase is the first tab,** and the first tab is the one the root URL and any unknown
+  name open, as before. Metrics is second, at `#metrics`.
+- **Old root links** to the tick history page now land on Showcase. Links to `#metrics` keep
+  working.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Showcase first in the bar, the root still opening Metrics | The bar's first tab and the landing page would differ. The owner chose the root to open Showcase. |
+
+**Consequences:** `TABS` in `tools/site/site.js` lists Showcase first; the site's READMEs and
+the tick history page's link say `#metrics`.
+
+**Rules over cases:** general: the first tab in the list is the one the root and unknown names
+open, whichever it is.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable.
+**Pillar check:** not applicable.
