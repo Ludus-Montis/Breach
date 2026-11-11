@@ -39,11 +39,44 @@ regardless of size, goes on its own branch and through a PR that a human merges.
   uncommitted changes that aren't yours to discard, stop and ask.
 - Confirm the branch this item depends on (if any) is already merged to `main` before
   branching from it — don't stack on an unmerged PR without asking first.
-- **In a cascade** (you were started with `/cascade step #N`, `.claude/skills/cascade/`):
-  the cascade's issue is your standing instructions, and its **Base** is the branch you
-  stack on (the owner authorised that when the cascade started). Read it whole, once.
-  Don't rebuild instructions from older PR comments. Finish with the cascade skill's
-  "Step" section (update the record, report), then stop.
+- **In a cascade** (you were started with `/cascade step #N <id>`,
+  `.claude/skills/cascade/`): the cascade's issue is your standing instructions, and the
+  base in your step's **Running** row is the branch you stack on (the owner authorised
+  that when the cascade started). Read it whole, once. Don't rebuild instructions from
+  older PR comments. Don't edit the record's body. Finish with the cascade skill's "Step"
+  section (log comment, report), then stop.
+- **Size the step before any code** ("Splitting a step", below). If it is too large, split
+  it first.
+
+## Splitting a step
+
+A step is sized at design (`AI_First_Development_Kit/principles/agent-sessions.md` §3,
+Decision 171): one behaviour, one test file from red to green, and a PR that can be
+reviewed in one sitting, about 15 files or 400 changed lines, not counting tests and docs.
+
+- **When:** at the plan, before any code. Once you have read the step and know which files
+  it changes, judge it against the guide. A step that is over it, or that holds two
+  behaviours, is split now, without asking (Decision 171), unless a cascade's standing
+  rule 2 says ask first. Don't split halfway through the build to shed work you have
+  already started; finish the part you are in.
+- **How:**
+  - in the spec, replace `### Step <id>` with `### Step <id>a`, `### Step <id>b`, … each
+    keeping its share of the scenarios, with a line
+    `**Split at build:** from step <id>, PR #<n>, <YYYY-MM-DD>: <why>`, and its own
+    `**Needs:**` and `**Touches:**`. The later parts usually need the first. Steps that
+    needed `<id>` now need the part that carries what they used. The part this PR builds
+    goes under the spec's `## Built` section (add one at the end if there is none); the
+    rest stay under `## Steps`. That spec edit goes in this PR;
+  - the PR body carries `Split: step <id> into <id>a (this PR) and <id>b; <why>`
+    (`templates/pr-description.md`) and **no** `Closes #<old step's issue>`. Once it merges,
+    `github-sync` closes the old step's issue naming the parts, makes the parts' issues,
+    and closes the built part's against this PR (`ci/github/step_issues.py`);
+  - comment on the old step's issue now, so it is signposted before the merge:
+    `Split at build into <id>a (PR #<n>) and <id>b: <why>`;
+  - in a cascade, put the split in your log comment and report, and the coordinator adds
+    the parts to the record.
+- **Outside a cascade:** build the first part, and name the next part's command as the next
+  step (`/run-phase spec NN step <id>b`).
 
 ## 1. Branch — Conventional Branch, purpose-driven prefix only
 
@@ -237,7 +270,8 @@ Then close the step's issue from the PR (spec 40). `github-sync` makes one issue
 `### Step <id>` heading, under the spec's parent issue `Spec NN: <title>`. Find it with
 `list_issues`, `labels: [step:NN-<id>]`, `state: OPEN`, `fields: [number, title]`, and add
 `Closes #<it>` to the PR body (`update_pull_request`). A PR that builds two steps closes
-both. If none is found (the sync hasn't run for this spec), say so in the PR body and start
+both. A PR that splits its step closes no issue for it ("Splitting a step").
+If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
 
 Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
