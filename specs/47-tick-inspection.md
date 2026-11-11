@@ -142,7 +142,7 @@ Scenarios:
 
 ### Step 5b, plotting the repeats
 
-**Split at build:** from step 5, PR #PRNUM, 2026-11-11: two behaviours, the records (5a, under
+**Split at build:** from step 5, PR #935, 2026-11-11: two behaviours, the records (5a, under
 `## Built`) and the page (5b), each with its own tests (Python; JS).
 **Needs:** 5a
 **Touches:** `tools/metrics_view/` (the tick history and its tests), `tools/metrics_view/README.md`
@@ -322,7 +322,7 @@ Scenarios:
 
 ### Step 5a, recording the repeats
 
-**Split at build:** from step 5, PR #PRNUM, 2026-11-11 (above).
+**Split at build:** from step 5, PR #935, 2026-11-11 (above).
 **Needs:** 3, 4
 **Touches:** `.github/workflows/bench-inspect.yml`, `.github/actions/metrics-pr/action.yml`
 (its comment), `ci/metrics/check_records.py`, `ci/metrics/bench_record.py` and their tests,
