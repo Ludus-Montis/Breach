@@ -7,6 +7,7 @@
 //! A second battle steps untimed beside it, and the two must end equal, or it says so.
 
 pub mod counts;
+pub mod machine;
 pub mod presets;
 pub mod repeat;
 pub mod scatter;
@@ -178,22 +179,8 @@ pub fn headed(
     out
 }
 
-/// tick_phases.gd's machine line: the processor, its threads and the system, as Godot names
-/// them.
+/// tick_phases.gd's machine line: the processor, its cores and threads, the RAM and the
+/// system (`machine::machine`).
 pub fn machine() -> String {
-    let cpu = std::fs::read_to_string("/proc/cpuinfo")
-        .ok()
-        .and_then(|info| {
-            let line = info.lines().find(|line| line.starts_with("model name"))?.to_string();
-            Some(line.split_once(':')?.1.trim().to_string())
-        })
-        .unwrap_or_else(|| "unknown".to_string());
-    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let system = match std::env::consts::OS {
-        "linux" => "Linux",
-        "windows" => "Windows",
-        "macos" => "macOS",
-        other => other,
-    };
-    format!("machine: {cpu}, {threads} threads, {system}")
+    machine::machine()
 }
