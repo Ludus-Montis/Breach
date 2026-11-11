@@ -84,7 +84,8 @@ pub struct Middle {
 
 /// Plays `settled` forward once to the last of `ats`, keeping each tick's copy as it passes,
 /// in the order given. Refused for a tick it has already passed or one past the battle's end
-/// (once one side no longer stands), naming the first or the last tick it could repeat.
+/// (once the field settles, where a series ends: `series::stirs`), naming the first or the
+/// last tick it could repeat.
 pub fn kept(settled: &mut Settled, ats: &[i64], content: &Content) -> Result<Vec<Kept>, String> {
     let first = settled.play.tick + 1;
     if let Some(early) = ats.iter().find(|&&t| t < first) {
@@ -98,7 +99,7 @@ pub fn kept(settled: &mut Settled, ats: &[i64], content: &Content) -> Result<Vec
     let mut copies: Vec<Kept> = Vec::new();
     for t in ahead {
         while settled.play.tick < t {
-            if !settled.play.both_stand(&settled.squads, &settled.field) {
+            if !super::series::stirs(settled) {
                 let last = settled.play.tick;
                 return Err(format!("at={t} is past the battle's end: its last tick is {last}"));
             }

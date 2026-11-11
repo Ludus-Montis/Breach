@@ -300,8 +300,8 @@ as warm as in a battle, and one untimed repeat comes first. Each tick prints a `
 its medians on the lines `bench_compare.py` reads as a run's, then the tick's and each phase's
 median, interquartile range and 95% interval of the median (lines ending in `]`, which it
 skips). With several ticks in one run it would read the last, so compare one tick a run. A
-tick past the battle's end exits 2, naming the last; so do `counts=`, `scatter=` beside `at=`,
-and `repeat=` without it. If a repeat leaves another state than playing through the tick once
+tick past the battle's end (the field settled, where a series ends) exits 2, naming the last;
+so do `counts=`, `scatter=` beside `at=`, and `repeat=` without it. If a repeat leaves another state than playing through the tick once
 did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
 known to within ±1%.
 
