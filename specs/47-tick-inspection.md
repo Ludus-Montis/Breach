@@ -93,7 +93,7 @@ Scenarios:
 
 ### Step 2b, the record marks the settled series, and the tick history breaks there
 
-**Split at build:** from step 2, PR #PRNUM, 2026-11-11: two behaviours, the crate's series
+**Split at build:** from step 2, PR #904, 2026-11-11: two behaviours, the crate's series
 (2a) and the records and page (2b), each with its own tests (cargo; Python and JS).
 **Needs:** 2a
 **Touches:** `.github/workflows/bench.yml` (the 25k set's `--args`), `ci/metrics/bench_set.py`
@@ -226,7 +226,7 @@ Filled in by step 3.
 
 ### Step 2a, the series runs until the field settles, and names its inspection ticks
 
-**Split at build:** from step 2, PR #PRNUM, 2026-11-11: the crate's series here; the records'
+**Split at build:** from step 2, PR #904, 2026-11-11: the crate's series here; the records'
 mark and the tick history's break are step 2b.
 **Needs:** none
 **Touches:** `native/rust/src/phases/series.rs` and its tests,
