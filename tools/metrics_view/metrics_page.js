@@ -371,6 +371,7 @@
   }
 
   function draw(bundle) {
+    if (window.BreachDrawLocal) window.BreachDrawLocal(bundle);
     var lines = view.lines(bundle);
     state.bundle = bundle;
     state.all = lines;

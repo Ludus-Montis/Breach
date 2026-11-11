@@ -117,6 +117,28 @@
     <div id="phase-legend" class="legend"></div>
     <p id="phase-note" class="note"></p>
   </section>
+  <section id="local" hidden>
+    <h2>The owner's PC: local runs, in ms (log scales)
+      <select id="local-run-pick" aria-label="Local run"></select></h2>
+    <p><strong id="local-machine"></strong>. <span id="local-run"></span></p>
+    <p class="note">Runs on one machine, the owner's PC (Decision 178, spec 48), kept apart from
+    CI's: raw ms, never against a reference, and never drawn in the charts above. Each point is
+    a cell's median, its bar the range of its rounds. They guide day to day only once they are
+    shown to track CI's progression (spec 48 step 4). The dashed lines are Decision 159's goals
+    at 24,576 a side, 50 ms (target) and 100 ms (interim), on CI's 4-thread runner; a guide
+    here. With the whole tick, the three costliest phases at the largest cell are drawn thin.
+    A run before the picked one is dotted.</p>
+    <p class="toggles">
+      <label>Phase <select id="local-phase" aria-label="Local phase"></select></label>
+      <label>Grouping <select id="local-grouping" aria-label="Local grouping">
+        <option value="squads">against units a side, a curve per squad count</option>
+        <option value="size">against squad size, a curve per total</option>
+      </select></label>
+      <label><input type="checkbox" id="local-per-squad"> per squad (÷ the squad count)</label>
+    </p>
+    <div id="local-chart" class="chart"></div>
+    <div id="local-legend" class="legend"></div>
+  </section>
   <section id="details" hidden>
     <h2 id="details-title"></h2>
     <p id="details-links"></p>
@@ -126,6 +148,8 @@
 <script src="metrics_view.js"></script>
 <script src="metrics_25k.js"></script>
 <script src="metrics_25k_page.js"></script>
+<script src="metrics_local.js"></script>
+<script src="metrics_local_page.js"></script>
 <script src="metrics_page.js"></script>
 </body>
 </html>

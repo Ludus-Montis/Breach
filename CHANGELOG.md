@@ -10,6 +10,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- The tick history page has a section for the owner's PC: local runs in ms, the tick or any
+  phase against units a side (a curve per squad count) or against squad size (a curve per
+  total, optionally per squad), each point with its rounds' range, the costliest phases drawn
+  thin, and a run picker that dots the run before.
 - `breach_tick_phases at=<tick> repeat=<n>` replays a chosen tick live many times and gives
   each phase's median with its spread, a quicker guide for performance work than whole runs.
 - A project README, this changelog and a documentation index (`docs/index.md`), kept
