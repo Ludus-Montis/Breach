@@ -363,8 +363,13 @@
       cpus: state.cpuList });
   }
 
+  function drawInspect() {
+    if (window.BreachDrawInspect) window.BreachDrawInspect(state.bundle, { hidden: state.cpus });
+  }
+
   function redrawAll() {
     draw25k();
+    drawInspect();
     drawOverview();
     drawPhases();
     showDetails();
@@ -377,7 +382,7 @@
     state.all = lines;
     state.track = set.onTrack(bundle);
     state.cpuList = cpuList(bundle);
-    if (!lines.length) { draw25k(); $('status').textContent = 'No bench records found.'; return; }
+    if (!lines.length) { draw25k(); drawInspect(); $('status').textContent = 'No bench records found.'; return; }
     var bridge = view.bridge(bundle);
     state.bridge = bridge;
     $('status').textContent = bundle.length + ' records.';

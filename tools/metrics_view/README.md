@@ -72,6 +72,20 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other"
   included, to hide or show it in every unit; the stack closes up and no other phase's value
   or share changes.
+- **A tick replayed (spec 47 step 5b, Decision 177):** small multiples, one per top-level phase
+  and size (4,096 and 24,576 a side), along `main`'s first-parent line from the first commit
+  with repeat records (`metrics/inspect/`, series `inspect`, written by `bench-inspect` at each
+  merge, step 5a). Each inspection tick's repeats are dots; the same phase's lap from the whole
+  tick is the line: the 25k set's record of the same commit and battle (`side=4096 squads=4`,
+  `side=24576 squads=24`, the settled series' mean tick). A panel's title gives the gap, the
+  repeats' median over the lap at its latest commit with both. **% of tick** is the default
+  (the owner, 2026-11-11): each side over its own tick, so each record's runner cancels. In
+  **× the reference** the two sides have different yardsticks (a repeat's is the bridge on
+  `bench`'s battle, `side=4096 squads=4 fight=3`; a set record's the bridge on its own shape),
+  so read each side's trend there, not the gap; **ms** holds the runners as well. ⚠ marks a
+  panel holding a phase the repeats under-report, whose cost builds up across ticks (`strays`,
+  `groups`, `bodies: pushes`, `stamina`; Q47, #909): there the whole tick is the judge. The
+  CPU toggles apply.
 - **A point's details:** links to its PR and its record, and a table, in the phase chart's
   unit, comparing it with the commit before it on its line among the CPUs shown (the title
   names both records' CPUs) (a harvested point: with its commit's fresh record) at the
@@ -102,10 +116,12 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   the harvested 25k runs and the 4,096 chart's "on track" lines), tested by
   `test/metrics_25k.test.js` against the fixtures `ci/metrics/bench_set.py` uses
   (`ci/metrics/fixtures/bench_fit.json`).
+- `metrics_inspect.js`: the repeats' panels (the pairing with the 25k set, the units, the
+  gap and Q47's caveat), tested by `test/metrics_inspect.test.js`.
 - `metrics_local.js`: the local section's logic (runs, curves by squad count or squad size,
   per squad, the phases and the costliest three), tested by `test/metrics_local.test.js` on
   the owner's 2026-11-11 grid under `metrics/local/`.
-- `metrics_page.js`, `metrics_25k_page.js`, `metrics_local_page.js`, `metrics_view.css`,
-  `index.html`: the drawing.
+- `metrics_page.js`, `metrics_25k_page.js`, `metrics_inspect_page.js`, `metrics_local_page.js`,
+  `metrics_view.css`, `index.html`: the drawing.
 - `build_index.py`: lists `metrics/` (not `raw/`, not `schema/`) into `records.json`, tested by
   `tools/test_metrics_index.py`.

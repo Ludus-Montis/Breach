@@ -10,6 +10,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- `breach_tick_phases` names the CPU, its cores and the RAM on Windows too (it said `unknown`
+  there), and gives cores and RAM on Linux.
 - The tick history page has a section for the owner's PC: local runs in ms, the tick or any
   phase against units a side (a curve per squad count) or against squad size (a curve per
   total, optionally per squad), each point with its rounds' range, the costliest phases drawn
