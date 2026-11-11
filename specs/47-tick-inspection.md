@@ -91,29 +91,6 @@ Scenarios:
   `Buffers::warm` says), and the result is the same as a field read back from a snapshot.
 - Given `at=` past the series' end, then the run is refused with the last tick named.
 
-### Step 2b, the record marks the settled series, and the tick history breaks there
-
-**Split at build:** from step 2, PR #904, 2026-11-11: two behaviours, the crate's series
-(2a) and the records and page (2b), each with its own tests (cargo; Python and JS).
-**Needs:** 2a
-**Touches:** `.github/workflows/bench.yml` (the 25k set's `--args`), `ci/metrics/bench_set.py`
-and its tests, `tools/metrics_view/metrics_25k.js`, `tools/metrics_view/metrics_view.js`
-(`segments`) and their tests, `ci/metrics/README.md`, `tools/metrics_view/README.md`
-
-- **The tick history.** Records before and after step 2a measure different series. The
-  record's `source.args` say so (`series=settled` after it; none before), and the tick
-  history's 25k chart breaks its line there, as it does at a harness change (spec 43).
-  `series=settled` isn't part of a record's shape: the shape is the args without `series=1`
-  and `series=settled`, so the families keep their records.
-- **Merge it with 2a,** or before the next 25k set runs on `main`: a set recorded between the
-  two is the settled series without the mark.
-
-Scenarios:
-- Given a 25k set's records with and without `series=settled`, when the shapes are read
-  (`bench_set.py`, `metrics_25k.js`), then both have the same shape.
-- Given a family's points across the change, when its line is drawn, then it breaks between
-  the last record without the mark and the first with it.
-
 ### Step 3, the ranking check (the riskiest assumption)
 
 **Needs:** 1
@@ -260,3 +237,32 @@ Scenarios:
   ticks are the 3 slowest (the earlier on a tie) and the 4 spread. A duplicate is replaced by
   the next slowest.
 - Given the digests, then they are unchanged: the series only times.
+
+### Step 2b, the record marks the settled series, and the tick history breaks there
+
+**Split at build:** from step 2, PR #904, 2026-11-11: two behaviours, the crate's series
+(2a) and the records and page (2b), each with its own tests (cargo; Python and JS).
+**Needs:** 2a
+**Touches:** `.github/workflows/bench.yml` (the 25k set's `--args`), `ci/metrics/bench_set.py`
+and its tests, `tools/metrics_view/metrics_25k.js`, `tools/metrics_view/metrics_view.js`
+(`segments`) and their tests, `ci/metrics/README.md`, `tools/metrics_view/README.md`
+
+- **The tick history.** Records before and after step 2a measure different series. The
+  record's `source.args` say so (`series=settled` after it; none before), and the tick
+  history's 25k chart breaks its line there, as it does at a harness change (spec 43).
+  `series=settled` isn't part of a record's shape: the shape is the args without `series=1`
+  and `series=settled`, so the families keep their records.
+- **Merge it with 2a,** or before the next 25k set runs on `main`: a set recorded between the
+  two is the settled series without the mark.
+
+Built as: `bench.yml`'s `record-25k` writes `--args "<shape> series=1 series=settled"`;
+`bench_set.SETTLED_ARG` and `metrics_25k.js` drop the mark from the shape, and a 25k point
+carries `era: 'settled'`. `metrics_view.segments` breaks a line where a point's `era` changes,
+as it does at a missing commit. `series_25k.py` (the history's backfill of old commits) writes
+no mark: those commits ran the old series.
+
+Scenarios:
+- Given a 25k set's records with and without `series=settled`, when the shapes are read
+  (`bench_set.py`, `metrics_25k.js`), then both have the same shape.
+- Given a family's points across the change, when its line is drawn, then it breaks between
+  the last record without the mark and the first with it.

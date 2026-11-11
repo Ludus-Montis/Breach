@@ -119,7 +119,10 @@ It times nine shapes with `breach_tick_phases <shape> series=1`, 5 rounds in tur
   bridge `8ca4227` timed beside it, so their records have a `reference`. The grid's have none.
 
 Each shape is one record, `metrics/bench/<date>-<run id>-<1nn>.json`, with `source.args`
-naming the shape. `tick` is the series' mean tick, `tick-p95` and `tick-p99` its percentiles,
+naming the shape. From spec 47 step 2a the series runs until the field settles, not until one
+side breaks, so its records also carry `series=settled` in `source.args` (step 2b). The mark
+isn't part of the shape (`bench_set.py` and the page drop it with `series=1`), and the 25k
+chart breaks its lines where it starts. A set recorded on `main` between 2a and 2b has no mark. `tick` is the series' mean tick, `tick-p95` and `tick-p99` its percentiles,
 each with its 5 rounds and median; the phases are their series means. All nine go in one data
 PR (`chore/metrics-bench-25k-<run id>`), whose body holds each shape's miss at 24,576 a side,
 (predicted − measured) ÷ measured, flagged beyond 10%, and "the form no longer fits" when the

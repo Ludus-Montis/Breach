@@ -110,6 +110,12 @@ test('a line breaks where a commit it should have has no number, never joining a
   assert.deepEqual(runs.map((run) => run.map((p) => p.position)), [[10, 20], [50]]);
 });
 
+test('a line breaks where its points\' era changes, though the commits are adjacent', () => {
+  const points = [10, 20, 30, 40].map((position) => ({ position, tick: 1, era: position < 30 ? undefined : 'settled' }));
+  const runs = view.segments(points, [10, 20, 30, 40]);
+  assert.deepEqual(runs.map((run) => run.map((p) => p.position)), [[10, 20], [30, 40]]);
+});
+
 test('harvested points are hidden unless asked for, and the fresh lines are untouched', () => {
   const records = [
     record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }),
