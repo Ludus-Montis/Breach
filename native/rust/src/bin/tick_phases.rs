@@ -15,9 +15,10 @@
 //! arguments beside it exit 2, as does a name not on the list.
 //!
 //! `series=1` times every tick from where the battle is settled (from contact: `settle` is 0
-//! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
-//! and follows the phases' means with each one's 95th and 99th percentiles and worst
-//! (`phases::series`; spec 38 step 2).
+//! unless given) until the field settles (no squad fights or routes; Decision 177) or `limit`
+//! ticks, instead of `fight` ticks, and follows the phases' means with each one's 95th and 99th
+//! percentiles and worst, then an `inspect:` line naming its inspection ticks
+//! (`phases::series`; spec 38 step 2, spec 47 step 2a).
 //!
 //! `at=<t>[,<t>...]` replays each tick named `repeat` times (50 if not given) instead of timing
 //! a run (`phases::repeat`; spec 47 step 1): the battle, as any preset or arguments set it up
