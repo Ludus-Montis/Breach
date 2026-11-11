@@ -95,6 +95,18 @@ Every check that doesn't need another's output runs in its own job, side by side
   `base_ref.py`'s detection would then pick the nearest other branch and count changes
   the push didn't make; that is why pushes to `main` failed `run-baseline` before
   2026-10-15.
+- **`bench-inspect`** (`bench-inspect.yml`, spec 47 step 4, Decision 177), started by hand
+  with `head`, `base` (default `main`), `sizes` (both, `4096` or `25k`), `repeat` (50) and
+  `rounds` (5). `build` builds `breach_tick_phases` at the head, the base and the reference
+  (the bridge, `8ca4227`) once and hands the binaries on. `plan` runs both series at each
+  size (`preset=<size>`) and takes the base's `inspect:` ticks. `inspect` is one job per
+  (size, tick): head and base in turn, `rounds` rounds of `at=<tick> repeat=<repeat>`,
+  with the reference's `side=4096 squads=4 fight=3` timed beside them and the job's CPU.
+  `summary` (`bench_inspect.py`) prints, per size, each tick's head against base
+  (`bench_compare.py`'s table), the two series' 95th and 99th percentiles, then the ticks
+  combined only as × each job's reference, with which CPU ran which ticks. Nothing is
+  recorded. Every input falls back to its default (`inputs.x || default`), so a scratch
+  branch can add a `push` trigger to check a change to the workflow before it is on `main`.
 - Godot setup is one composite action, `.github/actions/godot` (cached binary, import).
 - **Shards.** `shard_tests.py <count> <index>` splits the test files into balanced groups
   by the per-file times in `ci/godot/test_times.json`; a whole file always runs in one
