@@ -14,6 +14,10 @@ status: active
 
 <link to the spec this PR implements, if any>
 
+<optional, only when this PR splits a step during the build (`principles/agent-sessions.md`,
+rule 8); one line, label first:>
+Split: step <id> into <id>a (this PR) and <id>b; <why>
+
 ## Run-baseline rubric
 
 - [ ] `tests-red-then-green` — red→green log attached or linked

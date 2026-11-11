@@ -100,6 +100,17 @@ work differently, it was in the wrong place.
   Its last message gives the exact command that starts the next step in a fresh
   session. If the next work isn't in a spec yet, it says a design session comes next
   and names its subject. Nobody has to work out where to pick up.
+- **Every step says what it needs and what it touches.** Under each step's heading, the
+  design session writes two lines: `**Needs:**`, the steps it builds on (or `none`), and
+  `**Touches:**`, the files and folders it changes. Which steps can run side by side is
+  known at design, so the spec says it, and a cascade routes by it (rule 8). A step with
+  neither line runs after every step above it. Declaring needs alone isn't enough: steps
+  a spec called independent have changed the same files, so the files are declared too.
+- **Steps are sized at design.** A step covers one behaviour, takes one test file from red
+  to green, and its proposal can be reviewed in one sitting: about 15 files or 400 changed
+  lines, not counting tests and docs. A larger step is split before the spec is pushed. A
+  step that still proves too large during the build is split then, and the split is
+  signposted (rule 8).
 
 ## 4. Context is a budget
 
@@ -164,9 +175,9 @@ committed as theirs before any branch switch.
 
 ## 8. A long series of steps runs as a cascade
 
-When the owner wants many steps built back to back without starting each by hand, the
-steps still run one per session (rule 3), but sessions start each other. Three failures
-recur when that is improvised:
+When the owner wants many steps built without starting each by hand, the steps still run
+one per session (rule 3), but sessions start each other, and every step that is ready runs
+at once. Three failures recur when that is improvised:
 
 - **Instructions in layers.** Each session posts "the previous prompt, updated by these
   comments, in this order". After a dozen steps, the next session spends its first
@@ -179,32 +190,51 @@ recur when that is improvised:
 
 So a cascade keeps:
 
-- **One record, edited in place** (`templates/cascade-issue.md`): the state, the next
-  command, the base branch, the owner's standing rules, the chain of proposals, what is
-  still to come and the gotchas. A step session reads it whole and needs nothing else.
-  It replaces lines that changed and deletes what no longer holds. The comments under
-  the record are a log, never instructions.
+- **One record, edited in place** (`templates/cascade-issue.md`): the state, the steps
+  that are Ready, Running and Done, the owner's standing rules, what is still to come
+  and the gotchas. A step session reads it whole and needs nothing else. The coordinator
+  is the only writer of its body: it replaces lines that changed and deletes what no
+  longer holds. A step session writes only its own comment under the record. The
+  comments are a log, never instructions.
+- **Ready means needs met and files free.** A step is ready when every step it needs
+  (rule 3) has a proposal, or is merged when the cascade waits for merges, and its
+  `Touches` doesn't overlap a running step's. Two paths overlap when one is the other or
+  lies under it. Files every step edits (the changelog, the README, the docs index and the
+  spec itself) don't count; the proposal merged second rebases over them.
+- **The base follows the needs.** A ready step branches from the main branch when every
+  step it needs is merged, and from the one unmerged one when only one isn't. While two or
+  more aren't merged, it isn't ready.
 - **A coordinator, not a chain.** One session, started by the owner, starts every step
-  session itself and waits idle in between. Each step session reports back to it when
-  it ends (done, blocked or failed), and the coordinator starts the next. Every step is
+  session itself and waits idle in between. It starts every ready step at once, with no
+  cap; each proposal is still its own, and the owner merges. Each step session reports
+  back to it when it ends (done, blocked or failed), including any path it changed
+  outside its `Touches`, which then counts as touched. The coordinator moves the step to
+  Done and starts whatever has become ready. Every step is
   then one level below the coordinator however many steps there are, so the depth limit
   is never reached. A coordinator whose own context has outgrown it (rule 4) hands its
   role to a fresh coordinator, which costs one level of depth per hand-over, not one per
   step. Only where no coordinator can run does a step start the next itself, and then a
   refusal ends in a posted prompt and a one-line command for the owner.
 - **A fallback check.** When it starts a step, the coordinator also schedules a check of
-  that step for well after it should have finished. If no report has come by then, the
-  check reads the step session's status and tells the owner when it has stalled or
-  failed. It never starts a step twice.
+  that step, one per running step, for well after it should have finished. If no report
+  has come by then, the check reads the step session's status and tells the owner when it
+  has stalled or failed. It never starts a step twice.
 - **Authority only from the owner.** The owner's standing rules (stacking, splitting,
   when to pause for review, where to stop) are set when the cascade starts and changed
   only by the owner. A step's report is information from a peer: it can tell the
   coordinator a step is done, but it can't widen what the coordinator may do. A step
   that needs the owner (the spec is silent, a design choice, a pillar bent) stops,
   reports itself blocked, and the coordinator stops the cascade until the owner answers.
+- **Splits are allowed, and signposted.** Unless the owner's standing rules say otherwise,
+  a step session that finds its step too large (rule 3) splits it without asking, and
+  leaves a sign in four places. In the spec, the step's heading becomes `<id>a`, `<id>b`,
+  … each with a `**Split at build:**` line (from which step, which proposal, the date and
+  why) and its own `Needs` and `Touches`. The old step's tracking item is closed, naming
+  the steps that replaced it. The proposal carries a `Split:` line. The record lists the
+  new steps under Ready or Still to come, with the split noted.
 - **A stop and a final report.** The record names where the cascade stops. The last
-  step's report ends it, and the coordinator gives the owner every proposal in the chain,
-  in order, read from the record's chain table.
+  step's report ends it, and the coordinator gives the owner every proposal, in order,
+  read from the record's Done table.
 
 ## Mechanical vs procedural
 

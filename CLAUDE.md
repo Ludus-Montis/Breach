@@ -60,7 +60,9 @@ How sessions work together is `principles/agent-sessions.md`.
   round with a pre-mortem before any options (`principles/agent-sessions.md` §3,
   Decision 168): regret in a month, riskiest assumption, cheapest test. You write
   Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
-  (how: `OPEN_QUESTIONS.md`'s header). You don't write code. You finish a round by pushing a
+  (how: `OPEN_QUESTIONS.md`'s header). Every step in a spec carries `**Needs:**` and
+  `**Touches:**` lines and is sized to the guide: one behaviour, one test file, about 15
+  files or 400 lines (§3, Decision 171). You don't write code. You finish a round by pushing a
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
   each question it settles. `github-sync` gives the PR and those questions the spec's
   milestone; set none yourself.

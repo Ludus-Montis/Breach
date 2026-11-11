@@ -23,6 +23,7 @@ a Decisions or Notes section), not a bare pass/fail claim.
 | `no-drift` | Specification does not contradict any Decision in a linked parent specification | Zero contradictions | Manual review of every parent Decision in Backlinks |
 | `spec-schema-compliance` | Required frontmatter fields and body sections present, correctly ordered | 100% | Schema validation |
 | `commit-classification-plan` | Steps state the intended Conventional Commit type(s) for the change | Present | Manual/spec-agent check |
+| `step-shape` | Every step carries a `**Needs:**` line (the steps it builds on, or `none`) and a `**Touches:**` line (the files and folders it changes), and fits the size guide: one behaviour, one test file from red to green, about 15 files or 400 changed lines not counting tests and docs (`principles/agent-sessions.md`, §3) | Every step | Manual/spec-agent check; a larger step is split before the spec is pushed |
 
 ## Qualitative (manual review, answer recorded in the spec)
 
