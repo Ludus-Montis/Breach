@@ -306,7 +306,7 @@ and `repeat=` without it. If a repeat leaves another state than playing through 
 did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
 known to within ±1%.
 
-**How far to trust it** (spec 47 step 3, `## Measured`; whether it stays is Q47, #909). Against
+**How far to trust it** (spec 47 step 3, `## Measured`; kept as a guide with this caveat, Q47). Against
 the whole tick on three past merges, at 4,096 and 25k, the repeats moved every phase the same
 way, ranked the three changes the same, and sized the phase each change aimed at within a few
 points (the pair search, the seek). They under-sized some phases a change touched in passing:
