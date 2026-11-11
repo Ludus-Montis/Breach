@@ -183,6 +183,15 @@ Scenarios:
 - Given a pair run, then the script prints, per tick, the head's change against the base for
   the tick and each phase, flagged where the ranges are apart, as `bench`'s summary does.
 
+**Found at build (2026-11-11):** the step didn't say which battle `pair` times, nor which
+round's `inspect:` ticks `inspect` replays. Built as: `pair` times CI's sizes (`preset=4096`
+and `preset=25k`, `PAIR_SIZES` overrides), one tick a run since the repeat mode's table reads
+the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
+`bench_compare.py`'s table), with each side's settled series run once for its p95 and p99.
+`inspect` replays round 1's ticks and imports from `bench-grid/inspect/` alone, so the grid's
+records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
+(`bench-pair/`) and `ci/metrics/local_pair.py` (new).
+
 ### Step 5c, the page shows the repeats
 
 **Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.

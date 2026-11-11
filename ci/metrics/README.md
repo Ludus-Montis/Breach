@@ -179,9 +179,21 @@ Spec 48 step 1, Decision 178. Runs on the owner's PC are a series of their own, 
 (they compare in raw ms) and the machine from `local_machine.json`. CI's charts read `series`
 and leave them out; `check_records.py` checks them as it checks any record.
 
-- `bash ci/metrics/local_grid.sh [rounds]` (after `bash native/build.sh`) runs the grid of
-  squad size against squad count: sides 3,072 to 24,576, squads 1, 2, 4, 8 and 24,
-  `fight=10`, the rounds taken in turn, into `bench-grid/` (git-ignored), then imports it.
+- `bash ci/metrics/local_grid.sh grid [rounds]` (after `bash native/build.sh`; the bare
+  `local_grid.sh [rounds]` is the same) runs the grid of squad size against squad count:
+  sides 3,072 to 24,576, squads 1, 2, 4, 8 and 24, each cell's settled series (`series=1`),
+  the rounds taken in turn, into `bench-grid/` (git-ignored), then imports it.
+- `bash ci/metrics/local_grid.sh inspect [rounds]` (spec 48 step 5b, after `grid`) replays
+  each cell's `inspect:` ticks (round 1's) with `at=<ticks> repeat=50`, the rounds in turn,
+  into `bench-grid/inspect/`, and imports only those: one record per (cell, tick).
+- `bash ci/metrics/local_grid.sh pair <head> <base> [rounds]` (5b, default 5 rounds) builds
+  both commits in worktrees under `bench-pair/` (git-ignored), runs each side's settled
+  series once per size, then times both in turn (head first in odd rounds) at the base's
+  `inspect:` ticks, one tick a run, as CI's `bench-inspect` does on one runner. Its sizes are
+  CI's, `PAIR_SIZES="preset=4096 preset=25k"`. `ci/metrics/local_pair.py` then prints, per
+  size and tick, each phase's medians, the head's change and `*` where the ranges are apart
+  (`bench_compare.py`'s table), and the two series' 95th and 99th. It records nothing.
+  `BREACH_TICK_PHASES` names another binary for `grid` and `inspect`.
 - `python3 ci/metrics/local_record.py <folder> --commit <sha> --date <YYYY-MM-DD>` imports
   outputs named `s<side>_q<squads>_r<round>.txt`: one record per cell,
   `metrics/local/<date>-<n>.json`, `n` counting on from that day's records. It refuses a
