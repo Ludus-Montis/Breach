@@ -104,7 +104,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 95 | Units turn at a rate and move slower off their facing; a retreat breaks contact at a cost, scaled by discipline; pursuit is ordered or a leader's, breaking ranks is per unit; objectives and fallbacks come with nodes | 4847 | superseded by 101 |
 | 96 | A general rule over special cases; a special case needs the user's reason | 4914 |  |
 | 97 | Identity and spawn order never decide an outcome | 4950 |  |
-| 98 | Any standing friend catches routers that run into it, and takes them in once steady | 4990 |  |
+| 98 | Any standing friend catches routers that run into it, and takes them in once steady | 4990 | amended by 175 |
 | 99 | A retreat is combat's equal: flee until safe, rejoin the route, re-form, march home; disorder fans out | 5026 |  |
 | 100 | Units arrive facing their task; routers form up behind the friend that catches them; a partial wave closes up | 5078 |  |
 | 101 | Morale weakens how a formation fights, not whether; discipline sets how well it re-forms and disengages | 5125 |  |
@@ -116,7 +116,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 107 | A pursuit is leashed by discipline: the steadier a formation, the sooner it comes back to its post | 5402 |  |
 | 108 | In a fight, a unit with no slot open waits just behind the nearest, not back in its place | 5442 |  |
 | 109 | Every formation pursues a retreating enemy as far as its discipline leashes it; its undisciplined units may break ranks and chase further | 5468 |  |
-| 110 | A unit its own ranks hold off its place trades places with a like friend | 5515 |  |
+| 110 | A unit its own ranks hold off its place trades places with a like friend | 5515 | amended by 175 |
 | 111 | Any standing squad may be engaged; only one not getting away seeks combat | 5551 |  |
 | 112 | A formation doesn't wait for its runaways; a leader steadies its units against breaking ranks | 5593 |  |
 | 113 | A route is a way to travel, not a formation's own: a pursuit follows its quarry's road | 5627 |  |
@@ -175,7 +175,11 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 166 | The Pages site is the project's site, one tab a page, Metrics first and Showcase second | 7782 | amended by 170 |
 | 167 | Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab | 7819 | amended by 169 |
 | 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |
-| 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 |  |
+| 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 | amended by 173, 176 |
 | 170 | The site opens on Showcase, Metrics second | 7980 |  |
 | 171 | A spec's steps say what they need and what they touch; a cascade runs every ready step at once, and splits too-large steps in the open | 8009 |  |
 | 172 | The tick history compares records by their reference, and shows or hides each CPU and phase | 8082 |  |
+| 173 | A scenario's break-off is seen only when an engaged squad pulls apart from its foe | 8135 |  |
+| 174 | A headless probe prints any scenario's state, tick by tick | 8183 |  |
+| 175 | A line makes room where a rejoining unit can reach, and sorts itself with trades that only ever put units home | 8220 |  |
+| 176 | The capture hides the field's controls behind a caption band, and every body is drawn to be seen | 8287 |  |
