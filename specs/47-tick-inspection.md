@@ -188,7 +188,62 @@ Only once step 3 has passed:
 
 ## Measured
 
-Filled in by step 3.
+### Step 3, the ranking check (2026-11-11)
+
+**How it ran.** The repeat mode is step 1's (#906), not on any of the cases' commits, so it was
+ported onto each merge and its parent (branches `chore/spec47-step3-<PR>-head` and `-base`,
+not for merging: step 1's commit, with `Field::put_back` a plain copy before #783's kept buffers
+and `Series::push` added where it was missing). Each case then ran through `bench` (from
+`chore/spec47-step3-bench`, which prints only the comparison), head and base on one runner,
+5 rounds, `repeat=50`; beside each, the whole tick (`preset=4096`, `preset=25k`) on the same
+two commits, for a same-runner yardstick (runs #107–#136, AMD EPYC 9V74 / 9V45, 4 threads).
+- **Ticks:** at 4,096 contact (91), the rout's spike (105) and the last of the old series (106),
+  as the spec says. At 25k the battle ends at **101** (104 before #773), not 107, so 105 and 106
+  don't exist there: 91, 100 and 101 instead. Step 2a's `inspect:` will name them on its own.
+
+**The numbers** (change from base to head, medians over 5 rounds; `*` ranges apart):
+
+| | whole tick, 4,096 | repeats, 4,096 (t91 / t105 / t106) | whole tick, 25k | repeats, 25k (t91 / t100 / t101) |
+|---|---|---|---|---|
+| **#780** tick | −5.2%* | −2.1 / −3.9* / −4.2%* | −9.2%* | −7.5* / −6.9* / −6.2%* |
+| `bodies: pair search` | −28.6%* | −24.7* / −27* / −28.1%* | −40.8%* | −38.3* / −40.4* / −40.6%* |
+| **#783** tick | −6.6%* | −3.0 / −6.6* / −4.8%* | −3.9%* | −2.0* / −4.9* / −6.4%* |
+| `wounds (tend)` | −18.2%* | −19.8* / −20.1* / −20.9%* | −21.6%* | −19.2* / −19.3* / −19.6%* |
+| `scrum: engage, prepare, stance` | −11.3%* | −12.5* / −17.0* / −2.6% | −13.3%* | −17.2* / −12.9* / −13.7%* |
+| `bodies: sums and applying` | +31.6%* | +31.1* / +29.9* / +19.7%* | +15.9%* | +22.8* / +16.2* / +16.9%* |
+| `store settles` | −40.5%* | −40* / −45* / −46%* | −44.0%* | −40.1* / −47.5* / −51.0%* |
+| `shuffle (re-form)` | −16.1%* | −18.0* / −18.0* / −16.4%* | −15.1%* | −18.0* / −19.2* / −21.9%* |
+| `stamina` | −29.7%* | −13.8 / −15.4* / −4.2% | −15.6% | −15.1* / −15.9* / −18.2%* |
+| `strays` | +6.6% | +13.7 / +5.7 / +14.0%* | +24.1%* | +10.4* / +7.7* / +6.7%* |
+| `groups (form up, split)` | −72.4%* | 0 / −14* / −10.4%* | −0.7% | +1.3 / −8.4* / −8.5%* |
+| `bodies: pushes` | −16.2%* | −4.8* / −4.8* / 0% | −4.7%* | −3.1 / −0.8 / 0% |
+| `scrum: seek` | −4.9%* | −3.3 / −3.9* / −3.2%* | −3.7%* | −2.3* / −4.1* / −4.9%* |
+| **#773** tick | −15.9%* | −23.6* / −15.3* / −20.9%* | −15.5%* | −22.3* / −14.0* / −15.0%* |
+| `scrum: seek` | −39.4%* | −41.3* / −46.7* / −49.7%* | −39.3%* | −47.4* / −49.2* / −51.7%* |
+| the rout (`flight`, `rallies`) | +58%*, +46%* | ±: +33/+46%* at t105, −22% rallies at t106 | −42%*, −8%* | +32/+21%* at t100, +56/+36%* at t101 |
+
+**The verdict.**
+- **Direction:** passes. Every phase a case's whole-tick bench moved beyond noise moves the same
+  way in the repeats, at both sizes, except where the whole tick itself swings (below).
+- **Ranking:** passes. By tick change the repeats rank the three as the whole tick does at each
+  size and every tick: 4,096 #773 > #783 > #780, 25k #773 > #780 > #783.
+- **Size:** passes for the phases each change aimed at (#780's pair search within 1–4 points of
+  the whole tick's, #773's seek within 2–12, #783's tend, engage, sums, store settles, shuffle
+  within a few). **Not for every phase #783 moved:**
+  - `strays` at 25k: +7 to +10% in the repeats against +24% in the whole tick. The repeats see
+    it rise, at under half the size. This is the phase the pre-mortem named (+63% on `main`).
+  - `groups` and `bodies: pushes` at 4,096: −72% and −16% in the whole tick, −10 to −14% and
+    0 to −5% in the repeats. `groups` swings in the whole tick with its code untouched (#780's
+    base, 25k: 1.49–4.42 ms over 5 rounds), so the whole tick is the doubtful side there.
+  - `stamina` at 4,096: −30% whole, −4 to −15% repeats.
+- #773 changes outcomes, so its rout runs at other ticks on the two sides. Tick by tick the rout's
+  phases go either way, as expected. Its spread (seek far the largest, then the tick) is the
+  whole tick's.
+
+**By the letter of "Passing", the check fails on size for #783.** Its direction and ranking hold.
+The owner decides whether the mode stays a guide with that caveat, or is dropped (Q47, #909).
+Step 5 waits for that decision.
+
 
 ## Not in this spec
 

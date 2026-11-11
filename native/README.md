@@ -301,6 +301,15 @@ and `repeat=` without it. If a repeat leaves another state than playing through 
 did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
 known to within ±1%.
 
+**How far to trust it** (spec 47 step 3, `## Measured`; whether it stays is Q47, #909). Against
+the whole tick on three past merges, at 4,096 and 25k, the repeats moved every phase the same
+way, ranked the three changes the same, and sized the phase each change aimed at within a few
+points (the pair search, the seek). They under-sized some phases a change touched in passing:
+`strays` (+7–10% repeated, +24% whole at 25k), `groups`, `bodies: pushes` and `stamina` at
+4,096. Read a repeat as which way and roughly how far a phase moves, and judge with the whole
+tick. Its ticks must exist in the battle: the 25k battle ends at 101 (4,096 at 107), so its
+rout spike and last tick are 100 and 101.
+
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
 follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
