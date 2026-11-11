@@ -8437,7 +8437,9 @@ choice of keeping local runs apart from CI's to the agent.
 | Medians only | A later run couldn't be judged against the spread. |
 
 **Consequences:** Spec 48 builds the record and its importer, the grid script, the page's
-local section, the CPU's name on Windows, and the check against CI. Today's 60 files are the
+local section, the CPU's name on Windows, and the check against CI. Local runs are timed with
+spec 47's repeat mode and settled series once they merge (Decision 177), on the same
+inspection ticks CI times, so the two can be set side by side tick for tick. Today's 60 files are the
 first data. A local data PR waits for the owner (`ci/metrics/README.md`: writers other than
 the benches' don't merge themselves).
 

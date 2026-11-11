@@ -21,13 +21,22 @@ detail.
 - every round is kept;
 - they guide day to day only once they track CI's progression.
 
+**It leans on spec 47** (Decision 177) for how a local run is timed, and builds nothing of its
+own for that. Spec 47's repeat mode (`at=`, `repeat=`) replays chosen ticks live many times,
+and its series runs until the field settles and names its inspection ticks (`inspect:`).
+Locally, both give tighter numbers per run than `fight=10`, on ticks that CI's
+`bench-inspect` times too. So a local run and a CI run can be set side by side tick for tick.
+
 ## Status
 
-Agreed in the design session of 2026-11-11. Four steps, each its own PR, built with
+Agreed in the design session of 2026-11-11. Five steps, each its own PR, built with
 `/run-phase` as "spec 48 step N".
 - Steps 1 and 3 can be built side by side.
 - Step 2 needs step 1's records.
 - Step 4 needs step 1, and the owner's PC to run it.
+- Step 5 needs step 1, and spec 47 steps 1 and 2 merged (the repeat mode and `inspect:`). Its
+  `Needs` line can name only this spec's steps, so the spec 47 dependency is stated here and in
+  the step.
 
 ## Pre-mortem
 
@@ -139,7 +148,10 @@ Scenarios:
 runs), `ci/metrics/local_grid.sh` (a pair mode, if needed)
 
 On the owner's PC, by hand, rounds in turn (5 or more):
-- **The pairs**, each with a CI same-runner result:
+- **How each pair is timed:** with spec 47's repeat mode at the base's `inspect:` ticks once
+  it has merged (step 5's grid script), and `fight=10` until then.
+- **The pairs**, each with a CI same-runner result (spec 47 step 3 times #780, #783 and #773
+  on CI the same way, so one set of CI numbers serves both checks):
   - `bfce23c` against `main` at `5ea4c29` (CI: 25k tick −8%, `bodies: pair search` −36%,
     `strays` +63%);
   - `5af0ed5` against `bfce23c` at 4,096 (CI: +1.5%, no change);
@@ -150,6 +162,36 @@ On the owner's PC, by hand, rounds in turn (5 or more):
   benches' docs say a local grid may guide day-to-day work, with CI's `bench` confirming
   before a merge. If it fails, the owner decides what the local series is for.
 
+### Step 5, local runs in spec 47's repeat mode
+
+**Needs:** 1
+**Touches:** `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
+`ci/metrics/local_grid.sh`, `ci/metrics/README.md`
+
+Starts once spec 47 steps 1 and 2 have merged (the repeat mode and `inspect:`).
+
+- **The importer reads the repeat mode's output:** a `repeat:` line naming the tick and `n`.
+  The record's `source.harness` is `tick_phases-repeat`, as spec 47 step 5 names CI's, and
+  its args carry `at` and `repeat`. Each repeat's lap is a value, so its spread is kept. One
+  record per (battle, tick).
+- **The settled series too:** the record holds its p95 and p99 over the whole series, and the
+  `inspect:` ticks it named.
+- **The grid script's modes:**
+  - `bash ci/metrics/local_grid.sh grid [rounds]` runs the grid as now, with each cell's
+    settled series;
+  - `... inspect [rounds]` replays each cell's `inspect:` ticks with `repeat=50`;
+  - `... pair <head> <base> [rounds]` builds both commits and times them in turn at the base's
+    `inspect:` ticks, as CI's `bench-inspect` does on one runner. Step 4 uses this.
+- **The page (step 2)** shows a repeat record's ticks as points at their tick, beside the
+  cell's series.
+
+Scenarios:
+- Given fixture output from the repeat mode at 2 ticks with `n` 50, when imported, then there
+  are 2 records, each with 50 values per phase and the median, and both pass
+  `check_records.py`.
+- Given a pair run, then the script prints, per tick, the head's change against the base for
+  the tick and each phase, flagged where the ranges are apart, as `bench`'s summary does.
+
 ## Measured
 
 Filled in by step 4.
@@ -157,8 +199,6 @@ Filled in by step 4.
 ## Not in this spec
 
 - **Other machines** (Decision 178, Alternatives), unless diagnosing a user's.
-- **A local `bench` of head against base in one command:** step 4 runs its pairs by hand. A
-  script for it comes later if the PC proves a good guide.
 - **The work the grid points at** (one squad's quadratic work in `march::sync`, engage and the
   seek): the next design round.
 
@@ -172,11 +212,13 @@ Filled in by step 4.
 3. Step 3: red on the machine line's parsing of a Windows answer (a cargo test with a canned
    answer). Then the lookup.
 4. Step 4: no code; a measured verdict.
+5. Step 5: red on importing the repeat mode's fixture output (`test_local_record.py`, alone).
+   Then the importer's repeat records, then the script's modes.
 
 ## Rubric answers
 
 - **single-noun-phrase:** the local record and its importer; the local section; the machine
-  line on Windows; the PC-against-CI check.
+  line on Windows; the PC-against-CI check; local runs in the repeat mode.
 - **ocp-extension-point:** a new grid shape is a list in `local_grid.sh`; a new chart grouping
   is a function in `metrics_local.js`.
 - **lsp-contract-scope:** not applicable; no subtypes.
