@@ -271,6 +271,12 @@ the GDScript passes they ported where they match. A second battle steps untimed 
 timed one, and a WARNING line says so if they end apart. `copies` exits 2: the crate's tick
 copies no columns across the Godot boundary.
 
+Its first line names the machine (spec 48 step 3, `src/phases/machine.rs`): `machine: <cpu>,
+<cores> cores, <threads> threads, <RAM> GB, <system>`. On Linux it reads `/proc/cpuinfo` and
+`/proc/meminfo`; on Windows it asks the CIM through PowerShell (`Win32_Processor`'s name and
+cores, `Win32_ComputerSystem`'s RAM). A part the OS doesn't give is left out, and a CPU it can't
+name reads `unknown`; the run goes on either way.
+
 `scenario=<name> [threaded=…]` (spec 44 step 2b, `src/scenarios/timed.rs`) times a named
 scenario from `content/scenarios/` instead: the same replay the showcase's capture plays, every
 tick from the first to the scenario's end, printed as `series=1` prints (its header to two
@@ -614,7 +620,8 @@ The next ports, in order of payoff:
 
 ### The owner's PC, `main` at `a5f574d` (2026-11-11)
 
-Windows, 20 threads (`machine: unknown`: the binary can't read the CPU's name there), release
+Windows, 20 threads (`machine: unknown`: the binary couldn't read the CPU's name there before spec
+48 step 3), release
 build, one run each. `side` is the units a side, split evenly over `squads`; `fight` is the
 ticks timed. The first is the daily bench's battle; the second is 25 small squads; the third
 is about the target's size (25,600 against 24,576) in 2 squads of 12,800, where the 25k
