@@ -76,7 +76,7 @@ jobs:
         id: refs
         env:
           HEAD_REF: ${{ inputs.head || github.ref_name }}
-          BASE: ${{ inputs.base || 'main' }}
+          BASE: ${{ inputs.base || 'chore/bench-inspect-matrix' }}
         run: |
           git worktree add -q --detach trees/head "origin/$HEAD_REF" 2>/dev/null \
             || git worktree add -q --detach trees/head "$HEAD_REF"
