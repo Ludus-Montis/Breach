@@ -158,6 +158,15 @@ pub struct Field {
 }
 
 impl Field {
+    /// `kept`'s state put in place of this field's, its kept buffers staying (spec 47 step 1):
+    /// as warm as a running battle's, where a field read back from a snapshot starts them
+    /// empty, to the same results. Its re-forms are `kept`'s (a read-back's start empty).
+    pub fn put_back(&mut self, kept: Field) {
+        let buffers = std::mem::take(&mut self.buffers);
+        *self = kept;
+        self.buffers = buffers;
+    }
+
     /// Bodies on the field.
     pub fn count(&self) -> usize {
         self.by_unit.len()
