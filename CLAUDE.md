@@ -11,7 +11,8 @@ How sessions work together is `principles/agent-sessions.md`.
 ## Non-negotiables
 
 - **Every change goes on a branch and through a PR, and the user merges.** Never merge,
-  and don't poll CI after opening a PR. The one exception: `bench`, `metrics-archive` and
+  and don't poll CI after opening a PR: turn on the app's Auto-fix for it instead, which
+  wakes the session when CI fails (`/run-phase` step 6). The one exception: `bench`, `metrics-archive` and
   `bench-series` merge their own data-only PRs under `metrics/` (Decisions 163 and 164).
   Use `/run-phase` (`.claude/skills/run-phase/`).
   The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;

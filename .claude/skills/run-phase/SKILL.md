@@ -240,6 +240,16 @@ Then close the step's issue from the PR (spec 40). `github-sync` makes one issue
 both. If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
 
+Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
+`/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
+tools), bind it with `bind_pr` if it isn't reported, then `set_monitor` with
+`auto_fix: true` and the PR's url. The app then wakes this session on a CI failure, a
+merge conflict or a review comment; answer each the way the next paragraphs say (read the
+failing test's part of the log, run that one file, push a fix to the same branch). That
+is the app watching, not this session polling, so it keeps the rule below. Where the
+`ccd_pr` tools aren't there (some cloud sessions), skip this and say in the hand-off that
+Auto-fix is off, so the owner can turn it on from the PR pane.
+
 **Do not poll or watch CI to completion after opening the PR.** Notify the user that
 the PR is open (a link and a short summary of what landed), **end with the exact next
 command** (the next `/run-phase spec N step M`, or "next is a design session on
