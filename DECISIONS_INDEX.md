@@ -164,7 +164,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 155 | Spec steps become issues under a parent per spec, and the Project's Status follows each PR | 7201 | amended by 156 |
 | 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
 | 157 | Spec 39's ports may open more files than the OCP check allows | 7341 |  |
-| 158 | A long series of steps runs as a cascade: a coordinator, and one record edited in place | 7380 |  |
+| 158 | A long series of steps runs as a cascade: a coordinator, and one record edited in place | 7380 | amended by 171 |
 | 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 |  |
 | 160 | A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test | 7507 |  |
 | 161 | A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test | 7539 |  |
@@ -177,4 +177,5 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |
 | 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 |  |
 | 170 | The site opens on Showcase, Metrics second | 7980 |  |
-| 171 | The tick history compares records by their reference, and shows or hides each CPU and phase | 8009 |  |
+| 171 | A spec's steps say what they need and what they touch; a cascade runs every ready step at once, and splits too-large steps in the open | 8009 |  |
+| 172 | The tick history compares records by their reference, and shows or hides each CPU and phase | 8082 |  |

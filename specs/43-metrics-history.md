@@ -36,8 +36,9 @@ built with `/run-phase` as "spec 43 step N".
 - The other series (code, CI, Gate 1, and the measurements not captured yet) are a later
   round: Q38 (#747).
 - **Step 9** was added in the design session of 2026-11-11 on Q43 (#855), settled by
-  **Decision 171**. It needs only step 7, so it may come before or after step 8. Whichever of
-  8c and 9 comes second wires the 25k chart to the CPU toggles.
+  **Decision 172**. It needs only step 7, so it may come before or after step 8. It touches the same page as
+  8c, so the two don't run side by side (Decision 171); whichever comes second wires the 25k
+  chart to the CPU toggles.
 
 ## Pre-mortem (round 3, Q43, asked at the start of the round)
 
@@ -52,7 +53,7 @@ built with `/run-phase` as "spec 43 step N".
   Q43 started (`bench`, `preset=4096`, `5af0ed5` against `bfce23c`, 5 rounds) says whether
   the 60% rise was the runner. Its result goes under Measured before this round's PR merges.
 - **Guarded against:** the CPU toggles let a reader keep to one runner when a few percent
-  matter, and Decision 171's Consequences say to confirm such a gap with a same-runner `bench`.
+  matter, and Decision 172's Consequences say to confirm such a gap with a same-runner `bench`.
 
 ## Steps
 
@@ -246,14 +247,17 @@ give the size alone unless it could be misread.
   the chart with "Decision 165".
 - **A point's detail panel:** that commit's fitted curve over size, with its grid points and
   the measured 24,576. No separate grid chart.
-- **Each point's shape is its CPU** (amended 2026-11-11, Decision 171): one shape per CPU,
+- **Each point's shape is its CPU** (amended 2026-11-11, Decision 172): one shape per CPU,
   shared with the legend of the page's CPU toggles, which show or hide its points. The fit
   and the miss use every record of the commit, whether or not its CPU is shown.
 - **"Show harvested points"** adds the harvested 25k runs, hollow and unfitted.
 
 ### Step 9, the chart by the reference
 
-Settled by **Decision 171** (Q43, #855). On the tick history page (`tools/metrics_view/`).
+**Needs:** 7
+**Touches:** `tools/metrics_view/`
+
+Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metrics_view/`).
 - **The unit pickers.** The whole-tick chart: "× the reference" (default) or "ms". The phase
   chart: "× the reference" (default), "ms" or "% of tick". "× the reference" is a record's
   value ÷ the tick of the reference in the same record (`reference.results`, the tick's
