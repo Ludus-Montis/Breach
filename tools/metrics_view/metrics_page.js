@@ -1,13 +1,14 @@
-// The metrics page's drawing (specs/43-metrics-history.md, step 7): loads records.json (or
-// the metrics folder, picked from disk), then draws metrics_view.js's lines as SVG: the whole
-// tick per era, the phases stacked, and a point's comparison with the commit before it.
+// The metrics page's drawing (specs/43-metrics-history.md, steps 7 and 9): loads records.json
+// (or the metrics folder, picked from disk), then draws metrics_view.js's lines as SVG: the
+// whole tick per era, the phases stacked, and a point's comparison with the commit before it,
+// each in its chart's unit (× the reference by default), with CPU and phase toggles.
 (function () {
   'use strict';
   var view = window.BreachMetricsView;
   var NS = 'http://www.w3.org/2000/svg';
   var COLOURS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8', '--s9'];
   var HARNESS_COLOUR = { 'tick_phases.gd': '--s2', 'formation_bench.gd': '--s5', 'breach_tick_phases': '--s1' };
-  var PAD = { left: 56, right: 16, top: 16, bottom: 40 };
+  var PAD = { left: 56, right: 16, top: 28, bottom: 40 };
   var HEIGHT = 320;
   var STEP = 14;
 
@@ -45,44 +46,76 @@
 
   function short(sha) { return String(sha).slice(0, 7); }
 
-  function drawOverview(lines, bridge) {
+  // The page's state (Decision 172): each chart's unit, and what the toggles hide.
+  var state = { all: [], bridge: null, overviewUnit: 'reference', phaseUnit: 'reference', cpus: {},
+    phases: {}, harness: '', details: null };
+  var UNIT_NAME = { ms: 'ms', reference: '× the reference', percent: '% of tick' };
+
+  function format(value, unit) {
+    if (unit === 'ms') return value.toFixed(2) + ' ms';
+    if (unit === 'percent') return value.toFixed(1) + '%';
+    return '×' + value.toFixed(3);
+  }
+
+  // A point's numbers for a tooltip: its CPU, its ms, and its ratio where it has a reference.
+  function describe(p, ms) {
+    var ratio = p.referenceTick && ms !== null ? ', ×' + (ms / p.referenceTick).toFixed(3) + ' the reference' : '';
+    return 'CPU: ' + p.cpu + '\n' + ms.toFixed(2) + ' ms' + ratio;
+  }
+
+  function leftOutNote(count) {
+    return count ? count + ' record' + (count === 1 ? '' : 's') + ' with no reference left out; "ms" shows ' +
+      (count === 1 ? 'it' : 'them') + '.' : '';
+  }
+
+  // The lines with the hidden CPUs' records taken out.
+  function visible(withHarvested) {
+    return view.withoutCpus(view.shown(state.all, withHarvested), state.cpus);
+  }
+
+  function drawOverview() {
+    var unit = state.overviewUnit;
+    var converted = view.inUnit(visible($('show-harvested').checked), unit);
+    var lines = converted.lines;
+    var bridge = state.bridge;
+    $('overview-unit-name').textContent = UNIT_NAME[unit];
+    $('overview-note').textContent = leftOutNote(converted.withoutReference);
     var cols = columns(lines);
-    var fresh = {};
-    lines.forEach(function (line) { line.points.forEach(function (p) { fresh[p.position] = true; }); });
-    fresh = Object.keys(fresh).map(Number);
+    var fresh = view.positions(lines);
     var root = svg($('overview'), Math.max(cols.width, 600));
-    var ticks = [];
+    var values = [];
     lines.forEach(function (line) {
-      line.points.concat(line.harvested).forEach(function (p) { if (p.tick) ticks.push(p.tick); });
+      line.points.concat(line.harvested).forEach(function (p) { if (p.value) values.push(p.value); });
     });
-    var lo = Math.log10(Math.min.apply(null, ticks) * 0.8);
-    var hi = Math.log10(Math.max.apply(null, ticks) * 1.2);
-    var y = function (ms) { return PAD.top + (hi - Math.log10(ms)) / (hi - lo) * (HEIGHT - PAD.top - PAD.bottom); };
-    [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].forEach(function (ms) {
-      if (Math.log10(ms) < lo || Math.log10(ms) > hi) return;
-      el('line', { class: 'grid', x1: PAD.left, x2: cols.width - PAD.right, y1: y(ms), y2: y(ms) }, root);
-      el('text', { x: PAD.left - 6, y: y(ms) + 4, 'text-anchor': 'end' }, root).textContent = ms;
+    if (!values.length) { $('overview').textContent = 'No records to draw with these CPUs in this unit.'; return; }
+    var lo = Math.log10(Math.min.apply(null, values) * 0.8);
+    var hi = Math.log10(Math.max.apply(null, values) * 1.2);
+    var y = function (v) { return PAD.top + (hi - Math.log10(v)) / (hi - lo) * (HEIGHT - PAD.top - PAD.bottom); };
+    [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].forEach(function (v) {
+      if (Math.log10(v) < lo || Math.log10(v) > hi) return;
+      el('line', { class: 'grid', x1: PAD.left, x2: cols.width - PAD.right, y1: y(v), y2: y(v) }, root);
+      el('text', { x: PAD.left - 6, y: y(v) + 4, 'text-anchor': 'end' }, root).textContent = unit === 'ms' ? v : '×' + v;
     });
-    if (bridge) {
+    el('text', { x: 4, y: 14 }, root).textContent = UNIT_NAME[unit];
+    if (bridge && cols.order.indexOf(bridge.position) >= 0) {
       var bx = cols.x(bridge.position);
       el('line', { class: 'bridge', x1: bx, x2: bx, y1: PAD.top, y2: HEIGHT - PAD.bottom }, root);
       el('text', { x: bx + 4, y: HEIGHT - PAD.bottom + 14 }, root).textContent = 'bridge ' + short(bridge.sha);
     }
     lines.forEach(function (line) {
       var stroke = colour(HARNESS_COLOUR[line.harness] || '--s9');
-      var drawn = line.points.filter(function (p) { return p.tick; });
-      view.segments(line.points, fresh).forEach(function (run) {
+      view.segments(line.points, fresh, 'value').forEach(function (run) {
         if (run.length < 2) return;
         el('polyline', { class: 'line', stroke: stroke, points: run.map(function (p) {
-          return cols.x(p.position) + ',' + y(p.tick);
+          return cols.x(p.position) + ',' + y(p.value);
         }).join(' ') }, root);
       });
-      drawn.concat(line.harvested.filter(function (p) { return p.tick; })).forEach(function (p) {
-        var dot = el('circle', { class: 'point', cx: cols.x(p.position), cy: y(p.tick), r: p.harvested ? 3.5 : 3,
+      line.points.concat(line.harvested).filter(function (p) { return p.value; }).forEach(function (p) {
+        var dot = el('circle', { class: 'point', cx: cols.x(p.position), cy: y(p.value), r: p.harvested ? 3.5 : 3,
           stroke: stroke, fill: p.harvested ? 'var(--panel)' : stroke }, root);
-        title(dot, line.harness + ' ' + short(p.sha) + ': ' + p.tick + ' ms' +
-          (p.ratio ? ', ×' + p.ratio.toFixed(3) + ' the reference' : '') + (p.harvested ? ' (harvested ' + p.date + ')' : ''));
-        dot.addEventListener('click', function () { showDetails(line, p); });
+        title(dot, line.harness + ' ' + short(p.sha) + (p.harvested ? ' (harvested ' + p.date + ')' : '') +
+          '\n' + describe(p, p.tick));
+        dot.addEventListener('click', function () { openDetails(line.harness, p); });
       });
     });
     el('text', { x: PAD.left, y: HEIGHT - 8 }, root).textContent = 'commits on main, oldest first →';
@@ -107,101 +140,197 @@
     return Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
   }
 
-  function drawPhases(line) {
-    var points = line.points.filter(function (p) { return p.tick; });
-    var groups = topLevel(points);
-    var shown = groups.slice(0, COLOURS.length - 1);
+  // The phase chart's points: the selected harness's, without hidden CPUs, and in
+  // × the reference only those with a reference.
+  function phasePoints() {
+    var line = visible(false).find(function (l) { return l.harness === state.harness; });
+    var points = line ? line.points.filter(function (p) { return p.tick; }) : [];
+    var kept = state.phaseUnit === 'reference' ? points.filter(function (p) { return p.referenceTick; }) : points;
+    return { points: kept, leftOut: points.length - kept.length };
+  }
+
+  // The reference mark of a point in the phase chart's unit: its reference tick in ms, 1 in
+  // × the reference, none in % of tick.
+  function referenceMark(p, unit) {
+    if (unit === 'ms') return p.referenceTick || null;
+    return unit === 'reference' ? 1 : null;
+  }
+
+  function drawPhases() {
+    var unit = state.phaseUnit;
+    var picked = phasePoints();
+    var points = picked.points;
+    $('phase-note').textContent = leftOutNote(picked.leftOut);
+    $('phase-unit-name').textContent = UNIT_NAME[unit];
+    // The phases and their colours come from all the harness's records, so a toggle never recolours.
+    var whole = state.all.find(function (l) { return l.harness === state.harness; });
+    var groups = topLevel(whole ? whole.points : []).slice(0, COLOURS.length - 1);
+    var colourOf = function (group) {
+      var k = groups.indexOf(group);
+      return colour(COLOURS[k < 0 ? groups.length : k]);
+    };
     var width = Math.max(PAD.left + PAD.right + points.length * STEP * 1.5, 600);
     var root = svg($('phases'), width);
-    var top = Math.max.apply(null, points.map(function (p) {
-      return Math.max(p.tick, p.referenceTick || 0);
-    })) * 1.1;
-    var y = function (ms) { return PAD.top + (1 - ms / top) * (HEIGHT - PAD.top - PAD.bottom); };
+    var stacks = points.map(function (p) { return view.stack(p, groups, state.phases, unit); });
+    var top = unit === 'percent' ? 100 : Math.max.apply(null, [0].concat(points.map(function (p, i) {
+      var sum = stacks[i].reduce(function (total, part) { return total + part.value; }, 0);
+      return Math.max(sum, referenceMark(p, unit) || 0);
+    }))) * 1.1 || 1;
+    var y = function (v) { return PAD.top + (1 - v / top) * (HEIGHT - PAD.top - PAD.bottom); };
     for (var g = 0; g <= 4; g++) {
-      var ms = top * g / 4;
-      el('line', { class: 'grid', x1: PAD.left, x2: width - PAD.right, y1: y(ms), y2: y(ms) }, root);
-      el('text', { x: PAD.left - 6, y: y(ms) + 4, 'text-anchor': 'end' }, root).textContent = ms.toFixed(0);
+      var v = top * g / 4;
+      el('line', { class: 'grid', x1: PAD.left, x2: width - PAD.right, y1: y(v), y2: y(v) }, root);
+      el('text', { x: PAD.left - 6, y: y(v) + 4, 'text-anchor': 'end' }, root).textContent =
+        unit === 'reference' ? '×' + v.toFixed(2) : unit === 'percent' ? v.toFixed(0) + '%' : v.toFixed(0);
+    }
+    el('text', { x: 4, y: 14 }, root).textContent = UNIT_NAME[unit];
+    if (unit === 'reference') {
+      var one = el('line', { class: 'ref', x1: PAD.left, x2: width - PAD.right, y1: y(1), y2: y(1) }, root);
+      title(one, 'the reference\'s whole tick, timed in the same job');
     }
     points.forEach(function (p, i) {
       var x = PAD.left + i * STEP * 1.5 + 2;
       var base = 0;
-      shown.concat(['other']).forEach(function (group, k) {
-        var value = group === 'other'
-          ? Math.max(0, p.tick - shown.reduce(function (sum, s) { return sum + (view.valueAt(p.results, s) || 0); }, 0))
-          : view.valueAt(p.results, group) || 0;
-        if (!value) return;
-        var bar = el('rect', { class: 'bar', x: x, width: STEP * 1.5 - 4, y: y(base + value),
-          height: Math.max(0, y(base) - y(base + value)), fill: colour(COLOURS[k]) }, root);
-        title(bar, short(p.sha) + ' ' + group.replace('tick/', '') + ': ' + value.toFixed(2) + ' ms');
-        bar.addEventListener('click', function () { showDetails(line, p); });
-        base += value;
+      stacks[i].forEach(function (part) {
+        var bar = el('rect', { class: 'bar', x: x, width: STEP * 1.5 - 4, y: y(base + part.value),
+          height: Math.max(0, y(base) - y(base + part.value)), fill: colourOf(part.group) }, root);
+        var ms = part.group === 'other' ? null : view.valueAt(p.results, part.group);
+        title(bar, short(p.sha) + ' ' + part.group.replace('tick/', '') + ': ' + format(part.value, unit) +
+          '\n' + describe(p, ms === null ? (unit === 'ms' ? part.value : p.tick) : ms) +
+          (ms === null && unit !== 'ms' ? ' (the whole tick)' : ''));
+        bar.addEventListener('click', function () { openDetails(state.harness, p); });
+        base += part.value;
       });
-      if (p.referenceTick) {
+      if (unit === 'ms' && p.referenceTick) {
         var dash = el('line', { class: 'ref', x1: x - 1, x2: x + STEP * 1.5 - 3,
           y1: y(p.referenceTick), y2: y(p.referenceTick) }, root);
         title(dash, 'reference ' + short(p.reference) + ': ' + p.referenceTick.toFixed(2) + ' ms');
       }
     });
-    $('phase-legend').innerHTML = shown.concat(['other']).map(function (group, k) {
-      return '<span style="--swatch:' + colour(COLOURS[k]) + '">' + group.replace('tick/', '') + '</span>';
-    }).join('');
+    drawPhaseLegend(groups.concat(['other']), colourOf);
   }
 
-  function cell(value) {
-    return value === null ? '<td class="gap">gap</td>' : '<td>' + value.toFixed(2) + '</td>';
+  // Each entry shows or hides its phase in every unit.
+  function drawPhaseLegend(groups, colourOf) {
+    var legend = $('phase-legend');
+    legend.textContent = '';
+    groups.forEach(function (group) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = state.phases[group] ? 'off' : '';
+      button.setAttribute('aria-pressed', state.phases[group] ? 'false' : 'true');
+      button.style.setProperty('--swatch', colourOf(group));
+      button.textContent = group.replace('tick/', '');
+      button.title = (state.phases[group] ? 'Show ' : 'Hide ') + group.replace('tick/', '');
+      button.addEventListener('click', function () {
+        if (state.phases[group]) delete state.phases[group]; else state.phases[group] = true;
+        drawPhases();
+      });
+      legend.appendChild(button);
+    });
   }
 
-  function showDetails(line, p) {
-    // A harvested point is compared with this commit's fresh record; a fresh one with the
-    // commit before it on its line.
-    var index = line.points.indexOf(p);
+  function drawCpus() {
+    var row = $('cpus');
+    row.textContent = 'CPUs: ';
+    view.cpus(state.all).forEach(function (cpu) {
+      var label = document.createElement('label');
+      var box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = !state.cpus[cpu];
+      box.addEventListener('change', function () {
+        if (box.checked) delete state.cpus[cpu]; else state.cpus[cpu] = true;
+        redrawAll();
+      });
+      label.appendChild(box);
+      label.appendChild(document.createTextNode(' ' + cpu));
+      row.appendChild(label);
+    });
+  }
+
+  function cell(value, unit) {
+    if (value === null) return '<td class="gap">gap</td>';
+    return '<td>' + (unit === 'ms' ? value.toFixed(2) : unit === 'percent' ? value.toFixed(1) : value.toFixed(3)) + '</td>';
+  }
+
+  function openDetails(harness, p) {
+    state.details = { harness: harness, sha: p.sha, harvested: p.harvested, position: p.position };
+    showDetails();
+  }
+
+  // The compare, among the points the CPU toggles leave, in the phase chart's unit; a point
+  // with no reference falls back to ms. A harvested point is compared with this commit's
+  // fresh record; a fresh one with the commit before it on its line.
+  function showDetails() {
+    var want = state.details;
+    if (!want) return;
+    var line = visible(true).find(function (l) { return l.harness === want.harness; });
+    var p = line && (want.harvested ? line.harvested : line.points).find(function (q) {
+      return q.sha === want.sha && q.position === want.position;
+    });
+    if (!p) { $('details').hidden = true; return; }
+    var unit = state.phaseUnit === 'reference' && !p.referenceTick ? 'ms' : state.phaseUnit;
+    var choices = line.points.filter(function (q) { return unit !== 'reference' || q.referenceTick; });
+    var index = choices.indexOf(p);
     var before = p.harvested
-      ? line.points.find(function (q) { return q.position === p.position; }) || null
-      : index > 0 ? line.points[index - 1] : null;
+      ? choices.find(function (q) { return q.position === p.position; }) || null
+      : index > 0 ? choices[index - 1] : null;
     $('details').hidden = false;
     $('details-title').textContent = line.harness + ' at ' + short(p.sha) + (p.title ? ': ' + p.title : '') +
-      (p.harvested ? ' (harvested)' : '');
+      (p.harvested ? ' (harvested)' : '') + ', on ' + p.cpu +
+      (before ? ', against ' + short(before.sha) + ' on ' + before.cpu : '');
     $('details-links').innerHTML = (p.pr ? '<a href="' + p.pr + '">PR</a> · ' : '') +
       '<a href="' + p.recordUrl + '">record</a>' +
       (p.ratio ? ' · ×' + p.ratio.toFixed(3) + ' the reference ' + short(p.reference) : '') +
       (before ? ' · compared with ' + (p.harvested ? 'the fresh record of ' : 'the commit before, ') +
-        short(before.sha) + ', at the deepest level both timed' : '');
-    var rows = view.compare(before ? before.results : {}, p.results);
-    var head = before ? '<th>' + (p.harvested ? 'fresh' : 'before') + ' (ms)</th>' : '';
-    $('details-table').innerHTML = '<tr><th>phase</th>' + head + '<th>this (ms)</th>' +
+        short(before.sha) + ', at the deepest level both timed' : '') +
+      ' · in ' + UNIT_NAME[unit] + (unit !== state.phaseUnit ? ' (this record has no reference)' : '');
+    var rows = view.compareIn(before || { results: {} }, p, unit);
+    var head = before ? '<th>' + (p.harvested ? 'fresh' : 'before') + ' (' + UNIT_NAME[unit] + ')</th>' : '';
+    $('details-table').innerHTML = '<tr><th>phase</th>' + head + '<th>this (' + UNIT_NAME[unit] + ')</th>' +
       (before ? '<th>change</th><th></th>' : '') + '</tr>' +
       rows.map(function (row) {
-        if (!before) return '<tr><td>' + row.path + '</td>' + cell(row.b) + '</tr>';
+        if (!before) return '<tr><td>' + row.path + '</td>' + cell(row.b, unit) + '</tr>';
         var change = row.a && row.b !== null ? ((row.b - row.a) / row.a * 100).toFixed(1) + '%' : '';
-        return '<tr><td>' + row.path + '</td>' + cell(row.a) + cell(row.b) + '<td>' + change + '</td>' +
+        return '<tr><td>' + row.path + '</td>' + cell(row.a, unit) + cell(row.b, unit) + '<td>' + change + '</td>' +
           '<td class="finer">' + (row.finer.length ? 'finer, one side only: ' + row.finer.join(', ') : '') + '</td></tr>';
       }).join('');
+  }
+
+  function redrawAll() {
+    drawOverview();
+    drawPhases();
+    showDetails();
   }
 
   function draw(bundle) {
     var lines = view.lines(bundle);
     if (!lines.length) { $('status').textContent = 'No bench records found.'; return; }
     var bridge = view.bridge(bundle);
+    state.all = lines;
+    state.bridge = bridge;
     $('status').textContent = bundle.length + ' records.';
     $('bridge').textContent = bridge
       ? 'At the bridge, ' + short(bridge.sha) + ', tick_phases.gd timed ' + bridge.gdscript.toFixed(1) +
         ' ms and breach_tick_phases ' + bridge.cargo.toFixed(1) + ' ms: the cargo era is ×' +
         bridge.factor.toFixed(2) + ' faster. The two lines are never joined.'
       : '';
-    var toggle = $('show-harvested');
-    var overview = function () { drawOverview(view.shown(lines, toggle.checked), bridge); };
-    toggle.onchange = overview;
-    overview();
+    drawCpus();
+    $('show-harvested').onchange = drawOverview;
+    var overviewUnit = $('overview-unit');
+    overviewUnit.value = state.overviewUnit;
+    overviewUnit.onchange = function () { state.overviewUnit = overviewUnit.value; drawOverview(); };
+    var phaseUnit = $('phase-unit');
+    phaseUnit.value = state.phaseUnit;
+    phaseUnit.onchange = function () { state.phaseUnit = phaseUnit.value; drawPhases(); showDetails(); };
     var select = $('harness');
     select.innerHTML = lines.filter(function (l) { return l.points.length; }).map(function (l) {
       return '<option>' + l.harness + '</option>';
     }).join('');
     select.value = lines.some(function (l) { return l.harness === 'breach_tick_phases'; }) ? 'breach_tick_phases' : select.value;
-    var redraw = function () {
-      drawPhases(lines.find(function (l) { return l.harness === select.value; }));
-    };
-    select.onchange = redraw;
-    redraw();
+    state.harness = select.value;
+    select.onchange = function () { state.harness = select.value; drawPhases(); };
+    redrawAll();
   }
 
   function fromFolder(files) {
