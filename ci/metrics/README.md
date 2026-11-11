@@ -187,7 +187,17 @@ and leave them out; `check_records.py` checks them as it checks any record.
   `metrics/local/<date>-<n>.json`, `n` counting on from that day's records. It refuses a
   file whose printed side or thread count differs from its name or the machine, by name,
   and writes nothing. `breach_tick_phases` doesn't print its squad count, so that comes from
-  the name alone.
+  the name alone. A machine line that names the CPU (spec 48 step 3) is preferred over
+  `local_machine.json`; `unknown` keeps the file's.
+- A cell run with `series=1` (spec 48 step 5a) also keeps `tick-p95` and `tick-p99` over the
+  whole settled series, its args end `series=1 series=settled`, and `source.inspect` holds
+  the `inspect:` ticks each round named.
+- Files named `s<side>_q<squads>_r<round>_repeat.txt` hold spec 47's repeat mode
+  (`at=<t>,... repeat=<n>`): one record per (cell, tick), `source.harness`
+  `tick_phases-repeat`, args `side= squads= at=<t> repeat=<n>`. Each round's median of the
+  `n` repeats is a value: the binary prints each phase's median, IQR and interval, not each
+  lap. The repeats are a guide, not the judge: they under-report phases whose cost builds up
+  across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`; Q47, #909).
 
 Keep a run's outputs under `metrics/raw/local/<date>-<short sha>/`. The first is the owner's
 2026-11-11 grid on `a5f574d` (20 records, 3 rounds each).

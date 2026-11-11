@@ -16,6 +16,8 @@ import check_records  # noqa: E402
 import local_record  # noqa: E402
 
 FIXTURES = HERE / "fixtures" / "local"
+SETTLED = FIXTURES / "settled"
+REPEATS = FIXTURES / "repeat"
 SCHEMA_DIR = HERE.parent.parent / "metrics" / "schema"
 MACHINE = HERE / "local_machine.json"
 
@@ -113,6 +115,124 @@ class Writing(unittest.TestCase):
                                                "2026-11-11")
             self.assertEqual([p.name for p in paths], ["2026-11-11-2.json", "2026-11-11-3.json"])
             self.assertEqual(json.loads(paths[0].read_text())["schema"], "record-v1")
+
+
+class SettledSeries(unittest.TestCase):
+    """Spec 48 step 5a: a grid cell run with `series=1` keeps its p95 and p99 over the whole
+    series, and the `inspect:` ticks each round named."""
+
+    def setUp(self):
+        self.machine = local_record.load_machine(MACHINE)
+        texts = local_record.cells(SETTLED, self.machine)[(3072, 1)]
+        self.texts = texts
+        self.record = local_record.build_record(3072, 1, texts, self.machine, context())
+
+    def test_its_args_say_it_is_the_settled_series(self):
+        self.assertEqual(self.record["source"]["args"],
+                         ["side=3072", "squads=1", "series=1", "series=settled"])
+
+    def test_it_holds_the_series_p95_and_p99(self):
+        results = self.record["results"]
+        self.assertEqual(len(results["tick-p95"]["values"]), 2)
+        self.assertEqual(len(results["tick-p99"]["values"]), 2)
+        self.assertIn("tick", results)
+
+    def test_it_holds_the_inspect_ticks_each_round_named(self):
+        inspect = self.record["source"]["inspect"]
+        self.assertEqual(len(inspect), 2)
+        for ticks in inspect:
+            self.assertEqual(ticks, sorted(ticks))
+            self.assertTrue(all(isinstance(t, int) for t in ticks))
+        self.assertEqual(inspect[0], local_record.inspect_ticks(self.texts[0]))
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "needs jsonschema (pip install jsonschema)")
+    def test_it_passes_check_records(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "metrics"
+            shutil.copytree(SCHEMA_DIR, root / "schema")
+            local_record.write_records([self.record], root, "2026-11-11")
+            self.assertEqual(check_records.check_tree(root, root / "schema"), [])
+
+
+class RepeatMode(unittest.TestCase):
+    """Spec 48 step 5a: the repeat mode's output (`at=<t>,<t> repeat=<n>`), 2 rounds at 2
+    ticks, becomes one record per (battle, tick), each round's median a value."""
+
+    def setUp(self):
+        self.machine = local_record.load_machine(MACHINE)
+        self.found = local_record.repeats(REPEATS, self.machine)
+        self.records = [local_record.build_repeat_record(side, squads, tick, n, texts,
+                                                         self.machine, context())
+                        for (side, squads, tick), (n, texts) in self.found.items()]
+
+    def test_there_is_a_record_per_tick(self):
+        self.assertEqual(sorted(tick for _, _, tick in self.found), [91, 101])
+        self.assertEqual(len(self.records), 2)
+
+    def test_each_round_is_a_value_with_their_median(self):
+        for record in self.records:
+            self.assertEqual(record["source"]["rounds"], 2)
+            for path in ("tick", "tick/scrum/seek"):
+                measure = record["results"][path]
+                self.assertEqual(len(measure["values"]), 2)
+                self.assertAlmostEqual(measure["median"], sum(measure["values"]) / 2)
+
+    def test_the_spread_table_is_not_read_as_phases(self):
+        for record in self.records:
+            self.assertNotIn("tick/ms", record["results"])
+            self.assertNotIn("tick/tick", record["results"])
+
+    def test_it_is_the_repeat_harness_with_at_and_repeat(self):
+        record = self.records[0]
+        self.assertEqual(record["source"]["harness"], "tick_phases-repeat")
+        self.assertEqual(record["source"]["args"],
+                         ["side=3072", "squads=1", "at=91", "repeat=50"])
+        self.assertEqual(record["series"], "local")
+
+    def test_a_repeat_file_from_another_side_is_refused_by_name(self):
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder)
+        text = (REPEATS / "s3072_q1_r1_repeat.txt").read_text(encoding="utf-8")
+        (folder / "s6144_q1_r1_repeat.txt").write_text(text, encoding="utf-8")
+        with self.assertRaises(local_record.Refused) as raised:
+            local_record.repeats(folder, self.machine)
+        self.assertIn("s6144_q1_r1_repeat.txt", str(raised.exception))
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "needs jsonschema (pip install jsonschema)")
+    def test_they_pass_check_records(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "metrics"
+            shutil.copytree(SCHEMA_DIR, root / "schema")
+            local_record.write_records(self.records, root, "2026-11-11")
+            self.assertEqual(check_records.check_tree(root, root / "schema"), [])
+
+
+class PrintedMachine(unittest.TestCase):
+    """Spec 48 step 3's rest, built in step 5a: a machine line that names the CPU (step 3's
+    `breach_tick_phases`) is preferred over `local_machine.json`."""
+
+    def setUp(self):
+        self.machine = local_record.load_machine(MACHINE)
+
+    def test_a_known_cpu_is_taken_from_the_output(self):
+        text = ("machine: 12th Gen Intel(R) Core(TM) i7-12700K, 12 cores, 20 threads, 32 GB, "
+                "Windows\n3072 a side, 32 wide: 13.3 ms a tick\n")
+        found = local_record.machine_of([text], self.machine)
+        self.assertEqual(found["cpu"], "12th Gen Intel(R) Core(TM) i7-12700K")
+        self.assertEqual(found["cores"], 12)
+        self.assertEqual(found["ram_mb"], 32768)
+        self.assertEqual(found["os"], "Windows")
+
+    def test_cores_and_ram_are_optional(self):
+        text = "machine: Some CPU, 20 threads, Windows\n"
+        found = local_record.machine_of([text], self.machine)
+        self.assertEqual(found["cpu"], "Some CPU")
+        self.assertEqual(found["cores"], self.machine["machine"]["cores"])
+
+    def test_an_unknown_cpu_keeps_the_machine_file(self):
+        text = "machine: unknown, 20 threads, Windows\n"
+        self.assertEqual(local_record.machine_of([text], self.machine),
+                         self.machine["machine"])
 
 
 if __name__ == "__main__":

@@ -11,7 +11,15 @@ reference (`not-measured`). The machine is `ci/metrics/local_machine.json`, the 
 Each file is checked against its name and the machine before anything is written: the side
 it prints (`<side> a side`) and its thread count (`machine: ..., <n> threads, ...`). A file
 that differs is refused, by name, and nothing is written. The binary doesn't print its squad
-count, so the squads come from the name alone.
+count, so the squads come from the name alone. A machine line that names the CPU (spec 48
+step 3) is preferred over the machine file; `unknown` keeps the file's.
+
+Spec 48 step 5a: a cell run with `series=1` also keeps its p95 and p99 over the whole series
+(`tick-p95`, `tick-p99`) and the `inspect:` ticks each round named (`source.inspect`). Files
+named `s<side>_q<squads>_r<round>_repeat.txt` hold the repeat mode's output (`at=<t>,...
+repeat=<n>`): one record per (cell, tick), harness `tick_phases-repeat`, each round's median
+of the `n` repeats a value. The output prints each phase's median, not each lap, so the
+laps' spread stays in the output (its IQR) and the record's values are the rounds'.
 
     local_record.py <folder> --commit <sha> --date <YYYY-MM-DD> [--out metrics]
         [--machine ci/metrics/local_machine.json] [--fight 10]
@@ -25,6 +33,12 @@ from pathlib import Path
 import bench_record
 
 FILE = re.compile(r"^s(\d+)_q(\d+)_r(\d+)\.txt$")
+REPEAT_FILE = re.compile(r"^s(\d+)_q(\d+)_r(\d+)_repeat\.txt$")
+REPEAT = re.compile(r"^repeat: tick (\d+), (\d+) repeats$", re.M)
+INSPECT = re.compile(r"^inspect: ([\d,]+)$", re.M)
+PRINTED = re.compile(r"^machine: (.+?)(?:, (\d+) cores)?, \d+ threads(?:, (\d+) GB)?, (.+)$",
+                     re.M)
+REPEAT_HARNESS = "tick_phases-repeat"
 SIDE = re.compile(r"^(\d+) a side, ", re.M)
 THREADS = re.compile(r"^machine: .*?, (\d+) threads,", re.M)
 HERE = Path(__file__).resolve().parent
@@ -67,20 +81,87 @@ def cells(folder, machine: dict) -> dict:
     return {cell: [text for _, text in sorted(rounds)] for cell, rounds in sorted(found.items())}
 
 
-def build_record(side: int, squads: int, texts: list, machine: dict, context: dict,
-                 fight: int = 10) -> dict:
+def repeats(folder, machine: dict) -> dict:
+    """{(side, squads, tick): (n, [each round's block for that tick, in round order])}, in
+    (side, squads, tick) order, from the `_repeat.txt` files. Raises Refused, naming the file,
+    on the first one that differs from its name or the machine."""
+    found = {}
+    for path in sorted(Path(folder).iterdir()):
+        named = REPEAT_FILE.match(path.name)
+        if not named:
+            continue
+        side, squads, round_ = (int(group) for group in named.groups())
+        text = path.read_text(encoding="utf-8")
+        _check(path, text, side, machine)
+        heads = list(REPEAT.finditer(text))
+        if not heads:
+            raise Refused(f"{path.name}: no repeat: line, so not the repeat mode's output")
+        machine_line = text.splitlines()[0] + "\n"
+        for at, head in enumerate(heads):
+            end = heads[at + 1].start() if at + 1 < len(heads) else len(text)
+            tick, n = int(head.group(1)), int(head.group(2))
+            block = machine_line + text[head.start():end]
+            found.setdefault((side, squads, tick), (n, []))[1].append((round_, block))
+    return {key: (n, [block for _, block in sorted(blocks)])
+            for key, (n, blocks) in sorted(found.items())}
+
+
+def inspect_ticks(text: str) -> list:
+    """The ticks a settled series' `inspect:` line names; [] without one."""
+    found = INSPECT.search(text)
+    return [int(tick) for tick in found.group(1).split(",")] if found else []
+
+
+def machine_of(texts: list, machine: dict) -> dict:
+    """The printed machine when the first output names its CPU, else the machine file's.
+    Cores and RAM are taken when printed, else kept from the file."""
+    printed = PRINTED.search(texts[0]) if texts else None
+    if not printed or printed.group(1) == "unknown":
+        return machine["machine"]
+    cpu, cores, ram_gb, system = printed.groups()
+    out = {**machine["machine"], "cpu": cpu, "os": system}
+    if cores:
+        out["cores"] = int(cores)
+    if ram_gb:
+        out["ram_mb"] = int(ram_gb) * 1024
+    return out
+
+
+def _record(args: list, texts: list, results: dict, machine: dict, context: dict,
+            **source) -> dict:
     return {
         "schema": "record-v1",
         "series": "local",
         "commit": context["commit"],
-        "source": {**context["source"], "args": [f"side={side}", f"squads={squads}",
-                                                 f"fight={fight}"], "rounds": len(texts)},
-        "machine": machine["machine"],
-        "results": bench_record.measures(texts),
+        "source": {**context["source"], **source, "args": args, "rounds": len(texts)},
+        "machine": machine_of(texts, machine),
+        "results": results,
         "reference": {"na": "not-measured"},
         "provenance": {"run_id": dict(NOT_APPLICABLE), "url": dict(NOT_APPLICABLE),
                        "date": context["date"], "kind": "local"},
     }
+
+
+def build_record(side: int, squads: int, texts: list, machine: dict, context: dict,
+                 fight: int = 10) -> dict:
+    """A cell's record: `fight` ticks, or the settled series when every round printed one,
+    with its p95 and p99 and each round's `inspect:` ticks."""
+    cell = [f"side={side}", f"squads={squads}"]
+    spread = bench_record.percentiles(texts)
+    if not spread:
+        return _record(cell + [f"fight={fight}"], texts, bench_record.measures(texts),
+                       machine, context)
+    return _record(cell + ["series=1", "series=settled"], texts,
+                   {**bench_record.measures(texts), **spread}, machine, context,
+                   inspect=[inspect_ticks(text) for text in texts])
+
+
+def build_repeat_record(side: int, squads: int, tick: int, n: int, texts: list,
+                        machine: dict, context: dict) -> dict:
+    """One tick of a cell replayed `n` times a round: each round's median a value."""
+    args = [f"side={side}", f"squads={squads}", f"at={tick}", f"repeat={n}"]
+    return _record(args, texts, bench_record.measures(texts), machine, context,
+                   harness=REPEAT_HARNESS)
 
 
 def write_records(records: list, metrics, date: str) -> list:
@@ -130,6 +211,7 @@ def main(argv: list) -> int:
     machine = load_machine(option(argv, "--machine", HERE / "local_machine.json"))
     try:
         found = cells(folder, machine)
+        repeated = repeats(folder, machine)
     except Refused as why:
         print(f"local_record: refused {why}")
         return 1
@@ -140,6 +222,8 @@ def main(argv: list) -> int:
     fight = int(option(argv, "--fight", 10))
     records = [build_record(side, squads, texts, machine, context, fight)
                for (side, squads), texts in found.items()]
+    records += [build_repeat_record(side, squads, tick, n, texts, machine, context)
+                for (side, squads, tick), (n, texts) in repeated.items()]
     for path in write_records(records, option(argv, "--out", "metrics"), date):
         print(f"local_record: wrote {path}")
     return 0
