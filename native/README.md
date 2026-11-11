@@ -311,8 +311,8 @@ way, ranked the three changes the same, and sized the phase each change aimed at
 points (the pair search, the seek). They under-sized some phases a change touched in passing:
 `strays` (+7–10% repeated, +24% whole at 25k), `groups`, `bodies: pushes` and `stamina` at
 4,096. Read a repeat as which way and roughly how far a phase moves, and judge with the whole
-tick. Its ticks must exist in the battle: the 25k battle ends at 101 (4,096 at 107), so its
-rout spike and last tick are 100 and 101.
+tick. At 25k one side breaks at tick 101 (at 4,096, 107), so there the rout's spike and the
+break are 100 and 101; the series runs on past the break until the field settles (step 2a).
 
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)

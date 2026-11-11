@@ -190,7 +190,7 @@ and `Series::push` added where it was missing). Each case then ran through `benc
 5 rounds, `repeat=50`; beside each, the whole tick (`preset=4096`, `preset=25k`) on the same
 two commits, for a same-runner yardstick (runs #107–#136, AMD EPYC 9V74 / 9V45, 4 threads).
 - **Ticks:** at 4,096 contact (91), the rout's spike (105) and the last of the old series (106),
-  as the spec says. At 25k the battle ends at **101** (104 before #773), not 107, so 105 and 106
+  as the spec says. At 25k one side breaks at **101** (104 before #773), not 107 (the repeat mode then stopped at the break), so 105 and 106
   don't exist there: 91, 100 and 101 instead. Step 2a's `inspect:` will name them on its own.
 
 **The numbers** (change from base to head, medians over 5 rounds; `*` ranges apart):
