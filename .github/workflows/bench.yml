@@ -214,10 +214,10 @@ jobs:
             if [ -n "$two" ] && [ "$ROUNDS" -gt 1 ] 2>/dev/null; then
               echo "== round 1, $HEAD_NAME"
             fi
-            cat head_1.txt 2>/dev/null
+            grep -E "^repeat:|^  tick " head_1.txt 2>/dev/null
             if [ -n "$two" ]; then
               echo "== round 1, base $base_name"
-              cat base_1.txt 2>/dev/null
+              grep -E "^repeat:|^  tick " base_1.txt 2>/dev/null
             fi
             if [ -f profile.txt ]; then
               echo "PROFILE BEGIN"
