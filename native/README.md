@@ -290,6 +290,21 @@ place to the next slowest, so there are 7 when the series has 7 ticks. `bench_co
 before and, when every round has a series, also compares each phase's 95th and 99th by
 their medians, so the `bench` workflow needs only `series=1` in `args`.
 
+`at=<t>[,<t>...] [repeat=50]` (spec 47 step 1, Decision 177, `src/phases/repeat.rs`) replays
+chosen ticks live instead of timing a run, with any preset or battle arguments (from contact,
+as a series is): `preset=4096 at=105 repeat=50`. The battle plays forward once, keeping a copy
+of all each tick reads just before it (the snapshot's state, the play's tick and squads, the
+field's re-forms). Each tick is then stepped `repeat` times on the running battle, the copy
+put back before each, untimed; the field's kept buffers stay, so they and the allocator are
+as warm as in a battle, and one untimed repeat comes first. Each tick prints a `repeat:` line,
+its medians on the lines `bench_compare.py` reads as a run's, then the tick's and each phase's
+median, interquartile range and 95% interval of the median (lines ending in `]`, which it
+skips). With several ticks in one run it would read the last, so compare one tick a run. A
+tick past the battle's end exits 2, naming the last; so do `counts=`, `scatter=` beside `at=`,
+and `repeat=` without it. If a repeat leaves another state than playing through the tick once
+did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
+known to within ±1%.
+
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
 follows the times with a `counts:` line, then each pass in the tick's order: the unit store's

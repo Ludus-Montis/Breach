@@ -101,6 +101,7 @@ fn start(squads: &mut Squads, field: &mut Field, s: usize, pace: [f64; 3]) -> bo
 
 /// What a re-form's planning reads (`shuffle::start_moves`' inputs): the plan is a function
 /// of these alone. Two are the same only if every number is the same to the bit.
+#[derive(Clone)]
 struct Read {
     shape: shuffle::Squad,
     ranked: Vec<Ranked>,
@@ -114,7 +115,7 @@ struct Read {
 /// start nothing again, so it isn't planned: its occupancy and plan are worked out only when
 /// a swap ends, a unit falls or anything else it reads changes. Not part of the state: a
 /// field read back from a snapshot plans afresh, to the same end.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Reforms {
     tried: HashMap<usize, Read>,
     planned: usize,
