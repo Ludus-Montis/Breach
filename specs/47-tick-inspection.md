@@ -152,6 +152,9 @@ Only once step 3 has passed:
 - **Plotting.** The tick history gains small multiples per phase, × the reference by default
   (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
   the gap between them shows how far to trust the fast number.
+- **The caveat** (Q47, option a): the page says beside the repeats that they guide and the
+  whole tick judges, and that phases whose cost builds up across ticks (`strays`, `groups`,
+  `bodies: pushes`, `stamina`) read smaller repeated than in the whole tick.
 
 ## Measured
 
@@ -209,7 +212,10 @@ two commits, for a same-runner yardstick (runs #107–#136, AMD EPYC 9V74 / 9V45
 
 **By the letter of "Passing", the check fails on size for #783.** Its direction and ranking hold.
 The owner decides whether the mode stays a guide with that caveat, or is dropped (Q47, #909).
-Step 5 waits for that decision.
+**Settled 2026-11-11 (the owner, Q47 option a): it stays a guide, with the caveat.** It shows
+which way and roughly how far a change's aimed-at phases move, and the ranking. It under-reports
+phases whose cost builds up across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`). The
+whole tick stays the judge. Step 5 goes ahead.
 
 
 ## Not in this spec
