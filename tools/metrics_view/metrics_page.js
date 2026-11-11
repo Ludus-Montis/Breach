@@ -304,6 +304,7 @@
   }
 
   function draw(bundle) {
+    if (window.BreachDraw25k) window.BreachDraw25k(bundle);
     var lines = view.lines(bundle);
     if (!lines.length) { $('status').textContent = 'No bench records found.'; return; }
     var bridge = view.bridge(bundle);
