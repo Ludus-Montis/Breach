@@ -11,10 +11,15 @@ A phase printed `0.00` in any round took under the printed resolution (0.005 ms)
 
     bench_record.py --head head_1.txt ... [--reference reference_1.txt ... --reference-sha <sha>]
         --sha <sha> --args "<args>" --out <folder> [--main origin/main] [--number <n>]
+        [--series inspect]
 
 A `series=1` run (the 25k set, step 8a) also gets `tick-p95` and `tick-p99`, the rounds' 95th
 and 99th of the whole tick; with no `--reference` (a grid shape, timed without the bridge) the
 record has no `reference`. `--number` names one of several records a run writes.
+
+A bench-inspect job (spec 47 step 5a) passes `--series inspect` and its replay's args
+(`preset=<size> at=<tick> repeat=<n>`): its record goes to `metrics/inspect/`, its harness is
+`tick_phases-repeat`, and each round's values are that round's medians of the repeats.
 
 Run in the bench job: it reads the machine (lscpu, nproc, /proc/meminfo, /etc/os-release,
 rustc), the runner image (ImageOS, ImageVersion), the commit (git, and its PR through the API
@@ -33,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "godot" / "scripts"
 from bench_compare import phases, spreads  # noqa: E402
 
 HARNESS = "breach_tick_phases"
+REPEAT_HARNESS = "tick_phases-repeat"
 SOURCE_FILE = "native/rust/src/bin/tick_phases.rs"
 NOT_RECORDED = {"na": "not-recorded"}
 NOT_MEASURED = {"na": "not-measured"}
@@ -79,6 +85,12 @@ def percentiles(texts: list) -> dict:
             "tick-p99": measure([spread[1] for spread in found])}
 
 
+def harness_of(args: list) -> str:
+    """`tick_phases-repeat` for a replay of one tick (`at=`, spec 47 step 5a), else the plain
+    harness."""
+    return REPEAT_HARNESS if any(a.startswith("at=") for a in args) else HARNESS
+
+
 def ratios(results: dict, reference: dict) -> dict:
     out = {}
     for path, measure in results.items():
@@ -89,13 +101,14 @@ def ratios(results: dict, reference: dict) -> dict:
     return out
 
 
-def build_record(head_texts: list, reference_texts: list, context: dict) -> dict:
+def build_record(head_texts: list, reference_texts: list, context: dict,
+                 series: str = "bench") -> dict:
     """The record; with no reference rounds (a 25k grid shape, timed without the bridge) it
-    has no `reference`."""
+    has no `reference`. `series` is `inspect` for a bench-inspect job's repeats."""
     results = {**measures(head_texts), **percentiles(head_texts)}
     record = {
         "schema": "record-v1",
-        "series": "bench",
+        "series": series,
         "commit": context["commit"],
         "source": context["source"],
         "machine": context["machine"],
@@ -109,14 +122,15 @@ def build_record(head_texts: list, reference_texts: list, context: dict) -> dict
     return record
 
 
-def write_record(record: dict, out, date: str, run_id, attempt, number=None) -> Path:
-    """`metrics/bench/<date>-<run id>[-<n>].json`: `n` is `number` when given (a run that
+def write_record(record: dict, out, date: str, run_id, attempt, number=None,
+                 series: str = "bench") -> Path:
+    """`metrics/<series>/<date>-<run id>[-<n>].json`: `n` is `number` when given (a run that
     writes several records), else the attempt of a re-run."""
     if number is not None:
         suffix = f"-{number}"
     else:
         suffix = "" if str(attempt) in ("", "1") else f"-{attempt}"
-    path = Path(out) / "metrics" / "bench" / f"{date}-{run_id}{suffix}.json"
+    path = Path(out) / "metrics" / series / f"{date}-{run_id}{suffix}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
@@ -231,7 +245,7 @@ def main(argv: list) -> int:
     date = datetime.now(timezone.utc).date().isoformat()
     context = {
         "commit": commit_info(sha),
-        "source": {"harness": HARNESS, "blob": git(".", "rev-parse", f"{sha}:{SOURCE_FILE}"),
+        "source": {"harness": harness_of(option(argv, "--args", "").split()), "blob": git(".", "rev-parse", f"{sha}:{SOURCE_FILE}"),
                    "args": option(argv, "--args", "").split(), "rounds": len(head),
                    "profile": "release"},
         "machine": machine(),
@@ -242,14 +256,15 @@ def main(argv: list) -> int:
         "reference_commit": git(".", "rev-parse", option(argv, "--reference-sha"))
         if reference else None,
     }
-    record = build_record(head, reference, context)
+    series = option(argv, "--series", "bench")
+    record = build_record(head, reference, context, series)
     if not record["results"]:
         print("bench_record: a round printed no phases; no record")
         return 1
     number = option(argv, "--number")
     path = write_record(record, option(argv, "--out"), date, run_id,
                         os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
-                        int(number) if number else None)
+                        int(number) if number else None, series)
     print(f"bench_record: wrote {path}")
     return 0
 
