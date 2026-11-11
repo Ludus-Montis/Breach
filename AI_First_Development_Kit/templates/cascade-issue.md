@@ -44,9 +44,9 @@ Steps whose needs are met and whose files are free; the coordinator starts each 
 
 ## Running
 
-| Step | Session | Fallback check | Touches outside its line |
-|---|---|---|---|
-| <id> | <link> | <check id> | <paths it reported, or "none"> |
+| Step | Base | Session | Fallback check | Touches outside its line |
+|---|---|---|---|---|
+| <id> | `<branch it branched from>` | <link> | <check id> | <paths it reported, or "none"> |
 
 ## Done
 
