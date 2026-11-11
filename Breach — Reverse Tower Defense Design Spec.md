@@ -8005,3 +8005,76 @@ open, whichever it is.
 **Order:** not applicable; no simulation outcome changes.
 **Bounded:** not applicable.
 **Pillar check:** not applicable.
+
+### Decision 171 — A spec's steps say what they need and what they touch; a cascade runs every ready step at once, and splits too-large steps in the open
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Amends:** Decision 158 (a cascade ran one step at a time, and each step wrote the record)
+
+**Rationale:** The owner's direction, from how recent cascades have gone: steps that could run
+side by side waited for each other, and steps were often too large for one session. Which
+steps may run together is known when the spec is designed, so the spec should say it, and
+the cascade should route through it. A step that still proves too large is split during the
+build, and the split is signposted.
+- **Each step names its needs and its files.** Under every `### Step <id>` heading go two
+  lines: `**Needs:**` lists the steps it builds on, or `none`, and `**Touches:**` lists the
+  files and folders it changes. The design session writes both. A step that has neither runs
+  after every step above it, as before.
+- **Ready means its needs are met and its files are free.** A step is ready when every step
+  it needs has a PR (or is merged, when the cascade waits for merges) and its `Touches`
+  doesn't overlap a running step's. Two paths overlap when one is the other or lies under it.
+  Files every step edits (`CHANGELOG.md`, `README.md`, `docs/index.md` and the spec itself)
+  don't count, and the PR merged second rebases over them.
+- **The base follows the needs.** A ready step branches from `main` when every step it needs
+  is merged, and from the one unmerged one when only one isn't. While two or more aren't
+  merged, it isn't ready.
+- **The coordinator starts every ready step, with no cap** (the owner's choice), each with its
+  own fallback check. It is the only writer of the record's body, which lists steps as Ready,
+  Running and Done. A step session writes only its log comment and reports to the
+  coordinator, including any path it changed outside its `Touches`, which then counts as
+  touched.
+- **Steps are sized at design.** A step covers one behaviour, takes one test file from red to
+  green, and its PR can be reviewed in one sitting: about 15 files or 400 changed lines,
+  not counting tests and docs. A larger step is split before the spec is pushed.
+- **Splitting during the build is allowed by default, and always signposted.** A step session
+  that finds its step too large splits it without asking:
+  - in the spec, the step's heading becomes `### Step <id>a`, `<id>b`, … each with a
+    `**Split at build:**` line (from which step, which PR, the date, and why) and its own
+    `Needs` and `Touches`;
+  - `github-sync` closes the old step's issue, saying it was split and into which steps;
+  - the PR body has a `Split:` line;
+  - the cascade record puts the new steps under Ready or Still to come, with the split noted.
+
+**Measured (the round's cheapest test):** steps that specs called independent still changed
+the same files. Spec 44's steps 3 and 4 ("step 4 may come any time") shared 5 files, including
+`ci/showcase/index.sh`. Steps 2a and 2b shared `native/rust/src/scenarios.rs` and its tests,
+and spec 41's steps 3 and 4 shared `parting.rs` and `parting/pairs.rs`. Spec 41's step 4
+changed 48 files. Declaring needs alone wouldn't have kept those steps from conflicting, so
+the files are declared too.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Needs only; conflicts fixed by rebasing | The measured overlaps show declared-independent steps editing the same code. Every rebase costs a session and a review. |
+| Steps run in order unless the designer marks one `Parallel: yes` | It hides why steps can run together, and nothing checks the claim. |
+| A cap on steps running at once | The owner chose none. Each step is still its own PR, and the owner merges. |
+| Splits only after asking | Stops a cascade for a choice the owner has already made. Signposts keep it visible. |
+
+**Consequences:** `github-sync` copies `Needs` and `Touches` into each step's issue, and says
+which steps replaced one that was split (spec 45, step 1). The development kit carries it:
+`principles/agent-sessions.md` §3 and rule 8, `templates/cascade-issue.md`, and a
+spec-baseline `step-shape` row (spec 45, step 2). The `cascade` and `run-phase` skills carry
+it too (spec 45, step 3). Specs already written aren't changed. A cascade over one of them
+runs in order unless a design session adds the lines.
+
+**Rules over cases:** general: one readiness rule (needs met, files free) decides every step,
+and one size guide and one split procedure apply to all of them.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable to the tick. The number of sessions running at once is bounded
+only by the steps that are ready, which is the owner's choice.
+**Riskiest assumption:** that steps declared independent change separate files. It was
+tested before this Decision (Measured, above), and the design was changed to declare files
+as a result.
+**Pillar check:** not applicable.
