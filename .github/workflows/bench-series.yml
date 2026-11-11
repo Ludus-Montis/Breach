@@ -15,6 +15,11 @@ name: bench-series
 # once) that the timing jobs restore. In a timing job every commit builds into that one shared
 # folder (BENCH_TARGET), so the dependencies are built once and each commit recompiles only
 # what changed. Each job first deletes runner tools it doesn't use, for disk.
+#
+# `set=25k` (spec 43 step 8b, Decision 165): instead, step 8a's 25k set (ci/metrics/series_25k.py)
+# on each commit the 4,096 backfill times with the crate's breach_tick_phases (the GDScript era
+# is left out), `series=1` on nine shapes, the two 24,576 checks in turn with the bridge, a
+# record a shape. A shape a commit's harness can't run writes no record; the page shows a gap.
 
 on:
   workflow_dispatch:
@@ -25,6 +30,11 @@ on:
       per_job:
         description: "Commits per job"
         default: "3"
+      set:
+        description: "The set: 4096 (the daily bench's battle, each harness) or 25k (step 8a's set, the Rust era only)"
+        type: choice
+        options: ["4096", "25k"]
+        default: "4096"
 
 permissions:
   contents: read
@@ -51,9 +61,10 @@ jobs:
         env:
           COMMITS: ${{ inputs.commits }}
           PER_JOB: ${{ inputs.per_job }}
+          SET: ${{ inputs.set }}
         run: |
           set -o pipefail
-          jobs=$(python3 ci/metrics/bench_series.py plan --commits "$COMMITS" --per-job "$PER_JOB")
+          jobs=$(python3 ci/metrics/bench_series.py plan --commits "$COMMITS" --per-job "$PER_JOB" --set "$SET")
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
           echo "$jobs" | python3 -c "import json,sys; j=json.load(sys.stdin); print(f'{sum(len(x[\"commits\"].split()) for x in j)} commits in {len(j)} jobs')" >> "$GITHUB_STEP_SUMMARY"
 
@@ -73,7 +84,9 @@ jobs:
             ${{ env.BENCH_TARGET }}
           key: ${{ env.TARGET_CACHE }}
       - name: Build the references
-        run: python3 ci/metrics/bench_series.py build
+        env:
+          SET: ${{ inputs.set }}
+        run: python3 ci/metrics/bench_series.py build --set "$SET"
       - name: Save the shared build folder
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
@@ -113,6 +126,7 @@ jobs:
           echo "Free disk: $before before, $(df -h --output=avail / | tail -1) after." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: ./.github/actions/godot
+        if: inputs.set != '25k'
         with:
           version: ${{ env.GODOT_VERSION }}
 
@@ -140,12 +154,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           COMMITS: ${{ matrix.job.commits }}
           OFFSET: ${{ matrix.job.offset }}
+          SET: ${{ inputs.set }}
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/metrics-new"
           start=$(date +%s)
           python3 ci/metrics/bench_series.py run --commits "$COMMITS" --offset "$OFFSET" \
-            --out "$RUNNER_TEMP/metrics-new" --godot /opt/godot/godot | tee -a "$GITHUB_STEP_SUMMARY"
+            --out "$RUNNER_TEMP/metrics-new" --godot /opt/godot/godot --set "$SET" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "Took $(( ($(date +%s) - start) / 60 )) min; free disk at the end: $(df -h --output=avail / | tail -1)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open the data PR
@@ -154,6 +169,6 @@ jobs:
         with:
           folder: ${{ runner.temp }}/metrics-new
           series: bench-series
-          run-id: ${{ github.run_id }}-${{ matrix.job.index }}
+          run-id: ${{ github.run_id }}-${{ inputs.set == '25k' && '25k-' || '' }}${{ matrix.job.index }}
           app-id: ${{ vars.PROJECT_APP_ID }}
           private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
