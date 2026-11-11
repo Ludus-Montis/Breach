@@ -18,6 +18,11 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - The tick history page has a 25k chart: each merge's tick at 24,576 a side (p95, with p99 as
   a band) for 24 lanes and for one squad, beside the estimate fitted from the smaller sizes,
   with misses beyond 10% ringed and the 50 ms and 100 ms goals drawn.
+- The 25k chart can show each point × the bridge, marks each point's runner CPU by its shape
+  (shared with the CPU toggles, which also hide its points), adds the harvested 25k runs with
+  "Show harvested points", and opens a commit's fitted curve over size when a point is
+  clicked. In ms, the 4,096 chart has dotted "on track" lines: the 4-lane tick at which the
+  25k set's lanes fit reaches 50 ms (target) and 100 ms (interim) at 24 lanes.
 
 ### Changed
 

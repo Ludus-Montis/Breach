@@ -84,10 +84,16 @@
   }
 
   // The 25k set's fresh records (`series=1` in their args, spec 43 step 8a) are another
-  // chart's (step 8c): on a harness's line they would take the 4,096 point's place.
+  // chart's (step 8c): on a harness's line they would take the 4,096 point's place. So are
+  // the harvested 25k runs (`preset=25k`, or 24,576 a side; step 8d), behind its toggle.
   function inSet(item) {
     var args = item.record.source.args;
-    return kind(item) !== 'harvested' && Array.isArray(args) && args.indexOf('series=1') >= 0;
+    if (!Array.isArray(args)) return false;
+    return kind(item) === 'harvested' ? harvested25k(args) : args.indexOf('series=1') >= 0;
+  }
+
+  function harvested25k(args) {
+    return args.indexOf('preset=25k') >= 0 || args.indexOf('side=24576') >= 0;
   }
 
   function benchRecords(bundle) {
@@ -123,15 +129,31 @@
     };
   }
 
+  // A harvested record's place on main's line: its head's, or else its base's, position
+  // among the fresh records (a 7-character sha or more matching the start of theirs).
+  function placer(bundle) {
+    var places = benchRecords(bundle).filter(function (item) {
+      return kind(item) !== 'harvested' && number((item.record.commit || {}).position) !== null;
+    }).map(function (item) { return { sha: String(item.record.commit.sha), position: item.record.commit.position }; });
+    function at(sha) {
+      if (typeof sha !== 'string' || sha.length < 7) return null;
+      var found = places.find(function (place) { return place.sha.indexOf(sha) === 0; });
+      return found ? found.position : null;
+    }
+    return function (commit) {
+      var position = at((commit || {}).sha);
+      return position === null ? at((commit || {}).base) : position;
+    };
+  }
+
   // Fresh records give each harness's line, one point per commit (its latest run); a
   // harvested record sits on its head's or its base's place on that line, apart.
   function lines(bundle) {
     var byHarness = {};
-    var places = [];
+    var placeOf = placer(bundle);
     benchRecords(bundle).forEach(function (item) {
       var position = number((item.record.commit || {}).position);
       if (kind(item) !== 'harvested' && position !== null) {
-        places.push({ sha: String(item.record.commit.sha), position: position });
         var harness = item.record.source.harness;
         var line = byHarness[harness] = byHarness[harness] || { harness: harness, byCommit: {}, harvested: [] };
         var next = point(item, position);
@@ -139,16 +161,9 @@
         if (!kept || next.runId > kept.runId) line.byCommit[next.sha] = next;
       }
     });
-    function placeOf(sha) {
-      if (typeof sha !== 'string' || sha.length < 7) return null;
-      var found = places.find(function (place) { return place.sha.indexOf(sha) === 0; });
-      return found ? found.position : null;
-    }
     benchRecords(bundle).forEach(function (item) {
       if (kind(item) !== 'harvested') return;
-      var commit = item.record.commit || {};
-      var position = placeOf(commit.sha);
-      if (position === null) position = placeOf(commit.base);
+      var position = placeOf(item.record.commit);
       if (position === null) return;
       var harness = item.record.source.harness;
       var line = byHarness[harness] = byHarness[harness] || { harness: harness, byCommit: {}, harvested: [] };
@@ -297,7 +312,8 @@
   }
 
   var api = { positions: positions, cpus: cpus, withoutCpus: withoutCpus, tickIn: tickIn, inUnit: inUnit,
-    stack: stack, compareIn: compareIn, UNKNOWN: UNKNOWN, shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines, bridge: bridge, REPO: REPO };
+    stack: stack, compareIn: compareIn, UNKNOWN: UNKNOWN, shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines,
+    placer: placer, harvested25k: harvested25k, bridge: bridge, REPO: REPO };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BreachMetricsView = api;
 })(this);
