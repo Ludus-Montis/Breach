@@ -98,7 +98,7 @@ pub fn kept(settled: &mut Settled, ats: &[i64], content: &Content) -> Result<Vec
     let mut copies: Vec<Kept> = Vec::new();
     for t in ahead {
         while settled.play.tick < t {
-            if !settled.play.both_stand(&settled.squads, &settled.field) {
+            if !super::series::stirs(settled) {
                 let last = settled.play.tick;
                 return Err(format!("at={t} is past the battle's end: its last tick is {last}"));
             }
