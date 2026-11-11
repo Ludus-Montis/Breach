@@ -150,6 +150,18 @@ readable at a commit has the reference's paths as `{"na": "not-measured"}`. Each
 go through [the data-PR route](#the-data-pr-route), so the backfill lands as one data PR a job.
 `commits` takes a list instead (a re-run of the commits a job missed, say).
 
+### The 25k backfill
+
+With `set` at `25k` (spec 43 step 8b, Decision 165), `bench-series` times [the 25k
+set](#the-25k-set) instead, on each commit the 4,096 backfill times with
+`breach_tick_phases` (23 on 2026-11-11, from `827b8ea`; the GDScript era is left out:
+`ci/metrics/series_25k.py`). Each shape runs `series=1` for 5 rounds, the two 24,576 checks
+in turn with the bridge, a record a shape, numbered `-5nn` (+1000 a re-run attempt). A
+shape a commit's harness can't run (an argument it rejects, or a round with no series) writes
+no record, and the job goes on: the page shows a gap. Its data PRs are
+`chore/metrics-bench-series-<run id>-25k-<job>`. Start it once, on `main`, with `commits`
+empty; the 14 harvested `preset=25k` runs and the 2 `settle=10 fight=5` ones stay as they are.
+
 To keep builds short and disk free: a `references` job builds `eee3e81` and `8ca4227` once
 and hands their binaries to every timing job; within a job every commit builds into one
 shared folder, so the dependencies are compiled once and each commit recompiles only what

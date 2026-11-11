@@ -12,9 +12,12 @@ and writes a record per harness under `metrics/bench/`.
 - A harness that prints nothing it can read (a tool that doesn't parse at that commit) has
   each of the reference's paths as `{"na": "not-measured"}`.
 
-    bench_series.py plan [--commits "<sha> ..."] [--per-job 3]   # the jobs, as JSON
-    bench_series.py build [--commits "<sha> ..."]   # build them (default: the references)
+- **`--set 25k`** (step 8b): the 25k set on the Rust-era commits instead (series_25k.py).
+
+    bench_series.py plan [--commits "<sha> ..."] [--per-job 3] [--set 4096|25k]   # the jobs
+    bench_series.py build [--commits "<sha> ..."] [--set 4096|25k]   # default: the references
     bench_series.py run --commits "<sha> ..." --offset <n> --out <folder> [--godot <bin>]
+        [--set 4096|25k]
 """
 import json
 import os
@@ -27,8 +30,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bench_record  # noqa: E402
+import series_25k  # noqa: E402
 
-BRIDGE = "8ca422726e68909554eddad7eeee2199e0fe656d"
+BRIDGE = series_25k.BRIDGE
 GDSCRIPT_REFERENCE = "eee3e81fc92b026f869fdfced2f16a5306884d0b"
 SINCE = "2026-10-14"
 ROUNDS = 5
@@ -37,7 +41,7 @@ NOT_APPLICABLE = {"na": "not-applicable"}
 FIGHT_SIZE = 1024
 NOISE = ("Godot Engine", "Initialize godot-rust", "WARNING")
 SHARED_TARGET = Path(os.environ.get("BENCH_TARGET", "target-shared"))
-REFERENCES = [GDSCRIPT_REFERENCE, BRIDGE]
+REFERENCES = {"4096": [GDSCRIPT_REFERENCE, BRIDGE], "25k": [BRIDGE]}
 
 
 def whole_tick(text: str) -> dict:
@@ -118,6 +122,15 @@ def default_commits(main_ref: str = "origin/main") -> list:
     out = bench_record.git(".", "rev-list", "--first-parent", "--reverse", f"--since={SINCE}",
                            main_ref, "--", "sim", "native")
     return out.split()
+
+
+def set_commits(commits: list, set_name: str, tree_of) -> list:
+    """The commits a set times: every one for 4096, the Rust era's for 25k."""
+    if set_name == "4096":
+        return list(commits)
+    if set_name == "25k":
+        return series_25k.commits(commits, tree_of)
+    raise ValueError(f"unknown set {set_name}: 4096 or 25k")
 
 
 def tree(sha: str) -> set:
@@ -203,15 +216,41 @@ def godot_version(godot: str) -> object:
         return dict(bench_record.NOT_RECORDED)
 
 
-def run(commits: list, offset: int, out: str, godot: str) -> list:
+def run_where(out: str) -> dict:
     run_id = os.environ.get("GITHUB_RUN_ID", "0")
-    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
-    date = datetime.now(timezone.utc).date().isoformat()
+    return {"out": out, "run_id": run_id, "attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+            "date": datetime.now(timezone.utc).date().isoformat()}
+
+
+def provenance(where: dict) -> dict:
+    run_id = where["run_id"]
+    return {"run_id": int(run_id),
+            "url": f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
+                   f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run_id}",
+            "date": where["date"], "kind": "fresh"}
+
+
+def run_25k(commits: list, offset: int, out: str) -> list:
+    """The 25k set on each commit, the checks beside the bridge (series_25k.py)."""
+    where = run_where(out)
+    machine = {**bench_record.machine(), "godot": dict(NOT_APPLICABLE)}
+    bridge = checkout(BRIDGE, False, "")
+    written = []
+    for place, sha in enumerate(commits, start=offset):
+        sha = bench_record.git(".", "rev-parse", sha)
+        folders = {"head": checkout(sha, False, ""), "reference": bridge}
+        context = {"commit": bench_record.commit_info(sha), "machine": machine,
+                   "provenance": provenance(where),
+                   "blob": bench_record.git(".", "rev-parse", f"{sha}:{series_25k.SOURCE_FILE}")}
+        written += series_25k.time_commit(
+            lambda shape, side: series_25k.run_once(folders[side], shape), context, place, where)
+    return written
+
+
+def run(commits: list, offset: int, out: str, godot: str) -> list:
+    where = run_where(out)
+    run_id, attempt, date = where["run_id"], where["attempt"], where["date"]
     machine = {**bench_record.machine(), "godot": godot_version(godot)}
-    provenance = {"run_id": int(run_id),
-                  "url": f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
-                         f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run_id}",
-                  "date": date, "kind": "fresh"}
     written = []
     for place, sha in enumerate(commits, start=offset):
         sha = bench_record.git(".", "rev-parse", sha)
@@ -221,7 +260,7 @@ def run(commits: list, offset: int, out: str, godot: str) -> list:
             head = checkout(sha, spec["godot"], godot)
             reference = checkout(spec["reference"], spec["godot"], godot)
             heads, references = time_rounds(harness, head, reference, godot)
-            context = {"commit": commit, "machine": machine, "provenance": provenance,
+            context = {"commit": commit, "machine": machine, "provenance": provenance(where),
                        "blob": bench_record.git(".", "rev-parse", f"{sha}:{spec['file']}")}
             record = harness_record(harness, heads, references, context)
             path = bench_record.write_record(record, out, date, run_id, attempt,
@@ -234,13 +273,19 @@ def run(commits: list, offset: int, out: str, godot: str) -> list:
 def main(argv: list) -> int:
     command = argv[0] if argv else ""
     commits = bench_record.option(argv, "--commits", "").split()
+    set_name = bench_record.option(argv, "--set", "4096")
     if command == "plan":
         per_job = int(bench_record.option(argv, "--per-job", "3"))
-        print(json.dumps(plan(commits or default_commits(), per_job)))
+        chosen = commits or set_commits(default_commits(), set_name, tree)
+        print(json.dumps(plan(chosen, per_job)))
         return 0
     if command == "build":
-        for sha in commits or REFERENCES:
+        for sha in commits or REFERENCES[set_name]:
             print(checkout(bench_record.git(".", "rev-parse", sha), False, ""))
+        return 0
+    if command == "run" and set_name == "25k":
+        run_25k(commits, int(bench_record.option(argv, "--offset", "0")),
+                bench_record.option(argv, "--out"))
         return 0
     if command == "run":
         run(commits, int(bench_record.option(argv, "--offset", "0")),
