@@ -1,10 +1,14 @@
 // The metrics page's drawing (specs/43-metrics-history.md, steps 7 and 9): loads records.json
 // (or the metrics folder, picked from disk), then draws metrics_view.js's lines as SVG: the
 // whole tick per era, the phases stacked, and a point's comparison with the commit before it,
-// each in its chart's unit (× the reference by default), with CPU and phase toggles.
+// each in its chart's unit (× the reference by default), with CPU and phase toggles. In ms the
+// whole-tick chart also has the 25k set's "on track" lines (step 8d); metrics_25k_page.js draws
+// the 25k chart itself, with the same CPU and harvested toggles.
 (function () {
   'use strict';
   var view = window.BreachMetricsView;
+  var set = window.BreachMetrics25k;
+  var ON_TRACK = [{ key: 'target', label: 'on track: target' }, { key: 'interim', label: 'on track: interim' }];
   var NS = 'http://www.w3.org/2000/svg';
   var COLOURS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8', '--s9'];
   var HARNESS_COLOUR = { 'tick_phases.gd': '--s2', 'formation_bench.gd': '--s5', 'breach_tick_phases': '--s1' };
@@ -47,7 +51,7 @@
   function short(sha) { return String(sha).slice(0, 7); }
 
   // The page's state (Decision 172): each chart's unit, and what the toggles hide.
-  var state = { all: [], bridge: null, overviewUnit: 'reference', phaseUnit: 'reference', cpus: {},
+  var state = { bundle: [], track: [], cpuList: [], all: [], bridge: null, overviewUnit: 'reference', phaseUnit: 'reference', cpus: {},
     phases: {}, harness: '', details: null };
   var UNIT_NAME = { ms: 'ms', reference: '× the reference', percent: '% of tick' };
 
@@ -87,6 +91,12 @@
     lines.forEach(function (line) {
       line.points.concat(line.harvested).forEach(function (p) { if (p.value) values.push(p.value); });
     });
+    var track = unit === 'ms' ? state.track.filter(function (p) {
+      return !state.cpus[p.cpu] && cols.order.indexOf(p.position) >= 0;
+    }) : [];
+    track.forEach(function (p) {
+      [p.target, p.interim, p.measured].forEach(function (v) { if (v) values.push(v); });
+    });
     if (!values.length) { $('overview').textContent = 'No records to draw with these CPUs in this unit.'; return; }
     var lo = Math.log10(Math.min.apply(null, values) * 0.8);
     var hi = Math.log10(Math.max.apply(null, values) * 1.2);
@@ -102,6 +112,7 @@
       el('line', { class: 'bridge', x1: bx, x2: bx, y1: PAD.top, y2: HEIGHT - PAD.bottom }, root);
       el('text', { x: bx + 4, y: HEIGHT - PAD.bottom + 14 }, root).textContent = 'bridge ' + short(bridge.sha);
     }
+    drawOnTrack(track, fresh, cols, y, root);
     lines.forEach(function (line) {
       var stroke = colour(HARNESS_COLOUR[line.harness] || '--s9');
       view.segments(line.points, fresh, 'value').forEach(function (run) {
@@ -124,7 +135,45 @@
       return '<span style="--swatch:' + colour(HARNESS_COLOUR[line.harness] || '--s9') + '">' +
         line.harness + ' (' + line.points.length + ' fresh' +
         (harvested ? ', ' + harvested + ' harvested' + (line.hiddenHarvested ? ' hidden' : '') : '') + ')</span>';
-    }).join('');
+    }).join('') + (track.length ? '<span style="--swatch:var(--s4)">the 25k set\'s 4 lanes (' + track.length +
+      ' commits), dotted: on track for Decision 159 (target, interim)</span>' : '');
+    $('overview-note').textContent += unit === 'ms' || !state.track.length ? '' :
+      (converted.withoutReference ? ' ' : '') + 'The "on track" lines show in ms.';
+  }
+
+  // The 25k set's "on track" lines (step 8d): per commit, the 4-lane tick at which its lanes
+  // fit predicts 50 ms (and 100 ms) at 24 lanes, dotted, against the set's measured 4-lane
+  // tick. They break at a commit with no 25k set.
+  function drawOnTrack(track, fresh, cols, y, root) {
+    var stroke = colour('--s4');
+    ON_TRACK.forEach(function (line) {
+      view.segments(track, fresh, line.key).forEach(function (run) {
+        if (run.length < 2) return;
+        el('polyline', { class: 'line on-track ' + line.key, stroke: stroke, points: run.map(function (p) {
+          return cols.x(p.position) + ',' + y(p[line.key]);
+        }).join(' ') }, root);
+      });
+    });
+    view.segments(track, fresh, 'measured').forEach(function (run) {
+      if (run.length < 2) return;
+      el('polyline', { class: 'line', stroke: stroke, points: run.map(function (p) {
+        return cols.x(p.position) + ',' + y(p.measured);
+      }).join(' ') }, root);
+    });
+    track.forEach(function (p) {
+      var cx = cols.x(p.position);
+      if (p.measured) {
+        title(el('circle', { class: 'point', cx: cx, cy: y(p.measured), r: 2.5, stroke: stroke, fill: stroke }, root),
+          'the 25k set\'s 4 lanes at ' + short(p.sha) + ' (a series from contact)\nCPU: ' + p.cpu + '\n' +
+          p.measured.toFixed(2) + ' ms; on track: ' + p.target.toFixed(2) + ' ms (target), ' +
+          p.interim.toFixed(2) + ' ms (interim)');
+      }
+      ON_TRACK.forEach(function (line) {
+        title(el('circle', { class: 'estimate-point', cx: cx, cy: y(p[line.key]), r: 1.5, fill: stroke }, root),
+          line.label + ' at ' + short(p.sha) + ': ' + p[line.key].toFixed(2) + ' ms at 4 lanes predicts ' +
+          set.GOALS[line.key] + ' ms at 24');
+      });
+    });
   }
 
   function topLevel(points) {
@@ -230,10 +279,20 @@
     });
   }
 
+  // Every CPU on the page: the lines' and the 25k set's, harvested runs included.
+  function cpuList(bundle) {
+    var seen = {};
+    view.cpus(state.all).concat(set.cpus(set.chart(bundle, { harvested: true }))).forEach(function (cpu) {
+      seen[cpu] = true;
+    });
+    return Object.keys(seen).sort();
+  }
+
+  // One toggle per CPU, with its mark on the 25k chart (Decision 172).
   function drawCpus() {
     var row = $('cpus');
     row.textContent = 'CPUs: ';
-    view.cpus(state.all).forEach(function (cpu) {
+    state.cpuList.forEach(function (cpu) {
       var label = document.createElement('label');
       var box = document.createElement('input');
       box.type = 'checkbox';
@@ -244,6 +303,7 @@
       });
       label.appendChild(box);
       label.appendChild(document.createTextNode(' ' + cpu));
+      if (window.BreachMetrics25kPage) label.appendChild(window.BreachMetrics25kPage.swatch(state.cpuList, cpu));
       row.appendChild(label);
     });
   }
@@ -297,18 +357,27 @@
       }).join('');
   }
 
+  function draw25k() {
+    if (!window.BreachDraw25k) return;
+    window.BreachDraw25k(state.bundle, { hidden: state.cpus, harvested: $('show-harvested').checked,
+      cpus: state.cpuList });
+  }
+
   function redrawAll() {
+    draw25k();
     drawOverview();
     drawPhases();
     showDetails();
   }
 
   function draw(bundle) {
-    if (window.BreachDraw25k) window.BreachDraw25k(bundle);
     var lines = view.lines(bundle);
-    if (!lines.length) { $('status').textContent = 'No bench records found.'; return; }
-    var bridge = view.bridge(bundle);
+    state.bundle = bundle;
     state.all = lines;
+    state.track = set.onTrack(bundle);
+    state.cpuList = cpuList(bundle);
+    if (!lines.length) { draw25k(); $('status').textContent = 'No bench records found.'; return; }
+    var bridge = view.bridge(bundle);
     state.bridge = bridge;
     $('status').textContent = bundle.length + ' records.';
     $('bridge').textContent = bridge
@@ -317,7 +386,7 @@
         bridge.factor.toFixed(2) + ' faster. The two lines are never joined.'
       : '';
     drawCpus();
-    $('show-harvested').onchange = drawOverview;
+    $('show-harvested').onchange = function () { drawOverview(); draw25k(); };
     var overviewUnit = $('overview-unit');
     overviewUnit.value = state.overviewUnit;
     overviewUnit.onchange = function () { state.overviewUnit = overviewUnit.value; drawOverview(); };

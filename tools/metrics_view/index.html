@@ -73,18 +73,33 @@
     <div id="overview" class="chart"></div>
     <div id="legend" class="legend"></div>
     <p id="overview-note" class="note"></p>
+    <p class="note">In ms, the dotted "on track" lines are Decision 159's goals brought down to this
+    size: for each commit with a 25k set, the 4-lane tick at which its lanes fit (b·x + c·x²,
+    Decision 165) predicts 50 ms (target) and 100 ms (interim) at 24 lanes, drawn against the
+    25k set's own 4-lane point (a series from contact, so not the same battle as the
+    <code>breach_tick_phases</code> line). They break at a commit with no 25k set.</p>
   </section>
   <section>
-    <h2>24,576 (49,152 units), ms (log scale): the 25k set</h2>
+    <h2>24,576 (49,152 units), <span id="unit-25k-name">ms</span> (log scale): the 25k set
+      <label class="toggle"><input type="checkbox" id="unit-25k"> × the bridge</label></h2>
     <p class="note">Sizes on this page are a side, mirrored: 4,096 is 4,096 against 4,096. Each
     merge that touched the simulation times two shapes at 24,576: 24 lanes of 1,024, and one
     squad. The line is each tick's p95 over the battle, the thin band above it the p99. Dotted:
     estimate: b·x + c·x² from the grid (Decision 165), fitted to that commit's smaller sizes
     (1,024 to 12,288); a ring marks a merge whose estimate misses the measured mean by more than
-    10%. The goal lines are Decision 159's. Hover a point for its CPU, the miss and the quadratic
-    share c·x²/t.</p>
+    10%. The goal lines are Decision 159's, in ms; "× the bridge" shows each point over the
+    bridge timed beside it in the same job, and hides them. A point's shape is its runner's CPU,
+    as in the CPU toggles above. Hover a point for its CPU, the miss and the quadratic share
+    c·x²/t; click it for that commit's fitted curve over size. "Show harvested points" adds the
+    25k runs read from old logs, hollow and never fitted.</p>
     <div id="chart-25k" class="chart"></div>
     <div id="legend-25k" class="legend"></div>
+    <p id="note-25k" class="note"></p>
+    <div id="details-25k" hidden>
+      <h3 id="details-25k-title"></h3>
+      <div id="details-25k-chart" class="chart"></div>
+      <p id="details-25k-note" class="note"></p>
+    </div>
   </section>
   <section>
     <h2>Where the tick goes, by phase, 4,096 a side, in <span id="phase-unit-name">× the reference</span>

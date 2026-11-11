@@ -36,7 +36,7 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   has no number (the harness failed there, or didn't run), and the eras are never joined;
   the bridge is marked, with the factor between the two `tick_phases`. Points are fresh
   records, apart from the 25k set's (`series=1`, spec 43 step 8a), which are left for their
-  own chart (step 8c). **Show harvested points** adds, hollow, the ones read from old logs, placed at their
+  own chart (step 8c), and the harvested 25k runs, which that chart shows. **Show harvested points** adds, hollow, the ones read from old logs, placed at their
   commit or at the `main` commit they were compared with: hidden by default, since they were
   mostly branch comparisons with other args and no shared reference. Hover a point for its
   numbers, click it for the rest.
@@ -47,9 +47,24 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   non-negative fit of `b·x + c·x²` on the smaller sizes' mean ticks, taken at 24,576. A merge
   whose estimate misses the measured mean by more than 10% is ringed. Decision 159's goals are
   the dashed lines at 50 ms (target) and 100 ms (interim). Hover a point for its CPU, the miss
-  and the quadratic share `c·x²/t`. A commit with no 25k set breaks the lines. Still to come
-  (step 8d): × the bridge, the 4,096 chart's "on track" lines, a point's fitted curve, CPU
-  shapes and the harvested 25k runs.
+  and the quadratic share `c·x²/t`. A commit with no 25k set breaks the lines. Step 8d adds:
+  - **× the bridge:** a toggle that shows each point over the bridge timed beside it in the
+    same job (p95 over its p95, p99 over its p99, the estimate over its mean). The goal lines
+    are in ms only and hide; a point with no bridge is left out, and a note counts them.
+  - **CPU shapes:** each point's mark is its runner's CPU, one shape per CPU, the same shape
+    the CPU toggles show beside each name. Unticking a CPU hides its points; the fit and the
+    miss still use every record of the commit.
+  - **A point's details:** click a point for that commit's fitted curve over size, in ms, with
+    its grid points and the measured 24,576, and the fit's `b`, `c` and miss.
+  - **Show harvested points** adds the harvested 25k runs (`preset=25k`, or 24,576 a side),
+    hollow and never fitted, at their commit's or base's place; the columns then start at the
+    first of them. They are no longer on the 4,096 chart.
+- **On track (the whole-tick chart, in ms):** for each commit with a 25k set, the dotted lines
+  are the 4-lane tick at which its lanes fit predicts Decision 159's 50 ms (target) and 100 ms
+  (interim) at 24 lanes, `goal × (b·4096 + c·4096²) / (b·24576 + c·24576²)`, drawn against the
+  25k set's measured 4-lane point (a series from contact, so not the `breach_tick_phases`
+  line's battle). They break at a commit with no 25k set, and show in ms only: the 4-lane grid
+  shape is timed without the bridge, so it has no ratio.
 - **By phase:** a harness's records stacked by the tick's top-level phases (a phase timed more
   finely is summed into its parent). In ms the reference's whole tick is a grey dash per record,
   in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other"
@@ -66,7 +81,8 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
 - `metrics_view.js`: the logic (lines, the bridge, the comparison, the units, the phase stack
   and the CPU filter), tested with Node by
   `test/metrics_view.test.js` (`node --test "tools/metrics_view/test/*.test.js"`).
-- `metrics_25k.js`: the 25k chart's logic (the fit, the miss, the lines), tested by
+- `metrics_25k.js`: the 25k chart's logic (the fit, the miss, the lines, × the bridge, the CPU marks,
+  the harvested 25k runs and the 4,096 chart's "on track" lines), tested by
   `test/metrics_25k.test.js` against the fixtures `ci/metrics/bench_set.py` uses
   (`ci/metrics/fixtures/bench_fit.json`).
 - `metrics_page.js`, `metrics_25k_page.js`, `metrics_view.css`, `index.html`: the drawing.
