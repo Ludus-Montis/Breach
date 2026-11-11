@@ -8319,3 +8319,76 @@ and `ci/showcase/capture.sh` (the movie's size).
 **Order:** not applicable; drawing only.
 **Bounded:** not applicable to the tick.
 **Pillar check:** not applicable.
+
+### Decision 177 — A tick is inspected by replaying it live many times, beside a series that runs until the field settles
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-11
+**Settles:** Q44 (#866)
+**Amends:** Decision 159 (the series its percentiles are taken over)
+
+**Rationale:** The whole-tick `bench` times 16 ticks a round, from contact (tick 91) until
+one side has no squad that isn't routing (tick 107 at 4,096). With 16 ticks, its 95th and
+99th percentiles are both just the worst tick: in run #102 at 25k both read 193.85 ms.
+Decision 159's target is a p95-and-p99 tick, so the measure is thinner than the target. A
+change aimed at one phase also waits for whole runs to separate it from noise. The owner
+asked (Q44) whether a phase could be timed on its own, as a faster guide, with the whole
+tick still the judge, and whether that would represent the phase under a full tick's
+pressure. The pre-mortem's riskiest assumption is that timing outside the tick moves with
+timing inside it. On 2026-11-11, `strays` (+63%) and `stamina` (+28%) moved in the whole
+tick between `bfce23c` and `main`, although their own code hadn't changed. That is the kind
+of effect a phase timed alone would hide. So the owner chose to repeat **the whole tick**
+from a saved state, rather than one phase alone:
+- **Replay a tick live.** `breach_tick_phases` gains a mode that plays the battle to a tick,
+  keeps the state in memory, and steps that one tick many times. Before each repeat, the
+  state is put back into the running field, so the kept buffers (spec 41 step 4) and the
+  allocator stay as warm as in a real battle. The put-back is untimed, and every lap is
+  timed. Every phase runs where it runs in a real tick, under the other passes' pressure.
+  The deterministic sim makes a spike tick repeat exactly, so a one-off spike can be
+  measured tightly.
+- **Which ticks: the base's 3 slowest and 4 spread.** The base commit's series names them:
+  - its 3 slowest ticks (a tie goes to the earlier tick);
+  - 4 ticks evenly through the series (its first tick, a third and two thirds of the way,
+    and its last), which run from contact to mop-up.
+
+  The head replays the same tick numbers. A change with outcomes unchanged reaches the same
+  state, so the comparison is like for like. Both sizes, 4,096 and 25k.
+- **The series runs until the field settles.** It ends when neither side has a squad
+  fighting or routing, at `LIMIT` ticks (600) at most, rather than when one side breaks. The
+  rout and its spikes (`rout: flight` and `rout: rallies` reach 4.5–4.7 ms at tick 105
+  against a 0.8 ms mean) are inside it, so its p95 and p99 are percentiles of the battle.
+  This is how Decision 159's target is measured from now on.
+- **One job per inspection tick.** Each tick of each size runs as its own job of a matrix.
+  The job times head and base in turn on its one runner, so every head-against-base
+  comparison is on identical hardware. Each job records its CPU and times its reference
+  beside it, so numbers from different jobs combine as ratios (Decision 172). A fixed
+  machine for every job is Q45 (#877).
+- **Trusted only after a ranking check.** Before any repeat number is recorded or plotted,
+  the mode replays past merges whose whole-tick effect is known (#780, #783, #773). It must
+  rank them as the whole-tick bench did.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| One phase alone, from the state just before it | Its data stays warm and the other passes don't run, so it hides effects like `strays` +63%. It is kept for later, for a phase whose in-tick repeats still swing too much. |
+| Phases side by side, one CPU each, on one runner | They share the cache and memory bandwidth, so each would time the others' noise. |
+| Restore from the snapshot's bytes each repeat | A field read back starts its buffers empty (spec 41 step 4), so every repeat would time a cold tick. The owner asked for as live as can be. |
+| Replay every tick of the battle | It costs as many full runs as the battle has ticks; 7 chosen ticks a size cover the slowest and the spread. |
+| One runner for every tick | Identical hardware for every number, but no parallelism. The owner chose a job per tick, with the reference for combining. |
+| A self-hosted runner | Raised as Q45 (#877), an extension. |
+
+**Consequences:** Spec 47 builds the mode, the series to the field's settling, the ranking
+check and the inspection matrix. The whole-tick series gets longer, so bench runs take longer
+and its p95 and p99 rise: they now include the rout. Records from before and after the change
+measure different series, so the tick history marks the break (as spec 43 does for a
+harness change). Recording and plotting the repeats waits for the ranking check.
+
+**Rules over cases:** general: one rule picks every commit's inspection ticks (the base's 3
+slowest and 4 spread), and every phase is timed in its place in the tick. No phase is special.
+**Order:** not applicable; no simulation outcome changes. Ties between equally slow ticks go to
+the earlier tick, never to any id.
+**Bounded:** not applicable to the tick; the harness's cost is repeats × ticks, outside it.
+**Riskiest assumption:** that repeat timings track the whole tick's. Spec 47 step 3 tests it
+before anything is recorded or plotted.
+**Pillar check:** not applicable.

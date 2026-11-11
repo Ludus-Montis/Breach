@@ -165,7 +165,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
 | 157 | Spec 39's ports may open more files than the OCP check allows | 7341 |  |
 | 158 | A long series of steps runs as a cascade: a coordinator, and one record edited in place | 7380 | amended by 171 |
-| 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 |  |
+| 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 | amended by 177 |
 | 160 | A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test | 7507 |  |
 | 161 | A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test | 7539 |  |
 | 162 | Measurements are kept in the repo under `metrics/`, one record a file, in one shape for every series | 7598 |  |
@@ -183,3 +183,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 174 | A headless probe prints any scenario's state, tick by tick | 8183 |  |
 | 175 | A line makes room where a rejoining unit can reach, and sorts itself with trades that only ever put units home | 8220 |  |
 | 176 | The capture hides the field's controls behind a caption band, and every body is drawn to be seen | 8287 |  |
+| 177 | A tick is inspected by replaying it live many times, beside a series that runs until the field settles | 8323 |  |
