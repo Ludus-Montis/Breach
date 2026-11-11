@@ -12,7 +12,9 @@
   <h1>Breach tick history</h1>
   <p>Each merge to <code>main</code> that touched the simulation, timed against its era's
   reference (<a href="https://github.com/Ludus-Montis/Breach/blob/main/specs/43-metrics-history.md">spec 43</a>).
-  The line breaks where the harness changes.</p>
+  The line breaks where the harness changes. Shown as × the reference by default, so the runner's
+  speed cancels out; untick a CPU below to keep to one runner.</p>
+  <p id="cpus" class="toggles" aria-label="CPUs shown"></p>
   <p><label><input type="checkbox" id="show-harvested"> Show harvested points</label>
   <span class="note">(hollow; see "Harvested" below)</span></p>
   <p id="status">Loading records.json…</p>
@@ -46,24 +48,47 @@
       <dd><code>tick_phases</code> (both eras): 4,096 a side in 4 lanes of 1,024, the daily
       bench's size, timed over 3 fight ticks after 10 to settle. <code>formation_bench</code>:
       one clash of 1,024 a side, its mid-fight average. The 25k target isn't recorded.</dd>
+      <dt>× the reference</dt>
+      <dd>A record's value over the reference's whole tick, timed in the same job. CI's runners
+      differ (the bridge took 64 ms on one CPU and 99 ms on another), and the ratio mostly
+      cancels that out. A record with no reference (the oldest) is left out in this unit;
+      "ms" shows it. For a gap of a few percent, keep to one CPU, or confirm it with a
+      same-runner <code>bench</code>.</dd>
+      <dt>CPUs</dt>
+      <dd>The runner's CPU, as each record names it ("unknown" without one). Untick one to take
+      its records out of every chart and the compare; the line joins the rest.</dd>
       <dt>Gap</dt>
       <dd>A phase the harness didn't measure, or that took under its printed resolution
       (0.005 ms). Shown as a gap, never as 0; a line breaks where a commit has no number.</dd>
     </dl>
   </details>
   <section>
-    <h2>Whole tick, ms (log scale): 4,096 a side, and 1,024 for formation_bench</h2>
+    <h2>Whole tick, <span id="overview-unit-name">× the reference</span> (log scale): 4,096 a side,
+      and 1,024 for formation_bench
+      <select id="overview-unit" aria-label="Whole tick unit">
+        <option value="reference">× the reference</option>
+        <option value="ms">ms</option>
+      </select></h2>
     <p id="bridge" class="note"></p>
     <div id="overview" class="chart"></div>
     <div id="legend" class="legend"></div>
+    <p id="overview-note" class="note"></p>
   </section>
   <section>
-    <h2>Where the tick goes, by phase, 4,096 a side
-      <select id="harness" aria-label="Harness"></select></h2>
+    <h2>Where the tick goes, by phase, 4,096 a side, in <span id="phase-unit-name">× the reference</span>
+      <select id="harness" aria-label="Harness"></select>
+      <select id="phase-unit" aria-label="Phase unit">
+        <option value="reference">× the reference</option>
+        <option value="ms">ms</option>
+        <option value="percent">% of tick</option>
+      </select></h2>
     <p class="note">Stacked by the tick's top-level phases (a phase timed more finely is summed
-    into its parent). The grey dash is the reference's whole tick.</p>
+    into its parent). In ms the grey dash is each record's reference tick; in × the reference
+    the grey line at 1 is the reference; % of tick has none. Click a phase below to hide or show
+    it; the others keep their values.</p>
     <div id="phases" class="chart"></div>
     <div id="phase-legend" class="legend"></div>
+    <p id="phase-note" class="note"></p>
   </section>
   <section id="details" hidden>
     <h2 id="details-title"></h2>

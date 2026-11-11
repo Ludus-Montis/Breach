@@ -116,3 +116,88 @@ test('harvested points are hidden unless asked for, and the fresh lines are unto
   assert.equal(view.shown(all, true)[0].harvested.length, 1);
   assert.equal(all[0].harvested.length, 1);
 });
+
+// Step 9 (Decision 172): the chart by the reference, the phase and CPU toggles.
+
+function withReference(item, ms, cpu) {
+  item.record.reference.results = ms === null ? {} : { tick: measure(ms) };
+  if (cpu !== undefined) item.record.machine = { cpu };
+  return item;
+}
+
+test('a value in × the reference is its ms over the reference tick of the same record', () => {
+  const item = withReference(record('a'.repeat(40), 10, 'breach_tick_phases',
+    { tick: measure(43), 'tick/scrum': measure(10) }), 99.9);
+  const p = view.lines([item])[0].points[0];
+  assert.equal(view.tickIn(p, 'reference').toFixed(3), '0.430');
+  assert.equal(view.tickIn(p, 'ms'), 43);
+  const stack = view.stack(p, ['tick/scrum'], {}, 'reference');
+  assert.equal(stack[0].group, 'tick/scrum');
+  assert.equal(stack[0].value.toFixed(3), '0.100');
+});
+
+test('in % of tick, hiding a phase leaves the other shares as they were', () => {
+  const p = { tick: 100, referenceTick: null, results: {
+    tick: measure(100), 'tick/a': measure(10), 'tick/b': measure(20), 'tick/c': measure(70) } };
+  const all = view.stack(p, ['tick/a', 'tick/b', 'tick/c'], {}, 'percent');
+  assert.deepEqual(all.map((s) => [s.group, s.value]), [['tick/a', 10], ['tick/b', 20], ['tick/c', 70]]);
+  const hidden = view.stack(p, ['tick/a', 'tick/b', 'tick/c'], { 'tick/b': true }, 'percent');
+  assert.deepEqual(hidden.map((s) => [s.group, s.value]), [['tick/a', 10], ['tick/c', 70]]);
+});
+
+test('"other" is the tick less the named phases, and can be hidden like them', () => {
+  const p = { tick: 100, referenceTick: 50, results: { tick: measure(100), 'tick/a': measure(30) } };
+  assert.deepEqual(view.stack(p, ['tick/a'], {}, 'ms').map((s) => [s.group, s.value]),
+    [['tick/a', 30], ['other', 70]]);
+  assert.deepEqual(view.stack(p, ['tick/a'], { other: true }, 'reference').map((s) => [s.group, s.value]),
+    [['tick/a', 0.6]]);
+});
+
+test('a hidden CPU\'s records leave the lines, and the whole-tick line joins the rest', () => {
+  const records = [
+    withReference(record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }), 90, 'EPYC'),
+    withReference(record('b'.repeat(40), 20, 'breach_tick_phases', { tick: measure(60) }), 99, 'XEON'),
+    withReference(record('c'.repeat(40), 30, 'breach_tick_phases', { tick: measure(48) }), 90, 'EPYC'),
+    record('d'.repeat(40), 40, 'breach_tick_phases', { tick: measure(47) }),
+  ];
+  const all = view.lines(records);
+  assert.deepEqual(view.cpus(all), ['EPYC', 'XEON', 'unknown']);
+  const kept = view.withoutCpus(all, { XEON: true });
+  const points = kept[0].points;
+  assert.deepEqual(points.map((p) => p.position), [10, 30, 40]);
+  const positions = view.positions(kept);
+  assert.deepEqual(view.segments(points, positions).map((run) => run.map((p) => p.position)), [[10, 30, 40]]);
+  assert.equal(all[0].points.length, 4);
+});
+
+test('a record with no reference is left out in × the reference, counted, and kept in ms', () => {
+  const records = [
+    withReference(record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }), 100),
+    withReference(record('b'.repeat(40), 20, 'breach_tick_phases', { tick: measure(60) }), null),
+  ];
+  const all = view.lines(records);
+  const ratio = view.inUnit(all, 'reference');
+  assert.deepEqual(ratio.lines[0].points.map((p) => p.position), [10]);
+  assert.equal(ratio.lines[0].points[0].value, 0.5);
+  assert.equal(ratio.withoutReference, 1);
+  const ms = view.inUnit(all, 'ms');
+  assert.deepEqual(ms.lines[0].points.map((p) => p.value), [50, 60]);
+  assert.equal(ms.withoutReference, 0);
+});
+
+test('the compare shows the phase chart\'s unit, each side over its own record', () => {
+  const a = { tick: 100, referenceTick: 200, results: { tick: measure(100), 'tick/a': measure(40) } };
+  const b = { tick: 80, referenceTick: 100, results: { tick: measure(80), 'tick/a': measure(40) } };
+  const rows = view.compareIn(a, b, 'reference');
+  assert.deepEqual(rows.map((row) => [row.path, row.a, row.b]), [['tick', 0.5, 0.8], ['tick/a', 0.2, 0.4]]);
+  const shares = view.compareIn(a, b, 'percent');
+  assert.deepEqual(shares.map((row) => [row.path, row.a, row.b]), [['tick', 100, 100], ['tick/a', 40, 50]]);
+});
+
+test('a point names its CPU as the record does, "unknown" without one', () => {
+  const named = withReference(record('a'.repeat(40), 10, 'breach_tick_phases', { tick: measure(50) }), 90,
+    'AMD EPYC 9V74 80-Core Processor');
+  const bare = record('b'.repeat(40), 20, 'breach_tick_phases', { tick: measure(50) });
+  assert.deepEqual(view.lines([named, bare])[0].points.map((p) => p.cpu),
+    ['AMD EPYC 9V74 80-Core Processor', 'unknown']);
+});

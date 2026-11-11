@@ -1,7 +1,8 @@
 # Tick history page
 
-Draws the bench history under `metrics/` (spec 43 step 7, Decision 162): the whole tick of each
-merge to `main` that touched the simulation, per harness, and where its time goes by phase.
+Draws the bench history under `metrics/` (spec 43 steps 7 and 9, Decisions 162 and 172): the
+whole tick of each merge to `main` that touched the simulation, per harness, and where its time
+goes by phase, by default as × the reference so the runner's speed cancels out.
 Static HTML and JS, no build step, reading only `metrics/`.
 
 ## See it
@@ -21,7 +22,15 @@ The page opens with **How to read this**: what fresh and harvested records, the 
 bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formation_bench`; the
 25k target isn't recorded) and a gap mean.
 
-- **Whole tick, ms (log scale):** one line per harness along `main`'s first-parent line:
+- **CPUs:** a row of checkboxes under the header, one per runner CPU the records name
+  (`machine.cpu`, "unknown" without one), all on. Untick one to take its records out of every
+  chart and the compare; the whole-tick line joins the points left.
+- **Units:** the whole-tick chart is in **× the reference** (default: a record's tick over the
+  reference's tick timed in the same job) or **ms**, on a log scale in both. The phase chart is
+  in × the reference (default), ms, or **% of tick**. A record with no reference is left out in
+  × the reference, and a note under the chart counts them. Tooltips give a point's CPU, its ms
+  and its ratio.
+- **Whole tick (log scale):** one line per harness along `main`'s first-parent line:
   `tick_phases.gd` and `formation_bench.gd` (GDScript era, against `eee3e81`) and
   `breach_tick_phases` (cargo era, against the bridge `8ca4227`). A line breaks where a commit
   has no number (the harness failed there, or didn't run), and the eras are never joined;
@@ -31,15 +40,20 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   mostly branch comparisons with other args and no shared reference. Hover a point for its
   numbers, click it for the rest.
 - **By phase:** a harness's records stacked by the tick's top-level phases (a phase timed more
-  finely is summed into its parent), with the reference's whole tick as a grey dash.
-- **A point's details:** links to its PR and its record, and a table comparing it with the
-  commit before it on its line (a harvested point: with its commit's fresh record) at the
+  finely is summed into its parent). In ms the reference's whole tick is a grey dash per record,
+  in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other"
+  included, to hide or show it in every unit; the stack closes up and no other phase's value
+  or share changes.
+- **A point's details:** links to its PR and its record, and a table, in the phase chart's
+  unit, comparing it with the commit before it on its line among the CPUs shown (the title
+  names both records' CPUs) (a harvested point: with its commit's fresh record) at the
   deepest phase level both timed. A phase only one side timed more finely is named, not
   compared; a phase one side didn't measure is a gap, never 0.
 
 ## Files
 
-- `metrics_view.js`: the logic (lines, the bridge, the comparison), tested with Node by
+- `metrics_view.js`: the logic (lines, the bridge, the comparison, the units, the phase stack
+  and the CPU filter), tested with Node by
   `test/metrics_view.test.js` (`node --test "tools/metrics_view/test/*.test.js"`).
 - `metrics_page.js`, `metrics_view.css`, `index.html`: the drawing.
 - `build_index.py`: lists `metrics/` (not `raw/`, not `schema/`) into `records.json`, tested by

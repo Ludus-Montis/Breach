@@ -1,13 +1,16 @@
 // The metrics page's logic (specs/43-metrics-history.md, step 7): the records the page
 // loads (build_index.py's bundle, [{path, record}]) into lines per harness along main's
 // first-parent line, the bridge's factor between the eras, and two commits compared at the
-// deepest phase level both have. No DOM here; metrics_page.js draws.
+// deepest phase level both have. Step 9 (Decision 172): the units (ms, × the reference, % of
+// tick), the phase stack with phases hidden, and the CPU filter. No DOM here; metrics_page.js
+// draws.
 (function (root) {
   'use strict';
 
   var REPO = 'https://github.com/Ludus-Montis/Breach';
   var GDSCRIPT = 'tick_phases.gd';
   var CARGO = 'breach_tick_phases';
+  var UNKNOWN = 'unknown';
 
   function number(value) {
     return typeof value === 'number' && isFinite(value) ? value : null;
@@ -109,6 +112,7 @@
       runId: (record.provenance || {}).run_id || 0,
       harvested: kind(item) === 'harvested',
       date: (record.provenance || {}).date || '',
+      cpu: typeof (record.machine || {}).cpu === 'string' ? record.machine.cpu : UNKNOWN,
     };
   }
 
@@ -178,18 +182,19 @@
   // A line's runs of points to join: it breaks at a point with no tick (the harness ran and
   // gave nothing) and where a commit on main's line (`positions`, every commit with a fresh
   // record) lies between two points, so a missing commit is never bridged by the line.
-  function segments(points, positions) {
+  function segments(points, positions, key) {
+    var valueOf = function (p) { return key ? p[key] : p.tick; };
     var order = positions.slice().sort(function (a, b) { return a - b; });
     var runs = [];
     var run = [];
     points.forEach(function (p) {
       var last = run[run.length - 1];
       var adjacent = last && order.indexOf(p.position) === order.indexOf(last.position) + 1;
-      if (p.tick === null || !adjacent) {
+      if (valueOf(p) === null || !adjacent) {
         if (run.length) runs.push(run);
         run = [];
       }
-      if (p.tick !== null) run.push(p);
+      if (valueOf(p) !== null) run.push(p);
     });
     if (run.length) runs.push(run);
     return runs;
@@ -204,7 +209,88 @@
     });
   }
 
-  var api = { shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines, bridge: bridge, REPO: REPO };
+  // Every commit on main's line with a fresh point in these lines.
+  function positions(lines) {
+    var seen = {};
+    lines.forEach(function (line) { line.points.forEach(function (p) { seen[p.position] = true; }); });
+    return Object.keys(seen).map(Number);
+  }
+
+  // The CPUs the lines' records name, "unknown" last.
+  function cpus(lines) {
+    var seen = {};
+    lines.forEach(function (line) {
+      line.points.concat(line.harvested).forEach(function (p) { seen[p.cpu] = true; });
+    });
+    return Object.keys(seen).sort(function (a, b) {
+      if ((a === UNKNOWN) !== (b === UNKNOWN)) return a === UNKNOWN ? 1 : -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+  }
+
+  // The lines without the records of the CPUs in `hidden` ({cpu: true}).
+  function withoutCpus(lines, hidden) {
+    var kept = function (p) { return !hidden[p.cpu]; };
+    return lines.map(function (line) {
+      return { harness: line.harness, points: line.points.filter(kept),
+        harvested: line.harvested.filter(kept), hiddenHarvested: line.hiddenHarvested || 0 };
+    });
+  }
+
+  // A ms value of point `p` in a unit: 'ms'; 'reference', over the reference's tick timed in
+  // the same record; 'percent', over the record's own tick. Null when it has no such base.
+  function msIn(p, ms, unit) {
+    if (ms === null || ms === undefined) return null;
+    if (unit === 'reference') return p.referenceTick ? round(ms / p.referenceTick) : null;
+    if (unit === 'percent') return p.tick ? round(ms / p.tick * 100) : null;
+    return ms;
+  }
+
+  function tickIn(p, unit) {
+    return msIn(p, p.tick, unit);
+  }
+
+  // The lines in a unit, each point with its `value`. In × the reference a record with no
+  // reference is left out, and counted in `withoutReference`.
+  function inUnit(lines, unit) {
+    var without = 0;
+    var convert = function (list) {
+      return list.filter(function (p) {
+        var left = unit === 'reference' && !p.referenceTick;
+        if (left) without++;
+        return !left;
+      }).map(function (p) { return Object.assign({}, p, { value: tickIn(p, unit) }); });
+    };
+    var converted = lines.map(function (line) {
+      return { harness: line.harness, points: convert(line.points), harvested: convert(line.harvested),
+        hiddenHarvested: line.hiddenHarvested || 0 };
+    });
+    return { withoutReference: without, lines: converted };
+  }
+
+  // A point's bar: each of `groups`, then 'other' (the tick less every group), in the unit,
+  // leaving out the hidden ones ({group: true}) and the empty; no share changes with hiding.
+  function stack(p, groups, hidden, unit) {
+    var named = 0;
+    var parts = groups.map(function (group) {
+      var ms = valueAt(p.results, group) || 0;
+      named += ms;
+      return { group: group, ms: ms };
+    });
+    parts.push({ group: 'other', ms: Math.max(0, (p.tick || 0) - named) });
+    return parts.filter(function (part) { return part.ms > 0 && !hidden[part.group]; })
+      .map(function (part) { return { group: part.group, value: msIn(p, round(part.ms), unit) }; });
+  }
+
+  // compare() of two points, each side's values in the unit over its own record.
+  function compareIn(a, b, unit) {
+    return compare(a.results, b.results).map(function (row) {
+      return { path: row.path, a: msIn(a, row.a, unit), b: msIn(b, row.b, unit), finer: row.finer };
+    });
+  }
+
+  var api = { positions: positions, cpus: cpus, withoutCpus: withoutCpus, tickIn: tickIn, inUnit: inUnit,
+    stack: stack, compareIn: compareIn, UNKNOWN: UNKNOWN, shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines, bridge: bridge, REPO: REPO };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BreachMetricsView = api;
 })(this);

@@ -18,6 +18,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- The tick history page now shows each record as × the reference timed beside it by default,
+  so a slower or faster CI runner no longer reads as a change; "ms" is a click away, and the
+  phase chart also offers % of tick. Each runner CPU has a checkbox to keep to one machine, and
+  each phase in the legend can be hidden.
 - In a crowded scrum, units now settle who makes for which slot together rather than one at a
   time: where several want the same slot the best-placed takes it and the others look again,
   and a few more wait a body's breadth short for a tick before finding a slot of their own.
