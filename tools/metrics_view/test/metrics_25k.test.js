@@ -99,6 +99,19 @@ test('a commit on main\'s line with no 25k set breaks the 25k lines there, from 
   assert.deepEqual(squad.points, []);
 });
 
+test('a record marked series=settled has the shape of one without, and the line breaks between them', () => {
+  const settled = (position) => lanes(position, 0.001, 1e-8, 30).map((item) => {
+    item.record.source.args.push('series=settled');
+    return item;
+  });
+  const chart = set.chart(lanes(1, 0.001, 1e-8, 30).concat(lanes(2, 0.001, 1e-8, 31), settled(3), settled(4)));
+  const points = chart.families.find((family) => family.name === 'lanes').points;
+  assert.deepEqual(points.map((p) => p.position), [1, 2, 3, 4]);
+  assert.ok(points.every((p) => p.predicted !== null), 'a settled commit keeps its grid');
+  const runs = view.segments(points, chart.positions, 'tick');
+  assert.deepEqual(runs.map((run) => run.map((p) => p.position)), [[1, 2], [3, 4]]);
+});
+
 test('a commit\'s latest run of a shape is the one drawn', () => {
   const chart = set.chart([shape(1, 'side=24576 squads=24', 50, { run_id: 1 }),
     shape(1, 'side=24576 squads=24', 40, { run_id: 2 })]);

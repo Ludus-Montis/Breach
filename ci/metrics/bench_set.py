@@ -15,6 +15,9 @@ import sys
 from pathlib import Path
 
 SERIES_ARG = "series=1"
+# The mark of the settled series (spec 47 step 2b): records from step 2a on time the series
+# until the field settles. A mark, not part of the shape, so the families keep their records.
+SETTLED_ARG = "series=settled"
 TOLERANCE = 0.10
 FAMILIES = {
     "lanes": {"grid": ["side=1024 squads=1", "side=4096 squads=4", "side=8192 squads=8"],
@@ -71,7 +74,7 @@ def _shape(record: dict):
     args = [str(arg) for arg in source.get("args") or []]
     if SERIES_ARG not in args or (record.get("provenance") or {}).get("kind") != "fresh":
         return None
-    return " ".join(arg for arg in args if arg != SERIES_ARG)
+    return " ".join(arg for arg in args if arg not in (SERIES_ARG, SETTLED_ARG))
 
 
 def _tick(record: dict):
