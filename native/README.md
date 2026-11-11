@@ -279,10 +279,14 @@ An untimed replay steps beside it, with the same WARNING. It plays its own recor
 arguments beside it exit 2, as does a name not on the list.
 
 `series=1 [limit=600]` (spec 38 step 2, built in spec 39 step 8c-xx, `src/phases/series.rs`)
-times every tick from contact (`settle` is 0 unless given) until one side no longer stands or
-`limit` ticks, instead of `fight` ticks. The phase lines then carry the series' means, and a
-`series:` line follows with the tick's and each phase's mean, 95th and 99th percentiles
-(nearest rank), worst and the tick that was worst. `bench_compare.py` reads the means as
+times every tick from contact (`settle` is 0 unless given) until the field settles (no squad
+fights or routes, spec 47 step 2a) or `limit` ticks, instead of `fight` ticks. The phase lines
+then carry the series' means, and a `series:` line follows with the tick's and each phase's
+mean, 95th and 99th percentiles (nearest rank), worst and the tick that was worst. An
+`inspect:` line ends the series (Decision 177): its inspection ticks, earliest first and
+comma-separated as `at=` takes them. They are its first tick, those a third and two thirds of
+the way and its last, and its 3 slowest (the earlier on a tie); a tick picked twice gives its
+place to the next slowest, so there are 7 when the series has 7 ticks. `bench_compare.py` reads the means as
 before and, when every round has a series, also compares each phase's 95th and 99th by
 their medians, so the `bench` workflow needs only `series=1` in `args`.
 
@@ -312,8 +316,9 @@ lines end with `%`, so `bench_compare.py` reads a counted run's times unchanged.
 `preset=4096` and `preset=25k` (spec 39 step 10a, Decision 159, `src/phases/presets.rs`) are
 the daily bench and the target: a series from contact of 4 and of 24 lanes of 1,024 a side,
 to the default limit. An argument given beside a preset wins over its own. Each series ends
-when a side has no squad left that isn't routing: 16 ticks after contact at 4096 and 14 at
-25k (both from tick 91), well inside the limit. `scatter=1` (`src/phases/scatter.rs`) follows
+when the field settles: past the break (until spec 47 step 2a it ended there, 16 ticks after
+contact at 4096 and 14 at 25k, both from tick 91) and through the rout, so its 95th and 99th
+are the battle's (Decision 177). `scatter=1` (`src/phases/scatter.rs`) follows
 with how scattered each squad's unit-store slots are, where the timing began and where it
 ended: its runs of consecutive slots and the slots it spans, each beside what packed would
 be. Both presets start packed. The lines start `scatter`, which `bench_compare.py` skips.
