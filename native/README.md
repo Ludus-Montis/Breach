@@ -582,6 +582,64 @@ The next ports, in order of payoff:
 3. Blows.
 4. A profile of the deaths/wounds phase, which may be a GDScript fix rather than a port.
 
+### The owner's PC, `main` at `a5f574d` (2026-11-11)
+
+Windows, 20 threads (`machine: unknown`: the binary can't read the CPU's name there), release
+build, one run each. `side` is the units a side, split evenly over `squads`; `fight` is the
+ticks timed. The first is the daily bench's battle; the second is 25 small squads; the third
+is about the target's size (25,600 against 24,576) in 2 squads of 12,800, where the 25k
+preset has 24 of 1,024. A single run of one tick (`fight=1`) carries more noise than the
+others.
+
+| phase (ms) | `side=4096 squads=4 fight=3` | `side=1024 squads=25 fight=10` | `side=25600 squads=2 fight=1` |
+|---|---:|---:|---:|
+| **tick** | **17.0** | **6.5** | **254.2** |
+| units walk to places | 1.22 | 0.04 | 82.13 |
+| scrum: seek | 4.41 | 2.71 | 68.96 |
+| scrum: engage, prepare, stance | 0.86 | 0.08 | 43.70 |
+| roster | 1.12 | 0.19 | 7.61 |
+| bodies: pair search | 2.22 | 0.94 | 6.83 |
+| fight (blows) | 0.67 | 0.25 | 6.67 |
+| wounds (tend) | 0.93 | 0.32 | 6.11 |
+| shuffle (re-form) | 0.74 | 0.07 | 6.04 |
+| strays | 0.66 | 0.09 | 5.71 |
+| scrum: walk | 0.66 | 0.64 | 2.89 |
+| bodies: sums and applying | 0.49 | 0.09 | 2.82 |
+| stamina | 0.28 | 0.05 | 2.28 |
+| deaths (bury) | 0.29 | 0.02 | 2.12 |
+| recovery | 0.31 | 0.05 | 2.07 |
+| groups (form up, split) | 0.33 | 0.04 | 1.74 |
+| bodies: sync | 0.21 | 0.05 | 1.32 |
+| scrum: facing | 0.33 | 0.47 | 1.17 |
+| bodies: commit | 0.09 | 0.01 | 0.82 |
+| perception | 0.19 | 0.21 | 0.76 |
+| store settles | 0.15 | 0.04 | 0.73 |
+| bodies: pushes | 0.39 | 0.07 | 0.69 |
+| taking the downed | 0.06 | 0.02 | 0.45 |
+| carry | 0.05 | 0.01 | 0.32 |
+| carry: strays | 0.03 | 0.01 | 0.20 |
+| rout: rallies | 0.21 | 0.00 | 0.00 |
+
+Phases under 0.1 ms in every run are left out (rules, the rout's other parts, morale, orders,
+march, the engage edges and fronts, joins, pathing, the scrum's withdraw, regroup and
+pursuit).
+
+**What it shows (the owner: "the major issues being at larger squad sizes"):** at about the
+target's size, the time goes to the work done within a squad.
+- **Three phases are 77% of the tick:** `units walk to places`, `scrum: seek` and
+  `scrum: engage, prepare, stance` (195 of 254 ms).
+- **They grow far faster than the units do.** Against the daily bench (6.25× the units, in
+  squads 12.5× larger), `units walk to places` grows 67×, `engage, prepare, stance` 51× and
+  `seek` 16×. Phases whose work is per unit grow about 7–10× (`roster` 6.8×, `strays` 8.7×,
+  `fight (blows)` 10×).
+- **The 25k preset spreads the same units over 24 squads of 1,024**, and there the same three
+  phases are about 8, 53 and 6.5 ms (CI's Xeon 6973P-C, 4 threads, `main` at `5ea4c29`). So
+  `units walk to places` and `engage, prepare, stance` are cheap per squad of 1,024 and costly
+  per squad of 12,800: work that grows with the square of a squad's size, or near it. That is
+  spec 43's "one squad's pair work at 25k", left to a later session (Decision 165, Bounded).
+- **Many small squads are cheap:** 25 squads of about 41 a side tick in 6.5 ms, with the seek
+  the largest phase (2.71 ms).
+
 ## Building
 
 ```
