@@ -165,48 +165,9 @@ On the owner's PC, by hand, rounds in turn (5 or more):
   benches' docs say a local grid may guide day-to-day work, with CI's `bench` confirming
   before a merge. If it fails, the owner decides what the local series is for.
 
-### Step 5, local runs in spec 47's repeat mode
-
-**Split at build:** 2026-11-11, cascade #930, into 5a (the importer), 5b (the grid script's
-modes) and 5c (the page): three behaviours, each with its own tests (Python; shell; JS), and
-the page is step 2's (PR #933), outside this step's `Touches`. Q47 (#909) was answered (a):
-the repeat mode stays a guide, with its caveat shown beside the repeats.
-
-### Step 5a, the importer reads the repeat mode and the settled series
-
-**Split at build:** from step 5, 2026-11-11.
-**Needs:** 1
-**Touches:** `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
-`ci/metrics/README.md`
-
-- **The repeat mode's output:** a `repeat:` line naming the tick and `n`. The record's
-  `source.harness` is `tick_phases-repeat`, as spec 47 step 5 names CI's, and its args carry
-  `at` and `repeat`. One record per (battle, tick).
-- **The settled series too:** the record holds its p95 and p99 over the whole series, and the
-  `inspect:` ticks it named.
-- **Step 3's rest:** the importer prefers the printed machine over `local_machine.json` when
-  it names the CPU.
-
-**Found at build (2026-11-11):** the repeat mode prints each phase's median, IQR and 95%
-interval of the median, not each lap, so a lap can't be a value. A record's values are its
-rounds' medians (rounds of `repeat=<n>`, run in turn), and the laps' spread stays in the
-output. Keeping every lap would need the binary to print them, a change to `native/` left out
-here. Built as: repeat files are named `s<side>_q<squads>_r<round>_repeat.txt`; a settled
-cell's args end `series=1 series=settled`, its p95 and p99 are `tick-p95` and `tick-p99`,
-and `source.inspect` holds each round's `inspect:` ticks. The fixtures were made on a cloud
-runner, their machine line set to the PC's.
-
-Scenarios:
-- Given fixture output from the repeat mode at 2 ticks with `n` 50, 2 rounds, when imported,
-  then there are 2 records, each with a value per round per phase and the median, and both
-  pass `check_records.py`.
-- Given a cell run with `series=1`, then its record holds `tick-p95`, `tick-p99` and each
-  round's `inspect:` ticks.
-- Given a machine line that names the CPU, then the record's machine is the printed one.
-
 ### Step 5b, the grid script's modes
 
-**Split at build:** from step 5, 2026-11-11.
+**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
 **Needs:** 5a
 **Touches:** `ci/metrics/local_grid.sh`, `ci/metrics/README.md`, and a test of the pair
 summary (`ci/metrics/test_local_pair.py`, new, or `bench_compare.py`'s if it is reused)
@@ -224,7 +185,7 @@ Scenarios:
 
 ### Step 5c, the page shows the repeats
 
-**Split at build:** from step 5, 2026-11-11.
+**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
 **Needs:** 2, 5a
 **Touches:** `tools/metrics_view/metrics_local.js` and its test, `tools/metrics_view/README.md`
 
@@ -235,54 +196,6 @@ Scenarios:
 Scenarios:
 - Given a cell's settled record and its repeat records, then the repeats are points at their
   ticks beside the series.
-
-## Measured` section, `metrics/local/` and `metrics/raw/local/` (the
-runs), `ci/metrics/local_grid.sh` (a pair mode, if needed)
-
-On the owner's PC, by hand, rounds in turn (5 or more):
-- **How each pair is timed:** with spec 47's repeat mode at the base's `inspect:` ticks once
-  it has merged (step 5's grid script), and `fight=10` until then.
-- **The pairs**, each with a CI same-runner result (spec 47 step 3 times #780, #783 and #773
-  on CI the same way, so one set of CI numbers serves both checks):
-  - `bfce23c` against `main` at `5ea4c29` (CI: 25k tick −8%, `bodies: pair search` −36%,
-    `strays` +63%);
-  - `5af0ed5` against `bfce23c` at 4,096 (CI: +1.5%, no change);
-  - `482f664` against `2aedfac` at 25k (spec 41 step 4 alone, on CI).
-- **Passing:** the tick and every phase CI moved beyond noise move the same way on the PC,
-  with changes within the two machines' ranges. Phases CI left unchanged stay unchanged.
-- **The verdict:** it goes in `## Measured` and on the PR. If it passes, `/run-phase` and the
-  benches' docs say a local grid may guide day-to-day work, with CI's `bench` confirming
-  before a merge. If it fails, the owner decides what the local series is for.
-
-### Step 5, local runs in spec 47's repeat mode
-
-**Needs:** 1
-**Touches:** `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
-`ci/metrics/local_grid.sh`, `ci/metrics/README.md`
-
-Starts once spec 47 steps 1 and 2 have merged (the repeat mode and `inspect:`).
-
-- **The importer reads the repeat mode's output:** a `repeat:` line naming the tick and `n`.
-  The record's `source.harness` is `tick_phases-repeat`, as spec 47 step 5 names CI's, and
-  its args carry `at` and `repeat`. Each repeat's lap is a value, so its spread is kept. One
-  record per (battle, tick).
-- **The settled series too:** the record holds its p95 and p99 over the whole series, and the
-  `inspect:` ticks it named.
-- **The grid script's modes:**
-  - `bash ci/metrics/local_grid.sh grid [rounds]` runs the grid as now, with each cell's
-    settled series;
-  - `... inspect [rounds]` replays each cell's `inspect:` ticks with `repeat=50`;
-  - `... pair <head> <base> [rounds]` builds both commits and times them in turn at the base's
-    `inspect:` ticks, as CI's `bench-inspect` does on one runner. Step 4 uses this.
-- **The page (step 2)** shows a repeat record's ticks as points at their tick, beside the
-  cell's series.
-
-Scenarios:
-- Given fixture output from the repeat mode at 2 ticks with `n` 50, when imported, then there
-  are 2 records, each with 50 values per phase and the median, and both pass
-  `check_records.py`.
-- Given a pair run, then the script prints, per tick, the head's change against the base for
-  the tick and each phase, flagged where the ranges are apart, as `bench`'s summary does.
 
 ## Measured
 
@@ -325,3 +238,37 @@ Filled in by step 4.
   anything.
 - **order-independent:** not applicable; no simulation outcome changes.
 - **bounded-work:** not applicable to the tick.
+
+## Built
+
+### Step 5a, the importer reads the repeat mode and the settled series
+
+**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
+**Needs:** 1
+**Touches:** `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
+`ci/metrics/README.md`
+
+- **The repeat mode's output:** a `repeat:` line naming the tick and `n`. The record's
+  `source.harness` is `tick_phases-repeat`, as spec 47 step 5 names CI's, and its args carry
+  `at` and `repeat`. One record per (battle, tick).
+- **The settled series too:** the record holds its p95 and p99 over the whole series, and the
+  `inspect:` ticks it named.
+- **Step 3's rest:** the importer prefers the printed machine over `local_machine.json` when
+  it names the CPU.
+
+**Found at build (2026-11-11):** the repeat mode prints each phase's median, IQR and 95%
+interval of the median, not each lap, so a lap can't be a value. A record's values are its
+rounds' medians (rounds of `repeat=<n>`, run in turn), and the laps' spread stays in the
+output. Keeping every lap would need the binary to print them, a change to `native/` left out
+here. Built as: repeat files are named `s<side>_q<squads>_r<round>_repeat.txt`; a settled
+cell's args end `series=1 series=settled`, its p95 and p99 are `tick-p95` and `tick-p99`,
+and `source.inspect` holds each round's `inspect:` ticks. The fixtures were made on a cloud
+runner, their machine line set to the PC's.
+
+Scenarios:
+- Given fixture output from the repeat mode at 2 ticks with `n` 50, 2 rounds, when imported,
+  then there are 2 records, each with a value per round per phase and the median, and both
+  pass `check_records.py`.
+- Given a cell run with `series=1`, then its record holds `tick-p95`, `tick-p99` and each
+  round's `inspect:` ticks.
+- Given a machine line that names the CPU, then the record's machine is the printed one.
