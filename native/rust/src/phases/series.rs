@@ -29,6 +29,21 @@ impl Series {
         self.spent.iter().map(|(phase, usec)| (*phase, usec.iter().sum())).collect()
     }
 
+    /// `tick` added, with each phase's microseconds lapped on it (0 for a phase it didn't lap).
+    pub fn push(&mut self, tick: i64, laps: Vec<(&'static str, f64)>) {
+        let before = self.ticks.len();
+        self.ticks.push(tick);
+        for (phase, usec) in laps {
+            match self.spent.iter_mut().find(|(name, _)| *name == phase) {
+                Some((_, spent)) => spent.push(usec),
+                None => self.spent.push((phase, [vec![0.0; before], vec![usec]].concat())),
+            }
+        }
+        for (_, spent) in &mut self.spent {
+            spent.resize(before + 1, 0.0);
+        }
+    }
+
     /// The whole tick's microseconds on each tick: its phases' summed.
     pub fn totals(&self) -> Vec<f64> {
         (0..self.ticks.len()).map(|t| self.spent.iter().map(|(_, usec)| usec[t]).sum()).collect()
