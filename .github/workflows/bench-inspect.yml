@@ -15,12 +15,26 @@ name: bench-inspect
 #
 # The reference is the cargo era's (Decision 162): the bridge, 8ca4227, timed with `record`'s
 # battle (side=4096 squads=4 fight=3) at both sizes. It is a yardstick for the runner, not a
-# baseline: the bridge has no `at=`. Nothing is recorded or plotted (step 5, after step 3).
+# baseline: the bridge has no `at=`.
+#
+# Records (spec 47 step 5a): when the head is a commit on main's first-parent line, each
+# inspect job also writes its repeats as a record, metrics/inspect/<date>-<run id>-<n>.json
+# (`series` inspect, `source.harness` tick_phases-repeat, the args `preset at repeat`; each
+# round's value is that round's median of the repeats), with the reference beside it. The
+# summary opens one data PR for them (.github/actions/metrics-pr), which merges itself, as
+# bench's do (Decisions 163 and 164). Every merge to main that touches native/ or sim/ runs it,
+# head the merge and base the main before it; from merges forward only, with no backfill. A
+# run on a branch head writes none.
 #
 # Each input is read with its default beside it (`inputs.x || default`), so a scratch branch
 # can add a `push` trigger to check a change to this workflow before it reaches main.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "native/**"
+      - "sim/**"
   workflow_dispatch:
     inputs:
       head:
@@ -44,6 +58,11 @@ on:
 permissions:
   contents: read
 
+# Merges queue one at a time: a third merge during a run replaces the second's pending one.
+concurrency:
+  group: bench-inspect-${{ github.event_name == 'push' && 'merges' || github.run_id }}
+  cancel-in-progress: false
+
 env:
   REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
   REFERENCE_ARGS: side=4096 squads=4 fight=3
@@ -56,6 +75,7 @@ jobs:
     outputs:
       head: ${{ steps.refs.outputs.head }}
       base: ${{ steps.refs.outputs.base }}
+      head_sha: ${{ steps.refs.outputs.head_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -73,8 +93,9 @@ jobs:
       - name: Check out the head, the base and the reference
         id: refs
         env:
-          HEAD_REF: ${{ inputs.head || github.ref_name }}
-          BASE: ${{ inputs.base || 'main' }}
+          # A merge to main: head the merge, base the main before it.
+          HEAD_REF: ${{ inputs.head || (github.event_name == 'push' && github.sha) || github.ref_name }}
+          BASE: ${{ inputs.base || (github.event_name == 'push' && github.event.before) || 'main' }}
         run: |
           git worktree add -q --detach trees/head "origin/$HEAD_REF" 2>/dev/null \
             || git worktree add -q --detach trees/head "$HEAD_REF"
@@ -83,6 +104,7 @@ jobs:
           git worktree add -q --detach trees/reference "$REFERENCE"
           echo "head=$HEAD_REF ($(git -C trees/head rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
           echo "base=$BASE ($(git -C trees/base rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git -C trees/head rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Rust build
         uses: actions/cache@v6
@@ -163,15 +185,21 @@ jobs:
           retention-days: 7
 
   inspect:
-    needs: plan
+    needs: [build, plan]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: read
+      pull-requests: read
     strategy:
       fail-fast: false
       matrix:
         job: ${{ fromJSON(needs.plan.outputs.jobs) }}
     steps:
+      # The whole history: the record reads the head's place on main's first-parent line.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/download-artifact@v7
         with:
@@ -208,6 +236,22 @@ jobs:
           if grep -l WARNING "$out"/head_*.txt "$out"/base_*.txt; then
             echo "::warning::a repeat left another state than one played through (above)"
           fi
+
+      # Nothing for a head off main's first-parent line (bench_record.py says so and exits 0).
+      - name: Write the record
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.build.outputs.head_sha }}
+          SIZE: ${{ matrix.job.size }}
+          AT: ${{ matrix.job.tick }}
+          REPEAT: ${{ inputs.repeat || '50' }}
+          NUMBER: ${{ strategy.job-index }}
+        run: |
+          out="inspect-$SIZE-$AT"
+          python3 ci/metrics/bench_record.py --head $(ls "$out"/head_*.txt | sort -V) \
+            --reference $(ls "$out"/reference_*.txt | sort -V) --sha "$HEAD_SHA" \
+            --reference-sha "$REFERENCE" --args "preset=$SIZE at=$AT repeat=$REPEAT" \
+            --series inspect --number "$((NUMBER + 1))" --out "$out/record"
 
       - name: This tick, head against base
         if: always()
@@ -261,3 +305,20 @@ jobs:
             python3 ci/godot/scripts/bench_inspect.py summary runs $(cat runs/sizes.txt)
             echo "SUMMARY END"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Each job's record, if it wrote one, gathered into one folder for one data PR.
+      - name: Gather the records
+        run: |
+          mkdir -p "$RUNNER_TEMP/metrics-new"
+          for record in runs/inspect-*/record; do
+            [ -d "$record" ] && cp -R "$record/." "$RUNNER_TEMP/metrics-new/"
+          done
+          find "$RUNNER_TEMP/metrics-new" -name '*.json' | sort
+
+      - name: Open the data PR
+        uses: ./.github/actions/metrics-pr
+        with:
+          folder: ${{ runner.temp }}/metrics-new
+          series: inspect
+          app-id: ${{ vars.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}

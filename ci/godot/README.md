@@ -104,8 +104,11 @@ Every check that doesn't need another's output runs in its own job, side by side
   with the reference's `side=4096 squads=4 fight=3` timed beside them and the job's CPU.
   `summary` (`bench_inspect.py`) prints, per size, each tick's head against base
   (`bench_compare.py`'s table), the two series' 95th and 99th percentiles, then the ticks
-  combined only as × each job's reference, with which CPU ran which ticks. Nothing is
-  recorded. Every input falls back to its default (`inputs.x || default`), so a scratch
+  combined only as × each job's reference, with which CPU ran which ticks. Each merge to
+  `main` that touches `native/` or `sim/` also runs it (head the merge, base the `main` before
+  it), and a head on `main`'s first-parent line writes a repeat record per (size, tick) to
+  `metrics/inspect/` through a self-merging data PR (spec 47 step 5a; `ci/metrics/README.md`,
+  "Repeat records"). Every input falls back to its default (`inputs.x || default`), so a scratch
   branch can add a `push` trigger to check a change to the workflow before it is on `main`.
 - Godot setup is one composite action, `.github/actions/godot` (cached binary, import).
 - **Shards.** `shard_tests.py <count> <index>` splits the test files into balanced groups

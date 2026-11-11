@@ -5,14 +5,15 @@ description: >
   lies under metrics/schema/), pushes them on chore/metrics-<series>-<run id> with the
   repo's GitHub App token, opens a PR titled "chore(metrics): <series> <run id>" and turns on
   auto-merge (squash). The PR merges itself once metrics.yml's checks pass and it has no
-  conflict. Only bench, metrics-archive and bench-series use it (Decision 164).
+  conflict. Only bench, metrics-archive, bench-series (Decision 164) and bench-inspect
+  (Decision 177, spec 47 step 5a) use it.
 
 inputs:
   folder:
     description: The new files, each at its path in the repo (metrics/<series>/...).
     required: true
   series:
-    description: The series, for the branch and the PR title (bench, archive, bench-series).
+    description: The series, for the branch and the PR title (bench, archive, bench-series, inspect).
     required: true
   run-id:
     description: The measuring run, for the branch and the PR title.

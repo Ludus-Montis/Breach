@@ -140,17 +140,15 @@ Scenarios:
 - Given jobs on different CPUs, then the summary combines them only as ratios to their
   references, and says which CPUs ran which ticks.
 
-### Step 5, recording and plotting the repeats
+### Step 5b, plotting the repeats
 
-**Needs:** 3, 4
-**Touches:** `ci/metrics/` (the record and its checks), `tools/metrics_view/`, the
-`bench-inspect` workflow's data PR
+**Split at build:** from step 5, PR #PRNUM, 2026-11-11: two behaviours, the records (5a, under
+`## Built`) and the page (5b), each with its own tests (Python; JS).
+**Needs:** 5a
+**Touches:** `tools/metrics_view/` (the tick history and its tests), `tools/metrics_view/README.md`
 
 Only once step 3 has passed:
-- **Records.** A run of `bench-inspect` on `main` writes a record per (size, tick) in
-  Decision 162's shape. `source.harness` is `tick_phases-repeat`, and the args carry `at` and
-  `repeat`. Its data PR merges itself, as `bench`'s do (Decisions 163 and 164). There is no
-  backfill: from merges forward only.
+- **Records** are 5a's: `metrics/inspect/`, `series` `inspect`, one per (size, tick) a merge.
 - **Plotting.** The tick history gains small multiples per phase, × the reference by default
   (Decision 172). Each shows the repeats beside the same phase's lap from the whole tick, so
   the gap between them shows how far to trust the fast number.
@@ -321,3 +319,31 @@ Scenarios:
   (`bench_set.py`, `metrics_25k.js`), then both have the same shape.
 - Given a family's points across the change, when its line is drawn, then it breaks between
   the last record without the mark and the first with it.
+
+### Step 5a, recording the repeats
+
+**Split at build:** from step 5, PR #PRNUM, 2026-11-11 (above).
+**Needs:** 3, 4
+**Touches:** `.github/workflows/bench-inspect.yml`, `.github/actions/metrics-pr/action.yml`
+(its comment), `ci/metrics/check_records.py`, `ci/metrics/bench_record.py` and their tests,
+`ci/metrics/README.md`, `ci/godot/README.md`, `CLAUDE.md` (the self-merging workflows)
+
+- **Records.** A run of `bench-inspect` on `main` writes a record per (size, tick) in
+  Decision 162's shape. `source.harness` is `tick_phases-repeat`, and the args carry `at` and
+  `repeat`. Its data PR merges itself, as `bench`'s do (Decisions 163 and 164). There is no
+  backfill: from merges forward only.
+
+Built as: every merge to `main` touching `native/` or `sim/` runs `bench-inspect`, head the
+merge and base the `main` before it (`github.event.before`), in one concurrency group as
+`bench`'s `record-25k`. Each inspect job runs `bench_record.py --series inspect --args
+"preset=<size> at=<tick> repeat=<n>"`, which names the harness `tick_phases-repeat` from `at=`
+and writes `metrics/inspect/<date>-<run id>-<n>.json` (`n` the job's index + 1), with the
+bridge's `record` battle from the same job as its `reference`. A head off `main`'s
+first-parent line writes none. The summary gathers them into one data PR (series `inspect`).
+`check_records.py` fails a `tick_phases-repeat` record without `at=<tick>` and `repeat=<n>`.
+
+Scenarios:
+- Given a repeat record whose args name `at=` and `repeat=`, when the records are checked,
+  then it passes; without either, it fails, naming `source/args`.
+- Given a bench-inspect job's rounds, when its record is written, then it is `series`
+  `inspect` under `metrics/inspect/`, numbered by its job, and validates.

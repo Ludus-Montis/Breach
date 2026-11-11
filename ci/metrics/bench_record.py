@@ -245,7 +245,8 @@ def main(argv: list) -> int:
     date = datetime.now(timezone.utc).date().isoformat()
     context = {
         "commit": commit_info(sha),
-        "source": {"harness": harness_of(option(argv, "--args", "").split()), "blob": git(".", "rev-parse", f"{sha}:{SOURCE_FILE}"),
+        "source": {"harness": harness_of(option(argv, "--args", "").split()),
+                   "blob": git(".", "rev-parse", f"{sha}:{SOURCE_FILE}"),
                    "args": option(argv, "--args", "").split(), "rounds": len(head),
                    "profile": "release"},
         "machine": machine(),
