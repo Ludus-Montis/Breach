@@ -6,7 +6,7 @@
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
 //!       [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
-//!       [scatter=1] [preset=4096|25k] [repo=<path>]
+//!       [scatter=1] [preset=4096|25k] [at=<tick>[,<tick>...]] [repeat=50] [repo=<path>]
 //!   native/bin/breach_tick_phases scenario=<name> [threaded=true|false|always] [repo=<path>]
 //!
 //! `scenario=<name>` times a scenario from `content/scenarios/` (spec 44 step 2b): the same
@@ -18,6 +18,15 @@
 //! unless given) until one side no longer stands or `limit` ticks, instead of `fight` ticks,
 //! and follows the phases' means with each one's 95th and 99th percentiles and worst
 //! (`phases::series`; spec 38 step 2).
+//!
+//! `at=<t>[,<t>...]` replays each tick named `repeat` times (50 if not given) instead of timing
+//! a run (`phases::repeat`; spec 47 step 1): the battle, as any preset or arguments set it up
+//! (from contact, as a series is), plays forward once, keeping a copy of all each tick reads
+//! just before it; then each tick, in the order given, is stepped `repeat` times on the running
+//! battle, the copy put back before each, untimed, after one untimed repeat. Each tick prints a
+//! `repeat:` line, its medians on the lines `bench_compare.py` reads, then each one's median,
+//! interquartile range and 95% interval of the median. A tick past the battle's end exits 2,
+//! naming the last; so do `counts=` and `scatter=` beside it, and `repeat` without it.
 //!
 //! `terrain=mixed` plays the clash on FormationBench's mixed ground, a wood and a ford across
 //! its line of advance (`ground::map::mixed`; spec 38 step 2). It has one lane: with
@@ -45,18 +54,20 @@ use std::process::ExitCode;
 use breach_native::content::Content;
 use breach_native::phases::series::{self, LIMIT};
 use breach_native::phases::{self, Options, WARNING};
-use breach_native::phases::{counts, presets, scatter};
+use breach_native::phases::{counts, presets, repeat, scatter};
 use breach_native::scenarios::timed;
 use breach_native::threads::Threads;
 
 const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] \
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
                      [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] \
-                     [counts=1] [scatter=1] [preset=4096|25k] [repo=<path>]\n       \
+                     [counts=1] [scatter=1] [preset=4096|25k] [at=<tick>[,<tick>...]] \
+                     [repeat=50] [repo=<path>]\n       \
                      breach_tick_phases scenario=<name> [threaded=true|false|always] [repo=<path>]";
-const KNOWN: [&str; 18] = [
+const KNOWN: [&str; 20] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
     "threaded", "series", "limit", "terrain", "counts", "scatter", "preset", "repo", "scenario",
+    "at", "repeat",
 ];
 /// The arguments a scenario run takes; it plays its own record, so no others.
 const SCENARIO: [&str; 4] = ["scenario", "threaded", "series", "repo"];
@@ -86,7 +97,7 @@ fn main() -> ExitCode {
         eprintln!("breach_tick_phases: {why}\n{USAGE}");
         return ExitCode::from(2);
     }
-    if let Some(why) = refused_terrain(&args) {
+    if let Some(why) = refused_terrain(&args).or_else(|| refused_repeat(&args)) {
         eprintln!("breach_tick_phases: {why}\n{USAGE}");
         return ExitCode::from(2);
     }
@@ -102,6 +113,9 @@ fn main() -> ExitCode {
         }
     };
     let options = options(&args);
+    if args.contains_key("at") {
+        return repeat_run(&args, &options, &content);
+    }
     let (Some(mut timed), Some(mut plain)) =
         (phases::settled(&options, &content), phases::settled(&options, &content))
     else {
@@ -177,6 +191,48 @@ fn scenario_run(args: &HashMap<String, String>) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `at=`: each tick named, repeated `repeat` times, printed in the order given.
+fn repeat_run(args: &HashMap<String, String>, options: &Options, content: &Content) -> ExitCode {
+    let ats: Vec<i64> = args["at"].split(',').map(whole).collect();
+    let n = args.get("repeat").map_or(repeat::REPEATS, |v| whole(v).max(1) as usize);
+    let Some(mut battle) = phases::settled(options, content) else {
+        eprintln!("breach_tick_phases: the battle can't be set up");
+        return ExitCode::from(1);
+    };
+    let kept = match repeat::kept(&mut battle, &ats, content) {
+        Ok(kept) => kept,
+        Err(why) => {
+            eprintln!("breach_tick_phases: {why}");
+            return ExitCode::from(2);
+        }
+    };
+    println!("{}", phases::machine());
+    let name = format!("{} a side, {} wide", options.side, options.width);
+    let mut same = true;
+    for copy in &kept {
+        let repeated = repeat::repeat(&mut battle, copy, n, content);
+        println!("{}", repeat::lines(&name, &repeated).join("\n"));
+        same &= repeated.same;
+    }
+    if !same {
+        println!("{WARNING}");
+    }
+    ExitCode::SUCCESS
+}
+
+/// Why `at` or `repeat` can't be played as given: `repeat` without `at`, a tick that isn't a
+/// number, or `counts` or `scatter` beside it. None if they can.
+fn refused_repeat(args: &HashMap<String, String>) -> Option<String> {
+    let Some(at) = args.get("at") else {
+        return args.contains_key("repeat").then(|| "repeat= repeats the ticks at= names".into());
+    };
+    if let Some(bad) = at.split(',').find(|t| t.trim().parse::<i64>().is_err()) {
+        return Some(format!("at= takes ticks separated by commas, not {bad:?}"));
+    }
+    let beside = ["counts", "scatter"].into_iter().find(|key| flag(args, key));
+    beside.map(|key| format!("at= repeats ticks; {key}= is for a run: drop one"))
+}
+
 /// The options given, each as tick_phases.gd reads it, the rest its defaults.
 fn options(args: &HashMap<String, String>) -> Options {
     let given = Options::default();
@@ -185,7 +241,10 @@ fn options(args: &HashMap<String, String>) -> Options {
     Options {
         side: count("side", given.side),
         width: count("width", given.width),
-        settle: count("settle", if in_series(args) { 0 } else { given.settle }),
+        settle: count(
+            "settle",
+            if in_series(args) || args.contains_key("at") { 0 } else { given.settle },
+        ),
         fight: count("fight", given.fight),
         seed: args.get("seed").map_or(given.seed, |v| whole(v)),
         march: args.get("stage").is_some_and(|stage| stage == "march"),
