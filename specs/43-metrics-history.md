@@ -227,7 +227,7 @@ with the bridge beside the two checks).
 
 ### Step 8d, the 25k chart: its toggles, the 4,096 chart's lines and the detail panel
 
-**Split at build:** from step 8c, PR #PRNUM, 2026-11-11 (see step 8c, under Built).
+**Split at build:** from step 8c, PR #872, 2026-11-11 (see step 8c, under Built).
 **Needs:** 8c
 **Touches:** `tools/metrics_view/`
 
@@ -530,7 +530,7 @@ Settled by **Decision 172** (Q43, #855). On the tick history page (`tools/metric
 
 ### Step 8c, the 25k chart: the fit and the measured lines
 
-**Split at build:** from step 8c, PR #PRNUM, 2026-11-11: step 8c held about eight features
+**Split at build:** from step 8c, PR #872, 2026-11-11: step 8c held about eight features
 across two charts, over one PR's size (Decision 171); 8c builds the fit and the 25k chart's
 core, 8d the toggles, the 4,096 chart's lines and the detail panel.
 **Needs:** 8a, 8b
