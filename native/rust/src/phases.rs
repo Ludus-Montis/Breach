@@ -8,6 +8,7 @@
 
 pub mod counts;
 pub mod presets;
+pub mod repeat;
 pub mod scatter;
 pub mod series;
 #[cfg(test)]

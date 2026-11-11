@@ -10,6 +10,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- `breach_tick_phases at=<tick> repeat=<n>` replays a chosen tick live many times and gives
+  each phase's median with its spread, a quicker guide for performance work than whole runs.
 - A project README, this changelog and a documentation index (`docs/index.md`), kept
   current by the documentation phases every change now goes through.
 
