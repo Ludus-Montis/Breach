@@ -33,7 +33,8 @@ Agreed in the design session of 2026-11-11. Five steps, each its own PR, built w
 `/run-phase` as "spec 48 step N".
 - Steps 1 and 3 can be built side by side.
 - Step 2 needs step 1's records.
-- Step 4 needs step 1, and the owner's PC to run it.
+- Step 4 needs step 1, and the owner's PC to run it. Done 2026-11-12: a local pair is a
+  direction guide, not a judge (`## Measured`).
 - Steps 5d to 5f (added 2026-11-12) keep the repeats' spread: 5d the record's quartiles, then 5e
   (the page) and 5f (every lap in the raw output) side by side.
 - Step 5 needs step 1, and spec 47 steps 1 and 2 merged (the repeat mode and `inspect:`). Its
@@ -269,7 +270,63 @@ Scenarios:
 
 ## Measured
 
-Filled in by step 4.
+### Step 4, does the PC track CI? (2026-11-12)
+
+**How it ran.** Every pair's commits predate spec 47's repeat mode, so `local_grid.sh pair`
+couldn't time them (the base prints no `inspect:` ticks). As the step allows, each pair was
+timed with the whole tick, `breach_tick_phases preset=<size> fight=10`, head and base in turn
+for 5 rounds, each commit built in its own worktree, on the owner's PC (i7-12700K, 20 threads,
+Windows). The summaries are `bench_compare.py`'s; the outputs are under
+`metrics/raw/local/2026-11-12-pairs/`. A fourth pair, #780 alone, was added once the first
+three pointed at #783's allocator. CI's numbers are spec 47 step 3's (same runner, 5 rounds),
+except the `bfce23c` to `5ea4c29` line, which is from this spec's step list.
+
+Change from base to head, medians over 5 rounds; `*` the ranges apart:
+
+| Pair | Size | Phase | CI | PC |
+|---|---|---|---|---|
+| `5af0ed5` vs `bfce23c` (#779, no change) | 4,096 | tick | +1.5%, no change | +0.0% |
+| | | every phase | none beyond noise | none beyond noise |
+| `2aedfac` vs `214ca57` (#780, the pair search) | 25k | tick | −9.2%* | −2.4%* |
+| | | `bodies: pair search` | −40.8%* | −22.8%* |
+| | | the rest | not reported | none beyond noise, but `bodies: sums and applying` +5.3%* |
+| `482f664` vs `2aedfac` (#783, mimalloc, foldhash, kept buffers) | 25k | tick | −3.9%* | −21.5%* |
+| | | `wounds (tend)` | −21.6%* | −42.4%* |
+| | | `store settles` | −44.0%* | −53.2%* |
+| | | `scrum: engage, prepare, stance` | −13.3%* | −17.8%* |
+| | | `shuffle (re-form)` | −15.1%* | −29.7%* |
+| | | `bodies: pushes` | −4.7%* | −52.0%* |
+| | | `strays` | +24.1%* | −25.6%* (opposite) |
+| | | `bodies: sums and applying` | +15.9%* | −11.1%* (opposite) |
+| | | `stamina` | −15.6% | +9.5%* |
+| | | `roster`, `bodies: pair search`, `fight`, `rout: rallies`, `bodies: sync` | not reported | −19 to −28%* |
+| `bfce23c` to `5ea4c29` (#780, #783 and others) | 25k | tick | −8% | −24.1%* |
+| | | `bodies: pair search` | −36% | −44.5%* |
+| | | `strays` | +63% | −30.4%* (opposite) |
+| | | `stamina` | +28% | +13.1%* |
+| | | `bodies: sums and applying` | +19% | −10.2%* (opposite) |
+
+**Verdict: fails on size, so the owner decided (2026-11-12): a local pair is a direction
+guide, not a judge,** on the same terms as Q47's answer for the repeat mode.
+- **Direction tracks for an ordinary change.** The no-change pair stays flat, and #780 moves
+  only the phase it aims at, the way CI does.
+- **Size doesn't track, either way:** about 5 times CI's change across #783, about a quarter
+  of it on #780's tick. The machines differ (20 threads on Windows against CI's 4-thread Xeon
+  on Linux), so a local percentage is never CI's.
+- **A change to how memory is allocated diverges even in direction.** Across #783, `strays`
+  and `bodies: sums and applying` move against CI's: mimalloc replaced Windows' allocator,
+  a far larger gain there than over glibc's on CI, and it outweighs the kept buffers' cost.
+  Every commit since #783 uses mimalloc on both, but a change to allocation (the allocator,
+  kept buffers, pooling) still goes straight to CI.
+
+So: a local pair may show whether a change speeds up the phase it aims at and leaves the
+rest alone. Its percentages are never quoted as a change's size, and `bench` on CI judges
+before a merge (`ci/metrics/README.md`, Local runs).
+
+**Found at build:** the step list's first pair reads "`bfce23c` against `main` at `5ea4c29`",
+but CI's numbers are for the change from `bfce23c` to `5ea4c29`: `bfce23c` is the older, 60
+commits back. Its folder keeps the order it ran in (`bfce23c` as head); the table above reads
+it the right way round.
 
 ## Not in this spec
 
