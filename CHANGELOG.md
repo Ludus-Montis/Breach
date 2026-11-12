@@ -76,6 +76,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Fixed
 
+- The tick history's phase chart colours the costliest phases of the newest records, so a
+  retired phase name no longer takes a colour, and splits what it used to call "other" into
+  **other phases** (timed phases without a colour, listed in its tooltip) and **untimed**.
 - A unit making for home on its own (one that came to alone, or a bearer taking the wounded
   home) goes by its own squad's number everywhere in the battle, so the draws its fights make
   and the battle log's entries for it are its own, not those of a squad numbered 0.

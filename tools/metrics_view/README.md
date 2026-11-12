@@ -68,10 +68,15 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   line's battle). They break at a commit with no 25k set, and show in ms only: the 4-lane grid
   shape is timed without the bridge, so it has no ratio.
 - **By phase:** a harness's records stacked by the tick's top-level phases (a phase timed more
-  finely is summed into its parent). In ms the reference's whole tick is a grey dash per record,
-  in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other"
-  included, to hide or show it in every unit; the stack closes up and no other phase's value
-  or share changes.
+  finely is summed into its parent). The eight costliest phases over the harness's ten newest
+  records get a colour each, so a phase no longer timed (a retired name) gives up its colour.
+  Two more parts close each bar: **other phases**, the timed phases without a colour (its
+  tooltip lists each, in ms), and **untimed**, the tick less every timed phase (work outside
+  any lap, 0 to 2% of a `breach_tick_phases` tick; all of a harness that times only the tick).
+  In ms the reference's whole tick is a grey dash per record,
+  in × the reference one grey line at 1, in % of tick none. Click a phase in the legend, "other
+  phases" and "untimed" included, to hide or show it in every unit; the stack closes up and no
+  other phase's value or share changes.
 - **A tick replayed (spec 47 step 5b, Decision 177):** small multiples, one per top-level phase
   and size (4,096 and 24,576 a side), along `main`'s first-parent line from the first commit
   with repeat records (`metrics/inspect/`, series `inspect`, written by `bench-inspect` at each

@@ -293,18 +293,47 @@
     return { withoutReference: without, lines: converted };
   }
 
-  // A point's bar: each of `groups`, then 'other' (the tick less every group), in the unit,
-  // leaving out the hidden ones ({group: true}) and the empty; no share changes with hiding.
-  function stack(p, groups, hidden, unit) {
-    var named = 0;
-    var parts = groups.map(function (group) {
-      var ms = valueAt(p.results, group) || 0;
-      named += ms;
-      return { group: group, ms: ms };
+  // A record's top-level phases (`tick/<name>`), each with its ms as valueAt gives it.
+  function phasesOf(results) {
+    var seen = {};
+    Object.keys(results).forEach(function (path) {
+      var parts = path.split('/');
+      if (parts.length >= 2 && isRoot(parts[0])) seen[parts.slice(0, 2).join('/')] = true;
     });
-    parts.push({ group: 'other', ms: Math.max(0, (p.tick || 0) - named) });
+    return Object.keys(seen).map(function (group) { return { group: group, ms: valueAt(results, group) || 0 }; })
+      .filter(function (phase) { return phase.ms > 0; });
+  }
+
+  // The phases the chart colours: the `count` costliest over the RECENT newest points, so a
+  // phase that is no longer timed (a retired name) gives up its colour.
+  var RECENT = 10;
+  function topGroups(points, count) {
+    var totals = {};
+    points.slice().sort(function (x, y) { return x.position - y.position; }).slice(-RECENT)
+      .forEach(function (p) {
+        phasesOf(p.results).forEach(function (phase) { totals[phase.group] = (totals[phase.group] || 0) + phase.ms; });
+      });
+    return Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; }).slice(0, count);
+  }
+
+  // A point's bar: each of `groups`, then 'other phases' (the timed phases not in `groups`,
+  // listed costliest first in `holds`), then 'untimed' (the tick less every phase), in the
+  // unit, leaving out the hidden ones ({group: true}) and the empty; no share changes with hiding.
+  function stack(p, groups, hidden, unit) {
+    var all = phasesOf(p.results);
+    var parts = groups.map(function (group) { return { group: group, ms: valueAt(p.results, group) || 0 }; });
+    var holds = all.filter(function (phase) { return groups.indexOf(phase.group) < 0; })
+      .sort(function (a, b) { return b.ms - a.ms; });
+    var timed = all.reduce(function (total, phase) { return total + phase.ms; }, 0);
+    parts.push({ group: 'other phases', ms: holds.reduce(function (total, phase) { return total + phase.ms; }, 0),
+      holds: holds.map(function (phase) { return { group: phase.group, ms: round(phase.ms) }; }) });
+    parts.push({ group: 'untimed', ms: Math.max(0, (p.tick || 0) - timed) });
     return parts.filter(function (part) { return part.ms > 0 && !hidden[part.group]; })
-      .map(function (part) { return { group: part.group, value: msIn(p, round(part.ms), unit) }; });
+      .map(function (part) {
+        var out = { group: part.group, value: msIn(p, round(part.ms), unit) };
+        if (part.holds) out.holds = part.holds;
+        return out;
+      });
   }
 
   // compare() of two points, each side's values in the unit over its own record.
@@ -315,7 +344,7 @@
   }
 
   var api = { positions: positions, cpus: cpus, withoutCpus: withoutCpus, tickIn: tickIn, inUnit: inUnit,
-    stack: stack, compareIn: compareIn, UNKNOWN: UNKNOWN, shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines,
+    stack: stack, topGroups: topGroups, compareIn: compareIn, UNKNOWN: UNKNOWN, shown: shown, segments: segments, valueAt: valueAt, compare: compare, lines: lines,
     placer: placer, harvested25k: harvested25k, bridge: bridge, REPO: REPO };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BreachMetricsView = api;
