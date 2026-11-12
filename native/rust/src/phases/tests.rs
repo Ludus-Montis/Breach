@@ -201,3 +201,44 @@ fn the_mixed_clash_plays_as_godot_s_did_and_its_digest_is_the_same() {
         assert_eq!(ours, (sum, first, mid.to_string(), end.to_string()), "{options:?}");
     }
 }
+
+/// Spec 50 step 3's battle: 4,096 a side on one thread, a few ticks of its fight timed.
+fn one_thread_s_busy_threads() -> Vec<(&'static str, f64, f64)> {
+    let content = content();
+    let options =
+        Options { side: 4096, settle: 0, threaded: crate::threads::Threads::One, ..small() };
+    let mut settled = settled(&options, &content).expect("the clash sets up");
+    let timed = series::timed(&mut settled, 3, &content);
+    let busy = timed.busy().expect("Linux has a fine CPU clock");
+    let sums = timed.sums();
+    let wall = |phase: &str| sums.iter().find(|(name, _)| *name == phase).map_or(0.0, |s| s.1);
+    busy.into_iter().map(|(phase, threads)| (phase, wall(phase), threads)).collect()
+}
+
+/// The process's CPU time counts every thread in it, and the test harness runs other tests on
+/// threads beside this one, so the check runs in a process of its own: this test runs the
+/// ignored one below, alone, in a fresh copy of the test binary.
+#[cfg(target_os = "linux")]
+#[test]
+fn on_one_thread_every_phase_over_1_ms_keeps_about_one_thread_busy() {
+    let alone = "phases::tests::busy_threads_in_a_process_of_their_own";
+    let program = std::env::current_exe().expect("the test binary");
+    let ran = std::process::Command::new(program)
+        .args([alone, "--exact", "--ignored", "--test-threads=1", "--nocapture"])
+        .output()
+        .expect("the test binary runs");
+    let said = String::from_utf8_lossy(&ran.stdout);
+    assert!(ran.status.success() && said.contains("1 passed"), "{said}");
+}
+
+#[test]
+#[ignore = "run alone by on_one_thread_every_phase_over_1_ms_keeps_about_one_thread_busy"]
+fn busy_threads_in_a_process_of_their_own() {
+    let busy = one_thread_s_busy_threads();
+    let over: Vec<_> = busy.iter().filter(|(_, usec, _)| *usec > 1000.0).collect();
+    assert!(!over.is_empty(), "no phase took over 1 ms: {busy:?}");
+    for (phase, usec, threads) in over {
+        println!("busy: {phase} {:.2} ms, {threads:.2} threads", usec / 1000.0);
+        assert!((0.8..=1.2).contains(threads), "{phase}: {threads:.2} threads busy");
+    }
+}

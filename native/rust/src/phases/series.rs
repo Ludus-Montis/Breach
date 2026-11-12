@@ -5,7 +5,8 @@
 //! the tick that was worst. The means go on the lines `phases::lines` prints, so
 //! `bench_compare.py` reads them as it reads any run; the rest follow a "series:" line, which it
 //! reads when every run has one. An "inspect:" line ends them: the ticks the repeat mode
-//! replays (its 3 slowest and 4 spread through it).
+//! replays (its 3 slowest and 4 spread through it). Where the system has a fine CPU clock, a
+//! "busy threads" block follows (spec 50 step 3, `busy_lines`).
 
 #[cfg(test)]
 mod tests;
@@ -22,11 +23,13 @@ pub const LIMIT: usize = 600;
 const SLOWEST: usize = 3;
 
 /// A battle's timed ticks: the tick each was, and each phase's microseconds on each of them
-/// (0 on a tick it didn't lap), the phases in the order first lapped.
+/// (0 on a tick it didn't lap), the phases in the order first lapped; and each phase's CPU
+/// microseconds summed over them, where the system has a fine CPU clock (`laps::Lapped`).
 #[derive(Debug, Default)]
 pub struct Series {
     pub ticks: Vec<i64>,
     pub spent: Vec<(&'static str, Vec<f64>)>,
+    pub cpu: Option<Vec<(&'static str, f64)>>,
 }
 
 impl Series {
@@ -48,6 +51,33 @@ impl Series {
         for (_, spent) in &mut self.spent {
             spent.resize(before + 1, 0.0);
         }
+    }
+
+    /// `push`, with the tick's CPU microseconds added to each phase's.
+    pub fn push_lapped(&mut self, tick: i64, lapped: laps::Lapped) {
+        self.push(tick, lapped.wall);
+        if let Some(cpu) = lapped.cpu {
+            let summed = self.cpu.get_or_insert_with(Vec::new);
+            for (phase, usec) in cpu {
+                match summed.iter_mut().find(|(name, _)| *name == phase) {
+                    Some((_, total)) => *total += usec,
+                    None => summed.push((phase, usec)),
+                }
+            }
+        }
+    }
+
+    /// Busy threads (spec 50 step 3): the whole tick's (`tick`) and each phase's CPU time over
+    /// its wall time, summed over the series, in the order first lapped; a phase that took no
+    /// wall time is left out. None without a CPU clock.
+    pub fn busy(&self) -> Option<Vec<(&'static str, f64)>> {
+        let cpu = self.cpu.as_ref()?;
+        let wall = self.sums();
+        let of = |phase: &str| cpu.iter().find(|(name, _)| *name == phase).map_or(0.0, |c| c.1);
+        let whole = (wall.iter().map(|w| w.1).sum::<f64>(), cpu.iter().map(|c| c.1).sum::<f64>());
+        let rows = [("tick", whole.0, whole.1)].into_iter();
+        let rows = rows.chain(wall.iter().map(|&(phase, usec)| (phase, usec, of(phase))));
+        Some(rows.filter(|r| r.1 > 0.0).map(|(phase, usec, cpu)| (phase, cpu / usec)).collect())
     }
 
     /// The whole tick's microseconds on each tick: its phases' summed.
@@ -72,8 +102,8 @@ pub struct Spread {
 pub fn timed(settled: &mut Settled, limit: usize, content: &Content) -> Series {
     let mut series = Series::default();
     while series.ticks.len() < limit && stirs(settled) {
-        let (_, laps) = laps::timed(|| settled.step(content));
-        series.push(settled.play.tick, laps);
+        let (_, lapped) = laps::clocked(|| settled.step(content));
+        series.push_lapped(settled.play.tick, lapped);
     }
     series
 }
@@ -133,7 +163,8 @@ pub fn spread(values: &[f64], ticks: &[i64]) -> Spread {
 }
 
 /// The lines that follow `phases::lines` in a series run: the "series:" line, the tick's
-/// spread and each phase's in ms, largest mean first, then the "inspect:" line.
+/// spread and each phase's in ms, largest mean first, then the "inspect:" line, then the busy
+/// threads in the same order (`busy_lines`).
 pub fn lines(series: &Series) -> Vec<String> {
     let ticks = &series.ticks;
     let first = ticks.first().copied().unwrap_or(0);
@@ -147,6 +178,8 @@ pub fn lines(series: &Series) -> Vec<String> {
         series.spent.iter().map(|(phase, usec)| (*phase, spread(usec, ticks))).collect();
     phases.sort_by(|a, b| b.1.mean.total_cmp(&a.1.mean));
     rows.extend(phases);
+    let order: Vec<&str> = rows.iter().map(|(name, _)| *name).collect();
+    let busy = busy_lines(series, &order);
     for (name, s) in rows {
         let ms = |usec: f64| usec / 1000.0;
         out.push(format!(
@@ -160,5 +193,22 @@ pub fn lines(series: &Series) -> Vec<String> {
         ));
     }
     out.push(inspect_line(series));
+    out.extend(busy);
+    out
+}
+
+/// The "busy threads" block (spec 50 step 3): a head line, then the tick's and each phase's
+/// busy threads (`Series::busy`), in `order`'s order (the phases a table listed), each ending
+/// in "threads", so the readers of ms lines skip them; none without a CPU clock.
+pub fn busy_lines(series: &Series, order: &[&str]) -> Vec<String> {
+    let Some(busy) = series.busy() else {
+        return Vec::new();
+    };
+    let mut out = vec!["busy threads (CPU time over wall time):".to_string()];
+    for name in order {
+        if let Some((_, threads)) = busy.iter().find(|(phase, _)| phase == name) {
+            out.push(format!("  {:<32} {:>8.2} threads", name, threads));
+        }
+    }
     out
 }

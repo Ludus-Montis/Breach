@@ -214,6 +214,16 @@ Scenarios:
 
 (Step 1's sub-laps, and step 3's spin reading, are recorded here as they land.)
 
+**Step 3's spin reading, first look** (PR for step 3, 2026-11-12): this session's container, 4
+threads, the `fast` profile, `preset=4096`'s battle (`side=4096 squads=4 series=1`), the whole
+series. `units walk to places`, which runs on one thread right after the threaded `bodies`
+parts, reads **1.00**: no spin shows there. A few short phases read above 1 with nothing of
+theirs threaded (`wounds (tend)` 1.37, `rout: re-forms` 1.33), and the threaded ones read
+`bodies: pushes` 2.98, `scrum: seek` 2.71, `bodies: pair search` 2.48, `scrum: facing` 1.96,
+`scrum: walk` 1.67; the tick 1.49. So busy threads is written up as an upper bound for short
+phases only. The 25k reading comes from the merge's `bench-inspect` run (`busy/` keys in
+`metrics/inspect/`) and the next `bench-25k` record.
+
 ## Not in this spec
 
 - **The clash's cost, which sets p95/p99:** seek (55–86 ms at the slowest ticks), pair search
