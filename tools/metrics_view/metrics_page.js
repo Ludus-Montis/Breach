@@ -12,6 +12,7 @@
   var NS = 'http://www.w3.org/2000/svg';
   var COLOURS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8', '--s9'];
   var HARNESS_COLOUR = { 'tick_phases.gd': '--s2', 'formation_bench.gd': '--s5', 'breach_tick_phases': '--s1' };
+  var CATCH_ALL = { 'other phases': true, untimed: true };
   var PAD = { left: 56, right: 16, top: 28, bottom: 40 };
   var HEIGHT = 320;
   var STEP = 14;
@@ -176,19 +177,6 @@
     });
   }
 
-  function topLevel(points) {
-    var totals = {};
-    points.forEach(function (p) {
-      Object.keys(p.results).forEach(function (path) {
-        var parts = path.split('/');
-        if (parts.length < 2) return;
-        var group = parts.slice(0, 2).join('/');
-        totals[group] = (totals[group] || 0) + (view.valueAt(p.results, group) || 0);
-      });
-    });
-    return Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
-  }
-
   // The phase chart's points: the selected harness's, without hidden CPUs, and in
   // × the reference only those with a reference.
   function phasePoints() {
@@ -213,10 +201,11 @@
     $('phase-unit-name').textContent = UNIT_NAME[unit];
     // The phases and their colours come from all the harness's records, so a toggle never recolours.
     var whole = state.all.find(function (l) { return l.harness === state.harness; });
-    var groups = topLevel(whole ? whole.points : []).slice(0, COLOURS.length - 1);
+    var groups = view.topGroups(whole ? whole.points : [], COLOURS.length - 1);
     var colourOf = function (group) {
+      if (group === 'untimed') return colour('--untimed');
       var k = groups.indexOf(group);
-      return colour(COLOURS[k < 0 ? groups.length : k]);
+      return colour(COLOURS[k < 0 ? COLOURS.length - 1 : k]);
     };
     var width = Math.max(PAD.left + PAD.right + points.length * STEP * 1.5, 600);
     var root = svg($('phases'), width);
@@ -243,10 +232,10 @@
       stacks[i].forEach(function (part) {
         var bar = el('rect', { class: 'bar', x: x, width: STEP * 1.5 - 4, y: y(base + part.value),
           height: Math.max(0, y(base) - y(base + part.value)), fill: colourOf(part.group) }, root);
-        var ms = part.group === 'other' ? null : view.valueAt(p.results, part.group);
+        var ms = CATCH_ALL[part.group] ? null : view.valueAt(p.results, part.group);
         title(bar, short(p.sha) + ' ' + part.group.replace('tick/', '') + ': ' + format(part.value, unit) +
           '\n' + describe(p, ms === null ? (unit === 'ms' ? part.value : p.tick) : ms) +
-          (ms === null && unit !== 'ms' ? ' (the whole tick)' : ''));
+          (ms === null && unit !== 'ms' ? ' (the whole tick)' : '') + holding(part));
         bar.addEventListener('click', function () { openDetails(state.harness, p); });
         base += part.value;
       });
@@ -256,7 +245,14 @@
         title(dash, 'reference ' + short(p.reference) + ': ' + p.referenceTick.toFixed(2) + ' ms');
       }
     });
-    drawPhaseLegend(groups.concat(['other']), colourOf);
+    drawPhaseLegend(groups.concat(['other phases', 'untimed']), colourOf);
+  }
+
+  // The bar's tooltip lines for 'other phases': each phase it holds, in ms.
+  function holding(part) {
+    return (part.holds || []).map(function (phase) {
+      return '\n  ' + phase.group.replace('tick/', '') + ': ' + phase.ms.toFixed(2) + ' ms';
+    }).join('');
   }
 
   // Each entry shows or hides its phase in every unit.

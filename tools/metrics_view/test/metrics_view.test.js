@@ -158,12 +158,24 @@ test('in % of tick, hiding a phase leaves the other shares as they were', () => 
   assert.deepEqual(hidden.map((s) => [s.group, s.value]), [['tick/a', 10], ['tick/c', 70]]);
 });
 
-test('"other" is the tick less the named phases, and can be hidden like them', () => {
-  const p = { tick: 100, referenceTick: 50, results: { tick: measure(100), 'tick/a': measure(30) } };
-  assert.deepEqual(view.stack(p, ['tick/a'], {}, 'ms').map((s) => [s.group, s.value]),
-    [['tick/a', 30], ['other', 70]]);
-  assert.deepEqual(view.stack(p, ['tick/a'], { other: true }, 'reference').map((s) => [s.group, s.value]),
-    [['tick/a', 0.6]]);
+test('"other phases" holds the named phases left uncoloured, "untimed" the tick less every phase', () => {
+  const p = { tick: 100, referenceTick: 50, results: { tick: measure(100), 'tick/a': measure(30),
+    'tick/b': measure(20), 'tick/c/x': measure(10), 'tick/c/y': measure(5) } };
+  const parts = view.stack(p, ['tick/a'], {}, 'ms');
+  assert.deepEqual(parts.map((s) => [s.group, s.value]),
+    [['tick/a', 30], ['other phases', 35], ['untimed', 35]]);
+  assert.deepEqual(parts[1].holds, [{ group: 'tick/b', ms: 20 }, { group: 'tick/c', ms: 15 }]);
+  assert.deepEqual(view.stack(p, ['tick/a'], { 'other phases': true, untimed: true }, 'reference')
+    .map((s) => [s.group, s.value]), [['tick/a', 0.6]]);
+});
+
+test('the coloured phases are the costliest in the newest records, so a retired name drops out', () => {
+  const at = (position, results) => ({ position, tick: 100, results });
+  const old = [1, 2, 3].map((n) => at(n, { tick: measure(100), 'tick/retired': measure(90) }));
+  const recent = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) => at(n, {
+    tick: measure(30), 'tick/a': measure(5), 'tick/b/x': measure(8), 'tick/c': measure(1) }));
+  assert.deepEqual(view.topGroups(old.concat(recent), 2), ['tick/b', 'tick/a']);
+  assert.deepEqual(view.topGroups(old.concat(recent), 9), ['tick/b', 'tick/a', 'tick/c']);
 });
 
 test('a hidden CPU\'s records leave the lines, and the whole-tick line joins the rest', () => {
