@@ -113,7 +113,7 @@ test('CI\'s 4,096 and 25k charts draw the same points with the local records as 
 
 // Step 5c: a cell's repeat records (harness `tick_phases-repeat`, args `at=`/`repeat=`, spec 48
 // step 5a) as points at their ticks beside the cell's series, with Q47's caveat (#909).
-function repeatOf(item, tick, median) {
+function repeatOf(item, tick, median, quartiles) {
   const record = item.record;
   return {
     path: item.path.replace('.json', `-repeat-${tick}.json`),
@@ -122,7 +122,8 @@ function repeatOf(item, tick, median) {
         harness: 'tick_phases-repeat',
         args: record.source.args.filter((a) => !a.startsWith('fight=')).concat([`at=${tick}`, 'repeat=50']),
       }),
-      results: { tick: { unit: 'ms', values: [median - 1, median + 1], median } },
+      results: { tick: Object.assign({ unit: 'ms', values: [median - 1, median + 1], median },
+        quartiles ? { quartiles } : {}) },
     }),
   };
 }
@@ -141,4 +142,24 @@ test('a cell\'s repeats are points at their ticks beside its series, not cells o
   assert.deepEqual(local.repeats(local.runs(GRID)[0], {}), []);
   assert.match(local.REPEAT_CAVEAT, /under-report/);
   assert.match(local.REPEAT_CAVEAT, /whole tick/);
+});
+
+// Step 5e: a repeat's bar spans its rounds' quartiles where the record keeps them (step 5d),
+// and its rounds' range where it doesn't. `spread` says which, for the hover text.
+test('a repeat with quartiles spans the lowest q1 to the highest q3 of its rounds', () => {
+  const cell = GRID.find((item) => item.record.source.args.includes('side=24576')
+    && item.record.source.args.includes('squads=1'));
+  const run = local.runs(GRID.concat([repeatOf(cell, 812, 420.5, [[417, 423.5], [416.25, 425]])]))[0];
+  const [point] = local.repeats(run, { grouping: 'squads', phase: 'tick' });
+  assert.deepEqual([point.lo, point.hi, point.spread], [416.25, 425, 'quartiles']);
+  const [halved] = local.repeats(run, { grouping: 'squads', phase: 'tick', perSquad: true });
+  assert.deepEqual([halved.lo, halved.hi], [416.25, 425]);
+});
+
+test('a repeat without quartiles spans its rounds\' range, as before', () => {
+  const cell = GRID.find((item) => item.record.source.args.includes('side=24576')
+    && item.record.source.args.includes('squads=1'));
+  const run = local.runs(GRID.concat([repeatOf(cell, 812, 420.5)]))[0];
+  const [point] = local.repeats(run, { grouping: 'squads', phase: 'tick' });
+  assert.deepEqual([point.lo, point.hi, point.spread], [419.5, 421.5, 'rounds']);
 });
