@@ -764,6 +764,14 @@ C++ workload) or the GNU toolchain's MinGW `gcc` on Windows, the Xcode command-l
 macOS. Its maps hash with foldhash, seeded at random per process (`src/hashing.rs`);
 `clippy.toml` refuses std's `HashMap` and `HashSet` elsewhere.
 
+The toolchain is pinned in `rust/rust-toolchain.toml` (spec 49 step 1, Decision 179): the
+stable version CI's runner image carries, with `rustfmt` and `clippy`. rustup installs it on
+the first `cargo` call in `native/rust`, on CI and on a PC alike. A built binary is keyed by
+`ci/native/store_key.sh <commit> <profile> <target>`, which prints
+`<tree id of native/>-<toolchain>-<profile>-<target>`: commits that differ only outside
+`native/` share a key, and the toolchain is the pin of the checkout running the script, so a
+commit from before the pin is keyed with today's compiler. Raising the pin changes every key.
+
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export
 would need the library and the `.gdextension` added.

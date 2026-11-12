@@ -1,0 +1,8 @@
+# The Rust toolchain every build of the crate uses (spec 49 step 1, Decision 179): the
+# stable version on CI's ubuntu-26.04 runner image (20261101.186.1). A binary in the
+# `native-store` pre-release is keyed by it (`ci/native/store_key.sh`), so changing it
+# rebuilds every key.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
