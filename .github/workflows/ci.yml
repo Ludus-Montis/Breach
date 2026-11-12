@@ -81,8 +81,8 @@ jobs:
           done
 
       - name: Check native build inputs stay under native/ (spec 49 step 2)
-        # The store keys a binary by native/'s tree (Decision 179): a RUSTFLAGS or
-        # --features set in a workflow would change a build without changing its key.
+        # The store keys a binary by native/'s tree (Decision 179): a build flag set in a
+        # workflow would change a build without changing its key (the list is in the script).
         run: |
           python3 -m unittest discover -s ci/native -p "test_*.py"
           python3 ci/native/check_build_inputs.py
