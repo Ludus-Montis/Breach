@@ -352,7 +352,12 @@ for the target: the tick within a fifth of ×6 either way, and phases that grew 
 marked `^`.
 
 The three passes that take most of the tick are timed in parts (spec 41 step 1): the scrum's
-`scrum: seek`, `scrum: walk` and `scrum: facing`; the rout's `rout: flight`, `rout: rallies`,
+`scrum: seek`, `scrum: walk` and `scrum: facing`, then (spec 50 step 1) the regroup's
+`scrum: regroup: regroupers`, `faced`, `crowd`, `walk-back` and `trade-in` and the chase's
+`scrum: chase: chasing`, `lookups`, `crowd` and `steer`, which ends the phase that was
+`scrum: regroup and chasers` (its history line ends there; the parts' sum takes its place).
+These are timed on every tick, so they keep their order; `walk-back` and `trade-in` add up
+over the squads, as they run in turn for each; the rout's `rout: flight`, `rout: rallies`,
 `rout: regroup's search`, `rout: re-forms` and `rout: breaks` (only on ticks something routs),
 then `rout: listing`; and the parting's `bodies: sync`, then each of its passes' `bodies: pair
 search`, `bodies: pushes` and `bodies: sums and applying`, then `bodies: commit`. A part but

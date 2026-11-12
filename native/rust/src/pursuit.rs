@@ -15,6 +15,7 @@ use crate::entries;
 use crate::frame::Frame;
 use crate::ghash::{self, Key};
 use crate::ground::Ground;
+use crate::laps::split;
 use crate::maths::{bearing_vector, V2};
 use crate::mover;
 use crate::near::{Crowd, Foes, Steering};
@@ -95,10 +96,13 @@ pub fn chase(
             walks.push(Walk { listed: c.listed, unit, heads, returning });
         }
     }
+    split("scrum: chase: lookups");
     if walks.is_empty() {
+        split("scrum: chase: crowd"); // none built, but the parts keep their order
         return;
     }
     let crowd = Crowd::of(roster.bodies(squads, columns));
+    split("scrum: chase: crowd");
     let full: Vec<f64> = walks
         .iter()
         .map(|w| columns.speed[w.unit.slot] * rules.cells_per_second * rules.seconds)

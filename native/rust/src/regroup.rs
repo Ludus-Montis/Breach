@@ -14,6 +14,7 @@ use crate::columns::Columns;
 use crate::entries;
 use crate::frame::Frame;
 use crate::ground::Ground;
+use crate::laps::split;
 use crate::locks;
 use crate::maths::V2;
 use crate::motion;
@@ -78,12 +79,20 @@ pub fn step(
         }
         faced.push(foes_faced(squads, columns, roster, r, &mut hostile, rules));
     }
+    split("scrum: regroup: faced");
     let walking =
         regroupers.iter().any(|r| !squads.loose[roster.listed[r.listed].squad].is_empty());
     let crowd = if walking { Crowd::of(roster.bodies(squads, columns)) } else { Crowd::of(vec![]) };
+    split("scrum: regroup: crowd");
+    if regroupers.is_empty() {
+        split("scrum: regroup: walk-back"); // none to time, but the parts keep their order
+        split("scrum: regroup: trade-in");
+    }
     for (r, foes) in regroupers.iter().zip(&faced) {
         walk_back(squads, columns, roster, r, foes, &crowd, ground, rules);
+        split("scrum: regroup: walk-back"); // each squad's adds to the part's time
         trade_in(squads, columns, roster, r.listed, rules);
+        split("scrum: regroup: trade-in");
     }
 }
 
