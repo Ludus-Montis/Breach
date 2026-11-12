@@ -110,3 +110,35 @@ test('CI\'s 4,096 and 25k charts draw the same points with the local records as 
   assert.deepEqual(set.chart(both), set.chart(ci));
   assert.deepEqual(set.onTrack(both), set.onTrack(ci));
 });
+
+// Step 5c: a cell's repeat records (harness `tick_phases-repeat`, args `at=`/`repeat=`, spec 48
+// step 5a) as points at their ticks beside the cell's series, with Q47's caveat (#909).
+function repeatOf(item, tick, median) {
+  const record = item.record;
+  return {
+    path: item.path.replace('.json', `-repeat-${tick}.json`),
+    record: Object.assign({}, record, {
+      source: Object.assign({}, record.source, {
+        harness: 'tick_phases-repeat',
+        args: record.source.args.filter((a) => !a.startsWith('fight=')).concat([`at=${tick}`, 'repeat=50']),
+      }),
+      results: { tick: { unit: 'ms', values: [median - 1, median + 1], median } },
+    }),
+  };
+}
+
+test('a cell\'s repeats are points at their ticks beside its series, not cells of it', () => {
+  const cell = GRID.find((item) => item.record.source.args.includes('side=24576')
+    && item.record.source.args.includes('squads=1'));
+  const run = local.runs(GRID.concat([repeatOf(cell, 812, 420.5), repeatOf(cell, 340, 401)]))[0];
+  assert.equal(run.records.length, 20, 'the series keeps its 20 cells');
+  const curves = local.curves(run, { grouping: 'squads', phase: 'tick' });
+  assert.equal(curves[0].points.length, 4);
+  const points = local.repeats(run, { grouping: 'squads', phase: 'tick' });
+  assert.deepEqual(points.map((p) => [p.key, p.x, p.tick, p.y]), [[1, 24576, 340, 401], [1, 24576, 812, 420.5]]);
+  assert.deepEqual([points[1].lo, points[1].hi, points[1].n], [419.5, 421.5, 50]);
+  assert.equal(local.repeats(run, { grouping: 'size', phase: 'tick', perSquad: true })[0].x, 24576);
+  assert.deepEqual(local.repeats(local.runs(GRID)[0], {}), []);
+  assert.match(local.REPEAT_CAVEAT, /under-report/);
+  assert.match(local.REPEAT_CAVEAT, /whole tick/);
+});

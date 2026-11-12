@@ -98,6 +98,24 @@
     }
   }
 
+  // The run's repeats (spec 48 step 5c): hollow points at their cell, set to the left of its
+  // series' point, one step per tick it replays, each with its rounds' bar.
+  function drawRepeats(points, main, colour, x, y, root) {
+    var placed = {};
+    points.forEach(function (p) {
+      var i = main.findIndex(function (c) { return c.key === p.key; });
+      var tint = colour(i < 0 ? main.length : i);
+      var slot = placed[p.key + ' ' + p.x] = (placed[p.key + ' ' + p.x] || 0) + 1;
+      var at = x(p.x) - 7 * slot;
+      el('line', { class: 'range', stroke: tint, x1: at, x2: at, y1: y(p.lo), y2: y(p.hi) }, root);
+      var dot = el('circle', { class: 'point repeat', cx: at, cy: y(p.y), r: 2.5, fill: 'var(--panel)', stroke: tint }, root);
+      el('title', {}, dot).textContent = 'tick ' + p.tick + ' repeated ' + p.n + ' times, ' +
+        p.side.toLocaleString('en') + ' a side in ' + p.squads + (p.squads === 1 ? ' squad' : ' squads') +
+        '\nmedian ' + p.y.toFixed(2) + ' ms, rounds ' + p.lo.toFixed(2) + ' to ' + p.hi.toFixed(2) +
+        '\n' + local.REPEAT_CAVEAT;
+    });
+  }
+
   function drawChart() {
     var target = $('local-chart');
     target.textContent = '';
@@ -107,7 +125,8 @@
     var older = prior ? local.curves(prior, options(state.phase)) : [];
     var thin = state.phase === local.TICK ? local.costliest(run, 3) : [];
     var thinCurves = thin.map(function (phase) { return { phase: phase, curves: local.curves(run, options(phase)) }; });
-    var found = extent([main, older].concat(thinCurves.map(function (t) { return t.curves; })));
+    var repeats = local.repeats(run, options(state.phase));
+    var found = extent([main, older, [{ points: repeats }]].concat(thinCurves.map(function (t) { return t.curves; })));
     if (!found.ys.length) { target.textContent = 'No numbers for this phase in this run.'; return; }
     if (goalsShown()) found.ys = found.ys.concat(local.GOALS.map(function (g) { return g.ms; }));
     var root = el('svg', { width: WIDTH, height: HEIGHT, viewBox: '0 0 ' + WIDTH + ' ' + HEIGHT, role: 'img' }, target);
@@ -140,10 +159,12 @@
       drawCurve(curve, colour(i), x, y, root, { bars: true, r: 3.5, name: curveName(curve.key) },
         phaseName(state.phase) + ', ' + curveName(curve.key));
     });
+    drawRepeats(repeats, main, colour, x, y, root);
     $('local-legend').innerHTML = main.map(function (curve, i) {
       return '<span style="--swatch:' + colour(i) + '">' + curveName(curve.key) + '</span>';
     }).join('') + (thin.length ? '<span>thin: ' + thin.map(phaseName).join(', ') + '</span>' : '') +
-      (prior ? '<span>dotted: ' + runName(prior) + '</span>' : '');
+      (prior ? '<span>dotted: ' + runName(prior) + '</span>' : '') +
+      (repeats.length ? '<span>hollow, left of a point: its repeated ticks, a guide. ' + local.REPEAT_CAVEAT + '</span>' : '');
   }
 
   function drawHeading() {
