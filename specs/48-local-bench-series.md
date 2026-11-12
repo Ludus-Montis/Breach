@@ -195,20 +195,6 @@ Scenarios:
 - Given a pair run, then the script prints, per tick, the head's change against the base for
   the tick and each phase, flagged where the ranges are apart, as `bench`'s summary does.
 
-### Step 5c, the page shows the repeats
-
-**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
-**Needs:** 2, 5a
-**Touches:** `tools/metrics_view/metrics_local.js` and its test, `tools/metrics_view/README.md`
-
-- **The page (step 2)** shows a repeat record's ticks as points at their tick, beside the
-  cell's series, with Q47's caveat beside them: the repeats under-report phases whose cost
-  builds up across ticks; the whole tick is the judge.
-
-Scenarios:
-- Given a cell's settled record and its repeat records, then the repeats are points at their
-  ticks beside the series.
-
 ## Measured
 
 Filled in by step 4.
@@ -284,3 +270,23 @@ Scenarios:
 - Given a cell run with `series=1`, then its record holds `tick-p95`, `tick-p99` and each
   round's `inspect:` ticks.
 - Given a machine line that names the CPU, then the record's machine is the printed one.
+
+### Step 5c, the page shows the repeats
+
+**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
+**Needs:** 2, 5a
+**Touches:** `tools/metrics_view/metrics_local.js` and its test, `tools/metrics_view/README.md`
+
+- **The page (step 2)** shows a repeat record's ticks as points at their tick, beside the
+  cell's series, with Q47's caveat beside them: the repeats under-report phases whose cost
+  builds up across ticks; the whole tick is the judge.
+
+Scenarios:
+- Given a cell's settled record and its repeat records, then the repeats are points at their
+  ticks beside the series.
+
+**Found at build (2026-11-12):** "at their ticks" can't be a place on the page's axes, which
+are units a side or squad size. So a repeat is a hollow point at its cell's x, set just left of
+the cell's point, one step per tick, with its rounds' bar; the tick and the repeat count are in
+its hover text. Repeat records are kept apart from the run's cells (`run.repeats`), so the
+series keeps one point per cell. Q47's caveat is in the legend whenever repeats are drawn.

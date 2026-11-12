@@ -105,6 +105,12 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
     the three costliest phases at the largest cell are drawn thin.
   - **Decision 159's lines:** 50 ms target and 100 ms interim, at 24,576 a side on CI's
     4-thread runner, a guide here; drawn with the whole tick only, not per squad.
+  - **The repeats (spec 48 step 5c):** a cell's repeat records (harness `tick_phases-repeat`,
+    from `local_grid.sh inspect`) are hollow points just left of the cell's point, one per tick
+    they replay, each with its rounds' bar; hovering names the tick and the repeat count. They
+    are not cells of the series. Beside them the legend gives Q47's caveat (#909): the repeats
+    under-report phases whose cost builds up across ticks (strays, groups, bodies: pushes,
+    stamina), and the whole tick is the judge.
   - CI's charts never draw a local record: their filters keep `series` `bench`.
 
 ## Files
@@ -119,7 +125,7 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
 - `metrics_inspect.js`: the repeats' panels (the pairing with the 25k set, the units, the
   gap and Q47's caveat), tested by `test/metrics_inspect.test.js`.
 - `metrics_local.js`: the local section's logic (runs, curves by squad count or squad size,
-  per squad, the phases and the costliest three), tested by `test/metrics_local.test.js` on
+  per squad, the phases, the costliest three and the repeats' points), tested by `test/metrics_local.test.js` on
   the owner's 2026-11-11 grid under `metrics/local/`.
 - `metrics_page.js`, `metrics_25k_page.js`, `metrics_inspect_page.js`, `metrics_local_page.js`,
   `metrics_view.css`, `index.html`: the drawing.

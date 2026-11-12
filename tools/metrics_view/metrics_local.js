@@ -3,7 +3,9 @@
 // and a run into curves: the tick or a phase against units a side, one curve per squad count,
 // or against squad size, one curve per total. Each point is a cell's median, with its rounds'
 // range. Local records are raw ms on one machine; CI's charts never read them (their filters
-// keep `series` "bench"). No DOM here; metrics_local_page.js draws.
+// keep `series` "bench"). A run's repeat records (spec 48 step 5c) are not cells of its series:
+// they are points at their ticks beside it, a guide with Q47's caveat (#909). No DOM here;
+// metrics_local_page.js draws.
 (function (root) {
   'use strict';
 
@@ -11,6 +13,10 @@
   // Decision 159's goals at 24,576 a side, measured on CI's 4-thread runner.
   var GOALS = [{ ms: 50, label: 'target' }, { ms: 100, label: 'interim' }];
   var GOAL_SIDE = 24576;
+  // The repeat mode's records (spec 48 step 5a) and Q47's answer (a), #909.
+  var REPEAT_HARNESS = 'tick_phases-repeat';
+  var REPEAT_CAVEAT = 'Repeats replay one tick: they under-report phases whose cost builds up ' +
+    'across ticks (strays, groups, bodies: pushes, stamina). The whole tick is the judge.';
   var GROUPINGS = {
     squads: { curve: 'squads', x: function (cell) { return cell.side; } },
     size: { curve: 'side', x: function (cell) { return cell.side / cell.squads; } },
@@ -41,6 +47,10 @@
     return side > 0 && squads > 0 ? { side: side, squads: squads } : null;
   }
 
+  function repeated(record) {
+    return record.source.harness === REPEAT_HARNESS && argOf(record, 'at') !== null;
+  }
+
   function dateOf(record) {
     var date = (record.provenance || {}).date;
     return typeof date === 'string' ? date : '';
@@ -57,9 +67,9 @@
       var run = found[key] = found[key] || {
         key: key, date: dateOf(record), sha: sha, position: number(record.commit.position),
         title: typeof record.commit.title === 'string' ? record.commit.title : '',
-        machine: record.machine || {}, records: [],
+        machine: record.machine || {}, records: [], repeats: [],
       };
-      run.records.push(record);
+      (repeated(record) ? run.repeats : run.records).push(record);
     });
     return Object.keys(found).map(function (key) { return found[key]; }).sort(function (a, b) {
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
@@ -87,7 +97,7 @@
   // The phases a run's records time: the tick first, then the rest in path order.
   function phases(run) {
     var seen = {};
-    run.records.forEach(function (record) {
+    run.records.concat(run.repeats || []).forEach(function (record) {
       Object.keys(record.results || {}).forEach(function (phase) {
         if (measure(record, phase)) seen[phase] = true;
       });
@@ -145,6 +155,27 @@
     });
   }
 
+  // A run's repeats for `options` as curves' points take them: each at its cell's x, in the
+  // curve `key` its cell's series is in, with the `tick` it replays and its `n` repeats.
+  // Ordered by curve, x, then tick.
+  function repeats(run, options) {
+    var grouping = GROUPINGS[(options || {}).grouping] || GROUPINGS.squads;
+    var phase = (options || {}).phase || TICK;
+    var divide = !!(options || {}).perSquad;
+    var found = [];
+    (run.repeats || []).forEach(function (record) {
+      var cell = cellOf(record);
+      var at = measure(record, phase);
+      if (!at) return;
+      var by = divide ? cell.squads : 1;
+      found.push({
+        key: cell[grouping.curve], x: grouping.x(cell), y: at.median / by, lo: at.lo / by, hi: at.hi / by,
+        tick: argOf(record, 'at'), n: argOf(record, 'repeat'), side: cell.side, squads: cell.squads,
+      });
+    });
+    return found.sort(function (a, b) { return a.key - b.key || a.x - b.x || a.tick - b.tick; });
+  }
+
   // A machine's heading: CPU, cores and threads, RAM and OS, from what the record names.
   function machineLine(machine) {
     var parts = [];
@@ -162,7 +193,8 @@
   }
 
   var api = { runs: runs, before: before, phases: phases, costliest: costliest, curves: curves,
-    cellOf: cellOf, machineLine: machineLine, GOALS: GOALS, GOAL_SIDE: GOAL_SIDE, TICK: TICK };
+    repeats: repeats, cellOf: cellOf, machineLine: machineLine, GOALS: GOALS, GOAL_SIDE: GOAL_SIDE,
+    TICK: TICK, REPEAT_CAVEAT: REPEAT_CAVEAT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BreachMetricsLocal = api;
 })(this);
