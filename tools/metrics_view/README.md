@@ -91,6 +91,21 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   names both records' CPUs) (a harvested point: with its commit's fresh record) at the
   deepest phase level both timed. A phase only one side timed more finely is named, not
   compared; a phase one side didn't measure is a gap, never 0.
+- **The owner's PC (local runs, spec 48 step 2, Decision 178):** a section below CI's, shown
+  when the bundle holds records with `series` `local` (`metrics/local/`). It is headed by the
+  machine the records name (CPU, cores, RAM, OS) and the run's commit and date, and is in raw
+  ms on log scales. A run is the records of one date and commit; a picker lists them when
+  there are several, newest first, and the run before the picked one is drawn dotted.
+  - **Two groupings:** the tick (or a phase) against units a side, a curve per squad count; or
+    against squad size, a curve per total. **Per squad** divides each value by the cell's
+    squad count, so a phase whose cost is the square of a squad's size draws every total on
+    one line of slope 2.
+  - **Each point** is the cell's median, with a bar for its rounds' range.
+  - **The phase picker:** the whole tick (default) or any phase the run times. With the tick,
+    the three costliest phases at the largest cell are drawn thin.
+  - **Decision 159's lines:** 50 ms target and 100 ms interim, at 24,576 a side on CI's
+    4-thread runner, a guide here; drawn with the whole tick only, not per squad.
+  - CI's charts never draw a local record: their filters keep `series` `bench`.
 
 ## Files
 
@@ -103,7 +118,10 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
   (`ci/metrics/fixtures/bench_fit.json`).
 - `metrics_inspect.js`: the repeats' panels (the pairing with the 25k set, the units, the
   gap and Q47's caveat), tested by `test/metrics_inspect.test.js`.
-- `metrics_page.js`, `metrics_25k_page.js`, `metrics_inspect_page.js`, `metrics_view.css`,
-  `index.html`: the drawing.
+- `metrics_local.js`: the local section's logic (runs, curves by squad count or squad size,
+  per squad, the phases and the costliest three), tested by `test/metrics_local.test.js` on
+  the owner's 2026-11-11 grid under `metrics/local/`.
+- `metrics_page.js`, `metrics_25k_page.js`, `metrics_inspect_page.js`, `metrics_local_page.js`,
+  `metrics_view.css`, `index.html`: the drawing.
 - `build_index.py`: lists `metrics/` (not `raw/`, not `schema/`) into `records.json`, tested by
   `tools/test_metrics_index.py`.

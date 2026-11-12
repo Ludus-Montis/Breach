@@ -129,6 +129,18 @@ Scenarios:
 - Given CI's records and local ones, then the 4,096 and 25k charts draw the same points as
   without the local ones.
 
+**Found at build (2026-11-11):**
+- The scenario's "slope about 2 (per squad)" is a toggle, **per squad**, which divides each
+  value by the cell's squad count. Without it, `units walk to places` by squad size has a
+  slope of about 1.2 and the totals sit apart; with it, each total's slope is 1.8 to 1.9 and
+  they lie on one line.
+- The records' `machine` (from `ci/metrics/local_machine.json`) has no thread count: the
+  file's `threads` sits beside it, for the importer's check. So the heading names cores, not
+  threads. Putting the threads in the record is a schema change, left out here.
+- "The largest cell" is the most units a side, and of those the costliest tick (24,576 in one
+  squad). Its three costliest phases are the three quadratic ones: `scrum: seek`, `units
+  walk to places` and `scrum: engage, prepare, stance`.
+
 ### Step 3, `breach_tick_phases` names the CPU on Windows
 
 **Needs:** none
