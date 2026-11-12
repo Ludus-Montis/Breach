@@ -226,3 +226,13 @@ test('a point names its CPU as the record does, "unknown" without one', () => {
   assert.deepEqual(view.lines([named, bare])[0].points.map((p) => p.cpu),
     ['AMD EPYC 9V74 80-Core Processor', 'unknown']);
 });
+
+test('a record\'s busy threads (spec 50 step 3) stay out of its phases, which are ms', () => {
+  const busy = { unit: 'threads', values: [3.2], median: 3.2 };
+  const item = record('a'.repeat(40), 900, 'breach_tick_phases',
+    { tick: measure(100), 'tick/scrum/seek': measure(40), 'busy/tick': busy, 'busy/scrum/seek': busy });
+  const p = view.lines([item])[0].points[0];
+  assert.deepEqual(Object.keys(p.results).sort(), ['tick', 'tick/scrum/seek']);
+  assert.deepEqual(view.stack(p, ['tick/scrum'], {}, 'ms').map((s) => s.group),
+    ['tick/scrum', 'untimed']);
+});

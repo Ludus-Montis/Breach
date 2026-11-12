@@ -107,6 +107,16 @@
     return (item.record.provenance || {}).kind;
   }
 
+  // A record's measures in ms: its phases. Busy threads (`busy/<phase>`, in threads; spec 50
+  // step 3) are another measure, left out of the phases' sums and the compare.
+  function inMs(results) {
+    var out = {};
+    Object.keys(results).forEach(function (path) {
+      if ((results[path] || {}).unit !== 'threads') out[path] = results[path];
+    });
+    return out;
+  }
+
   function point(item, position) {
     var record = item.record;
     var commit = record.commit || {};
@@ -121,7 +131,7 @@
       reference: typeof (record.reference || {}).commit === 'string' ? record.reference.commit : '',
       pr: typeof commit.pr === 'number' ? REPO + '/pull/' + commit.pr : null,
       recordUrl: REPO + '/blob/main/' + item.path,
-      results: record.results,
+      results: inMs(record.results || {}),
       runId: (record.provenance || {}).run_id || 0,
       harvested: kind(item) === 'harvested',
       date: (record.provenance || {}).date || '',

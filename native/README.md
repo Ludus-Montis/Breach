@@ -324,6 +324,17 @@ points (the pair search, the seek). They under-sized some phases a change touche
 tick. At 25k one side breaks at tick 101 (at 4,096, 107), so there the rout's spike and the
 break are 100 and 101; the series runs on past the break until the field settles (step 2a).
 
+**Busy threads** (spec 50 step 3, `src/laps.rs`). Each lap also reads the process's CPU time
+(`CLOCK_PROCESS_CPUTIME_ID`), and a series and the repeat mode end with a `busy threads (CPU
+time over wall time):` block: the tick's and each phase's CPU time over its wall time, summed
+over the series or the repeats, in the table's order. One thread working reads about 1.0;
+CI's 4 threads fully busy, about 4.0. The lines end in `threads`, so `bench_compare.py` skips
+them. Windows has no fine CPU clock (`GetProcessTimes` updates every ~15.6 ms), so there the
+block isn't printed. Rayon's idle workers spin a little before they sleep, which counts as
+CPU time: at 4,096 on 4 threads (`## Measured` in spec 50) `units walk to places`, right after
+the threaded `bodies` parts, reads 1.00, but a few short phases read up to about 1.4 with
+nothing of theirs threaded. Read a short phase's reading as an upper bound.
+
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
 follows the times with a `counts:` line, then each pass in the tick's order: the unit store's

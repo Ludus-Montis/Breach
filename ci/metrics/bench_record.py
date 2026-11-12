@@ -17,6 +17,10 @@ A `series=1` run (the 25k set, step 8a) also gets `tick-p95` and `tick-p99`, the
 and 99th of the whole tick; with no `--reference` (a grid shape, timed without the bridge) the
 record has no `reference`. `--number` names one of several records a run writes.
 
+Where the binary printed a "busy threads" block (spec 50 step 3: Linux, not Windows), each
+phase's busy threads (its CPU time over its wall time) is `busy/<key>` (`busy/scrum/seek`,
+`busy/tick`) in `threads`, beside its ms. The prefix keeps them out of the ms sums.
+
 A bench-inspect job (spec 47 step 5a) passes `--series inspect` and its replay's args
 (`preset=<size> at=<tick> repeat=<n>`): its record goes to `metrics/inspect/`, its harness is
 `tick_phases-repeat`, and each round's values are that round's medians of the repeats.
@@ -44,6 +48,8 @@ NOT_RECORDED = {"na": "not-recorded"}
 NOT_MEASURED = {"na": "not-measured"}
 NOT_APPLICABLE = {"na": "not-applicable"}
 PR = re.compile(r"\s*\(#(\d+)\)\s*$")
+BUSY_HEAD = "busy threads"
+BUSY = re.compile(r"^  (\S.*?)\s+(\d+\.\d+) threads$")
 
 
 def phase_path(name: str) -> str:
@@ -65,6 +71,29 @@ def measures(texts: list, parse=phases) -> dict:
     out = {}
     for name in sorted(shared):
         out[phase_path(name)] = measure([run[name] for run in runs])
+    return out
+
+
+def busy(text: str) -> dict:
+    """{"tick": threads, phase: threads, ...} from one run's "busy threads" block; {} when it
+    printed none (an older binary, or Windows)."""
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith(BUSY_HEAD)), len(lines))
+    out = {}
+    for line in lines[start + 1:]:
+        found = BUSY.match(line)
+        if not found:
+            break
+        out[found.group(1)] = float(found.group(2))
+    return out
+
+
+def busy_measures(texts: list) -> dict:
+    """{`busy/<key>`: measure in threads} for every phase each round printed busy threads for."""
+    out = {}
+    for path, found in measures(texts, busy).items():
+        key = "busy/" + (path[len("tick/"):] if path.startswith("tick/") else path)
+        out[key] = {**found, "unit": "threads"}
     return out
 
 
@@ -105,7 +134,7 @@ def build_record(head_texts: list, reference_texts: list, context: dict,
                  series: str = "bench") -> dict:
     """The record; with no reference rounds (a 25k grid shape, timed without the bridge) it
     has no `reference`. `series` is `inspect` for a bench-inspect job's repeats."""
-    results = {**measures(head_texts), **percentiles(head_texts)}
+    results = {**measures(head_texts), **percentiles(head_texts), **busy_measures(head_texts)}
     record = {
         "schema": "record-v1",
         "series": series,
