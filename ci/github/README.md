@@ -34,6 +34,24 @@ Files: `sync.py` (plan and run), `step_issues.py` (the parent and step issues),
 `fake_client.py` (the tests' stand-in). Tests: `python3 -m unittest discover -s ci/github
 -p "test_*.py"`.
 
+## The number check
+
+`check_numbers.py`, run by the `numbers` workflow (`.github/workflows/numbers.yml`) when a
+PR is opened, pushed, reopened or marked ready (spec 51, Decision 181). A spec or Decision
+number belongs to `main`, then to the open PR with the lowest number that adds it. It lists
+the open PRs with `gh`, fetches each `refs/pull/N/head` and reads what each adds over its
+merge-base with its own base branch: the `NN` of a new `specs/NN-*.md`, the `N` of a new
+`### Decision N —` line in a root Markdown file. A retitled heading adds nothing.
+
+| Result | Where |
+|---|---|
+| This PR adds a number already held | The job fails; its `numbers` status names the holder and the next free number, e.g. `spec 46 is held by #875; the next free spec is 47` |
+| It clashes with nothing | Passes; the run's summary lists what it holds |
+| A later open PR adds one of this PR's numbers | A failing `numbers` status on that PR's head, saying which run set it. It stays until that PR is re-run or pushed, even if the earlier PR closes |
+
+Tests: `python3 -m unittest ci/github/test_check_numbers.py`. Making `numbers` a required
+check is the owner's branch-protection setting.
+
 ## The Project's Status
 
 `project_status.py`, run by the `project-status` workflow

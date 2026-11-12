@@ -111,6 +111,9 @@ work differently, it was in the wrong place.
   lines, not counting tests and docs. A larger step is split before the spec is pushed. A
   step that still proves too large during the build is split then, and the split is
   signposted (rule 8).
+- **A number is claimed by an early PR.** A session that adds a spec or a Decision opens its
+  proposal, as a draft, as soon as it picks the number; CI fails a later proposal that takes
+  the same one and names the next free number.
 
 ## 4. Context is a budget
 
