@@ -6,7 +6,7 @@
 //!   native/bin/breach_tick_phases [side=1024] [width=32] [settle=10] [fight=5] [seed=1]
 //!       [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0]
 //!       [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] [counts=1]
-//!       [scatter=1] [preset=4096|25k] [at=<tick>[,<tick>...]] [repeat=50] [repo=<path>]
+//!       [scatter=1] [preset=4096|25k] [at=<tick>[,<tick>...]] [repeat=50] [laps=1] [repo=<path>]
 //!   native/bin/breach_tick_phases scenario=<name> [threaded=true|false|always] [repo=<path>]
 //!
 //! `scenario=<name>` times a scenario from `content/scenarios/` (spec 44 step 2b): the same
@@ -26,8 +26,10 @@
 //! just before it; then each tick, in the order given, is stepped `repeat` times on the running
 //! battle, the copy put back before each, untimed, after one untimed repeat. Each tick prints a
 //! `repeat:` line, its medians on the lines `bench_compare.py` reads, then each one's median,
-//! interquartile range and 95% interval of the median. A tick past the battle's end exits 2,
-//! naming the last; so do `counts=` and `scatter=` beside it, and `repeat` without it.
+//! quartiles and 95% interval of the median. `laps=1` follows each tick's table with a `laps:`
+//! block, every lap in ms in the order run (spec 48 step 5f); the printing comes after the
+//! timing, so the times are as without it. A tick past the battle's end exits 2, naming the
+//! last; so do `counts=` and `scatter=` beside it, and `repeat` or `laps` without it.
 //!
 //! `terrain=mixed` plays the clash on FormationBench's mixed ground, a wood and a ford across
 //! its line of advance (`ground::map::mixed`; spec 38 step 2). It has one lane: with
@@ -63,12 +65,12 @@ const USAGE: &str = "usage: breach_tick_phases [side=1024] [width=32] [settle=10
                      [seed=1] [stage=fight|march] [retreat=<squad id>] [squads=1] [archers=0] \
                      [threaded=true|false|always] [series=1] [limit=600] [terrain=open|mixed] \
                      [counts=1] [scatter=1] [preset=4096|25k] [at=<tick>[,<tick>...]] \
-                     [repeat=50] [repo=<path>]\n       \
+                     [repeat=50] [laps=1] [repo=<path>]\n       \
                      breach_tick_phases scenario=<name> [threaded=true|false|always] [repo=<path>]";
-const KNOWN: [&str; 20] = [
+const KNOWN: [&str; 21] = [
     "side", "width", "settle", "fight", "seed", "stage", "retreat", "squads", "archers",
     "threaded", "series", "limit", "terrain", "counts", "scatter", "preset", "repo", "scenario",
-    "at", "repeat",
+    "at", "repeat", "laps",
 ];
 /// The arguments a scenario run takes; it plays its own record, so no others.
 const SCENARIO: [&str; 4] = ["scenario", "threaded", "series", "repo"];
@@ -213,6 +215,9 @@ fn repeat_run(args: &HashMap<String, String>, options: &Options, content: &Conte
     for copy in &kept {
         let repeated = repeat::repeat(&mut battle, copy, n, content);
         println!("{}", repeat::lines(&name, &repeated).join("\n"));
+        if flag(args, "laps") {
+            println!("{}", repeat::lap_lines(&repeated).join("\n"));
+        }
         same &= repeated.same;
     }
     if !same {
@@ -221,11 +226,12 @@ fn repeat_run(args: &HashMap<String, String>, options: &Options, content: &Conte
     ExitCode::SUCCESS
 }
 
-/// Why `at` or `repeat` can't be played as given: `repeat` without `at`, a tick that isn't a
-/// number, or `counts` or `scatter` beside it. None if they can.
+/// Why `at` or `repeat` can't be played as given: `repeat` or `laps` without `at`, a tick that
+/// isn't a number, or `counts` or `scatter` beside it. None if they can.
 fn refused_repeat(args: &HashMap<String, String>) -> Option<String> {
     let Some(at) = args.get("at") else {
-        return args.contains_key("repeat").then(|| "repeat= repeats the ticks at= names".into());
+        let alone = ["repeat", "laps"].into_iter().find(|key| args.contains_key(*key));
+        return alone.map(|key| format!("{key}= is for the ticks at= names"));
     };
     if let Some(bad) = at.split(',').find(|t| t.trim().parse::<i64>().is_err()) {
         return Some(format!("at= takes ticks separated by commas, not {bad:?}"));

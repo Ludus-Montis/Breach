@@ -97,3 +97,38 @@ fn the_lines_name_the_tick_then_read_as_a_run_s_then_give_each_middle_with_its_q
     ];
     assert_eq!(out, expected);
 }
+
+#[test]
+fn the_laps_block_gives_each_lap_in_the_order_run_the_tick_first_then_the_table_s_phases() {
+    let mut laps = Series::default();
+    for (a, b) in [(3000.0, 1000.0), (1000.0, 5000.0), (2000.0, 3000.0)] {
+        laps.push(105, vec![("a", a), ("b", b)]);
+    }
+    let repeated = Repeated { tick: 105, laps, same: true };
+    let expected = [
+        "laps:",
+        "  tick                             [4.000, 6.000, 5.000]",
+        "  b                                [1.000, 5.000, 3.000]",
+        "  a                                [3.000, 1.000, 2.000]",
+    ];
+    assert_eq!(lap_lines(&repeated), expected);
+}
+
+#[test]
+fn five_repeats_give_five_laps_for_the_tick_and_each_phase_beside_an_unchanged_table() {
+    let content = content();
+    let mut battle = settled(&small(), &content).expect("the clash sets up");
+    let at = battle.play.tick + 2;
+    let kept = kept(&mut battle, &[at], &content).expect("the tick is in the battle");
+    let repeated = repeat(&mut battle, &kept[0], 5, &content);
+    let table = lines("64 a side, 8 wide", &repeated);
+    let block = lap_lines(&repeated);
+    assert_eq!(block[0], "laps:");
+    assert_eq!(block.len(), 2 + repeated.laps.spent.len());
+    assert!(block[1].starts_with("  tick "), "{}", block[1]);
+    for line in &block[1..] {
+        let inside = line.split_once('[').expect("a bracketed list").1;
+        assert_eq!(inside.trim_end_matches(']').split(", ").count(), 5, "{line}");
+    }
+    assert_eq!(lines("64 a side, 8 wide", &repeated), table);
+}

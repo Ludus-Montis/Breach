@@ -13,6 +13,8 @@
 # inspect (5b): replays each cell's `inspect:` ticks (round 1's, from bench-grid/) with
 #   `at=<ticks> repeat=50`, the rounds in turn, into bench-grid/inspect/, then imports them:
 #   one record per (cell, tick). A guide, not the judge (Q47, #909).
+#   inspect and pair pass `laps=1` (5f) where the binary takes it, so the raw output keeps
+#   every lap after each tick's table; the records keep the medians and quartiles, not the laps.
 # pair (5b): builds <head> and <base> (any commit or branch) in worktrees under bench-pair/
 #   (git-ignored), runs each side's settled series once per size, then times both in turn
 #   (head first in odd rounds, base first in even ones) at the base's `inspect:` ticks, one
@@ -49,6 +51,11 @@ tick_phases() { # the binary under a checkout: tick_phases <root> (BREACH_TICK_P
   echo "$bin"
 }
 
+laps_of() { # `laps=1` (spec 48 step 5f) for a binary that takes it; nothing for one built
+  # before it, which would refuse it (a pair's base, an older BREACH_TICK_PHASES)
+  if "$1" --help | grep -q 'laps=1'; then echo "laps=1"; fi
+}
+
 inspect_line() { # the `inspect:` ticks a settled series printed: inspect_line <file>
   sed -n 's/^inspect: \([0-9,]*\).*$/\1/p' "$1" | tr -d '\r' | head -n 1
 }
@@ -79,8 +86,9 @@ grid() {
 }
 
 inspect() {
-  local rounds="${1:-3}" bin out="bench-grid/inspect" settled ticks
+  local rounds="${1:-3}" bin out="bench-grid/inspect" settled ticks laps
   bin="$(tick_phases .)"
+  laps="$(laps_of "$bin")"
   rm -rf "$out"
   mkdir -p "$out"
   for round in $(seq 1 "$rounds"); do
@@ -93,7 +101,7 @@ inspect() {
           exit 1
         fi
         echo "round $round: side=$side squads=$squads at=$ticks"
-        "$bin" "side=$side" "squads=$squads" "at=$ticks" "repeat=$REPEAT" \
+        "$bin" "side=$side" "squads=$squads" "at=$ticks" "repeat=$REPEAT" $laps \
           > "$out/s${side}_q${squads}_r${round}_repeat.txt"
       done
     done
@@ -103,7 +111,7 @@ inspect() {
 
 pair() {
   local head="$1" base="$2" rounds="${3:-5}" root="bench-pair" out size label ticks tick
-  local -A bins=()
+  local -A bins=() laps=()
   rm -rf "$root"
   git worktree prune
   mkdir -p "$root/out"
@@ -114,6 +122,7 @@ pair() {
     echo "pair: building $side ($ref, $(git -C "$root/$side" rev-parse --short HEAD))"
     bash "$root/$side/native/build.sh" > "$root/build_$side.log"
     bins[$side]="$(tick_phases "$root/$side")"
+    laps[$side]="$(laps_of "${bins[$side]}")"
   done
   for size in "${PAIR_SIZES[@]}"; do
     label="${size//=/-}"
@@ -131,7 +140,7 @@ pair() {
       for tick in ${ticks//,/ }; do
         for side in "${order[@]}"; do
           echo "pair: $label round $round, tick $tick, $side"
-          "${bins[$side]}" "$size" "at=$tick" "repeat=$REPEAT" \
+          "${bins[$side]}" "$size" "at=$tick" "repeat=$REPEAT" ${laps[$side]} \
             > "$out/${label}_t${tick}_${side}_r${round}.txt"
         done
       done

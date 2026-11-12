@@ -223,6 +223,195 @@ Scenarios:
   `q3` of its rounds.
 - Given a repeat record without them, then its bar is its rounds' range, as before.
 
+## Measured`).
+- Steps 5d to 5f (added 2026-11-12) keep the repeats' spread: 5d the record's quartiles (built,
+  with the table's `q1` and `q3` from `native/`, #955), then 5e
+  (the page) and 5f (every lap in the raw output) side by side.
+- Step 5 needs step 1, and spec 47 steps 1 and 2 merged (the repeat mode and `inspect:`). Its
+  `Needs` line can name only this spec's steps, so the spec 47 dependency is stated here and in
+  the step.
+
+## Pre-mortem
+
+- **Regret in a month:** local runs pile up from different commits and settings, and get read
+  as if they were CI's, or the PC drifts (an update, a background job) and a run looks like a
+  regression that isn't one.
+- **Riskiest assumption:** that the PC's progression tracks CI's: a change that speeds CI's
+  tick by some percent speeds the PC's by about the same. The owner hopes local runs "might
+  speed up the bench flow"; that holds only if they do.
+- **Cheapest test:** step 4. Run commit pairs whose CI same-runner result is known on the PC,
+  and compare the changes. Its spread is known already: the grid's 3 rounds are mostly within
+  ±5%, and up to ±15% in the noisiest cell.
+
+## The machine
+
+12th Gen Intel Core i7-12700K @ 3.60 GHz, 12 cores (8 performance, 4 efficiency) and 20
+threads, 32 GB, Windows. As the owner gave it on 2026-11-11: `breach_tick_phases` prints
+`machine: unknown, 20 threads, Windows` there.
+
+## Steps
+
+### Step 1, the local record, its importer, and the first grid
+
+**Needs:** none
+**Touches:** `metrics/schema/record-v1.schema.json`, `ci/metrics/local_record.py` (new),
+`ci/metrics/test_local_record.py` (new), `ci/metrics/fixtures/local/`,
+`ci/metrics/local_machine.json` (new), `ci/metrics/local_grid.sh` (new),
+`ci/metrics/README.md`, `metrics/local/` (the first records), `metrics/raw/local/` (the
+first outputs)
+
+- **The record.** Decision 162's shape, with:
+  - `series` `"local"`;
+  - `provenance.kind` `"local"` (the schema's enum gains it), `date`, and `run_id` as a gap;
+  - `machine` from `ci/metrics/local_machine.json` (the owner's PC, as above);
+  - `commit` the sha the run built;
+  - `source.args` the battle's arguments;
+  - `reference` a gap (`not-measured`);
+  - `results` every phase path as `bench_record.py` names them (`phase_path`), each with its
+    rounds in `values` and their median.
+- **One record per battle (cell)**, its rounds gathered from the files for that cell.
+- **The importer:** `python3 ci/metrics/local_record.py <folder> --commit <sha> --date <date>`.
+  It reads `breach_tick_phases` outputs named `s<side>_q<squads>_r<round>.txt`. It reuses
+  `bench_record.py`'s parsing, and checks each file's `side`, `squads` and thread count
+  against its name and the machine file.
+  **Found at build (2026-11-11):** `breach_tick_phases` prints `<side> a side, <width> wide`
+  and no squad count, so the importer checks the side and the thread count, and the squads
+  come from the name alone. Printing the squads is a change to the binary, left out here.
+- **The grid script:** `bash ci/metrics/local_grid.sh [rounds]` runs the grid the owner ran
+  (sides 3,072 to 24,576, squads 1, 2, 4, 8 and 24, `fight=10`, rounds in turn) into
+  `bench-grid/` (git-ignored), then the importer.
+- **The first data:**
+  - the owner's 2026-11-11 run on `a5f574d`, its 60 outputs, kept under
+    `metrics/raw/local/2026-11-11-a5f574d/`;
+  - 20 records under `metrics/local/`.
+
+  `check_records.py` checks them as it checks any record.
+
+Scenarios:
+- Given the fixture outputs for one cell (3 rounds), when imported, then the record holds
+  each phase's 3 values and their median, and passes `check_records.py`.
+- Given a file whose printed `side` or `squads` differs from its name, then the importer
+  refuses it and names the file.
+- Given a local record, then CI's charts don't draw it (their filters read `series`).
+
+### Step 2, the page's local section
+
+**Needs:** 1
+**Touches:** `tools/metrics_view/metrics_local.js` (new), `tools/metrics_view/metrics_local_page.js`
+(new), `tools/metrics_view/test/metrics_local.test.js` (new), `tools/metrics_view/index.html`,
+`tools/metrics_view/metrics_view.css`, `tools/metrics_view/README.md`
+
+A section below CI's, headed by the machine (CPU, cores and threads, RAM, OS) and the run's
+commit and date:
+- **Curves, two groupings:** the tick against units a side, one curve per squad count; or
+  against squad size, one curve per total. Both are on log scales, each point the median, with
+  a bar for its rounds' range.
+- **A phase picker:** the tick, or any phase the records hold. The default shows the tick with
+  the three costliest phases at the largest cell as thin curves.
+- **Decision 159's lines:** 50 ms "target" and 100 ms "interim" at 24,576 a side, labelled "on
+  CI's 4-thread runner; a guide here".
+- **Runs over time:** a run picker (by date and commit) when there are several. The default is
+  the newest, with the one before it dotted.
+- **CI's charts are unchanged,** and never draw a local record.
+
+Scenarios:
+- Given the 20 records of 2026-11-11, when drawn by squad count, then there are 5 curves of 4
+  points, and the 1-squad curve's tick at 24,576 is 429.7 ms.
+- Given the phase picker set to `units walk to places`, when drawn by squad size, then the 4
+  totals' curves lie on one line of slope about 2 (per squad).
+- Given CI's records and local ones, then the 4,096 and 25k charts draw the same points as
+  without the local ones.
+
+**Found at build (2026-11-11):**
+- The scenario's "slope about 2 (per squad)" is a toggle, **per squad**, which divides each
+  value by the cell's squad count. Without it, `units walk to places` by squad size has a
+  slope of about 1.2 and the totals sit apart; with it, each total's slope is 1.8 to 1.9 and
+  they lie on one line.
+- The records' `machine` (from `ci/metrics/local_machine.json`) has no thread count: the
+  file's `threads` sits beside it, for the importer's check. So the heading names cores, not
+  threads. Putting the threads in the record is a schema change, left out here.
+- "The largest cell" is the most units a side, and of those the costliest tick (24,576 in one
+  squad). Its three costliest phases are the three quadratic ones: `scrum: seek`, `units
+  walk to places` and `scrum: engage, prepare, stance`.
+
+### Step 3, `breach_tick_phases` names the CPU on Windows
+
+**Needs:** none
+**Touches:** the crate's machine line (`native/rust/src/phases.rs` or where `machine:` is
+printed) and its tests, `native/README.md` (Tick phases)
+
+- **On Windows,** the `machine:` line names the CPU from the OS (the registry's
+  `ProcessorNameString`, or the CIM `Win32_Processor` name), its cores and threads, and RAM,
+  as it does on Linux. If the OS doesn't answer, it says `unknown` as now.
+- **The importer** prefers the printed machine over `local_machine.json` when it's known.
+
+Scenarios:
+- Given a run on Windows, then `machine:` names the CPU, not `unknown`.
+- Given a CPU name the OS can't give, then the line says `unknown` and the run goes on.
+
+### Step 4, does the PC track CI?
+
+**Needs:** 1
+**Touches:** this spec's `## Measured` section, `metrics/local/` and `metrics/raw/local/` (the
+runs), `ci/metrics/local_grid.sh` (a pair mode, if needed)
+
+On the owner's PC, by hand, rounds in turn (5 or more):
+- **How each pair is timed:** with spec 47's repeat mode at the base's `inspect:` ticks once
+  it has merged (step 5's grid script), and `fight=10` until then.
+- **The pairs**, each with a CI same-runner result (spec 47 step 3 times #780, #783 and #773
+  on CI the same way, so one set of CI numbers serves both checks):
+  - `bfce23c` against `main` at `5ea4c29` (CI: 25k tick −8%, `bodies: pair search` −36%,
+    `strays` +63%);
+  - `5af0ed5` against `bfce23c` at 4,096 (CI: +1.5%, no change);
+  - `482f664` against `2aedfac` at 25k (spec 41 step 4 alone, on CI).
+- **Passing:** the tick and every phase CI moved beyond noise move the same way on the PC,
+  with changes within the two machines' ranges. Phases CI left unchanged stay unchanged.
+- **The verdict:** it goes in `## Measured` and on the PR. If it passes, `/run-phase` and the
+  benches' docs say a local grid may guide day-to-day work, with CI's `bench` confirming
+  before a merge. If it fails, the owner decides what the local series is for.
+
+### Step 5b, the grid script's modes
+
+**Split at build:** from step 5, PR #936, 2026-11-11: three behaviours with their own tests (Python; shell; JS), and the page is step 2's (PR #933), outside step 5's `Touches`. Q47 (#909) was answered (a): the repeats stay a guide, with their caveat.
+**Needs:** 5a
+**Touches:** `ci/metrics/local_grid.sh`, `ci/metrics/README.md`, and a test of the pair
+summary (`ci/metrics/test_local_pair.py`, new, or `bench_compare.py`'s if it is reused)
+
+- **The grid script's modes:**
+  - `bash ci/metrics/local_grid.sh grid [rounds]` runs the grid as now, with each cell's
+    settled series;
+  - `... inspect [rounds]` replays each cell's `inspect:` ticks with `repeat=50`;
+  - `... pair <head> <base> [rounds]` builds both commits and times them in turn at the base's
+    `inspect:` ticks, as CI's `bench-inspect` does on one runner. Step 4 uses this.
+
+Scenarios:
+- Given a pair run, then the script prints, per tick, the head's change against the base for
+  the tick and each phase, flagged where the ranges are apart, as `bench`'s summary does.
+
+**Found at build (2026-11-11):** the step didn't say which battle `pair` times, nor which
+round's `inspect:` ticks `inspect` replays. Built as: `pair` times CI's sizes (`preset=4096`
+and `preset=25k`, `PAIR_SIZES` overrides), one tick a run since the repeat mode's table reads
+the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
+`bench_compare.py`'s table), with each side's settled series run once for its p95 and p99.
+`inspect` replays round 1's ticks and imports from `bench-grid/inspect/` alone, so the grid's
+records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
+(`bench-pair/`) and `ci/metrics/local_pair.py` (new).
+
+### Step 5e, the page draws a repeat's quartiles
+
+**Needs:** 5d
+**Touches:** `tools/metrics_view/metrics_local.js` and its test,
+`tools/metrics_view/metrics_local_page.js`, `tools/metrics_view/README.md`
+
+- **A repeat point's bar** (step 5c) spans its rounds' quartiles, the lowest `q1` to the
+  highest `q3`, where the record has them, and the range of its rounds' medians as now where it
+  doesn't. The hover text says which.
+
+Scenarios:
+- Given a repeat record with quartiles, then its bar runs from the lowest `q1` to the highest
+  `q3` of its rounds.
+- Given a repeat record without them, then its bar is its rounds' range, as before.
+
 ### Step 5f, the raw output keeps every lap
 
 **Needs:** 5d
@@ -439,3 +628,13 @@ keeps no quartiles; a phase that is a gap keeps none. The repeat fixtures' table
 to the new columns by hand (q1 = median - 0.4 IQR, q3 = q1 + IQR), not re-run, so their pairs
 are illustrative. The table's other readers (`bench_compare.py`, `local_pair.py`) skip lines
 ending in `]` and need no change; their tests' sample output still prints `IQR`.
+
+
+
+**Found at build (2026-11-12):** each lap list is in brackets (`  tick  [0.640, 0.630, ...]`,
+ms to 3 places), so it ends in `]` and the table's readers (`bench_record`'s phase lines,
+`local_record`'s quartile rows, `bench_compare.py`) skip it as they skip the interval: the
+importer needed no change, only a test that output with the block imports to the same record
+(`test_local_record.py`, outside `Touches`). `laps` without `at` exits 2, as `repeat` does. A
+pair's base built before this step refuses `laps=`, so `local_grid.sh` passes it only to a
+binary whose `--help` lists it.

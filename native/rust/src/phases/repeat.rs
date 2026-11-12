@@ -8,8 +8,8 @@
 //! on the running battle, the copy put back before each (untimed). The field's kept buffers
 //! aren't replaced, so they and the allocator stay warm, as in a real battle. One untimed
 //! repeat comes first, so the first timed one isn't the cold one. Every lap of every repeat is
-//! timed, and for the tick and each phase the lines give the median, the interquartile range
-//! and a 95% interval of the median.
+//! timed, and for the tick and each phase the lines give the median, the quartiles and a 95%
+//! interval of the median; `lap_lines` gives every lap, for the raw output (spec 48 step 5f).
 
 #[cfg(test)]
 mod tests;
@@ -161,9 +161,8 @@ pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
     let (t, n) = (repeated.tick, laps.ticks.len());
     let ms = |usec: f64| usec / 1000.0;
     let tick = middle(&laps.totals());
-    let mut phases: Vec<(&str, Middle)> =
-        laps.spent.iter().map(|(phase, usec)| (*phase, middle(usec))).collect();
-    phases.sort_by(|a, b| b.1.median.total_cmp(&a.1.median));
+    let phases: Vec<(&str, Middle)> =
+        largest_first(laps).into_iter().map(|(phase, usec)| (phase, middle(usec))).collect();
     let mut out = vec![
         format!("repeat: tick {t}, {n} repeats"),
         format!("{battle}, tick {t}: {:.2} ms a tick", ms(tick.median)),
@@ -185,4 +184,28 @@ pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
         ));
     }
     out
+}
+
+/// The `laps=1` block after a repeated tick's table (spec 48 step 5f): a `laps:` line, then
+/// every lap in ms, in the order run, the tick first and the phases in the table's order. Each
+/// list ends in a bracket, so the table's readers skip it as they skip the middles.
+pub fn lap_lines(repeated: &Repeated) -> Vec<String> {
+    let laps = &repeated.laps;
+    let listed = |usec: &[f64]| {
+        let ms: Vec<String> = usec.iter().map(|u| format!("{:.3}", u / 1000.0)).collect();
+        ms.join(", ")
+    };
+    let totals = laps.totals();
+    let rows = [("tick", &totals)].into_iter().chain(largest_first(laps));
+    let mut out = vec!["laps:".to_string()];
+    out.extend(rows.map(|(name, usec)| format!("  {:<32} [{}]", name, listed(usec))));
+    out
+}
+
+/// Each phase's laps, the largest median first, as the table lists them.
+fn largest_first(laps: &Series) -> Vec<(&'static str, &Vec<f64>)> {
+    let mut phases: Vec<(&'static str, &Vec<f64>, f64)> =
+        laps.spent.iter().map(|(phase, usec)| (*phase, usec, middle(usec).median)).collect();
+    phases.sort_by(|a, b| b.2.total_cmp(&a.2));
+    phases.into_iter().map(|(phase, usec, _)| (phase, usec)).collect()
 }
