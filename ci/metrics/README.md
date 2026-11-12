@@ -234,6 +234,15 @@ and leave them out; `check_records.py` checks them as it checks any record.
   lap. The repeats are a guide, not the judge: they under-report phases whose cost builds up
   across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`; Q47, #909).
 
+**What a local pair is good for** (spec 48 step 4, the owner's decision of 2026-11-12): a
+direction guide, not a judge. On four pairs with known CI results, the PC moved the same way
+as CI for an ordinary change, and left alone what CI left alone, but its sizes were a quarter
+to five times CI's. So a local pair may show whether a change speeds up the phase it aims at
+and leaves the rest alone; its percentages are never quoted as a change's size, and `bench`
+on CI judges before a merge. A change to how memory is allocated (the allocator, kept
+buffers, pooling) can move phases the opposite way on the PC (#783's `strays` and `bodies:
+sums and applying`), so it goes straight to CI. The numbers are in spec 48, `## Measured`.
+
 Keep a run's outputs under `metrics/raw/local/<date>-<short sha>/`. The first is the owner's
 2026-11-11 grid on `a5f574d` (20 records, 3 rounds each).
 

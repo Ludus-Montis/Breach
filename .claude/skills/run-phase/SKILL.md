@@ -185,7 +185,8 @@ hard, and not skippable:
 1. Run the full suite: `bash ci/godot/scripts/run_tests.sh`. Do this only on the
    user's PC. In an agent session, run only the test file you wrote red-then-green; the
    other test files you touched, the full suite and the digests run in CI (`CLAUDE.md`:
-   CI is the test runner). Speed-ups are compared through the `bench` workflow.
+   CI is the test runner). Speed-ups are compared through the `bench` workflow. A local
+   pair on the owner's PC shows a change's direction only, never its size (spec 48 step 4).
 2. Run the static checks directly (they also run in `pre-commit`/CI, but run them here
    first to catch anything before pushing): `check_function_length.py`,
    `check_generic_naming.py`, `check_isp.py`, `check_dependency_direction.py`,
