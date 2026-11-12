@@ -44,6 +44,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- The native core builds with a pinned Rust toolchain, 1.99.1 (`native/rust/rust-toolchain.toml`):
+  rustup installs it on the first `cargo` call in `native/rust`.
 - The tick history page now shows each record as × the reference timed beside it by default,
   so a slower or faster CI runner no longer reads as a change; "ms" is a click away, and the
   phase chart also offers % of tick. Each runner CPU has a checkbox to keep to one machine, and
