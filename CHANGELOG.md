@@ -10,6 +10,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- `breach_tick_phases` times the scrum's regroup and chase in nine parts
+  (`scrum: regroup: …` and `scrum: chase: …`); `scrum: regroup and chasers` is no longer
+  reported, and its parts' sum takes its place in the records.
 - `breach_tick_phases at=<tick> repeat=<n> laps=1` also prints every lap of each repeated
   tick, and `local_grid.sh inspect` and `pair` keep them in their raw output.
 - `breach_tick_phases at=<tick> repeat=<n>` prints each phase's quartiles (`q1`, `q3`) where it

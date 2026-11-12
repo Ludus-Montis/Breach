@@ -112,6 +112,55 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(path.name, "2026-11-07-42412663531-2.json")
 
 
+BUSY = """series: 3 ticks from tick 98 (ms)       mean     95th     99th    worst  at tick
+  tick                                {tick}    31.00    31.00    31.00       98
+inspect: 98,99,100
+busy threads (CPU time over wall time):
+  tick                                    2.10 threads
+  scrum: seek                             {seek_busy} threads
+  deaths (bury)                           1.02 threads
+  rout: regroup's search                  0.99 threads
+  scrum: engage, prepare, stance          1.00 threads
+"""
+
+
+def busy_rounds(*seek_busy):
+    return [ROUND.format(tick="30.3", seek=11.0, regroup="0.07")
+            + BUSY.format(tick="30.30", seek_busy=b) for b in seek_busy]
+
+
+class BusyThreadsTest(unittest.TestCase):
+    """Spec 50 step 3: each phase's busy threads (CPU time over wall time), where the binary
+    printed them, as `busy/<key>` in threads; none from an older binary or Windows."""
+
+    def setUp(self):
+        self.out = Path(tempfile.mkdtemp())
+
+    def test_each_phase_has_its_busy_threads_in_threads(self):
+        results = bench_record.build_record(busy_rounds("3.10", "3.30", "3.20"), [],
+                                            context())["results"]
+        self.assertEqual(results["busy/scrum/seek"],
+                         {"unit": "threads", "values": [3.1, 3.3, 3.2], "median": 3.2})
+        self.assertEqual(results["busy/tick"]["median"], 2.1)
+        self.assertEqual(results["busy/rout/regroups-search"]["unit"], "threads")
+        self.assertEqual(results["tick/scrum/seek"]["unit"], "ms")
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "jsonschema isn't installed")
+    def test_the_record_with_busy_threads_validates(self):
+        record = bench_record.build_record(busy_rounds("3.10", "3.30", "3.20"),
+                                           rounds("33.4", "33.3", "33.7"), context())
+        self.assertNotIn("busy/scrum/seek", record["reference"]["results"])
+        path = bench_record.write_record(record, self.out, "2026-11-12", 43300000000, 1)
+        self.assertEqual(check_records.check_file(path, self.out / "metrics", SCHEMA_DIR, {}), [])
+
+    @unittest.skipUnless(HAVE_JSONSCHEMA, "jsonschema isn't installed")
+    def test_output_without_busy_threads_has_no_busy_keys_and_validates(self):
+        record = bench_record.build_record(rounds("30.3", "30.1", "30.5"), [], context())
+        self.assertFalse([k for k in record["results"] if k.startswith("busy/")])
+        path = bench_record.write_record(record, self.out, "2026-11-12", 43300000001, 1)
+        self.assertEqual(check_records.check_file(path, self.out / "metrics", SCHEMA_DIR, {}), [])
+
+
 class RepeatRecordTest(unittest.TestCase):
     """Spec 47 step 5a: a bench-inspect job's repeats of one tick become an `inspect` record."""
 
