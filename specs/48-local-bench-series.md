@@ -234,6 +234,12 @@ Scenarios:
   its value, then `check_records.py` fails it and names the measure.
 - Given a record without `quartiles`, then `check_records.py` passes it as before.
 
+**Found at build (2026-11-12):** the repeat mode prints each phase's IQR as a width,
+`q3 - q1` (`phases/repeat.rs`'s `lines`), not `q1` and `q3`, so the importer can't read a
+round's pair from the output as this step assumed. The schema and `check_records.py` are built
+(PR on `feature/repeat-record-quartiles`); the importer waits on the owner's choice, raised as a
+`question` issue: print `q1` and `q3` from `native/`, or something else.
+
 ### Step 5e, the page draws a repeat's quartiles
 
 **Needs:** 5d

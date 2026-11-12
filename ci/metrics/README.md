@@ -75,8 +75,10 @@ A record is one measurement run of one commit, one file under `metrics/<series>/
 
 `ci/metrics/check_records.py` checks every record (not `metrics/raw/`, not
 `metrics/schema/`): its file name, its schema version (an unknown one fails), the schema
-itself, and that no measure's `values` or `median` is `0`. Each problem names the file and
-the field. It needs `jsonschema`:
+itself, and that no measure's `values` or `median` is `0`. A measure may give `quartiles`,
+one `[q1, q3]` pair per entry of `values` (spec 48 step 5d); where it does, it must have as
+many pairs as values, each holding its value (`q1 <= value <= q3`). Each problem names the
+file and the field. It needs `jsonschema`:
 
 ```bash
 pip install "jsonschema==4.*"

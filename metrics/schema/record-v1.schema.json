@@ -242,6 +242,19 @@
         },
         "median": {
           "$ref": "#/$defs/number"
+        },
+        "quartiles": {
+          "description": "Optional (spec 48 step 5d): one [q1, q3] pair per entry of `values`, in the same order, each holding its value (q1 <= value <= q3). A repeat record's pair is the round's IQR beside its median.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          }
         }
       },
       "not": {
