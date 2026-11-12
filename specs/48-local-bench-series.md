@@ -208,25 +208,6 @@ the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
 records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
 (`bench-pair/`) and `ci/metrics/local_pair.py` (new).
 
-### Step 5f, the raw output keeps every lap
-
-**Needs:** 5d
-**Touches:** `native/rust/src/phases/repeat.rs` and its tests, `native/rust/src/bin/tick_phases.rs`,
-`native/README.md` (Tick phases), `ci/metrics/local_grid.sh`, `ci/metrics/README.md`
-
-- **`breach_tick_phases ... at=<t> repeat=<n> laps=1`** prints, after a repeated tick's table,
-  a `laps:` line and then one line per phase (the tick first) with its `n` laps in ms, in the
-  order they ran. The printing comes after the timing, so the times don't change. Without
-  `laps=1` the output is as now, so nothing that reads it changes.
-- **`local_grid.sh inspect` and `pair`** pass `laps=1`, so the raw files kept under
-  `metrics/raw/local/` hold every lap. The importer skips the `laps:` block: records keep the
-  medians and quartiles (step 5d), not the laps.
-
-Scenarios:
-- Given `repeat=5 laps=1` at one tick, then the output has a `laps:` block with 5 values for
-  the tick and for each phase, and the table above it is as without `laps=1`.
-- Given output with a `laps:` block, when imported, then the record is the same as without it.
-
 ## Measured
 
 ### Step 4, does the PC track CI? (2026-11-12)
@@ -443,3 +424,30 @@ Scenarios:
 **Built:** the bar's span comes from `metrics_local.js`'s `quartiles`; a point's `spread`
 (`quartiles` or `rounds`) names it in the hover text. A record whose pairs aren't all two numbers
 falls back to the rounds' range.
+
+### Step 5f, the raw output keeps every lap
+
+**Needs:** 5d
+**Touches:** `native/rust/src/phases/repeat.rs` and its tests, `native/rust/src/bin/tick_phases.rs`,
+`native/README.md` (Tick phases), `ci/metrics/local_grid.sh`, `ci/metrics/README.md`
+
+- **`breach_tick_phases ... at=<t> repeat=<n> laps=1`** prints, after a repeated tick's table,
+  a `laps:` line and then one line per phase (the tick first) with its `n` laps in ms, in the
+  order they ran. The printing comes after the timing, so the times don't change. Without
+  `laps=1` the output is as now, so nothing that reads it changes.
+- **`local_grid.sh inspect` and `pair`** pass `laps=1`, so the raw files kept under
+  `metrics/raw/local/` hold every lap. The importer skips the `laps:` block: records keep the
+  medians and quartiles (step 5d), not the laps.
+
+Scenarios:
+- Given `repeat=5 laps=1` at one tick, then the output has a `laps:` block with 5 values for
+  the tick and for each phase, and the table above it is as without `laps=1`.
+- Given output with a `laps:` block, when imported, then the record is the same as without it.
+
+**Found at build (2026-11-12):** each lap list is in brackets (`  tick  [0.640, 0.630, ...]`,
+ms to 3 places), so it ends in `]` and the table's readers (`bench_record`'s phase lines,
+`local_record`'s quartile rows, `bench_compare.py`) skip it as they skip the interval: the
+importer needed no change, only a test that output with the block imports to the same record
+(`test_local_record.py`, outside `Touches`). `laps` without `at` exits 2, as `repeat` does. A
+pair's base built before this step refuses `laps=`, so `local_grid.sh` passes it only to a
+binary whose `--help` lists it.

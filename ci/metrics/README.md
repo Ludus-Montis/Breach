@@ -211,6 +211,8 @@ and leave them out; `check_records.py` checks them as it checks any record.
 - `bash ci/metrics/local_grid.sh inspect [rounds]` (spec 48 step 5b, after `grid`) replays
   each cell's `inspect:` ticks (round 1's) with `at=<ticks> repeat=50`, the rounds in turn,
   into `bench-grid/inspect/`, and imports only those: one record per (cell, tick).
+  `inspect` and `pair` pass `laps=1` (step 5f) where the binary takes it (a pair's base from
+  before 5f doesn't), so the raw output keeps every lap after each tick's table.
 - `bash ci/metrics/local_grid.sh pair <head> <base> [rounds]` (5b, default 5 rounds) builds
   both commits in worktrees under `bench-pair/` (git-ignored), runs each side's settled
   series once per size, then times both in turn (head first in odd rounds) at the base's
@@ -233,7 +235,8 @@ and leave them out; `check_records.py` checks them as it checks any record.
   (`at=<t>,... repeat=<n>`): one record per (cell, tick), `source.harness`
   `tick_phases-repeat`, args `side= squads= at=<t> repeat=<n>`. Each round's median of the
   `n` repeats is a value, and that round's `q1` and `q3` are its `quartiles` pair (spec 48
-  step 5d): the binary prints each phase's median, quartiles and interval, not each lap.
+  step 5d). The laps themselves (`laps=1`'s `laps:` block, step 5f) stay in the raw output:
+  their lines end in `]`, so the importer skips them, as it does the interval's.
   Output from before step 5d printed the IQR as one width, so its records keep no quartiles. The repeats are a guide, not the judge: they under-report phases whose cost builds up
   across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`; Q47, #909).
 

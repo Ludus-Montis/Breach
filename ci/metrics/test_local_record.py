@@ -35,6 +35,22 @@ def context():
             "date": "2026-11-11"}
 
 
+def with_laps(text: str) -> str:
+    """`text` as `laps=1` prints it: after each tick's table, a `laps:` block with each row's
+    laps (three made-up ones, in ms) in the order run."""
+    out, rows = [], []
+    for line in text.splitlines():
+        if line.startswith("repeat: ") and rows:
+            out += ["laps:"] + rows
+            rows = []
+        row = re.match(r"^  (\S.*?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+\[", line)
+        if row:
+            name, median, q1, q3 = row.groups()
+            rows.append(f"  {name:<32} [{q1}0, {median}0, {q3}0]")
+        out.append(line)
+    return "\n".join(out + (["laps:"] + rows if rows else [])) + "\n"
+
+
 class OneCell(unittest.TestCase):
     def setUp(self):
         self.machine = local_record.load_machine(MACHINE)
@@ -219,6 +235,21 @@ class RepeatMode(unittest.TestCase):
         self.assertEqual(record["source"]["args"],
                          ["side=3072", "squads=1", "at=91", "repeat=50"])
         self.assertEqual(record["series"], "local")
+
+    def test_output_with_a_laps_block_imports_as_without_it(self):
+        """Spec 48 step 5f: `laps=1` follows each tick's table with every lap; the record keeps
+        the medians and quartiles, not the laps."""
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder)
+        for path in sorted(REPEATS.iterdir()):
+            text = path.read_text(encoding="utf-8")
+            (folder / path.name).write_text(with_laps(text), encoding="utf-8")
+        found = local_record.repeats(folder, self.machine)
+        self.assertTrue(all("laps:" in block for _, blocks in found.values() for block in blocks))
+        records = [local_record.build_repeat_record(side, squads, tick, n, texts,
+                                                    self.machine, context())
+                   for (side, squads, tick), (n, texts) in found.items()]
+        self.assertEqual(records, self.records)
 
     def test_a_repeat_file_from_another_side_is_refused_by_name(self):
         folder = Path(tempfile.mkdtemp())

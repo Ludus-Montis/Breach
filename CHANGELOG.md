@@ -10,6 +10,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- `breach_tick_phases at=<tick> repeat=<n> laps=1` also prints every lap of each repeated
+  tick, and `local_grid.sh inspect` and `pair` keep them in their raw output.
 - `breach_tick_phases at=<tick> repeat=<n>` prints each phase's quartiles (`q1`, `q3`) where it
   printed their width, and a local repeat record keeps each round's quartiles beside its median.
 - On the owner's PC section of the tick history page, a repeated tick's bar spans its rounds'

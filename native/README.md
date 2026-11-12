@@ -308,7 +308,10 @@ median, quartiles (`q1`, `q3`, nearest rank; spec 48 step 5d) and 95% interval o
 (lines ending in `]`, which it skips). With several ticks in one run it would read the last, so compare one tick a run. A
 tick past the battle's end (where the series ends, once the field settles) exits 2, naming the
 last; so do `counts=`, `scatter=` beside `at=`,
-and `repeat=` without it. If a repeat leaves another state than playing through the tick once
+and `repeat=` or `laps=` without it. `laps=1` (spec 48 step 5f) follows each tick's table with
+a `laps:` line and one line per row, the tick first then the table's phases, listing every lap
+in ms in the order run, in brackets so the table's readers skip it; it prints after the timing,
+so the times are as without it. If a repeat leaves another state than playing through the tick once
 did, the run warns. 50 repeats is a first guess, tuned from real runs toward a tick median
 known to within ±1%.
 
