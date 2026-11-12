@@ -12,6 +12,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 - `breach_tick_phases at=<tick> repeat=<n>` prints each phase's quartiles (`q1`, `q3`) where it
   printed their width, and a local repeat record keeps each round's quartiles beside its median.
+- On the owner's PC section of the tick history page, a repeated tick's bar spans its rounds'
+  quartiles (lowest `q1` to highest `q3`) where the record keeps them; hovering says which.
 - `breach_tick_phases` names the CPU, its cores and the RAM on Windows too (it said `unknown`
   there), and gives cores and RAM on Linux.
 - The owner's PC section of the tick history page shows a cell's repeated ticks as hollow points beside its series, with the caveat that repeats under-report phases whose cost builds up across ticks.

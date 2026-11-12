@@ -155,9 +155,26 @@
     });
   }
 
+  // A repeat record's quartiles for `phase` (spec 48 step 5d) as one span, the lowest q1 to the
+  // highest q3 of its rounds, or null when the record keeps none or any pair isn't two numbers.
+  function quartiles(record, phase) {
+    var pairs = ((record.results || {})[phase] || {}).quartiles;
+    if (!Array.isArray(pairs) || !pairs.length) return null;
+    var whole = pairs.every(function (pair) {
+      return Array.isArray(pair) && pair.length === 2 && number(pair[0]) !== null && number(pair[1]) !== null;
+    });
+    if (!whole) return null;
+    return {
+      lo: Math.min.apply(null, pairs.map(function (pair) { return pair[0]; })),
+      hi: Math.max.apply(null, pairs.map(function (pair) { return pair[1]; })),
+      spread: 'quartiles',
+    };
+  }
+
   // A run's repeats for `options` as curves' points take them: each at its cell's x, in the
-  // curve `key` its cell's series is in, with the `tick` it replays and its `n` repeats.
-  // Ordered by curve, x, then tick.
+  // curve `key` its cell's series is in, with the `tick` it replays and its `n` repeats. Its bar
+  // (`lo` to `hi`) spans its rounds' quartiles where the record keeps them, `spread`
+  // "quartiles" (step 5e), else its rounds' medians, `spread` "rounds". Ordered by curve, x, then tick.
   function repeats(run, options) {
     var grouping = GROUPINGS[(options || {}).grouping] || GROUPINGS.squads;
     var phase = (options || {}).phase || TICK;
@@ -168,9 +185,11 @@
       var at = measure(record, phase);
       if (!at) return;
       var by = divide ? cell.squads : 1;
+      var spread = quartiles(record, phase) || { lo: at.lo, hi: at.hi, spread: 'rounds' };
       found.push({
-        key: cell[grouping.curve], x: grouping.x(cell), y: at.median / by, lo: at.lo / by, hi: at.hi / by,
-        tick: argOf(record, 'at'), n: argOf(record, 'repeat'), side: cell.side, squads: cell.squads,
+        key: cell[grouping.curve], x: grouping.x(cell), y: at.median / by, lo: spread.lo / by, hi: spread.hi / by,
+        spread: spread.spread, tick: argOf(record, 'at'), n: argOf(record, 'repeat'), side: cell.side,
+        squads: cell.squads,
       });
     });
     return found.sort(function (a, b) { return a.key - b.key || a.x - b.x || a.tick - b.tick; });

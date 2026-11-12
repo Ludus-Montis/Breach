@@ -107,7 +107,9 @@ bridge, the battle measured (4,096 a side for `tick_phases`, 1,024 for `formatio
     4-thread runner, a guide here; drawn with the whole tick only, not per squad.
   - **The repeats (spec 48 step 5c):** a cell's repeat records (harness `tick_phases-repeat`,
     from `local_grid.sh inspect`) are hollow points just left of the cell's point, one per tick
-    they replay, each with its rounds' bar; hovering names the tick and the repeat count. They
+    they replay, each with a bar; hovering names the tick and the repeat count. The bar spans
+    the rounds' quartiles, the lowest `q1` to the highest `q3`, where the record keeps them
+    (step 5e), and the rounds' medians where it doesn't; the hover text says which. They
     are not cells of the series. Beside them the legend gives Q47's caveat (#909): the repeats
     under-report phases whose cost builds up across ticks (strays, groups, bodies: pushes,
     stamina), and the whole tick is the judge.

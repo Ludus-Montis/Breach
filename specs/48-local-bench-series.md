@@ -208,21 +208,6 @@ the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
 records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
 (`bench-pair/`) and `ci/metrics/local_pair.py` (new).
 
-### Step 5e, the page draws a repeat's quartiles
-
-**Needs:** 5d
-**Touches:** `tools/metrics_view/metrics_local.js` and its test,
-`tools/metrics_view/metrics_local_page.js`, `tools/metrics_view/README.md`
-
-- **A repeat point's bar** (step 5c) spans its rounds' quartiles, the lowest `q1` to the
-  highest `q3`, where the record has them, and the range of its rounds' medians as now where it
-  doesn't. The hover text says which.
-
-Scenarios:
-- Given a repeat record with quartiles, then its bar runs from the lowest `q1` to the highest
-  `q3` of its rounds.
-- Given a repeat record without them, then its bar is its rounds' range, as before.
-
 ### Step 5f, the raw output keeps every lap
 
 **Needs:** 5d
@@ -439,3 +424,22 @@ keeps no quartiles; a phase that is a gap keeps none. The repeat fixtures' table
 to the new columns by hand (q1 = median - 0.4 IQR, q3 = q1 + IQR), not re-run, so their pairs
 are illustrative. The table's other readers (`bench_compare.py`, `local_pair.py`) skip lines
 ending in `]` and need no change; their tests' sample output still prints `IQR`.
+
+### Step 5e, the page draws a repeat's quartiles
+
+**Needs:** 5d
+**Touches:** `tools/metrics_view/metrics_local.js` and its test,
+`tools/metrics_view/metrics_local_page.js`, `tools/metrics_view/README.md`
+
+- **A repeat point's bar** (step 5c) spans its rounds' quartiles, the lowest `q1` to the
+  highest `q3`, where the record has them, and the range of its rounds' medians as now where it
+  doesn't. The hover text says which.
+
+Scenarios:
+- Given a repeat record with quartiles, then its bar runs from the lowest `q1` to the highest
+  `q3` of its rounds.
+- Given a repeat record without them, then its bar is its rounds' range, as before.
+
+**Built:** the bar's span comes from `metrics_local.js`'s `quartiles`; a point's `spread`
+(`quartiles` or `rounds`) names it in the hover text. A record whose pairs aren't all two numbers
+falls back to the rounds' range.

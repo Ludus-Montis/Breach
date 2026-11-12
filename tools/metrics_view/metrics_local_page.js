@@ -99,7 +99,8 @@
   }
 
   // The run's repeats (spec 48 step 5c): hollow points at their cell, set to the left of its
-  // series' point, one step per tick it replays, each with its rounds' bar.
+  // series' point, one step per tick it replays, each with its bar: its rounds' quartiles where
+  // the record keeps them, else its rounds' medians (step 5e). The hover text says which.
   function drawRepeats(points, main, colour, x, y, root) {
     var placed = {};
     points.forEach(function (p) {
@@ -111,7 +112,8 @@
       var dot = el('circle', { class: 'point repeat', cx: at, cy: y(p.y), r: 2.5, fill: 'var(--panel)', stroke: tint }, root);
       el('title', {}, dot).textContent = 'tick ' + p.tick + ' repeated ' + p.n + ' times, ' +
         p.side.toLocaleString('en') + ' a side in ' + p.squads + (p.squads === 1 ? ' squad' : ' squads') +
-        '\nmedian ' + p.y.toFixed(2) + ' ms, rounds ' + p.lo.toFixed(2) + ' to ' + p.hi.toFixed(2) +
+        '\nmedian ' + p.y.toFixed(2) + ' ms, ' + (p.spread === 'quartiles' ? 'quartiles (lowest q1 to highest q3) '
+          : 'rounds\' medians ') + p.lo.toFixed(2) + ' to ' + p.hi.toFixed(2) +
         '\n' + local.REPEAT_CAVEAT;
     });
   }
