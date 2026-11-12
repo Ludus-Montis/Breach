@@ -161,3 +161,5 @@ Scenarios:
 ## Built
 
 (Each step's PR adds its line here.)
+
+- **Step 3** (duplicate question numbers): `ci/github/question_numbers.py`, run by `github-sync` on `issues: opened` and `labeled` for a `question` issue; also `list_comments` in `github_client.py` and `fake_client.py`.
