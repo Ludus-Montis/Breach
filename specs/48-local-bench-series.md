@@ -35,6 +35,8 @@ Agreed in the design session of 2026-11-11. Five steps, each its own PR, built w
 - Step 2 needs step 1's records.
 - Step 4 needs step 1, and the owner's PC to run it. Done 2026-11-12: a local pair is a
   direction guide, not a judge (`## Measured`).
+- Steps 5d to 5f (added 2026-11-12) keep the repeats' spread: 5d the record's quartiles, then 5e
+  (the page) and 5f (every lap in the raw output) side by side.
 - Step 5 needs step 1, and spec 47 steps 1 and 2 merged (the repeat mode and `inspect:`). Its
   `Needs` line can name only this spec's steps, so the spec 47 dependency is stated here and in
   the step.
@@ -205,6 +207,67 @@ the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
 records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
 (`bench-pair/`) and `ci/metrics/local_pair.py` (new).
 
+### Step 5d, a repeat record keeps each round's quartiles
+
+**Added:** 2026-11-12, the owner's choice on #936's follow-up: keep the laps' spread without
+keeping the laps in the record (each lap a value would make a repeat record about 50 times
+larger, a few MB a grid under `metrics/local/`).
+**Needs:** 5a
+**Touches:** `metrics/schema/record-v1.schema.json`, `ci/metrics/check_records.py` and its
+tests, `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
+`ci/metrics/README.md`
+
+The repeat mode already prints each phase's median, IQR and 95% interval of the median for
+each round, so this needs no change to `native/`.
+- **The schema:** a measure gains an optional `quartiles`, one `[q1, q3]` pair per entry of
+  `values`, in the same order. Optional, so every record already written stays valid.
+- **`check_records.py`:** where `quartiles` is given, it has as many pairs as `values`, and each
+  pair holds its value: `q1 <= value <= q3`.
+- **The importer:** a repeat record's measure keeps each round's IQR as that round's pair,
+  beside the round's median in `values`. Settled-series and grid records carry none.
+
+Scenarios:
+- Given fixture output from the repeat mode, 2 rounds, when imported, then each phase's
+  measure has 2 values and 2 quartile pairs, each pair holding its value, and the record
+  passes `check_records.py`.
+- Given a record whose `quartiles` has fewer pairs than `values`, or a pair that doesn't hold
+  its value, then `check_records.py` fails it and names the measure.
+- Given a record without `quartiles`, then `check_records.py` passes it as before.
+
+### Step 5e, the page draws a repeat's quartiles
+
+**Needs:** 5d
+**Touches:** `tools/metrics_view/metrics_local.js` and its test,
+`tools/metrics_view/metrics_local_page.js`, `tools/metrics_view/README.md`
+
+- **A repeat point's bar** (step 5c) spans its rounds' quartiles, the lowest `q1` to the
+  highest `q3`, where the record has them, and the range of its rounds' medians as now where it
+  doesn't. The hover text says which.
+
+Scenarios:
+- Given a repeat record with quartiles, then its bar runs from the lowest `q1` to the highest
+  `q3` of its rounds.
+- Given a repeat record without them, then its bar is its rounds' range, as before.
+
+### Step 5f, the raw output keeps every lap
+
+**Needs:** 5d
+**Touches:** `native/rust/src/phases/repeat.rs` and its tests, `native/rust/src/bin/tick_phases.rs`,
+`native/README.md` (Tick phases), `ci/metrics/local_grid.sh`, `ci/metrics/README.md`
+
+- **`breach_tick_phases ... at=<t> repeat=<n> laps=1`** prints, after a repeated tick's table,
+  a `laps:` line and then one line per phase (the tick first) with its `n` laps in ms, in the
+  order they ran. The printing comes after the timing, so the times don't change. Without
+  `laps=1` the output is as now, so nothing that reads it changes.
+- **`local_grid.sh inspect` and `pair`** pass `laps=1`, so the raw files kept under
+  `metrics/raw/local/` hold every lap. The importer skips the `laps:` block: records keep the
+  medians and quartiles (step 5d), not the laps.
+
+Scenarios:
+- Given `repeat=5 laps=1` at one tick, then the output has a `laps:` block with 5 values for
+  the tick and for each phase, and the table above it is as without `laps=1`.
+- Given output with a `laps:` block, when imported, then the record is the same as without it.
+
 ## Measured
 
 ### Step 4, does the PC track CI? (2026-11-12)
@@ -268,6 +331,8 @@ it the right way round.
 ## Not in this spec
 
 - **Other machines** (Decision 178, Alternatives), unless diagnosing a user's.
+- **Quartiles in CI's repeat records** (`bench-inspect`, spec 47): step 5d's schema field is
+  optional, so CI's records could take it later; this spec changes only the local importer.
 - **The work the grid points at** (one squad's quadratic work in `march::sync`, engage and the
   seek): the next design round.
 
@@ -285,6 +350,10 @@ it the right way round.
    Step 5b: red on the pair summary. Step 5c: red on the repeats' points
    (`metrics_local.test.js`, alone).
    Then the importer's repeat records, then the script's modes.
+6. Step 5d: red on a fixture's quartile pairs (`test_local_record.py`) and on a record whose
+   pairs don't match its values (`test_check_records.py`). Then the schema and the importer.
+   Step 5e: red on a repeat bar from quartiles (`metrics_local.test.js`, alone). Step 5f: red
+   on the `laps:` block (a cargo test in `phases/repeat`), then on importing output with it.
 
 ## Rubric answers
 
