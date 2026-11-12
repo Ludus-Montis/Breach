@@ -10,6 +10,7 @@
 //! repeat comes first, so the first timed one isn't the cold one. Every lap of every repeat is
 //! timed, and for the tick and each phase the lines give the median, the quartiles and a 95%
 //! interval of the median; `lap_lines` gives every lap, for the raw output (spec 48 step 5f).
+//! Each phase's busy threads over the repeats follow (spec 50 step 3).
 
 #[cfg(test)]
 mod tests;
@@ -125,8 +126,8 @@ pub fn repeat(settled: &mut Settled, kept: &Kept, n: usize, content: &Content) -
     let mut repeated = Repeated { tick: kept.tick, laps: Series::default(), same: true };
     for i in 0..n {
         kept.put_back(settled);
-        let (_, laps) = laps::timed(|| settled.step(content));
-        repeated.laps.push(kept.tick, laps);
+        let (_, lapped) = laps::clocked(|| settled.step(content));
+        repeated.laps.push_lapped(kept.tick, lapped);
         if i == 0 || i == n - 1 {
             repeated.same &= cuts::print(&settled.field, &settled.squads) == kept.through;
         }
@@ -155,7 +156,8 @@ pub fn middle(values: &[f64]) -> Middle {
 /// The lines for one repeated tick: a `repeat:` line naming it and `n`, then the medians on
 /// the lines `phases::lines` prints (so `bench_compare.py` reads them as a run's), then each
 /// one's middle (median, quartiles, interval), the tick first and the phases largest median first. Those end in a bracket,
-/// so `bench_compare.py` doesn't read them as phases.
+/// so `bench_compare.py` doesn't read them as phases. The busy threads over the repeats follow,
+/// in the same order (`series::busy_lines`).
 pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
     let laps = &repeated.laps;
     let (t, n) = (repeated.tick, laps.ticks.len());
@@ -172,6 +174,8 @@ pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
         "  {:<32} {:>8} {:>8} {:>8}   {}",
         "(ms)", "median", "q1", "q3", "95% interval of the median"
     ));
+    let order: Vec<&str> = ["tick"].into_iter().chain(phases.iter().map(|p| p.0)).collect();
+    let busy = series::busy_lines(laps, &order);
     for (name, m) in [("tick", tick)].into_iter().chain(phases) {
         out.push(format!(
             "  {:<32} {:>8.2} {:>8.2} {:>8.2}   [{:.2}, {:.2}]",
@@ -183,6 +187,7 @@ pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
             ms(m.high)
         ));
     }
+    out.extend(busy);
     out
 }
 

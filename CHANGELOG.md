@@ -13,6 +13,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - Versioned releases begin: a release PR (`chore/release`) is kept current on each merge,
   with the next 0.x.y version and this changelog's `[Unreleased]` turned into that
   version's section; the owner releases by merging it.
+- `breach_tick_phases` times the scrum's regroup and chase in nine parts
+  (`scrum: regroup: …` and `scrum: chase: …`); `scrum: regroup and chasers` is no longer
+  reported, and its parts' sum takes its place in the records.
 - `breach_tick_phases at=<tick> repeat=<n> laps=1` also prints every lap of each repeated
   tick, and `local_grid.sh inspect` and `pair` keep them in their raw output.
 - `breach_tick_phases at=<tick> repeat=<n>` prints each phase's quartiles (`q1`, `q3`) where it
@@ -44,6 +47,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- The native core builds with a pinned Rust toolchain, 1.99.1 (`native/rust/rust-toolchain.toml`):
+  rustup installs it on the first `cargo` call in `native/rust`.
 - The tick history page now shows each record as × the reference timed beside it by default,
   so a slower or faster CI runner no longer reads as a change; "ms" is a click away, and the
   phase chart also offers % of tick. Each runner CPU has a checkbox to keep to one machine, and

@@ -29,6 +29,11 @@ foldhash = "0.2"
 # compiler is needed (MSVC's on Windows, Xcode's tools on macOS).
 mimalloc = { version = "0.1.52", default-features = false }
 
+# The process's CPU time beside each lap's wall time (src/laps.rs, spec 50 step 3): how many
+# threads a phase keeps busy. Windows has no fine clock for it, so it has no busy threads.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [profile.release]
 opt-level = 3
 lto = "thin"
