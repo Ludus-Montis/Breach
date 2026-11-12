@@ -165,6 +165,44 @@ class CheckRecordsTest(unittest.TestCase):
                                 for p in problems), (args, problems))
             path.unlink()
 
+    def with_quartiles(self, quartiles, values=None):
+        record = good_record()
+        tick = record["results"]["tick"]
+        if values is not None:
+            tick["values"] = values
+        tick["quartiles"] = quartiles
+        return record
+
+    def test_quartiles_holding_their_values_pass(self):
+        self.write("2026-11-12-1.json",
+                   self.with_quartiles([[11.9, 12.4], [12.3, 12.3], [11.5, 12.0]]))
+        self.assertEqual(self.problems(), [])
+
+    def test_quartiles_that_dont_match_their_values_fail_and_name_the_measure(self):
+        for quartiles in ([[11.9, 12.4], [12.0, 12.5]],              # fewer pairs
+                          [[11.9, 12.4], [12.0, 12.5], [11.5, 12.5], [1, 2]],  # more
+                          [[11.9, 12.4], [12.4, 12.6], [11.5, 12.5]],  # q1 above its value
+                          [[11.9, 12.0], [12.0, 12.5], [11.5, 12.5]]):  # q3 below its value
+            path = self.write("2026-11-12-1.json", self.with_quartiles(quartiles))
+            problems = self.problems()
+            self.assertTrue(any("2026-11-12-1.json" in p and "results/tick" in p
+                                and "quartiles" in p for p in problems),
+                            (quartiles, problems))
+            path.unlink()
+
+    def test_quartiles_beside_a_gap_fail(self):
+        self.write("2026-11-12-1.json",
+                   self.with_quartiles([[1.0, 2.0]], values={"na": "not-measured"}))
+        self.assertTrue(any("results/tick" in p and "quartiles" in p
+                            for p in self.problems()))
+
+    def test_a_quartile_pair_is_two_numbers(self):
+        for quartiles in ([[11.9], [12.0, 12.5], [11.5, 12.5]],
+                          [[11.9, 12.4, 13.0], [12.0, 12.5], [11.5, 12.5]]):
+            path = self.write("2026-11-12-1.json", self.with_quartiles(quartiles))
+            self.assertNotEqual(self.problems(), [], quartiles)
+            path.unlink()
+
     def test_main_exits_non_zero_on_a_problem(self):
         self.write("bad.json", good_record())
         self.assertEqual(check_records.main([str(self.root), str(SCHEMA_DIR)]), 1)

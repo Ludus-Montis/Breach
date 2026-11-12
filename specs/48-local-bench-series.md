@@ -35,7 +35,8 @@ Agreed in the design session of 2026-11-11. Five steps, each its own PR, built w
 - Step 2 needs step 1's records.
 - Step 4 needs step 1, and the owner's PC to run it. Done 2026-11-12: a local pair is a
   direction guide, not a judge (`## Measured`).
-- Steps 5d to 5f (added 2026-11-12) keep the repeats' spread: 5d the record's quartiles, then 5e
+- Steps 5d to 5f (added 2026-11-12) keep the repeats' spread: 5d the record's quartiles (built,
+  with the table's `q1` and `q3` from `native/`, #955), then 5e
   (the page) and 5f (every lap in the raw output) side by side.
 - Step 5 needs step 1, and spec 47 steps 1 and 2 merged (the repeat mode and `inspect:`). Its
   `Needs` line can name only this spec's steps, so the spec 47 dependency is stated here and in
@@ -206,33 +207,6 @@ the last tick of a run, and prints through `ci/metrics/local_pair.py` (reusing
 `inspect` replays round 1's ticks and imports from `bench-grid/inspect/` alone, so the grid's
 records aren't written twice. `pair` records nothing. Outside `Touches`: `.gitignore`
 (`bench-pair/`) and `ci/metrics/local_pair.py` (new).
-
-### Step 5d, a repeat record keeps each round's quartiles
-
-**Added:** 2026-11-12, the owner's choice on #936's follow-up: keep the laps' spread without
-keeping the laps in the record (each lap a value would make a repeat record about 50 times
-larger, a few MB a grid under `metrics/local/`).
-**Needs:** 5a
-**Touches:** `metrics/schema/record-v1.schema.json`, `ci/metrics/check_records.py` and its
-tests, `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
-`ci/metrics/README.md`
-
-The repeat mode already prints each phase's median, IQR and 95% interval of the median for
-each round, so this needs no change to `native/`.
-- **The schema:** a measure gains an optional `quartiles`, one `[q1, q3]` pair per entry of
-  `values`, in the same order. Optional, so every record already written stays valid.
-- **`check_records.py`:** where `quartiles` is given, it has as many pairs as `values`, and each
-  pair holds its value: `q1 <= value <= q3`.
-- **The importer:** a repeat record's measure keeps each round's IQR as that round's pair,
-  beside the round's median in `values`. Settled-series and grid records carry none.
-
-Scenarios:
-- Given fixture output from the repeat mode, 2 rounds, when imported, then each phase's
-  measure has 2 values and 2 quartile pairs, each pair holding its value, and the record
-  passes `check_records.py`.
-- Given a record whose `quartiles` has fewer pairs than `values`, or a pair that doesn't hold
-  its value, then `check_records.py` fails it and names the measure.
-- Given a record without `quartiles`, then `check_records.py` passes it as before.
 
 ### Step 5e, the page draws a repeat's quartiles
 
@@ -425,3 +399,43 @@ are units a side or squad size. So a repeat is a hollow point at its cell's x, s
 the cell's point, one step per tick, with its rounds' bar; the tick and the repeat count are in
 its hover text. Repeat records are kept apart from the run's cells (`run.repeats`), so the
 series keeps one point per cell. Q47's caveat is in the legend whenever repeats are drawn.
+
+### Step 5d, a repeat record keeps each round's quartiles
+
+**Added:** 2026-11-12, the owner's choice on #936's follow-up: keep the laps' spread without
+keeping the laps in the record (each lap a value would make a repeat record about 50 times
+larger, a few MB a grid under `metrics/local/`).
+**Needs:** 5a
+**Touches:** `metrics/schema/record-v1.schema.json`, `ci/metrics/check_records.py` and its
+tests, `ci/metrics/local_record.py` and its tests, `ci/metrics/fixtures/local/`,
+`ci/metrics/README.md`, `native/rust/src/phases/repeat.rs` and its tests, `native/README.md`
+(Tick phases; both added at build, #955)
+
+The repeat mode printed each phase's median, IQR and 95% interval of the median for each
+round, the IQR as one width (`q3 - q1`); this step's first wording, "needs no change to
+`native/`", was wrong (#955).
+- **The repeat table:** its columns are `median`, `q1`, `q3` and the interval, where `IQR` was
+  (`phases/repeat.rs`, `lines`; `Middle` already held both).
+- **The schema:** a measure gains an optional `quartiles`, one `[q1, q3]` pair per entry of
+  `values`, in the same order. Optional, so every record already written stays valid.
+- **`check_records.py`:** where `quartiles` is given, it has as many pairs as `values`, and each
+  pair holds its value: `q1 <= value <= q3`.
+- **The importer:** a repeat record's measure keeps each round's IQR as that round's pair,
+  beside the round's median in `values`. Settled-series and grid records carry none.
+
+Scenarios:
+- Given fixture output from the repeat mode, 2 rounds, when imported, then each phase's
+  measure has 2 values and 2 quartile pairs, each pair holding its value, and the record
+  passes `check_records.py`.
+- Given a record whose `quartiles` has fewer pairs than `values`, or a pair that doesn't hold
+  its value, then `check_records.py` fails it and names the measure.
+- Given a record without `quartiles`, then `check_records.py` passes it as before.
+
+**Found at build (2026-11-12):** the repeat mode printed the IQR as a width, not `q1` and
+`q3`, so the importer had nothing to read a round's pair from. The owner chose (a) on #955: the
+table prints `q1` and `q3`, in this step. Built as: the importer reads the pairs from the
+table's rows under a `(ms) median q1 q3` header, so output from before this step (`IQR`)
+keeps no quartiles; a phase that is a gap keeps none. The repeat fixtures' tables were turned
+to the new columns by hand (q1 = median - 0.4 IQR, q3 = q1 + IQR), not re-run, so their pairs
+are illustrative. The table's other readers (`bench_compare.py`, `local_pair.py`) skip lines
+ending in `]` and need no change; their tests' sample output still prints `IQR`.

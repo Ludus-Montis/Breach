@@ -10,7 +10,9 @@ and `schema/` (the schemas themselves), is a record. Each must:
   fails, in `results` and in `reference.results` alike (an importer that found nothing
   writes a gap instead);
 - if it is a repeat record (`source.harness` is `tick_phases-repeat`, spec 47 step 5a), name
-  the tick it replayed and its repeats in `source.args`: `at=<tick>` and `repeat=<n>`.
+  the tick it replayed and its repeats in `source.args`: `at=<tick>` and `repeat=<n>`;
+- where a measure gives `quartiles` (spec 48 step 5d), hold one `[q1, q3]` pair per entry of
+  its `values`, each holding its value: `q1 <= value <= q3`.
 
 Usage: check_records.py [metrics-dir] [schema-dir]   (defaults: metrics, metrics/schema)
 Prints one line per problem, naming the file and the field, and exits 1 if there is any.
@@ -38,13 +40,7 @@ def records(root: Path) -> list:
 def zero_gaps(record: dict) -> list:
     """The fields where a measure was written 0 in a gap's place."""
     found = []
-    sections = [("results", record.get("results"))]
-    reference = record.get("reference")
-    if isinstance(reference, dict):
-        sections.append(("reference/results", reference.get("results")))
-    for section, results in sections:
-        if not isinstance(results, dict) or "na" in results:
-            continue
+    for section, results in _sections(record):
         for path, measure in results.items():
             if not isinstance(measure, dict):
                 continue
@@ -53,6 +49,41 @@ def zero_gaps(record: dict) -> list:
                 found.append(f"{section}/{path}: values holds 0; write a gap, {{\"na\": ...}}")
             if measure.get("median") == 0 and not isinstance(measure.get("median"), bool):
                 found.append(f"{section}/{path}: median is 0; write a gap, {{\"na\": ...}}")
+    return found
+
+
+def _sections(record: dict) -> list:
+    """(name, results) for the record's results and its reference's, where they are dicts."""
+    sections = [("results", record.get("results"))]
+    reference = record.get("reference")
+    if isinstance(reference, dict):
+        sections.append(("reference/results", reference.get("results")))
+    return [(name, results) for name, results in sections
+            if isinstance(results, dict) and "na" not in results]
+
+
+def _pair_holds(pair, value) -> bool:
+    return (isinstance(pair, list) and len(pair) == 2
+            and all(isinstance(q, (int, float)) and not isinstance(q, bool) for q in pair)
+            and isinstance(value, (int, float)) and pair[0] <= value <= pair[1])
+
+
+def quartile_pairs(record: dict) -> list:
+    """The measures whose `quartiles` don't pair up with their `values`."""
+    found = []
+    for section, results in _sections(record):
+        for path, measure in results.items():
+            if not isinstance(measure, dict) or "quartiles" not in measure:
+                continue
+            quartiles, values = measure["quartiles"], measure.get("values")
+            if not isinstance(values, list) or not isinstance(quartiles, list):
+                found.append(f"{section}/{path}: quartiles need values to pair with")
+            elif len(quartiles) != len(values):
+                found.append(f"{section}/{path}: quartiles has {len(quartiles)} pair(s) for "
+                             f"{len(values)} value(s)")
+            elif not all(_pair_holds(q, v) for q, v in zip(quartiles, values)):
+                found.append(f"{section}/{path}: quartiles has a pair that doesn't hold its "
+                             "value, q1 <= value <= q3")
     return found
 
 
@@ -100,6 +131,7 @@ def check_file(path: Path, root: Path, schema_dir: Path, validators: dict) -> li
     problems += schema_errors(record, schema_dir, validators)
     problems += zero_gaps(record)
     problems += repeat_args(record)
+    problems += quartile_pairs(record)
     return [f"{shown}: {p}" for p in problems]
 
 

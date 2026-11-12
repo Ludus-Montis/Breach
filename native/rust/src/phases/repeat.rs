@@ -154,7 +154,7 @@ pub fn middle(values: &[f64]) -> Middle {
 
 /// The lines for one repeated tick: a `repeat:` line naming it and `n`, then the medians on
 /// the lines `phases::lines` prints (so `bench_compare.py` reads them as a run's), then each
-/// one's middle, the tick first and the phases largest median first. Those end in a bracket,
+/// one's middle (median, quartiles, interval), the tick first and the phases largest median first. Those end in a bracket,
 /// so `bench_compare.py` doesn't read them as phases.
 pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
     let laps = &repeated.laps;
@@ -170,15 +170,16 @@ pub fn lines(battle: &str, repeated: &Repeated) -> Vec<String> {
     ];
     out.extend(phases.iter().map(|(name, m)| format!("  {:<32} {:>8.2}", name, ms(m.median))));
     out.push(format!(
-        "  {:<32} {:>8} {:>8}   {}",
-        "(ms)", "median", "IQR", "95% interval of the median"
+        "  {:<32} {:>8} {:>8} {:>8}   {}",
+        "(ms)", "median", "q1", "q3", "95% interval of the median"
     ));
     for (name, m) in [("tick", tick)].into_iter().chain(phases) {
         out.push(format!(
-            "  {:<32} {:>8.2} {:>8.2}   [{:.2}, {:.2}]",
+            "  {:<32} {:>8.2} {:>8.2} {:>8.2}   [{:.2}, {:.2}]",
             name,
             ms(m.median),
-            ms(m.q3 - m.q1),
+            ms(m.q1),
+            ms(m.q3),
             ms(m.low),
             ms(m.high)
         ));
