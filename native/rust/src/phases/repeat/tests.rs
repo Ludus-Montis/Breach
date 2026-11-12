@@ -78,7 +78,7 @@ fn the_middle_is_the_median_the_quartiles_and_the_median_s_95_interval() {
 }
 
 #[test]
-fn the_lines_name_the_tick_then_read_as_a_run_s_then_give_each_middle() {
+fn the_lines_name_the_tick_then_read_as_a_run_s_then_give_each_middle_with_its_quartiles() {
     let mut laps = Series::default();
     for (a, b) in [(1000.0, 3000.0), (2000.0, 4000.0), (3000.0, 5000.0)] {
         laps.push(105, vec![("a", a), ("b", b)]);
@@ -90,10 +90,10 @@ fn the_lines_name_the_tick_then_read_as_a_run_s_then_give_each_middle() {
         "64 a side, 8 wide, tick 105: 6.00 ms a tick",
         "  b                                    4.00",
         "  a                                    2.00",
-        "  (ms)                               median      IQR   95% interval of the median",
-        "  tick                                 6.00     4.00   [4.00, 8.00]",
-        "  b                                    4.00     2.00   [3.00, 5.00]",
-        "  a                                    2.00     2.00   [1.00, 3.00]",
+        "  (ms)                               median       q1       q3   95% interval of the median",
+        "  tick                                 6.00     4.00     8.00   [4.00, 8.00]",
+        "  b                                    4.00     3.00     5.00   [3.00, 5.00]",
+        "  a                                    2.00     1.00     3.00   [1.00, 3.00]",
     ];
     assert_eq!(out, expected);
 }

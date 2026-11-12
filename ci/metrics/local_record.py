@@ -18,8 +18,8 @@ Spec 48 step 5a: a cell run with `series=1` also keeps its p95 and p99 over the 
 (`tick-p95`, `tick-p99`) and the `inspect:` ticks each round named (`source.inspect`). Files
 named `s<side>_q<squads>_r<round>_repeat.txt` hold the repeat mode's output (`at=<t>,...
 repeat=<n>`): one record per (cell, tick), harness `tick_phases-repeat`, each round's median
-of the `n` repeats a value. The output prints each phase's median, not each lap, so the
-laps' spread stays in the output (its IQR) and the record's values are the rounds'.
+of the `n` repeats a value, with that round's q1 and q3 as its `quartiles` pair (spec 48
+step 5d). The output prints each phase's median and quartiles, not each lap.
 
     local_record.py <folder> --commit <sha> --date <YYYY-MM-DD> [--out metrics]
         [--machine ci/metrics/local_machine.json] [--fight 10]
@@ -36,6 +36,8 @@ FILE = re.compile(r"^s(\d+)_q(\d+)_r(\d+)\.txt$")
 REPEAT_FILE = re.compile(r"^s(\d+)_q(\d+)_r(\d+)_repeat\.txt$")
 REPEAT = re.compile(r"^repeat: tick (\d+), (\d+) repeats$", re.M)
 INSPECT = re.compile(r"^inspect: ([\d,]+)$", re.M)
+QUARTILE_HEAD = re.compile(r"^  \(ms\)\s+median\s+q1\s+q3\b")
+QUARTILE_ROW = re.compile(r"^  (\S.*?)\s+[\d.]+\s+([\d.]+)\s+([\d.]+)\s+\[")
 PRINTED = re.compile(r"^machine: (.+?)(?:, (\d+) cores)?, \d+ threads(?:, (\d+) GB)?, (.+)$",
                      re.M)
 REPEAT_HARNESS = "tick_phases-repeat"
@@ -160,8 +162,32 @@ def build_repeat_record(side: int, squads: int, tick: int, n: int, texts: list,
                         machine: dict, context: dict) -> dict:
     """One tick of a cell replayed `n` times a round: each round's median a value."""
     args = [f"side={side}", f"squads={squads}", f"at={tick}", f"repeat={n}"]
-    return _record(args, texts, bench_record.measures(texts), machine, context,
-                   harness=REPEAT_HARNESS)
+    return _record(args, texts, with_quartiles(bench_record.measures(texts), texts), machine,
+                   context, harness=REPEAT_HARNESS)
+
+
+def quartiles(text: str) -> dict:
+    """{path: [q1, q3]} from a repeat block's table of middles (spec 48 step 5d); {} for output
+    from before it, which printed the IQR as one width."""
+    found, reading = {}, False
+    for line in text.splitlines():
+        if QUARTILE_HEAD.match(line):
+            reading = True
+        elif reading and (row := QUARTILE_ROW.match(line)):
+            found[bench_record.phase_path(row.group(1))] = [float(row.group(2)),
+                                                            float(row.group(3))]
+    return found
+
+
+def with_quartiles(results: dict, texts: list) -> dict:
+    """Each measured result with each round's [q1, q3] beside its value, where every round
+    printed them; a gap keeps none."""
+    rounds = [quartiles(text) for text in texts]
+    for path, measure in results.items():
+        pairs = [found.get(path) for found in rounds]
+        if isinstance(measure.get("values"), list) and None not in pairs:
+            measure["quartiles"] = pairs
+    return results
 
 
 def write_records(records: list, metrics, date: str) -> list:

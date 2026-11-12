@@ -3,6 +3,7 @@
 battle (cell) under `metrics/local/`, in a series of their own that CI's charts don't draw."""
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -137,6 +138,10 @@ class SettledSeries(unittest.TestCase):
         self.assertEqual(len(results["tick-p99"]["values"]), 2)
         self.assertIn("tick", results)
 
+    def test_it_keeps_no_quartiles(self):
+        """Spec 48 step 5d: only a repeat record keeps quartiles."""
+        self.assertFalse([path for path, m in self.record["results"].items() if "quartiles" in m])
+
     def test_it_holds_the_inspect_ticks_each_round_named(self):
         inspect = self.record["source"]["inspect"]
         self.assertEqual(len(inspect), 2)
@@ -176,6 +181,32 @@ class RepeatMode(unittest.TestCase):
                 measure = record["results"][path]
                 self.assertEqual(len(measure["values"]), 2)
                 self.assertAlmostEqual(measure["median"], sum(measure["values"]) / 2)
+
+    def test_each_round_keeps_its_quartiles_holding_its_value(self):
+        """Spec 48 step 5d: each round's q1 and q3 are that round's pair, beside its median."""
+        for record in self.records:
+            for path, measure in record["results"].items():
+                if "na" in measure["values"]:
+                    self.assertNotIn("quartiles", measure, path)
+                    continue
+                self.assertEqual(len(measure["quartiles"]), 2, path)
+                for (q1, q3), value in zip(measure["quartiles"], measure["values"]):
+                    self.assertLessEqual(q1, value, path)
+                    self.assertLessEqual(value, q3, path)
+
+    def test_the_pairs_are_the_printed_q1_and_q3(self):
+        record = next(r for r in self.records if "at=91" in r["source"]["args"])
+        self.assertEqual(record["results"]["tick"]["quartiles"][0], [26.08, 31.16])
+        self.assertEqual(record["results"]["tick/scrum/seek"]["quartiles"][0], [10.94, 14.74])
+
+    def test_output_with_the_iqr_width_alone_keeps_no_quartiles(self):
+        """Output from before step 5d prints `IQR`, one width, so there is no pair to keep."""
+        old = [re.sub(r"^(  \S.*?\s+\d+\.\d\d)\s+\d+\.\d\d\s+(\d+\.\d\d)(\s+\[)",
+                      lambda m: m.group(1) + "     1.00" + m.group(3), text, flags=re.M)
+               .replace("median       q1       q3", "median      IQR")
+               for text in next(iter(self.found.values()))[1]]
+        record = local_record.build_repeat_record(3072, 1, 91, 50, old, self.machine, context())
+        self.assertNotIn("quartiles", record["results"]["tick"])
 
     def test_the_spread_table_is_not_read_as_phases(self):
         for record in self.records:

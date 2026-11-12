@@ -232,8 +232,9 @@ and leave them out; `check_records.py` checks them as it checks any record.
 - Files named `s<side>_q<squads>_r<round>_repeat.txt` hold spec 47's repeat mode
   (`at=<t>,... repeat=<n>`): one record per (cell, tick), `source.harness`
   `tick_phases-repeat`, args `side= squads= at=<t> repeat=<n>`. Each round's median of the
-  `n` repeats is a value: the binary prints each phase's median, IQR and interval, not each
-  lap. The repeats are a guide, not the judge: they under-report phases whose cost builds up
+  `n` repeats is a value, and that round's `q1` and `q3` are its `quartiles` pair (spec 48
+  step 5d): the binary prints each phase's median, quartiles and interval, not each lap.
+  Output from before step 5d printed the IQR as one width, so its records keep no quartiles. The repeats are a guide, not the judge: they under-report phases whose cost builds up
   across ticks (`strays`, `groups`, `bodies: pushes`, `stamina`; Q47, #909).
 
 **What a local pair is good for** (spec 48 step 4, the owner's decision of 2026-11-12): a

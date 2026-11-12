@@ -304,8 +304,8 @@ field's re-forms). Each tick is then stepped `repeat` times on the running battl
 put back before each, untimed; the field's kept buffers stay, so they and the allocator are
 as warm as in a battle, and one untimed repeat comes first. Each tick prints a `repeat:` line,
 its medians on the lines `bench_compare.py` reads as a run's, then the tick's and each phase's
-median, interquartile range and 95% interval of the median (lines ending in `]`, which it
-skips). With several ticks in one run it would read the last, so compare one tick a run. A
+median, quartiles (`q1`, `q3`, nearest rank; spec 48 step 5d) and 95% interval of the median
+(lines ending in `]`, which it skips). With several ticks in one run it would read the last, so compare one tick a run. A
 tick past the battle's end (where the series ends, once the field settles) exits 2, naming the
 last; so do `counts=`, `scatter=` beside `at=`,
 and `repeat=` without it. If a repeat leaves another state than playing through the tick once
