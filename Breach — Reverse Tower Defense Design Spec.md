@@ -8450,3 +8450,121 @@ apart from CI's.
 **Riskiest assumption:** that the PC's progression tracks CI's. Spec 48 step 4 tests it before
 local runs guide anything.
 **Pillar check:** not applicable.
+
+### Decision 179 — Native binaries are kept in one store, keyed by what built them, and built for every OS at once
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q48 (#949). CI builds the same native code over and over: `bench`,
+`bench-inspect` and `bench-series` rebuild the references (`8ca4227`, `eee3e81`) on every run,
+and `sim-checks`' `base-build` rebuilds the same `main` commit for every open PR. The owner's
+PC builds both sides of a local pair from scratch (spec 48 step 5b). The owner asked for the
+binaries to be built once and downloaded after, and for every OS to be built in parallel
+whenever a key is built ("I just want them stored for later runs without rebuild time").
+- **The key is the build, not the commit:** the git tree id of `native/`
+  (`git rev-parse <sha>:native`), the Rust toolchain, the Cargo profile (`release` or
+  `profiling`) and the target. Two commits share a key only if every byte under `native/` is
+  the same, so most merges (about 3 in 4 don't touch `native/`) reuse the last build. Keyed by
+  commit, a window of 20 would cover less than a busy day's merges (46 and 52 on 8 and 11 Nov).
+- **The toolchain is pinned** in `native/rust/rust-toolchain.toml`, and is part of the key.
+  Every tree is built with the pinned toolchain of the commit doing the building
+  (`RUSTUP_TOOLCHAIN`), so a reference that predates the pin is built with the same compiler
+  as the head it is compared with. Changing the pin changes every key, on purpose.
+- **Everything that changes a build lives under `native/`.** A CI check fails if a workflow or
+  script outside `native/` sets build flags (`RUSTFLAGS`, `CARGO_PROFILE_*`, `--features`,
+  `target-cpu`) or picks the toolchain other than through the store's helper. That is what
+  makes the tree id a sufficient key.
+- **Where:** assets on one long-lived pre-release (`native-store`), as `showcase-index` does.
+  Release assets don't expire, any workflow and the PC can fetch one by name, and the repo is
+  public. An asset is a zip named by its key: `native/bin/` whole for `release` (the native
+  tooling a release ships, Decision 180), `breach_tick_phases` alone for `profiling`.
+- **Every OS at once:** whenever a key is filled, Linux (`x86_64-unknown-linux-gnu`) and
+  Windows (`x86_64-pc-windows-msvc`) are built in parallel, each on its own runner (free on a
+  public repo). Windows is built on Windows, so the PC runs a binary from the toolchain it would
+  use itself. macOS is left out until something needs it.
+- **Read, else build and add:** a workflow that needs a binary downloads its key; if it is
+  missing, it builds that OS itself and uploads it. Readers never wait on another OS's build.
+  Two runs filling one key at once is safe: the first upload wins, the other skips.
+- **Only trusted runs write:** pushes to `main`, same-repo PRs, releases and the manual "build
+  these commits" run. A fork's PR reads but never uploads.
+- **Kept:** the keys of the references and of every release, forever; the last 20 distinct
+  keys built from `main`; keys built only on a PR, for 14 days. A scheduled prune deletes the
+  rest, and past 1 GB the oldest unkept keys first. Pruning breaks nothing: a missing key is
+  built.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Key by commit | No safer while the toolchain floats, and 20 commits is under a busy day; a backfill would rebuild almost every time. |
+| A hand-kept list of input files, hashed | The tree id already covers every file under `native/`, with nothing to keep up. |
+| The actions cache | Evicted after 7 days unused, so the references wouldn't stay; a PR's entries can't be read from `main` or other PRs. |
+| Actions artifacts | Expire within 90 days and need a run id to find from another workflow. |
+| GitHub Packages or a bucket | More setup, or secrets, for nothing releases don't do. |
+| Cross-compile Windows from Linux | A GNU-toolchain `.exe` differs from what the PC builds (Q48 point 2); Windows runners are free on a public repo. |
+| Windows only for releases and labelled PRs | The owner: every OS whenever a key is built. |
+
+**Consequences:** Spec 49 builds the pin and the key, the check, the store and its fill, the
+test of the riskiest assumption, the readers (`bench`, `bench-inspect`, `bench-series`,
+`sim-checks`, `local_grid.sh pair`) and the prune. Nothing a binary computes changes: the
+digests are identical bit for bit across builds (Decision 151).
+
+**Rules over cases:** general: every binary is found by one key rule, and every workflow reads
+before it builds. The kept keys are by role (a reference or a release), not by name.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; CI and tooling only.
+**Riskiest assumption:** that everything which changes a build lives under `native/`, so two
+builds with one key time the same. Spec 49 steps 1, 2 and 4 test it before any workflow reads
+the store.
+**Pillar check:** not applicable.
+
+### Decision 180 — The project is versioned 0.x.y from 0.0.1, released when the owner merges a release PR
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q48 (#949). The dev kit asks for SemVer with Keep a Changelog, the bump chosen
+by CI's release pipeline, not by agents (`principles/documentation-phases.md`,
+`templates/commit-message.md`). No pipeline existed: no tags, and `CHANGELOG.md` holds only
+`[Unreleased]`.
+- **0.x.y while experimental**, starting at `0.0.1` (the owner). The major stays 0: a breaking
+  change or an `Added` entry bumps the minor, anything else the patch. Going to `1.0.0` is the
+  owner's call, by a Decision.
+- **The owner releases by merging.** On each push to `main`, a workflow keeps one release PR
+  current (branch `chore/release`): it does the dev kit's release step on `CHANGELOG.md`
+  (`[Unreleased]` becomes `[x.y.z] - date`, a fresh `[Unreleased]`, the compare links), with
+  the bump read from `[Unreleased]`'s categories and from `!` or `BREAKING CHANGE` in the
+  commits since the last tag. When the owner merges it, CI tags `vx.y.z` and makes the GitHub
+  release. A version is cut when the owner wants one, not on every merge.
+- **An in-repo script, not a release tool.** The changelog is written by hand, for players,
+  and `docs-gate` enforces it; release-please and semantic-release write their own from the
+  commits, and semantic-release releases with no one merging.
+- **The version lives in the tag and the changelog**, not in `Cargo.toml`, so a release
+  commit (it touches only `CHANGELOG.md`) keeps the `native/` key of the build before it.
+- **A release ships the native tooling only**, for Linux and Windows: `native/bin/` from the
+  store (Decision 179), the GDExtension library and the tools. The owner: "we are only really
+  interested in simulation improvements for the time being, the visuals can follow later." A
+  playable Godot export waits for its own question (Q49, #965).
+- **Releases are kept forever.**
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Start at `0.1.0` | The owner: `0.0.1`. |
+| A release on every merge | Several versions a day, and the owner wouldn't merge them. |
+| release-please or semantic-release | They write the changelog from commits, against the hand-written one. |
+| The version in `Cargo.toml` too | Every release would change the `native/` key and rebuild what is already stored. |
+| A Godot export in each release | Visuals follow later; export templates in CI are a job of their own. |
+
+**Consequences:** Spec 49 builds the release PR's script and workflow, and the release itself.
+The first release is `0.0.1`, whatever `[Unreleased]` holds.
+
+**Rules over cases:** general: one bump rule from the changelog's categories, the same for
+every release.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; CI only.
+**Riskiest assumption:** none beyond Decision 179's; a wrong bump is visible in the release PR
+before the owner merges it.
+**Pillar check:** not applicable.
