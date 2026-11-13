@@ -8804,3 +8804,54 @@ the export (`content/maps_src/`) and the map (`content/maps/`).
 **Bounded:** not applicable; content loading only.
 **Riskiest assumption:** none of its own.
 **Pillar check:** not applicable.
+
+### Decision 186 — The 25k tick's gate is the worker's 100 ms slot at p95 and p99, judged one CPU at a time; 50 ms is a stretch
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-13
+**Amends:** Decision 159 (the target's bar, and how runs are compared)
+
+**Rationale:** Decision 159 set a p95-and-p99 tick of at most 50 ms at 24,576 a side, so the
+game would be "frame safe at 60fps". The tick now runs on a worker (spec 39 step 10d-ii), so
+the frame rate no longer waits on the tick. What the tick has to fit is its own 10 Hz slot,
+which is 100 ms. Today, on CI's EPYC 7763 (`bench` run 43337174897, `main` at 6db3031), the 25k
+series gives a mean of 142 ms, a p95 of 194 ms and a p99 of 247 ms. That is about 2.5× from 100 ms
+and about 5× from 50 ms. GitHub's 4-thread runners also differ by about 35% between CPU models
+for the same code (run 43291722828 on an EPYC 9V45 gave a mean of 98 ms against 149 ms on the
+7763), which is more than most single changes move the tick.
+- **The gate:** at 24,576 a side (24 squads of 1,024), `tick_phases`' settled series, on CI's
+  4-thread runner, the p95 and the p99 tick are each at most **100 ms**.
+- **The stretch:** 50 ms at p95 and p99. It is reported beside the gate but doesn't gate.
+- **Comparing runs:** a figure is compared only with runs on the same CPU model, or by the
+  ratio to the reference within one run (Decision 172). A run on another CPU model doesn't
+  show a gain or a loss.
+- **The scale stays 24,576 a side.** The owner: the first maps "will be naive to start", so a
+  series from a real map waits until the gate is met on this known battle.
+- Everything else in Decision 159 stands: one squad's growth stays within ×2.2 a doubling, the
+  order of work, the pattern for threaded kernels, and the owner's PC as a comparison rather
+  than the gate.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep 50 ms as the gate | It was set for a tick on the main thread, and on the worker it is double the slot the tick needs. Kept as the stretch. |
+| 80 ms, leaving headroom for rendering | The owner chose the slot itself. Headroom on a player's PC is measured there (below), not built into CI's bar. |
+| Gate on a real map's battle sizes | Early maps will be naive; the owner wants the known battle met first. |
+| A self-hosted runner as the gate (Q45, #877) | Not settled here. Comparing one CPU model at a time handles the spread for now; Q45 stays open. |
+| The owner's PC as the gate | Decision 159's reason holds: not repeatable in CI. |
+
+**Consequences:** the metrics page's 25k lines change from "target 50 / interim 100" to "gate 100 /
+stretch 50" (`tools/metrics_view/metrics_25k.js`, `metrics_25k_page.js` and its README). The
+next performance round aims at the slowest ticks (the clash's seek, pair search and walk, and
+rout's rallies) as well as the mean, since the gate is on p95 and p99. A series from a real map
+is raised once the gate is met.
+
+**Rules over cases:** general: one bar for the one target battle, and one way to compare runs.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** holds; the ×2.2-a-doubling rule is unchanged.
+**Riskiest assumption:** that 100 ms on CI's 4 threads means the tick keeps up on a player's PC,
+where the worker shares the cores with rendering. The cheapest test is a fresh 25k local series
+on the owner's PC with the game drawing (Decision 178), before the gate is declared met.
+**Pillar check:** holds. Pillar 6 (legible depth) is served: every unit stays fully simulated at
+the scale the owner wants, with a bar the game actually needs.
