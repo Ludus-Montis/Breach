@@ -129,6 +129,10 @@ class GitHubClient:
     def comment(self, number, body):
         self._request("POST", f"{self.base}/issues/{number}/comments", {"body": body})
 
+    def list_comments(self, number):
+        """The bodies of an issue's comments: question_numbers.py comments once (spec 51 step 3)."""
+        return [c["body"] or "" for c in self._list(f"issues/{number}/comments")]
+
     def get_parent(self, number):
         """The issue's parent's number, or None if it has none."""
         try:

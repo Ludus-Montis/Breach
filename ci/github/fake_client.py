@@ -115,6 +115,9 @@ class FakeClient:
     def comment(self, number, body):
         self.comments.append((number, body))
 
+    def list_comments(self, number):
+        return [body for n, body in self.comments if n == number]
+
     def get_parent(self, number):
         return self.parents.get(number)
 
