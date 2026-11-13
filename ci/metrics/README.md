@@ -238,8 +238,14 @@ and leave them out; `check_records.py` checks them as it checks any record.
   into `bench-grid/inspect/`, and imports only those: one record per (cell, tick).
   `inspect` and `pair` pass `laps=1` (step 5f) where the binary takes it (a pair's base from
   before 5f doesn't), so the raw output keeps every lap after each tick's table.
-- `bash ci/metrics/local_grid.sh pair <head> <base> [rounds]` (5b, default 5 rounds) builds
-  both commits in worktrees under `bench-pair/` (git-ignored), runs each side's settled
+- `bash ci/metrics/local_grid.sh pair <head> <base> [rounds]` (5b, default 5 rounds) fetches
+  both commits' `release` binaries from the native store (spec 49 step 8): each side's key
+  (`ci/native/store_key.sh`, for the host's target, Linux or Windows on x86_64) is downloaded
+  over HTTPS from the `native-store` pre-release, without credentials, into `bench-pair/`
+  (git-ignored). When either key is missing, or the host has no store target, it says why and
+  builds both in worktrees there instead, never one of each (Q48 point 2), so a pair builds
+  nothing once CI has stored both keys. `PAIR_STORE_URL` names another store and
+  `PAIR_TARGET` another target. It then runs each side's settled
   series once per size, then times both in turn (head first in odd rounds) at the base's
   `inspect:` ticks, one tick a run, as CI's `bench-inspect` does on one runner. Its sizes are
   CI's, `PAIR_SIZES="preset=4096 preset=25k"`. `ci/metrics/local_pair.py` then prints, per
