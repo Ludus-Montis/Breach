@@ -243,4 +243,32 @@ Scenarios:
 
 ## Measured
 
-Nothing yet: step 4's verdict goes here.
+### Step 4: two builds of one key time the same (passed, 2026-11-13)
+
+**Verdict: passing.** Two builds of the reference `8ca4227` under one key
+(`07c09d3a…-1.99.1-release-x86_64-unknown-linux-gnu`, a 22.5 MB zip), each made by
+`store.sh fetch` on its own fresh `ubuntu-latest` runner, time the same. The tick's median is
+95.20 ms on both sides (+0.0%), and no phase's ranges come apart (no `*`) over 5 rounds of
+`breach_tick_phases side=4096 squads=4 fight=3`, run in turn on a third runner. The largest
+change in a median is +3.8% ("units walk to places", 1.82 against 1.89 ms), with both ranges
+overlapping.
+
+**How it was run.** `bench` builds its sides from commits and can't take a stored zip, and
+this step adds no code. So a throwaway workflow on a branch that was never merged
+(`chore/native-twin-builds-probe`, run
+[43335727186](https://github.com/Ludus-Montis/Breach/actions/runs/43335727186)) stood in for
+the two `workflow_dispatch` fills and the bench:
+- two jobs, on separate runners, each ran `store.sh fetch 8ca4227 release
+  x86_64-unknown-linux-gnu`. The key wasn't in the store yet, and a push to a branch may not
+  write, so both built it with the pin (about 6 minutes each), and neither uploaded;
+- a third job put each side's `native/bin/` into a worktree of `8ca4227`, ran the two in turn
+  as `bench` does, and compared them with `bench_compare.py`.
+
+**The bytes differ.** Every one of the 8 files in `native/bin/` has a different sha256 between
+the two builds. The likely cause is that `store.sh` builds in a `mktemp` worktree whose path
+differs on each run, and the compiler writes source paths into the binaries. So two builds of
+one key are equivalent in speed but not identical in bytes: a check on a key can compare
+timings, not hashes. Making them identical, for example by mapping the path away
+(`--remap-path-prefix`), would be a change under `ci/native/`, for the owner to decide;
+nothing in steps 5 to 11 needs it.
+
