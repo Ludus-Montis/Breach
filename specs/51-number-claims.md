@@ -161,3 +161,5 @@ Scenarios:
 ## Built
 
 (Each step's PR adds its line here.)
+
+- **Step 1**, the number check: `ci/github/check_numbers.py` (`tree_numbers`, `added`, `check`), tested on the #875/#878 replay under `ci/github/fixtures/numbers/`. Not run by any workflow until step 2.
