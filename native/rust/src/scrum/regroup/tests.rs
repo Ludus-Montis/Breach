@@ -151,8 +151,11 @@ fn crowded(ranks: usize) -> Built {
             (columns.speed[slot], columns.stamina[slot]) = (1.0, 100.0);
             columns.rank[slot] = n as i32;
             columns.bearing[slot] = if s == 0 { 90.0 } else { 270.0 };
-            columns.position[slot] =
-                if s == 0 { Kept::kept(&squads, 0).place((n as i32, 0), (1, 1)) } else { foes[n] };
+            columns.position[slot] = if s == 0 {
+                Kept::kept(&squads, 0).place((n as i32, 0), (1, 1))
+            } else {
+                foes.get(n).copied().unwrap_or_default()
+            };
             squads.members[s].push(slot as i32);
             living.push(grem(unit, slot));
         }

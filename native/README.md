@@ -745,6 +745,21 @@ so far. Each list grows with the squad, so the work grows with its square. `scru
 prepare, stance` (`scrum::step`'s `engage`, `prepare`, `anticipate` and `manoeuvre`) is likely
 to hold the same pattern. A profile of one squad of 24,576 will confirm it.
 
+### Regroup's walk-back, CI (spec 50, 2026-11-13)
+
+At 25k (24 squads of 1,024 a side), after the clash, regroup and the chase were about half of
+every tick. Spec 50 step 1's sub-laps (`bench-inspect` run 43331187759) put 85% of them in
+one part, `scrum: regroup: walk-back`: 33 ms at tick 166 and 50 ms at tick 242, of 39 and 58 ms.
+For each loose unit, the walk back searched its squad's living units, homes, foes faced and
+chasers by id, and took each unit that arrived out of the loose list one at a time. That is the
+square of a squad's size.
+
+Step 2 builds each of those lookups once a squad, as a map by id, and takes the units that
+arrived out of the loose list in one pass after the walk, keeping its order. Outcomes are
+unchanged: the digests, and a cargo test pinning many loose units' walks and chases
+(`scrum::regroup::tests`). The `bench` run on its PR gives the time it saves. `trade-in`
+(5 to 7.5 ms at those ticks) is the next part of the phase, and step 2 leaves it as it is.
+
 ## Building
 
 ```
