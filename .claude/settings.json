@@ -8,5 +8,18 @@
       "mcp__github__merge_pull_request",
       "mcp__github__enable_pr_auto_merge"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny_local_full_test_suite_runs.py"
+          }
+        ]
+      }
+    ]
   }
 }
