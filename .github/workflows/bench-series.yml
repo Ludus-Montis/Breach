@@ -10,11 +10,12 @@ name: bench-series
 # each job's records go through the data-PR route (.github/actions/metrics-pr), so the
 # backfill lands as several data PRs that merge themselves.
 #
-# Build cost: the `references` job builds eee3e81 and 8ca4227 once and hands their binaries
-# to every timing job, and saves its build folder as one cache entry (a fixed key, written
-# once) that the timing jobs restore. In a timing job every commit builds into that one shared
-# folder (BENCH_TARGET), so the dependencies are built once and each commit recompiles only
-# what changed. Each job first deletes runner tools it doesn't use, for disk.
+# Build cost: every commit's binaries come from the native store (spec 49 step 6, Decision
+# 179): `ci/native/store.sh fetch` downloads its `release` key, or builds it and uploads it when
+# it isn't stored, so commits that share a `native/` tree build it once between them, and a
+# rerun builds nothing. The `references` job fetches eee3e81 and 8ca4227 once and hands their
+# binaries to every timing job. The jobs that fetch may write the store, hence `contents:
+# write`. Each timing job first deletes runner tools it doesn't use, for disk.
 #
 # `set=25k` (spec 43 step 8b, Decision 165): instead, step 8a's 25k set (ci/metrics/series_25k.py)
 # on each commit the 4,096 backfill times with the crate's breach_tick_phases (the GDScript era
@@ -42,9 +43,6 @@ permissions:
 
 env:
   GODOT_VERSION: "4.7.2-stable"
-  BENCH_TARGET: ${{ github.workspace }}/target-shared
-  # One entry, written once by `references`: bump the version to rebuild it.
-  TARGET_CACHE: bench-series-target-v1
 
 jobs:
   plan:
@@ -71,30 +69,20 @@ jobs:
   references:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Restore the shared build folder
-        id: cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ${{ env.BENCH_TARGET }}
-          key: ${{ env.TARGET_CACHE }}
-      - name: Build the references
+      - name: Fetch the references from the store
         env:
           SET: ${{ inputs.set }}
         run: python3 ci/metrics/bench_series.py build --set "$SET"
-      - name: Save the shared build folder
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ${{ env.BENCH_TARGET }}
-          key: ${{ env.TARGET_CACHE }}
       # tar keeps the binaries' execute bit, which an artifact on its own drops.
       - name: Pack the references' binaries
         run: tar czf references.tgz trees/*/native/bin
@@ -108,6 +96,12 @@ jobs:
     needs: [plan, references]
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     strategy:
       fail-fast: false
       max-parallel: 8
@@ -130,13 +124,6 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
 
-      - name: Restore the shared build folder
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ${{ env.BENCH_TARGET }}
-          key: ${{ env.TARGET_CACHE }}
 
       - uses: actions/download-artifact@v7
         with:

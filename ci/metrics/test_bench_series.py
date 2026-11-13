@@ -98,26 +98,8 @@ class RecordTest(unittest.TestCase):
                          ["engine=rust", "side=4096", "squads=4", "fight=3"])
 
 
-class SharedBuildTest(unittest.TestCase):
-    """Every worktree builds into one shared folder, so a commit only rebuilds what changed."""
-
-    def test_each_worktree_s_build_folder_is_the_shared_one(self):
-        import tempfile
-        root = Path(tempfile.mkdtemp())
-        shared = root / "shared"
-        for name in ("one", "two"):
-            (root / name / "native" / "rust").mkdir(parents=True)
-            bench_series.link_target(root / name, shared)
-            target = root / name / "native" / "rust" / "target"
-            self.assertTrue(target.is_symlink())
-            self.assertEqual(target.resolve(), shared.resolve())
-
-    def test_a_build_folder_already_there_is_replaced_by_the_link(self):
-        import tempfile
-        root = Path(tempfile.mkdtemp())
-        (root / "one" / "native" / "rust" / "target" / "release").mkdir(parents=True)
-        bench_series.link_target(root / "one", root / "shared")
-        self.assertTrue((root / "one" / "native" / "rust" / "target").is_symlink())
+class NeedsBuildTest(unittest.TestCase):
+    """A worktree whose binaries are there (the references, unpacked) fetches nothing."""
 
     def test_a_worktree_with_its_binaries_needs_no_build(self):
         import tempfile
