@@ -788,6 +788,32 @@ the first `cargo` call in `native/rust`, on CI and on a PC alike. A built binary
 `native/` share a key, and the toolchain is the pin of the checkout running the script, so a
 commit from before the pin is keyed with today's compiler. Raising the pin changes every key.
 
+### The store (`native-store`)
+
+Built binaries live as assets on the pre-release `native-store`, one `<key>.zip` per key
+(spec 49 step 3, Decision 179): `native/bin/` whole for `release`, `breach_tick_phases`
+alone for `profiling`.
+
+```
+bash ci/native/store.sh fetch <commit> <profile> <target> <dir>
+```
+
+downloads the key and unzips it into `<dir>`. If the key is missing it builds `<commit>` in
+a worktree of its own (`native/build.sh release`, or `cargo build --profile profiling --bin
+tick_phases`) with `RUSTUP_TOOLCHAIN` set to the head's pin, puts the result in `<dir>`,
+and uploads it when the run may write: a push to `main`, a same-repo PR, a release or a
+`workflow_dispatch`, never a fork's PR or a run outside Actions. An upload that finds the
+asset already there skips, and the first upload makes the pre-release if it is missing.
+`<target>` must be the host's: each OS builds its own key. The script needs `gh` (with
+`GH_TOKEN` and `GH_REPO` on CI) and Python for the zips.
+
+The `Native store` workflow (`.github/workflows/native-store.yml`) fills it: on pushes to
+`main` and same-repo PRs that change `native/` or `ci/native/`, and by `workflow_dispatch`
+with a list of commits. Linux (`x86_64-unknown-linux-gnu`) and Windows
+(`x86_64-pc-windows-msvc`) fill `release` in parallel, and Linux fills `profiling` too. Each
+job's summary lists the zips with their sizes. Nothing reads the store yet: readers wait for
+spec 49 step 4's measured check that two builds of one key time the same.
+
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export
 would need the library and the `.gdextension` added.

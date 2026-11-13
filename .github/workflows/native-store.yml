@@ -1,0 +1,74 @@
+name: Native store
+
+# Fills the store of native binaries (spec 49 step 3, Decision 179): the pre-release
+# `native-store`, one `<key>.zip` per key (`ci/native/store_key.sh`), made by
+# `ci/native/store.sh` if missing. A job per OS, in parallel, each filling `release` for its
+# own target; Linux also fills `profiling` (`breach_tick_phases` alone). Each job's summary
+# gives the zips' sizes. A key that is already stored is downloaded, not rebuilt.
+#
+# Runs on pushes to main and same-repo PRs that change native/ or the store's helper, and on
+# workflow_dispatch with a list of commits (the references, say). A fork's PR doesn't run
+# it: it may not write, so a build would be thrown away.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native/**"
+      - "ci/native/**"
+      - ".github/workflows/native-store.yml"
+  pull_request:
+    paths:
+      - "native/**"
+      - "ci/native/**"
+      - ".github/workflows/native-store.yml"
+  workflow_dispatch:
+    inputs:
+      commits:
+        description: "Commits to fill, separated by spaces (default: this run's commit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: native-store-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fill:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            profiles: release profiling
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            profiles: release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      COMMITS: ${{ inputs.commits }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fill
+        run: |
+          commits="${COMMITS:-$GITHUB_SHA}"
+          echo "### ${{ matrix.target }}" >> "$GITHUB_STEP_SUMMARY"
+          for commit in $commits; do
+            for profile in ${{ matrix.profiles }}; do
+              bash ci/native/store.sh fetch "$commit" "$profile" "${{ matrix.target }}" \
+                "$RUNNER_TEMP/out/$commit-$profile"
+            done
+          done
