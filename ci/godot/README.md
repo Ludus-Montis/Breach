@@ -120,6 +120,17 @@ Every check that doesn't need another's output runs in its own job, side by side
 
 ## Heuristic limits (stated plainly, not hidden)
 
+- `ci/native/check_build_inputs.py` (spec 49 step 2, run by `run-baseline`) — keeps every
+  input of a native build under `native/`, so the store's key (the tree of `native/`, the
+  pinned toolchain, the profile and the target, Decision 179) covers it. It fails on any
+  line, in a tracked workflow, script or `.toml` outside `native/` and `ci/native/` (the
+  store's helper, which sets `RUSTUP_TOOLCHAIN` to the pin), that names `RUSTFLAGS`,
+  `CARGO_PROFILE_*`, `CARGO_BUILD_*`, `--features`, `target-cpu` or `RUSTUP_TOOLCHAIN`,
+  and names the file and line. A textual scan: it can't see a flag built from pieces
+  (`"RUST" + "FLAGS"`), set by a runner's own environment or image, or passed through a
+  file type it doesn't read (`.md` is prose and skipped); and it flags a comment that
+  names one of them, which is the safe side.
+
 - `check_dependency_direction.py` — textual scan for `preload(`/`load(`/`extends`
   references from `sim/` into `presentation/`, plus a fixed list of Godot's common
   Node-family base types to catch a `sim/` file directly `extends`-ing an engine scene

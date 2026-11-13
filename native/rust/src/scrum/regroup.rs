@@ -6,11 +6,14 @@
 //! terrain where its units walk back to (TerrainStep.returns: the pour's targets in its
 //! frame, `march::pour::targets`, any swap under way and any downed foe taken read from the
 //! squad). Then the regroup (`regroup::step`) and the chase (`pursuit::chase`), in that
-//! order, as the GDScript phases ran them.
+//! order, as the GDScript phases ran them. Each part is a lap of its own (spec 50 step 1:
+//! `scrum: regroup: …` and `scrum: chase: …`, the last ended by the scrum's `lap`), timed
+//! on every tick, with or without a squad to regroup or chase, so the parts keep their order.
 
 use crate::discipline::{self, DisciplineTuning};
 use crate::field::Field;
 use crate::ground::Ground;
+use crate::laps::split;
 use crate::locks::{FIGHTING, RETREAT, ROUTING};
 use crate::march::pour::{self, Frame};
 use crate::maths::V2;
@@ -45,10 +48,8 @@ pub fn step(
         .filter(|&n| ![FIGHTING, ROUTING].contains(&squads.state[roster.listed[n].squad]))
         .map(|n| regrouper(squads, field, roster, n, ground, rules))
         .collect();
-    if !regroupers.is_empty() {
-        let columns = &mut field.columns;
-        regroup::step(squads, columns, roster, &regroupers, ground, &rules.regroup);
-    }
+    split("scrum: regroup: regroupers");
+    regroup::step(squads, &mut field.columns, roster, &regroupers, ground, &rules.regroup);
     let chasing: Vec<pursuit::Chasing> = (0..roster.listed.len())
         .filter(|&n| !squads.chasers[roster.listed[n].squad].is_empty())
         .map(|n| pursuit::Chasing {
@@ -56,10 +57,8 @@ pub fn step(
             homes: returns(squads, field, &roster.listed[n], ground, rules),
         })
         .collect();
-    if !chasing.is_empty() {
-        let columns = &mut field.columns;
-        pursuit::chase(squads, columns, roster, &chasing, ground, &rules.chase);
-    }
+    split("scrum: chase: chasing");
+    pursuit::chase(squads, &mut field.columns, roster, &chasing, ground, &rules.chase);
 }
 
 /// ScrumRegroup's say of the listed squad `n`: only one with units out walks.

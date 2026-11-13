@@ -138,6 +138,19 @@ A run that fails or times out (90 minutes) writes nothing. The job's concurrency
 cancels a running set, but GitHub keeps one pending run a group: a third merge during a run
 replaces the second's pending one, and that merge has no set.
 
+## Busy threads
+
+Since spec 50 step 3, `breach_tick_phases` ends a series and a repeated tick with a `busy
+threads` block: each phase's CPU time over its wall time (`native/README.md`, Tick phases).
+`bench_record.py` writes it beside the ms as `busy/<key>`, with the unit `threads`:
+`busy/tick` for the whole tick, `busy/scrum/seek` for `tick/scrum/seek`, each with its rounds
+and their median. Only the head's rounds carry them; the reference's don't, so they have no
+ratio. The schema doesn't change (`unit` is free text), and the metrics page leaves them out
+of the phases it charts and compares (`metrics_view.js`'s `inMs`). A binary from before step 3,
+or a run on Windows (`local_record.py`, the owner's records), prints none, and its record has
+no `busy/` keys. Rayon's idle workers spin a little before they sleep, so a short phase's
+reading is an upper bound on its useful parallel work.
+
 ## Repeat records
 
 `bench-inspect` (spec 47, Decision 177) replays chosen ticks live. Each merge to `main` that
