@@ -30,6 +30,7 @@ Task-oriented. Steps to achieve a specific goal.
 - [The tick history page, on the web or from disk](../tools/metrics_view/README.md)
 - [The Showcase tab: each game PR's clips, stills and timings, and how to compare them](../tools/showcase_view/README.md)
 - [Release a version: merge the release PR](../ci/release/README.md)
+- [Download a release's native binaries](../ci/release/README.md#download-a-release)
 - [Raise, check or close an open question](../OPEN_QUESTIONS.md) (GitHub issues labelled
   `question`; labels, milestones and step issues come from the `github-sync` workflow)
 

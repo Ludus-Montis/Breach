@@ -1,0 +1,97 @@
+name: release
+
+# Spec 49 step 11, Decision 180. When the release PR (step 10, `chore/release`) merges, its new
+# `## [x.y.z]` section in CHANGELOG.md has no `vx.y.z` tag yet: this tags the merge commit and
+# makes a GitHub release whose notes are that section, with `native/bin/` for Linux and Windows
+# attached as `breach-native-<version>-<target>.zip`. The binaries are the merge's `release`
+# keys from the store (ci/native/store.sh), built and stored first if missing. Releases are
+# kept forever: the prune (ci/native/prune.py) keeps every release's keys.
+#
+# A rerun, or a push whose newest version is already tagged, releases nothing
+# (ci/release/release.py plan). workflow_dispatch on main retries a release that failed.
+
+on:
+  push:
+    branches: [main]
+    paths: ["CHANGELOG.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # the tags
+      - name: The version to release
+        id: plan
+        run: python3 ci/release/release.py plan | tee -a "$GITHUB_OUTPUT"
+
+  binaries:
+    needs: plan
+    if: needs.plan.outputs.version != ''
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # store_key.sh reads native/'s tree
+      - name: The release key, from the store
+        run: bash ci/native/store.sh fetch "$GITHUB_SHA" release "${{ matrix.target }}" "$RUNNER_TEMP/bin"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.target }}
+          path: ${{ runner.temp }}/bin
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, binaries]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/native
+      - name: Tag and publish
+        run: |
+          set -euo pipefail
+          zips=()
+          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc; do
+            zip="$RUNNER_TEMP/$(python3 ci/release/release.py asset "$VERSION" "$target")"
+            (cd "$RUNNER_TEMP/native/native-$target" && python3 -m zipfile -c "$zip" *)
+            zips+=("$zip")
+          done
+          python3 ci/release/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${zips[@]}"
+          echo "Released [v$VERSION]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION)." >> "$GITHUB_STEP_SUMMARY"
