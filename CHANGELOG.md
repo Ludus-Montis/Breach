@@ -47,6 +47,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- Large battles tick faster once a fight is over: squads regrouping no longer search their
+  whole squad for each unit walking back to its place. Nothing in how they regroup changes.
 - The native core builds with a pinned Rust toolchain, 1.99.1 (`native/rust/rust-toolchain.toml`):
   rustup installs it on the first `cargo` call in `native/rust`.
 - The tick history page now shows each record as × the reference timed beside it by default,

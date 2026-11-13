@@ -8,10 +8,10 @@
 //! first and changes what a later one sees (Decision 97). Chasers and withdrawing units are
 //! left to the pursuit and the withdrawal.
 
-use crate::hashing::HashSet;
+use crate::hashing::{HashMap, HashMapExt, HashSet, HashSetExt};
 
 use crate::columns::Columns;
-use crate::entries;
+use crate::entries::LOOSE;
 use crate::frame::Frame;
 use crate::ground::Ground;
 use crate::laps::split;
@@ -20,7 +20,7 @@ use crate::maths::V2;
 use crate::motion;
 use crate::mover;
 use crate::near::{Crowd, Foes, Steering};
-use crate::roster::{self, Roster};
+use crate::roster::{self, Member, Roster};
 use crate::squads::Squads;
 use crate::trade;
 
@@ -158,20 +158,27 @@ fn walk_back(
     let basis = Frame::kept(squads, squad); // once a squad: no unit's walk moves its frame
     let stance = squads.stance[squad];
     let heading = stance.map_or(squads.heading[squad], |s| s.heading);
-    for id in squads.loose[squad].clone() {
-        if squads.chasing(squad, id) || r.withdrawing {
+    // Each lookup by id is one map, built once a squad (bounded-work: no scan of the squad
+    // for each of its units). Ids are unique, so each finds what the scan found first.
+    let living: HashMap<i64, &Member> = listed.living.iter().map(|m| (m.id, m)).collect();
+    let homes = first_of(&r.homes);
+    let foes = first_of(foes);
+    let chasing: HashSet<i64> = squads.chasers[squad].iter().map(|c| c.unit).collect();
+    let mut rejoined = HashSet::new();
+    for &id in &squads.loose[squad] {
+        if chasing.contains(&id) || r.withdrawing {
             continue; // away on its own: the pursuit's or the withdrawal's
         }
-        let Some(unit) = listed.living.iter().find(|m| m.id == id) else { continue };
+        let Some(&unit) = living.get(&id) else { continue };
         let slot = unit.slot;
-        let place = match r.homes.iter().find(|(h, _)| *h == id) {
-            Some(&(_, home)) => home,
+        let place = match homes.get(&id) {
+            Some(&home) => home,
             None => basis.place((columns.rank[slot], columns.column[slot]), unit.foot),
         };
         let step = columns.speed[slot] * rules.pace * r.reform;
         let mut at = columns.loose_at[slot];
-        let foe_at = match foes.iter().find(|(f, _)| *f == id) {
-            Some(&(_, foe)) => foe,
+        let foe_at = match foes.get(&id) {
+            Some(&foe) => foe,
             None => {
                 // it takes its place the quicker way, arriving facing its squad's
                 motion::look(&unit.mover(columns), at, place, heading, step / seconds)
@@ -200,9 +207,22 @@ fn walk_back(
             faces
         };
         if stance.is_none() && faced {
-            entries::unloose(squads, columns, squad, (id, slot)); // in its place, facing its way
+            columns.flags[slot] &= !LOOSE; // in its place, facing its way: it rejoins
+            rejoined.insert(id);
         }
     }
+    if !rejoined.is_empty() {
+        squads.loose[squad].retain(|id| !rejoined.contains(id)); // once, keeping the order
+    }
+}
+
+/// id -> its value, the first listed for each id (as a scan from the front finds it).
+fn first_of(pairs: &[(i64, V2)]) -> HashMap<i64, V2> {
+    let mut out = HashMap::with_capacity(pairs.len());
+    for &(id, at) in pairs {
+        out.entry(id).or_insert(at);
+    }
+    out
 }
 
 /// ScrumTrade.trade for the listed squad: its living units, in its order.

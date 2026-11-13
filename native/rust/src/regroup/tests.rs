@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::contest;
+use crate::entries;
 use crate::ground::Walker;
 use crate::roster::{Listed, Member};
 use crate::squads::{Chaser, Stance};
