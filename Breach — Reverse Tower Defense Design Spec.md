@@ -8619,3 +8619,188 @@ and issues were opened, on purpose.
 **Riskiest assumption:** that every number in use is visible to the check (a session opens its
 PR early). Spec 51's first test replays the #875 and #878 clash.
 **Pillar check:** not applicable.
+
+### Decision 182 — The first game-like map is a 3x1 of flat fields, played by the formation battle set up from the map
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q25 (#280). The owner: "any old maps have purely been for either visualisation
+or test purposes, really we need to get game like-for-like maps even if only considering a 3x1
+set of tiles with no unique logic, only using our game sims and renderers as and when created".
+Today the two halves don't meet. A designer map (`content/maps/<name>.json`) is a node graph
+and a grid of tiles, each tile 64 battle cells (`CELLS_PER_TILE`). Only the map viewer and
+the lane skirmish read one. The formation battle, the real simulation, plays on one of two
+grounds hard-coded in `ground/map.rs` (`field`, `mixed`), and the field's routes and the
+kingdom's line are hard-coded beside it.
+- **The map:** `road_3x1`, authored in the designer. Three tiles of FIELDS in a row, a road
+  along them, the player's node `P` on the first tile, the kingdom's node `c` on the last with
+  a garrison of 1, and a loss group for each (`P` for the player, `c` for the kingdom).
+  simple_map, in the owner's checkout, comes later; the owner chose "start with a 3x1".
+- **The ground comes from the map, move cost only.** Every cell takes its tile's terrain's
+  `move_cost`. A cell within 4 cells of a road's line between two tile centres (the field's
+  route corridor) takes that cost times the library's `road_move_multiplier`. Everything else a
+  tile can carry (relief, elevation, liquids, channels, features, sight) stays flat and open
+  until Q50 (#1001). The owner: "We could opt for the most basic and have everything be fields
+  or a x1 movement".
+- **The battle is the formation battle**, the one the 2D field plays: the crate's `Play`, its
+  tick and its rules, set up from the map. The player's route is the layout's route from the
+  player's node to the kingdom's. The waves and builders are the field's: waves of 8 grems
+  and four grem builders. The lane sim (`lane.rs`), the kingdom's response (`kingdom.rs`) and
+  the economy (`economy.rs`) aren't part of this map yet.
+- **Nothing the field plays changes.** The field keeps its own ground, routes and line, and
+  its digests and named scenarios stay as they are.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| simple_map (12x5, eight nodes) first | The owner: start with a 3x1; simple_map is the second map. |
+| Author the field's ground in the designer and prove it identical first | The designer paints one terrain per tile, and the field's ford, wood and hill are smaller than a tile. That needs sub-tile design first (Q50). |
+| Tile heights (Surface) as well as move cost | More to check before anything plays; it comes with Q50. |
+| The battle alone, without capture or an end | The owner chose capture and a win: a map that can't be won is another demo. |
+| Battle, capture, economy and the kingdom's response together | The largest round, and it overlaps specs 46 and 50 in `native/`. |
+
+**Consequences:** Spec 52 builds it. The ground's other properties, and sub-tile design, wait
+for Q50.
+
+**Rules over cases:** general: one rule makes any map's ground from its tiles and roads. The
+3x1 is the first map it makes, not a case of its own.
+**Order:** the ground has no ordering question (it is made once, at set-up, from positions),
+and the battle's rules are unchanged.
+**Bounded:** the ground is made once, at set-up, in proportion to the map's cells; no per-tick
+work is added.
+**Riskiest assumption:** that the crate can make a battle's ground, route and kingdom's line
+from a designer map without touching how the field plays. Spec 52 steps 1 and 2 test it before
+anything is drawn.
+**Pillar check:** the overlord's waves against a kingdom's node on a real map.
+
+### Decision 183 — A node is taken by standing on it unopposed; a garrison is lines of the kingdom's; the map ends by its loss groups
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q25 (#280). The owner chose "battle + capture/win" for the first map.
+- **Taking a node.** At the end of each tick, after the whole tick has played, every node is
+  checked against the same snapshot. A side takes a node when it has a living, unrouted unit on
+  the node's tile and the node's holder has none there. If units of both sides are there, or
+  of neither, the holder keeps it. The same rule holds for every node and both sides, so the
+  kingdom can take a node back.
+- **Who holds a node at the start:** the faction whose loss group names it. A node in no loss
+  group starts held by no one, and the first side to stand on it alone takes it.
+- **A garrison:** a node's `garrison` n is n of the field's kingdom lines, stood one behind
+  another across the route at the node, facing the way the player comes. A garrison of 0
+  leaves the node undefended.
+- **The end:** when a faction's loss group's rule (`ANY` or `ALL` of its nodes taken) is met,
+  that faction has lost and the other has won. If both are met on the same tick, it is a draw.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Taken when its garrison has all fallen or routed off its tile | It ties the node to the squads first put there; a reinforcement or a returning line wouldn't count. |
+| Garrison n = n units in one line | The owner chose lines of the kingdom's. |
+| The first faction listed wins a same-tick end | List order would decide an outcome (Decision 97). |
+
+**Consequences:** Spec 52 step 3. A routed unit doesn't hold or take a node. The lane sim's
+capture (`lane.rs`, a garrison's pooled hp) stays as it is.
+
+**Rules over cases:** general: one rule for every node and both sides, checked every tick.
+**Order:** decided from one snapshot after the tick, for all nodes together. No id, list order
+or node order decides who takes a node or who wins, and a same-tick end is a draw. Step 3's
+test plays the battle twice, the second time with every squad and unit list reversed, and
+requires the node to be taken on the same tick.
+**Bounded:** per node, over the units on its tile through the body grid, stopping at the first
+unit of each side; nodes are few. No node scans the whole battle.
+**Riskiest assumption:** Decision 182's.
+**Pillar check:** taking the kingdom's ground is the overlord's goal.
+
+### Decision 184 — The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+**Amends:** Decision 169 (when the capture leaves the 2D field)
+
+**Rationale:** Q25 (#280). The owner wants playtests to look like a player's session: "if we
+have some tests I can send replays on, that should be analogous with the actual gameplay a
+player would see". For the skirmish, the 2D field and the map viewer, the owner chose
+"replace all three".
+- **The map scene** (`presentation/map/`) opens a content map and plays it: the battle, the
+  taking of nodes and the end (Decisions 182 and 183).
+- **What it replaces, and when:**
+  - `formation_skirmish.tscn` retires now, with the code only it uses (`BattleState`,
+    `battle_play.rs`). It misleads: it draws units on their places in the formation, not
+    where they stand (#280).
+  - The map viewer retires once the map scene can open any content map, with the viewer's map
+    picker, "view as" and node details. A map the scene can't play (no route from the player's
+    node to the kingdom's) opens for viewing only. The designer's "View in Godot" opens the
+    map scene.
+  - The 2D field (`formation_field.tscn`) retires once a designer map of the ford and flank
+    field replays the field's three named scenarios with the same behaviours (Q50). Until
+    then it stays the feel test, and the scene the capture plays those scenarios on
+    (Decision 169).
+- **Temporary renderers, all of them:** terrain in the library's flat colours
+  (`MapLayoutPainter`), nodes as the viewer's placeholder markers (`MapView` and its art set),
+  and every body, living or fallen, where it stands (Decision 106), in **one batched draw**
+  (a `MultiMesh`), not one draw per unit. It is sized for the bench's battles: 4,096 a side
+  at a usable frame rate on the owner's PC, checked by hand. Real art is a later round.
+- **Debug seeding, behind `--debug`:** the map scene starts with unlimited reserves (a wave
+  fills the moment it is asked for) and a wave-size picker, from 8 up to 4,096 in powers of
+  two. The owner wants to "send a wave of 1024 grems immediately followed by the same". A wave
+  of n is set out as the bench's clash sets out a squad of n. Without the flag, the map plays
+  as a player would. Nothing in the map file changes.
+- **Replays:** the map scene plays a FormationRecord (Decision 115) on its map, hands-free
+  (`--replay=<path>`), as the field replays one pasted back. The shared scenario list
+  (`content/scenarios/scenarios.json`) gets no map scenarios in this round: CI's capture
+  (`ci/showcase/capture.sh`) plays every scenario on the list on the 2D field, and CI is spec
+  49's this round. A map's named scenarios, and the capture choosing its scene by a scenario's
+  map, come with the step that changes the capture.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep all three scenes until the map scene has proven itself | The owner: replace all three. |
+| Retire the field now | Its scenarios need sub-tile ground the designer can't make yet (Q50). |
+| Reuse the field's per-unit drawing first | It doesn't reach thousands of units, and the owner chose batching now. |
+| Big waves from scenario records only | The owner chose a launch flag and a HUD, for playtests by hand. |
+
+**Consequences:** Spec 52 steps 5 to 9. The renderers are replaced one by one as real ones
+arrive, and the scene itself doesn't change.
+
+**Rules over cases:** general: one scene plays any content map. A debug wave can be any n, set
+out by the bench's one rule.
+**Order:** not applicable. Drawing and debug seeding decide no outcome a player's game reaches.
+**Bounded:** one batched draw a frame, with instances in proportion to the bodies.
+**Riskiest assumption:** Decision 182's.
+**Pillar check:** the game as the player sees it, not a test bench.
+
+### Decision 185 — Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q18 (#274) and Q8 (#264). The designer already saves a map as
+`content/maps/<name>.json` in the crate's schema (Decision 153), and Godot loads it from there
+through the crate (`CrateContent.map`). The map scene does the same.
+- **No `.tscn` for a map.** A map is data the crate reads, not a scene. Q18's JSON-to-`.tscn`
+  converter isn't built, and Decision 29's `.tres` path isn't revived.
+- **The designer is in v1's scope as the developers' authoring tool** (Decision 30): in the
+  repo, run locally. A map editor for players is not in v1; it is post-launch.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A JSON-to-`.tscn` converter (Q18) | A second copy of every map, when the crate already loads the JSON. |
+| A player map editor in v1 | The owner: a developer tool yes, a player's editor no. |
+| Leave Q8 open | The owner settled it here. |
+
+**Consequences:** Q18 and Q8 close. New map content is a designer save, and its PR carries both
+the export (`content/maps_src/`) and the map (`content/maps/`).
+
+**Rules over cases:** general: every map takes the same path.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; content loading only.
+**Riskiest assumption:** none of its own.
+**Pillar check:** not applicable.
