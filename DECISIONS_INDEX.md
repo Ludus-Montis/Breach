@@ -175,7 +175,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 166 | The Pages site is the project's site, one tab a page, Metrics first and Showcase second | 7782 | amended by 170 |
 | 167 | Every PR that changes the game shows it: a capture of the real skirmish, on the PR and on the Showcase tab | 7819 | amended by 169 |
 | 168 | A design round opens with a pre-mortem, recorded in its spec | 7875 |  |
-| 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 | amended by 173, 176 |
+| 169 | The capture plays named scenarios on the 2D field, shares their names with the bench, and runs up to 90 seconds | 7909 | amended by 173, 176, 184 |
 | 170 | The site opens on Showcase, Metrics second | 7980 |  |
 | 171 | A spec's steps say what they need and what they touch; a cascade runs every ready step at once, and splits too-large steps in the open | 8009 |  |
 | 172 | The tick history compares records by their reference, and shows or hides each CPU and phase | 8082 |  |
@@ -187,3 +187,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 178 | The owner's PC is a local bench series of its own, drawn apart from CI's | 8397 |  |
 | 179 | Native binaries are kept in one store, keyed by what built them, and built for every OS at once | 8454 |  |
 | 180 | The project is versioned 0.x.y from 0.0.1, released when the owner merges a release PR | 8522 |  |
+| 182 | The first game-like map is a 3x1 of flat fields, played by the formation battle set up from the map | 8572 |  |
+| 183 | A node is taken by standing on it unopposed; a garrison is lines of the kingdom's; the map ends by its loss groups | 8627 |  |
+| 184 | The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag | 8667 |  |
+| 185 | Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor | 8727 |  |
