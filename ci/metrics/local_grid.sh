@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local runs on the owner's PC (spec 48, Decision 178), in three modes. Build first:
-# bash native/build.sh (the pair mode builds its own two commits).
+# bash native/build.sh (the pair mode fetches or builds its own two commits).
 #
 #   bash ci/metrics/local_grid.sh grid [rounds]                (default 3)
 #   bash ci/metrics/local_grid.sh inspect [rounds]             (default 3; after grid)
@@ -15,8 +15,12 @@
 #   one record per (cell, tick). A guide, not the judge (Q47, #909).
 #   inspect and pair pass `laps=1` (5f) where the binary takes it, so the raw output keeps
 #   every lap after each tick's table; the records keep the medians and quartiles, not the laps.
-# pair (5b): builds <head> and <base> (any commit or branch) in worktrees under bench-pair/
-#   (git-ignored), runs each side's settled series once per size, then times both in turn
+# pair (5b): fetches <head>'s and <base>'s (any commit or branch) `release` binaries from the
+#   native store over HTTPS, without credentials (spec 49 step 8), or, when either key is
+#   missing, builds both in worktrees, never one of each (Q48 point 2); all under bench-pair/
+#   (git-ignored). PAIR_STORE_URL names another store, PAIR_TARGET another target (the host's
+#   by default: Linux or Windows on x86_64). It runs each side's settled series once per size,
+#   then times both in turn
 #   (head first in odd rounds, base first in even ones) at the base's `inspect:` ticks, one
 #   tick a run, with repeat=50, as CI's bench-inspect does on one runner. It prints the head's
 #   change against the base per size and tick (ci/metrics/local_pair.py). It records nothing.
@@ -33,6 +37,7 @@ SQUADS=(1 2 4 8 24)
 FIGHT=10
 REPEAT=50
 read -r -a PAIR_SIZES <<< "${PAIR_SIZES:-preset=4096 preset=25k}"
+PAIR_STORE_URL="${PAIR_STORE_URL:-https://github.com/Ludus-Montis/Breach/releases/download/native-store}"
 
 usage() {
   sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2
@@ -109,6 +114,47 @@ inspect() {
   import_records "$out"
 }
 
+store_target() { # the host's store target (spec 49: Linux and Windows on x86_64), or nothing
+  if [ -n "${PAIR_TARGET:-}" ]; then echo "$PAIR_TARGET"; return; fi
+  case "${PAIR_UNAME:-$(uname -sm)}" in
+    "Linux x86_64") echo x86_64-unknown-linux-gnu ;;
+    MINGW*x86_64 | MSYS*x86_64 | CYGWIN*x86_64) echo x86_64-pc-windows-msvc ;;
+  esac
+}
+
+fetch_side() { # fetch_side <ref> <target> <dir>: the key's zip unpacked into <dir>, or fails
+  local key zip
+  key="$(bash ci/native/store_key.sh "$1" release "$2")"
+  zip="$3.zip"
+  mkdir -p "$3"
+  if ! curl -fsSL -o "$zip" "$PAIR_STORE_URL/$key.zip" 2> /dev/null; then
+    echo "$key"
+    return 1
+  fi
+  python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" "$3"
+  chmod +x "$3"/* 2> /dev/null || true
+  rm -f "$zip"
+}
+
+fetch_pair() { # fetch_pair <head> <base> <root>: both sides into <root>/<side>/native/bin/,
+  # or neither (prints why and returns 1)
+  local target missing side ref
+  target="$(store_target)"
+  if [ -z "$target" ]; then
+    echo "pair: no store target for this host ($(uname -sm)); building both"
+    return 1
+  fi
+  for side in head base; do
+    ref="$1"; [ "$side" = base ] && ref="$2"
+    if ! missing="$(fetch_side "$ref" "$target" "$3/$side/native/bin")"; then
+      echo "pair: the $side's key ($missing) isn't in the store; building both"
+      rm -rf "$3/head" "$3/base"
+      return 1
+    fi
+    echo "pair: $side ($ref) from the store"
+  done
+}
+
 pair() {
   local head="$1" base="$2" rounds="${3:-5}" root="bench-pair" out size label ticks tick
   local -A bins=() laps=()
@@ -116,11 +162,15 @@ pair() {
   git worktree prune
   mkdir -p "$root/out"
   out="$root/out"
+  local built=
+  fetch_pair "$head" "$base" "$root" || built=1
   for side in head base; do
     local ref="$head"; [ "$side" = base ] && ref="$base"
-    git worktree add -f --detach "$root/$side" "$ref" > /dev/null
-    echo "pair: building $side ($ref, $(git -C "$root/$side" rev-parse --short HEAD))"
-    bash "$root/$side/native/build.sh" > "$root/build_$side.log"
+    if [ -n "$built" ]; then
+      git worktree add -f --detach "$root/$side" "$ref" > /dev/null
+      echo "pair: building $side ($ref, $(git -C "$root/$side" rev-parse --short HEAD))"
+      bash "$root/$side/native/build.sh" > "$root/build_$side.log"
+    fi
     bins[$side]="$(tick_phases "$root/$side")"
     laps[$side]="$(laps_of "${bins[$side]}")"
   done
@@ -146,8 +196,10 @@ pair() {
       done
     done
   done
-  git worktree remove --force "$root/head"
-  git worktree remove --force "$root/base"
+  if [ -n "$built" ]; then
+    git worktree remove --force "$root/head"
+    git worktree remove --force "$root/base"
+  fi
   python3 ci/metrics/local_pair.py "$out"
 }
 
