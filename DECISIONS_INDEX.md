@@ -187,3 +187,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 178 | The owner's PC is a local bench series of its own, drawn apart from CI's | 8397 |  |
 | 179 | Native binaries are kept in one store, keyed by what built them, and built for every OS at once | 8454 |  |
 | 180 | The project is versioned 0.x.y from 0.0.1, released when the owner merges a release PR | 8522 |  |
+| 181 | A spec, Decision or question number belongs to the first PR or issue that takes it | 8572 |  |
