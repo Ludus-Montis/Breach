@@ -1,0 +1,77 @@
+name: Twin probe (throwaway, spec 49 step 4)
+
+# Two builds of one key (8ca4227, release, Linux) on separate runners, benched one against
+# the other. Deleted with its branch once read; never merged.
+
+on:
+  push:
+    branches: [chore/native-twin-builds-probe]
+
+permissions:
+  contents: read
+
+env:
+  REF: 8ca4227
+  TARGET: x86_64-unknown-linux-gnu
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        side: [stored, fresh]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fetch or build
+        env:
+          GH_TOKEN: ${{ matrix.side == 'stored' && github.token || '' }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          bash ci/native/store.sh fetch "$REF" release "$TARGET" "$RUNNER_TEMP/bin"
+          (cd "$RUNNER_TEMP/bin" && sha256sum * | tee "$RUNNER_TEMP/bin/SHA256SUMS")
+          echo "### ${{ matrix.side }}" >> "$GITHUB_STEP_SUMMARY"
+          sed 's/^/    /' "$RUNNER_TEMP/bin/SHA256SUMS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.side }}
+          path: ${{ runner.temp }}/bin
+
+  bench:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/art
+      - name: Bench stored (head) against fresh (base)
+        run: |
+          for side in stored fresh; do
+            git worktree add -q --detach "$side" "$REF"
+            mkdir -p "$side/native/bin"
+            cp -R "$RUNNER_TEMP/art/bin-$side/." "$side/native/bin/"
+            chmod +x "$side/native/bin/"breach_* || true
+          done
+          args="side=4096 squads=4 fight=3"
+          t() { (cd "$1" && native/bin/breach_tick_phases $args); }
+          for round in 1 2 3 4 5; do
+            if [ $((round % 2)) -eq 1 ]; then
+              t stored > "head_$round.txt"; t fresh > "base_$round.txt"
+            else
+              t fresh > "base_$round.txt"; t stored > "head_$round.txt"
+            fi
+          done
+          {
+            echo "SUMMARY BEGIN"
+            echo "== identical bytes?"
+            diff "$RUNNER_TEMP/art/bin-stored/SHA256SUMS" "$RUNNER_TEMP/art/bin-fresh/SHA256SUMS" \
+              && echo "yes: every file's sha256 matches" || echo "no: the sums differ (above)"
+            python3 ci/godot/scripts/bench_compare.py --head $(ls head_*.txt | sort -V) --base $(ls base_*.txt | sort -V)
+            echo "SUMMARY END"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
