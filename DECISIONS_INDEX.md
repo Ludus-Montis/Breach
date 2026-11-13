@@ -165,7 +165,7 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 156 | One issue per marker, and a spec's parent and milestone stay open only while something in them is open | 7272 |  |
 | 157 | Spec 39's ports may open more files than the OCP check allows | 7341 |  |
 | 158 | A long series of steps runs as a cascade: a coordinator, and one record edited in place | 7380 | amended by 171 |
-| 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 | amended by 177 |
+| 159 | The tick's performance target is 25,000 a side, met first by work that follows change, then threads, off the main thread | 7442 | amended by 177, 186 |
 | 160 | A uniform cadence for squad-level rules may be benched, but not adopted without the owner's feel test | 7507 |  |
 | 161 | A performance change may change behaviour, if it keeps the tick's guarantees and passes the owner's feel test | 7539 |  |
 | 162 | Measurements are kept in the repo under `metrics/`, one record a file, in one shape for every series | 7598 |  |
@@ -192,3 +192,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 183 | A node is taken by standing on it unopposed; a garrison is lines of the kingdom's; the map ends by its loss groups | 8678 |  |
 | 184 | The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag | 8718 |  |
 | 185 | Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor | 8778 |  |
+| 186 | The 25k tick's gate is the worker's 100 ms slot at p95 and p99, judged one CPU at a time; 50 ms is a stretch | 8808 |  |
