@@ -8569,6 +8569,57 @@ every release.
 before the owner merges it.
 **Pillar check:** not applicable.
 
+### Decision 181 — A spec, Decision or question number belongs to the first PR or issue that takes it
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-12
+
+**Rationale:** Q46 (#884). Each kind of number is "the highest on `main`, plus one", read when
+a session starts, so two sessions that start before either merges take the same one. It
+happened with spec 46 and Decision 173 (#875 and #878), and earlier on
+`chore/spec-42-behaviour-changing-tick`. The owner: "I am more frequently running into it now".
+Two specs with the same number sit in different files, so git never flags them. On `main`,
+`github-sync` would make two milestones for one number and give both specs the same
+`raise-when:spec-NN` and `step:NN-<id>` labels, which `/cascade` routes by. Before merge,
+nothing is made from a number yet, so renumbering a PR costs only its own text.
+- **The first claimant keeps the number.** A spec number (`specs/NN-*.md`) or Decision number
+  (`### Decision N`) is held by `main`, then by open PRs in the order they were opened (lowest
+  PR number first). A CI check fails a PR that adds a number already held by `main` or by an
+  open PR with a lower number, and names the next free ones. A later PR can never break an
+  earlier one's check, so nothing needs re-running when `main` moves.
+- **A session claims by opening its PR early.** As soon as a session picks its numbers, it
+  pushes its branch and opens the PR as a draft, before writing the body. A branch with no PR
+  holds nothing. This applies to any session that adds a spec or a Decision: design sessions,
+  and implementation or `/cascade` step sessions that record one.
+- **Questions keep `Q<n>`.** A question's issue is made the moment its number is chosen, so the
+  window is seconds. When a `question` issue is opened, `github-sync` checks that no other
+  question issue, and no entry in `OPEN_QUESTIONS.md`'s archive, has the same `Q<n>`. On a
+  clash it comments on the later issue (higher issue number) with the next free `Q<n>`. It
+  doesn't retitle the issue; the session or the owner does that.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| The check alone, no early PR | Clashes are still caught, but more are written first and renumbered by hand. |
+| A reservation issue or file | One more step per session; a forgotten claim leaves a gap, and a file is itself a point of conflict. |
+| Numbers given at merge | `main` is rewritten by a workflow, and a design PR's hand-off can't name its own spec number. |
+| Slugs or dates for keys | Breaks every reference and the owner's habits ("spec 41 step 4", "Decision 159"). |
+| Questions titled by issue number | The owner: keep `Q<n>`, and add it to the check. |
+
+**Consequences:** Spec 51 builds the check, its workflow, the question check in `github-sync`,
+and the wording in `CLAUDE.md`, `/run-phase` and `OPEN_QUESTIONS.md`. Until it merges, sessions
+open their PR early by hand and compare with open PRs themselves.
+
+**Rules over cases:** general: one rule, first claimant keeps the number, for every kind of
+number, and the same for every session.
+**Order:** not applicable; no simulation outcome changes. Claims are ranked by the order PRs
+and issues were opened, on purpose.
+**Bounded:** not applicable; CI only. The check reads `main` and each open PR once.
+**Riskiest assumption:** that every number in use is visible to the check (a session opens its
+PR early). Spec 51's first test replays the #875 and #878 clash.
+**Pillar check:** not applicable.
+
 ### Decision 182 — The first game-like map is a 3x1 of flat fields, played by the formation battle set up from the map
 
 **Authorised by:** Simeon Sidey

@@ -10,6 +10,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- Versioned releases begin: a release PR (`chore/release`) is kept current on each merge,
+  with the next 0.x.y version and this changelog's `[Unreleased]` turned into that
+  version's section; the owner releases by merging it.
 - `breach_tick_phases` times the scrum's regroup and chase in nine parts
   (`scrum: regroup: …` and `scrum: chase: …`); `scrum: regroup and chasers` is no longer
   reported, and its parts' sum takes its place in the records.
@@ -77,8 +80,6 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
   `native/bin/breach_designer` (built by `bash native/build.sh`) instead of
   `python tools/designer/serve.py`. Python is no longer needed for the designer.
 
-[Unreleased]: https://github.com/SSidey/Breach/commits/main
-
 ### Fixed
 
 - The tick history's phase chart colours the costliest phases of the newest records, so a
@@ -90,3 +91,5 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - A group whose stragglers fall far behind and go on as a group of their own gives that
   group its own number everywhere in the battle as well, so its draws and its battle log
   entries are its own, not those of a squad numbered 0.
+
+[Unreleased]: https://github.com/Ludus-Montis/Breach/commits/main

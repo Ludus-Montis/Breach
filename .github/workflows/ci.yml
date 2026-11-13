@@ -80,6 +80,13 @@ jobs:
             bash ci/godot/scripts/check_commit_message.sh /tmp/commit-msg.txt
           done
 
+      - name: Check native build inputs stay under native/ (spec 49 step 2)
+        # The store keys a binary by native/'s tree (Decision 179): a build flag set in a
+        # workflow would change a build without changing its key (the list is in the script).
+        run: |
+          python3 -m unittest discover -s ci/native -p "test_*.py"
+          python3 ci/native/check_build_inputs.py
+
   # The Rust core, built once for the jobs that start Godot: every run loads the content
   # through it (CrateContent, Decision 153), and every battle runs on it.
   native:
