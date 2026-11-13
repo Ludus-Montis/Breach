@@ -44,6 +44,11 @@ name: Bench
 # its flags (ci/metrics/bench_set.py summary). A run that fails or times out writes nothing.
 # Its concurrency group queues and never cancels a running set; GitHub keeps one pending run
 # a group, so a third merge during a run replaces the second's pending one.
+#
+# Every side's binaries come from the store (spec 49 step 5, Decision 179): `ci/native/store.sh
+# fetch` downloads the head's, the base's and the reference's `release` key into each tree's
+# native/bin/, and the profile's breach_tick_phases from its `profiling` key; a key that isn't
+# stored is built once and uploaded, so a run builds at most the head. Hence `contents: write`.
 
 on:
   push:
@@ -88,6 +93,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && !inputs.record
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v7
         with:
@@ -130,8 +141,9 @@ jobs:
           case "$ROUNDS" in ''|*[!0-9]*) echo "rounds must be a whole number"; exit 1;; esac
           if [ "$ROUNDS" -lt 1 ] || [ "$ROUNDS" -gt 20 ]; then echo "rounds: 1 to 20"; exit 1; fi
           case "$TOOL" in breach_*) ;; *) echo "::error::tool must be a crate binary, breach_<name>"; exit 1;; esac
-          prepare() {
-            (cd "$1" && JOBS=4 bash native/build.sh release > /dev/null 2>&1)
+          prepare() {  # the tree's binaries, from the store (built and uploaded if missing)
+            local commit; commit="$(git -C "$1" rev-parse HEAD)"
+            bash ci/native/store.sh fetch "$commit" release "$TARGET" "$1/native/bin"
           }
           time_in() {
             # stderr is kept aside, and shown if the tool failed (#601)
@@ -168,11 +180,19 @@ jobs:
             exit 0
           fi
           sudo sysctl -q kernel.perf_event_paranoid=1 kernel.kptr_restrict=0
-          bin="${TOOL#breach_}"
-          (cd "$here/native/rust" && cargo build -q --profile profiling --bin "$bin")
+          if [ "$TOOL" = breach_tick_phases ]; then
+            # the store keeps tick_phases' `profiling` build
+            exe="$RUNNER_TEMP/profiling/breach_tick_phases"
+            commit="$(git -C "$here" rev-parse HEAD)"
+            bash ci/native/store.sh fetch "$commit" profiling "$TARGET" "$RUNNER_TEMP/profiling"
+          else
+            bin="${TOOL#breach_}"
+            (cd "$here/native/rust" && cargo build -q --profile profiling --bin "$bin")
+            exe="$PWD/$here/native/rust/target/profiling/$bin"
+          fi
           cd "$here"
           if ! perf record -q -F 99 --call-graph dwarf -o "$RUNNER_TEMP/perf.data" \
-              -- "native/rust/target/profiling/$bin" $ARGS > /dev/null 2> "$RUNNER_TEMP/perf.err"; then
+              -- "$exe" $ARGS > /dev/null 2> "$RUNNER_TEMP/perf.err"; then
             { echo "perf record failed:"; tail -n 20 "$RUNNER_TEMP/perf.err"; } | tee "$report"
             exit 0
           fi
@@ -232,7 +252,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: read
+      contents: write
       pull-requests: read
     env:
       # The cargo era's reference (Decision 162): the bridge, the last commit with both the
@@ -241,6 +261,9 @@ jobs:
       # Where the reference is checked out. Not `reference/`: the repo tracks a folder of
       # that name (the prototype), so a worktree there fails with "already exists".
       REF_TREE: trees/reference
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: x86_64-unknown-linux-gnu
       RECORD_ARGS: side=4096 squads=4 fight=3
       RECORD_ROUNDS: "5"
     steps:
@@ -263,8 +286,9 @@ jobs:
 
       - name: Time the commit and the reference in turn
         run: |
-          (JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
-          (cd "$REF_TREE" && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          # both sides from the store; a missing binary fails time_in
+          bash ci/native/store.sh fetch "$GITHUB_SHA" release "$TARGET" native/bin || true
+          bash ci/native/store.sh fetch "$REFERENCE" release "$TARGET" "$REF_TREE/native/bin" || true
           time_in() {
             local err="$RUNNER_TEMP/stderr.txt"
             (cd "$1" && native/bin/breach_tick_phases $RECORD_ARGS 2>"$err") \
@@ -318,11 +342,14 @@ jobs:
       group: bench-record-25k
       cancel-in-progress: false
     permissions:
-      contents: read
+      contents: write
       pull-requests: read
     env:
       REFERENCE: 8ca422726e68909554eddad7eeee2199e0fe656d
       REF_TREE: trees/reference
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: x86_64-unknown-linux-gnu
       SET_ROUNDS: "5"
     steps:
       - uses: actions/checkout@v7
@@ -344,8 +371,9 @@ jobs:
 
       - name: Time the set, the checks beside the bridge, in turn
         run: |
-          (JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
-          (cd "$REF_TREE" && JOBS=4 bash native/build.sh release > /dev/null 2>&1) || true
+          # both sides from the store; a missing binary fails time_in
+          bash ci/native/store.sh fetch "$GITHUB_SHA" release "$TARGET" native/bin || true
+          bash ci/native/store.sh fetch "$REFERENCE" release "$TARGET" "$REF_TREE/native/bin" || true
           python3 ci/metrics/bench_set.py shapes > shapes.txt
           time_in() {
             local err="$RUNNER_TEMP/stderr.txt"
