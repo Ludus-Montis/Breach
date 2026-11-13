@@ -13,6 +13,9 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - Versioned releases begin: a release PR (`chore/release`) is kept current on each merge,
   with the next 0.x.y version and this changelog's `[Unreleased]` turned into that
   version's section; the owner releases by merging it.
+- Merging the release PR tags the version and publishes a GitHub release: its notes are the
+  version's changelog section, and it carries the native binaries for Linux and Windows
+  (`breach-native-<version>-<target>.zip`).
 - `breach_tick_phases` times the scrum's regroup and chase in nine parts
   (`scrum: regroup: …` and `scrum: chase: …`); `scrum: regroup and chasers` is no longer
   reported, and its parts' sum takes its place in the records.
