@@ -9,7 +9,11 @@ keeps the entries closed before that, and a table from the old numbers to the is
 titled `Q<n>. <the question, short>` (the next number after the highest used, by an
 issue or under Closed below; Q31 was next at the migration),
 labelled `question` and one `raise-when:` label (`raise-when:next-design`,
-`raise-when:spec-NN` with the spec's milestone, or `raise-when:other`), with this body:
+`raise-when:spec-NN` with the spec's milestone, or `raise-when:other`), with this body.
+Create the issue as soon as you have chosen the number, before writing the detail: the
+first issue to take a number keeps it (Decision 181). `github-sync` comments on a later
+issue with the same `Q<n>` (or one in the Closed archive below), naming the holder and the
+next free number; retitle yours to it.
 
 ```markdown
 **Raised:** <date, where>

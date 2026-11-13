@@ -18,6 +18,7 @@ deletes, and the only bodies it edits are its own open step issues' (below).
 | A `Needs` names a step the spec doesn't have | The run fails before it writes anything, naming the spec, the step and the need. |
 | A step's heading is gone | Its issue, if the sync made it and it is open, is closed as not planned with a comment naming the spec's steps now. Where later steps carry `**Split at build:** from step <id>, …` naming it, the comment instead says it was split, links those steps' issues and quotes the line's PR, date and reason (Decision 171). |
 | A PR changing `specs/NN-*.md` | The labels, and the spec's milestone (created if missing) on the PR and on each issue its body `Closes`, `Fixes` or `Resolves`, unless one is set. With several specs, the lowest-numbered. No step issues. |
+| An issue labelled `question` is opened or labelled | Only `question_numbers.py` runs (spec 51 step 3, Decision 181). If its title's `Q<n>` is held by an entry under `OPEN_QUESTIONS.md`'s Closed, or by a lower-numbered `question` issue (open or closed), it comments once: `Q46 is held by #884; the next free is Q50`, the next free being one more than the highest held anywhere. A marker in the comment keeps a later label event from repeating it. It never retitles. |
 | By hand with `migrate` | `migrate_questions.py` moves `OPEN_QUESTIONS.md`'s open entries to issues labelled `question`. |
 
 The sync knows its own issues by a marker line in the body, `<!-- github-sync: spec NN -->`
@@ -30,7 +31,7 @@ limit), so the first backfill takes a few minutes.
 Files: `sync.py` (plan and run), `step_issues.py` (the parent and step issues),
 `step_lines.py` (a step's `Needs`, `Touches` and `Split at build` lines),
 `open_while_open.py` (a parent and its milestone follow their items),
-`spec_pr.py` (a spec PR's milestone), `labels.py`, `github_client.py` (the REST calls),
+`spec_pr.py` (a spec PR's milestone), `question_numbers.py` (duplicate `Q<n>`), `labels.py`, `github_client.py` (the REST calls),
 `fake_client.py` (the tests' stand-in). Tests: `python3 -m unittest discover -s ci/github
 -p "test_*.py"`.
 
