@@ -108,6 +108,13 @@ summary compares the commit with the reference and draws the last 20 records' ti
 (`ci/metrics/bench_chart.py`). To record `main`'s head by hand, start **Bench** on `main`
 with **record** ticked; on any other branch it writes no record.
 
+Every `bench` job takes its binaries from the native store (spec 49 step 5, Decision 179;
+`native/README.md`): `ci/native/store.sh fetch` puts the head's, the base's and the
+reference's `release` key in each tree's `native/bin/`, and a `profile` of
+`breach_tick_phases` runs its `profiling` key. A key that isn't stored is built once and
+uploaded, so a run builds the head at most, and nothing when the head's `native/` tree is
+already stored. Profiling any other tool still builds it in place.
+
 ### The 25k set
 
 `bench`'s `record-25k` job (spec 43 step 8a, Decision 165) follows `record` on the same merges.
@@ -167,6 +174,10 @@ touches `native/` or `sim/` runs it, with the merge as head and the `main` befor
   fight=3`) in the same job, so records from different runners combine only as ratios
   (Decision 172).
 
+Its `build` job fetches `breach_tick_phases` at the head, the base and the reference from the
+native store (spec 49 step 6): each side's `release` key, built once and uploaded when it isn't
+stored, so a merge's run builds its head at most.
+
 The summary job gathers the jobs' records into one data PR (`chore/metrics-inspect-<run
 id>`), which merges itself. A run whose head is off `main`'s first-parent line, a job that
 failed, and anything before 5a write none: there is no backfill. The repeats guide and the
@@ -203,12 +214,13 @@ no record, and the job goes on: the page shows a gap. Its data PRs are
 `chore/metrics-bench-series-<run id>-25k-<job>`. Start it once, on `main`, with `commits`
 empty; the 14 harvested `preset=25k` runs and the 2 `settle=10 fight=5` ones stay as they are.
 
-To keep builds short and disk free: a `references` job builds `eee3e81` and `8ca4227` once
-and hands their binaries to every timing job; within a job every commit builds into one
-shared folder, so the dependencies are compiled once and each commit recompiles only what
-changed; that folder is restored from one cache entry the `references` job writes once
-(`bench-series-target-v1`; bump it to rebuild); and each job first deletes runner tools it
-doesn't use. Each job's summary gives every build's time, the job's time and its free disk.
+Every commit's binaries come from the native store (spec 49 step 6, Decision 179;
+`native/README.md`): `ci/native/store.sh fetch` downloads its `release` key, or builds it and
+uploads it when it isn't stored, so commits that share a `native/` tree build it once between
+them, and a re-run builds nothing it already stored. A `references` job fetches `eee3e81` and
+`8ca4227` once and hands their binaries to every timing job, and each job first deletes runner
+tools it doesn't use, for disk. Each job's summary gives every fetch's time, the job's time and
+its free disk.
 
 ## Local runs, the owner's PC
 

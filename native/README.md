@@ -826,8 +826,9 @@ The `Native store` workflow (`.github/workflows/native-store.yml`) fills it: on 
 `main` and same-repo PRs that change `native/` or `ci/native/`, and by `workflow_dispatch`
 with a list of commits. Linux (`x86_64-unknown-linux-gnu`) and Windows
 (`x86_64-pc-windows-msvc`) fill `release` in parallel, and Linux fills `profiling` too. Each
-job's summary lists the zips with their sizes. Nothing reads the store yet: readers wait for
-spec 49 step 4's measured check that two builds of one key time the same.
+job's summary lists the zips with their sizes. Spec 49 step 4 measured that two builds of one
+key time the same, so workflows read the store with `store.sh fetch`: `bench` first (step 5,
+`ci/metrics/README.md`).
 
 Each upload's label says where the key was first built: `main <sha>`, `pr <n> <sha>`,
 `release <sha>` or `dispatch <sha>`. The `Native store prune` workflow
