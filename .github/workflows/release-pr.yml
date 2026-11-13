@@ -1,0 +1,95 @@
+name: release-pr
+
+# Spec 49 step 10, Decision 180. On each push to main, keeps the release PR current: a PR from
+# chore/release whose one change is CHANGELOG.md, with `[Unreleased]` turned into the next
+# version's section (ci/release/release_pr.py says how the version is chosen) under a fresh
+# empty `[Unreleased]`, and the compare links rebuilt. The owner releases by merging it (step
+# 11 tags and publishes the merge). With `[Unreleased]` empty, an open release PR is closed.
+#
+# The PR is opened with the workflow's own token, so no CI runs on it: this job runs the
+# changelog gate (check-docs.sh changelog) itself and says so in the PR body. The repo's
+# Actions settings must allow GitHub Actions to create pull requests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["ci/release/**", ".github/workflows/release-pr.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-pr-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Release PR tests
+        run: python3 -m unittest discover -s ci/release -p "test_*.py"
+
+  release-pr:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0  # the last tag and the commits since it
+      - name: Work out the next version
+        id: plan
+        run: python3 ci/release/release_pr.py plan | tee -a "$GITHUB_OUTPUT"
+      - name: Close the release PR (nothing unreleased)
+        if: steps.plan.outputs.version == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for pr in $(gh pr list --head chore/release --state open --json number -q '.[].number'); do
+            gh pr close "$pr" --delete-branch --comment "Nothing is unreleased: closed by release-pr."
+          done
+          echo "Nothing unreleased; no release PR." >> "$GITHUB_STEP_SUMMARY"
+      - name: Write the release's changelog
+        if: steps.plan.outputs.version != ''
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          python3 ci/release/release_pr.py apply "$VERSION" "$(date -u +%F)" "$REPO_URL"
+          bash AI_First_Development_Kit/scripts/check-docs.sh changelog origin/main
+      - name: Push chore/release and open or update its PR
+        if: steps.plan.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git checkout -B chore/release
+          git commit -am "chore(release): $VERSION"
+          git push --force origin chore/release
+          title="chore(release): $VERSION"
+          body=$(printf '%s\n' \
+            "The release of **$VERSION** (spec 49 step 10, Decision 180). Merging this PR releases it." \
+            "" \
+            "Its one change is \`CHANGELOG.md\`: \`[Unreleased]\` becomes \`[$VERSION]\` under a fresh empty \`[Unreleased]\`, and the compare links are rebuilt. Kept current by \`release-pr\` on each push to \`main\`." \
+            "" \
+            "Opened with the workflow's token, so no CI runs on this PR. \`release-pr\` ran \`check-docs.sh changelog\` itself on this change, and it passed." \
+            "" \
+            "Changelog: this PR is the changelog's release.")
+          pr=$(gh pr list --head chore/release --state open --json number -q '.[0].number')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head chore/release --title "$title" --body "$body"
+          fi
+          echo "Release PR for $VERSION is current." >> "$GITHUB_STEP_SUMMARY"

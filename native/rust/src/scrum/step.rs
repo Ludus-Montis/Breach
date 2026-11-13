@@ -56,7 +56,7 @@ pub fn step(
     lap("scrum: engage, prepare, stance", field, squads);
     let (active, seek_usec) = seek::step(squads, field, roster, ground, &rules.seek);
     regroup::step(squads, field, roster, ground, &rules.regroup);
-    lap("scrum: regroup and chasers", field, squads);
+    lap("scrum: chase: steer", field, squads); // regroup's and the chase's last part
     withdraw::step(squads, field, roster, ground, &rules.withdraw, log);
     lap("scrum: withdraw", field, squads);
     let back = pursue::step(squads, field, roster, &rules.pursue, log);

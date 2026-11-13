@@ -214,6 +214,42 @@ Scenarios:
 
 (Step 1's sub-laps, and step 3's spin reading, are recorded here as they land.)
 
+**Step 1's sub-laps at 25k's tail ticks** (read at step 2's start, 2026-11-13): `bench-inspect`
+run 43331187759, PR #991's merge (`main` at 3cc8981), 4 threads, medians over 5 rounds, ms.
+
+| Part | Tick 166 | Tick 242 |
+|---|---:|---:|
+| `scrum: regroup: walk-back` | 33.06 | 49.56 |
+| `scrum: regroup: trade-in` | 5.04 | 7.52 |
+| `scrum: regroup: crowd` | 0.43 | 0.78 |
+| `scrum: regroup: regroupers` | 0.20 | 0.26 |
+| `scrum: regroup: faced` | 0.00 | 0.00 |
+| `scrum: chase: …` (all four) | 0.00 | 0.00 |
+| Parts' sum | 38.7 | 58.1 |
+| Tick | 85.70 | 129.96 |
+
+- **`walk-back` names the fix**, at 85% of the phase at both ticks: the "lookup part" of
+  step 2. For each loose unit it scanned the squad's living list (`living.iter().find`), its
+  homes, its foes faced and its chasers (`squads.chasing`), and took each arrival out of the
+  loose list with a scan and a `Vec::remove` (`entries::unloose`). At 1,024 a squad that is
+  about a million comparisons a squad a tick.
+- **`trade-in` is second** (13%). It is not changed by step 2. If it is still large after
+  the fix, it is the next part to look at.
+- **The two crowds cost under 1 ms**, so building them over every body is not the cost, and
+  the chase reads zero at these ticks: no chasers are out.
+- **The parts' sum matches the series:** 58.1 ms at tick 242 against the series' mean of 57 ms
+  (`## The numbers this starts from`).
+
+**Step 3's spin reading, first look** (PR for step 3, 2026-11-12): this session's container, 4
+threads, the `fast` profile, `preset=4096`'s battle (`side=4096 squads=4 series=1`), the whole
+series. `units walk to places`, which runs on one thread right after the threaded `bodies`
+parts, reads **1.00**: no spin shows there. A few short phases read above 1 with nothing of
+theirs threaded (`wounds (tend)` 1.37, `rout: re-forms` 1.33), and the threaded ones read
+`bodies: pushes` 2.98, `scrum: seek` 2.71, `bodies: pair search` 2.48, `scrum: facing` 1.96,
+`scrum: walk` 1.67; the tick 1.49. So busy threads is written up as an upper bound for short
+phases only. The 25k reading comes from the merge's `bench-inspect` run (`busy/` keys in
+`metrics/inspect/`) and the next `bench-25k` record.
+
 ## Not in this spec
 
 - **The clash's cost, which sets p95/p99:** seek (55–86 ms at the slowest ticks), pair search

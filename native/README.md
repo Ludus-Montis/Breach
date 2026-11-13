@@ -324,6 +324,17 @@ points (the pair search, the seek). They under-sized some phases a change touche
 tick. At 25k one side breaks at tick 101 (at 4,096, 107), so there the rout's spike and the
 break are 100 and 101; the series runs on past the break until the field settles (step 2a).
 
+**Busy threads** (spec 50 step 3, `src/laps.rs`). Each lap also reads the process's CPU time
+(`CLOCK_PROCESS_CPUTIME_ID`), and a series and the repeat mode end with a `busy threads (CPU
+time over wall time):` block: the tick's and each phase's CPU time over its wall time, summed
+over the series or the repeats, in the table's order. One thread working reads about 1.0;
+CI's 4 threads fully busy, about 4.0. The lines end in `threads`, so `bench_compare.py` skips
+them. Windows has no fine CPU clock (`GetProcessTimes` updates every ~15.6 ms), so there the
+block isn't printed. Rayon's idle workers spin a little before they sleep, which counts as
+CPU time: at 4,096 on 4 threads (`## Measured` in spec 50) `units walk to places`, right after
+the threaded `bodies` parts, reads 1.00, but a few short phases read up to about 1.4 with
+nothing of theirs threaded. Read a short phase's reading as an upper bound.
+
 `terrain=mixed` (spec 39 step 8c-xxi) plays the clash across a wood and a ford (the layout is
 in spec 38). `counts=1` (spec 38 step 2, built in spec 39 step 8c-xxii, `src/phases/counts.rs`)
 follows the times with a `counts:` line, then each pass in the tick's order: the unit store's
@@ -352,7 +363,12 @@ for the target: the tick within a fifth of ×6 either way, and phases that grew 
 marked `^`.
 
 The three passes that take most of the tick are timed in parts (spec 41 step 1): the scrum's
-`scrum: seek`, `scrum: walk` and `scrum: facing`; the rout's `rout: flight`, `rout: rallies`,
+`scrum: seek`, `scrum: walk` and `scrum: facing`, then (spec 50 step 1) the regroup's
+`scrum: regroup: regroupers`, `faced`, `crowd`, `walk-back` and `trade-in` and the chase's
+`scrum: chase: chasing`, `lookups`, `crowd` and `steer`, which ends the phase that was
+`scrum: regroup and chasers` (its history line ends there; the parts' sum takes its place).
+These are timed on every tick, so they keep their order; `walk-back` and `trade-in` add up
+over the squads, as they run in turn for each; the rout's `rout: flight`, `rout: rallies`,
 `rout: regroup's search`, `rout: re-forms` and `rout: breaks` (only on ticks something routs),
 then `rout: listing`; and the parting's `bodies: sync`, then each of its passes' `bodies: pair
 search`, `bodies: pushes` and `bodies: sums and applying`, then `bodies: commit`. A part but
@@ -729,6 +745,21 @@ so far. Each list grows with the squad, so the work grows with its square. `scru
 prepare, stance` (`scrum::step`'s `engage`, `prepare`, `anticipate` and `manoeuvre`) is likely
 to hold the same pattern. A profile of one squad of 24,576 will confirm it.
 
+### Regroup's walk-back, CI (spec 50, 2026-11-13)
+
+At 25k (24 squads of 1,024 a side), after the clash, regroup and the chase were about half of
+every tick. Spec 50 step 1's sub-laps (`bench-inspect` run 43331187759) put 85% of them in
+one part, `scrum: regroup: walk-back`: 33 ms at tick 166 and 50 ms at tick 242, of 39 and 58 ms.
+For each loose unit, the walk back searched its squad's living units, homes, foes faced and
+chasers by id, and took each unit that arrived out of the loose list one at a time. That is the
+square of a squad's size.
+
+Step 2 builds each of those lookups once a squad, as a map by id, and takes the units that
+arrived out of the loose list in one pass after the walk, keeping its order. Outcomes are
+unchanged: the digests, and a cargo test pinning many loose units' walks and chases
+(`scrum::regroup::tests`). The `bench` run on its PR gives the time it saves. `trade-in`
+(5 to 7.5 ms at those ticks) is the next part of the phase, and step 2 leaves it as it is.
+
 ## Building
 
 ```
@@ -763,6 +794,54 @@ platform needs a C compiler: Linux's `gcc` or `clang`, the MSVC toolchain's (the
 C++ workload) or the GNU toolchain's MinGW `gcc` on Windows, the Xcode command-line tools on
 macOS. Its maps hash with foldhash, seeded at random per process (`src/hashing.rs`);
 `clippy.toml` refuses std's `HashMap` and `HashSet` elsewhere.
+
+The toolchain is pinned in `rust/rust-toolchain.toml` (spec 49 step 1, Decision 179): the
+stable version CI's runner image carries, with `rustfmt` and `clippy`. rustup installs it on
+the first `cargo` call in `native/rust`, on CI and on a PC alike. A built binary is keyed by
+`ci/native/store_key.sh <commit> <profile> <target>`, which prints
+`<tree id of native/>-<toolchain>-<profile>-<target>`: commits that differ only outside
+`native/` share a key, and the toolchain is the pin of the checkout running the script, so a
+commit from before the pin is keyed with today's compiler. Raising the pin changes every key.
+
+### The store (`native-store`)
+
+Built binaries live as assets on the pre-release `native-store`, one `<key>.zip` per key
+(spec 49 step 3, Decision 179): `native/bin/` whole for `release`, `breach_tick_phases`
+alone for `profiling`.
+
+```
+bash ci/native/store.sh fetch <commit> <profile> <target> <dir>
+```
+
+downloads the key and unzips it into `<dir>`. If the key is missing it builds `<commit>` in
+a worktree of its own (`native/build.sh release`, or `cargo build --profile profiling --bin
+tick_phases`) with `RUSTUP_TOOLCHAIN` set to the head's pin, puts the result in `<dir>`,
+and uploads it when the run may write: a push to `main`, a same-repo PR, a release or a
+`workflow_dispatch`, never a fork's PR or a run outside Actions. An upload that finds the
+asset already there skips, and the first upload makes the pre-release if it is missing.
+`<target>` must be the host's: each OS builds its own key. The script needs `gh` (with
+`GH_TOKEN` and `GH_REPO` on CI) and Python for the zips.
+
+The `Native store` workflow (`.github/workflows/native-store.yml`) fills it: on pushes to
+`main` and same-repo PRs that change `native/` or `ci/native/`, and by `workflow_dispatch`
+with a list of commits. Linux (`x86_64-unknown-linux-gnu`) and Windows
+(`x86_64-pc-windows-msvc`) fill `release` in parallel, and Linux fills `profiling` too. Each
+job's summary lists the zips with their sizes. Nothing reads the store yet: readers wait for
+spec 49 step 4's measured check that two builds of one key time the same.
+
+Each upload's label says where the key was first built: `main <sha>`, `pr <n> <sha>`,
+`release <sha>` or `dispatch <sha>`. The `Native store prune` workflow
+(`.github/workflows/native-store-prune.yml`, daily and by hand, with a `dry_run` choice)
+runs `ci/native/prune.py` (spec 49 step 9). It keeps these keys:
+- forever: the references' keys (every full sha a workflow names, outside a `uses:` line),
+  every release's, and any asset labelled `release`;
+- the last 20 trees of `native/` on `main`'s first-parent history. History decides, not the
+  label alone, because a key first built on a PR keeps its `pr` label after the merge;
+- every other key for 14 days.
+
+It deletes the rest. Then, while the store is over 1 GB, it deletes the oldest assets it
+doesn't keep forever. A key's Linux, Windows and profiling assets share its tree, so they
+are kept or pruned together. Its summary lists what went.
 
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export

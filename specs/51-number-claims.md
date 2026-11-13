@@ -162,4 +162,5 @@ Scenarios:
 
 (Each step's PR adds its line here.)
 
+- **Step 1**, the number check: `ci/github/check_numbers.py` (`tree_numbers`, `added`, `check`), tested on the #875/#878 replay under `ci/github/fixtures/numbers/`. Not run by any workflow until step 2.
 - **Step 3** (duplicate question numbers): `ci/github/question_numbers.py`, run by `github-sync` on `issues: opened` and `labeled` for a `question` issue; also `list_comments` in `github_client.py` and `fake_client.py`.

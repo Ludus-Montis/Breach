@@ -10,6 +10,12 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- Versioned releases begin: a release PR (`chore/release`) is kept current on each merge,
+  with the next 0.x.y version and this changelog's `[Unreleased]` turned into that
+  version's section; the owner releases by merging it.
+- `breach_tick_phases` times the scrum's regroup and chase in nine parts
+  (`scrum: regroup: …` and `scrum: chase: …`); `scrum: regroup and chasers` is no longer
+  reported, and its parts' sum takes its place in the records.
 - `breach_tick_phases at=<tick> repeat=<n> laps=1` also prints every lap of each repeated
   tick, and `local_grid.sh inspect` and `pair` keep them in their raw output.
 - `breach_tick_phases at=<tick> repeat=<n>` prints each phase's quartiles (`q1`, `q3`) where it
@@ -41,6 +47,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- Large battles tick faster once a fight is over: squads regrouping no longer search their
+  whole squad for each unit walking back to its place. Nothing in how they regroup changes.
+- The native core builds with a pinned Rust toolchain, 1.99.1 (`native/rust/rust-toolchain.toml`):
+  rustup installs it on the first `cargo` call in `native/rust`.
 - The tick history page now shows each record as × the reference timed beside it by default,
   so a slower or faster CI runner no longer reads as a change; "ms" is a click away, and the
   phase chart also offers % of tick. Each runner CPU has a checkbox to keep to one machine, and
@@ -72,8 +82,6 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
   `native/bin/breach_designer` (built by `bash native/build.sh`) instead of
   `python tools/designer/serve.py`. Python is no longer needed for the designer.
 
-[Unreleased]: https://github.com/SSidey/Breach/commits/main
-
 ### Fixed
 
 - The tick history's phase chart colours the costliest phases of the newest records, so a
@@ -85,3 +93,5 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 - A group whose stragglers fall far behind and go on as a group of their own gives that
   group its own number everywhere in the battle as well, so its draws and its battle log
   entries are its own, not those of a squad numbered 0.
+
+[Unreleased]: https://github.com/Ludus-Montis/Breach/commits/main

@@ -36,7 +36,7 @@ fn a_series_runs_past_the_break_until_no_squad_fights_or_routes() {
 fn inspect_names_the_3_slowest_and_4_spread_ticks_in_order() {
     // Ticks 10 to 22; the slowest are 15 (9), then 12 and 20 (8, the earlier first), then 21.
     let usec = [1.0, 2.0, 8.0, 3.0, 4.0, 9.0, 1.0, 2.0, 3.0, 4.0, 8.0, 7.0, 5.0];
-    let series = Series { ticks: (10..23).collect(), spent: vec![("a", usec.to_vec())] };
+    let series = Series { ticks: (10..23).collect(), spent: vec![("a", usec.to_vec())], cpu: None };
     assert_eq!(inspect(&series), vec![10, 12, 14, 15, 18, 20, 22]);
     assert_eq!(inspect_line(&series), "inspect: 10,12,14,15,18,20,22");
 }
@@ -45,9 +45,9 @@ fn inspect_names_the_3_slowest_and_4_spread_ticks_in_order() {
 fn a_tick_picked_twice_gives_its_place_to_the_next_slowest() {
     // The slowest are the first and last ticks (spread), so 3 more slowest join them.
     let usec = [9.0, 1.0, 5.0, 1.0, 1.0, 6.0, 4.0, 1.0, 3.0, 1.0, 9.0];
-    let series = Series { ticks: (0..11).collect(), spent: vec![("a", usec.to_vec())] };
+    let series = Series { ticks: (0..11).collect(), spent: vec![("a", usec.to_vec())], cpu: None };
     assert_eq!(inspect(&series), vec![0, 2, 3, 5, 6, 8, 10]);
-    let short = Series { ticks: vec![4, 5, 6], spent: vec![("a", vec![1.0, 2.0, 3.0])] };
+    let short = Series { ticks: vec![4, 5, 6], spent: vec![("a", vec![1.0, 2.0, 3.0])], cpu: None };
     assert_eq!(inspect(&short), vec![4, 5, 6]);
 }
 
@@ -66,6 +66,7 @@ fn the_series_lines_put_the_tick_first_the_phases_largest_mean_first_then_inspec
     let series = Series {
         ticks: vec![41, 42],
         spent: vec![("a", vec![1000.0, 3000.0]), ("b", vec![6000.0, 2000.0])],
+        cpu: None,
     };
     let expected = [
         "series: 2 ticks from tick 41 (ms)      mean     95th     99th    worst  at tick",
