@@ -108,6 +108,13 @@ summary compares the commit with the reference and draws the last 20 records' ti
 (`ci/metrics/bench_chart.py`). To record `main`'s head by hand, start **Bench** on `main`
 with **record** ticked; on any other branch it writes no record.
 
+Every `bench` job takes its binaries from the native store (spec 49 step 5, Decision 179;
+`native/README.md`): `ci/native/store.sh fetch` puts the head's, the base's and the
+reference's `release` key in each tree's `native/bin/`, and a `profile` of
+`breach_tick_phases` runs its `profiling` key. A key that isn't stored is built once and
+uploaded, so a run builds the head at most, and nothing when the head's `native/` tree is
+already stored. Profiling any other tool still builds it in place.
+
 ### The 25k set
 
 `bench`'s `record-25k` job (spec 43 step 8a, Decision 165) follows `record` on the same merges.

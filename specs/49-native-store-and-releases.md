@@ -157,6 +157,9 @@ Scenarios:
 
 - `base-build` and the digest's build fetch their keys; the PR's own build fetches its key
   too, so a PR that doesn't touch `native/` builds nothing.
+- **At build:** "the digest's build" is the one `digests` takes, `base-build`'s. `digests-arm64`
+  keeps building its own `digest`: Decision 179 stores Linux and Windows only. The base's key
+  is read with the head's pin, so `base-build` no longer checks the base out.
 
 Scenarios:
 - Given a PR that doesn't touch `native/`, then `sim-checks` downloads `main`'s binaries and
