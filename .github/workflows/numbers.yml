@@ -1,0 +1,34 @@
+# The number check (spec 51 step 2, Decision 181): a spec or Decision number belongs to the
+# first PR that takes it. On every PR it runs step 1's tests, then ci/github/check_numbers.py:
+# it lists the open PRs (drafts too), fetches each head (refs/pull/N/head) and reads the
+# numbers each adds over its merge-base with its own base branch. This PR fails if it adds a
+# number `main` or an open PR with a lower number holds; the message names the holder and the
+# next free number. It sets a `numbers` commit status on this PR's head, and a failing one on
+# each later open PR that adds one of this PR's numbers, so a push here can't leave a later
+# PR green. The run's summary lists the numbers this PR holds.
+name: numbers
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: numbers-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  numbers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - name: The check's tests
+        run: python3 -m unittest ci/github/test_check_numbers.py
+      - name: Check this PR's numbers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/github/check_numbers.py ${{ github.event.pull_request.number }}

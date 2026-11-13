@@ -99,6 +99,10 @@ git pull --ff-only
 git checkout -b feature/<short-kebab-slug-for-this-item>
 ```
 
+**Adding a spec or a Decision?** Push the branch and open the PR, as a draft, as soon as you
+pick the numbers, before writing the body: the first PR to take a number keeps it (Decision
+181). If CI's `numbers` check fails, take the numbers its message names.
+
 ## 2. Spec first, if this item doesn't already have one
 
 If the plan item doesn't map to an existing `specs/*.md` file, write one before any

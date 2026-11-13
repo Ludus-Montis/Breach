@@ -1,6 +1,7 @@
 """Tests for the number check (spec 51 step 1, Decision 181): a spec or Decision number
 belongs to `main`, then to the open PR with the lowest PR number that adds it."""
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -93,6 +94,81 @@ class HolderTest(unittest.TestCase):
         self.assertEqual(
             check_numbers.check(961, main, open_prs).lines(),
             ["spec 52 is held by #960; the next free spec is 54"],
+        )
+
+
+def _git(repo, *args):
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+
+class GitTreeTest(unittest.TestCase):
+    """Step 2's front reads a tree from a git ref, with no checkout."""
+
+    def test_a_ref_holds_what_its_checked_out_tree_holds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            _git(repo, "init", "-q")
+            shutil.copytree(FIXTURES / "main", repo, dirs_exist_ok=True)
+            _git(repo, "add", "-A")
+            _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main")
+            shutil.copytree(FIXTURES / "pr875", repo, dirs_exist_ok=True)
+            _git(repo, "add", "-A")
+            _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "875")
+            self.assertEqual(check_numbers.git_numbers(repo, "HEAD~1"), MAIN)
+            self.assertEqual(
+                check_numbers.git_numbers(repo, "HEAD"),
+                check_numbers.tree_numbers(FIXTURES / "pr875"),
+            )
+
+    def test_a_root_file_with_an_em_dash_in_its_name_is_read(self):
+        # git quotes such a name unless asked not to; the design spec's name has one.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            _git(repo, "init", "-q")
+            (repo / "Breach — Spec.md").write_text("### Decision 181 — A number\n", "utf-8")
+            _git(repo, "add", "-A")
+            _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main")
+            self.assertEqual(check_numbers.git_numbers(repo, "HEAD"), Numbers(decisions={181}))
+
+
+class StatusTest(unittest.TestCase):
+    """A run sets this PR's `numbers` status, and fails each later PR it clashes with."""
+
+    def test_this_pr_and_each_later_clashing_pr_get_a_status(self):
+        main = Numbers(specs={51}, decisions={181})
+        open_prs = {
+            960: Numbers(decisions={182}),
+            970: Numbers(decisions={182}),
+            980: Numbers(specs={52}),
+            950: Numbers(decisions={182}),
+        }
+        self.assertEqual(
+            check_numbers.statuses(960, main, open_prs),
+            [
+                (960, "failure", "Decision 182 is held by #950; the next free Decision is 183"),
+                (
+                    970,
+                    "failure",
+                    "Decision 182 is held by #950; the next free Decision is 183"
+                    " (set by #960's run; re-run or push to check again)",
+                ),
+            ],
+        )
+
+    def test_a_passing_pr_reports_what_it_holds_and_leaves_unrelated_prs_alone(self):
+        main = Numbers(specs={51})
+        open_prs = {960: Numbers(specs={52}), 970: Numbers(specs={52}), 980: Numbers(specs={53})}
+        self.assertEqual(
+            check_numbers.statuses(960, main, open_prs),
+            [
+                (960, "success", "#960 holds spec 52"),
+                (
+                    970,
+                    "failure",
+                    "spec 52 is held by #960; the next free spec is 54"
+                    " (set by #960's run; re-run or push to check again)",
+                ),
+            ],
         )
 
 

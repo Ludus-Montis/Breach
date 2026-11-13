@@ -19,6 +19,9 @@ How sessions work together is `principles/agent-sessions.md`.
   The branch is a Conventional Branch (`feature/`, `fix/` or `chore/`, then kebab-case;
   `/run-phase` step 1); a design session's `docs:` PR goes on `chore/`. A cloud session's
   assigned `claude/…` or `ccr-…` branch is not one: create your own from `main`, push that.
+  A session that adds a spec or a Decision pushes its branch and opens its PR, as a draft,
+  as soon as it picks the numbers, before writing the body: the first PR to take a number
+  keeps it (Decision 181). CI's `numbers` failing means take the numbers it names.
 - **Tests come first:** red, then green (`principles/tdd-bdd-workflow.md`). Run the suite
   with `bash ci/godot/scripts/run_tests.sh`, which needs `GODOT_BIN` set.
 - **CI is the test runner. No long-running tests in a session, ever.** In a session, run
@@ -61,7 +64,8 @@ How sessions work together is `principles/agent-sessions.md`.
   round with a pre-mortem before any options (`principles/agent-sessions.md` §3,
   Decision 168): regret in a month, riskiest assumption, cheapest test. You write
   Decisions, spec rounds under `specs/`, and open questions as issues labelled `question`
-  (how: `OPEN_QUESTIONS.md`'s header). Every step in a spec carries `**Needs:**` and
+  (how: `OPEN_QUESTIONS.md`'s header). Once you pick a spec or Decision number, open the
+  draft PR at once (Non-negotiables). Every step in a spec carries `**Needs:**` and
   `**Touches:**` lines and is sized to the guide: one behaviour, one test file, about 15
   files or 400 lines (§3, Decision 171). You don't write code. You finish a round by pushing a
   `docs:` PR whose hand-off names the next `/run-phase` item, and which says `Closes #N` for
