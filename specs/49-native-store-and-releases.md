@@ -194,6 +194,14 @@ Scenarios:
   deleted and the reference and release keys stay.
 - Given a PR-only key 15 days old, then it is deleted.
 
+**Built (2026-11-12):** `store.sh`'s upload labels the asset `main <sha>`, `pr <n> <sha>`,
+`release <sha>` or `dispatch <sha>`. The label alone can't say which keys are `main`'s:
+the upload skips a key already stored, so a key first built on a PR keeps its `pr` label
+after the merge. So `main`'s keys are the trees of `native/` on its first-parent history,
+newest first, plus any labelled `main`. The 20 kept are 20 distinct trees, each with all
+its assets (Linux, Windows, profiling). The cap then deletes the oldest assets not kept
+forever. The references are every full sha a workflow names outside a `uses:` line.
+
 ### Step 10, the release PR
 
 **Needs:** none

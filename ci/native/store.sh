@@ -12,7 +12,8 @@
 # <target> is the triple the binaries are for; a build must be for the host's.
 #
 # May write: a push to main, a same-repo PR, a release, workflow_dispatch; never a fork's
-# PR, and never outside GitHub Actions. gh reads the repo from GH_REPO, or the checkout.
+# PR, and never outside GitHub Actions. An upload's label says where the key was first
+# built, for the prune (prune.py). gh reads the repo from GH_REPO, or the checkout.
 # Every build flag lives here or under native/ (step 2's check), so the key covers it.
 set -euo pipefail
 
@@ -61,6 +62,22 @@ print(json.load(open(sys.argv[1]))["pull_request"]["head"]["repo"]["full_name"])
 			[ -n "$head_repo" ] && [ "$head_repo" = "${GITHUB_REPOSITORY:-}" ]
 			;;
 		*) return 1 ;;
+	esac
+}
+
+# Where a key was first built, for the prune (prune.py): `main <sha>`, `pr <n> <sha>`,
+# `release <sha>` or `dispatch <sha>`.
+origin_label() {
+	local sha
+	sha="$(git -C "$root" rev-parse "$commit^{commit}")"
+	case "${GITHUB_EVENT_NAME:-}" in
+		push) echo "main $sha" ;;
+		pull_request)
+			echo "pr $("$python" -c 'import json, sys
+print(json.load(open(sys.argv[1]))["pull_request"]["number"])' "$GITHUB_EVENT_PATH") $sha"
+			;;
+		release) echo "release $sha" ;;
+		*) echo "dispatch $sha" ;;
 	esac
 }
 
@@ -138,7 +155,7 @@ if ! assets > /dev/null; then
 fi
 if assets | grep -qxF "$zip_name"; then
 	report "built, upload skipped: already stored"
-elif gh release upload "$store" "$work/$zip_name" > /dev/null 2>&1; then
+elif gh release upload "$store" "$work/$zip_name#$(origin_label)" > /dev/null 2>&1; then
 	report "built and uploaded"
 elif assets | grep -qxF "$zip_name"; then
 	report "built, upload skipped: stored meanwhile"

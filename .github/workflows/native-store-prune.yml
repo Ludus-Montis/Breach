@@ -1,0 +1,39 @@
+name: Native store prune
+
+# Prunes the store of native binaries (spec 49 step 9, Decision 179), the pre-release
+# `native-store`: `ci/native/prune.py` keeps the references' and releases' keys forever,
+# the last 20 trees of native/ on main, and other keys for 14 days, then trims the oldest
+# of the rest while the store is past 1 GB. The summary lists what went. By hand, `dry_run`
+# lists without deleting.
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List what would go, delete nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: native-store-prune
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Prune
+        run: python3 ci/native/prune.py $DRY_RUN

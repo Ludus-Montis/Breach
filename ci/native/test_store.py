@@ -39,9 +39,12 @@ case "$cmd" in
 		[ -f "$rel/$pat" ] || exit 1
 		mkdir -p "$dir" && cp "$rel/$pat" "$dir/" ;;
 	upload)
+		file="${1%%#*}" label=
+		case "$1" in *"#"*) label="${1#*#}" ;; esac
 		[ -d "$rel" ] || exit 1
-		[ ! -e "$rel/$(basename "$1")" ] || exit 1
-		cp "$1" "$rel/" ;;
+		[ ! -e "$rel/$(basename "$file")" ] || exit 1
+		cp "$file" "$rel/"
+		mkdir -p "$FAKE_STORE.labels" && printf '%s' "$label" > "$FAKE_STORE.labels/$(basename "$file")" ;;
 	*) exit 3 ;;
 esac
 """
@@ -146,7 +149,8 @@ class StoreTest(unittest.TestCase):
     def on_pull_request(self, head_repo):
         event = self.tmp / "event.json"
         event.write_text(
-            json.dumps({"pull_request": {"head": {"repo": {"full_name": head_repo}}}})
+            json.dumps({"pull_request": {"number": 990,
+                                        "head": {"repo": {"full_name": head_repo}}}})
         )
         self.env.update(GITHUB_EVENT_NAME="pull_request", GITHUB_EVENT_PATH=str(event))
 
@@ -197,6 +201,21 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(self.calls("gh release create native-store")), 1)
         self.assertTrue(self.stored().exists())
+
+    def label(self, profile="release"):
+        return (self.store.parent / "store.labels" / f"{self.key(profile)}.zip").read_text()
+
+    def test_an_upload_on_main_is_labelled_main_and_the_commit(self):
+        self.on_push_to_main()
+        result = self.fetch()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.label(), f"main {self.commit}")
+
+    def test_an_upload_on_a_pull_request_is_labelled_with_its_number(self):
+        self.on_pull_request(REPO)
+        result = self.fetch()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.label(), f"pr 990 {self.commit}")
 
     def test_a_same_repo_pull_request_uploads(self):
         self.on_pull_request(REPO)

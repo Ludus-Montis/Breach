@@ -814,6 +814,20 @@ with a list of commits. Linux (`x86_64-unknown-linux-gnu`) and Windows
 job's summary lists the zips with their sizes. Nothing reads the store yet: readers wait for
 spec 49 step 4's measured check that two builds of one key time the same.
 
+Each upload's label says where the key was first built: `main <sha>`, `pr <n> <sha>`,
+`release <sha>` or `dispatch <sha>`. The `Native store prune` workflow
+(`.github/workflows/native-store-prune.yml`, daily and by hand, with a `dry_run` choice)
+runs `ci/native/prune.py` (spec 49 step 9). It keeps these keys:
+- forever: the references' keys (every full sha a workflow names, outside a `uses:` line),
+  every release's, and any asset labelled `release`;
+- the last 20 trees of `native/` on `main`'s first-parent history. History decides, not the
+  label alone, because a key first built on a PR keeps its `pr` label after the merge;
+- every other key for 14 days.
+
+It deletes the rest. Then, while the store is over 1 GB, it deletes the oldest assets it
+doesn't keep forever. A key's Linux, Windows and profiling assets share its tree, so they
+are kept or pruned together. Its summary lists what went.
+
 `native/` holds a `.gdignore`, so the editor never scans it. `breach_rust.gdextension`
 is loaded at run time by NativeKernels only when Rust is chosen and built. An export
 would need the library and the `.gdextension` added.
