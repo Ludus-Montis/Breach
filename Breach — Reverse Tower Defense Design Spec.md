@@ -8804,3 +8804,44 @@ the export (`content/maps_src/`) and the map (`content/maps/`).
 **Bounded:** not applicable; content loading only.
 **Riskiest assumption:** none of its own.
 **Pillar check:** not applicable.
+
+### Decision 187 — Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-13
+
+**Rationale:** Q53 (#1038), item 1 in part. Two CLAUDE.md non-negotiables were prose only: never
+merge a PR, and never run the full suite in a session. The harness now enforces both, which also
+makes the repo easier for AI tooling to work in.
+- **`.claude/settings.json` deny rules:** `gh pr merge`, the GitHub MCP server's
+  `merge_pull_request` and `enable_pr_auto_merge`, and the bare `run_tests.sh` in its three usual
+  spellings. A deny holds in every settings scope, and no allow overrides it.
+- **A `PreToolUse` hook,** `.claude/hooks/deny_local_full_test_suite_runs.py`, blocks any spelling
+  of `run_tests.sh` whose first argument is not under `tests/` (with no arguments the script runs
+  the full suite). It exits 2 with the one-file command for Claude to run instead, and it blocks
+  an event it cannot read (fail closed). Its tests run in CI's `run-baseline` job.
+- **Merges themselves are policed on GitHub:** branch rules, and the GitHub App with short-lived
+  tokens that merges the bench skills' `metrics/` PRs. The settings are the agent's layer, not the
+  only one.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| CLAUDE.md prose only | Advice an agent can miss; nothing stops the call. |
+| Deny rules alone for the suite | A prefix can't tell no arguments from some; every spelling needs its own rule. |
+| A hook that rewrites the command (`updatedInput`) | Hides the mistake; a block naming the command to run teaches the agent. |
+| Deny `git merge` too | Merging into a feature branch is ordinary work; landing on `main` is the branch rules' job. |
+
+**Consequences:** Q53 item 1's deny rules and hook are settled; skill `allowed-tools` and moving
+the designer rule into `.claude/rules/` stay open there. Known limits: the hook reads a command
+before the shell expands it, so `run_tests.sh "$f"` is blocked, and a wrapper in front (`env`,
+`time`, `timeout`) is not recognised.
+
+**Rules over cases:** general: a rule an agent's tool call can break is enforced at the harness,
+by a deny rule where the call itself is the problem and by a hook where its arguments decide.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; one regex per Bash call, outside the simulation.
+**Riskiest assumption:** that the hook command (`python3`, `$CLAUDE_PROJECT_DIR`) runs the same on
+Windows as on Linux. The cheapest test, triggering it once on the owner's PC, has not been run yet.
+**Pillar check:** not applicable.
