@@ -4,7 +4,7 @@ name: Sim checks
 # the Rust core, the tick digests compared with the base's, the mirror trials fought from both
 # sides, the digests and trials required equal on one thread and on the pool, and the scaling
 # check. None needs another's output, so after the Rust core is
-# built once (`build`) they run side by side: the suite in shards
+# fetched once from the store (`build`) they run side by side: the suite in shards
 # (ci/godot/scripts/shard_tests.py), the digests by set and the scaling check by stage. Only
 # the suite needs Godot: the digests, trials and scaling check are the crate's own binaries
 # (native/bin/breach_*), the GDScript tools they were checked against retired in spec 39
@@ -35,27 +35,27 @@ jobs:
       - id: scope
         run: python3 ci/godot/scripts/needs_godot.py "${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || '' }}"
 
-  # The Rust core, built once and handed to every job below as an artifact.
+  # The Rust core, fetched once from the store (spec 49 step 7, Decision 179) and handed to
+  # every job below as an artifact. The key is native/'s tree, so a PR that doesn't touch
+  # native/ gets main's binaries and builds nothing; a missing key is built, and uploaded
+  # unless the PR is a fork's (ci/native/store.sh).
   build:
     needs: scope
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
-
-      - name: Cache Rust build
-        uses: actions/cache@v6
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/rust/target
-          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
-          restore-keys: rust-${{ runner.os }}-
+          fetch-depth: 0
 
-      - name: Build the Rust core
-        run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
+      - name: Fetch the Rust core
+        run: bash ci/native/store.sh fetch HEAD release x86_64-unknown-linux-gnu native/bin
 
       - uses: actions/upload-artifact@v7
         with:
@@ -64,36 +64,28 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # The base's Rust core, built once from the merge base as `bench` builds its base, for the
-  # digests jobs' outcome check (Decision 151: outcomes are guarded on Rust).
+  # The base's Rust core, fetched from the store by the merge base's key, for the digests
+  # jobs' outcome check (Decision 151: outcomes are guarded on Rust). The key is read with
+  # the head's pin, as every tree is built (Decision 179), so the base isn't checked out.
   base-build:
     needs: scope
     if: needs.scope.outputs.godot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     env:
       # The PR's base branch; a manual run compares with main.
       BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || 'origin/main' }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Check out the merge base
-        run: git checkout -q --detach "$(git merge-base "$BASE_REF" HEAD)"
-
-      - name: Cache Rust build
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/rust/target
-          key: rust-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock', 'native/rust/**/*.rs') }}
-          restore-keys: rust-${{ runner.os }}-
-
-      - name: Build the base's Rust core
-        run: JOBS=4 bash native/build.sh release 2>&1 | tail -5
+      - name: Fetch the base's Rust core
+        run: bash ci/native/store.sh fetch "$(git merge-base "$BASE_REF" HEAD)" release x86_64-unknown-linux-gnu native/bin
 
       - uses: actions/upload-artifact@v7
         with:

@@ -70,8 +70,12 @@ Every check that doesn't need another's output runs in its own job, side by side
   commit messages: pre-commit with its `run-tests` hook skipped), `tests` (the gdUnit4
   suite, in shards) and `scaling` (the crate's scaling check, `native/bin/breach_scaling`,
   one job per stage).
-- **`Sim checks`** (`sim-checks.yml`): `build` compiles the Rust core once and hands it on
-  as an artifact, and `base-build` does the same for the merge base; then `suite` (the suite
+- **`Sim checks`** (`sim-checks.yml`): `build` fetches the Rust core once from the store
+  of native binaries (`ci/native/store.sh fetch`, spec 49 step 7, Decision 179) and hands it
+  on as an artifact, and `base-build` does the same for the merge base. A key is `native/`'s
+  tree, so a PR that doesn't touch `native/` downloads `main`'s binaries and builds nothing;
+  a missing key is built, and uploaded unless the PR is a fork's. `digests-arm64` still
+  builds its own `digest`: arm64 isn't a store target. Then `suite` (the suite
   under Rust, in shards, each failing when a test does: it keeps gdUnit's exit status
   past the `sed` that writes its log), `digests` (one job per set, each comparing
   its digest with the base's from a worktree of the merge base given the base's
