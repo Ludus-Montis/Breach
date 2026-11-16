@@ -11,7 +11,7 @@ on:
 
 env:
   GODOT_VERSION: "4.7.2-stable"
-  SHARDS: 4  # keep in step with the tests' matrix below
+  SHARDS: 4 # keep in step with the tests' matrix below
 
 jobs:
   # Docs, specs, skills and Python-only tools don't need Godot: they skip the gdUnit4
@@ -63,7 +63,7 @@ jobs:
           # before it. A push checks out the branch itself, so detecting its base would
           # pick whichever other branch is nearest and count changes the push didn't make.
           BASE_REF: ${{ github.event.pull_request.base.ref && format('origin/{0}', github.event.pull_request.base.ref) || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
-          SKIP: run-tests  # the suite runs in the `tests` job's shards
+          SKIP: run-tests # the suite runs in the `tests` job's shards
         run: pre-commit run --all-files --show-diff-on-failure
 
       - name: Check commit messages (commit-message-conforms)
@@ -86,6 +86,11 @@ jobs:
         run: |
           python3 -m unittest discover -s ci/native -p "test_*.py"
           python3 ci/native/check_build_inputs.py
+
+      - name: Test the claude hooks
+      # a hook that crashes fails open, so its exit codes are tested here.
+        run: |
+          python3 -m unittest discover -s .claude/hooks -p "test_*.py"
 
   # The Rust core, built once for the jobs that start Godot: every run loads the content
   # through it (CrateContent, Decision 153), and every battle runs on it.

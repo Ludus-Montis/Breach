@@ -193,3 +193,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 184 | The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag | 8718 |  |
 | 185 | Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor | 8778 |  |
 | 186 | The 25k tick's gate is the worker's 100 ms slot at p95 and p99, judged one CPU at a time; 50 ms is a stretch | 8808 |  |
+| 187 | Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md | 8859 |  |
