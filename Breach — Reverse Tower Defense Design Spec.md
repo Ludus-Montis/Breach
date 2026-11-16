@@ -9021,17 +9021,23 @@ cold catches what the agent that wrote it can't see in itself.
 
 **Consequences:** Every step PR from `/run-phase` gets a review on GitHub before Auto-fix, at a
 cost of one to three Sonnet runs. A reviewer that can't read the PR says `blocked` instead of
-reviewing, so a missing or renamed server shows rather than passing silently. The agent file keeps only the frontmatter fields it uses; the Claude Code docs
-are the source for the rest, so nothing in the repo copies them and drifts. Q53 item 2's
-`rubric-judge` agent and its CI check stay open.
+reviewing, so a missing or renamed server shows rather than passing silently. A local session
+gets its GitHub tools from a user-scope MCP server named `github`, connected with a fine-grained
+token that can only read Breach's contents, issues and pull requests; the cloud provides its own.
+The agent file keeps only the frontmatter fields it uses; the Claude Code docs are the source for
+the rest, so nothing in the repo copies them and drifts. Q53 item 2's `rubric-judge` agent and its
+CI check stay open.
 
 **Rules over cases:** general: every `/run-phase` step PR is reviewed by the same read-only agent,
 with the same checks, at most three times; checks that apply only to some diffs say when.
 **Order:** not applicable; no simulation outcome changes.
 **Bounded:** at most three reviews per step, each reading one PR, one issue and one spec step.
 **Riskiest assumption:** that the GitHub MCP server's tool names match those in the agent file
-wherever the review runs. They were checked against github-mcp-server's README, not a live server.
-A mismatch would fail silently, so the `blocked` verdict makes it fail loudly instead. The second
-assumption is that a Sonnet reviewer finds real problems more often than noise. The cheapest test
-of both is the first `/run-phase` step PR after this merges, judged by the owner.
+wherever the review runs. Tested: they match a cloud session's server and the owner's PC once its
+server was added as `github`; before that, the PC run returned `blocked`, as designed. The second
+assumption is that a Sonnet reviewer finds real problems more often than noise. Two runs on PR
+#1041 are too few to settle it: run 1 made one false claim (that `run_tests.sh tests/` runs the
+whole suite) and caught a wrong example path; run 2, after the prompt required a cited line for
+any claim about behaviour, made no false claim, caught a wrong case count in the PR body, and
+missed the example path. The cheapest next test is a few runs over PRs whose problems are known.
 **Pillar check:** not applicable.
