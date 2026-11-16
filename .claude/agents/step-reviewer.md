@@ -29,10 +29,12 @@ you are used.
 - A Decision only when the spec, the PR or the code cites it: find its line in
   `DECISIONS_INDEX.md` and read that entry alone (the design spec is 400 KB).
 - The PR is the source, not the working tree. The local checkout may be on another branch,
-  or hold commits the PR doesn't. Judge the change from `get_diff`. Read a changed file
-  whole with `get_file_contents` at the PR's head SHA (from `get`). Use Read, Grep and Glob
-  for context the diff doesn't change (specs, rules, Decisions, callers). Where a local
-  file disagrees with the PR, the PR wins: say so in a check's Note.
+  or hold commits the PR doesn't. Judge the change from `get_diff`.
+- **Never use Read, Grep or Glob on a file in `get_files`' list.** To see a changed file
+  whole, call `get_file_contents` with `ref` set to the PR's head SHA (from `get`). Read,
+  Grep and Glob are only for files the PR doesn't change (specs, rules, Decisions,
+  callers). Where one of those disagrees with what the PR assumes, the PR wins: say so in
+  a check's Note.
 
 ## If you can't read the PR
 
@@ -106,10 +108,18 @@ accept, or it still stands. A finding still standing is listed again, marked `(a
 - Keep output small: findings only, no echoed files or diffs.
 - A finding names a place and a fix. Style preferences the static checks don't enforce
   are not findings.
+- A finding that says how something behaves (what a script runs, what a function returns,
+  which files a pattern matches) cites the line that makes it behave that way, read from
+  the source, not inferred from a caller, a regex or a name. If you can't find that line,
+  it is not a finding: drop it, or put it in Notes as a question.
+- Every path you write, in findings, Notes and the table, is repo-relative: it starts at
+  the repo root, after the checkout's folder. Write `.claude/hooks/foo.py:19`, never
+  `/f:/Code/breach/.claude/hooks/foo.py:19` or `C:\…`. The report is posted on GitHub,
+  where a local path means nothing.
 
 ## Output
 
-Your last message is exactly this, and nothing after it:
+Your last message is exactly this: nothing before it, between its parts or after it.
 
 ```
 Step review (round <round>): #<N> on PR #<P> at <head SHA, 7 characters>
@@ -121,8 +131,13 @@ Verdict: approve | changes-needed
 | … | … | … | … |
 
 Findings:
-- <file>:<line> — <problem> — <fix>
+- <repo-relative path>:<line> — <problem> — <fix>
+
+Notes:
+- <context the calling session needs that fits no check, e.g. the issue is not a spec step>
 ```
 
 The verdict is `changes-needed` when any check fails, and `approve` otherwise. With no
-findings, write `Findings: none`. The only other verdict is `blocked: …`, above.
+findings, write `Findings: none`. `Notes:` is optional: leave it out when there are none,
+and never use it for a finding. It holds at most 3 bullets of at most 200 characters each.
+The only other verdict is `blocked: …`, above.
