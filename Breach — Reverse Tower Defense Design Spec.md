@@ -8845,3 +8845,65 @@ by a deny rule where the call itself is the problem and by a hook where its argu
 **Riskiest assumption:** that the hook command (`python3`, `$CLAUDE_PROJECT_DIR`) runs the same on
 Windows as on Linux. The cheapest test, triggering it once on the owner's PC, has not been run yet.
 **Pillar check:** not applicable.
+
+### Decision 188 — Guidance that applies only to certain files lives in a path-scoped rule, not in CLAUDE.md
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-16
+
+**Rationale:** Q53 (#1038), item 1 in part. CLAUDE.md loads into every session, so a line that
+matters only when certain files change costs context everywhere and is easy to skim past. Claude
+Code's `.claude/rules/` files with `paths:` frontmatter load only when Claude reads, writes or edits
+a matching file. The first rule moved is the non-negotiable "a schema change updates the designer
+in the same PR":
+- **`.claude/rules/schema-designer-sync.md`,** scoped to `content/definitions/**/*.gd` and
+  `native/rust/src/content/**/*.rs`. It names the designer's `buildExport()` and `loadFromExport()`
+  (`tools/designer/designer.js`), the translation in `native/rust/src/designer/`, and its tests,
+  `native/rust/src/designer/tests.rs`, all in the same PR. Its reason is Decision 153: the crate owns
+  the schema and the designer writes it.
+- **CLAUDE.md keeps no pointer to it.** The owner chose a clean CLAUDE.md over about 20 tokens in
+  every session.
+- **Tested on the owner's Windows PC** with an `InstructionsLoaded` log hook. The rule doesn't load
+  at session start. It loads (`path_glob_match`) when `content/definitions/bridge_def.gd` is read.
+  It doesn't load when `content/weapons/*.json` is read, or on `sed -i` without a read.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Keep it in CLAUDE.md | Costs context in every session, most of which never touch the schema. |
+| CLAUDE.md line plus a pointer to the rule | The owner chose a clean CLAUDE.md; the pointer helps only sessions that never open the files. |
+| A `PreToolUse` hook on `sed -i` | Closes one door of many (`perl -i`, redirects, scripts) and must parse paths out of shell. |
+| A `designer-sync` CI check now | It is the enforcement this rule lacks, but it is a design choice for Q53, proposed there. |
+
+**Consequences:** Q53 item 1's `.claude/rules/` part is settled; with Decision 187, only skill
+`allowed-tools` stays open there. Later moves of file-scoped guidance out of CLAUDE.md follow this
+Decision without a new one, but a move is green only after an **interaction review**, as the owner
+requires: "a review as was done against sed here must be performed then i.e. all possible
+interactions must be considered before a move be considered green". The PR that moves a rule lists
+every way its files can change and whether the rule loads for each:
+- Claude's file tools (Read, Write, Edit).
+- In-place edits through Bash (`sed -i`, `perl -i`, redirects, heredocs).
+- Scripts and codegen.
+- People editing by hand.
+- Sessions that only read a diff.
+
+It proves the load and no-load cases with an `InstructionsLoaded` log, and names each gap with its
+mitigation, or says why it is accepted. This move's review is the four probes above. Known limits
+(listed on Q53,
+https://github.com/Ludus-Montis/Breach/issues/1038#issuecomment-6929277619):
+- A rule is guidance, not enforcement.
+- It loads only on Read, Write or Edit, or a single-file `cat`/`head`, so in-place edits through Bash
+  never see it.
+- A session that never opens the files never sees it.
+- Invalid frontmatter makes it load in every session.
+
+**Rules over cases:** general: guidance that applies only when certain files are touched lives in a
+path-scoped `.claude/rules/` file, once an interaction review shows how each way of changing those
+files meets the rule; CLAUDE.md keeps what applies in every session.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; a rule loads at most once per session, outside the simulation.
+**Riskiest assumption:** that agents open schema files with Read or Edit before changing them. The
+cheapest test, four probes on the owner's PC, ran: `sed -i` without a read never loads the rule. The
+`designer-sync` CI check proposed on Q53 closes that gap.
+**Pillar check:** not applicable.

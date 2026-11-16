@@ -193,3 +193,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 184 | The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag | 8718 |  |
 | 185 | Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor | 8778 |  |
 | 187 | Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md | 8808 |  |
+| 188 | Guidance that applies only to certain files lives in a path-scoped rule, not in CLAUDE.md | 8849 |  |

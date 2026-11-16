@@ -54,6 +54,11 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Changed
 
+- CLAUDE.md's rule that a schema change updates the designer in the same PR is now a
+  path-scoped rule, `.claude/rules/schema-designer-sync.md` (Decision 188). Claude loads it only
+  when it reads, writes or edits a file under `content/definitions/` or
+  `native/rust/src/content/`. Later moves of file-specific guidance out of CLAUDE.md need an
+  interaction review first.
 - Large battles tick faster once a fight is over: squads regrouping no longer search their
   whole squad for each unit walking back to its place. Nothing in how they regroup changes.
 - The native core builds with a pinned Rust toolchain, 1.99.1 (`native/rust/rust-toolchain.toml`):
