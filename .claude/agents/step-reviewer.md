@@ -20,7 +20,7 @@ you are used.
 
 - The issue: `issue_read` (`get`, then `get_comments`), for its `**Needs:**` and
   `**Touches:**` lines.
-- The PR: `pull_request_read` with `get` (body, rubric checklist, Documentation block),
+- The PR: `pull_request_read` with `get` (body, Documentation block),
   `get_files` (the file list) and `get_diff` (the change).
 - On a re-review (`round` 2 or 3): `pull_request_read` `get_comments`, for your earlier
   `Step review` comments and the replies to them.

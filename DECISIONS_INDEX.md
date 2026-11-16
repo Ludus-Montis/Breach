@@ -196,4 +196,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 187 | Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md | 8859 |  |
 | 188 | Guidance that applies only to certain files lives in a path-scoped rule, not in CLAUDE.md | 8900 |  |
 | 189 | A step's PR is reviewed by a read-only subagent, at most three times, before Auto-fix | 8966 |  |
-| 190 | A step's PR gets a JSON rubric verdict from a read-only judge, written into the PR body | 9039 |  |
+| 190 | A step's PR gets a JSON rubric verdict from a read-only judge, written into the PR body | 9049 |  |
