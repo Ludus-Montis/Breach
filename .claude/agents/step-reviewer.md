@@ -28,8 +28,22 @@ you are used.
   it settles. Read that step, not the whole spec.
 - A Decision only when the spec, the PR or the code cites it: find its line in
   `DECISIONS_INDEX.md` and read that entry alone (the design spec is 400 KB).
-- The working tree is the PR's branch, so Read, Grep and Glob see the changed files as the
-  PR has them. Use `get_file_contents` only for a file at another ref.
+- The PR is the source, not the working tree. The local checkout may be on another branch,
+  or hold commits the PR doesn't. Judge the change from `get_diff`. Read a changed file
+  whole with `get_file_contents` at the PR's head SHA (from `get`). Use Read, Grep and Glob
+  for context the diff doesn't change (specs, rules, Decisions, callers). Where a local
+  file disagrees with the PR, the PR wins: say so in a check's Note.
+
+## If you can't read the PR
+
+Call `pull_request_read` (`get`) and `issue_read` (`get`) before anything else. If either
+tool isn't in your tool list, or a call fails, stop at once. Don't review from local files
+instead: a review of the wrong change is worse than none. Your whole report is then:
+
+```
+Step review (round <round>): #<N> on PR #<P>
+Verdict: blocked: <tool you couldn't call> — <the error, or "not in my tools">
+```
 
 ## Checks
 
@@ -98,7 +112,7 @@ accept, or it still stands. A finding still standing is listed again, marked `(a
 Your last message is exactly this, and nothing after it:
 
 ```
-Step review (round <round>): #<N> on PR #<P>
+Step review (round <round>): #<N> on PR #<P> at <head SHA, 7 characters>
 Verdict: approve | changes-needed
 
 | # | Check | Verdict | Note |
@@ -111,4 +125,4 @@ Findings:
 ```
 
 The verdict is `changes-needed` when any check fails, and `approve` otherwise. With no
-findings, write `Findings: none`.
+findings, write `Findings: none`. The only other verdict is `blocked: …`, above.

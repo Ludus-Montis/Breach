@@ -8984,8 +8984,17 @@ cold catches what the agent that wrote it can't see in itself.
 - **Read-only, through the GitHub MCP read tools:** its tools are Read, Grep, Glob,
   `pull_request_read`, `issue_read` and `get_file_contents`. It has no Bash and no write tool, so
   no hook is needed to keep it read-only. Its last message is its report; the calling session
-  posts it on the PR with `add_issue_comment`. Step 6 already needs the same MCP server to open the
-  PR, so wherever the review runs, its tools are there.
+  posts it on the PR with `add_issue_comment`.
+- **It reviews the PR, not the working tree.** The diff comes from `get_diff` and whole files from
+  `get_file_contents` at the PR's head SHA, which the report names. Local files give context only;
+  where they disagree with the PR, the PR wins. The session pushes everything before starting it.
+- **`blocked` when it can't read the PR.** The names in `tools:` match only a server connected as
+  `github`. Under another name (a plugin's `mcp__plugin_github_github__…`, say) they match nothing,
+  and the reviewer would hold only Read, Grep and Glob. It calls `pull_request_read` and
+  `issue_read` first, and if either is missing or fails it returns `Verdict: blocked: <tool>` and
+  nothing else, rather than reviewing local files. The session doesn't post that, doesn't count it
+  as a round, tells the owner the tool and the GitHub tool names it has, and hands off the step as
+  unreviewed.
 - **At most three rounds:** after a `changes-needed` verdict the session fixes or answers each
   finding, then starts the reviewer again with the next `round`. A re-review reads the whole change
   again and its earlier findings. If round 3 still says `changes-needed`, the session stops and
@@ -9011,8 +9020,8 @@ cold catches what the agent that wrote it can't see in itself.
 | Preload the `design-check` skill (`skills:`) | It puts 6 KB into every review for one check that applies only to simulation changes. The reviewer reads the file when check 7 applies. |
 
 **Consequences:** Every step PR from `/run-phase` gets a review on GitHub before Auto-fix, at a
-cost of one to three Sonnet runs. A session without the GitHub MCP tools skips the review and says
-so in its hand-off. The agent file keeps only the frontmatter fields it uses; the Claude Code docs
+cost of one to three Sonnet runs. A reviewer that can't read the PR says `blocked` instead of
+reviewing, so a missing or renamed server shows rather than passing silently. The agent file keeps only the frontmatter fields it uses; the Claude Code docs
 are the source for the rest, so nothing in the repo copies them and drifts. Q53 item 2's
 `rubric-judge` agent and its CI check stay open.
 
@@ -9020,7 +9029,9 @@ are the source for the rest, so nothing in the repo copies them and drifts. Q53 
 with the same checks, at most three times; checks that apply only to some diffs say when.
 **Order:** not applicable; no simulation outcome changes.
 **Bounded:** at most three reviews per step, each reading one PR, one issue and one spec step.
-**Riskiest assumption:** that a Sonnet reviewer finds real problems more often than noise, and
-that the GitHub MCP server's tool names match those in the agent file. Neither is tested yet: the
-cheapest test is the first `/run-phase` step PR after this merges, judged by the owner.
+**Riskiest assumption:** that the GitHub MCP server's tool names match those in the agent file
+wherever the review runs. They were checked against github-mcp-server's README, not a live server.
+A mismatch would fail silently, so the `blocked` verdict makes it fail loudly instead. The second
+assumption is that a Sonnet reviewer finds real problems more often than noise. The cheapest test
+of both is the first `/run-phase` step PR after this merges, judged by the owner.
 **Pillar check:** not applicable.

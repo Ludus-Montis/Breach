@@ -279,11 +279,21 @@ both. A PR that splits its step closes no issue for it ("Splitting a step").
 If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
 
-Then have the step reviewed (Decision 189). Start the `step-reviewer` agent
-(`.claude/agents/step-reviewer.md`) with the PR's number, the step issue's number and
-`round: 1`. It is read-only and its last message is its report. Post that report, as it
-came, as one comment on the PR (`add_issue_comment`), so the review stays on GitHub for the
-owner and any later session. If its verdict is `changes-needed`:
+Then have the step reviewed (Decision 189). First push everything, so the PR holds what
+you built: the reviewer judges the PR, not your working tree. Start the `step-reviewer`
+agent (`.claude/agents/step-reviewer.md`) with the PR's number, the step issue's number and
+`round: 1`. It is read-only and its last message is its report.
+
+If its verdict is `blocked: <tool>`, it could not read the PR, so there is no review. Don't
+post it, don't count it as a round, and don't go on as if it approved. The usual cause is
+the GitHub MCP server connecting under another name on this machine (e.g.
+`mcp__plugin_github_github__…`), so the names in the agent's `tools:` match nothing. Tell
+the owner the tool it named and the GitHub tool names this session has, and say in the
+hand-off that the step is unreviewed.
+
+Otherwise post its report, as it came, as one comment on the PR (`add_issue_comment`), so
+the review stays on GitHub for the owner and any later session. If its verdict is
+`changes-needed`:
 1. Fix each finding on the same branch (TDD as in step 3) and push. For a finding you judge
    wrong, give the reason instead of a fix.
 2. Post one comment saying, per finding, what changed or why not.
@@ -291,8 +301,7 @@ owner and any later session. If its verdict is `changes-needed`:
 
 The reviewer runs at most three times: the first review and two re-reviews. If round 3
 still says `changes-needed`, stop: tell the owner which findings remain and ask how to go
-on. Don't start a fourth round. Where the GitHub MCP tools aren't connected, the reviewer
-can't read the PR: skip the review and say so in the hand-off.
+on. Don't start a fourth round.
 
 Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
 `/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
