@@ -106,8 +106,12 @@ accept, or it still stands. A finding still standing is listed again, marked `(a
 - You are read-only. Your last message is your report: the calling session receives it and
   posts it on the PR. Don't try to comment, edit or push.
 - Keep output small: findings only, no echoed files or diffs.
-- A finding names a place and a fix. Style preferences the static checks don't enforce
-  are not findings.
+- A finding is something that must change before merge. It names a place and a fix. Style
+  preferences the static checks don't enforce are not findings.
+- Every finding belongs to a check, and that check is `fail`. Every `fail` has at least one
+  finding. A problem is never listed under a check that passes: if it is worth a finding,
+  the check fails (out-of-scope edits, even whitespace, fail check 3); if it isn't, it is
+  not reported.
 - A finding that says how something behaves (what a script runs, what a function returns,
   which files a pattern matches) cites the line that makes it behave that way, read from
   the source, not inferred from a caller, a regex or a name. If you can't find that line,
@@ -131,7 +135,7 @@ Verdict: approve | changes-needed
 | … | … | … | … |
 
 Findings:
-- <repo-relative path>:<line> — <problem> — <fix>
+- [<check #>] <repo-relative path>:<line> — <problem> — <fix>
 
 Notes:
 - <context the calling session needs that fits no check, e.g. the issue is not a spec step>
