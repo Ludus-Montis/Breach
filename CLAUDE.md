@@ -51,10 +51,6 @@ How sessions work together is `principles/agent-sessions.md`.
   a Decision.
 - **Hand-offs go through GitHub** (`/handoff`). Claim another agent took the work only
   if you can give its session link.
-- **A schema change updates the designer in the same PR.** Changes under
-  `content/definitions/` or to the crate's content structs (`native/rust/src/content/`, the
-  schema, Decision 153) must also update the designer: its page (`tools/designer/`: export,
-  `loadFromExport`) and its translation into the schema (`native/rust/src/designer/`).
 - **Anything that should change how the next agent works goes in the repo,** not in your
   own memory: here, a skill, a Decision or an issue labelled `question` (Decision 148).
 

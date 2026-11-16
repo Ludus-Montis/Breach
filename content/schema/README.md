@@ -57,4 +57,4 @@ generated from them, for the designer and editors to validate against.
 
 A change to the structs regenerates the schema: `BLESS_SCHEMA=1 cargo test schema` in
 `native/rust/`. A test fails while a checked-in schema is stale. It also updates the designer
-in the same PR (`CLAUDE.md`).
+in the same PR (`.claude/rules/schema-designer-sync.md`, Decision 188).
