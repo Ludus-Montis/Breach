@@ -8896,7 +8896,11 @@ https://github.com/Ludus-Montis/Breach/issues/1038#issuecomment-6929277619):
 - It loads only on Read, Write or Edit, or a single-file `cat`/`head`, so in-place edits through Bash
   never see it.
 - A session that never opens the files never sees it.
+- People editing the files by hand never see it: a rule reaches only Claude.
 - Invalid frontmatter makes it load in every session.
+
+The `designer-sync` CI check proposed on Q53 would catch the Bash, script and hand-edit gaps the
+same way, since it checks what the PR changes, not how the files were written.
 
 **Rules over cases:** general: guidance that applies only when certain files are touched lives in a
 path-scoped `.claude/rules/` file, once an interaction review shows how each way of changing those
