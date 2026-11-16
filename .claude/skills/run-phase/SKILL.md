@@ -279,6 +279,15 @@ both. A PR that splits its step closes no issue for it ("Splitting a step").
 If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
 
+Then have the step reviewed. Start the `step-reviewer` agent (`.claude/agents/
+step-reviewer.md`) with the PR's number and the step issue's number. It is read-only and
+its last message is its report. Post that report, as it came, as one comment on the PR
+(`add_issue_comment`), headed `Step review`, so the review stays on GitHub for the owner
+and any later session. If its verdict is `changes-needed`, fix each finding on the same
+branch (TDD as in step 3), push, and say in a reply to that comment what changed; a
+finding you judge wrong, answer there with the reason instead. Review once: don't start
+the reviewer again on the fixes, unless the owner asks.
+
 Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
 `/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
 tools), bind it with `bind_pr` if it isn't reported, then `set_monitor` with
