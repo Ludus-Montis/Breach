@@ -9039,5 +9039,9 @@ assumption is that a Sonnet reviewer finds real problems more often than noise. 
 #1041 are too few to settle it: run 1 made one false claim (that `run_tests.sh tests/` runs the
 whole suite) and caught a wrong example path; run 2, after the prompt required a cited line for
 any claim about behaviour, made no false claim, caught a wrong case count in the PR body, and
-missed the example path. The cheapest next test is a few runs over PRs whose problems are known.
+missed the example path. Run 3, after a rule that every finding fails its check, noted the
+`ci.yml` spacing under check 1 yet passed check 3, and never checked the case count: approve,
+with three known problems unreported. Three runs on one PR gave three different sets of
+findings, so the review stays advisory (the owner still merges) and the prompt isn't tuned
+further against one PR. The cheapest next test is a few runs over PRs whose problems are known.
 **Pillar check:** not applicable.

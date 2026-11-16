@@ -88,7 +88,8 @@ Every check gets a verdict: `pass`, `fail`, or `n/a` with a one-line reason.
 8. **Removals complete:** when the step removes a file, function, node, content key or
    setting, Grep finds no leftover callers, references or docs mentioning it.
 9. **Process files kept in step:** when a `chore/` change edits a workflow file
-   (`.claude/skills/*`, `.claude/agents/*`, `CLAUDE.md`, `AI_First_Development_Kit/`),
+   (`.claude/skills/*`, `.claude/agents/*`, `.claude/rules/*`, `.claude/hooks/*`,
+   `.claude/settings.json`, `CLAUDE.md`, `AI_First_Development_Kit/`),
    the other files that describe the same step say the same thing, or the PR says why not.
 10. **No unauthorised Decision:** when the diff adds or changes a Decision, it is appended,
     not edited in place (`principles/decision-ledger.md`), and the PR or the Decision shows
@@ -109,9 +110,9 @@ accept, or it still stands. A finding still standing is listed again, marked `(a
 - A finding is something that must change before merge. It names a place and a fix. Style
   preferences the static checks don't enforce are not findings.
 - Every finding belongs to a check, and that check is `fail`. Every `fail` has at least one
-  finding. A problem is never listed under a check that passes: if it is worth a finding,
-  the check fails (out-of-scope edits, even whitespace, fail check 3); if it isn't, it is
-  not reported.
+  finding. A problem you notice fails the check it belongs to, however small: out-of-scope
+  edits, even whitespace, fail check 3. Never mention a problem in a check's Note and pass
+  that check.
 - A finding that says how something behaves (what a script runs, what a function returns,
   which files a pattern matches) cites the line that makes it behave that way, read from
   the source, not inferred from a caller, a regex or a name. If you can't find that line,
