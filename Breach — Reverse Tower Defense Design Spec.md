@@ -8962,3 +8962,65 @@ files meets the rule; CLAUDE.md keeps what applies in every session.
 cheapest test, four probes on the owner's PC, ran: `sed -i` without a read never loads the rule. The
 `designer-sync` CI check proposed on Q53 closes that gap.
 **Pillar check:** not applicable.
+
+### Decision 189 — A step's PR is reviewed by a read-only subagent, at most three times, before Auto-fix
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-16
+
+**Rationale:** Q53 (#1038), item 2 in part: the `step-reviewer` agent and how `/run-phase`
+applies its verdict. CI checks what a script can decide; nothing checks what needs judgement, such
+as a test loosened to stay green or a change wider than its step. A second agent that reads the PR
+cold catches what the agent that wrote it can't see in itself.
+- **Where:** `/run-phase` step 6, after the PR is open, labelled and closing its issue, and before
+  Auto-fix is turned on. The reviewer reads the PR as GitHub has it, including its body, so it can
+  check the PR's own claims. Posting before Auto-fix keeps the review comment from waking the
+  session that posted it.
+- **What it checks:** ten checks in `.claude/agents/step-reviewer.md`: six always (no weakened
+  tests, spec and Decision fidelity, step scope, scenario coverage, the PR's claims, path-scoped
+  rules) and four when the diff calls for them (design check, removals, process files,
+  Decisions). It skips everything CI already runs. The checks carry over the owner's earlier moeb
+  rubrics where they still apply.
+- **Read-only, through the GitHub MCP read tools:** its tools are Read, Grep, Glob,
+  `pull_request_read`, `issue_read` and `get_file_contents`. It has no Bash and no write tool, so
+  no hook is needed to keep it read-only. Its last message is its report; the calling session
+  posts it on the PR with `add_issue_comment`. Step 6 already needs the same MCP server to open the
+  PR, so wherever the review runs, its tools are there.
+- **At most three rounds:** after a `changes-needed` verdict the session fixes or answers each
+  finding, then starts the reviewer again with the next `round`. A re-review reads the whole change
+  again and its earlier findings. If round 3 still says `changes-needed`, the session stops and
+  asks the owner. This is Q53's "re-review at most twice, then stop and ask".
+- **On Sonnet** (`model: sonnet`): Q53's cost rule. The deterministic checks have run in CI by
+  then, and what is left is reading one diff against one spec step, which Sonnet does well. Up to
+  three reviews per step, across a cascade's steps, makes the price per review matter.
+- **Path-scoped rules are checked by reading the rule:** the reviewer reads each `.claude/rules/`
+  file whose `paths:` match a changed file and checks the PR against it. A rule's content stays only
+  in the rule (Decision 188).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Review once, never re-review unless the owner asks | A fix can break what passed, and nothing would check the fixes. Q53 settled on two re-reviews. |
+| Re-review only the new commits (a `BASE...HEAD` input) | A fix can break what passed, so a re-review reads the whole change; the MCP tools have no compare between commits either. |
+| Review in step 5, before the PR opens, from a local `git diff` | The PR body, its checklist and Documentation block don't exist yet, so the reviewer couldn't check the PR's claims. The owner kept it in step 6. |
+| Bash limited to `git diff`, `gh issue view` and `gh pr view/diff` by a `PreToolUse` hook | It needs `gh` logged in and `python3` wherever the review runs, plus a hook and its test to keep up. The MCP read tools give the same reads and can't write. |
+| The reviewer comments on the PR itself | It would post as the owner's account and need a write tool; GitHub doesn't let an account request changes on its own PR anyway. |
+| `model: inherit` | Every review would run on the session's model, usually the most expensive, for work a cheaper model does well. |
+| `model: haiku` | Too weak for spec fidelity and the design check, the two checks that need the most judgement. |
+| Preload the `design-check` skill (`skills:`) | It puts 6 KB into every review for one check that applies only to simulation changes. The reviewer reads the file when check 7 applies. |
+
+**Consequences:** Every step PR from `/run-phase` gets a review on GitHub before Auto-fix, at a
+cost of one to three Sonnet runs. A session without the GitHub MCP tools skips the review and says
+so in its hand-off. The agent file keeps only the frontmatter fields it uses; the Claude Code docs
+are the source for the rest, so nothing in the repo copies them and drifts. Q53 item 2's
+`rubric-judge` agent and its CI check stay open.
+
+**Rules over cases:** general: every `/run-phase` step PR is reviewed by the same read-only agent,
+with the same checks, at most three times; checks that apply only to some diffs say when.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** at most three reviews per step, each reading one PR, one issue and one spec step.
+**Riskiest assumption:** that a Sonnet reviewer finds real problems more often than noise, and
+that the GitHub MCP server's tool names match those in the agent file. Neither is tested yet: the
+cheapest test is the first `/run-phase` step PR after this merges, judged by the owner.
+**Pillar check:** not applicable.

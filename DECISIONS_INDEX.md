@@ -195,3 +195,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 186 | The 25k tick's gate is the worker's 100 ms slot at p95 and p99, judged one CPU at a time; 50 ms is a stretch | 8808 |  |
 | 187 | Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md | 8859 |  |
 | 188 | Guidance that applies only to certain files lives in a path-scoped rule, not in CLAUDE.md | 8900 |  |
+| 189 | A step's PR is reviewed by a read-only subagent, at most three times, before Auto-fix | 8966 |  |
