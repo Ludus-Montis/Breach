@@ -69,10 +69,11 @@ Every check gets a verdict: `pass`, `fail`, or `n/a` with a one-line reason.
    (Decision 171). Work beyond the step is a finding even if it is good work.
 4. **Scenario coverage.** Every Given/When/Then scenario in the step has a test that
    asserts its outcome (coverage is procedural, Decision 10). Name any scenario with none.
-5. **The PR's claims are true.** The rubric checklist, the Documentation block and the
-   changelog line match the diff. `Changelog: N/A (<reason>)` is right only for a change no
-   player or designer would notice; a user-visible change needs a `CHANGELOG.md` line
-   written for them. A box ticked for work the diff doesn't show is a finding.
+5. **The PR's claims are true.** The Documentation block and the changelog line match the
+   diff. `Changelog: N/A (<reason>)` is right only for a change no player or designer would
+   notice; a user-visible change needs a `CHANGELOG.md` line written for them. A claim for
+   work the diff doesn't show is a finding. The run-baseline rubric rows are not yours: the
+   `rubric-judge` agent judges them.
 6. **Path-scoped rules followed.** Each rule in `.claude/rules/` lists the paths it covers
    in its `paths:` frontmatter. For every rule whose paths match a changed file, read the
    rule and check that the diff does what it requires, in this same PR. The rule is the

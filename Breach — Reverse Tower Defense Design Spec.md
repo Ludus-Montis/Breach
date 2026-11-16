@@ -9045,3 +9045,58 @@ with three known problems unreported. Three runs on one PR gave three different 
 findings, so the review stays advisory (the owner still merges) and the prompt isn't tuned
 further against one PR. The cheapest next test is a few runs over PRs whose problems are known.
 **Pillar check:** not applicable.
+
+### Decision 190 — A step's PR gets a JSON rubric verdict from a read-only judge, written into the PR body
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-16
+
+**Rationale:** Q53 (#1038), item 2's remainder after Decision 189: the `rubric-judge` agent
+(moeb's rubric verdicts given through a schema, and its Reasoning Reviewer). The run-baseline
+checklist in a PR body is ticked by the agent that did the work. CI decides most of its rows, but
+some no script decides, and a ticked box for those is a claim nobody checks.
+- **What it judges:** five criteria in `.claude/agents/rubric-judge.md`. Four are the procedural
+  run-baseline rows: `tests-red-then-green` (the hand-off shows the run; a ticked box is not
+  evidence), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
+  used to rank) and the type-against-diff half of `commit-message-conforms` (CI checks the format).
+  The fifth, `decisions-honoured`, checks the hand-off's account of the change against each Decision
+  the step relied on.
+- **What it leaves:** rows CI decides. Coverage stays with the step reviewer's scenario-coverage
+  check (Decision 10), and `docs-current` with its PR-claims check, which no longer covers the
+  rubric checklist. `progress-trend` is skipped in agent sessions by rule, so it is left out.
+- **What it reads:** the hand-off, meaning the PR, its comments and the step issue's comments. It
+  also reads the commits, the diff, and each cited Decision by its line in `DECISIONS_INDEX.md`.
+  Like the step reviewer, it judges the PR, not the working tree, and returns `blocked` when it
+  can't read the PR.
+- **Output:** one JSON object, with a verdict, evidence and a note per criterion and a list of the
+  failures. `pass` alongside listed failures is invalid. The session writes it, as it came, into
+  the PR body between `<!-- rubric-judge -->` markers, so a later CI check can read it.
+- **When:** `/run-phase` step 6, after the step reviewer approves and before Auto-fix. It runs at
+  most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
+  it still fails, the session tells the owner.
+- **On Sonnet**, for Decision 189's reasons: one PR against five criteria, run per step.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A verdict on every run-baseline row, CI's rows marked `ci` | The judge can't see CI, so those entries would only copy a label. The owner chose the procedural rows only. |
+| Fold the JSON into the step reviewer | A bigger report from one agent, and Q53 planned a separate judge for the reasoning against Decisions. |
+| Keep the step reviewer's rubric-checklist check as well | The two agents could disagree on the same row. Each row has one owner. |
+| The CI check in this PR | It is a script with its own tests: a spec step, not part of a process change. |
+
+**Consequences:** Every `/run-phase` step PR carries a JSON rubric verdict in its body, at a cost
+of one or two Sonnet runs after the review. The `pr-description` template gains a **Rubric
+verdict** block with the markers. Q53 item 2's CI check, which fails on a missing criterion or on
+`pass` with failures listed, is still open, and the JSON's shape is what it will read.
+
+**Rules over cases:** general: every `/run-phase` step PR is judged by the same agent on the same
+criteria; the criteria that apply only to some diffs say when.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** at most two runs per step, each reading one PR, its comments, one issue and the
+Decisions it cites.
+**Riskiest assumption:** that sessions leave red→green evidence in the hand-off. If they don't,
+`tests-red-then-green` fails on every PR and the verdict becomes noise. Decision 189's tool-name
+assumption also holds here, and adds `list_commits`. The cheapest test is the first `/run-phase`
+step PR after this merges, judged by the owner.
+**Pillar check:** not applicable.

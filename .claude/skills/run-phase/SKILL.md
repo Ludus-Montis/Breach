@@ -303,6 +303,18 @@ The reviewer runs at most three times: the first review and two re-reviews. If r
 still says `changes-needed`, stop: tell the owner which findings remain and ask how to go
 on. Don't start a fourth round.
 
+Once the reviewer approves, have the rubric judged. Start the `rubric-judge` agent
+(`.claude/agents/rubric-judge.md`) with the PR's number and the step issue's number. It is
+read-only, and its last message is one JSON object with a verdict for each rubric row that
+no script decides. Put that JSON, as it came, in the PR body between the
+`<!-- rubric-judge -->` and `<!-- /rubric-judge -->` markers (`update_pull_request`),
+replacing whatever is there. If the verdict is `blocked`, treat it the way you treat the
+reviewer's `blocked`: don't write it into the body, and say in the hand-off that the rubric
+is unjudged. If the verdict is `fail`, fix each listed criterion and push. For a criterion
+you judge wrong, give the reason in a PR comment instead. Then run the judge once more and
+replace the JSON. If it still fails, tell the owner which criteria remain. Don't run it a
+third time.
+
 Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
 `/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
 tools), bind it with `bind_pr` if it isn't reported, then `set_monitor` with
