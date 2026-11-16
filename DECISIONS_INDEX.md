@@ -192,3 +192,4 @@ check fails when it is out of date. Read a Decision by its line, e.g.
 | 183 | A node is taken by standing on it unopposed; a garrison is lines of the kingdom's; the map ends by its loss groups | 8678 |  |
 | 184 | The map scene replaces the test scenes, drawn by temporary renderers in one batch, with debug seeding behind a flag | 8718 |  |
 | 185 | Maps reach Godot as the designer's JSON through the crate; the designer is v1's developer tool, not a player's map editor | 8778 |  |
+| 187 | Rules an agent's tool call can break are enforced in Claude Code's config, not only in CLAUDE.md | 8808 |  |

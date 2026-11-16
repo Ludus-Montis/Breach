@@ -10,6 +10,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- Claude Code enforces two of CLAUDE.md's rules (Decision 187): `.claude/settings.json` denies
+  merging a PR (`gh pr merge`, the GitHub MCP merge and auto-merge tools) and a bare
+  `run_tests.sh`, and a `PreToolUse` hook blocks any local run of the full Godot suite, naming
+  the one-file command instead. CI's `run-baseline` runs the hook's tests.
 - Versioned releases begin: a release PR (`chore/release`) is kept current on each merge,
   with the next 0.x.y version and this changelog's `[Unreleased]` turned into that
   version's section; the owner releases by merging it.
