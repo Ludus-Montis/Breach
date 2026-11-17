@@ -9057,8 +9057,9 @@ checklist in a PR body is ticked by the agent that did the work. CI decides most
 some no script decides, and a ticked box for those is a claim nobody checks.
 - **What it judges:** five criteria in `.claude/agents/rubric-judge.md`. Four are the procedural
   run-baseline rows: `tests-red-then-green` (evidence, best first: a link to the red run, a test
-  commit before the code commit, or the hand-off naming the failing test and quoting its failure
-  message; a ticked box or an unquoted "ran red" is a `fail`), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
+  commit before the code commit, or the hand-off itself giving the failing test's function name
+  and a quoted failure line; anything less is a `fail`, and the judge doesn't fill a gap from the
+  source), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
   used to rank) and the type-against-diff half of `commit-message-conforms` (CI checks the format).
   The fifth, `decisions-honoured`, is a Breach-only extra, not a run-baseline row. It checks the
   change, and the hand-off's account of it, against each Decision the step relied on. The step
@@ -9115,7 +9116,9 @@ Decisions it cites.
 assumption also holds here, and adds `list_commits`. The cheapest test is the first `/run-phase`
 step PR after this merges, judged by the owner. A first test on #1041 (two runs) found it already:
 #1041 describes its red run without linking it, and the runs gave `pass` and a `doubt:` `n/a`.
-The owner then set the evidence order above, made doubts warn, and fixed the field shape.
+The owner then set the evidence order above, made doubts warn, and fixed the field shape. A
+second pair of runs agreed on every criterion but passed #1041's tests on a case description, one
+by looking the test name up itself, so the last tier became binary and judges the hand-off alone.
 **Pillar check:** not applicable.
 
 ### Decision 191 — GitHub goes through one route, the GitHub MCP tools, and `gh`'s writes are denied

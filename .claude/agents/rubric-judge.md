@@ -72,12 +72,16 @@ Row 5 is a Breach-only extra, not a run-baseline row.
    error), as `principles/tdd-bdd-workflow.md` requires. Evidence, best first:
    - a link to the red run (a CI run or a comment holding its output);
    - a test commit that comes before the code commit;
-   - the hand-off naming the failing test and quoting its failure message (for example
+   - the hand-off itself giving the failing test's function name, as it appears in the test
+     file, and a quoted failure line (for example
      ``test_invalid_json_is_blocked failed: `1 != 2` ``).
 
-   Anything less is a `fail` with empty `evidence`: a ticked box, or "ran red, then green"
-   with no test named or no message quoted. When the best evidence is the quoted message,
-   say in `note` that no red run is linked. `n/a` only when the PR changes no behaviour
+   This criterion judges the hand-off, not the code. If the hand-off lacks the name or the
+   quoted line, the verdict is `fail` with empty `evidence`, even when you could find the
+   test yourself. Don't look up a missing name, and don't accept a case description ("the
+   invalid-JSON case") in its place. A ticked box, or "ran red, then green" alone, is also a
+   `fail`. When the best evidence is the quoted line, say in `note` that no red run is
+   linked. `n/a` only when the PR changes no behaviour
    (docs, process files, data-only).
 2. **`contract-tests-pass`.** When the diff adds or changes an implementation of a base
    type that has two or more implementations, all of them run the shared contract tests
