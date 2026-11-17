@@ -9136,6 +9136,12 @@ credentials and rules to keep in step. The owner chose one route instead.
   `--method=` set to `POST`, `PATCH`, `PUT` or `DELETE`. Its reads stay allowed, `gh api -X GET …
   -f q=…` among them: that is how cloud sessions search code, and the settings file loads there
   too. A deny rule always beats an allow, so the rules name the write methods, not the field flags.
+- **`actions_run_trigger` may only start a workflow:** Actions write is there so sessions can
+  start `github-sync`, `bench` and the other dispatched workflows. The same tool also reruns and
+  cancels runs and deletes run logs, and a deny rule can only block a whole tool. A `PreToolUse`
+  hook, `.claude/hooks/allow_only_workflow_dispatch.py`, allows `method: run_workflow` and blocks
+  every other method, failing closed on an event it can't read. A live `cancel_workflow_run` call
+  on the owner's PC was blocked.
 
 **Alternatives:**
 
@@ -9143,13 +9149,16 @@ credentials and rules to keep in step. The owner chose one route instead.
 |--------|-----------------|
 | `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
 | Deny all of `gh`, reads too | Reads through `gh` can't change anything, and cloud sessions search code with `gh api -X GET`. The owner chose to deny writes only. |
+| A deny rule on the whole `actions_run_trigger` tool | It would block starting `github-sync` and `bench` too, which is why Actions write was granted. |
 | Deny `gh api` with field flags (`-f`, `-F`, `--field`, `--raw-field`, `--input`) | It matched `gh api -X GET search/code -f q=…` and broke code search in cloud sessions. An allow can't override a deny. |
 
 **Consequences:** One set of credentials and one set of tools to keep working for GitHub, on the PC
 and in the cloud. A session whose write tool fails stops and asks rather than working around it.
-One gap is known: `gh api` with fields and no `-X` defaults to POST, and no pattern rule can tell
-it from a GET with fields, so it isn't denied. Neither is a method written in lower case. A
-`PreToolUse` hook that reads the method could close both if a session ever uses them.
+The `gh` deny rules have gaps, tested on the owner's PC against a repository that doesn't exist:
+`-X PATCH` before the endpoint and `--method=PATCH` were denied, but `-ftitle=x` with no method
+(which gh sends as POST), `-XPATCH` with no space and `-X patch` in lower case reached GitHub as
+writes. A pattern on a command's arguments is a weak guard. Closing the gaps is open: a
+`PreToolUse` hook that parses `gh` commands, or no write credential for `gh` at all.
 
 **Rules over cases:** general: every GitHub call from every session goes one way; the deny rules
 name the kinds of write, not particular commands a session once ran.
