@@ -9079,8 +9079,14 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   the count `pull_request_read` reports, since the tools can't tell which commits are on `main`), the diff, and each cited Decision by its line in `DECISIONS_INDEX.md`.
   Like the step reviewer, it judges the PR, not the working tree, and returns `blocked` when it
   can't read the PR.
-- **Output:** one JSON object, with a verdict, evidence and a note per criterion and a list of the
-  failures and of the doubts. The overall verdict follows from the two lists: `fail` when there
+- **Facts, then the rule:** for the four run-baseline rows the judge also reports `facts`, what
+  it read, copied rather than concluded (the hand-off's test name and quoted failure line, the
+  diff's test names, each commit's type and paths, and so on). Each row's verdict follows from
+  its facts by a stated rule, so a script can recompute it and catch a judge that bends a rule
+  towards `pass`. A fact it can't establish is `null`, which makes the row a doubt.
+  `decisions-honoured` stays a judgement under the evidence rules.
+- **Output:** one JSON object, with a verdict, evidence and a note per criterion, facts for
+  rows 1 to 4, and a list of the failures and of the doubts. The overall verdict follows from the two lists: `fail` when there
   are failures, else `warn` when there are doubts, else `pass`. A doubt warns rather than passes, so
   it reaches the owner. Any other combination is invalid. The session writes it, as it came, into
   the PR body between `<!-- rubric-judge -->` markers, so a later CI check can read it.
@@ -9118,7 +9124,10 @@ step PR after this merges, judged by the owner. A first test on #1041 (two runs)
 #1041 describes its red run without linking it, and the runs gave `pass` and a `doubt:` `n/a`.
 The owner then set the evidence order above, made doubts warn, and fixed the field shape. A
 second pair of runs agreed on every criterion but passed #1041's tests on a case description, one
-by looking the test name up itself, so the last tier became binary and judges the hand-off alone.
+by looking the test name up itself, so the last tier became binary and judges the hand-off alone. The owner then
+had the judge report facts for rows 1 to 4, so the recomputing script (Q53 item 2's CI check)
+removes the judge's discretion where a rule can decide. Moving that script behind an MCP tool
+the judge calls is left for a later exercise.
 **Pillar check:** not applicable.
 
 ### Decision 191 — GitHub goes through one route, the GitHub MCP tools, and `gh`'s writes are denied
