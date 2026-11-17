@@ -9090,8 +9090,12 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   Contents, Metadata and Commit statuses read. Contents stays read, so the token can't merge or
   push; pushing is `git`. The `github` server also loads the `actions` toolset, for
   `actions_run_trigger`. `gh`'s writes (`pr`, `issue`, `label`, `workflow run`, `run rerun` and
-  `cancel`, and `api` with a method or fields) are denied in `.claude/settings.json`. Its reads stay
-  allowed. A missing or failing write tool means stop and tell the owner, not fall back. The
+  `cancel`, and `api` with `-X` or `--method` set to `POST`, `PATCH`, `PUT` or `DELETE`) are denied in
+  `.claude/settings.json`. Its reads stay allowed, `gh api -X GET … -f q=…` among them: that is
+  how cloud sessions search code, and the file loads there too. A deny rule always beats an allow,
+  so the rules name the write methods rather than the field flags. That leaves one gap: `gh api`
+  with fields and no `-X` defaults to POST, and no pattern can tell it from a GET with fields. A
+  `PreToolUse` hook could close the gap if a session ever uses it. A missing or failing write tool means stop and tell the owner, not fall back. The
   subagents stay read-only through their `tools:` lists, which never depended on the token.
 
 **Alternatives:**
