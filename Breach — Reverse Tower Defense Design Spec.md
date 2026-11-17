@@ -9056,8 +9056,9 @@ further against one PR. The cheapest next test is a few runs over PRs whose prob
 checklist in a PR body is ticked by the agent that did the work. CI decides most of its rows, but
 some no script decides, and a ticked box for those is a claim nobody checks.
 - **What it judges:** five criteria in `.claude/agents/rubric-judge.md`. Four are the procedural
-  run-baseline rows: `tests-red-then-green` (the hand-off shows the run; a ticked box is not
-  evidence), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
+  run-baseline rows: `tests-red-then-green` (evidence, best first: a link to the red run, a test
+  commit before the code commit, or the hand-off naming the failing test and quoting its failure
+  message; a ticked box or an unquoted "ran red" is a `fail`), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
   used to rank) and the type-against-diff half of `commit-message-conforms` (CI checks the format).
   The fifth, `decisions-honoured`, is a Breach-only extra, not a run-baseline row. It checks the
   change, and the hand-off's account of it, against each Decision the step relied on. The step
@@ -9068,7 +9069,8 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   with `docs-gate` and the reviewer's PR-claims check, which no longer covers the rubric checklist;
   `bounded-scaling` with CI's scaling job; `progress-trend` with Gate 1, which agent sessions skip;
   the rest with CI's scripts.
-- **Evidence rules:** `pass` has non-empty evidence; `fail` and `n/a` have a non-empty note. A
+- **Evidence rules:** every criterion carries both `evidence` and `note`, `""` when empty. `pass`
+  has non-empty evidence; `fail` and `n/a` have a non-empty note. A
   doubtful case is `n/a` with a note that starts `doubt:`, never `pass` or `fail`, so a judge that
   can't find the line it suspects says so without guessing either way.
 - **What it reads:** the hand-off, meaning the PR, its comments and the step issue's comments. It
@@ -9077,7 +9079,9 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   Like the step reviewer, it judges the PR, not the working tree, and returns `blocked` when it
   can't read the PR.
 - **Output:** one JSON object, with a verdict, evidence and a note per criterion and a list of the
-  failures. `pass` alongside listed failures is invalid. The session writes it, as it came, into
+  failures and of the doubts. The overall verdict follows from the two lists: `fail` when there
+  are failures, else `warn` when there are doubts, else `pass`. A doubt warns rather than passes, so
+  it reaches the owner. Any other combination is invalid. The session writes it, as it came, into
   the PR body between `<!-- rubric-judge -->` markers, so a later CI check can read it.
 - **When:** `/run-phase` step 6, after the step reviewer approves and before Auto-fix. It runs at
   most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
@@ -9109,7 +9113,9 @@ Decisions it cites.
 **Riskiest assumption:** that sessions leave red→green evidence in the hand-off. If they don't,
 `tests-red-then-green` fails on every PR and the verdict becomes noise. Decision 189's tool-name
 assumption also holds here, and adds `list_commits`. The cheapest test is the first `/run-phase`
-step PR after this merges, judged by the owner.
+step PR after this merges, judged by the owner. A first test on #1041 (two runs) found it already:
+#1041 describes its red run without linking it, and the runs gave `pass` and a `doubt:` `n/a`.
+The owner then set the evidence order above, made doubts warn, and fixed the field shape.
 **Pillar check:** not applicable.
 
 ### Decision 191 — GitHub goes through one route, the GitHub MCP tools, and `gh`'s writes are denied

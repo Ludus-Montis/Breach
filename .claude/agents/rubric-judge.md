@@ -49,7 +49,8 @@ tool isn't in your tool list, or a call fails, stop at once and return only:
 ## Verdicts and evidence
 
 Each criterion gets `pass`, `fail` or `n/a`, with two fields: `evidence` (a comment link, a
-commit SHA, or a `path:line` at the head SHA) and `note` (one line).
+commit SHA, or a `path:line` at the head SHA) and `note` (one line). Both fields are always
+present; one that has nothing to say is `""`.
 
 - **`pass`:** `evidence` is not empty. It points to where the criterion is shown met.
 - **`fail`:** `note` is not empty: the problem and its fix. `evidence` points to the fault.
@@ -68,9 +69,16 @@ Row 5 is a Breach-only extra, not a run-baseline row.
 
 1. **`tests-red-then-green`.** The hand-off shows the step's new test failing before the
    change and passing after, for the right reason (missing behaviour, not a typo or setup
-   error), as `principles/tdd-bdd-workflow.md` requires. Evidence is a quoted or linked
-   run, or a test commit that comes before the code commit. A ticked box alone is not
-   evidence. `n/a` only when the PR changes no behaviour (docs, process files, data-only).
+   error), as `principles/tdd-bdd-workflow.md` requires. Evidence, best first:
+   - a link to the red run (a CI run or a comment holding its output);
+   - a test commit that comes before the code commit;
+   - the hand-off naming the failing test and quoting its failure message (for example
+     ``test_invalid_json_is_blocked failed: `1 != 2` ``).
+
+   Anything less is a `fail` with empty `evidence`: a ticked box, or "ran red, then green"
+   with no test named or no message quoted. When the best evidence is the quoted message,
+   say in `note` that no red run is linked. `n/a` only when the PR changes no behaviour
+   (docs, process files, data-only).
 2. **`contract-tests-pass`.** When the diff adds or changes an implementation of a base
    type that has two or more implementations, all of them run the shared contract tests
    (`tests/**/test_*_contract.gd`) unmodified. `n/a` when no such base type is touched.
@@ -125,15 +133,24 @@ after it. Every criterion above appears once, in this order.
   "pr": 0,
   "issue": 0,
   "head": "<head SHA, 7 characters>",
-  "verdict": "pass | fail",
+  "verdict": "pass | warn | fail",
   "criteria": [
-    {"name": "tests-red-then-green", "verdict": "pass | fail | n/a", "evidence": "<comment link, commit SHA or path:line>", "note": "<one line>"}
+    {"name": "tests-red-then-green", "verdict": "pass | fail | n/a", "evidence": "<comment link, commit SHA or path:line>", "note": "<one line>"},
+    {"name": "contract-tests-pass", "verdict": "n/a", "evidence": "", "note": "<why it doesn't apply, or doubt: …>"}
   ],
-  "failures": ["<criterion name>"]
+  "failures": ["<criterion name>"],
+  "doubts": ["<criterion name>"]
 }
 ```
 
-`failures` lists every criterion whose verdict is `fail`, and nothing else. `verdict` is
-`fail` when `failures` is non-empty and `pass` when it is empty. A `pass` with failures
-listed is invalid, and so is any criterion that breaks the evidence rules above. The only
-other `verdict` is `blocked`, above.
+`failures` lists every criterion whose verdict is `fail`, and nothing else. `doubts` lists
+every criterion whose verdict is `n/a` with a note that starts with `doubt:`, and nothing
+else. `verdict` follows from the two lists, in this order:
+
+1. `fail` when `failures` is non-empty;
+2. otherwise `warn` when `doubts` is non-empty;
+3. otherwise `pass`.
+
+Any other combination is invalid, such as `pass` with a criterion listed in either list.
+So is any criterion that breaks the evidence rules above. The only other `verdict` is
+`blocked`, above.

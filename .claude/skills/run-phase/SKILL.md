@@ -119,7 +119,9 @@ step, in the order the spec's own "Test-first order" section lays out:
 1. Translate each Given/When/Then scenario into a gdUnit4 test under `tests/`,
    mirroring the source path being tested (e.g. `sim/foo.gd` → `tests/sim/test_foo.gd`).
 2. Run it and confirm **red** — it must fail for the right reason (missing behaviour,
-   not a typo or setup error). Run only that test file in an agent session:
+   not a typo or setup error). Put the red evidence in the hand-off for the rubric judge: a
+   link to the red run if there is one, otherwise the failing test's name and its failure
+   message, quoted. Run only that test file in an agent session:
    `"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a
    res://tests/<path>.gd -c --ignoreHeadlessMode`. Heavy runs never go in the session
    (see `CLAUDE.md`).
@@ -313,7 +315,8 @@ no script decides, plus `decisions-honoured`. Put that JSON, as it came, in the 
 `<!-- rubric-judge -->` and `<!-- /rubric-judge -->` markers (`update_pull_request`),
 replacing whatever is there. If the verdict is `blocked`, treat it the way you treat the
 reviewer's `blocked`: don't write it into the body, and say in the hand-off that the rubric
-is unjudged. If the verdict is `fail`, fix each listed criterion and push. For a criterion
+is unjudged. If the verdict is `warn`, list each criterion in `doubts` and its note in the
+hand-off for the owner to judge; don't re-run the judge for a doubt. If the verdict is `fail`, fix each listed criterion and push. For a criterion
 you judge wrong, give the reason in a PR comment instead. Then run the judge once more and
 replace the JSON. If it still fails, tell the owner which criteria remain. Don't run it a
 third time.
