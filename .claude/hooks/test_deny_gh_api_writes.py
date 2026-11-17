@@ -33,8 +33,10 @@ class DenyGhApiWritesTests(unittest.TestCase):
             f"gh api --paginate {PR}/files",
             f"gh pr view 1043",
             "git status && gh api user",
-            "grep -n 'gh api x -f a=b' notes.md",
+            "gh api repos/o/r/pulls/1",
+            "gh api -X GET search/code -f q=foo",
             "echo done",
+            "echo don't use gh pr merge",
         ]:
             with self.subTest(command=command):
                 result = run_command(command)
@@ -70,6 +72,25 @@ class DenyGhApiWritesTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, command)
                 self.assertIn("Decision 191", result.stderr)
 
+    def test_a_gh_api_the_parser_never_finds_is_blocked(self):
+        # The line names gh and api, but the parser finds fewer gh api calls than that:
+        # a wrapper or indirection it doesn't follow. Fail closed without listing wrappers.
+        for command in [
+            "timeout 10 gh api repos/o/r/issues/1/comments -f body=x",
+            "xargs -I{} gh api repos/o/r/issues/{}/comments -f body=x",
+            "env -i gh api x -f a=b",
+            "sudo -u me gh api x -XPOST",
+            "nice -n 5 gh api x -f a=b",
+            "G=gh; $G api x -f a=b",
+            "timeout 10 gh api -X GET search/code -f q=foo",  # even a read, when it can't be seen
+            "grep -n 'gh api x -f a=b' notes.md",  # text that mentions it: use the Grep tool
+            "gh api repos/o/r/pulls/1; echo 'gh api x -f a=b'",
+        ]:
+            with self.subTest(command=command):
+                result = run_command(command)
+                self.assertEqual(result.returncode, 2, command)
+                self.assertIn("Decision 191", result.stderr)
+
     def test_an_unparseable_gh_command_is_blocked(self):
         for command in [
             f"gh api {COMMENTS} -f body='unclosed",
@@ -77,10 +98,6 @@ class DenyGhApiWritesTests(unittest.TestCase):
         ]:
             with self.subTest(command=command):
                 self.assertEqual(run_command(command).returncode, 2)
-
-    def test_an_unparseable_line_without_gh_api_is_allowed(self):
-        result = run_command("echo don't use gh pr merge")
-        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_an_unreadable_event_is_blocked(self):
         for stdin in ["", "not json", "[]", json.dumps({"tool_name": "Bash"})]:

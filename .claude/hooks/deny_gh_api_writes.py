@@ -7,13 +7,15 @@ with -X GET", so this hook works out each `gh api` call's method the way gh does
 -X, --method or --method= (any case, any spelling pflag accepts), otherwise POST when any of -f,
 -F, --field, --raw-field or --input is given, otherwise GET. Anything but GET is blocked.
 
-It reads every command in the line: after ; & | ( and newlines, past VAR=value prefixes and
-wrappers such as env, inside $(...), backticks, `sh -c '...'` and eval. A `gh api` it can't
-parse (unbalanced quotes, an unknown flag) is blocked. Exit 2 blocks the call and shows stderr
-to Claude; exit 0 allows it.
+It reads every command in the line: after ; & | ( and newlines, past VAR=value prefixes, inside
+$(...), backticks, `sh -c '...'` and eval. It fails closed on what it misses: a `gh api` it
+can't parse (unbalanced quotes, an unknown flag) is blocked, and so is a line that names gh and
+api more often than the parser found gh api calls in command position (a wrapper such as
+timeout, sudo or xargs, a variable such as $G, or text that only mentions it, as in grep). Exit
+2 blocks the call and shows stderr to Claude; exit 0 allows it.
 
-Known limit: a shell alias or function, or a script file that runs gh, is not seen. The token's
-own permissions are the other layer.
+Known limit: a shell alias or function, or a script file that runs gh, never names gh and api
+on the line, so it is not seen. The token's own permissions are the other layer.
 """
 
 import json
@@ -28,7 +30,7 @@ GUIDE = (
     "tool you need is missing or fails, stop and tell the owner."
 )
 
-WRAPPERS = {"env", "time", "command", "nohup", "exec", "sudo", "nice", "xargs"}
+MENTION = re.compile(r"\bgh(?:\.exe)?\s+api\b")
 SHELLS = {"sh", "bash", "zsh", "dash"}
 SHORT_BOOL = set("i")
 SHORT_VALUE = {"X": "method", "f": "field", "F": "field", "H": None, "p": None, "q": None, "t": None}
@@ -74,7 +76,7 @@ def simple_commands(text):
 
 def expand(words):
     i = 0
-    while i < len(words) and (re.match(r"^\w+=", words[i]) or name(words[i]) in WRAPPERS or words[i] == "$"):
+    while i < len(words) and (re.match(r"^\w+=", words[i]) or words[i] == "$"):
         i += 1
     words = words[i:]
     if not words:
@@ -146,15 +148,21 @@ def method_of(args):
     return "POST" if fields else "GET"
 
 
-def gh_api_writes(text):
-    """The non-GET methods of the gh api calls in a command line."""
-    found = []
-    for words in simple_commands(text):
-        if name(words[0]) == "gh" and len(words) > 1 and words[1] == "api":
-            method = method_of(words[2:])
-            if method != "GET":
-                found.append(method)
-    return found
+def gh_api_calls(text):
+    """The method of each gh api call the parser finds in command position."""
+    return [
+        method_of(words[2:])
+        for words in simple_commands(text)
+        if name(words[0]) == "gh" and len(words) > 1 and words[1] == "api"
+    ]
+
+
+def mentions(text):
+    """A crude count of gh api in the raw line: at least 1 when both words appear anywhere."""
+    count = len(MENTION.findall(text))
+    if count == 0 and re.search(r"\bgh\b", text) and re.search(r"\bapi\b", text):
+        count = 1
+    return count
 
 
 def main() -> int:
@@ -167,13 +175,23 @@ def main() -> int:
         return 2
 
     try:
-        writes = gh_api_writes(command)
+        calls = gh_api_calls(command)
     except (ValueError, Unparseable) as exc:
-        if re.search(r"\bgh(?:\.exe)?\s+api\b", command):
+        if mentions(command):
             print(f"deny_gh_api_writes: could not parse a gh command ({exc}).\n{GUIDE}", file=sys.stderr)
             return 2
         return 0
 
+    if len(calls) < mentions(command):
+        print(
+            "deny_gh_api_writes: this line names gh api where the hook can't follow it (a wrapper,\n"
+            "a variable, or text that only mentions it). Run gh api on its own, or search with the\n"
+            f"Grep tool.\n{GUIDE}",
+            file=sys.stderr,
+        )
+        return 2
+
+    writes = [method for method in calls if method != "GET"]
     if writes:
         print(f"Blocked gh api {', '.join(writes)}.\n{GUIDE}", file=sys.stderr)
         return 2

@@ -9138,8 +9138,13 @@ credentials and rules to keep in step. The owner chose one route instead.
   command with `shlex` and works out each `gh api` call's method the way gh does: the last `-X`,
   `--method` or `--method=` in any case or spelling, otherwise POST when `-f`, `-F`, `--field`,
   `--raw-field` or `--input` is given, otherwise GET. It blocks anything but GET. It reads every
-  command in the line (after operators and newlines, past `VAR=` prefixes and wrappers, inside
-  `$(…)`, backticks, `sh -c` and `eval`), and blocks a `gh api` it can't parse. Reads stay allowed,
+  command in the line (after operators and newlines, past `VAR=` prefixes, inside `$(…)`,
+  backticks, `sh -c` and `eval`). It fails closed on what it misses: it blocks a `gh api` it can't
+  parse, and a line that names `gh` and `api` more often than it found `gh api` calls in command
+  position. That one count closes every wrapper (`timeout`, `xargs`, `env -i`, `sudo`, `nice`) and
+  a variable such as `$G` without listing any. Its cost is that a line that only mentions `gh api`,
+  such as a `grep` for it or a script whose text names it, is blocked too; the Grep, Edit and Write
+  tools don't go through Bash. Reads stay allowed,
   `gh api -X GET search/code -f q=…` among them: that is how cloud sessions search code, and the
   settings file loads there too.
 - **`actions_run_trigger` may only start a workflow:** Actions write is there so sessions can
@@ -9164,8 +9169,10 @@ and in the cloud. A session whose write tool fails stops and asks rather than wo
 Deny patterns on `gh api` were tried first and were tested on the owner's PC against a
 repository that doesn't exist. `-X PATCH` and `--method=PATCH` were denied, but `-ftitle=x` with no
 method (sent as POST), `-XPATCH` and `-X patch` reached GitHub as writes. With the hook, all three
-are blocked and the GET search runs. Its known limit is a shell alias, function or script file
-that runs gh, which it can't see. The stronger layer is a `gh` credential that can't write: on the
+are blocked and the GET search runs. A first version of the hook listed wrappers and still let
+`timeout`, `xargs`, `env -i`, `sudo`, `nice` and `$G` through; the count rule blocks them. Its known
+limit is a shell alias, function or script file that runs gh, since that line never names `gh` and
+`api`. The stronger layer is a `gh` credential that can't write: on the
 owner's PC `gh` is still logged in with `repo` and `workflow` scopes, and swapping it for a
 read-only token is open.
 
