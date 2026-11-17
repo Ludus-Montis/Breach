@@ -61,9 +61,10 @@ Every check gets a verdict: `pass`, `fail`, or `n/a` with a one-line reason.
    tolerance, a dropped assertion, a smaller case) or given a new expected value unless the
    spec or the PR says why. A digest or golden value that changes is explained in the PR.
    This is the check CI cannot do: a weakened test stays green.
-2. **Spec and Decision fidelity.** The change builds what the step says, as the spec settles
-   it. It contradicts no Decision the spec, PR or code cites. Where the spec is silent, the
-   agent asked rather than chose, and the answer is recorded in the spec or a Decision.
+2. **Spec fidelity.** The change builds what the step says, as the spec settles it. Where
+   the spec is silent, the agent asked rather than chose, and the answer is recorded in the
+   spec or a Decision. Whether the change honours the Decisions it relies on is not yours:
+   the `rubric-judge` agent judges it (`decisions-honoured`).
 3. **Step scope.** The files changed are within the step's `**Touches:**` line, plus
    their tests and docs. The change is one behaviour, about 15 files or 400 lines
    (Decision 171). Work beyond the step is a finding even if it is good work.

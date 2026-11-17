@@ -9059,13 +9059,21 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   run-baseline rows: `tests-red-then-green` (the hand-off shows the run; a ticked box is not
   evidence), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
   used to rank) and the type-against-diff half of `commit-message-conforms` (CI checks the format).
-  The fifth, `decisions-honoured`, checks the hand-off's account of the change against each Decision
-  the step relied on.
-- **What it leaves:** rows CI decides. Coverage stays with the step reviewer's scenario-coverage
-  check (Decision 10), and `docs-current` with its PR-claims check, which no longer covers the
-  rubric checklist. `progress-trend` is skipped in agent sessions by rule, so it is left out.
+  The fifth, `decisions-honoured`, is a Breach-only extra, not a run-baseline row. It checks the
+  change, and the hand-off's account of it, against each Decision the step relied on. The step
+  reviewer's check 2 drops its Decision clause and becomes spec fidelity alone, so the two agents
+  never judge the same thing (the owner kept the criterion and gave it one owner).
+- **What it leaves, and who covers it** (the agent file lists them, so none looks forgotten):
+  coverage stays with the step reviewer's scenario-coverage check (Decision 10); `docs-current`
+  with `docs-gate` and the reviewer's PR-claims check, which no longer covers the rubric checklist;
+  `bounded-scaling` with CI's scaling job; `progress-trend` with Gate 1, which agent sessions skip;
+  the rest with CI's scripts.
+- **Evidence rules:** `pass` has non-empty evidence; `fail` and `n/a` have a non-empty note. A
+  doubtful case is `n/a` with a note that starts `doubt:`, never `pass` or `fail`, so a judge that
+  can't find the line it suspects says so without guessing either way.
 - **What it reads:** the hand-off, meaning the PR, its comments and the step issue's comments. It
-  also reads the commits, the diff, and each cited Decision by its line in `DECISIONS_INDEX.md`.
+  also reads the commits (the first `commits` of `list_commits` on the head branch, `commits` being
+  the count `pull_request_read` reports, since the tools can't tell which commits are on `main`), the diff, and each cited Decision by its line in `DECISIONS_INDEX.md`.
   Like the step reviewer, it judges the PR, not the working tree, and returns `blocked` when it
   can't read the PR.
 - **Output:** one JSON object, with a verdict, evidence and a note per criterion and a list of the
@@ -9075,6 +9083,9 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
   it still fails, the session tells the owner.
 - **On Sonnet**, for Decision 189's reasons: one PR against five criteria, run per step.
+- **Writes through `gh` where the MCP tools can't:** on the owner's PC the `github` server's token
+  is read-only (Decision 189), so `/run-phase` step 6 makes all its writes there (the PR, labels,
+  comments, the body) with `gh`. This covers the step reviewer's comment too, which had the same gap.
 
 **Alternatives:**
 
@@ -9083,6 +9094,9 @@ some no script decides, and a ticked box for those is a claim nobody checks.
 | A verdict on every run-baseline row, CI's rows marked `ci` | The judge can't see CI, so those entries would only copy a label. The owner chose the procedural rows only. |
 | Fold the JSON into the step reviewer | A bigger report from one agent, and Q53 planned a separate judge for the reasoning against Decisions. |
 | Keep the step reviewer's rubric-checklist check as well | The two agents could disagree on the same row. Each row has one owner. |
+| Cut `decisions-honoured` | The owner kept it: the judge reads the Decisions anyway, and Q53 asked for moeb's Reasoning Reviewer. |
+| Leave Decision fidelity in both agents | Two agents judging the same thing will sometimes disagree, and nothing settles which wins. |
+| Give a Decision its own PR (split 190 onto a stacked branch) | The owner kept both Decisions in #1043: they change the same step 6 and the same reviewer file. |
 | The CI check in this PR | It is a script with its own tests: a spec step, not part of a process change. |
 
 **Consequences:** Every `/run-phase` step PR carries a JSON rubric verdict in its body, at a cost
