@@ -9131,11 +9131,17 @@ credentials and rules to keep in step. The owner chose one route instead.
   toolset (`X-MCP-Toolsets`) for `actions_run_trigger`. This replaces the read-only token in
   Decision 189's Consequences. The subagents stay read-only through their `tools:` lists, which
   never depended on the token.
-- **`gh`'s writes are denied in `.claude/settings.json`:** `gh pr` and `gh issue` writes,
-  `gh label`, `gh workflow run`, `gh run rerun` and `cancel`, and `gh api` with `-X`, `--method` or
-  `--method=` set to `POST`, `PATCH`, `PUT` or `DELETE`. Its reads stay allowed, `gh api -X GET …
-  -f q=…` among them: that is how cloud sessions search code, and the settings file loads there
-  too. A deny rule always beats an allow, so the rules name the write methods, not the field flags.
+- **`gh`'s writes are blocked:** deny rules in `.claude/settings.json` cover `gh pr` and
+  `gh issue` writes, `gh label`, `gh workflow run`, and `gh run rerun` and `cancel`. `gh api` is
+  guarded by a `PreToolUse` hook, `.claude/hooks/deny_gh_api_writes.py`, because a deny pattern
+  can't express "fields only with `-X GET`", and a deny always beats an allow. The hook splits the
+  command with `shlex` and works out each `gh api` call's method the way gh does: the last `-X`,
+  `--method` or `--method=` in any case or spelling, otherwise POST when `-f`, `-F`, `--field`,
+  `--raw-field` or `--input` is given, otherwise GET. It blocks anything but GET. It reads every
+  command in the line (after operators and newlines, past `VAR=` prefixes and wrappers, inside
+  `$(…)`, backticks, `sh -c` and `eval`), and blocks a `gh api` it can't parse. Reads stay allowed,
+  `gh api -X GET search/code -f q=…` among them: that is how cloud sessions search code, and the
+  settings file loads there too.
 - **`actions_run_trigger` may only start a workflow:** Actions write is there so sessions can
   start `github-sync`, `bench` and the other dispatched workflows. The same tool also reruns and
   cancels runs and deletes run logs, and a deny rule can only block a whole tool. A `PreToolUse`
@@ -9150,15 +9156,18 @@ credentials and rules to keep in step. The owner chose one route instead.
 | `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
 | Deny all of `gh`, reads too | Reads through `gh` can't change anything, and cloud sessions search code with `gh api -X GET`. The owner chose to deny writes only. |
 | A deny rule on the whole `actions_run_trigger` tool | It would block starting `github-sync` and `bench` too, which is why Actions write was granted. |
+| Deny `gh api` by write method (`-X POST`, `--method=PATCH`, …) | Tested: fields with no `-X`, `-XPATCH` and a lower-case method got through. A pattern on arguments can't follow gh's own parsing. |
 | Deny `gh api` with field flags (`-f`, `-F`, `--field`, `--raw-field`, `--input`) | It matched `gh api -X GET search/code -f q=…` and broke code search in cloud sessions. An allow can't override a deny. |
 
 **Consequences:** One set of credentials and one set of tools to keep working for GitHub, on the PC
 and in the cloud. A session whose write tool fails stops and asks rather than working around it.
-The `gh` deny rules have gaps, tested on the owner's PC against a repository that doesn't exist:
-`-X PATCH` before the endpoint and `--method=PATCH` were denied, but `-ftitle=x` with no method
-(which gh sends as POST), `-XPATCH` with no space and `-X patch` in lower case reached GitHub as
-writes. A pattern on a command's arguments is a weak guard. Closing the gaps is open: a
-`PreToolUse` hook that parses `gh` commands, or no write credential for `gh` at all.
+Deny patterns on `gh api` were tried first and were tested on the owner's PC against a
+repository that doesn't exist. `-X PATCH` and `--method=PATCH` were denied, but `-ftitle=x` with no
+method (sent as POST), `-XPATCH` and `-X patch` reached GitHub as writes. With the hook, all three
+are blocked and the GET search runs. Its known limit is a shell alias, function or script file
+that runs gh, which it can't see. The stronger layer is a `gh` credential that can't write: on the
+owner's PC `gh` is still logged in with `repo` and `workflow` scopes, and swapping it for a
+read-only token is open.
 
 **Rules over cases:** general: every GitHub call from every session goes one way; the deny rules
 name the kinds of write, not particular commands a session once ran.

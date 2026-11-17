@@ -22,18 +22,6 @@
       "Bash(gh workflow run *)",
       "Bash(gh run rerun *)",
       "Bash(gh run cancel *)",
-      "Bash(gh api *-X POST*)",
-      "Bash(gh api *-X PATCH*)",
-      "Bash(gh api *-X PUT*)",
-      "Bash(gh api *-X DELETE*)",
-      "Bash(gh api *--method POST*)",
-      "Bash(gh api *--method PATCH*)",
-      "Bash(gh api *--method PUT*)",
-      "Bash(gh api *--method DELETE*)",
-      "Bash(gh api *--method=POST*)",
-      "Bash(gh api *--method=PATCH*)",
-      "Bash(gh api *--method=PUT*)",
-      "Bash(gh api *--method=DELETE*)",
       "mcp__github__merge_pull_request",
       "mcp__github__enable_pr_auto_merge"
     ]
@@ -46,6 +34,10 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny_local_full_test_suite_runs.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny_gh_api_writes.py"
           }
         ]
       },
