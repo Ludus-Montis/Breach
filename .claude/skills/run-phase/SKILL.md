@@ -247,7 +247,7 @@ until its documentation is. Read only the sections the change touches.
 
 ## 6. Open the PR — do not merge it
 
-**GitHub goes through one route: the GitHub MCP tools** (Decision 190). Pushing is `git`.
+**GitHub goes through one route: the GitHub MCP tools** (Decision 191). Pushing is `git`.
 `gh`'s writes are denied in `.claude/settings.json`. If a write tool is missing or fails,
 stop and tell the owner which tool and the error. Don't fall back to `gh` or `gh api`.
 

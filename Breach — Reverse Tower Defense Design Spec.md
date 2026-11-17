@@ -9083,20 +9083,6 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
   it still fails, the session tells the owner.
 - **On Sonnet**, for Decision 189's reasons: one PR against five criteria, run per step.
-- **One GitHub route: the GitHub MCP tools.** Step 6 writes (the PR, labels, milestone, the review
-  comment, the judge's body edit), and they failed on the owner's PC, whose `github` token was
-  read-only (Decision 189). The fix is not a second route through `gh`. The PC's token becomes a
-  fine-grained token for Breach alone, with Pull requests, Issues and Actions read and write, and
-  Contents, Metadata and Commit statuses read. Contents stays read, so the token can't merge or
-  push; pushing is `git`. The `github` server also loads the `actions` toolset, for
-  `actions_run_trigger`. `gh`'s writes (`pr`, `issue`, `label`, `workflow run`, `run rerun` and
-  `cancel`, and `api` with `-X` or `--method` set to `POST`, `PATCH`, `PUT` or `DELETE`) are denied in
-  `.claude/settings.json`. Its reads stay allowed, `gh api -X GET … -f q=…` among them: that is
-  how cloud sessions search code, and the file loads there too. A deny rule always beats an allow,
-  so the rules name the write methods rather than the field flags. That leaves one gap: `gh api`
-  with fields and no `-X` defaults to POST, and no pattern can tell it from a GET with fields. A
-  `PreToolUse` hook could close the gap if a session ever uses it. A missing or failing write tool means stop and tell the owner, not fall back. The
-  subagents stay read-only through their `tools:` lists, which never depended on the token.
 
 **Alternatives:**
 
@@ -9108,8 +9094,6 @@ some no script decides, and a ticked box for those is a claim nobody checks.
 | Cut `decisions-honoured` | The owner kept it: the judge reads the Decisions anyway, and Q53 asked for moeb's Reasoning Reviewer. |
 | Leave Decision fidelity in both agents | Two agents judging the same thing will sometimes disagree, and nothing settles which wins. |
 | Give a Decision its own PR (split 190 onto a stacked branch) | The owner kept both Decisions in #1043: they change the same step 6 and the same reviewer file. |
-| `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
-| Deny all of `gh`, reads too | Reads through `gh` can't change anything, and the owner chose to deny writes only. |
 | The CI check in this PR | It is a script with its own tests: a spec step, not part of a process change. |
 
 **Consequences:** Every `/run-phase` step PR carries a JSON rubric verdict in its body, at a cost
@@ -9126,4 +9110,53 @@ Decisions it cites.
 `tests-red-then-green` fails on every PR and the verdict becomes noise. Decision 189's tool-name
 assumption also holds here, and adds `list_commits`. The cheapest test is the first `/run-phase`
 step PR after this merges, judged by the owner.
+**Pillar check:** not applicable.
+
+### Decision 191 — GitHub goes through one route, the GitHub MCP tools, and `gh`'s writes are denied
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-17
+
+**Rationale:** `/run-phase` step 6 writes to GitHub: it opens the PR, sets labels and milestone,
+posts the step review (Decision 189) and writes the rubric verdict into the PR body (Decision 190).
+On the owner's PC those writes failed, because the `github` server's token was read-only. A
+fallback through `gh` would have given sessions two routes to GitHub, each with its own
+credentials and rules to keep in step. The owner chose one route instead.
+- **The route:** GitHub reads and writes go through the GitHub MCP tools; pushing is `git`. A
+  missing or failing write tool means stop and tell the owner, never fall back to `gh` or `gh api`.
+  `/run-phase` step 6 says so where it starts.
+- **The PC's token:** a fine-grained token for Breach alone, with Pull requests, Issues and Actions
+  read and write, and Contents, Metadata and Commit statuses read. Contents stays read, so the
+  token can't merge or push, whatever the deny rules allow. The `github` server loads the `actions`
+  toolset (`X-MCP-Toolsets`) for `actions_run_trigger`. This replaces the read-only token in
+  Decision 189's Consequences. The subagents stay read-only through their `tools:` lists, which
+  never depended on the token.
+- **`gh`'s writes are denied in `.claude/settings.json`:** `gh pr` and `gh issue` writes,
+  `gh label`, `gh workflow run`, `gh run rerun` and `cancel`, and `gh api` with `-X`, `--method` or
+  `--method=` set to `POST`, `PATCH`, `PUT` or `DELETE`. Its reads stay allowed, `gh api -X GET …
+  -f q=…` among them: that is how cloud sessions search code, and the settings file loads there
+  too. A deny rule always beats an allow, so the rules name the write methods, not the field flags.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
+| Deny all of `gh`, reads too | Reads through `gh` can't change anything, and cloud sessions search code with `gh api -X GET`. The owner chose to deny writes only. |
+| Deny `gh api` with field flags (`-f`, `-F`, `--field`, `--raw-field`, `--input`) | It matched `gh api -X GET search/code -f q=…` and broke code search in cloud sessions. An allow can't override a deny. |
+
+**Consequences:** One set of credentials and one set of tools to keep working for GitHub, on the PC
+and in the cloud. A session whose write tool fails stops and asks rather than working around it.
+One gap is known: `gh api` with fields and no `-X` defaults to POST, and no pattern rule can tell
+it from a GET with fields, so it isn't denied. Neither is a method written in lower case. A
+`PreToolUse` hook that reads the method could close both if a session ever uses them.
+
+**Rules over cases:** general: every GitHub call from every session goes one way; the deny rules
+name the kinds of write, not particular commands a session once ran.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; no per-tick work.
+**Riskiest assumption:** that the GitHub MCP tools cover every write the skills need. Tested on the
+owner's PC with the new token: `update_pull_request` wrote #1043's body, and the `actions_*` tools
+loaded. A tool the skills need and the server lacks would make a session stop and ask, which shows
+the gap rather than hiding it.
 **Pillar check:** not applicable.
