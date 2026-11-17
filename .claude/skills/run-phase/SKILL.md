@@ -247,14 +247,11 @@ until its documentation is. Read only the sections the change touches.
 
 ## 6. Open the PR — do not merge it
 
-**Where the GitHub MCP tools can't write,** make this step's writes with `gh`: opening the
-PR (`gh pr create`), labels and milestone (`gh pr edit`), comments (`gh pr comment`) and the
-body (`gh pr edit <P> --body-file <file>`). On the owner's PC the `github` server's token is
-read-only (Decision 189), so the write tools fail there. The read tools still work, and so
-do the subagents.
+**GitHub goes through one route: the GitHub MCP tools** (Decision 190). Pushing is `git`.
+`gh`'s writes are denied in `.claude/settings.json`. If a write tool is missing or fails,
+stop and tell the owner which tool and the error. Don't fall back to `gh` or `gh api`.
 
-Push the branch and open a PR with `create_pull_request` (the GitHub MCP tools, or `gh` as
-above), body from
+Push the branch and open a PR with `create_pull_request` (the GitHub MCP tools), body from
 `AI_First_Development_Kit/templates/pr-description.md`: summary, link to the spec/plan
 item, the rubric checklist from step 5, the Documentation block from step 5b, and for the
 two Gate sections:
@@ -313,8 +310,7 @@ Once the reviewer approves, have the rubric judged. Start the `rubric-judge` age
 (`.claude/agents/rubric-judge.md`) with the PR's number and the step issue's number. It is
 read-only, and its last message is one JSON object with a verdict for each rubric row that
 no script decides, plus `decisions-honoured`. Put that JSON, as it came, in the PR body between the
-`<!-- rubric-judge -->` and `<!-- /rubric-judge -->` markers (`update_pull_request`, or
-`gh pr edit` as above),
+`<!-- rubric-judge -->` and `<!-- /rubric-judge -->` markers (`update_pull_request`),
 replacing whatever is there. If the verdict is `blocked`, treat it the way you treat the
 reviewer's `blocked`: don't write it into the body, and say in the hand-off that the rubric
 is unjudged. If the verdict is `fail`, fix each listed criterion and push. For a criterion

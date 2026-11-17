@@ -9083,9 +9083,16 @@ some no script decides, and a ticked box for those is a claim nobody checks.
   most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
   it still fails, the session tells the owner.
 - **On Sonnet**, for Decision 189's reasons: one PR against five criteria, run per step.
-- **Writes through `gh` where the MCP tools can't:** on the owner's PC the `github` server's token
-  is read-only (Decision 189), so `/run-phase` step 6 makes all its writes there (the PR, labels,
-  comments, the body) with `gh`. This covers the step reviewer's comment too, which had the same gap.
+- **One GitHub route: the GitHub MCP tools.** Step 6 writes (the PR, labels, milestone, the review
+  comment, the judge's body edit), and they failed on the owner's PC, whose `github` token was
+  read-only (Decision 189). The fix is not a second route through `gh`. The PC's token becomes a
+  fine-grained token for Breach alone, with Pull requests, Issues and Actions read and write, and
+  Contents, Metadata and Commit statuses read. Contents stays read, so the token can't merge or
+  push; pushing is `git`. The `github` server also loads the `actions` toolset, for
+  `actions_run_trigger`. `gh`'s writes (`pr`, `issue`, `label`, `workflow run`, `run rerun` and
+  `cancel`, and `api` with a method or fields) are denied in `.claude/settings.json`. Its reads stay
+  allowed. A missing or failing write tool means stop and tell the owner, not fall back. The
+  subagents stay read-only through their `tools:` lists, which never depended on the token.
 
 **Alternatives:**
 
@@ -9097,6 +9104,8 @@ some no script decides, and a ticked box for those is a claim nobody checks.
 | Cut `decisions-honoured` | The owner kept it: the judge reads the Decisions anyway, and Q53 asked for moeb's Reasoning Reviewer. |
 | Leave Decision fidelity in both agents | Two agents judging the same thing will sometimes disagree, and nothing settles which wins. |
 | Give a Decision its own PR (split 190 onto a stacked branch) | The owner kept both Decisions in #1043: they change the same step 6 and the same reviewer file. |
+| `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
+| Deny all of `gh`, reads too | Reads through `gh` can't change anything, and the owner chose to deny writes only. |
 | The CI check in this PR | It is a script with its own tests: a spec step, not part of a process change. |
 
 **Consequences:** Every `/run-phase` step PR carries a JSON rubric verdict in its body, at a cost
