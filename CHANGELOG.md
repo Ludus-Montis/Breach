@@ -8,6 +8,8 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-11-19
+
 ### Added
 
 - Claude Code enforces two of CLAUDE.md's rules (Decision 187): `.claude/settings.json` denies
@@ -106,4 +108,5 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
   group its own number everywhere in the battle as well, so its draws and its battle log
   entries are its own, not those of a squad numbered 0.
 
-[Unreleased]: https://github.com/Ludus-Montis/Breach/commits/main
+[Unreleased]: https://github.com/Ludus-Montis/Breach/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/Ludus-Montis/Breach/releases/tag/v0.0.1
