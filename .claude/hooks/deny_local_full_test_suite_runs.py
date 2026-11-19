@@ -23,7 +23,7 @@ DENY = re.compile(
 
 GUIDE = (
     "The full suite runs in CI, not in a session (CLAUDE.md). Run one file instead:\n"
-    "  bash ci/godot/scripts/run_tests.sh tests/test_<name>.gd"
+    "  bash ci/godot/scripts/run_tests.sh tests/<path>/test_<name>.gd"
 )
 
 

@@ -39,7 +39,7 @@ class DenyLocalFullTestSuiteRunsTests(unittest.TestCase):
             with self.subTest(command=command):
                 result = run_command(command)
                 self.assertEqual(result.returncode, 2)
-                self.assertIn(f"bash {SCRIPT} tests/test_<name>.gd", result.stderr)
+                self.assertIn(f"bash {SCRIPT} tests/<path>/test_<name>.gd", result.stderr)
 
     def test_runs_naming_test_files_and_other_commands_are_allowed(self):
         for command in [
