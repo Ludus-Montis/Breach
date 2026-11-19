@@ -8962,3 +8962,244 @@ files meets the rule; CLAUDE.md keeps what applies in every session.
 cheapest test, four probes on the owner's PC, ran: `sed -i` without a read never loads the rule. The
 `designer-sync` CI check proposed on Q53 closes that gap.
 **Pillar check:** not applicable.
+
+### Decision 189 — A step's PR is reviewed by a read-only subagent, at most three times, before Auto-fix
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-16
+
+**Rationale:** Q53 (#1038), item 2 in part: the `step-reviewer` agent and how `/run-phase`
+applies its verdict. CI checks what a script can decide; nothing checks what needs judgement, such
+as a test loosened to stay green or a change wider than its step. A second agent that reads the PR
+cold catches what the agent that wrote it can't see in itself.
+- **Where:** `/run-phase` step 6, after the PR is open, labelled and closing its issue, and before
+  Auto-fix is turned on. The reviewer reads the PR as GitHub has it, including its body, so it can
+  check the PR's own claims. Posting before Auto-fix keeps the review comment from waking the
+  session that posted it.
+- **What it checks:** ten checks in `.claude/agents/step-reviewer.md`: six always (no weakened
+  tests, spec and Decision fidelity, step scope, scenario coverage, the PR's claims, path-scoped
+  rules) and four when the diff calls for them (design check, removals, process files,
+  Decisions). It skips everything CI already runs. The checks carry over the owner's earlier moeb
+  rubrics where they still apply.
+- **Read-only, through the GitHub MCP read tools:** its tools are Read, Grep, Glob,
+  `pull_request_read`, `issue_read` and `get_file_contents`. It has no Bash and no write tool, so
+  no hook is needed to keep it read-only. Its last message is its report; the calling session
+  posts it on the PR with `add_issue_comment`.
+- **It reviews the PR, not the working tree.** The diff comes from `get_diff` and whole files from
+  `get_file_contents` at the PR's head SHA, which the report names. Local files give context only;
+  where they disagree with the PR, the PR wins. The session pushes everything before starting it.
+- **`blocked` when it can't read the PR.** The names in `tools:` match only a server connected as
+  `github`. Under another name (a plugin's `mcp__plugin_github_github__…`, say) they match nothing,
+  and the reviewer would hold only Read, Grep and Glob. It calls `pull_request_read` and
+  `issue_read` first, and if either is missing or fails it returns `Verdict: blocked: <tool>` and
+  nothing else, rather than reviewing local files. The session doesn't post that, doesn't count it
+  as a round, tells the owner the tool and the GitHub tool names it has, and hands off the step as
+  unreviewed.
+- **At most three rounds:** after a `changes-needed` verdict the session fixes or answers each
+  finding, then starts the reviewer again with the next `round`. A re-review reads the whole change
+  again and its earlier findings. If round 3 still says `changes-needed`, the session stops and
+  asks the owner. This is Q53's "re-review at most twice, then stop and ask".
+- **On Sonnet** (`model: sonnet`): Q53's cost rule. The deterministic checks have run in CI by
+  then, and what is left is reading one diff against one spec step, which Sonnet does well. Up to
+  three reviews per step, across a cascade's steps, makes the price per review matter.
+- **Path-scoped rules are checked by reading the rule:** the reviewer reads each `.claude/rules/`
+  file whose `paths:` match a changed file and checks the PR against it. A rule's content stays only
+  in the rule (Decision 188).
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| Review once, never re-review unless the owner asks | A fix can break what passed, and nothing would check the fixes. Q53 settled on two re-reviews. |
+| Re-review only the new commits (a `BASE...HEAD` input) | A fix can break what passed, so a re-review reads the whole change; the MCP tools have no compare between commits either. |
+| Review in step 5, before the PR opens, from a local `git diff` | The PR body, its checklist and Documentation block don't exist yet, so the reviewer couldn't check the PR's claims. The owner kept it in step 6. |
+| Bash limited to `git diff`, `gh issue view` and `gh pr view/diff` by a `PreToolUse` hook | It needs `gh` logged in and `python3` wherever the review runs, plus a hook and its test to keep up. The MCP read tools give the same reads and can't write. |
+| The reviewer comments on the PR itself | It would post as the owner's account and need a write tool; GitHub doesn't let an account request changes on its own PR anyway. |
+| `model: inherit` | Every review would run on the session's model, usually the most expensive, for work a cheaper model does well. |
+| `model: haiku` | Too weak for spec fidelity and the design check, the two checks that need the most judgement. |
+| Preload the `design-check` skill (`skills:`) | It puts 6 KB into every review for one check that applies only to simulation changes. The reviewer reads the file when check 7 applies. |
+
+**Consequences:** Every step PR from `/run-phase` gets a review on GitHub before Auto-fix, at a
+cost of one to three Sonnet runs. A reviewer that can't read the PR says `blocked` instead of
+reviewing, so a missing or renamed server shows rather than passing silently. A local session
+gets its GitHub tools from a user-scope MCP server named `github`, connected with a fine-grained
+token that can only read Breach's contents, issues and pull requests; the cloud provides its own.
+The agent file keeps only the frontmatter fields it uses; the Claude Code docs are the source for
+the rest, so nothing in the repo copies them and drifts. Q53 item 2's `rubric-judge` agent and its
+CI check stay open.
+
+**Rules over cases:** general: every `/run-phase` step PR is reviewed by the same read-only agent,
+with the same checks, at most three times; checks that apply only to some diffs say when.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** at most three reviews per step, each reading one PR, one issue and one spec step.
+**Riskiest assumption:** that the GitHub MCP server's tool names match those in the agent file
+wherever the review runs. Tested: they match a cloud session's server and the owner's PC once its
+server was added as `github`; before that, the PC run returned `blocked`, as designed. The second
+assumption is that a Sonnet reviewer finds real problems more often than noise. Two runs on PR
+#1041 are too few to settle it: run 1 made one false claim (that `run_tests.sh tests/` runs the
+whole suite) and caught a wrong example path; run 2, after the prompt required a cited line for
+any claim about behaviour, made no false claim, caught a wrong case count in the PR body, and
+missed the example path. Run 3, after a rule that every finding fails its check, noted the
+`ci.yml` spacing under check 1 yet passed check 3, and never checked the case count: approve,
+with three known problems unreported. Three runs on one PR gave three different sets of
+findings, so the review stays advisory (the owner still merges) and the prompt isn't tuned
+further against one PR. The cheapest next test is a few runs over PRs whose problems are known.
+**Pillar check:** not applicable.
+
+### Decision 190 — A step's PR gets a JSON rubric verdict from a read-only judge, written into the PR body
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-16
+
+**Rationale:** Q53 (#1038), item 2's remainder after Decision 189: the `rubric-judge` agent
+(moeb's rubric verdicts given through a schema, and its Reasoning Reviewer). The run-baseline
+checklist in a PR body is ticked by the agent that did the work. CI decides most of its rows, but
+some no script decides, and a ticked box for those is a claim nobody checks.
+- **What it judges:** five criteria in `.claude/agents/rubric-judge.md`. Four are the procedural
+  run-baseline rows: `tests-red-then-green` (evidence, best first: a link to the red run, a test
+  commit before the code commit, or the hand-off itself giving the failing test's function name
+  and a quoted failure line; anything less is a `fail`, and the judge doesn't fill a gap from the
+  source), `contract-tests-pass`, `order-independent-simulation` (no script checks identifiers
+  used to rank) and the type-against-diff half of `commit-message-conforms` (CI checks the format).
+  The fifth, `decisions-honoured`, is a Breach-only extra, not a run-baseline row. It checks the
+  change, and the hand-off's account of it, against each Decision the step relied on. The step
+  reviewer's check 2 drops its Decision clause and becomes spec fidelity alone, so the two agents
+  never judge the same thing (the owner kept the criterion and gave it one owner).
+- **What it leaves, and who covers it** (the agent file lists them, so none looks forgotten):
+  coverage stays with the step reviewer's scenario-coverage check (Decision 10); `docs-current`
+  with `docs-gate` and the reviewer's PR-claims check, which no longer covers the rubric checklist;
+  `bounded-scaling` with CI's scaling job; `progress-trend` with Gate 1, which agent sessions skip;
+  the rest with CI's scripts.
+- **Evidence rules:** every criterion carries both `evidence` and `note`, `""` when empty. `pass`
+  has non-empty evidence; `fail` and `n/a` have a non-empty note. A
+  doubtful case is `n/a` with a note that starts `doubt:`, never `pass` or `fail`, so a judge that
+  can't find the line it suspects says so without guessing either way.
+- **What it reads:** the hand-off, meaning the PR, its comments and the step issue's comments. It
+  also reads the commits (the first `commits` of `list_commits` on the head branch, `commits` being
+  the count `pull_request_read` reports, since the tools can't tell which commits are on `main`), the diff, and each cited Decision by its line in `DECISIONS_INDEX.md`.
+  Like the step reviewer, it judges the PR, not the working tree, and returns `blocked` when it
+  can't read the PR.
+- **Facts, then the rule:** for the four run-baseline rows the judge also reports `facts`, what
+  it read, copied rather than concluded (the hand-off's test name and quoted failure line, the
+  diff's test names, each commit's type and paths, and so on). Each row's verdict follows from
+  its facts by a stated rule, so a script can recompute it and catch a judge that bends a rule
+  towards `pass`. A fact it can't establish is `null`, which makes the row a doubt.
+  `decisions-honoured` stays a judgement under the evidence rules.
+- **Output:** one JSON object, with a verdict, evidence and a note per criterion, facts for
+  rows 1 to 4, and a list of the failures and of the doubts. The overall verdict follows from the two lists: `fail` when there
+  are failures, else `warn` when there are doubts, else `pass`. A doubt warns rather than passes, so
+  it reaches the owner. Any other combination is invalid. The session writes it, as it came, into
+  the PR body between `<!-- rubric-judge -->` markers, so a later CI check can read it.
+- **When:** `/run-phase` step 6, after the step reviewer approves and before Auto-fix. It runs at
+  most twice: after a `fail` the session fixes or answers each criterion and runs it once more. If
+  it still fails, the session tells the owner.
+- **On Sonnet**, for Decision 189's reasons: one PR against five criteria, run per step.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| A verdict on every run-baseline row, CI's rows marked `ci` | The judge can't see CI, so those entries would only copy a label. The owner chose the procedural rows only. |
+| Fold the JSON into the step reviewer | A bigger report from one agent, and Q53 planned a separate judge for the reasoning against Decisions. |
+| Keep the step reviewer's rubric-checklist check as well | The two agents could disagree on the same row. Each row has one owner. |
+| Cut `decisions-honoured` | The owner kept it: the judge reads the Decisions anyway, and Q53 asked for moeb's Reasoning Reviewer. |
+| Leave Decision fidelity in both agents | Two agents judging the same thing will sometimes disagree, and nothing settles which wins. |
+| Give a Decision its own PR (split 190 onto a stacked branch) | The owner kept both Decisions in #1043: they change the same step 6 and the same reviewer file. |
+| The CI check in this PR | It is a script with its own tests: a spec step, not part of a process change. |
+
+**Consequences:** Every `/run-phase` step PR carries a JSON rubric verdict in its body, at a cost
+of one or two Sonnet runs after the review. The `pr-description` template gains a **Rubric
+verdict** block with the markers. Q53 item 2's CI check, which fails on a missing criterion or on
+`pass` with failures listed, is still open, and the JSON's shape is what it will read.
+
+**Rules over cases:** general: every `/run-phase` step PR is judged by the same agent on the same
+criteria; the criteria that apply only to some diffs say when.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** at most two runs per step, each reading one PR, its comments, one issue and the
+Decisions it cites.
+**Riskiest assumption:** that sessions leave red→green evidence in the hand-off. If they don't,
+`tests-red-then-green` fails on every PR and the verdict becomes noise. Decision 189's tool-name
+assumption also holds here, and adds `list_commits`. The cheapest test is the first `/run-phase`
+step PR after this merges, judged by the owner. A first test on #1041 (two runs) found it already:
+#1041 describes its red run without linking it, and the runs gave `pass` and a `doubt:` `n/a`.
+The owner then set the evidence order above, made doubts warn, and fixed the field shape. A
+second pair of runs agreed on every criterion but passed #1041's tests on a case description, one
+by looking the test name up itself, so the last tier became binary and judges the hand-off alone. The owner then
+had the judge report facts for rows 1 to 4, so the recomputing script (Q53 item 2's CI check)
+removes the judge's discretion where a rule can decide. Moving that script behind an MCP tool
+the judge calls is left for a later exercise.
+**Pillar check:** not applicable.
+
+### Decision 191 — GitHub goes through one route, the GitHub MCP tools, and `gh`'s writes are denied
+
+**Authorised by:** Simeon Sidey
+**Date:** 2026-11-17
+
+**Rationale:** `/run-phase` step 6 writes to GitHub: it opens the PR, sets labels and milestone,
+posts the step review (Decision 189) and writes the rubric verdict into the PR body (Decision 190).
+On the owner's PC those writes failed, because the `github` server's token was read-only. A
+fallback through `gh` would have given sessions two routes to GitHub, each with its own
+credentials and rules to keep in step. The owner chose one route instead.
+- **The route:** GitHub reads and writes go through the GitHub MCP tools; pushing is `git`. A
+  missing or failing write tool means stop and tell the owner, never fall back to `gh` or `gh api`.
+  `/run-phase` step 6 says so where it starts.
+- **The PC's token:** a fine-grained token for Breach alone, with Pull requests, Issues and Actions
+  read and write, and Contents, Metadata and Commit statuses read. Contents stays read, so the
+  token can't merge or push, whatever the deny rules allow. The `github` server loads the `actions`
+  toolset (`X-MCP-Toolsets`) for `actions_run_trigger`. This replaces the read-only token in
+  Decision 189's Consequences. The subagents stay read-only through their `tools:` lists, which
+  never depended on the token.
+- **`gh`'s writes are blocked:** deny rules in `.claude/settings.json` cover `gh pr` and
+  `gh issue` writes, `gh label`, `gh workflow run`, and `gh run rerun` and `cancel`. `gh api` is
+  guarded by a `PreToolUse` hook, `.claude/hooks/deny_gh_api_writes.py`, because a deny pattern
+  can't express "fields only with `-X GET`", and a deny always beats an allow. The hook splits the
+  command with `shlex` and works out each `gh api` call's method the way gh does: the last `-X`,
+  `--method` or `--method=` in any case or spelling, otherwise POST when `-f`, `-F`, `--field`,
+  `--raw-field` or `--input` is given, otherwise GET. It blocks anything but GET. It reads every
+  command in the line (after operators and newlines, past `VAR=` prefixes, inside `$(…)`,
+  backticks, `sh -c` and `eval`). It fails closed on what it misses: it blocks a `gh api` it can't
+  parse, and a line that names `gh` and `api` more often than it found `gh api` calls in command
+  position. That one count closes every wrapper (`timeout`, `xargs`, `env -i`, `sudo`, `nice`) and
+  a variable such as `$G` without listing any. Its cost is that a line that only mentions `gh api`,
+  such as a `grep` for it or a script whose text names it, is blocked too; the Grep, Edit and Write
+  tools don't go through Bash. Reads stay allowed,
+  `gh api -X GET search/code -f q=…` among them: that is how cloud sessions search code, and the
+  settings file loads there too.
+- **`actions_run_trigger` may only start a workflow:** Actions write is there so sessions can
+  start `github-sync`, `bench` and the other dispatched workflows. The same tool also reruns and
+  cancels runs and deletes run logs, and a deny rule can only block a whole tool. A `PreToolUse`
+  hook, `.claude/hooks/allow_only_workflow_dispatch.py`, allows `method: run_workflow` and blocks
+  every other method, failing closed on an event it can't read. A live `cancel_workflow_run` call
+  on the owner's PC was blocked.
+
+**Alternatives:**
+
+| Option | Reason Rejected |
+|--------|-----------------|
+| `gh` for writes where the MCP tools can't write | Two routes to GitHub, each with its own credentials and rules to keep in step. The owner gives the MCP server a write token instead. |
+| Deny all of `gh`, reads too | Reads through `gh` can't change anything, and cloud sessions search code with `gh api -X GET`. The owner chose to deny writes only. |
+| A deny rule on the whole `actions_run_trigger` tool | It would block starting `github-sync` and `bench` too, which is why Actions write was granted. |
+| Deny `gh api` by write method (`-X POST`, `--method=PATCH`, …) | Tested: fields with no `-X`, `-XPATCH` and a lower-case method got through. A pattern on arguments can't follow gh's own parsing. |
+| Deny `gh api` with field flags (`-f`, `-F`, `--field`, `--raw-field`, `--input`) | It matched `gh api -X GET search/code -f q=…` and broke code search in cloud sessions. An allow can't override a deny. |
+
+**Consequences:** One set of credentials and one set of tools to keep working for GitHub, on the PC
+and in the cloud. A session whose write tool fails stops and asks rather than working around it.
+Deny patterns on `gh api` were tried first and were tested on the owner's PC against a
+repository that doesn't exist. `-X PATCH` and `--method=PATCH` were denied, but `-ftitle=x` with no
+method (sent as POST), `-XPATCH` and `-X patch` reached GitHub as writes. With the hook, all three
+are blocked and the GET search runs. A first version of the hook listed wrappers and still let
+`timeout`, `xargs`, `env -i`, `sudo`, `nice` and `$G` through; the count rule blocks them. Its known
+limit is a shell alias, function or script file that runs gh, since that line never names `gh` and
+`api`. The stronger layer is a `gh` credential that can't write: on the
+owner's PC `gh` is still logged in with `repo` and `workflow` scopes, and swapping it for a
+read-only token is open.
+
+**Rules over cases:** general: every GitHub call from every session goes one way; the deny rules
+name the kinds of write, not particular commands a session once ran.
+**Order:** not applicable; no simulation outcome changes.
+**Bounded:** not applicable; no per-tick work.
+**Riskiest assumption:** that the GitHub MCP tools cover every write the skills need. Tested on the
+owner's PC with the new token: `update_pull_request` wrote #1043's body, and the `actions_*` tools
+loaded. A tool the skills need and the server lacks would make a session stop and ask, which shows
+the gap rather than hiding it.
+**Pillar check:** not applicable.

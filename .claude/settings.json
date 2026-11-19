@@ -5,6 +5,23 @@
       "Bash(ci/godot/scripts/run_tests.sh)",
       "Bash(./ci/godot/scripts/run_tests.sh)",
       "Bash(gh pr merge *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr review *)",
+      "Bash(gh pr close *)",
+      "Bash(gh pr reopen *)",
+      "Bash(gh pr ready *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh issue close *)",
+      "Bash(gh issue reopen *)",
+      "Bash(gh issue delete *)",
+      "Bash(gh label *)",
+      "Bash(gh workflow run *)",
+      "Bash(gh run rerun *)",
+      "Bash(gh run cancel *)",
       "mcp__github__merge_pull_request",
       "mcp__github__enable_pr_auto_merge"
     ]
@@ -17,6 +34,19 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny_local_full_test_suite_runs.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny_gh_api_writes.py"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__actions_run_trigger",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/allow_only_workflow_dispatch.py"
           }
         ]
       }

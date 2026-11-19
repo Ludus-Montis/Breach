@@ -33,6 +33,14 @@ Split: step <id> into <id>a (this PR) and <id>b; <why>
 CI reports these automatically; this checklist is for the human reviewer's visibility,
 not a manual re-check.
 
+### Rubric verdict
+
+<filled by the calling session from the rubric judge's report, where the project has one
+(Breach: `.claude/agents/rubric-judge.md`): its JSON, as it came, between the markers>
+
+<!-- rubric-judge -->
+<!-- /rubric-judge -->
+
 ### Documentation
 
 <per `principles/documentation-phases.md`; "N/A" needs a reason. The CI docs gate reads

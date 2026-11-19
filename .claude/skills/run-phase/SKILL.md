@@ -119,7 +119,9 @@ step, in the order the spec's own "Test-first order" section lays out:
 1. Translate each Given/When/Then scenario into a gdUnit4 test under `tests/`,
    mirroring the source path being tested (e.g. `sim/foo.gd` → `tests/sim/test_foo.gd`).
 2. Run it and confirm **red** — it must fail for the right reason (missing behaviour,
-   not a typo or setup error). Run only that test file in an agent session:
+   not a typo or setup error). Put the red evidence in the hand-off for the rubric judge: a
+   link to the red run if there is one, otherwise the failing test's name and its failure
+   message, quoted. Run only that test file in an agent session:
    `"$GODOT_BIN" --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a
    res://tests/<path>.gd -c --ignoreHeadlessMode`. Heavy runs never go in the session
    (see `CLAUDE.md`).
@@ -247,8 +249,11 @@ until its documentation is. Read only the sections the change touches.
 
 ## 6. Open the PR — do not merge it
 
-Push the branch and open a PR with `create_pull_request` (the GitHub MCP tools, not
-`gh pr create`), body from
+**GitHub goes through one route: the GitHub MCP tools** (Decision 191). Pushing is `git`.
+`gh`'s writes are denied in `.claude/settings.json`. If a write tool is missing or fails,
+stop and tell the owner which tool and the error. Don't fall back to `gh` or `gh api`.
+
+Push the branch and open a PR with `create_pull_request` (the GitHub MCP tools), body from
 `AI_First_Development_Kit/templates/pr-description.md`: summary, link to the spec/plan
 item, the rubric checklist from step 5, the Documentation block from step 5b, and for the
 two Gate sections:
@@ -278,6 +283,43 @@ Then close the step's issue from the PR (spec 40). `github-sync` makes one issue
 both. A PR that splits its step closes no issue for it ("Splitting a step").
 If none is found (the sync hasn't run for this spec), say so in the PR body and start
 `github-sync` as above, rather than wait for it.
+
+Then have the step reviewed (Decision 189). First push everything, so the PR holds what
+you built: the reviewer judges the PR, not your working tree. Start the `step-reviewer`
+agent (`.claude/agents/step-reviewer.md`) with the PR's number, the step issue's number and
+`round: 1`. It is read-only and its last message is its report.
+
+If its verdict is `blocked: <tool>`, it could not read the PR, so there is no review. Don't
+post it, don't count it as a round, and don't go on as if it approved. The usual cause is
+the GitHub MCP server connecting under another name on this machine (e.g.
+`mcp__plugin_github_github__…`), so the names in the agent's `tools:` match nothing. Tell
+the owner the tool it named and the GitHub tool names this session has, and say in the
+hand-off that the step is unreviewed.
+
+Otherwise post its report, as it came, as one comment on the PR (`add_issue_comment`), so
+the review stays on GitHub for the owner and any later session. If its verdict is
+`changes-needed`:
+1. Fix each finding on the same branch (TDD as in step 3) and push. For a finding you judge
+   wrong, give the reason instead of a fix.
+2. Post one comment saying, per finding, what changed or why not.
+3. Start the reviewer again with the next `round`, and post its report.
+
+The reviewer runs at most three times: the first review and two re-reviews. If round 3
+still says `changes-needed`, stop: tell the owner which findings remain and ask how to go
+on. Don't start a fourth round.
+
+Once the reviewer approves, have the rubric judged. Start the `rubric-judge` agent
+(`.claude/agents/rubric-judge.md`) with the PR's number and the step issue's number. It is
+read-only, and its last message is one JSON object with a verdict for each rubric row that
+no script decides, plus `decisions-honoured`. Put that JSON, as it came, in the PR body between the
+`<!-- rubric-judge -->` and `<!-- /rubric-judge -->` markers (`update_pull_request`),
+replacing whatever is there. If the verdict is `blocked`, treat it the way you treat the
+reviewer's `blocked`: don't write it into the body, and say in the hand-off that the rubric
+is unjudged. If the verdict is `warn`, list each criterion in `doubts` and its note in the
+hand-off for the owner to judge; don't re-run the judge for a doubt. If the verdict is `fail`, fix each listed criterion and push. For a criterion
+you judge wrong, give the reason in a PR comment instead. Then run the judge once more and
+replace the JSON. If it still fails, tell the owner which criteria remain. Don't run it a
+third time.
 
 Then turn on Auto-fix for the PR, which the owner has standing-authorised for every PR
 `/run-phase` opens. Read the session's PR with the app's `get_status` (the `ccd_pr`
