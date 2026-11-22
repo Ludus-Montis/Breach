@@ -24,6 +24,18 @@ from schema import DECISION_TOOL  # noqa: E402
 from validate import known_decisions, validate  # noqa: E402
 
 MAX_TOKENS_CAP = 16000
+NUDGE = {"type": "text", "text": "Call the extract_decision tool once to record the Decision."}
+
+
+def error_feedback(tool_use_id: str, errors: list[str]) -> dict:
+    """The tool_result that sends validation errors back to Claude (also used by batch.py)."""
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_use_id,
+        "is_error": True,
+        "content": "The record has these problems. Fix them and call extract_decision again:\n- "
+        + "\n- ".join(errors),
+    }
 
 
 def extract_with_retry(client, number: int, model: str = "claude-opus-5-5", max_retries: int = 2):
@@ -48,7 +60,7 @@ def extract_with_retry(client, number: int, model: str = "claude-opus-5-5", max_
         block = next((b for b in resp.content if b.type == "tool_use"), None)
         if block is None:
             record, errors = None, ["no extract_decision call in the response"]
-            feedback = {"type": "text", "text": "Call the extract_decision tool once to record the Decision."}
+            feedback = NUDGE
         else:
             record = block.input
             try:
@@ -56,13 +68,7 @@ def extract_with_retry(client, number: int, model: str = "claude-opus-5-5", max_
                 errors = validate(record, excerpt, known)
             except jsonschema.ValidationError as error:
                 errors = [f"schema: {error.message}"]
-            feedback = {
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "is_error": True,
-                "content": "The record has these problems. Fix them and call extract_decision again:\n- "
-                + "\n- ".join(errors),
-            }
+            feedback = error_feedback(block.id, errors)
 
         if not errors or retries >= max_retries:
             return record, errors
