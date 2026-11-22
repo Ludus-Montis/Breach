@@ -255,7 +255,11 @@ def main() -> None:
         follow = next_batch(outcomes, sent)
         print(f"  follow-up batch: {len(follow)} requests: {', '.join(r['custom_id'] for r in follow)}")
         if args.records:
-            records = {parse_id(c)[0]: o.record for c, o in outcomes.items() if o.action == ACCEPT}
+            records = {  # followed_up: a signal for calibrate.route()
+                parse_id(c)[0]: {**o.record, "followed_up": parse_id(c)[1] > 0}
+                for c, o in outcomes.items()
+                if o.action == ACCEPT
+            }
             args.records.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return
 

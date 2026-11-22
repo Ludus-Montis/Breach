@@ -11,6 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from excerpt import load_excerpt  # noqa: E402
+from schema import CONFIDENCE_FIELDS  # noqa: E402
+
+ALL_HIGH = {name: "high" for name in CONFIDENCE_FIELDS}
 
 FEW_SHOT_DECISIONS = (23, 47, 22)
 
@@ -31,6 +34,9 @@ Criteria:
 - specifications_affected: only numbers NN from specs/NN-*.md, and only when this
   Decision changes, adds or renumbers that spec. A spec mentioned in passing doesn't
   count. Addenda (breach-addendum-*.md) are not specs and never go here.
+- confidence: for each listed field, how sure you are the value is right. "high"
+  when the excerpt settles it, "medium" when you had to interpret or choose between
+  readings, "low" when it is a guess. Rate each field on its own.
 """
 
 EXAMPLE_RECORDS = {
@@ -53,6 +59,7 @@ EXAMPLE_RECORDS = {
             "NodeDef gains resource typing and reserves, assignment roles, a faction "
             "and a capture reward, with no change to sim behaviour."
         ),
+        "confidence": dict(ALL_HIGH),
     },
     47: {
         "decision_number": 47,
@@ -70,6 +77,7 @@ EXAMPLE_RECORDS = {
             "Units carry weapons that replace attack_range, only the front rank "
             "fights, and units keep to their preferred bands."
         ),
+        "confidence": {**ALL_HIGH, "specifications_affected": "medium"},
     },
     22: {
         "decision_number": 22,
@@ -84,6 +92,7 @@ EXAMPLE_RECORDS = {
             "Maps may list explicit extra edges in MapDef.edges, refining rather than "
             "replacing the tracks-not-a-grid rule."
         ),
+        "confidence": {**ALL_HIGH, "specifications_affected": "medium"},
     },
 }
 

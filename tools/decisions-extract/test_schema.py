@@ -21,10 +21,27 @@ VALID = {
     "superseded_by": [],
     "specifications_affected": [1],
     "summary": "Test decision has no direct consequences",
+    "confidence": {
+        "title": "high",
+        "date": "high",
+        "status": "high",
+        "supersedes": "high",
+        "superseded_by": "medium",
+        "specifications_affected": "low",
+    },
 }
 
 
 class TestSchema(unittest.TestCase):
+    def test_schema_rejects_confidence_outside_the_enum(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate({**VALID, "confidence": {**VALID["confidence"], "status": 0.9}}, DECISION_SCHEMA)
+
+    def test_schema_requires_a_confidence_per_field(self):
+        confidence = {k: v for k, v in VALID["confidence"].items() if k != "status"}
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate({**VALID, "confidence": confidence}, DECISION_SCHEMA)
+
     def test_schema_accepts_valid_decision(self):
         jsonschema.validate(VALID, DECISION_SCHEMA)
 

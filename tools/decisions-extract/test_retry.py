@@ -8,12 +8,14 @@ from types import SimpleNamespace as NS
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import retry  # noqa: E402
+from schema import CONFIDENCE_FIELDS  # noqa: E402
 
 EXCERPT = "### Decision 5: Test\n\n**Date:** 2026-09-21\n\n> Superseded by Decision 9 on 2026-10-02.\n"
 GOOD = {
     "decision_number": 5, "title": "Test", "date": "2026-09-21", "status": "superseded",
     "status_detail": None, "supersedes": [], "superseded_by": [9],
     "specifications_affected": [], "summary": "A test.",
+    "confidence": {name: "high" for name in CONFIDENCE_FIELDS},
 }
 BAD_DATE = dict(GOOD, date="2026-10-02")
 

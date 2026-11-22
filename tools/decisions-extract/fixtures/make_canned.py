@@ -17,6 +17,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 from batch import BATCH_DECISIONS, custom_id  # noqa: E402
 from excerpt import INDEX, load_excerpt  # noqa: E402
+from schema import CONFIDENCE_FIELDS  # noqa: E402
 
 _ROW = re.compile(r"^\|\s*(\d+)\s*\|.*\|\s*\d+\s*\|([^|]*)\|\s*$")
 _HEADING = re.compile(r"^### Decision \d+ — (.+)$", re.MULTILINE)
@@ -48,6 +49,7 @@ def good_record(number: int, status_by: dict[int, str]) -> dict:
         "superseded_by": later,
         "specifications_affected": [],
         "summary": "Canned summary for tests.",
+        "confidence": {name: "high" for name in CONFIDENCE_FIELDS} | CONFIDENCE.get(number, {}),
     }
 
 
@@ -55,6 +57,11 @@ def good_record(number: int, status_by: dict[int, str]) -> dict:
 # Read from the excerpt alone, the record says active with nothing superseding it,
 # and the excerpt gives no hint that anything is missing.
 SOURCE_GAP = (62, 63, 77, 78, 89)
+
+
+# Step 6: canned confidences. "high" unless listed here. The source gaps above stay
+# "high": nothing in their excerpts hints that a later Decision exists.
+CONFIDENCE = {24: {"title": "medium"}, 25: {"status": "medium"}, 98: {"superseded_by": "medium"}, 129: {"supersedes": "low"}}
 
 
 def excerpt_only(record: dict) -> dict:
