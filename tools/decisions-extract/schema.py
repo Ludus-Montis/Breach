@@ -47,7 +47,10 @@ DECISION_TOOL = {
             },
             "status_detail": {
                 "type": ["string", "null"],
-                "description": "Additional detail when the status of the decision is other, otherwise null",
+                "description": (
+                    "Required detail when status is other. When superseded in part: "
+                    "'in part: ' and what is revised. Otherwise null."
+                ),
             },
             "supersedes": {
                 "type": "array",

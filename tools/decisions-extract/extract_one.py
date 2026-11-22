@@ -18,6 +18,7 @@ import jsonschema
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from excerpt import load_excerpt  # noqa: E402
+from prompt import system_prompt  # noqa: E402
 from schema import DECISION_TOOL  # noqa: E402
 
 FORCED = {"type": "tool", "name": "extract_decision"}
@@ -38,6 +39,7 @@ def build_request(number: int, model: str, tool_choice: dict) -> dict:
     return {
         "model": model,
         "max_tokens": 4096,  # thinking counts toward this too
+        "system": system_prompt(),
         "tools": [DECISION_TOOL],
         "tool_choice": tool_choice,
         "messages": [
@@ -90,7 +92,7 @@ def main() -> None:
         request = build_request(args.decision, model, tool_choice)
         print(f"== variant {key}: {model}, tool_choice={tool_choice['type']}")
         if args.dry_run:
-            shown = dict(request, tools=["<DECISION_TOOL>"])
+            shown = dict(request, tools=["<DECISION_TOOL>"], system=f"<{len(request['system'])} chars>")
             print(json.dumps(shown, ensure_ascii=False, indent=2))
         else:
             run(client, request)
