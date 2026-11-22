@@ -51,6 +51,17 @@ def good_record(number: int, status_by: dict[int, str]) -> dict:
     }
 
 
+# Step 6: superseded, but the excerpt doesn't say so (only the later Decision does).
+# Read from the excerpt alone, the record says active with nothing superseding it,
+# and the excerpt gives no hint that anything is missing.
+SOURCE_GAP = (62, 63, 77, 78, 89)
+
+
+def excerpt_only(record: dict) -> dict:
+    record.update(status="active", status_detail=None, superseded_by=[])
+    return record
+
+
 def message(number: int, content: list, stop_reason: str) -> dict:
     return {
         "id": f"msg_canned_{number:03d}",
@@ -80,6 +91,10 @@ def main() -> None:
     lines = []
     for number in BATCH_DECISIONS:
         record = good_record(number, status_by)
+        if number in SOURCE_GAP:
+            record = excerpt_only(record)
+        if number == 24:
+            record["title"] = record["title"].split(";")[0]  # cut short: a plain extraction slip
         cid = custom_id(number)
         if number == 16:
             continue  # no result line at all
