@@ -59,8 +59,12 @@ def run(client, request: dict) -> None:
         return
 
     print(f"  stop_reason: {resp.stop_reason}")
-    # Your step: this raises StopIteration when no tool_use block came back.
-    block = next(b for b in resp.content if b.type == "tool_use")
+    # Forced tool_choice guarantees a tool_use block; auto does not.
+    block = next((b for b in resp.content if b.type == "tool_use"), None)
+    if block is None:
+        text = " ".join(b.text for b in resp.content if b.type == "text")
+        print(f"  no tool call; text was: {text[:200]!r}")
+        return
     record = block.input
 
     print(json.dumps(record, ensure_ascii=False, indent=2))
