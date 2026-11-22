@@ -19,7 +19,7 @@ EXPECTED = {
     "decision-027": batch.FIX_REQUEST,  # invalid_request_error
     "decision-062": batch.RESUBMIT,     # overloaded_error
     "decision-089": batch.RESUBMIT,     # expired
-    "decision-110": batch.RESUBMIT,     # canceled
+    "decision-110": batch.DECIDE,       # canceled
     "decision-131": batch.MORE_ROOM,    # stop_reason max_tokens
     "decision-145": batch.FOLLOW_UP,    # fails validate()
     "decision-148": batch.FOLLOW_UP,    # no tool call
@@ -54,9 +54,6 @@ class Requests(unittest.TestCase):
         with self.assertRaises(ValueError):
             batch.parse_id("request-1")
 
-    @unittest.skipUnless(
-        isinstance(REQUESTS[0]["params"]["system"], list), "cache_control TODO not enabled yet"
-    )
     def test_cache_breakpoint_is_identical_in_every_request(self):
         systems = [r["params"]["system"] for r in REQUESTS]
         self.assertIn("cache_control", systems[0][-1])
@@ -96,7 +93,7 @@ class NextBatch(unittest.TestCase):
     def test_only_fixable_results_are_resent(self):
         self.assertEqual(
             sorted(self.follow),
-            ["decision-016", "decision-062", "decision-089", "decision-110",
+            ["decision-016", "decision-062", "decision-089",
              "decision-131", "decision-145-r1", "decision-148-r1"],
         )
 

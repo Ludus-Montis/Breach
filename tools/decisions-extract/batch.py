@@ -12,7 +12,7 @@ Results come back as JSONL in any order, so everything here is keyed by custom_i
 Each request is single-shot: there is no in-batch retry. A result that needs
 another turn becomes a request in a *follow-up batch* (next_batch below).
 
-Lines marked STUDY carry the exam topic; TODO(owner) is yours to edit.
+Lines marked STUDY carry the exam topic.
 """
 
 import argparse
@@ -59,11 +59,12 @@ def parse_id(cid: str) -> tuple[int, int]:
 
 def batch_request(number: int, model: str = MODEL) -> dict:
     params = build_request(number, model, AUTO)  # auto: forced tool_choice 400s in batches too
-    # TODO(owner) cache_control: uncomment to cache the ~3.6k-token system prompt that all
-    # 20 requests share. Batches can outlast the 5-minute TTL, so the docs suggest "1h".
-    # params["system"] = [
-    #     {"type": "text", "text": params["system"], "cache_control": {"type": "ephemeral", "ttl": "1h"}}
-    # ]
+    # STUDY 4.5 + caching: cache the ~3.6k-token system prompt that all 20 requests share.
+    # Identical in every request; "1h" because a batch can outlast the 5-minute TTL.
+    # Hits are best-effort in a batch (requests run concurrently); the discounts stack.
+    params["system"] = [
+        {"type": "text", "text": params["system"], "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+    ]
     # STUDY 4.5: the request shape is {custom_id, params}; params is a normal Messages body
     # without stream, speed, fallbacks or max_tokens 0 (those fail validation).
     return {"custom_id": custom_id(number), "params": params}
@@ -78,7 +79,8 @@ def batch_requests(numbers: Iterable[int] = BATCH_DECISIONS, model: str = MODEL)
 # What to do with each result.
 ACCEPT = "accept"            # valid record
 FOLLOW_UP = "follow_up"      # content problem: send errors back as a tool_result, next batch
-RESUBMIT = "resubmit"        # transient (server error, expired, canceled, missing): same request
+RESUBMIT = "resubmit"        # transient (server error, expired, missing): same request
+DECIDE = "decide"            # canceled: you stopped the batch; a person decides whether to resend
 MORE_ROOM = "more_room"      # stop_reason max_tokens: same request, larger max_tokens
 FIX_REQUEST = "fix_request"  # invalid_request_error: our request is wrong; resending fails again
 REFUSED = "refused"          # stop_reason refusal: not resent unchanged
@@ -134,8 +136,10 @@ def sort_results(results: Iterable[dict], sent: Iterable[str]) -> dict[str, Outc
             error = result["error"]["error"]  # the standard error shape: {"type": "error", "error": {...}}
             action = FIX_REQUEST if error["type"] == "invalid_request_error" else RESUBMIT
             outcomes[cid] = Outcome(cid, action, errors=[f"{error['type']}: {error.get('message', '')}"])
-        elif result["type"] in ("canceled", "expired"):
-            outcomes[cid] = Outcome(cid, RESUBMIT, errors=[result["type"]])
+        elif result["type"] == "expired":  # the 24-hour window ran out; the request is fine
+            outcomes[cid] = Outcome(cid, RESUBMIT, errors=["expired"])
+        elif result["type"] == "canceled":  # someone canceled, maybe because the request is wrong
+            outcomes[cid] = Outcome(cid, DECIDE, errors=["canceled: fix the cause before resending"])
         else:
             raise ValueError(f"{cid}: unknown result type {result['type']!r}")
 
