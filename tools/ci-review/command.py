@@ -16,7 +16,8 @@ def build_command(prompt: str, schema_path: Path = SCHEMA_PATH, max_turns: int =
         "-p", prompt,                      # print mode: one run, no one to approve anything
         "--allowedTools", ALLOWED_TOOLS,   # pre-approved; anything else is denied in -p
         "--max-turns", str(max_turns),     # a bound, so a stuck review fails instead of running on
-        # STUDY 3.6 (TODO): add the two flags that make the run end in one JSON object whose
-        # validated review sits in a field of its own. One flag picks the output format, the
-        # other passes `schema` (already loaded above). Both are print-mode only.
+        # STUDY 3.6: one JSON object at the end (the envelope), with the review checked
+        # against `schema` and put in its own field, `structured_output`. Print mode only.
+        "--output-format", "json",
+        "--json-schema", schema,
     ]

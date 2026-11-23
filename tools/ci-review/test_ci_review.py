@@ -1,7 +1,7 @@
 """CI re-review tests on canned `claude -p` output (no API calls).
 
-The classes named Study* stay red until the STUDY lines in command.py, envelope.py and
-rereview.py are filled in. Run: python3 -m unittest test_ci_review -v
+The classes named Study* cover the lines marked STUDY 3.6 in command.py, envelope.py and
+rereview.py. Run: python3 -m unittest test_ci_review -v
 """
 
 import json

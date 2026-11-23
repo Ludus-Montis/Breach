@@ -15,5 +15,5 @@ Nothing here calls the API. The tests run on canned output in `fixtures/`, and
 | `envelope.py` | Reads the printed result object; a failed run becomes a structured error |
 | `rereview.py` | Splits a re-review into new findings to post, earlier ones still open, fixed and unmentioned |
 
-Run the tests with `python3 -m unittest test_ci_review -v` from this folder. The `Study*`
-tests stay red until the lines marked `STUDY 3.6` are filled in.
+Run the tests with `python3 -m unittest test_ci_review -v` from this folder. The lines
+marked `STUDY 3.6` carry the exam topic; the `Study*` tests cover them.

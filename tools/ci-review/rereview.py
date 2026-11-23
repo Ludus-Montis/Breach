@@ -10,10 +10,8 @@ def plan(prior: list[dict], review: dict) -> dict:
         cites_known = f["prior_id"] in prior_ids
         # A prior_id that matches no earlier finding is the model's mistake: treat the
         # finding as new rather than drop it, so a real issue is never lost.
-        # STUDY 3.6 (TODO): one condition. Which findings become new comments?
-        is_new = NotImplemented
-        if is_new is NotImplemented:
-            raise NotImplementedError("STUDY 3.6: decide which findings get posted")
+        # STUDY 3.6: new = cites no earlier finding we know of (null, or an id we never issued).
+        is_new = not cites_known
         if is_new:
             post.append(f)
         else:
