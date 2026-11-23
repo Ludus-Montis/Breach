@@ -1,0 +1,36 @@
+# Reference only: this file is NOT under .github/workflows, so it never runs.
+# It shows where build_command() would sit in a PR workflow. Running it needs an
+# ANTHROPIC_API_KEY secret, which this repository does not have.
+name: claude-review (example)
+on:
+  pull_request:
+    types: [opened, synchronize]   # synchronize = new commits pushed: the re-review case
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions: {contents: read, pull-requests: write}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Fetch the last review's findings (empty on the first run)
+        run: echo '[]' > prior.json   # in practice: read them back from the bot's last PR comment
+      - name: Review
+        env: {ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}"}
+        run: |
+          python3 - <<'PY' > review.json
+          import json, subprocess, sys
+          sys.path.insert(0, "tools/ci-review")
+          from prompt import build_prompt; from command import build_command
+          prior = json.load(open("prior.json"))
+          cmd = build_command(build_prompt("origin/${{ github.base_ref }}...HEAD", prior))
+          print(subprocess.run(cmd, capture_output=True, text=True, check=False).stdout)
+          PY
+      - name: Post only new findings
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0, "tools/ci-review")
+          from envelope import read_review; from rereview import plan
+          out = plan(json.load(open("prior.json")), read_review(open("review.json").read()))
+          print(json.dumps(out, indent=2))   # in practice: one PR comment per out["post"] item
+          PY
