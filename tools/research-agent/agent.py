@@ -71,7 +71,14 @@ def _text(content) -> str:
 
 
 def run_agent(client, question: str, model: str = MODEL, max_turns: int = 12) -> AgentResult:
-    request = build_request(question, model)
+    return run_loop(client, build_request(question, model), run_tool, max_turns)
+
+
+def run_loop(client, request: dict, tool_runner, max_turns: int = 12) -> AgentResult:
+    """The loop itself, shared by this agent, the coordinator and its readers (Part B).
+
+    tool_runner(name, input) -> (content, is_error) answers one tool_use block.
+    """
     messages = request["messages"]
     calls = []
 
@@ -93,7 +100,7 @@ def run_agent(client, question: str, model: str = MODEL, max_turns: int = 12) ->
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            content, is_error = run_tool(block.name, block.input)
+            content, is_error = tool_runner(block.name, block.input)
             calls.append((block.name, block.input, content, is_error))
             # STUDY(2.2): a failed tool still answers its tool_use_id, with is_error and
             # the structured body, so Claude sees what failed and why. Dropping it, or
@@ -118,7 +125,7 @@ def check_citations(result: AgentResult) -> list[str]:
         return ["no answer"]
     read = []  # (number or None, first, last) of every successful read
     for name, _, content, is_error in result.tool_calls:
-        if is_error or name == "search_decisions_index":
+        if is_error or name not in ("read_decision", "read_spec_lines"):
             continue
         body = json.loads(content)
         read.append((body.get("number"), body["first_line"], body["last_line"]))
