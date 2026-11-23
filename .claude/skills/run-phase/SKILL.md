@@ -1,5 +1,6 @@
 ---
 name: run-phase
+argument-hint: "[spec N step M]"
 description: "Implement one phase or numbered item of an approved Breach execution plan end-to-end, following AI_First_Development_Kit's branch/commit conventions and TDD/rubric workflow. Use when asked to implement, start, or continue a plan phase or item (e.g. \"do Phase 3 item 2\", \"implement the vertical slice\", \"continue where we left off\"), or when invoked as /run-phase. Do not use for one-off fixes unrelated to a plan phase, or for exploratory/research-only requests."
 ---
 
