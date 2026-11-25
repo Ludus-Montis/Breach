@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "resolved_prior_ids"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "category", "severity", "summary", "prior_id"],
+        "properties": {
+          "file": {"type": "string"},
+          "line": {"type": "integer", "minimum": 1},
+          "category": {"enum": ["correctness", "test-coverage", "docs", "security"]},
+          "severity": {"enum": ["blocking", "nit"]},
+          "summary": {"type": "string"},
+          "prior_id": {
+            "type": ["string", "null"],
+            "description": "The id of the earlier finding this one repeats, or null if it is new."
+          }
+        }
+      }
+    },
+    "resolved_prior_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Ids of earlier findings the new commits fixed."
+    }
+  }
+}
