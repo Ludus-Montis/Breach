@@ -1,7 +1,6 @@
 """Checks the frontmatter of Breach's skills (task statement 3.2). No Claude call.
 
-StudyFindDecision stays red until the STUDY 3.2 lines in
-.claude/skills/find-decision/SKILL.md are filled in.
+StudyFindDecision covers the lines marked STUDY 3.2 in .claude/skills/find-decision/SKILL.md.
 Run from the repo root: python3 -m unittest discover -s tools/skill-check -v
 """
 
@@ -55,7 +54,7 @@ class StudyFindDecision(unittest.TestCase):
 
     def test_instructions_stand_alone(self):
         # A forked skill sees no conversation, so it must not lean on one.
-        self.assertNotRegex(self.body, r"(?i)as discussed|above in the conversation|the user said")
+        self.assertNotRegex(self.body, r"(?i)as discussed|conversation above|above in the conversation|from the conversation|the user said")
 
 
 if __name__ == "__main__":

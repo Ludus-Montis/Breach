@@ -3,9 +3,10 @@ name: find-decision
 description: "Find the Breach Decisions that settle a topic and return their numbers, lines and one-line rulings, without loading the 400 KB design spec into the conversation. Use when asked which Decision covers something ('is there a Decision on tie-breaks?', 'what did we decide about morale?'), before proposing a change that may contradict one, or when invoked as /find-decision."
 argument-hint: "[topic words]"
 allowed-tools: Read, Grep, Glob
-# STUDY 3.2 (TODO): two lines. Run this skill in a separate subagent that cannot see the
-# conversation and returns only its answer, and make that subagent the built-in read-only
-# explorer. (One field says "separate context", the other names which agent.)
+# STUDY 3.2: run in a new subagent that cannot see the conversation; only its answer comes
+# back. `agent` picks that subagent: Explore is read-only (Write and Edit denied).
+context: fork
+agent: Explore
 ---
 
 # Find the Decisions on a topic
