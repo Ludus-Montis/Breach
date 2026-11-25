@@ -10,6 +10,10 @@ Changes before this file was started are in the git history and `PROGRESS_LOG.md
 
 ### Added
 
+- `/find-decision <topic>` finds the Decisions on a topic in a read-only forked subagent
+  (`context: fork`, `agent: Explore`) and returns a table of numbers, lines, rulings and
+  status, so the design spec stays out of the conversation. `/run-phase` now shows its
+  argument (`[spec N step M]`) in the `/` menu.
 - Claude Code enforces two of CLAUDE.md's rules (Decision 187): `.claude/settings.json` denies
   merging a PR (`gh pr merge`, the GitHub MCP merge and auto-merge tools) and a bare
   `run_tests.sh`, and a `PreToolUse` hook blocks any local run of the full Godot suite, naming

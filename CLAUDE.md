@@ -80,7 +80,7 @@ How sessions work together is `principles/agent-sessions.md`.
 
 | What | Where |
 |---|---|
-| Decisions | `DECISIONS_INDEX.md` lists each Decision with its line. Read by line; don't read the whole design spec (it is 400 KB) |
+| Decisions | `DECISIONS_INDEX.md` lists each Decision with its line. Read by line; don't read the whole design spec (it is 400 KB). `/find-decision <topic>` does the search in a read-only fork |
 | Design spec and addenda | `Breach — Reverse Tower Defense Design Spec.md`, `breach-addendum-*.md` |
 | Specs, one per feature or round | `specs/NN-*.md`, the source. `github-sync` makes each spec's steps issues under `Spec NN: <title>`, one per `### Step <id>`; a step's PR closes its issue |
 | Open questions and the user's "remind me when…" | Issues labelled `question` (Decision 148); check those whose `raise-when:` label or **Raise when** matches your work. `OPEN_QUESTIONS.md` says how to raise one and keeps the closed archive |
