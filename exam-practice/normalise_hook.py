@@ -9,6 +9,7 @@ A hook does this in code, every time, before the model reads the result.
 
 Run the tests (offline, no API key):  python3 normalise_hook.py
 """
+
 import unittest
 from datetime import datetime, timezone
 
@@ -20,19 +21,17 @@ def to_iso(value):
     """Return an ISO 8601 UTC string ending in 'Z' for a Unix timestamp or an ISO string."""
     if isinstance(value, str):
         return value  # already ISO 8601
-    # TODO (you): convert the Unix timestamp `value` (seconds) to ISO 8601 UTC,
-    # e.g. 1764067200 -> "2025-11-25T10:40:00Z".
-    # Hint: datetime.fromtimestamp(value, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    raise NotImplementedError
+    return datetime.fromtimestamp(value, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def to_status(value):
     """Return a status word for a numeric code or a word."""
-    if isinstance(value, int):
-        # TODO (you): look the code up in STATUS_CODES. An unknown code should not
-        # crash and should not be guessed: return f"UNKNOWN({value})".
-        raise NotImplementedError
-    return value
+    if not isinstance(value, int):
+        return value
+    elif value in STATUS_CODES:
+        return STATUS_CODES[value]
+    else:
+        return f"UNKNOWN({value})"
 
 
 def normalise(result):
@@ -59,7 +58,10 @@ def normalise(result):
 class NormaliseTest(unittest.TestCase):
     def test_legacy_result_gets_iso_time_and_status_word(self):
         out = normalise({"order_id": "A-1", "created": 1764067200, "status": 3})
-        self.assertEqual(out, {"order_id": "A-1", "created": "2025-11-25T10:40:00Z", "status": "SHIPPED"})
+        self.assertEqual(
+            out,
+            {"order_id": "A-1", "created": "2025-11-25T10:40:00Z", "status": "SHIPPED"},
+        )
 
     def test_new_result_passes_through_unchanged(self):
         r = {"order_id": "B-7", "created": "2025-11-25T10:40:00Z", "status": "SHIPPED"}
